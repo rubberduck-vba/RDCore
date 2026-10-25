@@ -1,6 +1,6 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.Themes;
+using RDCore.SDK.Platform.Commands;
 
 namespace RDCore.CLI.App.Repl.Commands;
 
@@ -15,7 +15,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// <param name="Themes">The themes, and the current one.</param>
 /// <param name="Keys">Where the choice is read.</param>
 /// <param name="Output">Where the menu is drawn; the console unless said otherwise.</param>
-internal record class ThemeReplCommand(IAppThemeService Themes, IConsoleKeys Keys, TextWriter? Output = null) : IReplCommand, IReplCommandArguments
+internal record class ThemeReplCommand(IAppThemeService Themes, IConsoleKeys Keys, TextWriter? Output = null) : IReplCommand, IReplCommandDescriptor
 {
     private const string Indent = "  ";
     private const string ListArgument = "LIST";
@@ -26,27 +26,28 @@ internal record class ThemeReplCommand(IAppThemeService Themes, IConsoleKeys Key
 
     public string Summary => Resources.Repl_Theme_Summary;
 
-    // the one argument is LIST or the name of a theme, the current one marked.
-    public IReadOnlyList<CompletionItem> CompleteArguments(ReplProgram program, string arguments)
+    // THEME LIST, and THEME <name> - of the themes there are now, the current one marked.
+    public VerbDescriptor Descriptor => new()
     {
-        if (arguments.TrimStart().Contains(' '))
-        {
-            return [];
-        }
-
-        var current = Themes.Theme.Name;
-        return
+        Name = Name,
+        Summary = Summary,
+        Forms =
         [
-            new CompletionItem { Label = ListArgument, Kind = CompletionItemKind.Keyword, Detail = Resources.Repl_Theme_List_Detail, SortText = $"0{ListArgument}" },
-            .. Themes.ThemeNames.Order(StringComparer.OrdinalIgnoreCase).Select(theme => new CompletionItem
-            {
-                Label = theme,
-                Kind = CompletionItemKind.Color,
-                Detail = theme.Equals(current, StringComparison.OrdinalIgnoreCase) ? "🎨" : null,
-                SortText = $"1{theme.ToLowerInvariant()}",
-            }),
-        ];
-    }
+            [new VerbArgument { Name = "list", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = ListArgument, Description = Resources.Repl_Theme_List_Detail }] }],
+            [
+                new VerbArgument
+                {
+                    Name = "theme",
+                    Kind = VerbArgumentKind.Choice,
+                    Values = [.. Themes.ThemeNames.Order(StringComparer.OrdinalIgnoreCase).Select(theme => new VerbArgumentValue
+                    {
+                        Value = theme,
+                        Description = theme.Equals(Themes.Theme.Name, StringComparison.OrdinalIgnoreCase) ? "🎨" : null,
+                    })],
+                },
+            ],
+        ],
+    };
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {

@@ -129,6 +129,11 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
             new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
 
     /// <inheritdoc/>
+    public Task<CompletionList> CompleteCommandAsync(string source, string moduleName, SessionCommandCompletion command, CancellationToken token)
+        => client.SendRequestAsync<SessionCompletionParams, CompletionList>(
+            new SessionCompletionParams { Source = source, ModuleName = moduleName, Command = command }, token);
+
+    /// <inheritdoc/>
     public Task<PeekSessionResult> PeekAsync(int address, CancellationToken token)
         => client.SendRequestAsync<PeekSessionParams, PeekSessionResult>(new PeekSessionParams { Address = address }, token);
 

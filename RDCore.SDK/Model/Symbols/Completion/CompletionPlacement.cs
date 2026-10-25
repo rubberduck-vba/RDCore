@@ -122,6 +122,31 @@ public sealed record class CompletionPlacement(CompletionProcedure? Procedure, I
         return new CompletionPlacement(procedure, [.. Enumerable.Reverse(blocks)], declarations, [.. labels]);
     }
 
+    /// <summary>
+    /// The line the first procedure of a module starts on - its header - or <c>-1</c> for a module that has none.
+    /// </summary>
+    /// <param name="lines">The lines of the module's source.</param>
+    public static int FirstProcedureOf(IReadOnlyList<string> lines)
+    {
+        foreach (var (start, statement, _) in Statements(lines, 0, lines.Count))
+        {
+            if (ProcedureOf(CompletionStatement.Tokenize(statement)) is not null)
+            {
+                return start;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// The lines of a module that are numbered (<strong>MS-VBAL §5.4.1.1</strong>), and the statements they are: what a line number of the module names - the
+    /// lines of a program of the platform's BASIC, chiefly.
+    /// </summary>
+    /// <param name="lines">The lines of the module's source.</param>
+    public static IReadOnlyList<(string Number, string Statement)> NumberedLinesOf(IReadOnlyList<string> lines)
+        => [.. Statements(lines, 0, lines.Count).Where(statement => statement.Label is { } label && char.IsAsciiDigit(label[0])).Select(statement => (statement.Label!, statement.Statement))];
+
     // the procedure a statement declares the start of: `Sub`, `Function` or `Property`, after the modifiers it can have - and not a `Declare`, which has no body.
     private static CompletionProcedure? ProcedureOf(IReadOnlyList<string> tokens)
     {

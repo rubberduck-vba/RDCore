@@ -25,6 +25,8 @@ internal sealed class SessionCompletionHandler(ICompletionService completion, IP
                 $"The client did not advertise the '{nameof(SessionCompletion)}' platform capability.");
         }
 
-        return completion.CompleteFragmentAsync(request.ModuleName, request.Source, new Position(request.Line, request.Character), token);
+        return request.Command is { } command
+            ? completion.CompleteCommandAsync(request.ModuleName, request.Source, command, token)
+            : completion.CompleteFragmentAsync(request.ModuleName, request.Source, new Position(request.Line, request.Character), token);
     }
 }

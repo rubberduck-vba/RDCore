@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -241,6 +242,15 @@ public interface IReplPlatformClient
     Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server what can be written for the arguments of a command of the shell, as its verb describes them.
+    /// </summary>
+    /// <param name="source">The complete source of the module the command acts on.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="command">The verb, and what is typed after it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<CompletionList> CompleteCommandAsync(string source, string moduleName, SessionCommandCompletion command, CancellationToken token);
+
+    /// <summary>
     /// Reads the byte at an address in the runtime session's memory.
     /// </summary>
     /// <param name="address">The address to read.</param>
@@ -312,19 +322,14 @@ public interface IReplCommand
 }
 
 /// <summary>
-/// A command of the shell that says what its arguments can be, as they are typed: the completion list of a line that starts with its verb.
+/// A command of the shell that describes its arguments (<see cref="VerbDescriptor"/>): what the language server completes them by, as they are typed.
 /// </summary>
 /// <remarks>
-/// The arguments of a command are no VBA, and the language server has nothing to say of them; a command that does not say what they can be - a path, a condition -
-/// is given no list after its verb at all.
+/// The arguments of a command are no VBA - but for the ones that are an expression of the program, which the descriptor says - and a command that describes none is
+/// given no list after its verb at all.
 /// </remarks>
-public interface IReplCommandArguments
+public interface IReplCommandDescriptor
 {
-    /// <summary>
-    /// What can be written at the end of <paramref name="arguments"/>: the words of the argument the cursor is in, which the list is narrowed to as it is typed.
-    /// </summary>
-    /// <param name="program">The program buffer, whose lines an argument can name.</param>
-    /// <param name="arguments">What is typed after the verb, up to the cursor, as it is typed: not trimmed.</param>
-    /// <returns>The items; none where nothing is to be offered.</returns>
-    IReadOnlyList<CompletionItem> CompleteArguments(ReplProgram program, string arguments);
+    /// <summary>The verb and the forms of its arguments, as they are now: a choice can be of what the shell has at the time (its themes).</summary>
+    VerbDescriptor Descriptor { get; }
 }

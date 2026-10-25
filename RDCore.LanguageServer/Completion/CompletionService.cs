@@ -15,6 +15,8 @@ using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform.Commands;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Semantics.Static;
@@ -48,6 +50,15 @@ internal interface ICompletionService
     /// <param name="position">The position of the cursor, in <paramref name="source"/>.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token);
+
+    /// <summary>
+    /// The completion list of the arguments of a client's command that is being typed at its prompt, as its verb describes them (<see cref="VerbDescriptor"/>).
+    /// </summary>
+    /// <param name="moduleName">The module's programmatic name: what the command acts on.</param>
+    /// <param name="source">The source of the module, whose lines a line number names and whose procedure an expression is evaluated in.</param>
+    /// <param name="command">The verb, and what is typed after it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token);
 }
 
 /// <inheritdoc cref="ICompletionService"/>
@@ -103,6 +114,58 @@ internal sealed class CompletionService(
         var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
         var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
         return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token);
+    }
+
+    public async Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token)
+    {
+        var items = new List<CompletionItem>();
+        foreach (var site in VerbCompletion.Read(command.Verb, command.Arguments))
+        {
+            switch (site.Argument.Kind)
+            {
+                case VerbArgumentKind.Keyword or VerbArgumentKind.Choice:
+                    items.AddRange(site.Argument.Values.Select((value, index) => new CompletionItem
+                    {
+                        Label = value.Value,
+                        Kind = site.Argument.Kind == VerbArgumentKind.Keyword ? CompletionItemKind.Keyword : CompletionItemKind.EnumMember,
+                        Detail = value.Description,
+                        SortText = $"1{index:D4}",
+                    }));
+                    break;
+
+                case VerbArgumentKind.LineNumber:
+                    items.AddRange(CompletionPlacement.NumberedLinesOf(source.Split('\n')).Select((line, index) => new CompletionItem
+                    {
+                        Label = line.Number,
+                        Kind = CompletionItemKind.Value,
+                        Detail = line.Statement,
+                        SortText = $"0{index:D6}",
+                    }));
+                    break;
+
+                case VerbArgumentKind.Expression:
+                    items.AddRange((await CompleteExpressionAsync(moduleName, source, site.Typed, token)).Items);
+                    break;
+            }
+        }
+
+        return new CompletionList(items.DistinctBy(item => item.Label, StringComparer.OrdinalIgnoreCase), isIncomplete: false);
+    }
+
+    // an expression of a command is evaluated in the module's first procedure - the procedure a program of the platform's BASIC is - and is completed as the
+    // operand of a statement written at the start of it.
+    private Task<CompletionList> CompleteExpressionAsync(string moduleName, string source, string expression, CancellationToken token)
+    {
+        const string Statement = "Debug.Print ";
+        var lines = source.Split('\n').ToList();
+        var header = CompletionPlacement.FirstProcedureOf(lines);
+        if (header < 0)
+        {
+            return Task.FromResult(Empty);
+        }
+
+        lines.Insert(header + 1, Statement + expression + "\r");
+        return CompleteFragmentAsync(moduleName, string.Join('\n', lines), new Position(header + 1, Statement.Length + expression.Length), token);
     }
 
     private async Task<CompletionList> CompleteAsync(Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token)

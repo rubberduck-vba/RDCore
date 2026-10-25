@@ -1,5 +1,5 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Platform.Commands;
 
 namespace RDCore.CLI.App.Repl.Commands;
 
@@ -16,7 +16,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// that reaches it - not before, since the names it has are that procedure's, and its locals are not there until it runs.
 /// </para>
 /// </remarks>
-internal sealed class BreakReplCommand : IReplCommand, IReplCommandArguments
+internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
 {
     private const string Toggle = "TOGGLE";
     private const string Clear = "CLEAR";
@@ -25,35 +25,24 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandArguments
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Break_Summary;
 
-    // the first argument is a line, TOGGLE or CLEAR, and the one after TOGGLE a line; what follows a line is a condition, which is VBA and no word of BREAK's.
-    public IReadOnlyList<CompletionItem> CompleteArguments(ReplProgram program, string arguments)
+    // BREAK CLEAR, BREAK TOGGLE <line>, and BREAK <line> [condition] - the condition an expression of the program, completed as one.
+    public VerbDescriptor Descriptor => new()
     {
-        var words = arguments.TrimStart().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var typingNext = arguments.EndsWith(' ');
-        var position = words.Length - (typingNext ? 0 : 1);
-
-        if (position <= 0)
-        {
-            return
+        Name = Name,
+        Summary = Summary,
+        Forms =
+        [
+            [new VerbArgument { Name = "clear", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = Clear, Description = Resources.Repl_Break_Clear_Detail }] }],
             [
-                new CompletionItem { Label = Toggle, Kind = CompletionItemKind.Keyword, Detail = Resources.Repl_Break_Toggle_Detail, SortText = $"1{Toggle}" },
-                new CompletionItem { Label = Clear, Kind = CompletionItemKind.Keyword, Detail = Resources.Repl_Break_Clear_Detail, SortText = $"1{Clear}" },
-                .. LinesOf(program),
-            ];
-        }
-
-        return position == 1 && words[0].Equals(Toggle, StringComparison.OrdinalIgnoreCase) ? [.. LinesOf(program)] : [];
-    }
-
-    // a line is named by its number, and shown with its statement.
-    private static IEnumerable<CompletionItem> LinesOf(ReplProgram program)
-        => program.Lines().Select((line, index) => new CompletionItem
-        {
-            Label = line.Number.ToString(),
-            Kind = CompletionItemKind.Value,
-            Detail = line.Statement,
-            SortText = $"0{index:D6}",
-        });
+                new VerbArgument { Name = "toggle", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = Toggle, Description = Resources.Repl_Break_Toggle_Detail }] },
+                new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber },
+            ],
+            [
+                new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber },
+                new VerbArgument { Name = "condition", Kind = VerbArgumentKind.Expression },
+            ],
+        ],
+    };
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {

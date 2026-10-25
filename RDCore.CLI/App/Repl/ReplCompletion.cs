@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.Symbols.Completion;
+using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.App.Repl;
 
@@ -25,12 +26,19 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
     /// <param name="token">A token that cancels the request.</param>
     public async Task<IReadOnlyList<CompletionItem>> CompleteAsync(string line, int cursor, CancellationToken token)
     {
-        // the arguments of a command are the command's to say: they are no VBA, and nothing is offered in them unless the command says what they can be.
+        // the arguments of a command are no VBA: nothing is offered in them unless the command describes them, and then the language server completes them as
+        // its verb says, in the program it acts on.
         var typed = line[..Math.Min(cursor, line.Length)].TrimStart();
         var verb = typed.Length > 0 && !char.IsAsciiDigit(typed[0]) ? typed[..IndexOfSeparator(typed)] : string.Empty;
         if (verb.Length < typed.Length && commands.IsCommandName(verb))
         {
-            return CommandNamed(verb) is IReplCommandArguments arguments ? arguments.CompleteArguments(program, typed[verb.Length..]) : [];
+            if (CommandNamed(verb) is not IReplCommandDescriptor described || !platform.Provides<SessionCompletion>())
+            {
+                return [];
+            }
+
+            var command = new SessionCommandCompletion { Verb = described.Descriptor, Arguments = typed[verb.Length..] };
+            return [.. (await platform.CompleteCommandAsync(program.ToModuleSource(), ReplProgram.ModuleName, command, token)).Items];
         }
 
         var items = new List<CompletionItem>();

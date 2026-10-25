@@ -37,4 +37,26 @@ public record class SessionCompletionParams : IRequest, IRequest<CompletionList>
     /// The zero-based character of <see cref="Line"/> the cursor is at, in UTF-16 code units: what is before it is what the list completes.
     /// </summary>
     public int Character { get; init; }
+
+    /// <summary>
+    /// The verb of the client that the line at its prompt starts with, and what is typed after it - for a line that is no code of the module but a command of the
+    /// client: its arguments are completed as the verb describes them, and <see cref="Line"/> and <see cref="Character"/> are not read. <see langword="null"/>
+    /// for a line of code.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Source"/> is still the module the command acts on: the lines a line number names, and the procedure an expression is evaluated in, are its.
+    /// </remarks>
+    public SessionCommandCompletion? Command { get; init; }
+}
+
+/// <summary>
+/// A command of a client that is being typed at its prompt: its verb, as the client describes it, and its arguments as they are typed.
+/// </summary>
+public sealed record class SessionCommandCompletion
+{
+    /// <summary>The verb.</summary>
+    public Commands.VerbDescriptor Verb { get; init; } = new();
+
+    /// <summary>What is typed after the verb, up to the cursor, as it is typed: not trimmed.</summary>
+    public string Arguments { get; init; } = string.Empty;
 }

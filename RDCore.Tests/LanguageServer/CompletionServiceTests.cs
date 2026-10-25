@@ -9,6 +9,8 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Platform.Commands;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Server.Configuration;
@@ -431,4 +433,50 @@ public sealed class CompletionServiceTests
     }
 
     private static string[] Split(string labels) => labels.Length == 0 ? [] : labels.Split(';');
+
+    // ---- the arguments of a client's command, as its verb describes them ----
+
+    private static readonly VerbDescriptor Break = new()
+    {
+        Name = "BREAK",
+        Forms =
+        [
+            [new VerbArgument { Kind = VerbArgumentKind.Keyword, Values = [new() { Value = "CLEAR", Description = "Removes every breakpoint" }] }],
+            [new VerbArgument { Kind = VerbArgumentKind.Keyword, Values = [new() { Value = "TOGGLE" }] }, new VerbArgument { Kind = VerbArgumentKind.LineNumber }],
+            [new VerbArgument { Kind = VerbArgumentKind.LineNumber }, new VerbArgument { Kind = VerbArgumentKind.Expression }],
+        ],
+    };
+
+    private const string Program = "Public Sub Main()\r\n10 Dim C As New Collection\r\n30 Print C.Count\r\nEnd Sub\r\n";
+
+    private async Task<CompletionList> CommandAsync(string arguments)
+        => await Sut("basic").CompleteCommandAsync("Program", Program, new SessionCommandCompletion { Verb = Break, Arguments = arguments }, CancellationToken.None);
+
+    [TestMethod]
+    [DataRow(" ", "CLEAR;TOGGLE;10;30", "C;Main")]
+    [DataRow(" 3", "CLEAR;TOGGLE;10;30", "")]
+    [DataRow(" TOGGLE ", "10;30", "CLEAR;TOGGLE")]
+    [DataRow(" 30 ", "C;Not;Nothing", "CLEAR;10;Dim")]
+    [DataRow(" 30 C.", "Add;Count;Item;Remove", "C;CLEAR")]
+    [DataRow(" 30 C.Count ", "And;Mod", "C")]
+    [DataRow(" CLEAR ", "", "CLEAR;10;C")]
+    public async Task ACommand_IsCompletedAsItsVerbDescribesIt_InTheProgramItActsOn(string arguments, string offered, string absent)
+    {
+        var labels = (await CommandAsync(arguments)).Items.Select(item => item.Label).ToArray();
+
+        CollectionAssert.IsSubsetOf(Split(offered), labels, $"offered: {string.Join(", ", labels.Take(40))}");
+        foreach (var label in Split(absent))
+        {
+            CollectionAssert.DoesNotContain(labels, label);
+        }
+    }
+
+    [TestMethod]
+    public async Task ALine_IsShownWithItsStatement_AndAKeywordWithWhatItDoes()
+    {
+        var items = (await CommandAsync(" ")).Items;
+
+        Assert.AreEqual("Print C.Count", items.Single(item => item.Label == "30").Detail);
+        Assert.AreEqual("Removes every breakpoint", items.Single(item => item.Label == "CLEAR").Detail);
+    }
 }
