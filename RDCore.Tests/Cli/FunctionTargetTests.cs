@@ -73,6 +73,26 @@ public sealed class FunctionTargetTests
     public async Task WhatCanBeCalledSo_IsCalledWhenItRuns(string declarations, string body, string printed)
         => Assert.AreEqual(printed, string.Join("|", await RunAsync([], Program(declarations, body))));
 
+    // a class whose default member has a Property Set
+    private static readonly (string, string) Settable = ("Settable", ClassModule("Settable",
+        "Private mInner As Object",
+        "Public Property Get Inner() As Object", "Attribute Inner.VB_UserMemId = 0", "    Set Inner = mInner", "End Property",
+        "Public Property Set Inner(ByVal o As Object)", "    Set mInner = o", "End Property"));
+
+    // MS-VBAL §5.4.3.9: what the call returns is Set through its default member, which is Set-coerced to what that member's Property Set takes, and not to
+    // what the call returns (MS-VBA, Excel-measured, oracle\s31 D01-D05: the default member is set, error 0).
+    [TestMethod]
+    [DataRow("Set One = New Collection", DisplayName = "D01 a function of the class")]
+    [DataRow("Set AsVariant = New Collection", DisplayName = "D02 a Variant function that returns one")]
+    [DataRow("Set OneProperty = New Collection", DisplayName = "D04 a property of the class with no Property Set")]
+    [DataRow("Set One() = New Collection", DisplayName = "D05 called with its parentheses")]
+    public async Task ASetOfACallOfAClassWhoseDefaultMemberHasAPropertySet_SetsIt(string statement)
+        => Assert.AreEqual("0|Collection", string.Join("|", await RunAsync([Settable], Program(
+            "Private mOne As Settable ;; Public Function One() As Settable ;; If mOne Is Nothing Then Set mOne = New Settable ;; Set One = mOne ;; End Function"
+                + " ;; Public Function AsVariant() As Variant ;; Set AsVariant = One() ;; End Function"
+                + " ;; Public Property Get OneProperty() As Settable ;; Set OneProperty = One() ;; End Property",
+            $"Err.Clear ;; {statement} ;; Debug.Print Err.Number ;; Debug.Print TypeName(One.Inner)"))));
+
     // C01-C05: "Constant expression required", whether or not anything reads the constant.
     [TestMethod]
     [DataRow("Const A As Long = B ;; Const B As Long = A", "Debug.Print A", DisplayName = "C01 two constants of the module")]

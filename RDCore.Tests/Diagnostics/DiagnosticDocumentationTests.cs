@@ -134,6 +134,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.UnmatchedEventHandler, 407),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
+        (RDCoreDiagnosticId.SetThroughACallFails, 11012),
     ];
 
     [TestMethod]

@@ -55,4 +55,48 @@ public sealed class PropertyAssignmentByNameTests
         Assert.HasCount(1, errors, string.Join(" | ", errors));
         StringAssert.StartsWith(errors[0], "Can't assign to read-only property");
     }
+
+    private static readonly (string, string) Wrapper = ("Wrapper", ModuleWorkspace.ClassModule("Wrapper",
+        "Option Explicit",
+        "Private mValue As Variant",
+        "Public Property Get Value() As Variant", "Attribute Value.VB_UserMemId = 0", "    Value = mValue", "End Property",
+        "Public Property Let Value(ByVal v As Variant)", "    mValue = v", "End Property"));
+
+    // MS-VBAL §5.4.3.9: a Set of a property that has no Property Set is invalid, written by its bare name in another procedure of its module as through an
+    // object (MS-VBA, Excel-measured, oracle\s30 C32, C35: "Invalid use of property").
+    [TestMethod]
+    public Task ASetOfAPropertyWithNoPropertySet_ByItsName_IsAnInvalidUseOfProperty()
+        => AssertSetIsInvalidAsync("Set Items = Nothing");
+
+    [TestMethod]
+    [Ignore("A property qualified by its standard module (Program.Items) is not checked: HasOnlyAPropertyGet only reads the members of a class an object is of. "
+        + "MS-VBAL §5.4.3.9 makes it invalid; MS-VBA is not measured for it yet.")]
+    public Task ASetOfAPropertyWithNoPropertySet_QualifiedByItsModule_IsAnInvalidUseOfProperty()
+        => AssertSetIsInvalidAsync("Set Program.Items = Nothing");
+
+    private static async Task AssertSetIsInvalidAsync(string statement)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Property Get Items() As Collection", "End Property",
+            "Public Sub Main()", statement, "End Sub") + "\r\n");
+
+        StringAssert.StartsWith(Assert.ContainsSingle(errors), "Invalid use of property");
+    }
+
+    // MS-VBAL §5.4.3.8: a Let of a property that has no Property Let is invalid only when the Property Get's type is not a class, Object or Variant: what an
+    // object property returns has its default member assigned (MS-VBA, Excel-measured, oracle\s30 C31, C36).
+    [TestMethod]
+    [DataRow("Box = 42")]
+    [DataRow("Program.Box = 42")]
+    public async Task ALetOfAnObjectPropertyWithNoPropertyLet_AssignsItsDefaultMember(string statement)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([Wrapper], string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Private mBox As New Wrapper",
+            "Public Property Get Box() As Wrapper", "    Set Box = mBox", "End Property",
+            "Public Sub Main()", statement, "End Sub") + "\r\n");
+
+        Assert.IsEmpty(errors, string.Join(" | ", errors));
+    }
 }

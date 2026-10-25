@@ -416,3 +416,5 @@
   href: rdc11006.md
 - name: RDC11011 — Variant number compared with a Variant String
   href: rdc11011.md
+- name: RDC11012 — Set of a call that always fails
+  href: rdc11012.md

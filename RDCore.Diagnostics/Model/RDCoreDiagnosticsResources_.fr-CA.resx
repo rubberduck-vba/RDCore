@@ -270,4 +270,7 @@
   <data name="UnmatchedEventHandler_Message" xml:space="preserve">
     <value>&apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus.</value>
   </data>
+  <data name="SetThroughACallFails_NoDefaultMemberToSet_Message" xml:space="preserve">
+    <value>Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute.</value>
+  </data>
 </root>
