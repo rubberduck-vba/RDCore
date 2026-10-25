@@ -333,4 +333,102 @@ public sealed class CompletionServiceTests
                 o.|
             End Sub
             """)).Length);
+
+    // ---- what is offered where: the module is the attribute, the lines given, and the cursor where the `|` is ----
+
+    private const string Header = "Attribute VB_Name = \"Main\"\r\n";
+
+    private const string ClassHeader = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Main\"\r\n";
+
+    [TestMethod]
+    // the declarations section: what can be declared there, and no statement; Option only before any declaration.
+    [DataRow("|\r\nPublic Sub Run()\r\nEnd Sub", "Option;Dim;Private;Sub;Function;Const;Type;Enum;Declare", "MsgBox;If;For;Implements;Event;End Sub")]
+    [DataRow("Private Total As Long\r\n|", "Dim;Sub", "Option")]
+    // a statement in a procedure: the statements, the names, and what the blocks the line is in have - and the blocks are open though they are not closed yet.
+    [DataRow("Public Sub Run()\r\n    For i = 1 To 3\r\n        |", "Next;Exit For;Exit Sub;End Sub;MsgBox;If;Dim", "Loop;Wend;End If;Exit Do;Option;Sub;Private;Exit Function")]
+    [DataRow("Public Function Run()\r\n    Do\r\n        With New Collection\r\n            |", "Loop;Exit Do;End With;Exit Function;End Function", "Next;End Sub;Exit For")]
+    [DataRow("Public Sub Run()\r\n    If x Then\r\n        |\r\n    End If\r\nEnd Sub", "Else;ElseIf;End If", "Case;End Select")]
+    [DataRow("Public Sub Run()\r\n    For i = 1 To 3\r\n    Next\r\n    |\r\nEnd Sub", "If", "Next;Exit For")]
+    [DataRow("Public Sub Run()\r\n    Select Case x\r\n        |", "Case;End Select", "")]
+    // what a statement says comes next.
+    [DataRow("Public Sub Run()\r\n    Exit |", "Sub", "For;Do;Function")]
+    [DataRow("Public Function Run()\r\n    Do\r\n        Exit |", "Do;Function", "For;Sub")]
+    [DataRow("Public Sub Run()\r\n    With New Collection\r\n        End |", "With;Sub", "If;Select;Function")]
+    [DataRow("Public Sub Run()\r\n    If a |", "Then;And;Or;Mod", "MsgBox;Twice;Dim")]
+    [DataRow("Public Sub Run()\r\n    x = |", "Twice;MsgBox;Not;Nothing;New;True", "Dim;Then;And;Next")]
+    [DataRow("Public Sub Run()\r\n    x = a |", "And;Mod;Like;Is", "Twice;Not;Then")]
+    [DataRow("Public Sub Run()\r\n    MsgBox |", "Twice;Not;AddressOf", "And;Dim")]
+    [DataRow("Public Sub Run()\r\n    For |", "Each;Twice", "Dim")]
+    [DataRow("Public Sub Run()\r\n    For Each item |", "In", "Twice;To")]
+    [DataRow("Public Sub Run()\r\n    For i = 1 |", "To;Mod", "Step;Twice")]
+    [DataRow("Public Sub Run()\r\n    For i = 1 To 9 |", "Step", "To;Twice")]
+    [DataRow("Public Sub Run()\r\n    On Error |", "GoTo;Resume", "Twice")]
+    [DataRow("Public Sub Run()\r\n    On Error Resume |", "Next", "Twice")]
+    [DataRow("Public Sub Run()\r\nRetry:\r\n    x = 1\r\n    GoTo |\r\nDone:\r\nEnd Sub", "Retry;Done", "Twice;Run")]
+    [DataRow("Public Sub Run()\r\n    Resume |\r\n10  x = 1\r\nEnd Sub", "Next;10", "Twice")]
+    [DataRow("Public Sub Run()\r\n    Do |", "While;Until", "Twice")]
+    [DataRow("Public Sub Run()\r\n    Select |", "Case", "Twice")]
+    [DataRow("Public Sub Run()\r\n    ReDim |", "Preserve;Twice", "Dim")]
+    [DataRow("Public Sub Run()\r\n    Open \"f\" For |", "Input;Output;Append;Binary;Random", "Twice")]
+    // a declaration: nothing where its name is written, As after it, and the modifiers of a parameter.
+    [DataRow("Public Sub Run()\r\n    Dim |", "", "Twice;MsgBox;As;WithEvents")]
+    [DataRow("Public Sub Run()\r\n    Dim total |", "As", "Twice;MsgBox")]
+    [DataRow("Public Sub Run()\r\n    Dim total As Long, |", "", "As;Twice")]
+    [DataRow("Public Sub Run()\r\n    Dim items() |", "As", "Twice")]
+    [DataRow("Public Sub Run()\r\n    Const Limit |", "As", "Twice")]
+    [DataRow("Public Sub Run()\r\n    Const Limit = |", "Twice;Not", "As")]
+    [DataRow("Private |", "Sub;Function;Const;Type;Enum;Declare", "Twice;Option;Event;WithEvents")]
+    [DataRow("Public Sub |", "", "Twice;MsgBox;As")]
+    [DataRow("Public Sub Run(|", "ByVal;ByRef;Optional;ParamArray", "Twice;As")]
+    [DataRow("Public Sub Run(Optional |", "ByVal;ByRef", "ParamArray;Twice")]
+    [DataRow("Public Sub Run(ByVal amount |", "As", "Twice;ByVal")]
+    [DataRow("Public Sub Run(ByVal amount As Long, |", "ByVal;Optional", "As")]
+    [DataRow("Public Function Run() |", "As", "Twice")]
+    [DataRow("Public Sub Run() |", "", "As")]
+    [DataRow("Public Property |", "Get;Let;Set", "Twice")]
+    [DataRow("Declare |", "PtrSafe;Function;Sub", "Twice")]
+    [DataRow("Declare PtrSafe Function Beep |", "Lib", "Twice")]
+    [DataRow("Option |", "Explicit;Base;Compare;Private", "Twice")]
+    [DataRow("Option Compare |", "Binary;Text;Database", "Twice")]
+    // the types: no keyword but New, no module, no local.
+    [DataRow("Public Sub Run(ByVal Amount As Long)\r\n    Dim w As |", "New;Long;String;Widget;Collection;VBA", "Helpers;Amount;Dim;Strings;Twice")]
+    [DataRow("Public Sub Run()\r\n    Dim w As New |", "Widget;Collection", "Long;New;Helpers")]
+    [DataRow("Public Sub Run()\r\n    If TypeOf x Is |", "Widget;Collection", "Long;Twice;Helpers")]
+    public async Task WhatIsOffered_IsWhatCanBeWrittenWhereTheCursorIs(string lines, string offered, string absent)
+    {
+        var labels = await LabelsAsync(Header + lines);
+
+        CollectionAssert.IsSubsetOf(Split(offered), labels, $"offered: {string.Join(", ", labels.Take(40))}");
+        foreach (var label in Split(absent))
+        {
+            CollectionAssert.DoesNotContain(labels, label);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("|", "Implements;Event;Friend", "")]
+    [DataRow("Private |", "WithEvents;Event", "")]
+    [DataRow("Implements |", "Widget;Collection", "Long;Helpers")]
+    [DataRow("Public Event Changed()\r\nPublic Sub Run()\r\n    RaiseEvent |", "Changed", "Twice;Run")]
+    [DataRow("Public Sub Run()\r\n    |", "Me;RaiseEvent", "Implements")]
+    [DataRow("Public Sub Run()\r\n    x = |", "Me", "")]
+    public async Task AClassModule_HasWhatOnlyAClassCanHave(string lines, string offered, string absent)
+    {
+        var labels = await LabelsAsync(ClassHeader + lines);
+
+        CollectionAssert.IsSubsetOf(Split(offered), labels, $"offered: {string.Join(", ", labels.Take(40))}");
+        foreach (var label in Split(absent))
+        {
+            CollectionAssert.DoesNotContain(labels, label);
+        }
+    }
+
+    [TestMethod]
+    public async Task AStandardModule_HasNoneOfIt()
+    {
+        CollectionAssert.DoesNotContain(await LabelsAsync(Header + "Public Sub Run()\r\n    x = |"), "Me");
+        CollectionAssert.DoesNotContain(await LabelsAsync(Header + "Public Sub Run()\r\n    |"), "RaiseEvent");
+    }
+
+    private static string[] Split(string labels) => labels.Length == 0 ? [] : labels.Split(';');
 }

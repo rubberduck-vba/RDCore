@@ -89,39 +89,29 @@ public sealed class CompletionCandidatesTests
     public void TheNames_AreWhatTheProcedureTheModuleTheProjectAndTheLanguageDeclare()
     {
         var (tree, _) = Workspace();
-        var labels = Labels(CompletionCandidates.Names(tree, InRun(tree), isStatementStart: true));
+        var labels = Labels(CompletionCandidates.Names(tree, InRun(tree)));
 
-        CollectionAssert.IsSubsetOf(new[] { "Amount", "Widget", "Counter", "Total", "Run", "Twice", "Helpers", "MsgBox", "Len", "Dim", "If", "Not" }, labels);
+        CollectionAssert.IsSubsetOf(new[] { "Amount", "Widget", "Counter", "Total", "Run", "Twice", "Helpers", "MsgBox", "Len" }, labels);
         CollectionAssert.DoesNotContain(labels, "Secret", "a Private member of another module is not accessible");
         CollectionAssert.DoesNotContain(labels, "Point", "a user-defined type is no value");
-        CollectionAssert.DoesNotContain(labels, "Print", "VBA has no bare Print statement");
+        CollectionAssert.DoesNotContain(labels, "Dim", "a keyword is no name: which of them are offered is the rules' to say");
     }
 
     [TestMethod]
     public void ANameDeclaredNearer_ShadowsOneDeclaredFarther_AndIsOfferedOnce()
     {
         var (tree, _) = Workspace();
-        var counter = CompletionCandidates.Names(tree, InRun(tree), isStatementStart: false).Single(candidate => candidate.Label == "Counter");
+        var counter = CompletionCandidates.Names(tree, InRun(tree)).Single(candidate => candidate.Label == "Counter");
 
         Assert.AreEqual("Counter As String", counter.Detail, "the local, not the module's field");
         Assert.AreEqual(CompletionItemKind.Variable, counter.Kind);
     }
 
     [TestMethod]
-    public void TheStatementKeywords_AreOfferedOnlyWhereAStatementStarts()
-    {
-        var (tree, _) = Workspace();
-
-        CollectionAssert.DoesNotContain(Labels(CompletionCandidates.Names(tree, InRun(tree), isStatementStart: false)), "Dim");
-        CollectionAssert.Contains(Labels(CompletionCandidates.Names(tree, InRun(tree), isStatementStart: false)), "Nothing");
-        CollectionAssert.Contains(Labels(CompletionCandidates.Names(tree, InRun(tree), isStatementStart: true, barePrint: true)), "Print");
-    }
-
-    [TestMethod]
     public void AProcedure_IsDescribedByItsSignature()
     {
         var (tree, _) = Workspace();
-        var twice = CompletionCandidates.Names(tree, InRun(tree), isStatementStart: false).Single(candidate => candidate.Label == "Twice");
+        var twice = CompletionCandidates.Names(tree, InRun(tree)).Single(candidate => candidate.Label == "Twice");
 
         Assert.AreEqual(CompletionItemKind.Function, twice.Kind);
         Assert.AreEqual("Function Twice(ByVal Value As Long) As Long", twice.Detail);
@@ -133,9 +123,11 @@ public sealed class CompletionCandidatesTests
         var (tree, _) = Workspace();
         var labels = Labels(CompletionCandidates.Types(tree, InRun(tree), creatable: false));
 
-        CollectionAssert.IsSubsetOf(new[] { "Long", "String", "Variant", "Widget", "Point", "Collection", "VBA" }, labels);
+        CollectionAssert.IsSubsetOf(new[] { "Long", "String", "Variant", "Widget", "Point", "Collection", "VBA", "New" }, labels);
         CollectionAssert.DoesNotContain(labels, "Amount", "a local is no type");
         CollectionAssert.DoesNotContain(labels, "Twice");
+        CollectionAssert.DoesNotContain(labels, "Helpers", "a procedural module is no type");
+        CollectionAssert.DoesNotContain(labels, "Strings", "nor is a library's");
     }
 
     [TestMethod]
@@ -188,7 +180,9 @@ public sealed class CompletionCandidatesTests
     public void TheItems_RankWhatIsNearerFirst()
     {
         var (tree, _) = Workspace();
-        var items = CompletionCandidates.Names(tree, InRun(tree), isStatementStart: true).Select(candidate => candidate.ToCompletionItem()).ToList();
+        var placement = new CompletionPlacement(CompletionProcedure.Sub, [], FollowsDeclarations: true, []);
+        var items = CompletionRules.At(tree, InRun(tree), new CompletionSite(CompletionSiteKind.Name, IsStatementStart: true), placement, new CompletionLanguage())
+            .Select(candidate => candidate.ToCompletionItem()).ToList();
 
         string SortOf(string label) => items.Single(item => item.Label == label).SortText!;
         Assert.IsTrue(string.CompareOrdinal(SortOf("Amount"), SortOf("Total")) < 0, "a parameter before a field of the module");

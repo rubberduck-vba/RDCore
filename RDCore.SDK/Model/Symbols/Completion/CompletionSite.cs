@@ -34,8 +34,18 @@ public enum CompletionSiteKind
 /// name (<c>As VBA.Collection</c>), the qualifier of it. Empty otherwise.
 /// </param>
 /// <param name="IsStatementStart">Whether the name is the first thing of a statement, where a statement keyword can be written.</param>
-public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix = "", string Qualifier = "", bool IsStatementStart = false)
+/// <param name="Statement">
+/// For <see cref="CompletionSiteKind.Name"/> and <see cref="CompletionSiteKind.Type"/>, the statement the name is written in, up to the name: what decides which
+/// names and keywords can be written there (<see cref="CompletionStatement"/>). Empty where a statement starts.
+/// </param>
+public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix = "", string Qualifier = "", bool IsStatementStart = false, string Statement = "")
 {
+    /// <summary>The tokens of <see cref="Statement"/>.</summary>
+    public IReadOnlyList<string> Tokens => CompletionStatement.Tokenize(Statement);
+
+    /// <summary>What comes next in <see cref="Statement"/>: a statement, an operand, or an operator.</summary>
+    public CompletionExpectation Expectation => CompletionStatement.Expectation(Tokens);
+
     /// <summary>
     /// Reads what is being written at the end of <paramref name="text"/>.
     /// </summary>
@@ -79,11 +89,12 @@ public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix
         }
 
         var preceding = text[..start];
+        var statement = CompletionStatement.StatementOf(preceding);
         return LastWordOf(preceding) switch
         {
-            var word when word.Equals("As", StringComparison.OrdinalIgnoreCase) => new(CompletionSiteKind.Type, prefix),
+            var word when word.Equals("As", StringComparison.OrdinalIgnoreCase) => new(CompletionSiteKind.Type, prefix, Statement: statement),
             var word when word.Equals("New", StringComparison.OrdinalIgnoreCase) => new(CompletionSiteKind.NewType, prefix),
-            _ => new(CompletionSiteKind.Name, prefix, IsStatementStart: StartsStatement(preceding)),
+            _ => new(CompletionSiteKind.Name, prefix, IsStatementStart: StartsStatement(preceding), Statement: statement),
         };
     }
 

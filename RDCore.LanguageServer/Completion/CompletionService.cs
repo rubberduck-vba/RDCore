@@ -120,8 +120,11 @@ internal sealed class CompletionService(
             return Empty;
         }
 
+        // where the line is - in which procedure, in which blocks - is read off the lines as they are, which need not parse.
+        var placement = CompletionPlacement.Read(lines, line);
+
         // the line is taken out, and only what the list needs of it goes back in.
-        lines[line] = (context is { Kind: CompletionSiteKind.Member, Qualifier.Length: > 0 } ? $"{Probe} = {context.Qualifier}" : string.Empty)
+        lines[line] =(context is { Kind: CompletionSiteKind.Member, Qualifier.Length: > 0 } ? $"{Probe} = {context.Qualifier}" : string.Empty)
             + (lines[line].EndsWith('\r') ? "\r" : string.Empty);
         var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', lines), token);
         if (parse.SyntaxTree is null)
@@ -140,7 +143,8 @@ internal sealed class CompletionService(
         var origin = CompletionCandidates.OriginAt(tree, moduleUri, new SourcePosition(line, character));
         var candidates = context.Kind switch
         {
-            CompletionSiteKind.Name => CompletionCandidates.Names(tree, origin, context.IsStatementStart, options.Value.Workspace.SupportedLanguage.HasBarePrint),
+            CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
+                new CompletionLanguage(kind == ModuleType.ClassModule, options.Value.Workspace.SupportedLanguage.HasBarePrint)),
             CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, parse.SyntaxTree, line),
         };
