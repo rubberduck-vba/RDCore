@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace RDCore.CLI.App.Console;
 

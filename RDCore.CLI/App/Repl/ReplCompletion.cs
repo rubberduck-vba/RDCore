@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Platform.Protocol;

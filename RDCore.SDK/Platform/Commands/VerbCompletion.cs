@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Platform.Commands;
+﻿namespace RDCore.SDK.Platform.Commands;
 
 /// <summary>
 /// The argument of a verb that is being written, and what of it is typed.

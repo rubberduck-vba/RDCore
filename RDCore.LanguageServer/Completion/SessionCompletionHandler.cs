@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.JsonRpc;
+﻿using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;

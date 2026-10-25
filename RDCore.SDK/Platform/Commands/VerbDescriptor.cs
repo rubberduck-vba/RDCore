@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Platform.Commands;
+﻿namespace RDCore.SDK.Platform.Commands;
 
 /// <summary>
 /// What an argument of a verb is, which decides what can be written for it.

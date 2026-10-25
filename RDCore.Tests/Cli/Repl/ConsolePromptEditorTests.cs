@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Console;
 using static RDCore.Tests.Cli.Repl.ScriptedKeys;
 

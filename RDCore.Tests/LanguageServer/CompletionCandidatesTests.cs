@@ -1,4 +1,4 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
