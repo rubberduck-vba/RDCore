@@ -29,7 +29,7 @@ namespace RDCore.Runtime.StdLib;
 /// An analysis reaches none of it (<see cref="ExternalWorld.None"/>).
 /// </para>
 /// <para>
-/// 🚧 <see cref="Command"/>, <see cref="CommandString"/>, <see cref="CreateObject"/>, <see cref="GetObject"/>, <see cref="GetAttr"/> and <see cref="Partition"/> are
+/// 🚧 <see cref="Command"/>, <see cref="CommandString"/>, <see cref="CreateObject"/>, <see cref="GetObject"/> and <see cref="Partition"/> are
 /// declared and not written, and <see cref="MacScript"/> never will be: each returns an error that says so.
 /// </para>
 /// </remarks>
@@ -671,7 +671,14 @@ public sealed class StdInteraction(
         => NotImplemented<VBObjectValue>(nameof(CreateObject));
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBLongValue> GetAttr(VBStringValue pathName) => NotImplemented<VBLongValue>(nameof(GetAttr));
+    public RuntimeSemanticsEvaluationResult<VBLongValue> GetAttr(VBStringValue pathName)
+    {
+        // through the session's file channels, the one seam file I/O goes through (IStdFileSystemModule).
+        var path = pathName.Value ?? string.Empty;
+        return session.Files.TryGetAttributes(path, out var attributes) is { } failed
+            ? RuntimeSemanticsEvaluationResult<VBLongValue>.Error(VBRuntimeErrorInfo.For(failed, default, $"GetAttr({path})"))
+            : RuntimeSemanticsEvaluationResult<VBLongValue>.Success(new VBLongValue((int)attributes));
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> GetObject(VBVariantValue? pathName = default, VBVariantValue? className = default)

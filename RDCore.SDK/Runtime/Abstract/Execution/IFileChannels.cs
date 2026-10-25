@@ -84,6 +84,23 @@ public interface IFileChannel
     long Position { get; }
 
     /// <summary>
+    /// The length of the file in bytes, what the channel has written to it included: what <c>LOF</c> is (<strong>MS-VBAL §6.1.2.5.1.9</strong>).
+    /// </summary>
+    long Length { get; }
+
+    /// <summary>
+    /// Where in the file the channel began, in bytes: its length, for a channel opened for <see cref="VBFileMode.Append"/>, and <c>0</c> for any other. What
+    /// <strong>MS-VBA</strong> counts an <c>Append</c> channel's <c>Seek</c> and <c>Loc</c> from (recorded in Excel).
+    /// </summary>
+    long Origin { get; }
+
+    /// <summary>
+    /// Whether the last record read (<see cref="TryReadRecord"/>, <see cref="TryReadRecordInto"/>) could not be read entirely: what <c>EOF</c> is for a channel
+    /// opened <see cref="VBFileMode.Random"/> or <see cref="VBFileMode.Binary"/> (<strong>MS-VBAL §6.1.2.5.1.3</strong>), <c>False</c> until a read fails.
+    /// </summary>
+    bool IsPastEndOfRecords { get; }
+
+    /// <summary>
     /// Repositions the channel so the next operation happens at <paramref name="position"/>
     /// (<strong>MS-VBAL §5.4.5.3</strong>).
     /// </summary>
@@ -357,6 +374,92 @@ public interface IFileChannels
     /// the path or the device stops it.
     /// </returns>
     Model.Errors.VBRuntimeErrorId? TryRename(string oldPath, string newPath);
+
+    /// <summary>
+    /// The current directory of a drive (<c>CurDir</c>, <strong>MS-VBAL §6.1.2.5.1.1</strong>).
+    /// </summary>
+    /// <param name="drive">The drive, its first letter being what counts; <see langword="null"/> or empty for the current drive.</param>
+    /// <param name="path">The directory.</param>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>68</c> for a letter that is no drive, <c>5</c> for a drive that is no letter.</returns>
+    Model.Errors.VBRuntimeErrorId? TryGetCurrentDirectory(string? drive, out string path);
+
+    /// <summary>
+    /// Changes the current directory (<c>ChDir</c>, <strong>MS-VBAL §6.1.2.5.2.1</strong>).
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>76</c> for a directory that does not exist.</returns>
+    Model.Errors.VBRuntimeErrorId? TryChangeDirectory(string path);
+
+    /// <summary>
+    /// Changes the current drive (<c>ChDrive</c>, <strong>MS-VBAL §6.1.2.5.2.2</strong>): an empty one changes nothing.
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>68</c> for a letter that is no drive, <c>5</c> for a drive that is no letter.</returns>
+    Model.Errors.VBRuntimeErrorId? TryChangeDrive(string drive);
+
+    /// <summary>
+    /// The first name that matches <paramref name="pattern"/> (<c>Dir</c>, <strong>MS-VBAL §6.1.2.5.1.2</strong>), and what the next <see cref="TryFindNext"/>
+    /// goes on from.
+    /// </summary>
+    /// <param name="pattern">A file name with wildcards, that can include a directory and a drive.</param>
+    /// <param name="attributes">The attributes, besides the normal ones, of what matches.</param>
+    /// <param name="name">The name, with no directory part; empty when nothing matches.</param>
+    /// <returns>The error that stopped it, or <c>null</c>.</returns>
+    Model.Errors.VBRuntimeErrorId? TryFindFirst(string pattern, StdLib.VBFileAttribute attributes, out string name);
+
+    /// <summary>
+    /// The next name that matches the pattern <see cref="TryFindFirst"/> was last given.
+    /// </summary>
+    /// <param name="name">The name; empty when there is no other.</param>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>5</c> when there is no pattern to go on with.</returns>
+    Model.Errors.VBRuntimeErrorId? TryFindNext(out string name);
+
+    /// <summary>
+    /// Copies a file (<c>FileCopy</c>, <strong>MS-VBAL §6.1.2.5.2.3</strong>), replacing the destination.
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>52</c>, <c>53</c>, <c>55</c>, <c>75</c>, <c>76</c> (<c>IStdFileSystemModule.FileCopy</c>).</returns>
+    Model.Errors.VBRuntimeErrorId? TryCopy(string source, string destination);
+
+    /// <summary>
+    /// Deletes the files that match <paramref name="pattern"/> (<c>Kill</c>, <strong>MS-VBAL §6.1.2.5.2.4</strong>): not a directory, nor a hidden or a
+    /// system file.
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>53</c>, <c>55</c>, <c>75</c> (<c>IStdFileSystemModule.Kill</c>).</returns>
+    Model.Errors.VBRuntimeErrorId? TryDelete(string pattern);
+
+    /// <summary>
+    /// Creates a directory (<c>MkDir</c>, <strong>MS-VBAL §6.1.2.5.2.5</strong>).
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>75</c> when something of the name exists, <c>76</c> when the directory it is in does not.</returns>
+    Model.Errors.VBRuntimeErrorId? TryCreateDirectory(string path);
+
+    /// <summary>
+    /// Removes an empty directory (<c>RmDir</c>, <strong>MS-VBAL §6.1.2.5.2.6</strong>).
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>75</c> for one that is not empty, <c>76</c> for one that does not exist.</returns>
+    Model.Errors.VBRuntimeErrorId? TryRemoveDirectory(string path);
+
+    /// <summary>
+    /// The attributes of a file or a directory (<c>GetAttr</c>, <strong>MS-VBAL §6.1.2.8.1.8</strong>).
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>53</c> for what does not exist, <c>52</c> for a pattern.</returns>
+    Model.Errors.VBRuntimeErrorId? TryGetAttributes(string path, out StdLib.VBFileAttribute attributes);
+
+    /// <summary>
+    /// Sets the attributes of a file (<c>SetAttr</c>, <strong>MS-VBAL §6.1.2.5.2.7</strong>).
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>5</c>, <c>52</c>, <c>53</c>, <c>55</c> (<c>IStdFileSystemModule.SetAttr</c>).</returns>
+    Model.Errors.VBRuntimeErrorId? TrySetAttributes(string path, StdLib.VBFileAttribute attributes);
+
+    /// <summary>
+    /// The length of a file on the file system, in bytes (<c>FileLen</c>, <strong>MS-VBAL §6.1.2.5.1.6</strong>): <c>0</c> for a directory.
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>53</c> for what does not exist, <c>52</c> for a pattern.</returns>
+    Model.Errors.VBRuntimeErrorId? TryGetLength(string path, out long length);
+
+    /// <summary>
+    /// When a file or a directory was last modified (<c>FileDateTime</c>, <strong>MS-VBAL §6.1.2.5.1.5</strong>), local time.
+    /// </summary>
+    /// <returns>The error that stopped it, or <c>null</c>: <c>53</c> for what does not exist, <c>52</c> for a pattern.</returns>
+    Model.Errors.VBRuntimeErrorId? TryGetLastWriteTime(string path, out DateTime modified);
 
     /// <summary>
     /// Closes every open channel — what a <c>Close</c> with no file number, and a <c>Reset</c>, both do

@@ -20,7 +20,7 @@ namespace RDCore.Runtime.Execution.Files;
 /// </para>
 /// </remarks>
 /// <param name="fileSystem">The file system the channels are opened on.</param>
-internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encoding) : IFileChannels, IDisposable
+internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encoding encoding) : IFileChannels, IDisposable
 {
     /// <summary>
     /// The record length a <see cref="VBFileMode.Random"/> channel counts positions in when its <c>Open</c>
@@ -59,6 +59,14 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
         public IEnumerable<FileRecordRange> Locks => _locks;
 
         public long Position => Stream.Position / PositionUnit + 1;
+
+        public long Length => Stream.Length;
+
+        // an Append channel begins where the file ends, which is what MS-VBA counts its Seek and Loc from (recorded in Excel, oracle\s25 Q03).
+        public long Origin { get; init; }
+
+        // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (oracle\s25 E03, E04).
+        public bool IsPastEndOfRecords { get; private set; }
 
         public VBRuntimeErrorId? LockRange(FileRecordRange range)
         {
@@ -116,10 +124,18 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
             => RecordDataFormat.TryWrite(Stream, value, Mode, isVariant, out written);
 
         public bool TryReadRecord(VBType declaredType, int currentLength, out VBTypedValue? value)
-            => RecordDataFormat.TryRead(Stream, declaredType, Mode, currentLength, out value);
+        {
+            var read = RecordDataFormat.TryRead(Stream, declaredType, Mode, currentLength, out value);
+            IsPastEndOfRecords = !read;
+            return read;
+        }
 
         public bool TryReadRecordInto(VBUserDefinedTypeValue userDefinedType)
-            => RecordDataFormat.TryReadInto(Stream, userDefinedType, Mode);
+        {
+            var read = RecordDataFormat.TryReadInto(Stream, userDefinedType, Mode);
+            IsPastEndOfRecords = !read;
+            return read;
+        }
 
         // "If the file number value was opened with <mode> Input, Output, or Append, the effect is as if no
         // <record-range> was present and the entire file is locked" - stated for Lock and repeated for Unlock,
@@ -350,7 +366,10 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
             var stream = OpenStream(path, mode, access, @lock);
             _channels[fileNumber] = new Channel(
                 fileNumber, path, mode, access, @lock, recordLength, stream,
-                new ChannelOutput(stream, encoding), new ChannelInput(stream, encoding));
+                new ChannelOutput(stream, encoding), new ChannelInput(stream, encoding))
+            {
+                Origin = mode is VBFileMode.Append ? stream.Position : 0,
+            };
             return null;
         }
         catch (UnauthorizedAccessException)
