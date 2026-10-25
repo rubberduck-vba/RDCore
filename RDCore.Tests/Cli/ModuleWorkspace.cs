@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
@@ -95,6 +95,14 @@ internal static class ModuleWorkspace
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
         => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string, WorkspaceLibraries)"/>, in a workspace that has forms,
+    /// whose parse has what their designer declares, as the language server's does.
+    /// </summary>
+    public static Task<string[]> RunAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)> forms)
+        => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, forms: forms);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, in a workspace that has other standard modules besides <c>Program</c>, for a project that

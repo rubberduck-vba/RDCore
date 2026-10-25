@@ -40,6 +40,11 @@ public static partial class FormDesigner
     /// </summary>
     public static readonly Guid MSFormsClassId = new("C62A69F0-16DC-11CE-9E98-00AA00574A4F");
 
+    /// <summary>
+    /// The name of the Microsoft Forms type library, which qualifies the classes of a UserForm and of its controls (<c>MSForms.TextBox</c>).
+    /// </summary>
+    public const string MSFormsLibrary = MSFormsDesignerStorage.Library;
+
     private const int BlobHeaderSize = 24;
 
     /// <summary>
