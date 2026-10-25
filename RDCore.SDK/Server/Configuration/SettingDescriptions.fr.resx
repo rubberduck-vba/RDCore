@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Ce que fait chaque paramètre de la plateforme (SettingsSchema) : la clé d'un paramètre, ses points écrits comme des traits de soulignement. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Server_TraceLevel" xml:space="preserve">
+    <value>Le niveau minimal d'un message de trace qui est écrit dans les journaux : Trace, Debug, Information, Warning, Error, Critical ou None.</value>
+  </data>
+  <data name="Server_Verbose" xml:space="preserve">
+    <value>Si les messages détaillés sont écrits. Ils peuvent contenir l'emplacement de documents, des noms de symboles et des piles d'appels.</value>
+  </data>
+  <data name="Server_WireErrorDetail" xml:space="preserve">
+    <value>Comment sont écrits les chemins de sources dans les détails d'erreur qu'un composant envoie à un autre : RepoRelative, FileName ou Redacted.</value>
+  </data>
+  <data name="Server_ConnectTimeoutSeconds" xml:space="preserve">
+    <value>Le nombre de secondes qu'un client attend la connexion d'un serveur avant d'abandonner.</value>
+  </data>
+  <data name="Server_HealthCheckIntervalSeconds" xml:space="preserve">
+    <value>Le nombre de secondes entre deux vérifications de l'état de santé : combien de temps un serveur survit à un client qui ne répond plus.</value>
+  </data>
+  <data name="Server_ShutdownTimeoutSeconds" xml:space="preserve">
+    <value>Le nombre de secondes qu'un serveur attend la notification Exit après une requête Shutdown.</value>
+  </data>
+  <data name="Server_MaxRestartAttempts" xml:space="preserve">
+    <value>Le nombre de fois qu'un composant en échec est redémarré avant que son échec soit signalé.</value>
+  </data>
+  <data name="Server_RestartBackoffBaseMs" xml:space="preserve">
+    <value>Le nombre de millisecondes avant le premier redémarrage d'un composant en échec; le délai double à chaque tentative.</value>
+  </data>
+  <data name="Server_RestartBackoffMaxMs" xml:space="preserve">
+    <value>Le plus long délai entre deux redémarrages d'un composant en échec, en millisecondes.</value>
+  </data>
+  <data name="Workspace_DefaultLocation" xml:space="preserve">
+    <value>Le dossier où se trouve un emplacement d'espace de travail relatif.</value>
+  </data>
+  <data name="Workspace_WorkspaceUri" xml:space="preserve">
+    <value>L'espace de travail qu'ouvre un client lorsqu'on ne lui en donne aucun.</value>
+  </data>
+  <data name="Workspace_Language" xml:space="preserve">
+    <value>Le langage dans lequel les espaces de travail sont écrits : vba, vb6 ou basic.</value>
+  </data>
+  <data name="Platform_Extensions_Allowed" xml:space="preserve">
+    <value>Les extensions que charge la plateforme, par leur titre, séparées par des virgules. Une extension exécute son propre code, avec les droits de la plateforme.</value>
+  </data>
+  <data name="Environment_Is64Bit" xml:space="preserve">
+    <value>Si l'environnement est un environnement 64 bits : la largeur de LongPtr, et ce que dit #If Win64.</value>
+  </data>
+  <data name="Environment_Lcid" xml:space="preserve">
+    <value>L'identificateur de paramètres régionaux de l'environnement; 0 désigne les paramètres invariants.</value>
+  </data>
+  <data name="Environment_AnsiCodePage" xml:space="preserve">
+    <value>La page de codes ANSI selon laquelle une chaîne String est convertie en octets et inversement, et qu'utilisent Chr et Asc.</value>
+  </data>
+  <data name="Environment_SupportsOptionCompareDatabase" xml:space="preserve">
+    <value>Si la directive Option Compare Database est permise, comme dans Microsoft Access.</value>
+  </data>
+  <data name="Environment_DatabaseCompare" xml:space="preserve">
+    <value>Comment Option Compare Database compare les chaînes : Text ou Binary.</value>
+  </data>
+  <data name="Environment_ErlLineNumbering" xml:space="preserve">
+    <value>Ce que donne Erl : la ligne où l'erreur a été levée (DocumentLine), ou le dernier numéro de ligne avant elle, comme le fait MS-VBA (LineLabel).</value>
+  </data>
+  <data name="Environment_AllowDllImports" xml:space="preserve">
+    <value>Si une procédure qu'une instruction Declare importe d'une bibliothèque peut être appelée. Un appel de bibliothèque peut exécuter n'importe quel code sur cette machine.</value>
+  </data>
+  <data name="Environment_AllowAutomation" xml:space="preserve">
+    <value>Si un programme peut créer et appeler les objets d'une autre application ou bibliothèque : Excel, Word, Scripting.</value>
+  </data>
+  <data name="Environment_LegacyRegistrySettings" xml:space="preserve">
+    <value>Si SaveSetting, GetSetting, GetAllSettings et DeleteSetting utilisent le Registre de Windows, comme le fait MS-VBA, plutôt que les paramètres de l'espace de travail.</value>
+  </data>
+  <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
+    <value>Ce qui sépare la partie entière d'un nombre de sa fraction.</value>
+  </data>
+  <data name="Environment_Regional_DigitGroupingSymbol" xml:space="preserve">
+    <value>Ce qui regroupe les chiffres d'un nombre.</value>
+  </data>
+  <data name="Environment_Regional_CurrencySymbol" xml:space="preserve">
+    <value>Ce avec quoi s'écrit un montant d'argent.</value>
+  </data>
+  <data name="Environment_Regional_TwoDigitYearMax" xml:space="preserve">
+    <value>La dernière année que peut être une année écrite avec deux chiffres : avec 2049, 30 est 2030 et 50 est 1950.</value>
+  </data>
+  <data name="Environment_Regional_ShortDatePattern" xml:space="preserve">
+    <value>Le format de date courte dans lequel une date est écrite.</value>
+  </data>
+  <data name="Environment_Regional_LongTimePattern" xml:space="preserve">
+    <value>Le format d'heure longue dans lequel une heure est écrite.</value>
+  </data>
+  <data name="Environment_Regional_AMDesignator" xml:space="preserve">
+    <value>Ce avec quoi s'écrit une heure avant midi.</value>
+  </data>
+  <data name="Environment_Regional_PMDesignator" xml:space="preserve">
+    <value>Ce avec quoi s'écrit une heure à partir de midi.</value>
+  </data>
+</root>

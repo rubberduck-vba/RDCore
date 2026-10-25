@@ -524,4 +524,13 @@
   <data name="Repl_Theme_List_Detail" xml:space="preserve">
     <value>Affiche les thèmes parmi lesquels choisir</value>
   </data>
+  <data name="CLI_ThemesEnabled" xml:space="preserve">
+    <value>Si la console est dessinée avec un thème; sans thème, elle utilise des styles simples.</value>
+  </data>
+  <data name="CLI_ThemesDiscoveryPath" xml:space="preserve">
+    <value>Le dossier où se trouvent les fichiers *.theme.</value>
+  </data>
+  <data name="CLI_Theme" xml:space="preserve">
+    <value>Le thème avec lequel la console démarre. THEME ne change que le thème de cette session.</value>
+  </data>
 </root>

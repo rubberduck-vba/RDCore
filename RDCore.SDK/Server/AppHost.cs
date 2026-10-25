@@ -154,6 +154,16 @@ public abstract class AppHost<TApp>() : IDisposable
         => SdkCommandLine.TryAnswer(args, out exitCode);
 
     /// <summary>
+    /// The settings the application is configured with: what the settings a user set are checked against before the application reads them
+    /// (<see cref="UserSettingsConfiguration.AddUserSettings"/>).
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation is the platform's settings (<see cref="SettingsSchema.Platform"/>); an application that binds settings of its own combines its
+    /// schema with them.
+    /// </remarks>
+    protected virtual SettingsSchema Settings => SettingsSchema.Platform;
+
+    /// <summary>
     /// Runs the <c>RDCore.SDK</c> client/server application.
     /// </summary>
     /// <remarks>
@@ -186,9 +196,11 @@ public abstract class AppHost<TApp>() : IDisposable
 
         try
         {
+            // the builder reads appsettings.json, then the environment and the command line; what the user set goes between the first and the others. The
+            // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override.
             var builder = Host.CreateApplicationBuilder();
             var configuration = builder.Configuration;
-            configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+            configuration.AddUserSettings(UserSettingsStore.PathIn(PlatformEnvironment.Default), Settings);
             Configure(configuration, builder.Services, args);
 
             // bound the generic host's shutdown so a wedged background task cannot hang the process

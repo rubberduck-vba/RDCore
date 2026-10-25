@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- What each setting of the platform does (SettingsSchema): the key of a setting, its dots written as underscores. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Server_TraceLevel" xml:space="preserve">
+    <value>The least level of a trace message that is written to the logs: Trace, Debug, Information, Warning, Error, Critical or None.</value>
+  </data>
+  <data name="Server_Verbose" xml:space="preserve">
+    <value>Whether verbose messages are written. They may contain document locations, symbol names and stack traces.</value>
+  </data>
+  <data name="Server_WireErrorDetail" xml:space="preserve">
+    <value>How the source paths in the error details a component sends another are written: RepoRelative, FileName or Redacted.</value>
+  </data>
+  <data name="Server_ConnectTimeoutSeconds" xml:space="preserve">
+    <value>How many seconds a client waits for a server to connect before it gives up.</value>
+  </data>
+  <data name="Server_HealthCheckIntervalSeconds" xml:space="preserve">
+    <value>How many seconds pass between health checks: how long a server outlives a client that stopped answering.</value>
+  </data>
+  <data name="Server_ShutdownTimeoutSeconds" xml:space="preserve">
+    <value>How many seconds a server waits for the Exit notification after a Shutdown request.</value>
+  </data>
+  <data name="Server_MaxRestartAttempts" xml:space="preserve">
+    <value>How many times a component that failed is restarted before its failure is reported.</value>
+  </data>
+  <data name="Server_RestartBackoffBaseMs" xml:space="preserve">
+    <value>How many milliseconds pass before the first restart of a component that failed; the delay doubles with each attempt.</value>
+  </data>
+  <data name="Server_RestartBackoffMaxMs" xml:space="preserve">
+    <value>The longest delay between two restarts of a component that failed, in milliseconds.</value>
+  </data>
+  <data name="Workspace_DefaultLocation" xml:space="preserve">
+    <value>The folder a relative workspace location is in.</value>
+  </data>
+  <data name="Workspace_WorkspaceUri" xml:space="preserve">
+    <value>The workspace a client opens when it is given none.</value>
+  </data>
+  <data name="Workspace_Language" xml:space="preserve">
+    <value>The language workspaces are written in: vba, vb6 or basic.</value>
+  </data>
+  <data name="Platform_Extensions_Allowed" xml:space="preserve">
+    <value>The extensions the platform loads, by their title, separated by commas. An extension runs code of its own, with the platform's rights.</value>
+  </data>
+  <data name="Environment_Is64Bit" xml:space="preserve">
+    <value>Whether the environment is a 64-bit one: the width of LongPtr, and what #If Win64 says.</value>
+  </data>
+  <data name="Environment_Lcid" xml:space="preserve">
+    <value>The locale identifier of the environment; 0 is the invariant locale.</value>
+  </data>
+  <data name="Environment_AnsiCodePage" xml:space="preserve">
+    <value>The ANSI code page a String is converted to and from bytes with, and that Chr and Asc use.</value>
+  </data>
+  <data name="Environment_SupportsOptionCompareDatabase" xml:space="preserve">
+    <value>Whether the Option Compare Database directive is allowed, as Microsoft Access allows it.</value>
+  </data>
+  <data name="Environment_DatabaseCompare" xml:space="preserve">
+    <value>How Option Compare Database compares strings: Text or Binary.</value>
+  </data>
+  <data name="Environment_ErlLineNumbering" xml:space="preserve">
+    <value>What Erl gives: the line the error was raised on (DocumentLine), or the last line number before it, as MS-VBA does (LineLabel).</value>
+  </data>
+  <data name="Environment_AllowDllImports" xml:space="preserve">
+    <value>Whether a procedure a Declare statement imports from a library may be called. A library call can run any code at all on this machine.</value>
+  </data>
+  <data name="Environment_AllowAutomation" xml:space="preserve">
+    <value>Whether a program may create and call the objects of another application or library: Excel, Word, Scripting.</value>
+  </data>
+  <data name="Environment_LegacyRegistrySettings" xml:space="preserve">
+    <value>Whether SaveSetting, GetSetting, GetAllSettings and DeleteSetting use the Windows Registry, as MS-VBA does, instead of the workspace's settings.</value>
+  </data>
+  <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
+    <value>What separates the whole part of a number from its fraction.</value>
+  </data>
+  <data name="Environment_Regional_DigitGroupingSymbol" xml:space="preserve">
+    <value>What groups the digits of a number.</value>
+  </data>
+  <data name="Environment_Regional_CurrencySymbol" xml:space="preserve">
+    <value>What an amount of money is written with.</value>
+  </data>
+  <data name="Environment_Regional_TwoDigitYearMax" xml:space="preserve">
+    <value>The last year a year written with two digits can be: with 2049, 30 is 2030 and 50 is 1950.</value>
+  </data>
+  <data name="Environment_Regional_ShortDatePattern" xml:space="preserve">
+    <value>The Short Date format a date is written in.</value>
+  </data>
+  <data name="Environment_Regional_LongTimePattern" xml:space="preserve">
+    <value>The Long Time format a time is written in.</value>
+  </data>
+  <data name="Environment_Regional_AMDesignator" xml:space="preserve">
+    <value>What a time before noon is written with.</value>
+  </data>
+  <data name="Environment_Regional_PMDesignator" xml:space="preserve">
+    <value>What a time from noon on is written with.</value>
+  </data>
+</root>
