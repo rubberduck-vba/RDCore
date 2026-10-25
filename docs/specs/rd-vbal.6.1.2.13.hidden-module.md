@@ -92,7 +92,7 @@ As in **MS-VBA** (recorded in Excel):
 |Argument|`StrPtr` gives|
 |---|---|
 |`vbNullString`, a `String` variable nothing was assigned to|`0`. A zero-length `String`, `""`, is not `0`.|
-|A `String` variable, an element of a `String` array, a `String` field of a record|The address of its characters, the same until a `String` is assigned to it - any `String`: the same text, and `s = s` itself, are another (🚧 below). `t = s` gives `t` characters of its own, and so does a `ByVal` parameter; a `ByRef` one is the variable's.|
+|A `String` variable, an element of a `String` array, a `String` field of a record|The address of its characters, the same until a `String` is assigned to it - any `String`: the same text, and `s = s` itself, are another. `t = s` gives `t` characters of its own, and so does a `ByVal` parameter; a `ByRef` one is the variable's.|
 |A `Variant` holding a `String`|The address of the `Variant`'s own characters.|
 |What is no `String` variable: a literal, an expression, a fixed-length `String`, a number|The address of the characters of a `String` made of it, a temporary freed when the statement is over.|
 
@@ -103,7 +103,6 @@ target where they are.
 > 🚧 Not implemented yet:
 >
 > - The `String`s of a fixed-size array field of a record are given to `StrPtr` as copies.
-> - `s = s` keeps the characters where they are when the program is evaluated boxed (`RDCORE_UNBOXED=0`).
 > - A `POKE` into the length, or into a `String` variable's pointer, is refused (*Ptr plan phase B: a pointer copied into a `String` variable).
 
 ---

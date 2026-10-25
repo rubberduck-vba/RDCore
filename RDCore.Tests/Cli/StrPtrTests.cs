@@ -51,7 +51,6 @@ public sealed class StrPtrTests
 
     // S02: any assignment makes another String, of the String itself too.
     [TestMethod]
-    [Ignore("the boxed evaluation (RDCORE_UNBOXED=0) stores back the very String a variable holds, which keeps its BSTR; the unboxed one makes another, as MS-VBA does (oracle\\s17 S02)")]
     public async Task AssigningAStringItself_MovesItsCharacters()
         => Assert.AreEqual("False|", await RunAsync("Dim s As String, s0 As LongPtr ;; s = \"abc\" ;; s0 = StrPtr(s) ;; s = s ;; P (StrPtr(s) = s0)"));
 }

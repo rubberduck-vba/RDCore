@@ -32,9 +32,17 @@ public record class ValueBindingHandle : IKnowledgeBinding
     public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// A <c>String</c> stored where it already is, <c>s = s</c>, is stored as a copy: a <c>String</c> assigned to a variable is one of its own, whose
+    /// characters are elsewhere than the ones it held (<strong>MS-VBA</strong> makes another <c>BSTR</c> for any assignment, recorded in Excel), and what holds
+    /// a <c>String</c> is told from what holds another by the very value.
+    /// </remarks>
     public void Store(IRuntimeValue value, bool isKnown)
     {
-        _value = value;
+        // vbNullString has no characters to be elsewhere: it is stored as it is.
+        _value = ReferenceEquals(value, _value) && value is IRuntimeValue<string> { BoxedValue: not null }
+            ? VBRuntimeByteStringValue.FromBytes(VBRuntimeByteStringValue.BytesOf(value))
+            : value;
         _isKnown = isKnown;
     }
 
