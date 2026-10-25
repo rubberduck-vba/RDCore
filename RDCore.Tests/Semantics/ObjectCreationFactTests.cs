@@ -87,4 +87,11 @@ public sealed class ObjectCreationFactTests
         => Assert.AreEqual(
             new ObjectCreationFact("Lab.Shelf", "Lab", "Shelf", ObjectClassSource.ReferencedLibrary),
             (await CreatesAsync(["Lab"], "Set o = CreateObject(\"Lab.Shelf\", \"\")")).Single());
+
+    // what the platform implements itself is found first, as CreateObject finds it.
+    [TestMethod]
+    public async Task AClassThePlatformImplements_IsAClassOfTheStandardLibrary()
+        => Assert.AreEqual(
+            new ObjectCreationFact("VBScript.RegExp", "VBA", "RegExp", ObjectClassSource.StandardLibrary),
+            (await CreatesAsync([], "Set o = CreateObject(\"VBScript.RegExp\")")).Single());
 }

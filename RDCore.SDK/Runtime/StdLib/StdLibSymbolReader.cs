@@ -36,12 +36,9 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// of that type. Either way the symbol carries the value, which is what a use site folds.
 /// </para>
 /// <para>
-/// 🚧 A member whose declared type is another standard-library <em>class</em> resolves only because
-/// classes are read before the modules that return them, which is enough for
-/// <c>Information.Err() As ErrObject</c>. The <c>RegExp</c> family is mutually referential
-/// (<c>Execute</c> returns a <c>MatchCollection</c> of <c>Match</c>, each with <c>SubMatches</c>), so
-/// TODO: order class completion topologically, with a cycle guard, once those classes declare their
-/// members.
+/// A member whose declared type is another standard-library <em>class</em> binds that class's type, so classes are read before the modules that
+/// return them (<c>Information.Err() As ErrObject</c>), and each class after every class it names (<c>RegExp.Execute</c> returns a
+/// <c>MatchCollection</c> of <c>Match</c>, each with its <c>SubMatches</c>).
 /// </para>
 /// </remarks>
 public sealed class StdLibSymbolReader

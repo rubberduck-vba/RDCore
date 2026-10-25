@@ -48,8 +48,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// list somebody can read. An interface absent from it is a module nothing implements yet, and every
     /// member of it says so when called.
     /// <para>
-    /// 🚧 TODO as each module lands: <c>RegExp</c>. A constant module needs no implementation: its
-    /// constants are substituted where they are used, never called.
+    /// A constant module needs no implementation: its constants are substituted where they are used, never called.
     /// </para>
     /// </remarks>
     /// <param name="session">The session the implementations read their state from.</param>
@@ -62,6 +61,11 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     {
         // a collection makes the enumerator its For Each is driven by, which is an object of a class of its own.
         var enumerators = new StdEnumVariant(session);
+
+        // a RegExp makes the collection of its matches, which makes each match, which makes what its groups matched.
+        var subMatches = new StdSubMatches(session, enumerators);
+        var match = new StdMatch(session, subMatches);
+        var matches = new StdMatchCollection(session, match, enumerators);
 
         return new(new Dictionary<Type, object>
         {
@@ -77,6 +81,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdInteractionModule)] = new StdInteraction(session, outside, cancellation),
             [typeof(IStdCollectionClass)] = new StdCollection(session, enumerators),
             [typeof(IStdEnumVariantClass)] = enumerators,
+            [typeof(IStdRegExpClass)] = new StdRegExp(session, matches),
+            [typeof(IStdMatchCollectionClass)] = matches,
+            [typeof(IStdMatchClass)] = match,
+            [typeof(IStdSubMatchesClass)] = subMatches,
         });
     }
 
