@@ -16,7 +16,7 @@ namespace RDCore.Runtime.Execution.Memory;
 /// <para>
 /// The elements stay in the array: the block is where they are, and its bytes are what they hold, read and written through them. A variable-length
 /// <c>String</c> element is the address of its characters (<see cref="StringBlock"/>), an object the address of its interface (<see cref="ObjectHeader"/>), a
-/// <c>Variant</c> its <c>VARIANT</c>. 🚧 An array element of an array of arrays is the address of a <c>SAFEARRAY</c> in MS-VBA, which nothing makes here: zeros.
+/// <c>Variant</c> its <c>VARIANT</c>.
 /// </para>
 /// <para>
 /// The block belongs to the array object, which it does not keep alive: an array that is <c>ReDim</c>'d, or assigned another, is another array object, and the
@@ -47,6 +47,12 @@ internal sealed class ArrayBlock
 
     /// <summary>The array whose elements the block holds, while it is not gone.</summary>
     public bool TryGetArray([NotNullWhen(true)] out VBArrayValue? array) => _array.TryGetTarget(out array);
+
+    /// <summary>
+    /// Makes the block the block of <paramref name="array"/>, another array that is the same elements under other bounds (a <c>SAFEARRAY</c>'s bounds
+    /// poked, <see cref="ArrayDescriptor"/>): the elements are where they were.
+    /// </summary>
+    public void Retarget(VBArrayValue array) => _array.SetTarget(array);
 
     /// <summary>
     /// The block's bytes: each element's image at its offset.

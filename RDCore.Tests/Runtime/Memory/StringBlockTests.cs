@@ -393,6 +393,26 @@ public sealed class StringBlockTests
         Assert.AreEqual("r", ((VBStringValue)field.ElementAt(1)!).Value);
     }
 
+    // a record's first field is at the record's address, which is the field's and not a String variable's.
+    [TestMethod]
+    public void AStringFieldAtTheStartOfARecord_IsTheFieldsString()
+    {
+        var uri = TestUri.TestModuleUserDefinedTypeUri("TFirst");
+        var symbol = new VBUserDefinedTypeMemberSymbol(uri, uri, "TFirst", ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        var record = new VBUserDefinedTypeValue(new VBUserDefinedType(symbol, [Field("S", VBStringType.TypeInfo), Field("B", VBByteType.TypeInfo)]));
+        record.TrySetFieldAt(0, new VBStringValue("hey"));
+        var storage = Storage();
+        var handle = new ValueBindingHandle(new VBRuntimeValue<VBRuntimeUserDefinedTypeValue>(new VBRuntimeUserDefinedTypeValue(record)));
+        Assert.IsTrue(storage.TryAllocate(record.Size, handle, out var address));
+
+        var characters = PointerOf(storage, address);
+
+        CollectionAssert.AreEqual(new byte[] { 104, 0 }, Peek(storage, characters, 2));
+        Assert.AreEqual(characters, BitConverter.ToInt64(Peek(storage, address.Value, 8)));
+        Assert.IsTrue(storage.TryPoke(new MemoryAddress(address.Value + 8), 7), "the record's Byte field, not a String's pointer");
+        Assert.AreEqual(7, ((VBByteValue)record.FieldAt(1)!).Value);
+    }
+
     // S11: a String field of a record is the address of its characters, at the field's offset.
     [TestMethod]
     public void AStringFieldsBytes_AreTheAddressOfItsCharacters()

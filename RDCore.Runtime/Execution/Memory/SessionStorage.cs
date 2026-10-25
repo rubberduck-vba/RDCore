@@ -61,6 +61,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         foreach (var (at, block) in _arrayBlocks.Where(block => !block.Value.TryGetArray(out _)).ToList())
         {
             FreeStringBlocksIn(at, block.Size);
+            FreeDescriptorsIn(at, block.Size);
             _arrayBlocks.Remove(at);
             allocator.TryDeallocate(at, out _);
             Generation++;
@@ -155,6 +156,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (allocator.TryFindBlock(address, out var freed) && freed.Address == address)
         {
             FreeStringBlocksIn(address, freed.Size);
+            FreeDescriptorsIn(address, freed.Size);
         }
 
         _stringVariables.Remove(address);
@@ -245,6 +247,13 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             return false;
         }
 
+        // a SAFEARRAY: the array is what its bounds say now (ArrayDescriptor).
+        if (_descriptors.TryGetValue(block, out var descriptor))
+        {
+            image[offset] = value;
+            return TryPokeDescriptor(descriptor, image);
+        }
+
         image[offset] = value;
 
         // a BSTR: the String it is held as is what its length says of its characters now, at the same address (oracle\s17 S12, grid-p3 L01).
@@ -321,6 +330,12 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (_vtables.ContainsValue(block))
         {
             image = new byte[VTableSize];
+            return true;
+        }
+
+        if (_descriptors.TryGetValue(block, out var descriptor))
+        {
+            image = DescriptorImage(descriptor);
             return true;
         }
 

@@ -177,7 +177,8 @@ internal sealed partial class SessionStorage
         BitConverter.TryWriteBytes(image.AsSpan(0, sizeof(short)), unchecked((short)VariantTypeOf(held)));
         var data = held switch
         {
-            VBEmptyValue or VBNullValue or VBArrayValue => null,
+            VBEmptyValue or VBNullValue => null,
+            VBArrayValue => StringHolders.PointerBytes(ArrayPointerAt(holder), pointerSize),
             VBStringValue => StringHolders.PointerBytes(PointerAt(holder), pointerSize),
             VBObjectValue => StringHolders.PointerBytes(ObjectPointerAt(holder), pointerSize),
             VBDecimalValue @decimal => DecimalData(image, @decimal.Value),
@@ -234,12 +235,12 @@ internal sealed partial class SessionStorage
         image[within] = value;
         var type = (VBVarType)BitConverter.ToInt16(image, 0);
         var was = VariantTypeOf(variant.WrappedValue);
-        var points = was is VBVarType.VBString or VBVarType.VBObject;
+        var points = was is VBVarType.VBString or VBVarType.VBObject || was.HasFlag(VBVarType.VBArray);
         if (points && type == was && within >= VariantDataOffset && within < VariantDataOffset + pointerSize)
         {
-            return was is VBVarType.VBString
-                ? TryPokePointer(holder, within - VariantDataOffset, value)
-                : TryPokeObjectPointer(holder, within - VariantDataOffset, value);
+            return was is VBVarType.VBString ? TryPokePointer(holder, within - VariantDataOffset, value)
+                : was is VBVarType.VBObject ? TryPokeObjectPointer(holder, within - VariantDataOffset, value)
+                : TryPokeArrayPointer(holder, within - VariantDataOffset, value);
         }
 
         if (points && type == was)
@@ -295,7 +296,7 @@ internal sealed partial class SessionStorage
     private bool TryFindRawAt(MemoryAddress holder, out IRuntimeValue raw)
     {
         raw = null!;
-        if (_handleByAddress.TryGetValue(holder, out var handle))
+        if (TryVariableAt(holder, out var handle))
         {
             if (!CanRead(handle))
             {
@@ -326,7 +327,7 @@ internal sealed partial class SessionStorage
     private bool TryWriteRawAt(MemoryAddress holder, IRuntimeValue raw)
     {
         Generation++;
-        if (_handleByAddress.TryGetValue(holder, out var handle))
+        if (TryVariableAt(holder, out var handle))
         {
             if (handle is not SDK.Model.Values.Bindings.ValueBindingHandle cell)
             {

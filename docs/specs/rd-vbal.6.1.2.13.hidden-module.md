@@ -73,18 +73,40 @@ fixed-length `String` are their bytes, a variable-length `String` the address of
 or the field the byte is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 > [!NOTE]
-> 🚧 Not implemented yet:
->
-> - A dynamic array, and a `Variant` holding an array, is the address of a `SAFEARRAY` in **MS-VBA**, which nothing makes here: its bytes are zeros.
-> - A `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
+> 🚧 Not implemented yet: a `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
+
+### SAFEARRAY
+
+A dynamic array - a field of a record, an element of a `Variant` array - and a `Variant` holding an array, is the address of a `SAFEARRAY`, `0` for an array
+that has no dimensions. As in **MS-VBA** (recorded in Excel), the descriptor is the number of dimensions (2 bytes), its features (2 bytes), the width of an
+element (4), its locks (4), the address of the elements (a pointer, eight bytes in on 64-bit), then each dimension's count of elements and lower bound,
+4 bytes each, the **last** dimension first.
+
+|Elements|Features|
+|---|---|
+|A number, a `Boolean`, a `Date`, a fixed-length `String`|`&H80` (`FADF_HAVEVARTYPE`)|
+|A `String`|`&H180`, `BSTR`s|
+|A `Variant`|`&H880`, `VARIANT`s|
+|An object of a class, `Object`|`&H440`, interfaces|
+|`IUnknown`|`&H240`|
+|A record|`0`|
+
+The address of the elements is the block they are laid out in ([VarPtr](#varptr)), and the locks are the `For Each` statements over the array and the calls
+it is passed an element to. A dynamic array's descriptor is the same for as long as it holds an array - a `ReDim` moves the elements, not the descriptor - and
+is freed when it holds none, after an `Erase`; a `Variant`'s is the array's, and another array assigned to it has another.
+
+A `POKE` into a lower bound moves the elements to other subscripts, where they are; into a count, makes the array shorter. A count that makes it longer than
+it is would be memory it is not, and is refused, as is a `POKE` into anything else of the descriptor. A `POKE` into the pointer a dynamic array is makes it
+the array of the descriptor it points at, which the two then hold - an element written through either is the other's - and `0` makes it an array of no
+dimensions; the descriptor it pointed at is not freed.
 
 ### Variant
 
 A `Variant` is a `VARIANT`, 24 bytes in a 64-bit session and 16 in a 32-bit one, as in **MS-VBA** (recorded in Excel): its first two bytes are what `VarType`
 says it holds - an array's being `vbArray` and its elements' - and its data is eight bytes in. A number, a `Boolean`, a `Date` and a `Currency` are their
-bytes, a `String` the address of its characters, an object the address of its class's interface, and a `Decimal` is a `DECIMAL` over the whole of it but its
-type. A `POKE` into the type or the data makes it what they say; into the data of a `String` or an object, it is the pointer it is, as a variable's is. A
-type changed to or from a `String`'s or an object's is refused: what it would point at is nothing the session has.
+bytes, a `String` the address of its characters, an object the address of its class's interface, an array the address of its [SAFEARRAY](#safearray), and a
+`Decimal` is a `DECIMAL` over the whole of it but its type. A `POKE` into the type or the data makes it what they say; into the data of a `String`, an object
+or an array, it is the pointer it is, as a variable's is. A type changed to or from one of those is refused: what it would point at is nothing the session has.
 
 ## StrPtr
 
@@ -138,8 +160,7 @@ counts none: the weak reference programs make so - and `0` makes it `Nothing`. A
 bytes as they were written.
 
 > [!NOTE]
-> 🚧 Not implemented yet: the table of an interface holds no address a program can call through, and an object the session keeps no instance of, which
-> tells its class, shares its table with every other such.
+> 🚧 Not implemented yet: the table of an interface holds no address a program can call through.
 
 ---
 > ⏮️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md) | ⏭️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)

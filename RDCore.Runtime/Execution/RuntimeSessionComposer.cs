@@ -109,6 +109,9 @@ public static class RuntimeSessionComposer
         // the interfaces of an object (ObjPtr) are those of its class, and are let go of with it.
         storage.ClassOf = held => symbols.TryGetInstance(held, out var instance) ? instance.ClassModule.Uri.AbsoluteUri : null;
         objects.OnDestroying(storage.ReleaseHeadersOf);
+
+        // a SAFEARRAY's locks are the activations that lock its array (a For Each over it, a call it passed an element to).
+        storage.LocksOf = array => callStack.Frames.Count(frame => frame.LocksArray(array));
         var errors = new SessionErrorState(callStack);
         // the file system is already abstracted platform-wide, so a session composed with a fake one does real
         // VBA file I/O against nothing on disk - which is what a test and a CI run both want.

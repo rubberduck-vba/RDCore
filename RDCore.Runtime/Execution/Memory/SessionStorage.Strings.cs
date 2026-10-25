@@ -44,7 +44,7 @@ internal sealed partial class SessionStorage
             return false;
         }
 
-        if (_handleByAddress.TryGetValue(holder, out var variable) && variable.Value is not VBRuntimeVariantValue)
+        if (TryVariableAt(holder, out var variable) && variable.Value is not VBRuntimeVariantValue)
         {
             _stringVariables.Add(holder);
         }
@@ -296,20 +296,26 @@ internal sealed partial class SessionStorage
         => !TryFindSlot(holder, out _, out var within, out var type) || within != 0 ? null
             : type is VBVariantType ? VariantImageAt(holder)
             : type is VBStringType ? StringHolders.PointerBytes(PointerAt(holder), pointerSize)
+            : type is VBArrayType ? StringHolders.PointerBytes(ArrayPointerAt(holder), pointerSize)
             : StringHolders.PointerBytes(ObjectPointerAt(holder), pointerSize);
 
-    // a POKE into what the session lays out: the pointer a String is, an object's, a VARIANT.
+    // a POKE into what the session lays out: the pointer a String, an object or a dynamic array is, a VARIANT.
     private bool TryPokeSlot(MemoryAddress holder, int within, VBType type, byte value) => type switch
     {
         VBVariantType => TryPokeVariant(holder, within, value),
         VBStringType => TryPokePointer(holder, within, value),
+        VBArrayType => TryPokeArrayPointer(holder, within, value),
         _ => TryPokeObjectPointer(holder, within, value),
     };
+
+    // the variable bound at an address: a record is the variable of its first field's address too, which is that field's (VarPtr(r.S) = VarPtr(r)).
+    private bool TryVariableAt(MemoryAddress holder, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IBindingHandle? handle)
+        => _handleByAddress.TryGetValue(holder, out handle) && RecordOf(handle) is null;
 
     private bool TryFindStringAt(MemoryAddress holder, out IRuntimeValue text)
     {
         text = null!;
-        if (_handleByAddress.TryGetValue(holder, out var handle))
+        if (TryVariableAt(holder, out var handle))
         {
             return CanRead(handle) && StringHolders.TryStringOf(handle.Value, out text);
         }
@@ -333,7 +339,7 @@ internal sealed partial class SessionStorage
     // makes what holds the String at an address hold another.
     private bool TryWriteStringAt(MemoryAddress holder, IRuntimeValue text)
     {
-        if (_handleByAddress.TryGetValue(holder, out var handle))
+        if (TryVariableAt(holder, out var handle))
         {
             if (handle is not ValueBindingHandle cell)
             {

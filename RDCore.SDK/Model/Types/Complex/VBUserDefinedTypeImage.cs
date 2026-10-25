@@ -86,11 +86,12 @@ public static class VBUserDefinedTypeImage
     }
 
     /// <summary>
-    /// Whether a value of <paramref name="type"/> is in memory what the host lays out, rather than bytes of its own: a variable-length <c>String</c> and an
-    /// object are a pointer, a <c>Variant</c> a <c>VARIANT</c>.
+    /// Whether a value of <paramref name="type"/> is in memory what the host lays out, rather than bytes of its own: a variable-length <c>String</c>, an
+    /// object and a dynamic array are a pointer, a <c>Variant</c> a <c>VARIANT</c>. A fixed-size array is its elements, side by side.
     /// </summary>
     /// <param name="type">The declared type.</param>
-    public static bool IsLaidOutByTheHost(VBType type) => type is VBStringType and not VBFixedStringType or VBObjectType or VBClassType or VBVariantType;
+    public static bool IsLaidOutByTheHost(VBType type)
+        => type is VBStringType and not VBFixedStringType or VBObjectType or VBClassType or VBVariantType or VBArrayType and not VBFixedSizeArrayType;
 
     // what a field, or an element of a fixed-size array field, is in memory at an offset of the outermost record: what the host lays out for a pointer or a
     // VARIANT, a record its own fields, a fixed-size array its elements side by side - in the record (oracle\s24 P04) - and anything else as Encoded lays it out.
