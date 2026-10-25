@@ -2269,6 +2269,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return false;
             }
 
+            // the name of a Function or a Property Get, in its own code, is its result variable (MS-VBAL §5.3.1), which has an address of its own (oracle\s24 F01).
+            if (anyByAddress && anySymbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && anySymbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
+                && session.CallStack.Current is Execution.Frames.CallStackFrame activation
+                && activation.TryGetResultAddress(Math.Max(1, VBUserDefinedTypeLayout.WidthOf(anyTyped.ResolvedType, PointerWidthOf(session))), out var result))
+            {
+                reference = new VBRuntimeReference(result, anyTyped.ResolvedType);
+                return true;
+            }
+
             // a Variant reference parameter given a variable of another type is a VARIANT of its own that refers to the variable: that is its address.
             if (anyByAddress && session.CallStack.Current is Execution.Frames.CallStackFrame frame
                 && frame.TryGetReferenceVariantAddress(anySymbol, session.Environment.Is64Bit ? VariantSize64 : VariantSize32, out var variant))

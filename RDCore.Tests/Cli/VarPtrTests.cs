@@ -14,7 +14,8 @@ public sealed class VarPtrTests
         "Option Explicit", "Public Value As Long",
         "Public Function Addr() As LongPtr", "    Addr = VarPtr(Value)", "End Function",
         "Public Function MeAddr() As LongPtr", "    MeAddr = VarPtr(Me.Value)", "End Function",
-        "Public Function Same() As Boolean", "    Same = (VarPtr(Value) = VarPtr(Value))", "End Function"));
+        "Public Function Same() As Boolean", "    Same = (VarPtr(Value) = VarPtr(Value))", "End Function",
+        "Public Property Get SelfAddr() As Boolean", "    Dim a As LongPtr", "    a = VarPtr(SelfAddr)", "    SelfAddr = (a = VarPtr(SelfAddr) And a <> 0)", "End Property"));
 
     private static readonly (string Name, string Source) Globals = ("Globals", StandardModule("Globals",
         "Option Explicit",
@@ -25,6 +26,9 @@ public sealed class VarPtrTests
         "Public Type TDyn", "    A() As Long", "End Type",
         "Public Type Mixed", "    B As Byte", "    L As Long", "    D As Double", "    I As Integer", "    S As String", "    V As Variant", "    F As String * 3", "    C As Currency", "End Type",
         "Public G As Long",
+        "Public Function Stable() As Boolean", "    Dim a As LongPtr, b As LongPtr", "    a = VarPtr(Stable)", "    Stable = True", "    b = VarPtr(Stable)", "    Stable = (a = b)", "End Function",
+        "Public Function NotALocal() As Boolean", "    Dim x As Long", "    NotALocal = (VarPtr(NotALocal) <> VarPtr(x))", "End Function",
+        "Public Function Echo(ByVal n As Long) As Long", "    Dim a As LongPtr", "    a = VarPtr(Echo)", "    Echo = n + 1", "End Function",
         "Public Function Twice(ByVal n As Long) As Long", "    Twice = n * 2", "End Function",
         "Public Sub ByRefAddr(ByRef x As Long, ByRef addr As LongPtr)", "    addr = VarPtr(x)", "End Sub",
         "Public Sub ByValAddr(ByVal x As Long, ByRef addr As LongPtr)", "    addr = VarPtr(x)", "End Sub",
@@ -162,6 +166,15 @@ public sealed class VarPtrTests
     [DataRow("Dim r As TOuter ;; P VarPtr(r.Inner) - VarPtr(r) ;; P VarPtr(r.Inner.Y) - VarPtr(r) ;; P VarPtr(r.Tail) - VarPtr(r) ;; P LenB(r)", "4|8|16|24|", DisplayName = "P03 P11 a nested record")]
     [DataRow("Dim r As TFixed ;; P VarPtr(r.N(0)) - VarPtr(r) ;; P VarPtr(r.N(2)) - VarPtr(r) ;; P VarPtr(r.After) - VarPtr(r)", "4|12|16|", DisplayName = "P04 a fixed-size array field, inline")]
     public async Task TheFieldsOfARecord_AreAtTheirOffsets(string body, string expected)
+        => Assert.AreEqual(expected, await RunAsync(body));
+
+    // F01-F03, R18: a Function's or a Property Get's name, in its own code, is its result variable, which keeps one address that no local has.
+    [TestMethod]
+    [DataRow("P Stable()", "True|", DisplayName = "F01 across assignments")]
+    [DataRow("P NotALocal()", "True|", DisplayName = "F02 not a local's")]
+    [DataRow("Dim h As New Holder ;; P h.SelfAddr", "True|", DisplayName = "F03 a Property Get")]
+    [DataRow("P Echo(41)", "42|", DisplayName = "what it is assigned is what it returns")]
+    public async Task AFunctionsResultVariable_HasAnAddress(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 
     // V20: a fixed-length String is passed to VarPtr as a String made of it, a temporary; a field of one too.

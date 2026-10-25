@@ -57,6 +57,7 @@ As in **MS-VBA** (recorded in Excel):
 |---|---|
 |A variable - a local, a parameter, a `Static` local, a variable of a module bare or qualified, a field of the class in its own code by its bare name|Its address: never `0`, aligned to its size, and the same for as long as the variable exists, whatever is assigned to it (a `String`, a `Variant`, an `Object` set and set to `Nothing`).|
 |A `ByRef` parameter|The address of the variable it was given; a `ByVal` parameter has its own.|
+|The name of a `Function` or a `Property Get`, in its own code|The address of its result variable (**MS-VBAL §5.3.1**): one of its own, which no local has, the same for the whole call whatever is assigned to it. What is at it is what the call returns.|
 |A `Variant` `ByRef` parameter given a variable of another type|The address of a `VARIANT` of its own, the same for the whole call, which is not the variable's.|
 |An element of an array|Its address in the block the array's elements are laid out in, side by side: the first element's plus its index times the width of an element (1 for a `Byte`, 2 for an `Integer` or a `Boolean`, 4 for a `Long`, 8 for a `Double`, a `Currency` or a `Date`, a pointer for a `String` or an object, a `VARIANT` for a `Variant`, a record's in-memory size for a record), the first subscript varying fastest. The block is the array's for as long as the array is: every `ReDim` makes another, `Preserve` or not, and so does an array assigned another. Error 9 for an array that has no elements.|
 |An element of a fixed-size array field of a record (`r.N(2)`)|Inline, in the record: the record's address, plus the field's offset, plus the element's.|
@@ -75,7 +76,6 @@ is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-ser
 >
 > - The bytes at a variable's address are the managed image of its value: a `String`'s characters, not a pointer to a `BSTR`; no bytes for a `Variant`,
 >   an object or an array, nor for an element or a field of those types, which read as zeros (**MS-VBA**'s layout is the one these will follow).
-> - `VarPtr` of a function's result variable, in the function, is a temporary.
 > - A `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
 
 ---

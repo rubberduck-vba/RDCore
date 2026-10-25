@@ -114,16 +114,54 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 _hasResultPayload = false;
             }
 
+            // a result variable at an address is what is bound there, which a POKE writes.
+            if (_resultAddress is { } at && _returnValue is { } declared && Storage.TryRead(at, out var bound))
+            {
+                return declared.TypeInfo.CreateValue(bound);
+            }
+
             return _returnValue;
         }
         set
         {
             _returnValue = value;
             _hasResultPayload = false;
+            if (_resultAddress is { } at && value is not null)
+            {
+                Storage.TryRebind(at, SymbolAddressTable.FreshBinding(value));
+            }
         }
     }
 
     private VBTypedValue? _returnValue;
+
+    // where the function result variable is, once its address was asked for (TryGetResultAddress).
+    private MemoryAddress? _resultAddress;
+
+    /// <summary>
+    /// The address of the function result variable (<strong>MS-VBAL §5.3.1</strong>), given the first time it is asked for: what <c>VarPtr</c> of the
+    /// function's own name is in its code, one address for the whole activation and none of its locals' (<strong>MS-VBA</strong>, recorded in Excel, oracle\s24
+    /// F01-F03). The variable is at the address from then on: what is assigned to it is written there, and what is there is what it returns.
+    /// </summary>
+    /// <param name="size">How many bytes a value of the function's type occupies.</param>
+    /// <param name="address">The address.</param>
+    /// <returns><see langword="false"/> when there is no room for it.</returns>
+    internal bool TryGetResultAddress(int size, out MemoryAddress address)
+    {
+        if (_resultAddress is { } known)
+        {
+            address = known;
+            return true;
+        }
+
+        if (!Storage.TryAllocate(size, SymbolAddressTable.FreshBinding(ReturnValue ?? VBEmptyValue.Empty), out address))
+        {
+            return false;
+        }
+
+        _resultAddress = address;
+        return true;
+    }
 
     // the function result variable of a scalar type assigned on payloads (IR lowering S1.3): a value is made of it once, when it is read as one.
     private ScalarPayload _resultPayload;
@@ -134,6 +172,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     internal void AssignResult(ScalarPayload payload)
     {
+        // a result variable at an address is written there.
+        if (_resultAddress is not null)
+        {
+            ReturnValue = payload.Type.CreateValue(new ValueBindingHandle(payload.Box()));
+            return;
+        }
+
         _resultPayload = payload;
         _hasResultPayload = true;
     }
@@ -150,7 +195,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         payload = default;
-        return _returnValue is { IsIndeterminate: false, Handle: ValueBindingHandle boxed } value && ScalarPayload.TryOf(value.TypeInfo, boxed.Value, out payload);
+        return (_resultAddress is null ? _returnValue : ReturnValue) is { IsIndeterminate: false, Handle: ValueBindingHandle boxed } value
+            && ScalarPayload.TryOf(value.TypeInfo, boxed.Value, out payload);
     }
 
     private ValueBindingHandle? _resultCell;
@@ -815,6 +861,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </remarks>
     public void ReleaseAll()
     {
+        // the result variable at an address is what the activation returns, which is read before the address is let go of.
+        if (_resultAddress is { } result)
+        {
+            _returnValue = ReturnValue;
+            _resultAddress = null;
+            Storage.TryDeallocate(result);
+        }
+
         _addresses?.ReleaseAll();
         foreach (var (_, variant) in _occasional?.ReferenceVariants ?? [])
         {
