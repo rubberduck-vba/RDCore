@@ -242,7 +242,14 @@ public interface IReplPlatformClient
     Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token);
 
     /// <summary>
-    /// Asks the language server what can be written for the arguments of a command of the shell, as its verb describes them.
+    /// Registers the verbs of the shell's commands with the language server, described: what it completes their arguments by.
+    /// </summary>
+    /// <param name="verbs">The verbs, described.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<SessionCommandsResult> RegisterCommandsAsync(IReadOnlyList<VerbDescriptor> verbs, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server what can be written for the arguments of a command of the shell, as its registered verb describes them.
     /// </summary>
     /// <param name="source">The complete source of the module the command acts on.</param>
     /// <param name="moduleName">The module's programmatic name.</param>

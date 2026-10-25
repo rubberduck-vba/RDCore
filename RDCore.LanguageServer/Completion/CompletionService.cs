@@ -85,6 +85,7 @@ internal sealed class CompletionService(
     ISymbolResolver resolver,
     IReferencedLibraryService referencedLibraries,
     ILibrarySource librarySource,
+    IClientVerbRegistry verbs,
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger) : ICompletionService
 {
@@ -118,8 +119,14 @@ internal sealed class CompletionService(
 
     public async Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token)
     {
+        // a verb the client did not register is one nothing is known of: its arguments are offered nothing.
+        if (!verbs.TryGet(command.Verb, out var verb))
+        {
+            return Empty;
+        }
+
         var items = new List<CompletionItem>();
-        foreach (var site in VerbCompletion.Read(command.Verb, command.Arguments))
+        foreach (var site in VerbCompletion.Read(verb, command.Arguments))
         {
             switch (site.Argument.Kind)
             {
@@ -144,7 +151,7 @@ internal sealed class CompletionService(
                     break;
 
                 case VerbArgumentKind.Expression:
-                    items.AddRange((await CompleteExpressionAsync(moduleName, source, site.Typed, token)).Items);
+                    items.AddRange(await CompleteExpressionAsync(moduleName, source, site.Typed, site.EvaluatedAt, token));
                     break;
             }
         }
@@ -152,20 +159,27 @@ internal sealed class CompletionService(
         return new CompletionList(items.DistinctBy(item => item.Label, StringComparer.OrdinalIgnoreCase), isIncomplete: false);
     }
 
-    // an expression of a command is evaluated in the module's first procedure - the procedure a program of the platform's BASIC is - and is completed as the
-    // operand of a statement written at the start of it.
-    private Task<CompletionList> CompleteExpressionAsync(string moduleName, string source, string expression, CancellationToken token)
+    // the name of the procedure an expression evaluated in the module is completed in: it is the module's scope, and no name of it.
+    private const string ModuleScope = "RDCoreCompletionScope";
+
+    // an expression of a command is completed where it is evaluated (VerbArgument.EvaluatedAt): as the operand of a statement written just before the line it is
+    // evaluated at - in that line's procedure and blocks, where the program waits - or, at no line the module has, in a procedure of its own added to the module,
+    // where the names are the module's and the project's.
+    private async Task<IEnumerable<CompletionItem>> CompleteExpressionAsync(string moduleName, string source, string expression, string? line, CancellationToken token)
     {
         const string Statement = "Debug.Print ";
         var lines = source.Split('\n').ToList();
-        var header = CompletionPlacement.FirstProcedureOf(lines);
-        if (header < 0)
+        var at = line is null ? -1 : CompletionPlacement.LineLabelled(lines, line);
+        if (at < 0)
         {
-            return Task.FromResult(Empty);
+            at = lines.Count;
+            lines.AddRange([$"Private Sub {ModuleScope}()\r", string.Empty, "End Sub\r"]);
+            at++;
         }
 
-        lines.Insert(header + 1, Statement + expression + "\r");
-        return CompleteFragmentAsync(moduleName, string.Join('\n', lines), new Position(header + 1, Statement.Length + expression.Length), token);
+        lines.Insert(at, Statement + expression + "\r");
+        var list = await CompleteFragmentAsync(moduleName, string.Join('\n', lines), new Position(at, Statement.Length + expression.Length), token);
+        return list.Items.Where(item => item.Label != ModuleScope);
     }
 
     private async Task<CompletionList> CompleteAsync(Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token)

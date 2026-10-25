@@ -51,19 +51,22 @@ public sealed class VerbCompletionTests
         => Assert.AreEqual(0, Sites(" nonsense ").Length);
 
     [TestMethod]
-    public void ADescriptor_TravelsWithTheRequest_AsItIs()
+    public void AnExpression_KnowsTheLineItIsEvaluatedAt()
     {
-        var request = new RDCore.SDK.Platform.Protocol.SessionCompletionParams
-        {
-            Source = "Public Sub Main()\r\nEnd Sub\r\n",
-            ModuleName = "Program",
-            Command = new RDCore.SDK.Platform.Protocol.SessionCommandCompletion { Verb = Break, Arguments = " 40 I." },
-        };
+        var evaluated = new VerbDescriptor { Name = "BREAK", Forms = [[Line, Condition with { EvaluatedAt = "line" }]] };
 
-        var received = RDCore.Tests.Platform.Wire.RoundTrip(request).Command!;
+        Assert.AreEqual("40", VerbCompletion.Read(evaluated, " 40 I > ").Single().EvaluatedAt);
+        Assert.IsNull(VerbCompletion.Read(Break, " 40 I > ").Single().EvaluatedAt, "an expression that says no line is evaluated at none");
+    }
 
-        Assert.AreEqual(" 40 I.", received.Arguments);
-        CollectionAssert.AreEqual(new[] { "condition:I." }, VerbCompletion.Read(received.Verb, received.Arguments).Select(site => $"{site.Argument.Name}:{site.Typed}").ToArray());
-        Assert.AreEqual("TOGGLE", received.Verb.Forms[1][0].Values[0].Value);
+    [TestMethod]
+    public void ARegistration_TravelsAsItIs()
+    {
+        var evaluated = Break with { Forms = [.. Break.Forms.Take(2), [Line, Condition with { EvaluatedAt = "line" }]] };
+        var received = RDCore.Tests.Platform.Wire.RoundTrip(new RDCore.SDK.Platform.Protocol.SessionCommandsParams { Verbs = [evaluated] }).Verbs.Single();
+
+        CollectionAssert.AreEqual(new[] { "condition:I." }, VerbCompletion.Read(received, " 40 I.").Select(site => $"{site.Argument.Name}:{site.Typed}").ToArray());
+        Assert.AreEqual("TOGGLE", received.Forms[1][0].Values[0].Value);
+        Assert.AreEqual("line", received.Forms[2][1].EvaluatedAt);
     }
 }

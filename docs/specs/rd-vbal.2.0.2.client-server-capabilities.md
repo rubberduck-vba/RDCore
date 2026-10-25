@@ -138,7 +138,7 @@ What the list offers depends on what is being written, and where. The language s
 
 |Written|Offered|
 |---|---|
-|A declaration, in the declarations section|What can be declared there. `Option` only before any other declaration; `Event`, `Implements`, `Friend` and `WithEvents` in a class module only. No statement and no name.|
+|A declaration, in the declarations section|What can be declared there. `Option` anywhere in it, with only the options the module does not state yet: each is stated once at most. `Event`, `Implements`, `Friend` and `WithEvents` in a class module only. No statement and no name.|
 |A statement, in a procedure|The names visible from the procedure, nearest first (its locals and parameters, the module's members, the project's, the libraries', the standard library's). The statement keywords. The statements of the blocks the line is in (`Next` and `Exit For` in a `For`, `Loop` and `Exit Do` in a `Do`, `Case` and `End Select` in a `Select Case`, `Else` and `End If` in a block `If`). `Exit` and `End` for the kind of procedure. `Me` and `RaiseEvent` in a class module only.|
 |An operand|The names, and the keywords an expression starts with (`Not`, `New`, `Nothing`, `True`). `AddressOf` only in an argument.|
 |After a complete operand|The operators (`And`, `Mod`, `Like`, `Is`), and the keyword the statement goes on with (`Then`, `To`, `Step`, `In`). No name.|
@@ -157,14 +157,16 @@ The line being typed seldom parses. The language server takes it out of the modu
 
 `rdcore/session/completion` ([`SessionCompletionParams`](../api/RDCore.SDK.Platform.Protocol.SessionCompletionParams.html)) answers the same list for a module the client supplies with its source. The module stands for the workspace module of the same name. The interactive shell asks it for the line at its prompt, which is not in the program until it is entered.
 
-A line at a client's prompt can also be one of the client's own commands. The client then sends the descriptor of its verb ([`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html)) and what is typed after it (`Command`). A descriptor gives the forms the verb's arguments take: keywords, choices, line numbers, expressions, paths and text. The language server completes each argument as described ([`VerbCompletion`](../api/RDCore.SDK.Platform.Commands.VerbCompletion.html)):
+A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](../api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths and text.
+
+A verb is registered once. It is registered again only when its descriptor changes (a choice of what the client has more or fewer of), and then it replaces what it was. A completion request names the verb and what is typed after it (`Command`), and nothing more of the verb travels. The language server completes each argument as described ([`VerbCompletion`](../api/RDCore.SDK.Platform.Commands.VerbCompletion.html)):
 
 - a keyword or a choice with its values;
 - a line number with the numbered lines of the module, each shown with its statement;
-- an expression as code of the module's first procedure, which is the program's;
+- an expression where it is evaluated: before the line its form names (`EvaluatedAt`), in that line's procedure and blocks, which is where a breakpoint's program waits. An expression that names no line, or a line the module does not have, is completed at module level: the module's names and the project's, and no procedure's locals;
 - a path or text with nothing.
 
-The interactive shell describes `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`) and `THEME` (`LIST`, `<theme>`). A command it does not describe is offered nothing after its verb.
+A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line) and `THEME` (`LIST`, `<theme>`) the first time one is completed. A command it does not describe is offered nothing after its verb.
 
 ### `rdcore/session/interaction`
 

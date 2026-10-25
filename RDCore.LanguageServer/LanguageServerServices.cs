@@ -57,6 +57,7 @@ internal static class LanguageServerServices
             .AddSingleton<IWorkspaceService, WorkspaceService>()
             .AddSingleton<IParsingClientService, ParsingClientService>()
             .AddSingleton<ISemanticTokensService, SemanticTokensService>()
+            .AddSingleton<IClientVerbRegistry, ClientVerbRegistry>()
             .AddSingleton<ICompletionService, CompletionService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()

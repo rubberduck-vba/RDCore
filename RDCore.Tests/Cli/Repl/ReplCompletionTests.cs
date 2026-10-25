@@ -99,7 +99,8 @@ public sealed class ReplCompletionTests
         platform.CompleteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new CompletionList(new CompletionItem { Label = "I" }));
         platform.CompleteCommandAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<SessionCommandCompletion>(), Arg.Any<CancellationToken>())
-            .Returns(call => new CompletionList(new CompletionItem { Label = call.Arg<SessionCommandCompletion>().Verb.Name }));
+            .Returns(call => new CompletionList(new CompletionItem { Label = call.Arg<SessionCommandCompletion>().Verb }));
+        platform.RegisterCommandsAsync(Arg.Any<IReadOnlyList<VerbDescriptor>>(), Arg.Any<CancellationToken>()).Returns(new SessionCommandsResult());
 
         var themes = Substitute.For<IAppThemeService>();
         themes.Theme.Returns(new AppTheme(new AppThemeLoaderService(new MockFileSystem()).LoadBuiltInDefault()));
@@ -110,6 +111,36 @@ public sealed class ReplCompletionTests
 
         var dispatcher = new ReplCommandDispatcher([new BreakReplCommand(), new ThemeReplCommand(themes, new ScriptedKeys()), load]);
         return (new ReplCompletion(Program(), platform, dispatcher), platform);
+    }
+
+    [TestMethod]
+    public async Task TheDescribedVerbs_AreRegisteredOnce_AndAVerbAgainOnlyWhenItsDescriptorChanges()
+    {
+        var platform = Substitute.For<IReplPlatformClient>();
+        platform.Provides<SessionCompletion>().Returns(true);
+        platform.CompleteCommandAsync(default!, default!, default!, default).ReturnsForAnyArgs(new CompletionList());
+        var registered = new List<string[]>();
+        platform.RegisterCommandsAsync(Arg.Any<IReadOnlyList<VerbDescriptor>>(), Arg.Any<CancellationToken>())
+            .Returns(call => { registered.Add([.. call.Arg<IReadOnlyList<VerbDescriptor>>().Select(verb => verb.Name)]); return new SessionCommandsResult(); });
+
+        var themes = Substitute.For<IAppThemeService>();
+        var dark = new AppTheme(new AppThemeLoaderService(new MockFileSystem()).LoadBuiltInDefault());
+        themes.Theme.Returns(dark);
+        themes.ThemeNames.Returns([dark.Name, "light"]);
+        var completion = new ReplCompletion(Program(), platform, new ReplCommandDispatcher([new BreakReplCommand(), new ThemeReplCommand(themes, new ScriptedKeys())]));
+
+        await completion.CompleteAsync("BREAK ", 6, CancellationToken.None);
+        await completion.CompleteAsync("THEME ", 6, CancellationToken.None);
+        await completion.CompleteAsync("BREAK 1", 7, CancellationToken.None);
+
+        Assert.AreEqual(1, registered.Count, "once");
+        CollectionAssert.AreEquivalent(new[] { "BREAK", "THEME" }, registered[0]);
+
+        // a theme is added: THEME's choices are not what they were, and it alone is registered again.
+        themes.ThemeNames.Returns([dark.Name, "light", "amber"]);
+        await completion.CompleteAsync("THEME ", 6, CancellationToken.None);
+        Assert.AreEqual(2, registered.Count);
+        CollectionAssert.AreEqual(new[] { "THEME" }, registered[1]);
     }
 
     private static async Task<string[]> LabelsAsync(ReplCompletion completion, string line)
@@ -131,11 +162,11 @@ public sealed class ReplCompletionTests
     {
         var (completion, platform) = WithCommands();
 
-        CollectionAssert.AreEqual(new[] { "BREAK" }, await LabelsAsync(completion, "break 30 C."));
+        CollectionAssert.AreEqual(new[] { "break" }, await LabelsAsync(completion, "break 30 C."));
         await platform.Received(1).CompleteCommandAsync(
             Program().ToModuleSource(),
             ReplProgram.ModuleName,
-            Arg.Is<SessionCommandCompletion>(command => command.Arguments == " 30 C." && command.Verb.Forms.Count == 3),
+            Arg.Is<SessionCommandCompletion>(command => command.Arguments == " 30 C." && command.Verb == "break"),
             Arg.Any<CancellationToken>());
     }
 
@@ -147,6 +178,7 @@ public sealed class ReplCompletionTests
         CollectionAssert.AreEqual(new[] { "CLEAR" }, forms[0].Single().Values.Select(value => value.Value).ToArray());
         CollectionAssert.AreEqual(new[] { VerbArgumentKind.Keyword, VerbArgumentKind.LineNumber }, forms[1].Select(argument => argument.Kind).ToArray());
         CollectionAssert.AreEqual(new[] { VerbArgumentKind.LineNumber, VerbArgumentKind.Expression }, forms[2].Select(argument => argument.Kind).ToArray());
+        Assert.AreEqual(forms[2][0].Name, forms[2][1].EvaluatedAt, "the condition is evaluated at its line, where the program waits");
     }
 
     [TestMethod]

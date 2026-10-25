@@ -106,6 +106,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionDebugExecuteHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionCompletionHandler>();
+        builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
 
@@ -126,6 +127,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IParsingClientService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISemanticTokensService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());

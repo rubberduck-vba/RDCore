@@ -114,8 +114,10 @@ public sealed class CompletionServiceTests
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, references, [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
         libraries.DescribedSymbolsOf(Arg.Any<Uri>(), Arg.Any<string>()).Returns(call => LibrarySymbolProvider.ReadDescribed(source, call.Arg<Uri>(), call.Arg<string>()));
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language } });
-        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, options, NullLogger<CompletionService>.Instance);
+        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance);
     }
+
+    private readonly ClientVerbRegistry _verbs = new();
 
     // the module with the cursor where the `|` is, which is taken out of the source.
     private static (string Source, Position Position) At(string source)
@@ -345,7 +347,10 @@ public sealed class CompletionServiceTests
     [TestMethod]
     // the declarations section: what can be declared there, and no statement; Option only before any declaration.
     [DataRow("|\r\nPublic Sub Run()\r\nEnd Sub", "Option;Dim;Private;Sub;Function;Const;Type;Enum;Declare", "MsgBox;If;For;Implements;Event;End Sub")]
-    [DataRow("Private Total As Long\r\n|", "Dim;Sub", "Option")]
+    [DataRow("Private Total As Long\r\n|", "Dim;Sub;Option", "")]
+    [DataRow("Option Explicit\r\nOption |", "Base;Compare;Private", "Explicit")]
+    [DataRow("Option |\r\nPrivate Total As Long\r\nOption Explicit", "Base;Compare;Private", "Explicit")]
+    [DataRow("Option Explicit\r\nOption Base 1\r\nOption Compare Text\r\nOption Private Module\r\n|", "Dim;Sub", "Option")]
     // a statement in a procedure: the statements, the names, and what the blocks the line is in have - and the blocks are open though they are not closed yet.
     [DataRow("Public Sub Run()\r\n    For i = 1 To 3\r\n        |", "Next;Exit For;Exit Sub;End Sub;MsgBox;If;Dim", "Loop;Wend;End If;Exit Do;Option;Sub;Private;Exit Function")]
     [DataRow("Public Function Run()\r\n    Do\r\n        With New Collection\r\n            |", "Loop;Exit Do;End With;Exit Function;End Function", "Next;End Sub;Exit For")]
@@ -443,14 +448,68 @@ public sealed class CompletionServiceTests
         [
             [new VerbArgument { Kind = VerbArgumentKind.Keyword, Values = [new() { Value = "CLEAR", Description = "Removes every breakpoint" }] }],
             [new VerbArgument { Kind = VerbArgumentKind.Keyword, Values = [new() { Value = "TOGGLE" }] }, new VerbArgument { Kind = VerbArgumentKind.LineNumber }],
-            [new VerbArgument { Kind = VerbArgumentKind.LineNumber }, new VerbArgument { Kind = VerbArgumentKind.Expression }],
+            [new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber }, new VerbArgument { Kind = VerbArgumentKind.Expression, EvaluatedAt = "line" }],
         ],
     };
 
     private const string Program = "Public Sub Main()\r\n10 Dim C As New Collection\r\n30 Print C.Count\r\nEnd Sub\r\n";
 
-    private async Task<CompletionList> CommandAsync(string arguments)
-        => await Sut("basic").CompleteCommandAsync("Program", Program, new SessionCommandCompletion { Verb = Break, Arguments = arguments }, CancellationToken.None);
+    private async Task<CompletionList> CommandAsync(string arguments, string source = Program, VerbDescriptor? verb = null)
+    {
+        _verbs.Register([verb ?? Break]);
+        return await Sut("basic").CompleteCommandAsync("Program", source, new SessionCommandCompletion { Verb = (verb ?? Break).Name.ToLowerInvariant(), Arguments = arguments }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task AVerbTheClientDidNotRegister_IsOfferedNothing()
+    {
+        var list = await Sut("basic").CompleteCommandAsync("Program", Program, new SessionCommandCompletion { Verb = "BREAK", Arguments = " " }, CancellationToken.None);
+        Assert.AreEqual(0, list.Items.Count());
+    }
+
+    // a module of an editor, not a program: two procedures, and lines numbered in the second.
+    private const string Module = """
+        Private Total As Long
+
+        Public Sub First()
+            Dim Scratch As String
+        End Sub
+
+        Public Sub Second()
+            Dim Items As New Collection
+        10  Items.Add 1
+        20  Total = Items.Count
+        End Sub
+        """;
+
+    private static readonly VerbDescriptor Watch = new()
+    {
+        Name = "WATCH",
+        Forms = [[new VerbArgument { Kind = VerbArgumentKind.Expression }]],
+    };
+
+    [TestMethod]
+    public async Task AnExpression_IsCompletedWhereItIsEvaluated_BeforeItsLine_InThatLinesProcedure()
+    {
+        var labels = (await CommandAsync(" 20 ", Module)).Items.Select(item => item.Label).ToArray();
+
+        CollectionAssert.IsSubsetOf(new[] { "Items", "Total", "First" }, labels, "the procedure's locals, and the module's names");
+        CollectionAssert.DoesNotContain(labels, "Scratch", "a local of another procedure");
+
+        var members = (await CommandAsync(" 20 Items.", Module)).Items.Select(item => item.Label).ToArray();
+        CollectionAssert.IsSubsetOf(new[] { "Add", "Count" }, members);
+    }
+
+    [TestMethod]
+    public async Task AnExpressionEvaluatedAtNoLine_IsCompletedInTheModule()
+    {
+        var labels = (await CommandAsync(" ", Module, Watch)).Items.Select(item => item.Label).ToArray();
+
+        CollectionAssert.IsSubsetOf(new[] { "Total", "First", "Second", "MsgBox" }, labels);
+        CollectionAssert.DoesNotContain(labels, "Items", "no procedure's local");
+        CollectionAssert.DoesNotContain(labels, "Scratch");
+        Assert.IsFalse(labels.Any(label => label.StartsWith("RDCore", StringComparison.Ordinal)), "the scope it is completed in is no name of the module");
+    }
 
     [TestMethod]
     [DataRow(" ", "CLEAR;TOGGLE;10;30", "C;Main")]

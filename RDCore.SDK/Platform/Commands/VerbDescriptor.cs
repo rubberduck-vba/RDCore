@@ -51,6 +51,13 @@ public sealed record class VerbArgument
     public IReadOnlyList<VerbArgumentValue> Values { get; init; } = [];
 
     /// <summary>
+    /// For an <see cref="VerbArgumentKind.Expression"/>, the <see cref="Name"/> of the <see cref="VerbArgumentKind.LineNumber"/> argument of the same form that says
+    /// where it is evaluated: before that line, in the procedure and the blocks of it - as the condition of a breakpoint is, where the program waits. An expression
+    /// that is evaluated at no line (<see langword="null"/>), or at a line the module does not have, is evaluated in the module: its names, and the project's.
+    /// </summary>
+    public string? EvaluatedAt { get; init; }
+
+    /// <summary>
     /// Whether the argument takes the rest of the line: an expression, a path, and text do - a space is in them, and does not end them.
     /// </summary>
     public bool TakesTheRest => Kind is VerbArgumentKind.Expression or VerbArgumentKind.Path or VerbArgumentKind.Text;

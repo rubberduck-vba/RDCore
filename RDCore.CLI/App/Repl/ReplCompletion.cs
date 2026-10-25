@@ -1,7 +1,9 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.Symbols.Completion;
+using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
+using System.Text.Json;
 
 namespace RDCore.CLI.App.Repl;
 
@@ -10,14 +12,25 @@ namespace RDCore.CLI.App.Repl;
 /// entered - and, for the first word of a line that is not numbered, the shell's own commands, which are what that word can be too.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The line is no document: it is asked about with the text of the module it will be in (<see cref="ReplProgram.ToCompletionSource"/>), over
 /// <c>rdcore/session/completion</c>. A language server that does not provide that capability gives no lists, and the commands are the only names there are.
+/// </para>
+/// <para>
+/// The arguments of a command are completed by the language server too, as the command describes them (<see cref="IReplCommandDescriptor"/>). The shell registers
+/// its described verbs with it the first time one is completed (<c>rdcore/session/commands</c>), and a verb again only when its descriptor has changed since - the
+/// themes there are to choose from, and which of them is the current one: a completion request names the verb, and nothing more of it travels.
+/// </para>
 /// </remarks>
 /// <param name="program">The program buffer.</param>
 /// <param name="platform">The language server.</param>
 /// <param name="commands">The shell's commands.</param>
 internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient platform, IReplCommandDispatcher commands)
 {
+    // what each verb was registered as, the last time it was: a descriptor that is what it was is not sent again.
+    private readonly Dictionary<string, string> _registered = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _registering = new(1, 1);
+
     /// <summary>
     /// The items that can be written at <paramref name="cursor"/> of <paramref name="line"/>.
     /// </summary>
@@ -32,12 +45,13 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
         var verb = typed.Length > 0 && !char.IsAsciiDigit(typed[0]) ? typed[..IndexOfSeparator(typed)] : string.Empty;
         if (verb.Length < typed.Length && commands.IsCommandName(verb))
         {
-            if (CommandNamed(verb) is not IReplCommandDescriptor described || !platform.Provides<SessionCompletion>())
+            if (CommandNamed(verb) is not IReplCommandDescriptor || !platform.Provides<SessionCompletion>())
             {
                 return [];
             }
 
-            var command = new SessionCommandCompletion { Verb = described.Descriptor, Arguments = typed[verb.Length..] };
+            await RegisterAsync(token);
+            var command = new SessionCommandCompletion { Verb = verb, Arguments = typed[verb.Length..] };
             return [.. (await platform.CompleteCommandAsync(program.ToModuleSource(), ReplProgram.ModuleName, command, token)).Items];
         }
 
@@ -61,6 +75,33 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
         }
 
         return items;
+    }
+
+    // the described verbs that are not registered as they are now, in one request; none when every one of them is.
+    private async Task RegisterAsync(CancellationToken token)
+    {
+        await _registering.WaitAsync(token);
+        try
+        {
+            var changed = commands.Commands.OfType<IReplCommandDescriptor>()
+                .Select(command => (Descriptor: command.Descriptor, Json: JsonSerializer.Serialize(command.Descriptor)))
+                .Where(verb => !_registered.TryGetValue(verb.Descriptor.Name, out var sent) || sent != verb.Json)
+                .ToList();
+            if (changed.Count == 0)
+            {
+                return;
+            }
+
+            await platform.RegisterCommandsAsync([.. changed.Select(verb => verb.Descriptor)], token);
+            foreach (var (descriptor, json) in changed)
+            {
+                _registered[descriptor.Name] = json;
+            }
+        }
+        finally
+        {
+            _registering.Release();
+        }
     }
 
     private IReplCommand? CommandNamed(string verb)

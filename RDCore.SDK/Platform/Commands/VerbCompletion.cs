@@ -7,7 +7,15 @@
 /// <param name="Typed">
 /// What is typed of it: the word being written, for an argument that is one word; everything after where it starts, for one that takes the rest of the line.
 /// </param>
-public sealed record class VerbCompletionSite(VerbArgument Argument, string Typed);
+/// <param name="Written">The arguments of the form that are written before it, by their <see cref="VerbArgument.Name"/>: the line an expression is evaluated at.</param>
+public sealed record class VerbCompletionSite(VerbArgument Argument, string Typed, IReadOnlyDictionary<string, string> Written)
+{
+    /// <summary>
+    /// The line an <see cref="VerbArgumentKind.Expression"/> is evaluated at (<see cref="VerbArgument.EvaluatedAt"/>), as it is written; <see langword="null"/> when
+    /// it is evaluated at none.
+    /// </summary>
+    public string? EvaluatedAt => Argument.EvaluatedAt is { } name && Written.TryGetValue(name, out var line) ? line : null;
+}
 
 /// <summary>
 /// Which argument of a verb is being written, as the arguments are typed (<see cref="VerbDescriptor"/>).
@@ -28,7 +36,7 @@ public static class VerbCompletion
         var sites = new List<VerbCompletionSite>();
         foreach (var form in verb.Forms)
         {
-            if (SiteIn(form, complete, typing, arguments) is { } site && !sites.Contains(site))
+            if (SiteIn(form, complete, typing, arguments) is { } site && !sites.Any(other => other.Argument == site.Argument && other.Typed == site.Typed))
             {
                 sites.Add(site);
             }
@@ -41,24 +49,27 @@ public static class VerbCompletion
     // takes the rest of the line, which the cursor is in however many words are after its start.
     private static VerbCompletionSite? SiteIn(IReadOnlyList<VerbArgument> form, IReadOnlyList<(string Text, int Start)> complete, (string Text, int Start)? typing, string arguments)
     {
+        var written = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < form.Count; index++)
         {
             var argument = form[index];
             if (argument.TakesTheRest)
             {
                 var start = index < complete.Count ? complete[index].Start : typing is { } word && index == complete.Count ? word.Start : arguments.Length;
-                return index <= complete.Count ? new VerbCompletionSite(argument, arguments[start..]) : null;
+                return index <= complete.Count ? new VerbCompletionSite(argument, arguments[start..], written) : null;
             }
 
             if (index == complete.Count)
             {
-                return new VerbCompletionSite(argument, typing?.Text ?? string.Empty);
+                return new VerbCompletionSite(argument, typing?.Text ?? string.Empty, written);
             }
 
             if (!Matches(argument, complete[index].Text))
             {
                 return null;
             }
+
+            written[argument.Name] = complete[index].Text;
         }
 
         // every argument of the form is written: there is no more to it.

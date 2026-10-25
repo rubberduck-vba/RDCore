@@ -39,7 +39,8 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
             ],
             [
                 new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber },
-                new VerbArgument { Name = "condition", Kind = VerbArgumentKind.Expression },
+                // the program waits before the line, and the condition is evaluated there: in its procedure, with its locals.
+                new VerbArgument { Name = "condition", Kind = VerbArgumentKind.Expression, EvaluatedAt = "line" },
             ],
         ],
     };
