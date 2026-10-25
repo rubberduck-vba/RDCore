@@ -17,9 +17,11 @@ namespace RDCore.Diagnostics;
 
 internal class CoreDiagnosticsAppHost() : RDCorePlatformServerHost<CoreDiagnosticsApp>()
 {
+    protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(DiagnosticsOptions.Schema);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<DiagnosticsOptions>(configuration.GetSection("Configuration:Diagnostics"));
+        services.Configure<DiagnosticsOptions>(configuration.GetSection($"{SettingsSchema.Root}:{DiagnosticsOptions.Section}"));
     }
 }
 

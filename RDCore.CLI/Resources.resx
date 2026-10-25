@@ -535,4 +535,55 @@ Long Live the Cucumber (Latin)</comment>
   <data name="CLI_Theme" xml:space="preserve">
     <value>The theme the console starts with. THEME changes the theme of this session only.</value>
   </data>
+  <data name="Config_Summary" xml:space="preserve">
+    <value>Shows the settings of the platform, and sets them for you</value>
+  </data>
+  <data name="Config_Reset_Detail" xml:space="preserve">
+    <value>Puts a setting, a section, or every setting back as the platform was deployed</value>
+  </data>
+  <data name="Config_NothingSet" xml:space="preserve">
+    <value>Every setting is as the platform was deployed.</value>
+  </data>
+  <data name="Config_NotSet" xml:space="preserve">
+    <value>{0}: not set by you; each component uses the value it was deployed with.</value>
+  </data>
+  <data name="Config_Deployment" xml:space="preserve">
+    <value>{0} is set by the platform's deployment only: it is read before there is a console to change it.</value>
+  </data>
+  <data name="Config_Unknown" xml:space="preserve">
+    <value>There is no setting '{0}'.</value>
+  </data>
+  <data name="Config_Invalid" xml:space="preserve">
+    <value>'{0}' is not a value of {1}.</value>
+  </data>
+  <data name="Config_Unreadable" xml:space="preserve">
+    <value>{0} cannot be read, and is not written over. CONFIG RESET deletes it.</value>
+  </data>
+  <data name="Config_Set" xml:space="preserve">
+    <value>{0} = {1}. It takes effect the next time the platform starts.</value>
+  </data>
+  <data name="Config_TrustSensitive" xml:space="preserve">
+    <value>⚠️ {0} decides what a program may do to this machine. Change it only for code you trust.</value>
+  </data>
+  <data name="Config_Reset" xml:space="preserve">
+    <value>{0} setting(s) reset: the values the platform was deployed with apply again.</value>
+  </data>
+  <data name="Config_NothingToReset" xml:space="preserve">
+    <value>Nothing to reset.</value>
+  </data>
+  <data name="Config_Values_Boolean" xml:space="preserve">
+    <value>Values: True or False.</value>
+  </data>
+  <data name="Config_Values_Integer" xml:space="preserve">
+    <value>Values: a whole number from {0} to {1}.</value>
+  </data>
+  <data name="Config_Values_Choice" xml:space="preserve">
+    <value>Values: {0}.</value>
+  </data>
+  <data name="Config_Values_Text" xml:space="preserve">
+    <value>Values: any text.</value>
+  </data>
+  <data name="Config_Values_TextList" xml:space="preserve">
+    <value>Values: texts separated by commas.</value>
+  </data>
 </root>

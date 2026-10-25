@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Ce que fait chaque paramètre de l'extension de diagnostics (ExtensionSettingsAttribute) : la clé d'un paramètre, ses points écrits comme des traits de soulignement. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Diagnostics_MeaningfulNames_AllowedNames" xml:space="preserve">
+    <value>Les noms qu'accepte RDC01001 bien qu'ils soient courts, finissent par un chiffre ou n'aient aucune voyelle, séparés par des virgules : i, j, k.</value>
+  </data>
+  <data name="Diagnostics_HungarianNotation_AllowedNames" xml:space="preserve">
+    <value>Les noms qu'accepte RDC01002 bien qu'ils commencent par un préfixe qui indique un type, séparés par des virgules : colWidth.</value>
+  </data>
+</root>
