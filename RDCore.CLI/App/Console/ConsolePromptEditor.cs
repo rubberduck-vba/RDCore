@@ -79,6 +79,17 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     public Func<int, IReadOnlyList<string>>? Status { get; set; }
 
     /// <summary>
+    /// What the line, as it is typed, can go on as - the rest of it, drawn after it in ghost text, faint, while the cursor is at its end: the line a shell has by
+    /// the number that is typed, say. <see langword="null"/>, or an empty string, when there is nothing to offer: what is typed is not the start of anything.
+    /// </summary>
+    /// <remarks>
+    /// <kbd>→</kbd> at the end of the line takes the next token of the ghost text, and <kbd>Tab</kbd> - while no completion list is open - or <kbd>End</kbd>
+    /// takes all of it: what is taken is typed, and is the line's like anything else typed. Once what is typed is not the start of what it could go on as, there
+    /// is no ghost text.
+    /// </remarks>
+    public Func<string, string?>? Ghost { get; init; }
+
+    /// <summary>
     /// What the drawing of the console is serialized on: the editor draws the line holding it, and whatever else draws at the console while a line is not being
     /// edited holds it too.
     /// </summary>
@@ -236,6 +247,20 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 }
             }
 
+            // the ghost text is taken a token at a time, or all of it - and typed, as if it had been.
+            if (GhostText() is { Length: > 0 } ghost && !control)
+            {
+                switch (key.Key)
+                {
+                    case ConsoleKey.RightArrow:
+                        Take(ghost[..NextTokenOf(ghost)]);
+                        return false;
+                    case ConsoleKey.Tab or ConsoleKey.End:
+                        Take(ghost);
+                        return false;
+                }
+            }
+
             switch (key.Key)
             {
                 case ConsoleKey.Enter:
@@ -308,6 +333,51 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
 
             return false;
+        }
+
+        // what the line can go on as, after the cursor at its end; nothing while the cursor is anywhere else in it.
+        private string GhostText()
+            => _cursor == _text.Length && editor.Ghost?.Invoke(Text) is { Length: > 0 } ghost ? ghost : string.Empty;
+
+        // the length of the next token of the ghost text, with the blanks before it: a name, a string literal, or any other character.
+        private static int NextTokenOf(string ghost)
+        {
+            var index = 0;
+            while (index < ghost.Length && char.IsWhiteSpace(ghost[index]))
+            {
+                index++;
+            }
+
+            if (index >= ghost.Length)
+            {
+                return ghost.Length;
+            }
+
+            if (IsNameCharacter(ghost[index]))
+            {
+                while (index < ghost.Length && IsNameCharacter(ghost[index]))
+                {
+                    index++;
+                }
+
+                return index;
+            }
+
+            if (ghost[index] == '"')
+            {
+                var closing = ghost.IndexOf('"', index + 1);
+                return closing < 0 ? ghost.Length : closing + 1;
+            }
+
+            return index + 1;
+        }
+
+        // text taken from the ghost text is typed at the end of the line.
+        private void Take(string taken)
+        {
+            _text.Append(taken);
+            _cursor = _text.Length;
+            Follow();
         }
 
         // the start of the word the cursor is in, or at the end of.
@@ -502,6 +572,15 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
                 Output.Write('\r');
                 Output.Write(shown);
+
+                // what the line can go on as, faint after it, in what is left of the line; a line that is entered has none.
+                if (!entered && GhostText() is { Length: > 0 } ghost && room - ConsoleText.WidthOf(shown) > 0)
+                {
+                    Output.Write(Faint);
+                    Output.Write(ConsoleText.Truncate(ghost, room - ConsoleText.WidthOf(shown)));
+                    Output.Write(NormalIntensity);
+                }
+
                 Output.Write(ClearToEnd);
                 DrawUnder(columns, entered);
                 Output.Write(ToColumn(_cursor - _start + 1));

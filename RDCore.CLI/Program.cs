@@ -195,7 +195,11 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     System.Console.Out,
                     () => System.Console.WindowWidth,
                     provider.GetRequiredService<ReplCompletion>().CompleteAsync,
-                    ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single))
+                    ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single)
+                {
+                    // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text.
+                    Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
+                })
                 // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.
                 .AddSingleton(provider => new ReplProgressDisplay(
                     provider.GetRequiredService<RDCoreConsoleClientApp>().WorkProgress,
