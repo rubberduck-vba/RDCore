@@ -27,20 +27,22 @@ public interface IRuntimeEnvironmentProfile
 
     /// <summary>
     /// The <see cref="CultureInfo"/> for <see cref="Lcid"/> — drives <c>Option Compare Text</c>,
-    /// <c>Like</c>, case conversion, <c>Format$</c>, and let-coercion <em>to</em> <c>String</c>: a
-    /// number's decimal symbol, and a date's Short Date and Long Time formats, in the Gregorian calendar
-    /// whatever the culture's own.
+    /// <c>Like</c>, case conversion, and <c>Format$</c> given a format.
     /// </summary>
     /// <remarks>
-    /// 👉 Let-coercion <em>from</em> <c>String</c> reads a number or a date by <see cref="Regional"/>, which is the platform's and not the
-    /// culture's: en-US unless the platform is told otherwise.
+    /// 👉 Not how a value is Let-coerced to or from a <c>String</c>: a number or a date is written and read by <see cref="Regional"/>, which is the
+    /// platform's and not the culture's, so that what <c>CStr</c> writes, <c>CDbl</c> and <c>CDate</c> read back.
     /// </remarks>
     CultureInfo Culture { get; }
 
     /// <summary>
-    /// 🎯 The regional settings a <c>String</c> is read by when it is Let-coerced to a number or a date (<strong>MS-VBAL §5.5.1.2.4</strong>): its decimal,
-    /// digit grouping and currency symbols, and the window two-digit years are in. en-US unless the platform's configuration says otherwise.
+    /// 🎯 The regional settings of Let-coercion to and from <c>String</c> (<strong>MS-VBAL §5.5.1.2.4</strong>): a number or a date is written by
+    /// them, and a <c>String</c> read by them as a number or a date. The decimal, digit grouping and currency symbols, the Short Date and Long Time
+    /// formats, and the window two-digit years are in; en-US unless the platform's configuration says otherwise.
     /// </summary>
+    /// <remarks>
+    /// One source for both directions, as MS-VBA's is the machine's regional settings: a value written as text reads back as the same value.
+    /// </remarks>
     RegionalSettings Regional => RegionalSettings.Default;
 
     /// <summary>

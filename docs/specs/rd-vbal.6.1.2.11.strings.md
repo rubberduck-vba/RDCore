@@ -288,7 +288,7 @@ The result is a `String()` from `0`: `Filter` builds the array itself and never 
 > This section describes the implementation of [**MS-VBAL §6.1.2.11.1.8** Format](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c2022d53-37dc-4597-8321-728e385afc92).
 
 MS-VBAL gives `Format` its declaration and its calendar rules, and nothing of what a format expression is. RD-VBA reads
-format expressions as the Office VBA reference documents them, in the environment's regional settings
+format expressions as the Office VBA reference documents them, in the environment's culture
 ([**RD-VBAL §2.3.1.2**](rd-vbal.2.3.1.2.session-services.md) `Environment.Culture`): its decimal and group separators and
 digit groups, its currency symbol and patterns, its date and time separators, patterns, and day and month names.
 

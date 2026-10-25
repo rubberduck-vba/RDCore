@@ -48,7 +48,7 @@ public sealed class StdFileSystem(IRuntimeSession session) : IStdFileSystemModul
             return Failed<VBStringValue>(VBRuntimeErrorId.InvalidUseOfNull, "a path is no Null");
         }
 
-        var converted = ValueConversions.ToText(argument.TypedValue, session.Environment.Culture);
+        var converted = ValueConversions.ToText(argument.TypedValue, session.Environment.Culture, session.Environment.Regional);
         if (converted is not { IsSuccess: true, Value: VBStringValue value })
         {
             return Failed<VBStringValue>(converted.Error ?? VBRuntimeErrorId.TypeMismatch, "a path is a String");

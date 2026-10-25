@@ -70,7 +70,7 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                         return RuntimeExecutionOutcome.Error(read.ErrorInfo!);
                     }
 
-                    var text = ValueConversions.ToText(read.Result!, session.Environment.Culture);
+                    var text = ValueConversions.ToText(read.Result!, session.Environment.Culture, session.Environment.Regional);
                     if (!text.IsSuccess || text.Value is not VBStringValue converted)
                     {
                         return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, item.Value.Location,

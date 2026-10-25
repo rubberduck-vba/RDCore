@@ -121,7 +121,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return true;
         }
 
-        var converted = ValueConversions.ToText(value, session.Environment.Culture);
+        var converted = ValueConversions.ToText(value, session.Environment.Culture, session.Environment.Regional);
         if (converted.IsSuccess)
         {
             text = (VBStringValue)converted.Value!;

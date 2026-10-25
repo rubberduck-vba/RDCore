@@ -31,19 +31,21 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// <see cref="VBNumericLetCoercionTypeRuntimeSemantics"/>, <see cref="VBBooleanLetCoercionRuntimeSemantics"/>
 /// and <see cref="VBDateLetCoercionRuntimeSemantics"/> respectively, for that same reason.
 /// <para>
-/// 👉 A number or a date is written in the regional settings of the session's environment (<see cref="Culture"/>):
-/// the culture of the thread the interpreter happens to run on is never read.
+/// 👉 A number or a date is written in the regional settings of the session's environment (<see cref="Regional"/>), the same ones a
+/// <c>String</c> is read by: the culture of the thread the interpreter happens to run on is never read.
 /// </para>
 /// </remarks>
 /// <param name="FormatterService">Builds the verbose message of an error.</param>
-/// <param name="Culture">The regional settings a number or a date is written in; the invariant culture when none is given.</param>
+/// <param name="Culture">The culture a number or a date is written in when no regional settings are given; the invariant culture when none is.</param>
+/// <param name="Regional">The regional settings a number or a date is written in.</param>
 public record class VBStringLetCoercionRuntimeSemantics(
     IVerboseMessageBuilder FormatterService,
-    CultureInfo? Culture = null)
+    CultureInfo? Culture = null,
+    SDK.Runtime.RegionalSettings? Regional = null)
     : LetCoercionRuntimeSemantics<VBStringType>(FormatterService)
 {
     /// <summary>
-    /// The culture a number or a date is written in.
+    /// The culture a number or a date is written in when no regional settings are given.
     /// </summary>
     public CultureInfo EffectiveCulture => Culture ?? CultureInfo.InvariantCulture;
 
@@ -54,7 +56,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
     {
         frame = WithoutVariant(frame);
         return frame.DestinationTypeDesc.Target is VBStringType
-            ? FromConversion(ValueConversions.ToText(frame.SourceValue, EffectiveCulture), expression, frame)
+            ? FromConversion(ValueConversions.ToText(frame.SourceValue, EffectiveCulture, Regional), expression, frame)
             : LetCoercionResult.NotApplicable(frame);
     }
 

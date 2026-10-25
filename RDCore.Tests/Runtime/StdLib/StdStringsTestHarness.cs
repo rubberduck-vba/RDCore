@@ -32,12 +32,17 @@ internal static class StdStringsTestHarness
     }
 
     /// <summary>
-    /// The module, over a session whose environment has <paramref name="lcid"/>'s regional settings (invariant at 0) and
-    /// <paramref name="codePage"/>'s ANSI encoding.
+    /// The module, over a session whose environment has <paramref name="lcid"/>'s culture (invariant at 0), <paramref name="codePage"/>'s ANSI encoding,
+    /// and <paramref name="regional"/> settings - en-US's unless said otherwise - which a number or a date is written in.
     /// </summary>
-    public static StdStrings Module(int lcid = 0, int codePage = 1252)
+    public static StdStrings Module(int lcid = 0, int codePage = 1252, RegionalSettings? regional = null)
         => new(RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, lcid, codePage, SupportsOptionCompareDatabase: false), new NoSymbols()));
+            new RuntimeEnvironmentProfile(Is64Bit: true, lcid, codePage, SupportsOptionCompareDatabase: false, RegionalSettings: regional), new NoSymbols()));
+
+    /// <summary>
+    /// The regional settings of de-DE: <c>,</c> before a fraction, <c>.</c> between groups of digits, and dates written <c>dd.MM.yyyy HH:mm:ss</c>.
+    /// </summary>
+    public static RegionalSettings German { get; } = new(",", ".", "€", 2049) { ShortDatePattern = "dd.MM.yyyy", LongTimePattern = "HH:mm:ss" };
 
     #region arguments
 
