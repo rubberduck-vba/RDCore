@@ -48,6 +48,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     private const string Faint = "\u001b[2m";
     private const string NormalIntensity = "\u001b[22m";
 
+    // the fewest cells a description is wrapped to beside the column of the list; a list nearer the right edge than that has its description at the left one.
+    private const int MinimumDescriptionWidth = 32;
+
     private readonly List<string> _history = [];
     private readonly IConsoleKeys _keys = keys;
     private readonly TextWriter _output = output;
@@ -57,6 +60,11 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
     /// <summary>How many items of a completion list are in view at a time.</summary>
     public int ListHeight { get; init; } = 8;
+
+    /// <summary>
+    /// How many lines the description of the selected item takes under the list, at the most: its signature and its documentation, wrapped to the console.
+    /// </summary>
+    public int DescriptionHeight { get; init; } = 6;
 
     /// <summary>Whether the list opens on its own as a word starts to be typed; it always does after a <c>.</c> or a <c>!</c>.</summary>
     public bool CompleteWords { get; init; } = true;
@@ -478,10 +486,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 var fill = Math.Max(0, inner - position.Length - 1);
                 rows.Add($"{margin}{border.BottomLeft}{new string(border.Horizontal, fill)}{position}{below}{border.BottomRight}");
 
-                if (list.SelectedItem?.Detail is { Length: > 0 } detail)
-                {
-                    rows.Add($"{margin}{Faint}{ConsoleText.Truncate(detail, Math.Max(1, columns - column - 1))}{NormalIntensity}");
-                }
+                rows.AddRange(DescriptionOf(list.SelectedItem, column, columns));
             }
 
             // the rows a list needs are made once, under the line - the console scrolls up when the line is at its bottom - and the cursor goes back up to it.
@@ -509,6 +514,29 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
 
             _drawnRows = rows.Count;
+        }
+
+        // what the selected item is, under the list: its signature, then what its documentation says of it, faint - each wrapped to the console, and no more lines
+        // of them than the editor gives a description. A list that drops down near the right edge has its description start at the left one, where it has room.
+        private IEnumerable<string> DescriptionOf(CompletionItem? item, int column, int columns)
+        {
+            if (item is null)
+            {
+                return [];
+            }
+
+            var start = columns - column - 1 >= MinimumDescriptionWidth ? column : 0;
+            var width = Math.Max(1, columns - start - 1);
+            var margin = ToColumn(start + 1);
+
+            var documentation = item.Documentation is { } content ? content.HasMarkupContent ? content.MarkupContent?.Value : content.String : null;
+            IEnumerable<string> lines =
+            [
+                .. item.Detail is { Length: > 0 } detail ? ConsoleText.Wrap(detail, width).Select(line => margin + line) : [],
+                .. documentation is { Length: > 0 } text ? ConsoleText.Wrap(text, width).Select(line => $"{margin}{Faint}{line}{NormalIntensity}") : [],
+            ];
+
+            return lines.Take(editor.DescriptionHeight);
         }
 
         // what kind of name an item is, in one character the width of any other: the VBE has an icon for it.

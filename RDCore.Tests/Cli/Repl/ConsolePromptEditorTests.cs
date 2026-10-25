@@ -133,6 +133,24 @@ public sealed class ConsolePromptEditorTests
     }
 
     [TestMethod]
+    public async Task TheDocumentationOfTheSelectedItem_IsWrappedUnderTheList()
+    {
+        var documentation = string.Join(' ', Enumerable.Repeat("Returns a Variant (String) containing a specified number of characters.", 3));
+        var item = Item("Mid", CompletionItemKind.Function, "Function Mid(String, Start As Long, Optional Length) As Variant") with { Documentation = documentation };
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type("M").Press(Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)), output, () => 60,
+            (_, _, _) => Task.FromResult<IReadOnlyList<CompletionItem>>([item]));
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        var rows = output.ToString().Split("\u001b[1B\r").Select(row => System.Text.RegularExpressions.Regex.Replace(row, "\u001b\\[[0-9;]*[A-Za-z]", string.Empty)).ToArray();
+        var described = rows.Where(row => row.Contains("characters") || row.Contains("Returns") || row.Contains("specified")).ToArray();
+        Assert.IsTrue(described.Length > 1, "the documentation takes more than one line");
+        Assert.IsTrue(rows.All(row => row.TrimEnd().Length <= 60), "no line of it goes past the edge of the console");
+        Assert.IsTrue(rows.Any(row => row.Contains("Function Mid(")), "the signature comes first");
+    }
+
+    [TestMethod]
     public async Task FromAScript_TheLineIsReadAsItIs()
         => Assert.AreEqual("10 PRINT 1", await EnterAsync(new ScriptedKeys(interactive: false).Lines("10 PRINT 1")));
 }
