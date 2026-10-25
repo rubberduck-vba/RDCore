@@ -33,6 +33,8 @@ public sealed class SymbolSyncServiceTests
         public RDCore.SDK.Runtime.Libraries.ReferencedLibraries Libraries => RDCore.SDK.Runtime.Libraries.ReferencedLibraries.None;
 
         public IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> SymbolsUnder(Uri workspaceRoot) => [];
+
+        public IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> DescribedSymbolsOf(Uri workspaceRoot, string library) => [];
     }
 
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) Build(

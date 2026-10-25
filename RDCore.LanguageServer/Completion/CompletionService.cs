@@ -12,8 +12,11 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Completion;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
@@ -59,12 +62,18 @@ internal interface ICompletionService
 /// The module is composed with the workspace's other modules and the libraries the project references, in their place, as the symbols of the workspace are
 /// (<see cref="WorkspaceSymbolResolver"/>); nothing of it is sent to the environment host, whose model is of the code that is loaded and not of the code being typed.
 /// </para>
+/// <para>
+/// An <c>Object</c> or a <c>Variant</c> has no members known when the code is written. For a variable of one, the list offers the members of the classes the module
+/// <c>Set</c>s it to an object of, when <c>CreateObject</c> creates it with a constant identifier (<see cref="ObjectClassInference"/>) - read from the library's
+/// description when the project does not reference it, without the workspace being composed with it. That is a fact for the list only: the member stays late-bound.
+/// </para>
 /// </remarks>
 internal sealed class CompletionService(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
     ISymbolResolver resolver,
     IReferencedLibraryService referencedLibraries,
+    ILibrarySource librarySource,
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger) : ICompletionService
 {
@@ -133,7 +142,7 @@ internal sealed class CompletionService(
         {
             CompletionSiteKind.Name => CompletionCandidates.Names(tree, origin, context.IsStatementStart, options.Value.Workspace.SupportedLanguage.HasBarePrint),
             CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
-            _ => MembersOf(composition, origin, context, parse.SyntaxTree, line),
+            _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, parse.SyntaxTree, line),
         };
 
         if (logger.IsEnabled(LogLevel.Debug))
@@ -175,20 +184,25 @@ internal sealed class CompletionService(
             : [];
     }
 
-    private static IReadOnlyList<CompletionCandidate> MembersOf(WorkspaceComposition composition, Uri origin, CompletionSite context, ModuleNode module, int line)
+    private IReadOnlyList<CompletionCandidate> MembersOf(
+        WorkspaceComposition composition, Uri workspaceRoot, Uri moduleUri, Uri origin, CompletionSite context, ModuleNode module, int line)
     {
         var scope = composition.ScopeTree.ScopeFor(origin);
+        var site = new MemberSite(composition, workspaceRoot, moduleUri, module, scope,
+            new StaticEnvironment(options.Value.Environment.Is64Bit) { Libraries = librarySource });
 
         // the object of the With blocks the line is in, outermost first: the expression of a nested one can start with a `.` of its own.
+        (ExpressionNode Expression, VBType? Outer)? innermost = null;
         VBType? with = null;
         foreach (var block in module.Descendants().OfType<WithStatementNode>().Where(node => Spans(node, line)))
         {
-            with = TypeOf(composition, scope, block.WithExpression, with);
+            innermost = (block.WithExpression, with);
+            with = TypeOf(site, block.WithExpression, with);
         }
 
         if (context.Qualifier.Length == 0)
         {
-            return with is not null ? CompletionCandidates.MembersOf(with) : [];
+            return innermost is { } block ? MembersOfValue(site, block.Expression, block.Outer, with) : [];
         }
 
         if (CompletionCandidates.NamespaceOf(composition.Resolver, origin, context.Qualifier, typeContext: false) is { } owner)
@@ -197,16 +211,39 @@ internal sealed class CompletionService(
         }
 
         var probe = module.Descendants().OfType<AssignmentStatementNode>().FirstOrDefault(node => node.SourceLocation.Range.Start.Line == line);
-        return probe is not null && TypeOf(composition, scope, probe.Value, with) is { } type ? CompletionCandidates.MembersOf(type) : [];
+        return probe is not null ? MembersOfValue(site, probe.Value, with, TypeOf(site, probe.Value, with)) : [];
+    }
+
+    // where the members are listed: the composed workspace, the module being completed, and the scope of the line.
+    private sealed record class MemberSite(
+        WorkspaceComposition Composition, Uri WorkspaceRoot, Uri ModuleUri, ModuleNode Module, LexicalScope Scope, StaticEnvironment Environment);
+
+    // the members of the value of an expression: those of its declared type; or, when that is an Object or a Variant, which has none known when the code is
+    // written, those of the classes the module Sets it to an object of - a fact for the list, which changes nothing of what the expression is.
+    private IReadOnlyList<CompletionCandidate> MembersOfValue(MemberSite site, ExpressionNode expression, VBType? with, VBType? type)
+    {
+        if (type is not (VBObjectType or VBVariantType))
+        {
+            return type is null ? [] : CompletionCandidates.MembersOf(type);
+        }
+
+        var context = new StaticEvaluationContext(site.Composition.Resolver, site.Scope, EnclosingWithTargetType: with, Environment: site.Environment);
+        return [.. ObjectClassInference.CandidateClassesOf(context, expression, site.Composition.ScopeTree, site.ModuleUri, site.Module)
+            .Select(candidate => ObjectClassInference.ClassOf(candidate, site.Composition.Resolver, site.Scope.Uri,
+                library => referencedLibraries.DescribedSymbolsOf(site.WorkspaceRoot, library)))
+            .OfType<VBClassType>()
+            .SelectMany(CompletionCandidates.MembersOf)
+            .DistinctBy(candidate => candidate.Label, StringComparer.OrdinalIgnoreCase)];
     }
 
     // a block that the line is inside of: between its first line and its last.
     private static bool Spans(SyntaxNode node, int line) => node.SourceLocation.Range.Start.Line < line && line < node.SourceLocation.Range.End.Line;
 
     // the declared type of an expression, as the static semantics give it; nothing for an expression they find an error in.
-    private static VBType? TypeOf(WorkspaceComposition composition, LexicalScope scope, ExpressionNode expression, VBType? with)
+    private static VBType? TypeOf(MemberSite site, ExpressionNode expression, VBType? with)
     {
-        var result = ExpressionStaticSemanticsEvaluator.Evaluate(new StaticEvaluationContext(composition.Resolver, scope, EnclosingWithTargetType: with), expression);
+        var context = new StaticEvaluationContext(site.Composition.Resolver, site.Scope, EnclosingWithTargetType: with, Environment: site.Environment);
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, expression);
         return result.IsSuccess ? result.Result : null;
     }
 }

@@ -9,9 +9,13 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
+using RDCore.Tests.Runtime.Libraries;
+using System.IO.Abstractions;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -73,12 +77,42 @@ public sealed class CompletionServiceTests
         }
     }
 
-    private CompletionService Sut(string language = "vba")
+    // a library of the environment, whose class is created by name.
+    private static readonly LibraryDescription Lab = new()
     {
+        Name = "Lab",
+        Classes =
+        [
+            new ClassDescription
+            {
+                Name = "Shelf",
+                ProgId = "Lab.Shelf",
+                IsCreatable = true,
+                Members =
+                [
+                    new MemberDescription { Name = "Label", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription { Name = "Fill", Kind = MemberKind.Method },
+                ],
+            },
+            new ClassDescription
+            {
+                Name = "Burner",
+                ProgId = "Lab.Burner",
+                IsCreatable = true,
+                Members = [new MemberDescription { Name = "Ignite", Kind = MemberKind.Method }],
+            },
+        ],
+    };
+
+    private CompletionService Sut(string language = "vba", ILibrarySource? source = null, params string[] references)
+    {
+        source ??= new InMemoryLibrarySource(Lab);
         var libraries = Substitute.For<IReferencedLibraryService>();
-        libraries.SymbolsUnder(Arg.Any<Uri>()).Returns([]);
+        libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
+            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, references, [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
+        libraries.DescribedSymbolsOf(Arg.Any<Uri>(), Arg.Any<string>()).Returns(call => LibrarySymbolProvider.ReadDescribed(source, call.Arg<Uri>(), call.Arg<string>()));
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language } });
-        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<CompletionService>.Instance);
+        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, options, NullLogger<CompletionService>.Instance);
     }
 
     // the module with the cursor where the `|` is, which is taken out of the source.
@@ -91,10 +125,10 @@ public sealed class CompletionServiceTests
         return (string.Join("\r\n", lines), position);
     }
 
-    private async Task<string[]> LabelsAsync(string module)
+    private async Task<string[]> LabelsAsync(string module, ILibrarySource? libraries = null, params string[] references)
     {
         var (source, position) = At(module);
-        var list = await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None);
+        var list = await Sut(source: libraries, references: references).CompleteFragmentAsync("Main", source, position, CancellationToken.None);
         return [.. list.Items.Select(item => item.Label)];
     }
 
@@ -220,4 +254,83 @@ public sealed class CompletionServiceTests
         Assert.AreEqual(CompletionItemKind.Function, item.Kind);
         Assert.AreEqual("Function Twice(ByVal Value As Long) As Long", item.Detail);
     }
+
+    // an Object Set to what CreateObject creates is known, by the list, to be of the class the identifier names: whether or not the project references its library.
+    [TestMethod]
+    [DataRow(new string[0], DisplayName = "not referenced")]
+    [DataRow(new[] { "Lab" }, DisplayName = "referenced")]
+    public async Task TheMembersOfAnObjectCreatedByName_AreTheMembersOfItsClass(string[] references)
+        => CollectionAssert.AreEquivalent(new[] { "Label", "Fill" }, await LabelsAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                Dim o As Object
+                Set o = CreateObject("Lab.Shelf")
+                o.|
+            End Sub
+            """, references: references));
+
+    [TestMethod]
+    public async Task TheMembersOfADictionaryCreatedByName_AreTheMembersTheScriptingLibraryDescribes()
+    {
+        var labels = await LabelsAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                Dim o As Object
+                Set o = CreateObject("Scripting.Dictionary")
+                o.|
+            End Sub
+            """, new DirectoryLibrarySource(new FileSystem(), ShippedLibrariesTests.Symbols));
+
+        CollectionAssert.IsSubsetOf(new[] { "Add", "Exists", "Item", "Items", "Keys", "Count", "Remove", "RemoveAll" }, labels);
+    }
+
+    [TestMethod]
+    public async Task AVariantModuleVariable_InAWithBlock_IsKnownFromWhereverTheModuleSetsIt()
+        => CollectionAssert.AreEquivalent(new[] { "Label", "Fill" }, await LabelsAsync("""
+            Attribute VB_Name = "Main"
+            Private Shelf
+
+            Public Sub Init()
+                Set Shelf = CreateObject("Lab.Shelf")
+            End Sub
+
+            Public Sub Run()
+                With Shelf
+                    .|
+                End With
+            End Sub
+            """));
+
+    // what a variable may hold is every class it is Set to: which one it holds is the run's to say.
+    [TestMethod]
+    public async Task AVariableSetToObjectsOfTwoClasses_IsOfferedTheMembersOfBoth()
+        => CollectionAssert.AreEquivalent(new[] { "Label", "Fill", "Ignite" }, await LabelsAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run(ByVal Hot As Boolean)
+                Dim o As Object
+                If Hot Then
+                    Set o = CreateObject("Lab.Burner")
+                Else
+                    Set o = CreateObject("lab.shelf")
+                    Set o = CreateObject("Lab.Shelf")
+                End If
+                o.|
+            End Sub
+            """));
+
+    [TestMethod]
+    public async Task ALocalOfAnotherProcedure_OrAnIdentifierTheCodeDoesNotSay_SaysNothingOfTheVariable()
+        => Assert.AreEqual(0, (await LabelsAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Other()
+                Dim o As Object
+                Set o = CreateObject("Lab.Shelf")
+            End Sub
+
+            Public Sub Run(ByVal Id As String)
+                Dim o As Object
+                Set o = CreateObject(Id)
+                o.|
+            End Sub
+            """)).Length);
 }

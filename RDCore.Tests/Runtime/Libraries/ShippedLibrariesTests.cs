@@ -15,7 +15,8 @@ namespace RDCore.Tests.Runtime.Libraries;
 [TestCategory("RD-VBAL §2.3.1.2 References")]
 public sealed class ShippedLibrariesTests
 {
-    private static string Symbols
+    /// <summary>The <c>Symbols</c> folder of the repository, where the descriptions that ship are.</summary>
+    internal static string Symbols
     {
         get
         {

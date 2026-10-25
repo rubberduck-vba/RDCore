@@ -143,6 +143,8 @@ What the list offers depends on the text of the line before the cursor ([`Comple
 
 A `Private` member is offered only in its own module. A member a library hides (`VB_MemberFlags`) is never offered.
 
+An `Object` or a `Variant` has no members known when the code is written. For a variable of one, the list offers the members of every class the module `Set`s it to an object of with `CreateObject` and a constant identifier (`Set o = CreateObject("Scripting.Dictionary")`), wherever the module does it ([`ObjectClassInference`](../api/RDCore.SDK.Semantics.Static.ObjectClassInference.html)). A class of a library the project does not reference is read from the library's description, and its names are still not names of the project. This is a fact for tooling only: the variable keeps its declared type, nothing about the class is a compile error, and the member stays late-bound when the code runs.
+
 The line being typed seldom parses. The language server takes it out of the module before the module is parsed. For a member access, it puts it back as an assignment of the expression the member is accessed on, whose type comes from the static semantics. The module is composed with the rest of the workspace and the referenced libraries. Nothing of it is sent to the environment host.
 
 `rdcore/session/completion` ([`SessionCompletionParams`](../api/RDCore.SDK.Platform.Protocol.SessionCompletionParams.html)) answers the same list for a module the client supplies with its source. The module stands for the workspace module of the same name. The interactive shell asks it for the line at its prompt, which is not in the program until it is entered.
