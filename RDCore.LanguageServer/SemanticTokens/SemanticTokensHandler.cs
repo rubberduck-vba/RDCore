@@ -6,12 +6,13 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.LanguageServer.SemanticTokens;
 
 /// <summary>
-/// Serves <c>textDocument/semanticTokens/full</c> and <c>/range</c> (<strong>LSP 3.17</strong> §Semantic Tokens), which is how a client colours a document by what its
-/// text is: the keywords, the comments, the literals, and the names of what the module declares.
+/// Serves <c>textDocument/semanticTokens/full</c> (<strong>LSP 3.17</strong> §Semantic Tokens), which is how a client colours a document by what its text is: the
+/// keywords, the comments, the literals, and the names of what the module declares.
 /// </summary>
 /// <remarks>
-/// A range is answered with the tokens of the whole document: the tokens are cheap to give and the client is only ever shown the ones that are in view. Deltas are
-/// not served; a client that asks for the document again gets the document.
+/// Ranges are not served: the tokens of the whole document are cheap to give, and OmniSharp's builder encoded the first token of a range relative to the range
+/// rather than to the start of the document, as LSP has it, so a client put it on the wrong line (HexIDE's findings desk #25). Deltas are not served either; a
+/// client that asks for the document again gets the document.
 /// </remarks>
 internal sealed class SemanticTokensHandler(ISemanticTokensService tokens) : SemanticTokensHandlerBase
 {
@@ -35,6 +36,6 @@ internal sealed class SemanticTokensHandler(ISemanticTokensService tokens) : Sem
                 TokenModifiers = new Container<SemanticTokenModifier>(SemanticTokenLegend.TokenModifiers.Select(modifier => new SemanticTokenModifier(modifier))),
             },
             Full = new SemanticTokensCapabilityRequestFull { Delta = false },
-            Range = true,
+            Range = false,
         };
 }
