@@ -134,9 +134,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     public Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest
         => Connection.SendNotificationAsync(notification, token);
 
-    // the settings of the notification are not read: the server asks for the section it wants.
-    public Task NotifyLiveSettingsChangedAsync(CancellationToken token)
-        => SendNotificationAsync(new DidChangeConfigurationParams { Settings = new Newtonsoft.Json.Linq.JObject() }, token);
+    // the server asks for the section it wants (LSP's pull model).
+    public Task NotifyLiveSettingsChangedAsync(CancellationToken token) => SendNotificationAsync(LiveSettingsProtocol.Changed, token);
 
     // what this component hands down to its server, when it asks: what its own client said, or what its user set.
     private OmniSharp.Extensions.LanguageServer.Protocol.Models.Container<Newtonsoft.Json.Linq.JToken> AnswerConfiguration(ConfigurationParams request)

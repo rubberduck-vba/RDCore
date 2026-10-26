@@ -19,6 +19,12 @@ public static class LiveSettingsProtocol
     public const string Section = "rdcore";
 
     /// <summary>
+    /// What a client says when the live settings changed (<c>workspace/didChangeConfiguration</c>): settings that are <c>null</c>, so that the server asks for
+    /// the section - settings that are anything else, an empty object included, are what the server takes them to be, and it asks nothing.
+    /// </summary>
+    public static DidChangeConfigurationParams Changed => new() { Settings = JValue.CreateNull() };
+
+    /// <summary>
     /// What a client answers a <c>workspace/configuration</c> request with: for each item, the section it names of <paramref name="settings"/> - all of them for
     /// the item that names no section, or <see cref="Section"/> - or <see langword="null"/> for a section that is no setting's.
     /// </summary>

@@ -23,9 +23,15 @@ public sealed class LiveSettingsWireTests
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AServer_AsksForTheLiveSettings_WhenItStarts_AndWhenTheClientSaysTheyChanged()
     {
-        var options = new SdkAppOptions { Server = new SdkServerOptions { Verbose = true } };
+        // each value the client says is one the setting did not start with: a setting that goes back to what it started with is not one that was asked for.
+        var options = new SdkAppOptions { Server = new SdkServerOptions { TraceLevel = Microsoft.Extensions.Logging.LogLevel.Information } };
         var live = new LiveSettings([new LiveSettingsTarget(SettingsSchema.Platform, string.Empty, options)], SettingsSchema.Platform, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
-        var said = new Dictionary<string, string> { ["Server:Verbose"] = "False" };
+        var said = new Dictionary<string, string>
+        {
+            ["Server:TraceLevel"] = "Warning",
+            ["Diagnostics:MeaningfulNames:AllowedNames:0"] = "i",
+            ["Diagnostics:MeaningfulNames:AllowedNames:1"] = "j",
+        };
         var applied = new SemaphoreSlim(0);
 
         var toServer = new Pipe();
@@ -61,17 +67,20 @@ public sealed class LiveSettingsWireTests
         using var languageClient = await connecting;
 
         Assert.IsTrue(await applied.WaitAsync(TimeSpan.FromSeconds(20)), "asked once it is initialized");
-        Assert.IsFalse(options.Server.Verbose);
+        Assert.AreEqual(Microsoft.Extensions.Logging.LogLevel.Warning, options.Server.TraceLevel);
+        Assert.AreEqual("j", live.Current.GetValueOrDefault("Diagnostics:MeaningfulNames:AllowedNames:1"), "a list, item by item: " + string.Join("; ", live.Current));
 
-        said["Server:Verbose"] = "True";
-        languageClient.DidChangeConfiguration(new DidChangeConfigurationParams { Settings = new JObject() });
+        // what the platform's clients send (RDCoreClientApp.NotifyLiveSettingsChangedAsync).
+        said["Server:TraceLevel"] = "Error";
+        languageClient.DidChangeConfiguration(LiveSettingsProtocol.Changed);
 
         var deadline = DateTime.UtcNow.AddSeconds(20);
-        while (!options.Server.Verbose && DateTime.UtcNow < deadline)
+        while (options.Server.TraceLevel != Microsoft.Extensions.Logging.LogLevel.Error && DateTime.UtcNow < deadline)
         {
             await applied.WaitAsync(TimeSpan.FromSeconds(1));
         }
 
-        Assert.IsTrue(options.Server.Verbose, "asked again when the client said it changed");
+        Assert.AreEqual(Microsoft.Extensions.Logging.LogLevel.Error, options.Server.TraceLevel, "asked again when the client said it changed");
+        Assert.AreEqual("j", live.Current.GetValueOrDefault("Diagnostics:MeaningfulNames:AllowedNames:1"), "and told everything again");
     }
 }
