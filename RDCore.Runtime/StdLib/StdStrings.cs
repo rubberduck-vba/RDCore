@@ -368,9 +368,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// ANSI code page, a character the code page lacks being what its encoder maps it to, and a double-byte code read as one
     /// number - "code point value greater than 32,767 are returned as negative Integer data values".
     /// </remarks>
-    public RuntimeSemanticsEvaluationResult<VBIntegerValue> Asc(VBStringValue stringValue)
+    public RuntimeSemanticsEvaluationResult<VBIntegerValue> Asc(VBStringValue @string)
     {
-        if (!TryFirstCharacter(stringValue, nameof(Asc), out var first, out var error))
+        if (!TryFirstCharacter(@string, nameof(Asc), out var first, out var error))
         {
             return Fail<VBIntegerValue>(error);
         }
@@ -381,7 +381,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         }
 
         Span<byte> code = stackalloc byte[8];
-        var length = session.Environment.AnsiEncoding.GetBytes(Text(stringValue).AsSpan(0, 1), code);
+        var length = session.Environment.AnsiEncoding.GetBytes(Text(@string).AsSpan(0, 1), code);
         return Succeed(new VBIntegerValue(length == 1 ? code[0] : unchecked((short)((code[0] << 8) | code[1]))));
     }
 
@@ -390,9 +390,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// "The first eight bits (the first byte) of the implementation dependent character encoding of the string", which is
     /// UTF-16LE: the low byte of the first character, or the byte of a String that is a single byte.
     /// </remarks>
-    public RuntimeSemanticsEvaluationResult<VBIntegerValue> AscB(VBStringValue stringValue)
+    public RuntimeSemanticsEvaluationResult<VBIntegerValue> AscB(VBStringValue @string)
     {
-        var bytes = stringValue.GetBytes();
+        var bytes = @string.GetBytes();
         return bytes.Length == 0
             ? Fail<VBIntegerValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, nameof(AscB), "String is a zero-length string")
             : Succeed(new VBIntegerValue(bytes[0]));
@@ -402,8 +402,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <remarks>
     /// "The 16-bit Unicode code point of the first character": its first code unit, so the high half of a surrogate pair.
     /// </remarks>
-    public RuntimeSemanticsEvaluationResult<VBIntegerValue> AscW(VBStringValue stringValue)
-        => TryFirstCharacter(stringValue, nameof(AscW), out var first, out var error)
+    public RuntimeSemanticsEvaluationResult<VBIntegerValue> AscW(VBStringValue @string)
+        => TryFirstCharacter(@string, nameof(AscW), out var first, out var error)
             ? Succeed(new VBIntegerValue(unchecked((short)first)))
             : Fail<VBIntegerValue>(error);
 

@@ -38,23 +38,25 @@ public interface IStdStringsModule
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.1 Asc</strong> Gets the character code of the first character of a string.
     /// </summary>
-    /// <param name="stringValue">The string whose first character to report the code of.</param>
+    /// <param name="string">The string whose first character to report the code of: the parameter <c>String</c>, which a named argument names
+    /// (<c>Asc(String:="A")</c>).</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult<VBIntegerValue> Asc(VBStringValue stringValue);
+    RuntimeSemanticsEvaluationResult<VBIntegerValue> Asc(VBStringValue @string);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.2 AscB</strong> Gets the value of the first <em>byte</em> of a string, rather than of its first character.
     /// </summary>
-    /// <param name="stringValue">The string whose first byte to report the value of.</param>
+    /// <param name="string">The string whose first byte to report the value of: the parameter <c>String</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult<VBIntegerValue> AscB(VBStringValue stringValue);
+    RuntimeSemanticsEvaluationResult<VBIntegerValue> AscB(VBStringValue @string);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.3 AscW</strong> Gets the <em>Unicode</em> code point of the first character of a string.
     /// </summary>
-    /// <param name="stringValue">The string whose first character to report the code point of.</param>
+    /// <param name="string">The string whose first character to report the code point of: the parameter <c>String</c>, which a named argument names
+    /// (<c>AscW(String:="Z")</c>, MS-VBA, recorded in Excel: oracle\s46 F19).</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult<VBIntegerValue> AscW(VBStringValue stringValue);
+    RuntimeSemanticsEvaluationResult<VBIntegerValue> AscW(VBStringValue @string);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.4 Chr</strong> Gets the character a character code names.
