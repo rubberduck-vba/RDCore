@@ -48,8 +48,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<AutomationCreateParams, AutomationObjectResult>(ExternalProtocol.AutomationCreate, Create);
         channel.Handle<AutomationObtainParams, AutomationObjectResult>(ExternalProtocol.AutomationObtain, Obtain);
         channel.Handle<AutomationInvokeParams, AutomationInvokeResult>(ExternalProtocol.AutomationInvoke, Invoke);
-        channel.Handle<AutomationClassNameParams, AutomationClassNameResult>(ExternalProtocol.AutomationClassName, ClassName);
-        channel.Handle<AutomationMoveNextParams, AutomationMoveNextResult>(ExternalProtocol.AutomationMoveNext, MoveNext);
+        channel.Handle<AutomationClassNameParams, AutomationClassNameResult>(ExternalProtocol.AutomationClassName, ClassName);        channel.Handle<AutomationMoveNextParams, AutomationMoveNextResult>(ExternalProtocol.AutomationMoveNext, MoveNext);
         channel.Handle<AutomationResetParams, ExternalDoneResult>(ExternalProtocol.AutomationReset, Reset);
         channel.Handle<AutomationAdviseParams, ExternalDoneResult>(ExternalProtocol.AutomationAdvise, Advise);
         channel.Handle<AutomationUnadviseParams, ExternalDoneResult>(ExternalProtocol.AutomationUnadvise, Unadvise);
@@ -61,6 +60,82 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormCaptionParams, FormCaptionResult>(ExternalProtocol.FormCaption, FormCaption);
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
+        InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
+        ReleaseOnClient = released => channel.CallAsync<SessionReleaseParams, ExternalDoneResult>(ExternalProtocol.SessionRelease, released);
+    }
+
+    /// <summary>
+    /// Calls an object of the environment host's session, as a server called its stand-in, and completes once it is answered; set once the connection is up.
+    /// </summary>
+    public Func<SessionInvokeParams, Task<SessionInvokeResult>>? InvokeOnClient { get; set; }
+
+    /// <summary>
+    /// Tells the environment host that a stand-in of an object of its session was let go of; set once the connection is up.
+    /// </summary>
+    public Func<SessionReleaseParams, Task<ExternalDoneResult>>? ReleaseOnClient { get; set; }
+
+    // an object of the environment host's session, as this end gives it to a server: the server's side makes the stand-in, whose calls go back over the channel.
+    private object SessionObjectOf(string sessionObject) => new SessionObjectReference(sessionObject, _sessionObjects ??= new ForwardingSessionObjectHost(this));
+
+    private ISessionObjectHost? _sessionObjects;
+
+    // what answers for the objects of the environment host's session, on this end: the calls go back over the channel, as an event does - and the calls the session
+    // makes meanwhile are made on the thread that waits.
+    private sealed class ForwardingSessionObjectHost(ExternalAutomationService service) : ISessionObjectHost
+    {
+        public object? Invoke(SessionObjectCall call) => service.CallSession(call);
+
+        public void Release(string sessionObject, int crossings)
+            => _ = service.ReleaseOnClient?.Invoke(new SessionReleaseParams { SessionObject = sessionObject, Crossings = crossings });
+    }
+
+    // sends a call to the environment host, and waits for the answer on the thread the server called the stand-in on.
+    private object? CallSession(SessionObjectCall call)
+    {
+        if (InvokeOnClient is not { } send)
+        {
+            throw new AutomationException(unchecked((int)0x80004005), "The environment host is not connected.");
+        }
+
+        var number = Interlocked.Increment(ref _lastEvent);
+        var waiting = new EventWait();
+        _events[number] = waiting;
+        try
+        {
+            var reply = send(new SessionInvokeParams
+            {
+                Event = number,
+                SessionObject = call.SessionObject,
+                Name = call.Name,
+                DispatchId = call.DispatchId,
+                Invocation = call.Invocation,
+                Arguments = [.. call.Arguments.Select(argument => ExternalValues.ToWire(argument, _handles.HandleOf))],
+                IsSynchronous = call.IsSynchronous,
+            });
+
+            waiting.Serve(reply, call.IsSynchronous ? null : call.Serve);
+            if (!reply.IsCompletedSuccessfully)
+            {
+                throw new AutomationException(unchecked((int)0x80004005), "The environment host did not answer the call.");
+            }
+
+            if (reply.Result.Failure is { } failure)
+            {
+                throw failure.ToException();
+            }
+
+            var answered = reply.Result.Arguments;
+            for (var index = 0; index < answered.Length && index < call.Arguments.Length; index++)
+            {
+                call.Arguments[index] = ExternalValues.FromWire(answered[index], _handles.ObjectOf, SessionObjectOf);
+            }
+
+            return ExternalValues.FromWire(reply.Result.Returned, _handles.ObjectOf, SessionObjectOf);
+        }
+        finally
+        {
+            _ = _events.TryRemove(number, out _);
+        }
     }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
@@ -122,7 +197,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     public AutomationInvokeResult Invoke(AutomationInvokeParams request) => Answer(request.HandlingEvent, () =>
     {
         var target = _handles.ObjectOf(request.Target);
-        var arguments = request.Arguments.Select(argument => ExternalValues.FromWire(argument, _handles.ObjectOf)).ToArray();
+        var arguments = request.Arguments.Select(argument => ExternalValues.FromWire(argument, _handles.ObjectOf, SessionObjectOf)).ToArray();
         var returned = platform.Invoke(target, request.Member, request.Invocation, arguments, request.ByReference, CultureInfo.GetCultureInfo(request.Culture));
 
         // what the server wrote to an argument passed by reference is all the caller reads of the arguments.
@@ -138,7 +213,6 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     /// <summary>Answers <see cref="ExternalProtocol.AutomationClassName"/>.</summary>
     public AutomationClassNameResult ClassName(AutomationClassNameParams request)
         => Answer(request.HandlingEvent, () => new AutomationClassNameResult { Name = platform.ClassNameOf(_handles.ObjectOf(request.Target)) }, Failed<AutomationClassNameResult>);
-
     /// <summary>Answers <see cref="ExternalProtocol.AutomationMoveNext"/>.</summary>
     public AutomationMoveNextResult MoveNext(AutomationMoveNextParams request) => Answer(request.HandlingEvent, () =>
     {
@@ -226,7 +300,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
             var answered = reply.Result.Arguments;
             for (var index = 0; index < answered.Length && index < raised.Arguments.Length; index++)
             {
-                raised.Arguments[index] = ExternalValues.FromWire(answered[index], _handles.ObjectOf);
+                raised.Arguments[index] = ExternalValues.FromWire(answered[index], _handles.ObjectOf, SessionObjectOf);
             }
         }
         catch (AutomationException)

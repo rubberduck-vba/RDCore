@@ -82,6 +82,12 @@ public enum ExternalValueKind
 
     /// <summary>The element type of an array of anything: an array of <see cref="object"/>.</summary>
     Variant,
+
+    /// <summary>
+    /// An object of the session, by its identity (<see cref="ExternalValue.Text"/>): what the external host's stand-in for it is, and what the session's
+    /// object is again when it comes back (<see cref="Automation.ISessionObjectStandIn"/>).
+    /// </summary>
+    SessionObject,
 }
 
 /// <summary>
@@ -165,6 +171,7 @@ public static class ExternalValues
         DateTime date => Scalar(ExternalValueKind.Date, date.ToOADate().ToString("R", Invariant)),
         string text => Scalar(ExternalValueKind.String, text),
         ErrorWrapper error => Scalar(ExternalValueKind.Error, error.ErrorCode.ToString(Invariant)),
+        Automation.ISessionObjectStandIn standIn => Scalar(ExternalValueKind.SessionObject, standIn.SessionObject),
         Array array => ToWire(array, handleOf),
         _ => new() { Kind = ExternalValueKind.Object, Handle = handleOf(value) },
     };
@@ -190,7 +197,11 @@ public static class ExternalValues
     /// </summary>
     /// <param name="value">The value, as it crossed.</param>
     /// <param name="objectOf">The object a handle is the handle of.</param>
-    public static object? FromWire(ExternalValue value, Func<long, object> objectOf) => value.Kind switch
+    /// <param name="sessionObjectOf">
+    /// What an object of the session is on this end, by its identity: the external host's stand-in for it. Its identity alone
+    /// (<see cref="Automation.SessionObjectIdentity"/>) when omitted, which is all the session needs to find it.
+    /// </param>
+    public static object? FromWire(ExternalValue value, Func<long, object> objectOf, Func<string, object>? sessionObjectOf = null) => value.Kind switch
     {
         ExternalValueKind.Empty => null,
         ExternalValueKind.Null => DBNull.Value,
@@ -213,13 +224,14 @@ public static class ExternalValues
         ExternalValueKind.String => value.Text ?? string.Empty,
         ExternalValueKind.Error => new ErrorWrapper(int.Parse(value.Text!, Invariant)),
         ExternalValueKind.Object => objectOf(value.Handle),
-        ExternalValueKind.Array => ArrayFromWire(value, objectOf),
+        ExternalValueKind.SessionObject => sessionObjectOf?.Invoke(value.Text!) ?? new Automation.SessionObjectIdentity(value.Text!),
+        ExternalValueKind.Array => ArrayFromWire(value, objectOf, sessionObjectOf),
         _ => throw new AutomationException(TypeMismatch, string.Format(CultureInfo.CurrentCulture, ExternalMessages.ValueCannotCross, value.Kind)),
     };
 
     private const int TypeMismatch = unchecked((int)0x80020005);
 
-    private static Array ArrayFromWire(ExternalValue value, Func<long, object> objectOf)
+    private static Array ArrayFromWire(ExternalValue value, Func<long, object> objectOf, Func<string, object>? sessionObjectOf)
     {
         var lowerBounds = value.LowerBounds ?? [];
         var lengths = value.Lengths ?? [];
@@ -229,7 +241,7 @@ public static class ExternalValues
         var index = 0;
         foreach (var subscripts in Subscripts(lowerBounds, lengths))
         {
-            result.SetValue(FromWire(elements[index++], objectOf), subscripts);
+            result.SetValue(FromWire(elements[index++], objectOf, sessionObjectOf), subscripts);
         }
 
         return result;

@@ -228,7 +228,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
                 {
                     for (var element = 0; element < collected.Length; element++)
                     {
-                        passed.Values.Add(AutomationMarshaller.ToAutomation(collected.ElementAt(element)!, HandleOf));
+                        passed.Values.Add(AutomationMarshaller.ToAutomation(collected.ElementAt(element)!, _objects.ToServer));
                         passed.ByReference.Add(false);
                     }
                 }
@@ -252,7 +252,8 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             var typed = declared is VBEnumType
                 ? new VBLongValue(Convert.ToInt32(argument.BoxedValue, System.Globalization.CultureInfo.InvariantCulture))
                 : declared.CreateValue(new ValueBindingHandle(argument));
-            var converted = AutomationMarshaller.ToAutomation(typed, HandleOf, omitEmpty: parameter.IsOptional && parameter.ResolvedType is VBVariantType);
+            // an object of the session is given as MS-VBA gives one: the server holds a stand-in for it (SessionObjectHost).
+            var converted = AutomationMarshaller.ToAutomation(typed, _objects.ToServer, omitEmpty: parameter.IsOptional && parameter.ResolvedType is VBVariantType);
 
             // only a variable can be written to; one of a type the server cannot write a result of back to (an object, an array) is not told.
             var writable = address is { } && parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef

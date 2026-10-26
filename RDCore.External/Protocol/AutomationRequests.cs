@@ -34,7 +34,6 @@ public static class ExternalProtocol
 
     /// <summary><c>rdcore/external/automation/className</c>: the name a server gives the class of an object.</summary>
     public const string AutomationClassName = "rdcore/external/automation/className";
-
     /// <summary><c>rdcore/external/automation/moveNext</c>: moves an enumerator to its next member.</summary>
     public const string AutomationMoveNext = "rdcore/external/automation/moveNext";
 
@@ -52,6 +51,15 @@ public static class ExternalProtocol
 
     /// <summary><c>rdcore/external/automation/event</c>: an object raised an event, which the environment host handles.</summary>
     public const string AutomationEvent = "rdcore/external/automation/event";
+
+    /// <summary>
+    /// <c>rdcore/external/session/invoke</c>: a server called an object of the session through its stand-in, which the environment host answers - as it handles
+    /// an event, with the calls it makes meanwhile made on the thread that waits.
+    /// </summary>
+    public const string SessionInvoke = "rdcore/external/session/invoke";
+
+    /// <summary><c>rdcore/external/session/release</c>: a stand-in of an object of the session was let go of; nothing is answered.</summary>
+    public const string SessionRelease = "rdcore/external/session/release";
 
     /// <summary><c>rdcore/external/forms/create</c>: creates a form from its definition, an object of the automation server like any other.</summary>
     public const string FormCreate = "rdcore/external/forms/create";
@@ -227,7 +235,6 @@ public sealed record class AutomationClassNameResult : ExternalResult
     /// <summary>The name a server gives the class of the object, qualified by its library; <see langword="null"/> when it gives none.</summary>
     public string? Name { get; init; }
 }
-
 /// <summary>Request for <see cref="ExternalProtocol.AutomationMoveNext"/>.</summary>
 public sealed record class AutomationMoveNextParams : AutomationRequest
 {
@@ -302,4 +309,52 @@ public sealed record class AutomationEventResult : ExternalResult
 {
     /// <summary>The arguments as the handlers left them, which is what the server finds in the ones it passed by reference.</summary>
     public ExternalValue[] Arguments { get; init; } = [];
+}
+
+/// <summary>Request for <see cref="ExternalProtocol.SessionInvoke"/>, from the external host to the environment host: <see cref="Automation.SessionObjectCall"/>.</summary>
+public sealed record class SessionInvokeParams
+{
+    /// <summary>
+    /// The number the external host gave the call, from the events' own: what a call that the environment host makes meanwhile says it is made for
+    /// (<see cref="AutomationRequest.HandlingEvent"/>).
+    /// </summary>
+    public long Event { get; init; }
+
+    /// <summary>The identity of the object of the session.</summary>
+    public string SessionObject { get; init; } = string.Empty;
+
+    /// <summary>The name the server called it by: <see cref="Automation.SessionObjectCall.Name"/>.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>The dispatch identifier the server called: <see cref="Automation.SessionObjectCall.DispatchId"/>.</summary>
+    public int DispatchId { get; init; }
+
+    /// <summary>How the member is called.</summary>
+    public Automation.AutomationInvocation Invocation { get; init; }
+
+    /// <summary>The arguments.</summary>
+    public ExternalValue[] Arguments { get; init; } = [];
+
+    /// <summary>Whether a call that the program waits for is what made it.</summary>
+    public bool IsSynchronous { get; init; }
+}
+
+/// <summary>Response for <see cref="ExternalProtocol.SessionInvoke"/>.</summary>
+public sealed record class SessionInvokeResult : ExternalResult
+{
+    /// <summary>What the member returned.</summary>
+    public ExternalValue Returned { get; init; } = new();
+
+    /// <summary>The arguments as the member left them, which is what the server finds in the ones it passed by reference.</summary>
+    public ExternalValue[] Arguments { get; init; } = [];
+}
+
+/// <summary>Request for <see cref="ExternalProtocol.SessionRelease"/>: <see cref="Automation.ISessionObjectHost.Release"/>.</summary>
+public sealed record class SessionReleaseParams
+{
+    /// <summary>The identity of the object of the session.</summary>
+    public string SessionObject { get; init; } = string.Empty;
+
+    /// <summary>How many times it was handed over to the stand-in that was let go of.</summary>
+    public int Crossings { get; init; }
 }

@@ -49,6 +49,72 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     {
         _host = host;
         _host.AutomationEvent = OnEvent;
+        _host.SessionInvoke = OnSessionInvoke;
+        _host.SessionRelease = released =>
+        {
+            if (_sessionHosts.TryGetValue(released.SessionObject, out var owner))
+            {
+                owner.Release(released.SessionObject, released.Crossings);
+            }
+        };
+    }
+
+    // what answers for each object of a session this end handed over, by its identity: the sessions that share the external host each answer for their own.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, ISessionObjectHost> _sessionHosts = new();
+
+    // the objects of a session among the values that cross: what answers for each is remembered, for the calls and the releases that come back.
+    private void Remember(object? value)
+    {
+        switch (value)
+        {
+            case SessionObjectReference reference:
+                _sessionHosts[reference.SessionObject] = reference.Host;
+                break;
+            case Array elements:
+                foreach (var element in elements)
+                {
+                    Remember(element);
+                }
+
+                break;
+        }
+    }
+
+    // a call the external host's server made to an object of the session, through its stand-in: answered here as an event is, with the calls the session makes
+    // meanwhile made on the external host's waiting thread.
+    private SessionInvokeResult OnSessionInvoke(Incarnation incarnation, SessionInvokeParams call)
+    {
+        if (!_sessionHosts.TryGetValue(call.SessionObject, out var owner))
+        {
+            return new SessionInvokeResult { Failure = new ExternalFailure { HResult = unchecked((int)0x800A01A8), Message = "The object of the session is gone." } };
+        }
+
+        var outer = _handlingEvent;
+        _handlingEvent = call.Event;
+        try
+        {
+            var arguments = call.Arguments.Select(argument => ExternalValues.FromWire(argument, handle => ObjectOf(incarnation, handle))).ToArray();
+            var returned = owner.Invoke(new SessionObjectCall(call.SessionObject, call.Name, call.DispatchId, call.Invocation, arguments, call.IsSynchronous, Thread.Sleep));
+            Remember(returned);
+            foreach (var argument in arguments)
+            {
+                Remember(argument);
+            }
+
+            return new SessionInvokeResult
+            {
+                Returned = ExternalValues.ToWire(returned, value => HandleIn(incarnation, value)),
+                Arguments = [.. arguments.Select(argument => ExternalValues.ToWire(argument, value => HandleIn(incarnation, value)))],
+            };
+        }
+        catch (AutomationException failure)
+        {
+            return new SessionInvokeResult { Failure = ExternalFailure.Of(failure) };
+        }
+        finally
+        {
+            _handlingEvent = outer;
+        }
     }
 
     // an external host that cannot be started is not a machine with no servers: the program that asks for one is told the server could not be started.
@@ -145,6 +211,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     {
         var remote = Live(target);
         var incarnation = remote.Incarnation;
+        foreach (var argument in arguments)
+        {
+            Remember(argument);
+        }
+
         var invoked = Send<AutomationInvokeParams, AutomationInvokeResult>(incarnation, ExternalProtocol.AutomationInvoke, new AutomationInvokeParams
         {
             Target = remote.Handle,
@@ -263,6 +334,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         {
             var arguments = raised.Arguments.Select(argument => ExternalValues.FromWire(argument, handle => ObjectOf(incarnation, handle))).ToArray();
             sink.OnEvent(new AutomationEvent(raised.Name, arguments, raised.IsSynchronous, Thread.Sleep) { DispatchId = raised.DispatchId });
+            foreach (var argument in arguments)
+            {
+                Remember(argument);
+            }
+
             return new AutomationEventResult { Arguments = [.. arguments.Select(argument => ExternalValues.ToWire(argument, value => HandleIn(incarnation, value)))] };
         }
         catch (AutomationException failure)

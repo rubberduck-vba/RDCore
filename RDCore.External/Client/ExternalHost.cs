@@ -56,6 +56,16 @@ public sealed class ExternalHost : IDisposable
     internal Func<Incarnation, AutomationEventParams, AutomationEventResult>? AutomationEvent { get; set; }
 
     /// <summary>
+    /// What answers a call an incarnation's server made to an object of the session through its stand-in; set by the client that hands the objects over.
+    /// </summary>
+    internal Func<Incarnation, SessionInvokeParams, SessionInvokeResult>? SessionInvoke { get; set; }
+
+    /// <summary>
+    /// What is told that an incarnation's stand-in of an object of the session was let go of; set by the client that hands the objects over.
+    /// </summary>
+    internal Action<SessionReleaseParams>? SessionRelease { get; set; }
+
+    /// <summary>
     /// The incarnation that is running, started if none is.
     /// </summary>
     /// <exception cref="ExternalHostUnavailableException">The external host could not be started.</exception>
@@ -89,7 +99,17 @@ public sealed class ExternalHost : IDisposable
                 // the calls go over a pipe of their own, which the process opened before it said it was up.
                 var calls = new NamedPipeClientStream(".", ExternalProtocol.CallsPipeName(pipeName), PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
                 calls.Connect(TimeSpan.FromSeconds(30));
-                incarnation.Attach(new CallChannel(calls), raised => AutomationEvent is { } handle ? handle(incarnation, raised) : new AutomationEventResult { Arguments = raised.Arguments });
+                incarnation.Attach(
+                    new CallChannel(calls),
+                    raised => AutomationEvent is { } handle ? handle(incarnation, raised) : new AutomationEventResult { Arguments = raised.Arguments },
+                    call => SessionInvoke is { } answer
+                        ? answer(incarnation, call)
+                        : new SessionInvokeResult { Failure = new ExternalFailure { HResult = unchecked((int)0x80004005), Message = "Nothing answers for the session's objects." } },
+                    released =>
+                    {
+                        SessionRelease?.Invoke(released);
+                        return new ExternalDoneResult();
+                    });
 
                 var status = incarnation.Send<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, new AutomationStatusParams());
                 incarnation.IsAutomationAvailable = status.IsAvailable;
@@ -183,10 +203,16 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     /// </summary>
     /// <param name="calls">The channel.</param>
     /// <param name="onEvent">Handles an event the process raises.</param>
-    public void Attach(CallChannel calls, Func<AutomationEventParams, AutomationEventResult> onEvent)
+    /// <param name="onSessionInvoke">Answers a call the process's servers made to an object of the session.</param>
+    /// <param name="onSessionRelease">Is told that the process let go of a stand-in of an object of the session.</param>
+    public void Attach(
+        CallChannel calls, Func<AutomationEventParams, AutomationEventResult> onEvent, Func<SessionInvokeParams, SessionInvokeResult> onSessionInvoke,
+        Func<SessionReleaseParams, ExternalDoneResult> onSessionRelease)
     {
         Calls = calls;
         calls.Handle(ExternalProtocol.AutomationEvent, onEvent);
+        calls.Handle(ExternalProtocol.SessionInvoke, onSessionInvoke);
+        calls.Handle(ExternalProtocol.SessionRelease, onSessionRelease);
         calls.Start();
         _ = calls.Closed.ContinueWith(_ => MarkLost(), TaskScheduler.Default);
     }

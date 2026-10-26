@@ -29,6 +29,16 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         => session.ExternalObjects.TryGet(identity, out var owner, out var handle) && ReferenceEquals(owner, server) ? handle : null;
 
     /// <summary>
+    /// What the server is given for an object: its handle, for one it holds; for an object of the session's own - an object of a class module, a
+    /// <c>Collection</c> - the stand-in its side makes for it, as MS-VBA hands one to a COM server (<see cref="SessionObjectHost"/>). <see langword="null"/>
+    /// for an object of another server's.
+    /// </summary>
+    public object? ToServer(VBRuntimeObjectId identity)
+        => session.ExternalObjects.TryGet(identity, out var owner, out var handle)
+            ? ReferenceEquals(owner, server) ? handle : null
+            : session.Symbols.TryGetInstance(identity, out _) ? SessionObjectHost.Of(session).Export(identity, server) : null;
+
+    /// <summary>
     /// The object the language holds for an object a server returned.
     /// </summary>
     /// <param name="value">The handle of the object.</param>
@@ -40,6 +50,12 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// </remarks>
     public VBTypedValue Wrap(object value, VBType declared, ISymbolResolver resolver)
     {
+        // an object of the session the server held is the session's object again: `d("key") Is w`.
+        if (value is ISessionObjectStandIn standIn && SessionObjectHost.Of(session).TryFind(standIn, out var own))
+        {
+            return new VBObjectValue(own);
+        }
+
         if (session.ExternalObjects.TryFind(server, value, out var existing))
         {
             return new VBObjectValue(existing);

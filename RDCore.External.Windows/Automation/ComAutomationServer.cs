@@ -142,7 +142,16 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
     /// <inheritdoc/>
     public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
-        => OnApartment(() => InvokeMember(target, member, invocation, arguments, byReference, culture));
+        => OnApartment(() =>
+        {
+            // an object of the session is given to the server as its stand-in; what the server leaves in an argument passed by reference comes back as it is.
+            for (var index = 0; index < arguments.Length; index++)
+            {
+                arguments[index] = ToServer(arguments[index]);
+            }
+
+            return InvokeMember(target, member, invocation, arguments, byReference, culture);
+        });
 
     /// <inheritdoc/>
     public string? ClassNameOf(object target) => OnApartment(() =>
@@ -622,7 +631,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
         public static Exception? LastFailure { get; private set; }
 
-        private static void WriteBack(IntPtr location, object? value, ushort byReference)
+        internal static void WriteBack(IntPtr location, object? value, ushort byReference)
         {
             var kind = (ushort)Marshal.ReadInt16(location);
             if ((kind & byReference) == 0)
@@ -652,6 +661,181 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
                     Marshal.GetNativeVariantForObject(value, target);
                     break;
             }
+        }
+    }
+
+    // the stand-ins of the session's objects, by identity: one object is one stand-in for as long as anything holds it, which is what the server compares
+    // (`d.Exists(o)`, `d(k) Is o`). Read and written on the apartment.
+    private readonly Dictionary<string, WeakReference<SessionObjectStandIn>> _standIns = [];
+
+    // what a server is given for an object of the session: its stand-in, which counts the crossing. Anything else is given as it is.
+    private object? ToServer(object? value)
+    {
+        switch (value)
+        {
+            case SessionObjectReference reference:
+                if (!_standIns.TryGetValue(reference.SessionObject, out var known) || !known.TryGetTarget(out var standIn))
+                {
+                    standIn = new SessionObjectStandIn(reference.SessionObject, reference.Host, _apartment, ToServer);
+                    _standIns[reference.SessionObject] = new WeakReference<SessionObjectStandIn>(standIn);
+                }
+
+                standIn.Crossed();
+                return standIn;
+
+            case object?[] elements:
+                for (var index = 0; index < elements.Length; index++)
+                {
+                    elements[index] = ToServer(elements[index]);
+                }
+
+                return elements;
+
+            default:
+                return value;
+        }
+    }
+
+    /// <summary>
+    /// What a server holds for an object of the session: an <c>IDispatch</c> whose calls are the object's members, called in the session
+    /// (<see cref="ISessionObjectHost.Invoke"/>), and which is the session's object again when it comes back (<see cref="ISessionObjectStandIn"/>).
+    /// </summary>
+    /// <remarks>
+    /// A name the server asks for is given an identifier of the stand-in's own, and called by that name; an identifier it calls without asking - the default
+    /// member's 0, an enumerator's -4, a connection point's - is the session's to read. When nothing holds it any more, the session is told how many times the
+    /// object was handed over to it, which is when the session lets go of the object (<see cref="ISessionObjectHost.Release"/>).
+    /// </remarks>
+    [ComVisible(true)]
+    [ClassInterface(ClassInterfaceType.None)]
+    private sealed class SessionObjectStandIn(string sessionObject, ISessionObjectHost host, ComApartment apartment, Func<object?, object?> toServer)
+        : IEventDispatch, ICustomQueryInterface, ISessionObjectStandIn
+    {
+        private static readonly Guid Dispatch = new("00020400-0000-0000-C000-000000000046");
+        private const ushort ByReference = 0x4000;
+        private const ushort PropertyPut = 4;
+        private const ushort PropertyPutReference = 8;
+        private const ushort Method = 1;
+        private const ushort PropertyGet = 2;
+
+        // an identifier the stand-in gives a name of its own: far above the members' own (0x60030000 and up), so that one called without asking is not one of these.
+        private const int FirstNamed = 0x7F000000;
+
+        private readonly Dictionary<string, int> _identifiers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<int, string> _names = [];
+        private int _crossings;
+
+        public string SessionObject { get; } = sessionObject;
+
+        public void Crossed() => Interlocked.Increment(ref _crossings);
+
+        // nothing holds it any more: the session lets go of the object once every crossing is accounted for.
+        ~SessionObjectStandIn()
+        {
+            try
+            {
+                host.Release(SessionObject, Volatile.Read(ref _crossings));
+            }
+            catch (Exception exception) when (exception is AutomationException or InvalidOperationException or ObjectDisposedException or IOException)
+            {
+                // a session that is gone has nothing left to let go of.
+            }
+        }
+
+        public CustomQueryInterfaceResult GetInterface(ref Guid iid, out IntPtr interfacePointer)
+        {
+            // the runtime offers no IDispatch of its own for a managed object, so the one the class implements is the only one there is.
+            if (iid == Dispatch)
+            {
+                interfacePointer = Marshal.GetComInterfaceForObject(this, typeof(IEventDispatch), CustomQueryInterfaceMode.Ignore);
+                return CustomQueryInterfaceResult.Handled;
+            }
+
+            interfacePointer = IntPtr.Zero;
+            return CustomQueryInterfaceResult.NotHandled;
+        }
+
+        public int GetTypeInfoCount(out int count)
+        {
+            count = 0;
+            return 0;
+        }
+
+        public int GetTypeInfo(int index, int locale, out IntPtr typeInfo)
+        {
+            typeInfo = IntPtr.Zero;
+            return unchecked((int)0x80004001); // E_NOTIMPL
+        }
+
+        // every name is given an identifier: whether the object has the member is the session's to say when it is called.
+        public int GetIDsOfNames(ref Guid identifier, IntPtr names, int count, int locale, IntPtr identifiers)
+        {
+            for (var index = 0; index < count; index++)
+            {
+                var name = Marshal.PtrToStringUni(Marshal.ReadIntPtr(names, index * IntPtr.Size)) ?? string.Empty;
+                if (!_identifiers.TryGetValue(name, out var assigned))
+                {
+                    assigned = FirstNamed + _identifiers.Count;
+                    _identifiers[name] = assigned;
+                    _names[assigned] = name;
+                }
+
+                Marshal.WriteInt32(identifiers, index * sizeof(int), assigned);
+            }
+
+            return 0;
+        }
+
+        public int Invoke(int member, ref Guid identifier, int locale, ushort flags, ref DispatchParameters parameters, IntPtr result, IntPtr exception, IntPtr argumentError)
+        {
+            // the arguments are in the order they are written in, last first: an assignment's value, which the caller names, is the last of them.
+            var size = IntPtr.Size == 8 ? 24 : 16;
+            var count = parameters.ArgumentCount;
+            var first = parameters.Arguments;
+            var locations = Enumerable.Range(0, count).Select(index => first + ((count - 1 - index) * size)).ToArray();
+            var arguments = locations.Select(Marshal.GetObjectForNativeVariant).ToArray();
+            var sent = (object?[])arguments.Clone();
+
+            var invocation = (flags & PropertyPutReference) != 0 ? AutomationInvocation.Set
+                : (flags & PropertyPut) != 0 ? AutomationInvocation.Let
+                : (flags & Method) != 0 && (flags & PropertyGet) == 0 ? AutomationInvocation.Method
+                : AutomationInvocation.Get;
+
+            object? returned;
+            var outer = _handlingEvent;
+            _handlingEvent = true;
+            try
+            {
+                returned = host.Invoke(new SessionObjectCall(
+                    SessionObject, _names.GetValueOrDefault(member), member, invocation, arguments, apartment.IsInCall, apartment.Serve));
+            }
+            catch (AutomationException failure)
+            {
+                return failure.HResult;
+            }
+            catch (Exception failure) when (failure is InvalidOperationException or ObjectDisposedException or IOException)
+            {
+                // a session that is gone answers nothing: the server's call fails.
+                return unchecked((int)0x80004005);
+            }
+            finally
+            {
+                _handlingEvent = outer;
+            }
+
+            for (var index = 0; index < count; index++)
+            {
+                if (!Equals(sent[index], arguments[index]))
+                {
+                    EventReceiver.WriteBack(locations[index], toServer(arguments[index]), ByReference);
+                }
+            }
+
+            if (result != IntPtr.Zero)
+            {
+                Marshal.GetNativeVariantForObject(toServer(returned), result);
+            }
+
+            return 0;
         }
     }
 

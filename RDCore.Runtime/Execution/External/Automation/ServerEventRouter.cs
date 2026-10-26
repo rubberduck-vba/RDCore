@@ -216,7 +216,7 @@ internal sealed class ServerEventRouter(
             {
                 if (resolver.TryRead(address, out var cell))
                 {
-                    arguments[index] = AutomationMarshaller.ToAutomation(parameters[index].ResolvedType.CreateValue(new ValueBindingHandle(cell.Value)), _objects.HandleOf);
+                    arguments[index] = AutomationMarshaller.ToAutomation(parameters[index].ResolvedType.CreateValue(new ValueBindingHandle(cell.Value)), _objects.ToServer);
                 }
             }
 
