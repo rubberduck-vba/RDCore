@@ -204,6 +204,21 @@ internal sealed class HostedForm
     }
 
     /// <summary>
+    /// The focus leaves the form for good, as it does when the form is unloaded: the form is deactivated, and the control that had the focus is left - Microsoft Forms
+    /// raises its extender's events itself, as it does when the focus moves between its controls.
+    /// </summary>
+    public void Leave()
+    {
+        // what VBA's host does: each of the two asks a pending update, the second also exits the control - a cancelled BeforeUpdate is raised twice, as in Excel
+        // (oracle\s41 E11); deactivating in place between them would ask it a third time.
+        if (!IsDestroyed && Form is IOleInPlaceObject inPlace)
+        {
+            _ = inPlace.UIDeactivate();
+            _ = ((IOleObject)Form).Close(Ole.CloseNoSave);
+        }
+    }
+
+    /// <summary>
     /// Closes the form and destroys its window. The form object is let go of by whatever holds its handle.
     /// </summary>
     public void Destroy()

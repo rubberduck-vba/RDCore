@@ -244,7 +244,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
 
         session.ExternalObjects.Bind(identity, outside.Automation, created);
-        FormEvents.Listen(session, outside.Automation, identity, created, designer);
+        FormEvents.Listen(session, outside.Automation, outside.Forms, identity, created, designer);
         return created;
     }
 

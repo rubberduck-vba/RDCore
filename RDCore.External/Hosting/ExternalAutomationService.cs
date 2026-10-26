@@ -59,6 +59,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormHide, HideForm);
         channel.Handle<FormParams, FormIsShownResult>(ExternalProtocol.FormIsShown, IsFormShown);
         channel.Handle<FormCaptionParams, FormCaptionResult>(ExternalProtocol.FormCaption, FormCaption);
+        channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
     }
 
@@ -80,6 +81,13 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     public ExternalDoneResult HideForm(FormParams request) => Answer(request.HandlingEvent, () =>
     {
         _forms.Hide(_handles.ObjectOf(request.Target));
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormLeave"/>.</summary>
+    public ExternalDoneResult LeaveForm(FormParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.Leave(_handles.ObjectOf(request.Target));
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 
