@@ -279,4 +279,7 @@
   <data name="SetThroughACallFails_NoDefaultMemberToSet_Message" xml:space="preserve">
     <value>Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute.</value>
   </data>
+  <data name="EmptyLetToArray_Message" xml:space="preserve">
+    <value>{0} est assigné à un tableau : MS-VBAL le permet, {0} étant un Variant, mais la valeur qu&apos;il contient lève l&apos;erreur d&apos;exécution 13 (Incompatibilité de type) chaque fois que l&apos;assignation s&apos;exécute. Erase vide un tableau dynamique.</value>
+  </data>
 </root>

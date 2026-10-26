@@ -86,4 +86,5 @@ public enum RDCoreDiagnosticId
     VariantNumberStringComparison = 11011, // two Variants, a number and a String: the number is always less
     SetThroughACallFails = 11012, // Set of a call that returns no object (424), or one whose default member has no Property Set (438): MS-VBA compiles it
     VariantComparedWithStringAsText = 11013, // a Variant number compared with a String as text: MS-VBAL's table says type mismatch (13)
+    EmptyLetToArray = 11016, // Empty or Null Let-assigned to an array (a variable, a function's result): compiles, raises 13 whenever it runs
 }

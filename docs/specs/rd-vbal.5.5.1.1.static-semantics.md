@@ -61,6 +61,14 @@ and so is the address an `AddressOf` expression gives: `ByVal lpfn As Long` take
 it in a 64-bit one. The rule holds wherever a value is Let-coerced: an assignment, and an argument given to a parameter of
 a value type.
 
+## The `Empty` and `Null` literals
+
+**MS-VBAL §3.3.5.2** gives the `Empty` and `Null` literals a declared type of `Variant`, and a `Variant` is valid to
+Let-coerce to an array. So `a = Empty`, with `a` declared `As Integer()`, compiles, and so do `a = Null` and `F = Empty` in
+a function declared `As Integer()`; the value each holds is no array, and the assignment raises run-time error 13 (Type
+mismatch) when it runs. This is what MS-VBA does (Excel, `oracle\s46` F17a-b, `oracle\s48` J01-J02). The static pass states it
+(`ValueExpressionSemanticFlags.EmptyLetToArray`), and RDCore.Diagnostics reports
+[`RDC11016`](../diagnostics/rdc11016.md): the assignment fails whenever it runs.
 
 ---
 > ⏮️ [**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md) | ⏭️ [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)

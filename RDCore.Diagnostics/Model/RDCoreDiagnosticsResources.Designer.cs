@@ -545,5 +545,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("SetThroughACallFails_NoDefaultMemberToSet_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} est assigné à un tableau : MS-VBAL le permet, {0} étant un Variant, mais la valeur qu&apos;il contient lève l&apos;erreur d&apos;exécution 13 (Incompatibilité de type) chaque fois que l&apos;assignation s&apos;exécute. Erase vide un tableau dynamique..
+        /// </summary>
+        public static string EmptyLetToArray_Message {
+            get {
+                return ResourceManager.GetString("EmptyLetToArray_Message", resourceCulture);
+            }
+        }
     }
 }
