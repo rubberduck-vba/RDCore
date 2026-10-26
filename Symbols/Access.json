@@ -7529,6 +7529,8 @@
     {
       "name": "FormatCondition",
       "isCreatable": true,
+      "defaultInterface": "_FormatCondition",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "ForeColor",
@@ -7944,6 +7946,8 @@
       "name": "AccessField",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_AccessField",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Value",
@@ -8414,6 +8418,8 @@
     {
       "name": "Hyperlink",
       "isCreatable": true,
+      "defaultInterface": "_Hyperlink",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "SubAddress",
@@ -8574,6 +8580,8 @@
     {
       "name": "Page",
       "isCreatable": true,
+      "defaultInterface": "_Page",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -9667,6 +9675,8 @@
     {
       "name": "Control",
       "isCreatable": true,
+      "defaultInterface": "_Control",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -10163,6 +10173,8 @@
     {
       "name": "_ControlInReportEvents",
       "isCreatable": true,
+      "defaultInterface": "_Control",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -10710,6 +10722,8 @@
     {
       "name": "Label",
       "isCreatable": true,
+      "defaultInterface": "_Label",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -12563,6 +12577,8 @@
     {
       "name": "_ChildLabel",
       "isCreatable": true,
+      "defaultInterface": "_Label",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -14339,6 +14355,8 @@
     {
       "name": "Rectangle",
       "isCreatable": true,
+      "defaultInterface": "_Rectangle",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -15169,6 +15187,8 @@
     {
       "name": "Line",
       "isCreatable": true,
+      "defaultInterface": "_Line",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -15688,6 +15708,8 @@
     {
       "name": "Image",
       "isCreatable": true,
+      "defaultInterface": "_Image",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -17051,6 +17073,8 @@
     {
       "name": "CommandButton",
       "isCreatable": true,
+      "defaultInterface": "_CommandButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -19804,6 +19828,8 @@
     {
       "name": "OptionButton",
       "isCreatable": true,
+      "defaultInterface": "_OptionButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -21908,6 +21934,8 @@
     {
       "name": "_OptionButtonInOption",
       "isCreatable": true,
+      "defaultInterface": "_OptionButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -24012,6 +24040,8 @@
     {
       "name": "CheckBox",
       "isCreatable": true,
+      "defaultInterface": "_Checkbox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -26119,6 +26149,8 @@
     {
       "name": "_CheckBoxInOption",
       "isCreatable": true,
+      "defaultInterface": "_Checkbox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -28226,6 +28258,8 @@
     {
       "name": "OptionGroup",
       "isCreatable": true,
+      "defaultInterface": "_OptionGroup",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -29888,6 +29922,8 @@
     {
       "name": "BoundObjectFrame",
       "isCreatable": true,
+      "defaultInterface": "_BoundObjectFrame",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -32278,6 +32314,8 @@
     {
       "name": "TextBox",
       "isCreatable": true,
+      "defaultInterface": "_Textbox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -35397,6 +35435,8 @@
     {
       "name": "ListBox",
       "isCreatable": true,
+      "defaultInterface": "_ListBox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -38151,6 +38191,8 @@
     {
       "name": "ComboBox",
       "isCreatable": true,
+      "defaultInterface": "_Combobox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -41487,6 +41529,8 @@
     {
       "name": "ObjectFrame",
       "isCreatable": true,
+      "defaultInterface": "_ObjectFrame",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -43712,6 +43756,8 @@
     {
       "name": "PageBreak",
       "isCreatable": true,
+      "defaultInterface": "_PageBreak",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -43989,6 +44035,8 @@
     {
       "name": "ToggleButton",
       "isCreatable": true,
+      "defaultInterface": "_ToggleButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -46784,6 +46832,8 @@
     {
       "name": "_ToggleButtonInOption",
       "isCreatable": true,
+      "defaultInterface": "_ToggleButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -49580,6 +49630,8 @@
       "name": "PaletteButton",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_PaletteButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -50961,6 +51013,8 @@
     {
       "name": "SubForm",
       "isCreatable": true,
+      "defaultInterface": "_SubForm",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -52390,6 +52444,8 @@
       "name": "SubReport",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_SubReport",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -52442,6 +52498,8 @@
     {
       "name": "CustomControl",
       "isCreatable": true,
+      "defaultInterface": "_CustomControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -54020,6 +54078,8 @@
     {
       "name": "_CustomControlInReport",
       "isCreatable": true,
+      "defaultInterface": "_CustomControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -55569,6 +55629,8 @@
     {
       "name": "TabControl",
       "isCreatable": true,
+      "defaultInterface": "_TabControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -57760,6 +57822,8 @@
     {
       "name": "Section",
       "isCreatable": true,
+      "defaultInterface": "_Section",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -58605,6 +58669,8 @@
     {
       "name": "GroupLevel",
       "isCreatable": true,
+      "defaultInterface": "_GroupLevel",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -58750,6 +58816,8 @@
     {
       "name": "_SectionInReport",
       "isCreatable": true,
+      "defaultInterface": "_Section",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -59624,6 +59692,8 @@
     {
       "name": "_PageHdrFtrInReport",
       "isCreatable": true,
+      "defaultInterface": "_Section",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -60830,6 +60900,8 @@
       "name": "FormOld",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Form",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -64285,6 +64357,8 @@
       "name": "ReportOld",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Report",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "FormName",
@@ -66197,6 +66271,8 @@
       "progId": "Access.Application",
       "isCreatable": true,
       "isApplication": true,
+      "defaultInterface": "_Application",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -68938,6 +69014,7 @@
     {
       "name": "References",
       "isCreatable": true,
+      "defaultInterface": "_References",
       "members": [
         {
           "name": "Parent",
@@ -69049,6 +69126,8 @@
       "name": "DataAccessPage",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_DataAccessPage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "_Name",
@@ -69265,6 +69344,7 @@
     {
       "name": "AllForms",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69317,6 +69397,7 @@
     {
       "name": "AllReports",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69369,6 +69450,7 @@
     {
       "name": "AllMacros",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69421,6 +69503,7 @@
     {
       "name": "AllModules",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69474,6 +69557,7 @@
       "name": "AllDataAccessPages",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69526,6 +69610,7 @@
     {
       "name": "AllTables",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69578,6 +69663,7 @@
     {
       "name": "AllQueries",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69630,6 +69716,7 @@
     {
       "name": "AllViews",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69682,6 +69769,7 @@
     {
       "name": "AllStoredProcedures",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69734,6 +69822,7 @@
     {
       "name": "AllDatabaseDiagrams",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -69908,6 +69997,8 @@
     {
       "name": "CurrentProject",
       "isCreatable": true,
+      "defaultInterface": "_CurrentProject",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AllForms",
@@ -70102,6 +70193,8 @@
     {
       "name": "CurrentData",
       "isCreatable": true,
+      "defaultInterface": "_CurrentData",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AllTables",
@@ -70150,6 +70243,8 @@
     {
       "name": "CodeProject",
       "isCreatable": true,
+      "defaultInterface": "_CurrentProject",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AllForms",
@@ -70344,6 +70439,8 @@
     {
       "name": "CodeData",
       "isCreatable": true,
+      "defaultInterface": "_CurrentData",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AllTables",
@@ -70503,6 +70600,8 @@
       "name": "WizHook",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_WizHook",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Key",
@@ -71680,6 +71779,8 @@
       "name": "DefaultWebOptions",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_DefaultWebOptions",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -71907,6 +72008,8 @@
       "name": "WebOptions",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_WebOptions",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -72040,6 +72143,8 @@
       "name": "Class",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Dummy",
+      "isDefaultInterfaceHidden": true,
       "events": [
         {
           "name": "Initialize"
@@ -72052,6 +72157,7 @@
     {
       "name": "Printer",
       "isCreatable": true,
+      "defaultInterface": "_Printer",
       "members": [
         {
           "name": "ColorMode",
@@ -72441,6 +72547,8 @@
       "name": "FormOldV10",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Form2",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -76630,6 +76738,8 @@
       "name": "ReportOldV10",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Report2",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "FormName",
@@ -78725,6 +78835,7 @@
     {
       "name": "AllFunctions",
       "isCreatable": true,
+      "defaultInterface": "AllObjects",
       "members": [
         {
           "name": "Application",
@@ -78777,6 +78888,7 @@
     {
       "name": "AdditionalData",
       "isCreatable": true,
+      "defaultInterface": "_AdditionalData",
       "members": [
         {
           "name": "Name",
@@ -78846,6 +78958,7 @@
     {
       "name": "AutoCorrect",
       "isCreatable": true,
+      "defaultInterface": "_AutoCorrect",
       "members": [
         {
           "name": "DisplayAutoCorrectOptions",
@@ -78880,6 +78993,7 @@
     {
       "name": "DependencyObjects",
       "isCreatable": true,
+      "defaultInterface": "_DependencyObjects",
       "members": [
         {
           "name": "Application",
@@ -78932,6 +79046,7 @@
     {
       "name": "DependencyInfo",
       "isCreatable": true,
+      "defaultInterface": "_DependencyInfo",
       "members": [
         {
           "name": "Parent",
@@ -78980,6 +79095,7 @@
     {
       "name": "SmartTags",
       "isCreatable": true,
+      "defaultInterface": "_SmartTags",
       "members": [
         {
           "name": "Application",
@@ -79043,6 +79159,7 @@
     {
       "name": "SmartTagAction",
       "isCreatable": true,
+      "defaultInterface": "_SmartTagAction",
       "members": [
         {
           "name": "Application",
@@ -79079,6 +79196,7 @@
     {
       "name": "SmartTagActions",
       "isCreatable": true,
+      "defaultInterface": "_SmartTagActions",
       "members": [
         {
           "name": "Application",
@@ -79131,6 +79249,7 @@
     {
       "name": "SmartTagProperty",
       "isCreatable": true,
+      "defaultInterface": "_SmartTagProperty",
       "members": [
         {
           "name": "Name",
@@ -79186,6 +79305,7 @@
     {
       "name": "SmartTagProperties",
       "isCreatable": true,
+      "defaultInterface": "_SmartTagProperties",
       "members": [
         {
           "name": "Application",
@@ -79254,6 +79374,7 @@
     {
       "name": "SmartTag",
       "isCreatable": true,
+      "defaultInterface": "_SmartTag",
       "members": [
         {
           "name": "Application",
@@ -79466,6 +79587,8 @@
     {
       "name": "Form",
       "isCreatable": true,
+      "defaultInterface": "_Form3",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -84884,6 +85007,8 @@
     {
       "name": "Report",
       "isCreatable": true,
+      "defaultInterface": "_Report3",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "FormName",
@@ -88155,6 +88280,8 @@
     {
       "name": "Attachment",
       "isCreatable": true,
+      "defaultInterface": "_Attachment",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -90522,6 +90649,7 @@
     {
       "name": "MacroError",
       "isCreatable": true,
+      "defaultInterface": "_MacroError",
       "members": [
         {
           "name": "Condition",
@@ -90571,6 +90699,7 @@
     {
       "name": "TempVar",
       "isCreatable": true,
+      "defaultInterface": "_TempVar",
       "members": [
         {
           "name": "_Value",
@@ -90630,6 +90759,7 @@
     {
       "name": "TempVars",
       "isCreatable": true,
+      "defaultInterface": "_TempVars",
       "members": [
         {
           "name": "Application",
@@ -90710,6 +90840,8 @@
     {
       "name": "EmptyCell",
       "isCreatable": true,
+      "defaultInterface": "_EmptyCell",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -91778,6 +91910,8 @@
     {
       "name": "WebBrowserControl",
       "isCreatable": true,
+      "defaultInterface": "_WebBrowserControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -94007,6 +94141,8 @@
     {
       "name": "NavigationButton",
       "isCreatable": true,
+      "defaultInterface": "_NavigationButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -96727,6 +96863,8 @@
     {
       "name": "NavigationControl",
       "isCreatable": true,
+      "defaultInterface": "_NavigationControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -98733,6 +98871,8 @@
       "name": "LocalVar",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_LocalVar",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "_Value",
@@ -98796,6 +98936,8 @@
       "name": "LocalVars",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_LocalVars",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -98965,6 +99107,7 @@
     {
       "name": "ReturnVar",
       "isCreatable": true,
+      "defaultInterface": "_ReturnVar",
       "members": [
         {
           "name": "_Value",
@@ -99000,6 +99143,7 @@
     {
       "name": "ReturnVars",
       "isCreatable": true,
+      "defaultInterface": "_ReturnVars",
       "members": [
         {
           "name": "Application",
@@ -99727,6 +99871,8 @@
     {
       "name": "ChartSeries",
       "isCreatable": true,
+      "defaultInterface": "_ChartSeries",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Name",
@@ -100205,6 +100351,8 @@
     {
       "name": "ChartAxis",
       "isCreatable": true,
+      "defaultInterface": "_ChartAxis",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Name",
@@ -100283,6 +100431,8 @@
     {
       "name": "ChartValues",
       "isCreatable": true,
+      "defaultInterface": "_ChartValues",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Name",
@@ -100361,6 +100511,8 @@
     {
       "name": "Chart",
       "isCreatable": true,
+      "defaultInterface": "_IvyChart",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -103113,6 +103265,8 @@
     {
       "name": "Edge",
       "isCreatable": true,
+      "defaultInterface": "_Edge",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",

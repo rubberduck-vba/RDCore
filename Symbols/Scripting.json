@@ -169,6 +169,8 @@
       "description": "Scripting.Dictionary",
       "progId": "Scripting.Dictionary",
       "isCreatable": true,
+      "defaultInterface": "IDictionary",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Item",
@@ -704,6 +706,7 @@
       "description": "FileSystem Object",
       "progId": "Scripting.FileSystemObject",
       "isCreatable": true,
+      "defaultInterface": "IFileSystem3",
       "members": [
         {
           "name": "Drives",
@@ -1110,6 +1113,8 @@
     {
       "name": "Drive",
       "description": "Drive Object",
+      "defaultInterface": "IDrive",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Path",
@@ -1201,6 +1206,8 @@
     {
       "name": "Drives",
       "description": "Collection of drives associated with drive letters",
+      "defaultInterface": "IDriveCollection",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Item",
@@ -1234,6 +1241,8 @@
     {
       "name": "Folder",
       "description": "Folder object",
+      "defaultInterface": "IFolder",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Path",
@@ -1423,6 +1432,8 @@
     {
       "name": "Folders",
       "description": "Collection of subfolders in a folder",
+      "defaultInterface": "IFolderCollection",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Add",
@@ -1468,6 +1479,8 @@
     {
       "name": "File",
       "description": "File object",
+      "defaultInterface": "IFile",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Path",
@@ -1634,6 +1647,8 @@
     {
       "name": "Files",
       "description": "Collection of files in a folder",
+      "defaultInterface": "IFileCollection",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Item",
@@ -1667,6 +1682,8 @@
     {
       "name": "TextStream",
       "description": "TextStream object",
+      "defaultInterface": "ITextStream",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Line",
@@ -1775,6 +1792,7 @@
       "description": "Script Encoder Object",
       "progId": "Scripting.Encoder",
       "isCreatable": true,
+      "defaultInterface": "IScriptEncoder",
       "members": [
         {
           "name": "EncodeScriptFile",

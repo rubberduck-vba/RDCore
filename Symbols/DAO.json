@@ -1874,6 +1874,7 @@
       "name": "TableDef",
       "progId": "DAO.TableDef.120",
       "isCreatable": true,
+      "defaultInterface": "_TableDef",
       "members": [
         {
           "name": "Properties",
@@ -2174,6 +2175,7 @@
       "name": "Field",
       "progId": "DAO.Field.120",
       "isCreatable": true,
+      "defaultInterface": "_Field",
       "members": [
         {
           "name": "Properties",
@@ -2546,6 +2548,7 @@
       "name": "Index",
       "progId": "DAO.Index.120",
       "isCreatable": true,
+      "defaultInterface": "_Index",
       "members": [
         {
           "name": "Properties",
@@ -3374,6 +3377,7 @@
       "name": "QueryDef",
       "progId": "DAO.QueryDef.120",
       "isCreatable": true,
+      "defaultInterface": "_QueryDef",
       "members": [
         {
           "name": "Properties",
@@ -4011,6 +4015,7 @@
       "name": "Relation",
       "progId": "DAO.Relation.120",
       "isCreatable": true,
+      "defaultInterface": "_Relation",
       "members": [
         {
           "name": "Properties",
@@ -4473,6 +4478,8 @@
       "progId": "DAO.User.120",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_User",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Properties",
@@ -4617,6 +4624,8 @@
       "progId": "DAO.Group.120",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Group",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Properties",
@@ -4798,6 +4807,7 @@
       "progId": "DAO.DBEngine.120",
       "isCreatable": true,
       "isApplication": true,
+      "defaultInterface": "_DBEngine",
       "members": [
         {
           "name": "Properties",
@@ -5154,6 +5164,7 @@
       "progId": "DAO.PrivateDBEngine.120",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_DBEngine",
       "members": [
         {
           "name": "Properties",

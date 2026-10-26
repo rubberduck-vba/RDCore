@@ -56431,6 +56431,8 @@
       "name": "Global",
       "isCreatable": true,
       "isApplication": true,
+      "defaultInterface": "_Global",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -57240,6 +57242,8 @@
       "name": "Application",
       "progId": "Word.Application",
       "isCreatable": true,
+      "defaultInterface": "_Application",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -60512,6 +60516,8 @@
       "name": "Document",
       "progId": "Word.Document.8",
       "isCreatable": true,
+      "defaultInterface": "_Document",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Name",
@@ -65329,6 +65335,8 @@
     {
       "name": "Font",
       "isCreatable": true,
+      "defaultInterface": "_Font",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -66133,6 +66141,8 @@
     {
       "name": "ParagraphFormat",
       "isCreatable": true,
+      "defaultInterface": "_ParagraphFormat",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -66833,6 +66843,8 @@
       "name": "OLEControl",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_OLEControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Left",
@@ -66965,6 +66977,8 @@
     {
       "name": "LetterContent",
       "isCreatable": true,
+      "defaultInterface": "_LetterContent",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",

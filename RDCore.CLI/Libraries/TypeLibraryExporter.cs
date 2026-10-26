@@ -84,9 +84,10 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
                     break;
 
                 case TYPEKIND.TKIND_INTERFACE or TYPEKIND.TKIND_DISPATCH:
-                    // an interface that no coclass has as its default is a class of its own; one that is only raised events through is not.
+                    // an interface that no coclass has as its default is a class of its own; one that is only raised events through is not. IUnknown, which stdole
+                    // declares hidden, is one: what every object is (`As stdole.IUnknown`). IDispatch is restricted, and no type name.
                     if (!classOfInterface.ContainsKey(attr.guid) && !sources.Contains(attr.guid) && !flags.HasFlag(TYPEFLAGS.TYPEFLAG_FRESTRICTED)
-                        && attr.guid != IUnknown && attr.guid != IDispatch)
+                        && attr.guid != IDispatch)
                     {
                         classes.Add(new ClassDescription
                         {
@@ -148,6 +149,12 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             }
         }
 
+        // the default interface is a type name of its own, which the class's members are declared by: IReturnBoolean of ReturnBoolean. One the class names itself
+        // after, or that is IDispatch - a class that declares no interface of its own - is no other name.
+        var interfaceName = defaultInterface is null ? null : Name(defaultInterface);
+        var namesItsInterface = interfaceName is not null && !string.Equals(interfaceName, name, StringComparison.OrdinalIgnoreCase)
+            && Attr(defaultInterface!).guid is var interfaceId && interfaceId != IUnknown && interfaceId != IDispatch;
+
         var creatable = flags.HasFlag(TYPEFLAGS.TYPEFLAG_FCANCREATE);
         return new ClassDescription
         {
@@ -157,6 +164,8 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             IsCreatable = creatable,
             IsHidden = flags.HasFlag(TYPEFLAGS.TYPEFLAG_FHIDDEN),
             IsApplication = flags.HasFlag(TYPEFLAGS.TYPEFLAG_FAPPOBJECT),
+            DefaultInterface = namesItsInterface ? interfaceName : null,
+            IsDefaultInterfaceHidden = namesItsInterface && ((TYPEFLAGS)Attr(defaultInterface!).wTypeFlags).HasFlag(TYPEFLAGS.TYPEFLAG_FHIDDEN),
             Members = defaultInterface is null ? [] : Ordered(MembersOf(loaded, defaultInterface, [])),
             Events = defaultSource is null ? [] : [.. EventsOf(loaded, defaultSource)],
         };
