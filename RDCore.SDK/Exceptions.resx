@@ -489,6 +489,9 @@
   <data name="VBCompileError_ReDimOfAMemberOfAnObject_Verbose" xml:space="preserve">
     <value>'{0}' is a member of an object, which a ReDim does not re-dimension: re-dimension the array in its class, or a variable of the code's own.</value>
   </data>
+  <data name="VBCompileError_ReDimOfANameUsedBefore_Verbose" xml:space="preserve">
+    <value>'{0}' is used before this ReDim with no declaration, which declares it there as a variable of its own: declare the array with Dim before its first use, then re-dimension it.</value>
+  </data>
   <data name="VBCompileError_PrivateTypeInPublicMember_Verbose" xml:space="preserve">
     <value>'{0}' is public, and is declared with '{1}', which is private to its module.</value>
   </data>

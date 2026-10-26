@@ -129,6 +129,11 @@ public static class StatementStaticSemanticsEvaluator
 
     private static ImmutableArray<VBCompileErrorInfo> Run(StaticEvaluationContext context, StatementBlock block, Walk walk)
     {
+        if (!walk.Structural)
+        {
+            FindNamesUsedBeforeTheirReDim(context, block, walk);
+        }
+
         EvaluateBlock(context, block, walk);
         ReportUndefinedLabels(walk);
         return walk.Errors.ToImmutable();
@@ -278,6 +283,14 @@ public static class StatementStaticSemanticsEvaluator
 
             CollectError(valueResult, walk);
 
+            // a name assigned before the ReDim that would declare it is a Variant MS-VBA declared implicitly here: anything is assigned to it, and the ReDim
+            // is what is wrong ("Invalid ReDim", reported there).
+            if (assignment.Target is SimpleNameExpressionNode implicitVariable
+                && walk.NamesUsedBeforeTheirReDim.TryGetValue(implicitVariable.IdentifierName, out var redimAt) && assignment.SourceLocation.Range.Start < redimAt)
+            {
+                return;
+            }
+
             // MS-VBAL §5.4.3.8: a value let-assigned to an object is assigned to its default member, which is not the coercion of the value to the object.
             var assignsADefaultMember = assignment.Kind != AssignmentKind.Set && targetResult.Result is VBClassType or VBObjectType;
 
@@ -389,6 +402,16 @@ public static class StatementStaticSemanticsEvaluator
                     MarkWritten(context, midStatement.Target);
                     break;
                 case RedimDeclarationNode redim:
+                    if (redim.Target is SimpleNameExpressionNode usedBefore
+                        && walk.NamesUsedBeforeTheirReDim.TryGetValue(usedBefore.IdentifierName, out var declaringReDim) && declaringReDim == redim.Location.Range.Start)
+                    {
+                        // the name is a variable the procedure declared implicitly where it was first used, and not the array this ReDim would declare.
+                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidReDim, redim.Target.Location,
+                            string.Format(Exceptions.VBCompileError_ReDimOfANameUsedBefore_Verbose, usedBefore.IdentifierName)));
+                        MarkWritten(context, redim.Target);
+                        break;
+                    }
+
                     // the target is the array, which is not one of the statement's operands: it is evaluated here.
                     var redimensioned = ExpressionStaticSemanticsEvaluator.Evaluate(context, redim.Target);
                     CollectError(redimensioned, walk);
@@ -1001,6 +1024,31 @@ public static class StatementStaticSemanticsEvaluator
     };
 
     // whether the array a ReDim re-dimensions is the local it declares (MS-VBAL §5.4.3.3: "If the name has no matches").
+    // MS-VBAL §5.4.3.3: a ReDim of a name that matches nothing declares its array. MS-VBA decides that by the text of the procedure: a name used before the
+    // first ReDim of it - written, read, on a line that never runs - is a variable declared implicitly there, which no ReDim re-dimensions ("Invalid
+    // ReDim"); a name used only after it is the array (Excel-verified, oracle\findings-labels R01-R10). The symbols declare the ReDim's array for the whole
+    // procedure, so the names used before are found here, by where they are written, for the walk to tell.
+    private static void FindNamesUsedBeforeTheirReDim(StaticEvaluationContext context, StatementBlock block, Walk walk)
+    {
+        var nodes = block.Children.SelectMany(child => child.Descendants().Prepend(child)).ToList();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var redim in nodes.OfType<RedimDeclarationNode>())
+        {
+            // only the first ReDim of a name declares it: a name the first one declared is the array for the ReDims after it.
+            if (redim.Target is not SimpleNameExpressionNode name || !seen.Add(name.IdentifierName) || !DeclaresItsArray(context, redim))
+            {
+                continue;
+            }
+
+            var at = redim.Location.Range.Start;
+            if (nodes.OfType<SimpleNameExpressionNode>().Any(used => used.Location.Range.Start < at
+                && string.Equals(used.IdentifierName, name.IdentifierName, StringComparison.OrdinalIgnoreCase)))
+            {
+                walk.NamesUsedBeforeTheirReDim[name.IdentifierName] = at;
+            }
+        }
+    }
+
     private static bool DeclaresItsArray(StaticEvaluationContext context, RedimDeclarationNode redim)
         => redim.Target is SimpleNameExpressionNode name
             && context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is VBLocalVariableSymbol { DeclaredBy: LocalDeclarationKind.ReDim };
@@ -1254,6 +1302,9 @@ public static class StatementStaticSemanticsEvaluator
 
         // the names the walked procedure has declared so far, and where: its parameters, variables and constants share one scope.
         public Dictionary<string, List<SourcePosition>> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        // the names the procedure uses before the first ReDim that would declare them, and where that ReDim is: see FindNamesUsedBeforeTheirReDim.
+        public Dictionary<string, SourcePosition> NamesUsedBeforeTheirReDim { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         // the kind of procedure the walked body belongs to, when it is known.
         public MemberKind? Procedure { get; init; }
