@@ -305,6 +305,16 @@ public static class StatementStaticSemanticsEvaluator
                 MarkSetThroughACall(context, assignment.Target);
             }
 
+            // a resizable array is assigned an array, or a Variant that may hold one (or a String, the data of a Byte array, §5.5.1.2.6); a number is never
+            // one, which MS-VBA refuses before the coercion of it is considered (Excel-verified, oracle\findings-labels A03, A04, A06, R02: "Can't assign
+            // to array").
+            if (isLet && targetResult.IsSuccess && targetResult.Result is VBArrayType && assignment.Target is SimpleNameExpressionNode arrayName
+                && valueResult.IsSuccess && valueResult.Result is VBNumericType)
+            {
+                walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.CantAssignToArray, assignment.Target.Location, arrayName.IdentifierName));
+                return;
+            }
+
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), walk);
