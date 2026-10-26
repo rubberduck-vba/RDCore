@@ -234,6 +234,25 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
 
+### `textDocument/codeAction`
+
+The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix` and `refactor.rename`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
+
+An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCore.SDK.Model.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
+
+|Offered|Kind|Does|
+|---|---|---|
+|A rename that fixes a diagnostic, to each name its analyzer suggests|`quickfix`, preferred|Its `edit` is the rename's `WorkspaceEdit`. Offered only when the rename can be made.|
+|A rename that fixes a diagnostic, to a name the user chooses|`quickfix`|Its `command` is `rdcore.rename`.|
+|A rename of each name the range declares, or of the name at the position of an empty range|`refactor.rename`|Its `command` is `rdcore.rename`.|
+
+`rdcore.rename` ([`RefactoringCommands.Rename`](../api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
+
+|Diagnostic|Fixed by|
+|---|---|
+|[RDC01001](../diagnostics/rdc01001.md) - a name that does not say what it is|A rename to a name the user chooses.|
+|[RDC01002](../diagnostics/rdc01002.md) - Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
+
 ### `workspace/configuration` and `workspace/didChangeConfiguration`
 
 The settings a user changes while the platform runs travel as **LSP 3.17** has them (§Configuration Request, §DidChangeConfiguration Notification): the client

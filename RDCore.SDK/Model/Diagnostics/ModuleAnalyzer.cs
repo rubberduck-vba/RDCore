@@ -33,6 +33,12 @@ public sealed record class AnalyzerFinding(RDCoreDiagnosticId Id, SourceRange Ra
     /// that is dead, which a client renders faded, as it renders code that cannot be reached.
     /// </summary>
     public IReadOnlyList<DiagnosticTag> Tags { get; init; } = [];
+
+    /// <summary>
+    /// What can be done about the finding, which the platform offers as code actions (<see cref="DiagnosticFixes"/>); <see langword="null"/> when nothing is
+    /// known to fix it.
+    /// </summary>
+    public DiagnosticFixes? Fixes { get; init; }
 }
 
 /// <summary>

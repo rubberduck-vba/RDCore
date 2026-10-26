@@ -55,4 +55,10 @@
   <data name="Rename_Unresolved" xml:space="preserve">
     <value>What '{0}' refers to at {2} is not known: the rename could miss it.</value>
   </data>
+  <data name="CodeAction_Rename" xml:space="preserve">
+    <value>Rename '{0}'…</value>
+  </data>
+  <data name="CodeAction_RenameTo" xml:space="preserve">
+    <value>Rename '{0}' to '{1}'</value>
+  </data>
 </root>

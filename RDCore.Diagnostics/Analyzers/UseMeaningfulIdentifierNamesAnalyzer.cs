@@ -40,7 +40,11 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
                 RDCoreDiagnosticId.UseMeaningfulIdentifierNames,
                 entry.declared.Range,
                 DiagnosticSeverity.Information,
-                Say(entry.message!, entry.declared.Name)));
+                Say(entry.message!, entry.declared.Name))
+            {
+                // only the user can say what the name means.
+                Fixes = new DiagnosticFixes { Rename = new RenameFix() },
+            });
 
     private static string? MessageFor(string name)
     {

@@ -100,6 +100,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SignatureHelpHandler>();
         builder.WithHandler<RenameHandler>();
         builder.WithHandler<PrepareRenameHandler>();
+        builder.WithHandler<CodeActionHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionDiscardHandler>();

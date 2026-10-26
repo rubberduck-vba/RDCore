@@ -205,6 +205,38 @@ public static class SymbolRename
     }
 
     /// <summary>
+    /// What a client can offer to rename in a range of a module: the name at the position for an empty range - where a cursor is - and each symbol declared in
+    /// the range otherwise - a selection, a line, a whole module. A name that is not renamed is not offered.
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="range">The range.</param>
+    /// <returns>Each symbol once, in the order its name is written in the range.</returns>
+    public static IReadOnlyList<RenameTarget> TargetsIn(RenameContext context, Uri module, SourceRange range)
+    {
+        if (range.IsEmpty)
+        {
+            return Prepare(context, module, range.Start).Target is { } here ? [here] : [];
+        }
+
+        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
+        {
+            return [];
+        }
+
+        var targets = new List<RenameTarget>();
+        foreach (var start in NameOccurrences.DeclarationsIn(source, range))
+        {
+            if (Prepare(context, module, start).Target is { } target && !targets.Any(offered => offered.Symbols.Intersect(target.Symbols).Any()))
+            {
+                targets.Add(target);
+            }
+        }
+
+        return targets;
+    }
+
+    /// <summary>
     /// What renaming <paramref name="target"/> to <paramref name="newName"/> writes (<strong>LSP 3.17</strong> §Rename Request).
     /// </summary>
     /// <param name="context">The workspace.</param>

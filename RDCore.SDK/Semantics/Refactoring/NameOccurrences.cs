@@ -73,6 +73,21 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     }
 
     /// <summary>
+    /// Where each name a declaration declares in <paramref name="range"/> begins, in the order they are written.
+    /// </summary>
+    public static IEnumerable<SourcePosition> DeclarationsIn(RenameModule module, SourceRange range)
+    {
+        var lines = LinesOf(module.Source);
+        foreach (var (node, parent) in Walk(module.Syntax))
+        {
+            if (WrittenName(node, parent, lines) is { Kind: OccurrenceKind.Declaration } written && Contains(range, written.Range.Start))
+            {
+                yield return written.Range.Start;
+            }
+        }
+    }
+
+    /// <summary>
     /// Every place <paramref name="name"/> is written in <paramref name="modules"/>, in any case, and what it refers to at each.
     /// </summary>
     public static NameOccurrences Find(RenameContext context, string name, IEnumerable<RenameModule> modules)
