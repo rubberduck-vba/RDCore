@@ -70,7 +70,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     private readonly ConsoleBorder _border = border ?? ConsoleBorder.Single;
 
     /// <summary>How many items of a completion list are in view at a time.</summary>
-    public int ListHeight { get; init; } = 8;
+    public int ListHeight { get; init; } = ConsoleCompletionList.DefaultHeight;
 
     /// <summary>
     /// How many lines the description of the selected item takes under the list, at the most: its signature and its documentation, wrapped to the console.
@@ -184,7 +184,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private SignatureHelp? _signature;
         private Task<SignatureHelp?>? _signing;
         private CancellationTokenSource? _signingCancellation;
-        private int _drawnRows;
+        private readonly List<string> _drawn = [];
         private int _reservedRows;
 
         private TextWriter Output => editor._output;
@@ -235,6 +235,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     if (done == invalidated)
                     {
                         invalidated = editor.Invalidation;
+                        Forget();
                         Draw();
                         continue;
                     }
@@ -720,9 +721,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
             if (_list is { IsEmpty: false } list)
             {
+                // a list can have a thousand items, and is drawn at each key: only the ones in view are written, and its width is the list's to know.
                 var border = editor._border;
-                var labels = list.Items.Select(item => $"{GlyphOf(item.Kind)} {item.Label}").ToList();
-                var inner = Math.Clamp(labels.Max(label => label.Length) + 2, 16, Math.Max(16, Math.Min(48, columns - 2)));
+                var inner = Math.Clamp(list.LongestLabel + 4, 16, Math.Max(16, Math.Min(48, columns - 2)));
                 var column = Math.Clamp(_anchor - _start, 0, Math.Max(0, columns - inner - 2));
                 var margin = ToColumn(column + 1);
 
@@ -730,7 +731,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 rows.Add($"{margin}{border.TopLeft}{new string(border.Horizontal, inner - more.Length)}{more}{border.TopRight}");
                 for (var index = list.Top; index < Math.Min(list.Items.Count, list.Top + list.Height); index++)
                 {
-                    var cell = ConsoleText.PadToWidth(" " + ConsoleText.Truncate(labels[index], inner - 1), inner);
+                    var label = $"{GlyphOf(list.Items[index].Kind)} {list.Items[index].Label}";
+                    var cell = ConsoleText.PadToWidth(" " + ConsoleText.Truncate(label, inner - 1), inner);
                     rows.Add(index == list.Selected
                         ? $"{margin}{border.Vertical}{ReverseVideo}{cell}{NormalVideo}{border.Vertical}"
                         : $"{margin}{border.Vertical}{cell}{border.Vertical}");
@@ -750,26 +752,39 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 Output.Write(new string('\n', rows.Count));
                 Output.Write($"\u001b[{rows.Count}A");
                 _reservedRows = rows.Count;
+                _drawn.Clear();
             }
 
-            var drawn = Math.Max(rows.Count, _drawnRows);
+            // a row that is what it was is not written again: a key moves the selection of a list, and two of its rows change; the console is slow to write to.
+            var drawn = Math.Max(rows.Count, _drawn.Count);
+            var down = 0;
             for (var index = 0; index < drawn; index++)
             {
-                Output.Write("\u001b[1B\r");
-                Output.Write(ClearLine);
-                if (index < rows.Count)
+                down++;
+                var row = index < rows.Count ? rows[index] : null;
+                if (index < _drawn.Count && _drawn[index] == row)
                 {
-                    Output.Write(rows[index]);
+                    continue;
                 }
+
+                Output.Write($"\u001b[{down}B\r");
+                Output.Write(ClearLine);
+                Output.Write(row ?? string.Empty);
+                down = 0;
             }
 
-            if (drawn > 0)
+            var moved = drawn - down;
+            if (moved > 0)
             {
-                Output.Write($"\u001b[{drawn}A");
+                Output.Write($"\u001b[{moved}A");
             }
 
-            _drawnRows = rows.Count;
+            _drawn.Clear();
+            _drawn.AddRange(rows);
         }
+
+        // what is under the line was drawn over by someone else - the output of a program, a progress line: every row of it is written again.
+        private void Forget() => _drawn.Clear();
 
         // what the selected item is, under the list: its signature, then what its documentation says of it, faint - each wrapped to the console, and no more lines
         // of them than the editor gives a description. A list that drops down near the right edge has its description start at the left one, where it has room.

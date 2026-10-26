@@ -18,6 +18,12 @@ namespace RDCore.CLI.App.Console;
 /// </remarks>
 public sealed class ConsoleCompletionList
 {
+    /// <summary>
+    /// How many items are in view at a time, unless said otherwise: a few, which is what is read of a list - the rest is narrowed to as more is typed, and the
+    /// list is drawn again at each key.
+    /// </summary>
+    public const int DefaultHeight = 6;
+
     private readonly IReadOnlyList<CompletionItem> _all;
     private List<CompletionItem> _shown = [];
 
@@ -26,7 +32,7 @@ public sealed class ConsoleCompletionList
     /// </summary>
     /// <param name="items">The items the language server answered with.</param>
     /// <param name="height">How many items are in view at a time.</param>
-    public ConsoleCompletionList(IEnumerable<CompletionItem> items, int height = 8)
+    public ConsoleCompletionList(IEnumerable<CompletionItem> items, int height = DefaultHeight)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
         _all = [.. items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal)];
@@ -56,6 +62,12 @@ public sealed class ConsoleCompletionList
     public bool IsEmpty => _shown.Count == 0;
 
     /// <summary>
+    /// The length of the longest label of <see cref="Items"/>, which the dropdown is as wide as: known once the list is narrowed, rather than each time it is
+    /// drawn.
+    /// </summary>
+    public int LongestLabel { get; private set; }
+
+    /// <summary>
     /// Narrows the list to what goes with <paramref name="typed"/>.
     /// </summary>
     /// <param name="typed">The part of the word that is typed.</param>
@@ -68,6 +80,7 @@ public sealed class ConsoleCompletionList
                 && item.Label.Contains(typed, StringComparison.OrdinalIgnoreCase)),
         ];
 
+        LongestLabel = _shown.Count == 0 ? 0 : _shown.Max(item => item.Label.Length);
         var exact = _shown.FindIndex(item => string.Equals(item.Label, typed, StringComparison.OrdinalIgnoreCase));
         Selected = _shown.Count == 0 ? -1 : Math.Max(0, exact);
         Top = 0;

@@ -150,6 +150,32 @@ public sealed class ConsolePromptEditorTests
         Assert.IsTrue(rows.Any(row => row.Contains("Function Mid(")), "the signature comes first");
     }
 
+    private static readonly CompletionItem[] Names = [.. Enumerable.Range(0, 10).Select(index => Item($"Name{index}"))];
+
+    [TestMethod]
+    public async Task AList_ShowsSixItemsAtATime()
+    {
+        var (editor, output, _) = Editor(new ScriptedKeys().Type("N").Press(Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)), new Source { Names = Names });
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        var text = output.ToString();
+        CollectionAssert.AreEqual(new[] { true, true, true, true, true, true, false }, Names.Take(7).Select(item => text.Contains(item.Label)).ToArray());
+        StringAssert.Contains(text, "1/10 ▼", "the rest is below, and the list says where it is");
+    }
+
+    [TestMethod]
+    public async Task MovingTheSelection_WritesTheRowsThatChange_AndNotTheOthers()
+    {
+        var (editor, output, _) = Editor(new ScriptedKeys().Type("N").Press(Key(ConsoleKey.DownArrow), Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)), new Source { Names = Names });
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        var text = output.ToString();
+        Assert.AreEqual(1, System.Text.RegularExpressions.Regex.Count(text, "Name4"), "a row that is what it was is not written again");
+        Assert.AreEqual(2, System.Text.RegularExpressions.Regex.Count(text, "Name1"), "the row the selection moves to is");
+    }
+
     [TestMethod]
     public async Task FromAScript_TheLineIsReadAsItIs()
         => Assert.AreEqual("10 PRINT 1", await EnterAsync(new ScriptedKeys(interactive: false).Lines("10 PRINT 1")));
