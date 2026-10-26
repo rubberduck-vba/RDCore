@@ -434,3 +434,5 @@
   href: rdc11012.md
 - name: RDC11013 — Variant compared with a String as text
   href: rdc11013.md
+- name: RDC11019 — Type character ignored on a function of the library
+  href: rdc11019.md

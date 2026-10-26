@@ -48,6 +48,16 @@ The name of a class that is not predeclared, used in an expression, is an undefi
 - A `Sub`'s own symbol already carries `VBVoidType` as its type. See
   [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md).
 
+### Type Characters
+
+**MS-VBAL §5.6.10** makes a name invalid when its type character does not match the declared type of what it names: `x$` of a variable declared `As Long`
+is [`VBC09335`](../diagnostics/vbc09335.md) _Type-declaration character does not match declared data type_, as it is in MS-VBA. A function of the library
+that has a form with the character in its name (`Left$`) is that form.
+
+🎯 A reserved function of the library takes any type character, which **MS-VBA** ignores (recorded in Excel): `Len$("abc")` is `3`, a `Long`, and `CVar$(5)`,
+`Abs%(-3)` and `CInt$(2.6)` are the functions without it. RD-VBA does as MS-VBA does, and [`RDC11019`](../diagnostics/rdc11019.md) warns where the character
+is not the function's type. Any other function of the library refuses a character that does not match: `Asc$("A")`, `Sqr$(4)` are `VBC09335`.
+
 ### Resolution Outcomes
 
 The static semantics of a simple name expression have three outcomes, depending on the resolver's result. Each

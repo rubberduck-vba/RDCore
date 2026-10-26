@@ -74,4 +74,10 @@ public enum ValueExpressionSemanticFlags
     /// <c>Variant</c> fails or not by the value it returns, which only an evaluation of it can tell.
     /// </remarks>
     SetHasNoDefaultMemberToSet = 1 << 11,
+
+    /// <summary>
+    /// It is a name of a reserved function of the library written with a type character that does not match the function's declared type (<c>Len$</c>,
+    /// <c>CVar$</c>, <c>Abs%</c>): <strong>MS-VBAL §5.6.10</strong> makes the name invalid, and <strong>MS-VBA</strong> ignores the character.
+    /// </summary>
+    IgnoredTypeCharacter = 1 << 13,
 }

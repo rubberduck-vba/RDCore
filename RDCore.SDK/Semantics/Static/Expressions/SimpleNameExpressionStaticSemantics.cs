@@ -82,11 +82,14 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     // A type-declaration character says the type of the name it is written on, and the name was declared as a type of its own: <c>x$</c> of a variable declared
     // As Long is an error, at the name (and not at the statement it is in). A name that was found as written - Left$ is a member of the library, with the
     // character in its name - was never declared with the character, and says nothing about it. What is not known yet (a type still to be inferred) cannot
-    // be told apart from the character, and is not.
+    // be told apart from the character, and is not. A function of the library whose name is reserved (Len, CVar, Abs, CInt ...) takes any character, which
+    // MS-VBA ignores: Len$("abc") is 3, a Long, and CVar$(5) is 5, an Integer (recorded in Excel: oracle\s46 F18, oracle\s44 D01-D12, D16-D18), where an
+    // ordinary function of the library refuses it (Asc$, Sqr$: D14, D15).
     private static VBCompileErrorInfo? TypeDeclarationCharacterMismatch(SimpleNameExpressionNode name, Symbol symbol)
     {
         if (name.TypeHint is not { Length: > 0 } hint
             || string.Equals(symbol.Name, name.WrittenName, StringComparison.OrdinalIgnoreCase)
+            || IsReservedFunctionOfTheLibrary(name, symbol)
             || symbol is not ITypedSymbol { ResolvedType: var declared }
             || declared is VBUnknownType
             || !IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted)
@@ -98,6 +101,20 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
         return VBCompileErrorInfo.For(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, name.Location,
             $"'{name.WrittenName}': '{hint}' is {hinted.Name}, and '{name.IdentifierName}' is declared as {declared.Name}.");
     }
+
+    private static bool IsReservedFunctionOfTheLibrary(SimpleNameExpressionNode name, Symbol symbol)
+        => ReservedNameStaticSemantics.IsReservedName(name.IdentifierName) && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(symbol);
+
+    /// <summary>
+    /// Whether <paramref name="name"/> is a reserved function of the library written with a type character that does not match the function's declared type:
+    /// <strong>MS-VBAL §5.6.10</strong> makes it invalid, and MS-VBA ignores the character (<see cref="Flags.ValueExpressionSemanticFlags.IgnoredTypeCharacter"/>).
+    /// </summary>
+    /// <param name="name">The name.</param>
+    /// <param name="symbol">What it resolves to.</param>
+    internal static bool IgnoresTypeCharacter(SimpleNameExpressionNode name, Symbol symbol)
+        => name.TypeHint is { Length: > 0 } hint && !string.Equals(symbol.Name, name.WrittenName, StringComparison.OrdinalIgnoreCase)
+            && IsReservedFunctionOfTheLibrary(name, symbol) && symbol is ITypedSymbol { ResolvedType: var declared } && declared is not VBUnknownType
+            && IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) && !hinted.Equals(declared);
 
     internal static VBCompileErrorInfo GetResolutionErrorInfo(
         ExpressionNode expression, string name, VBCompileErrorId errorId, ImmutableArray<Symbol> candidates)
