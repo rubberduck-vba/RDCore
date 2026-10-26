@@ -73,6 +73,15 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
         return had;
     }
 
+    /// <inheritdoc/>
+    public IVBRaisableError? Untrappable { get; private set; }
+
+    /// <inheritdoc/>
+    public void RaiseUntrappable(IVBRaisableError error) => Untrappable ??= error;
+
+    /// <inheritdoc/>
+    public void ClearUntrappable() => Untrappable = null;
+
     // the faulting statement's location belongs to the innermost activation and only to it: a caller's
     // activation record does not say where in itself it is suspended. The GoSubs every activation has not
     // returned from are its own, and are captured now: by the time anyone reads the trace they are popped.

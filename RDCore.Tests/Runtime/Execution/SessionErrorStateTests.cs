@@ -88,14 +88,26 @@ public sealed class SessionErrorStateTests
     [TestMethod]
     public void AnErrorCaughtByAHandler_IsStillTheSessionsCurrentError()
     {
-        // which is the whole point: the handler body is where source reads Err.Number.
+        // which is the whole point: the handler body is where source reads Err.Number - here, as the procedure stops in it.
+        var session = Run(
+            "10 On Error GoTo 30",
+            "20 Error 11",
+            "30 Stop");
+
+        Assert.IsTrue(session.Errors.HasError);
+        Assert.AreEqual((int)VBRuntimeErrorId.DivisionByZero, session.Errors.Current!.ErrorId);
+    }
+
+    [TestMethod]
+    public void AHandlerThatReachesTheEndOfTheProcedure_ClearsIt()
+    {
+        // as an Exit Sub from the handler does (MS-VBA, recorded in Excel: oracle\s44 U01).
         var session = Run(
             "10 On Error GoTo 30",
             "20 Error 11",
             "30 Debug.Print 1");
 
-        Assert.IsTrue(session.Errors.HasError);
-        Assert.AreEqual((int)VBRuntimeErrorId.DivisionByZero, session.Errors.Current!.ErrorId);
+        Assert.IsFalse(session.Errors.HasError);
     }
 
     [TestMethod]
@@ -123,16 +135,28 @@ public sealed class SessionErrorStateTests
     }
 
     [TestMethod]
-    public void AnExitProcedureStatement_ClearsIt()
+    public void AnExitProcedureStatementInAHandler_ClearsIt()
     {
-        // ...and falling off the end of a procedure does not, which is why the clear is on the
-        // statement rather than on the activation ending.
+        var session = Run(
+            "10 On Error GoTo 40",
+            "20 Error 11",
+            "30 Debug.Print 1",
+            "40 Exit Sub");
+
+        Assert.IsFalse(session.Errors.HasError);
+    }
+
+    [TestMethod]
+    public void AnExitProcedureStatement_PastAnErrorResumeNextWentOnFrom_LeavesItSet()
+    {
+        // MS-VBAL 6.1.3.2.1 has Exit Sub clear Err; MS-VBA clears it only from within an error handler, and an error On Error Resume Next went on past
+        // was handled by none (recorded in Excel: oracle\s44 U06).
         var session = Run(
             "10 On Error Resume Next",
             "20 Error 11",
             "30 Exit Sub");
 
-        Assert.IsFalse(session.Errors.HasError);
+        Assert.IsTrue(session.Errors.HasError);
     }
 
     [TestMethod]

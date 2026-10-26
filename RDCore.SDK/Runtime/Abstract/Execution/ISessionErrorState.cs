@@ -144,4 +144,27 @@ public interface ISessionErrorState
     /// </remarks>
     /// <returns><c>true</c> if there was an error to clear.</returns>
     bool Clear();
+
+    /// <summary>
+    /// The error a <c>Class_Terminate</c> raised and left unhandled, which ends the program: no handler of the code that let go of the object handles it
+    /// (MS-VBA reports it as unhandled whatever <c>On Error</c> is in effect where the reference was released - recorded in Excel, grid <c>oracle\s44</c>).
+    /// <see langword="null"/> when there is none.
+    /// </summary>
+    /// <remarks>
+    /// The handler runs because a reference was released, which an assignment, an <c>Erase</c>, a procedure ending or anything else that lets go of a
+    /// value can do - none of which has a result of its own to carry the error in. It is recorded here, and the program is stopped with it as soon as
+    /// what released the reference is over: before the next statement, or as the call that released it returns.
+    /// </remarks>
+    IVBRaisableError? Untrappable { get; }
+
+    /// <summary>
+    /// Records <paramref name="error"/> as <see cref="Untrappable"/>, unless an earlier one already is: the first is the one the program stops with.
+    /// </summary>
+    /// <param name="error">The error a <c>Class_Terminate</c> left unhandled.</param>
+    void RaiseUntrappable(IVBRaisableError error);
+
+    /// <summary>
+    /// Clears <see cref="Untrappable"/>, as a program that starts does: what ended the last one is over.
+    /// </summary>
+    void ClearUntrappable();
 }

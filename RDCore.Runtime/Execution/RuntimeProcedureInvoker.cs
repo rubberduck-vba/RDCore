@@ -120,6 +120,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         (frame.Procedure, frame.Body) = (procedure, body);
         frame.LayOut(activation.Layout);
+
+        // a program that starts is not stopped by what a Class_Terminate left unhandled in the last one (ISessionErrorState.Untrappable).
+        if (!Session.CallStack.Frames.Any())
+        {
+            Session.Errors.ClearUntrappable();
+        }
+
         if (!Session.CallStack.TryPush(frame))
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfStackSpace,
@@ -190,6 +197,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
         {
             ReleaseLocals(frame, GetLocals(procedure), parameters, arguments);
+
+            // a Class_Terminate that letting go of them ran, and that left an error unhandled, fails the call with it - which no handler of the caller
+            // handles (ISessionErrorState.Untrappable).
+            if (Session.Errors.Untrappable is { } untrappable && outcome.Kind is not RuntimeExecutionOutcomeKind.Error)
+            {
+                outcome = RuntimeExecutionOutcome.Error(untrappable);
+            }
         }
 
         // A program that was stopped by a Stop, or by a break, is suspended and not over (MS-VBAL 5.4.2.11): "all variables maintain their state if execution resumes". Its

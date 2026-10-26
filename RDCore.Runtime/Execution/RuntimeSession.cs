@@ -79,15 +79,18 @@ internal sealed class RuntimeSession(
         }
 
         // MS-VBAL §5.3.1.10: Terminate runs while the object is still whole, and may give it a reference again; an
-        // object that has one is not destroyed, and is a candidate again when it next loses its last.
-        // 🚧 TODO an error the handler leaves unhandled is dropped here: a release has no operation to fail, and
-        // the callers of this have no result to carry it in. It belongs to whatever dropped the reference.
+        // object that has one is not destroyed, and is a candidate again when it next loses its last. An error the
+        // handler leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA,
+        // grid oracle\s44): a release has no result to carry it in, so it is recorded, and the executor stops with it.
         if (Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
         {
             _terminating.Add(instance);
             try
             {
-                _ = lifecycle.Terminate(instance);
+                if (lifecycle.Terminate(instance) is { IsError: true, ErrorInfo: { } unhandled })
+                {
+                    Errors.RaiseUntrappable(unhandled);
+                }
             }
             finally
             {

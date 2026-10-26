@@ -343,6 +343,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 activation.WaitedAt = activation.Pc;
             }
 
+            // an error a Class_Terminate left unhandled stops the program after the statement that let go of the object, and no handler handles it
+            // (ISessionErrorState.Untrappable).
+            if (session.Errors.Untrappable is { } untrappable)
+            {
+                return RuntimeExecutionOutcome.Error(untrappable);
+            }
+
             var instruction = list.Items[activation.Pc];
             var instructionContext = ResolveContext(context, activation, list, instruction);
 
@@ -546,9 +553,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     break;
 
                 case InstructionKind.ExitProcedure:
-                    // Exit Sub / Exit Function / Exit Property clear Err too (§6.1.3.2.1). Falling off
-                    // the end of a procedure does not, which is why this is here and not after the loop.
-                    session.Errors.Clear();
+                    ClearHandledError(session, activation);
                     return RuntimeExecutionOutcome.ExitProcedure;
 
                 case InstructionKind.Halt:
@@ -576,7 +581,19 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // fell off the end of the list - MS-VBAL §5.4.2.17: "completes as if execution had reached
         // the end of the body" is the same outcome as an explicit Exit.
+        ClearHandledError(session, activation);
         return RuntimeExecutionOutcome.ExitProcedure;
+    }
+
+    // MS-VBAL §6.1.3.2.1: Exit Sub, Exit Function and Exit Property clear Err. In MS-VBA, reaching the end of the body does too, and either does only from
+    // within an error handler - an error On Error GoTo caught: one On Error Resume Next went on past is still Err when the procedure returns (recorded in
+    // Excel, grid oracle\s44 U01-U07).
+    private static void ClearHandledError(IRuntimeSession session, CallStackFrame activation)
+    {
+        if (activation.ErrorHandler is { ActiveError: not null, Mode: not ErrorHandlingMode.ResumeNext })
+        {
+            _ = session.Errors.Clear();
+        }
     }
 
     // A purely lexical property of the instruction about to run, not something that should persist from
@@ -1395,7 +1412,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // at the statement that did. It goes on from here when it is resumed, to be caught or to end the program as it would have.
         _ = session.Halt.TrySuspendOnError(outcome.ErrorInfo!, session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
 
-        var handler = activation.ErrorHandler;
+        // an error a Class_Terminate left unhandled is handled by nothing: it ends the program, from whichever activation it reaches (MS-VBA, grid oracle\s44).
+        var handler = session.Errors.Untrappable is null ? activation.ErrorHandler : ErrorHandlerState.Disabled;
         switch (handler.Mode)
         {
             case ErrorHandlingMode.ResumeNext:
