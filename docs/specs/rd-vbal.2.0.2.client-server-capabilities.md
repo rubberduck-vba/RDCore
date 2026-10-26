@@ -200,6 +200,22 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/R
 
 `rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
 
+### `workspace/configuration` and `workspace/didChangeConfiguration`
+
+The settings a user changes while the platform runs travel as **LSP 3.17** has them (§Configuration Request, §DidChangeConfiguration Notification): the client
+owns its user's settings, and a server asks for them.
+
+|Message|Direction|Does|
+|---|---|---|
+|`workspace/configuration`|Server to client|Asks for the section `rdcore`: the live settings, keyed as the platform's configuration is (`rdcore.Server.Verbose`). A server asks when it is initialized, and whenever its client says they changed.|
+|`workspace/didChangeConfiguration`|Client to server|Says the live settings changed. Its `settings` are not read: the server asks for the section.|
+|`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the settings changed. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+
+Every client of the platform says it answers `workspace/configuration` (`workspace.configuration`), and answers with what its component hands down
+([`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)): the interactive shell, with the live settings of its user's
+settings; the language server, as the client of its components, with what its own client said. Every server asks, and sets what it is told on its settings
+([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#live-settings)). The language server says each change to the components it is the client of.
+
 ### `window/workDoneProgress`
 
 The language server reports the progress of its work to a client that shows it (`window.workDoneProgress`; **LSP 3.17** §Work Done Progress):

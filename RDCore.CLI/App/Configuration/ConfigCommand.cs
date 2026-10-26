@@ -24,10 +24,12 @@ internal sealed record class ConfigOutput(string Text, MessageKind? Kind = null,
 /// <item><c>CONFIG RESET Server.Verbose</c> removes what the user set of a setting, or of a section; <c>CONFIG RESET</c> of every setting.</item>
 /// </list>
 /// What the user sets is kept in their settings (<see cref="UserSettingsStore"/>), apart from what the platform was deployed with, which takes its place again when
-/// it is reset. A setting is read when the component it is of starts, so a value takes effect the next time the platform does.
+/// it is reset. A setting is read when the component it is of starts, so a value takes effect the next time the platform does - but for a live one
+/// (<see cref="SettingReach.Live"/>), which the shell says to the platform it is the client of as it is set (<see cref="ILiveSettings"/>).
 /// </remarks>
 /// <param name="settings">The settings.</param>
-internal sealed class ConfigCommand(IPlatformSettings settings)
+/// <param name="appliesLive">Whether a live setting takes effect as it is set: the shell's, which is the client of a running platform; not <c>rdc config</c>'s.</param>
+internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive = false)
 {
     /// <summary>The verb.</summary>
     public const string Name = Repl.Commands.ReplCommandNames.Config;
@@ -174,7 +176,8 @@ internal sealed class ConfigCommand(IPlatformSettings settings)
 
         var setting = change.Setting!;
         var written = store.Read().FirstOrDefault(own => IsSame(own.Setting, setting))?.Value ?? value;
-        var lines = new List<ConfigOutput> { new(string.Format(Resources.Config_Set, setting.Key, written), MessageKind.Success) };
+        var said = appliesLive && setting.Reach == SettingReach.Live ? Resources.Config_SetLive : Resources.Config_Set;
+        var lines = new List<ConfigOutput> { new(string.Format(said, setting.Key, written), MessageKind.Success) };
         if (setting.IsTrustSensitive)
         {
             lines.Add(TrustSensitive(setting));

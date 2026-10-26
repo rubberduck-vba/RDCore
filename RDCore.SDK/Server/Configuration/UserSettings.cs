@@ -309,18 +309,22 @@ public static class UserSettingsConfiguration
     /// by hand never keeps the platform from starting, and with it the client that could put it back. A setting the schema does not have is read as it is: it is
     /// another application's to check.
     /// </para>
-    /// <para>The file is read again when it changes.</para>
+    /// <para>
+    /// A component reads the file when it starts, and not again: what a user set takes effect the next time the component starts
+    /// (<see cref="SettingReach.NextStart"/>), unless it is a live setting, which the component's client says while it runs (<see cref="ILiveSettings"/>).
+    /// </para>
     /// </remarks>
     /// <param name="builder">The configuration.</param>
     /// <param name="path">The path of the file (<see cref="UserSettingsStore.PathIn"/>).</param>
     /// <param name="schema">The settings of the application.</param>
-    public static IConfigurationBuilder AddUserSettings(this IConfigurationBuilder builder, string path, SettingsSchema schema)
+    /// <param name="reloadOnChange">Whether the file is read again when it changes; it is not, unless said otherwise.</param>
+    public static IConfigurationBuilder AddUserSettings(this IConfigurationBuilder builder, string path, SettingsSchema schema, bool reloadOnChange = false)
     {
         var source = new UserSettingsConfigurationSource(schema)
         {
             Path = path,
             Optional = true,
-            ReloadOnChange = true,
+            ReloadOnChange = reloadOnChange,
             OnLoadException = context => context.Ignore = true,
         };
         source.ResolveFileProvider();

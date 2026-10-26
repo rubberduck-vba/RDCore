@@ -32,11 +32,16 @@ internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> opt
         "arr", "bln", "byt", "col", "cur", "dbl", "dic", "dtm", "int", "lng", "lst", "obj", "rng", "rs", "sng", "str", "var", "vnt", "wb", "ws",
     ];
 
-    private readonly HashSet<string> _allowed = new(options.Value.HungarianNotation.AllowedNames ?? [], StringComparer.OrdinalIgnoreCase);
-
+    // the names are read when a module is analyzed: they are a live setting, which the client can change while the extension runs.
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
+    {
+        var allowed = new HashSet<string>(options.Value.HungarianNotation.AllowedNames ?? [], StringComparer.OrdinalIgnoreCase);
+        return Analyze(module, allowed);
+    }
+
+    private static IEnumerable<AnalyzerFinding> Analyze(ModuleNode module, HashSet<string> allowed)
         => DeclaredNames.In(module)
-            .Where(declared => !_allowed.Contains(declared.Name) && IsHungarian(declared.Name))
+            .Where(declared => !allowed.Contains(declared.Name) && IsHungarian(declared.Name))
             .Select(declared => new AnalyzerFinding(
                 RDCoreDiagnosticId.HungarianNotation,
                 declared.Range,

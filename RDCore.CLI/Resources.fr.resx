@@ -584,4 +584,7 @@
   <data name="Config_Values_TextList" xml:space="preserve">
     <value>Valeurs : des textes séparés par des virgules.</value>
   </data>
+  <data name="Config_SetLive" xml:space="preserve">
+    <value>{0} = {1}. Ce réglage prend effet maintenant.</value>
+  </data>
 </root>
