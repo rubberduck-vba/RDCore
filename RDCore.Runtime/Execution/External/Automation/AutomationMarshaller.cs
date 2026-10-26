@@ -172,8 +172,8 @@ internal static class AutomationMarshaller
                 VBDoubleType => new VBDoubleValue(Convert.ToDouble(Present(value), CultureInfo.InvariantCulture)),
                 VBCurrencyType => new VBCurrencyValue(Convert.ToDecimal(Present(value), CultureInfo.InvariantCulture)),
                 VBDecimalType => new VBDecimalValue(Convert.ToDecimal(Present(value), CultureInfo.InvariantCulture)),
-                VBDateType => new VBDateValue(Convert.ToDateTime(Present(value), CultureInfo.InvariantCulture).ToOADate()),
-                VBStringType => new VBStringValue(Convert.ToString(Present(value), CultureInfo.InvariantCulture) ?? string.Empty),
+                VBDateType => new VBDateValue(IsAbsent(value) ? 0 : Convert.ToDateTime(value, CultureInfo.InvariantCulture).ToOADate()),
+                VBStringType => new VBStringValue(IsAbsent(value) ? string.Empty : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty),
                 VBClassType or VBObjectType or VBUnknownType => value is null or DBNull ? VBObjectValue.Nothing : wrap(value, declared),
                 VBArrayType => Natural(value, wrap),
                 _ => throw new AutomationException(TypeMismatch, $"A value of type '{declared.Name}' cannot be taken from a server."),
@@ -190,7 +190,11 @@ internal static class AutomationMarshaller
     }
 
     // a number or a string where the server said nothing is the type's own default, as an uninitialized variable is.
-    private static object Present(object? value) => value is null or DBNull or Missing ? 0 : value;
+    private static object Present(object? value) => IsAbsent(value) ? 0 : value!;
+
+    // what a server returns where it says nothing: a null BSTR is one too - Microsoft Forms' Text of an empty TextBox or ComboBox, which MS-VBA reads as ""
+    // (oracle\s41 X01) - and a String's own default is "", as a Date's is day 0, not the number 0 a numeric type's is.
+    private static bool IsAbsent(object? value) => value is null or DBNull or Missing;
 
     /// <summary>
     /// Makes what a server returned the value of the type it is, for a member that is declared to return a <c>Variant</c>.

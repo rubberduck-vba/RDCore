@@ -117,14 +117,14 @@ public sealed class FormHostingTests
         var (world, apartment) = InProcess();
         using var _ = apartment;
 
-        // AmountBox's text is "0" as MVVM's designer saved it.
+        // AmountBox's text is "", as MVVM's designer saved it and MS-VBA reads it (oracle\s41 T01) - Microsoft Forms returns it as a null String.
         var printed = await RunAsync(world,
             "Debug.Print ExampleView.InsideWidth > 0",
-            "Debug.Print TypeName(ExampleView.AmountBox), ExampleView.AmountBox.Text",
+            "Debug.Print TypeName(ExampleView.AmountBox), \"[\" & ExampleView.AmountBox.Text & \"]\"",
             "ExampleView.AmountBox.Text = \"42\"",
             "Debug.Print ExampleView.AmountBox.Text");
 
-        CollectionAssert.AreEqual(new[] { "True", "TextBox       0", "42" }, printed);
+        CollectionAssert.AreEqual(new[] { "True", "TextBox       []", "42" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]
@@ -357,6 +357,14 @@ public sealed class FormHostingTests
     [DataRow(new[] { "Dim c As MSForms.Control", "Set c = ExampleView", "Debug.Print Err.Number", "Dim d As Object", "Set d = CreateObject(\"Scripting.Dictionary\")",
         "Debug.Print TypeOf d Is MSForms.Control" },
         new[] { "13", "False" }, DisplayName = "M06 M09 a form, and an object of another library, are none")]
+    // MVVM's SelectedItemText binding applies to a ComboBox's Text only where the two differ: an empty control's Text is "", which Microsoft Forms returns as a
+    // null String (it read "0", the text of the number a number's default is, and the binding applied where MS-VBA's does not).
+    [DataRow(new[] { "Debug.Print \"[\" & ExampleView.ComboBox1.Text & \"]\"", "Dim c As Variant", "c = CallByName(ExampleView.ComboBox1, \"Text\", VbGet)",
+        "Debug.Print VarType(c) & \" \" & Len(c)", "Dim v As Variant", "v = \"\"", "Debug.Print v <> c" }, new[] { "[]", "8 0", "False" },
+        DisplayName = "X01 an empty ComboBox's Text is \"\"")]
+    [DataRow(new[] { "Dim a(0 To 1) As Variant", "a(0) = \"x\"", "a(1) = \"y\"", "ExampleView.ComboBox1.List = a", "Dim c As Variant",
+        "c = CallByName(ExampleView.ComboBox1, \"Text\", VbGet)", "Debug.Print \"[\" & c & \"]\" & VarType(c)", "Debug.Print ExampleView.ComboBox1.ListIndex",
+        "Debug.Print \"[\" & ExampleView.ComboBox1.Value & \"]\"" }, new[] { "[]8", "-1", "[]" }, DisplayName = "X02 and still is once it has a List")]
     public async Task ControlsAddedAtRunTime_AreWhatMSVBAMakesThem(string[] body, string[] printed)
     {
         RequireMicrosoftForms();
