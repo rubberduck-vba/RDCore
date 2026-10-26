@@ -212,8 +212,12 @@ internal sealed class RenameWorkspace
             .Select(target => (target.Name, module.ToTextRange(target.Range).Start))];
     }
 
+    // a document is the same document however its URI was written: a client writes the drive and its colon as it likes (c%3A, C:), as LSP lets it.
     private DocumentModule? ModuleOf(Uri documentUri)
-        => _modules.FirstOrDefault(module => module.Document.Id.Uri.ToUri().AbsoluteUri == documentUri.AbsoluteUri);
+    {
+        var document = DocumentUri.From(documentUri);
+        return _modules.FirstOrDefault(module => module.Document.Id.Uri == document);
+    }
 
     // a position is named the way the document names it: its file, and the line of its text - for a program of the BASIC, the number it labels the line with.
     private string Say(RenameRefusal refusal) => refusal.ToMessage((module, position) =>
