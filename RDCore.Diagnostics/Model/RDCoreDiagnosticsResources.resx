@@ -279,4 +279,7 @@
   <data name="SetThroughACallFails_NoDefaultMemberToSet_Message" xml:space="preserve">
     <value>Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute.</value>
   </data>
+  <data name="ArgumentTypedArithmeticOverflow_Message" xml:space="preserve">
+    <value>Cette opération est de type {0} : MS-VBA type Abs, Int et Fix d&apos;un nombre comme ce nombre, là où MS-VBAL les déclare Variant. Elle peut déborder (erreur d&apos;exécution 6) là où une opération de Variant s&apos;élargirait à un type plus grand.</value>
+  </data>
 </root>

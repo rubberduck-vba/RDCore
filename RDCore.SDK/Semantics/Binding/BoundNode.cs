@@ -103,7 +103,15 @@ public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, O
 /// <c>VBA.Len(s)</c>, <c>Module1.Total(1)</c>.</param>
 /// <param name="BoundArguments">The argument of each parameter of <paramref name="Procedure"/>, in order; <see langword="null"/> when the arguments do not map to
 /// its parameters, which the call reports when it is made.</param>
-public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Call);
+public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Call)
+{
+    /// <summary>
+    /// The declared type of the call, when it is not the type <see cref="Procedure"/> declares: <c>Abs</c>, <c>Int</c> and <c>Fix</c> of a numeric value are
+    /// of the value's declared type (<see cref="Static.ArgumentTypedFunctions"/>), and what the call returns is a value of it, not a <c>Variant</c> that holds
+    /// one. <see langword="null"/> for a call of the type its procedure declares.
+    /// </summary>
+    public VBType? ResultType { get; init; }
+}
 
 /// <summary>
 /// A name qualified by the project or the procedural module it is a member of, or by the enumeration it is a member of (<strong>MS-VBAL §5.6.12</strong>):

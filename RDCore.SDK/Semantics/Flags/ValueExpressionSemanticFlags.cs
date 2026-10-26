@@ -74,4 +74,11 @@ public enum ValueExpressionSemanticFlags
     /// <c>Variant</c> fails or not by the value it returns, which only an evaluation of it can tell.
     /// </remarks>
     SetHasNoDefaultMemberToSet = 1 << 11,
+
+    /// <summary>
+    /// It is an addition, a subtraction or a multiplication of <c>Byte</c>, <c>Integer</c> or <c>Long</c> values, one of which is <c>Abs</c>, <c>Int</c> or
+    /// <c>Fix</c> of a number: MS-VBA types that call as the number's type, and the operation overflows (error 6) where MS-VBAL, which declares the call
+    /// <c>As Variant</c>, has a <c>Variant</c> operation widen to a larger type (<see cref="Static.ArgumentTypedFunctions"/>).
+    /// </summary>
+    OverflowsWhereVariantWidens = 1 << 12,
 }

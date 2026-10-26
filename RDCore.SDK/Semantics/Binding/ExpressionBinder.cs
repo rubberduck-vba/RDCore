@@ -89,6 +89,10 @@ public sealed class ExpressionBindings
         _nodes[expression.Identity] = NodeFor(context, expression, result, plan);
     }
 
+    // the declared type of a call that is not the one its procedure declares: Abs, Int and Fix of a number are of its type (ArgumentTypedFunctions).
+    private static VBType? ResultTypeOf(Symbol procedure, StaticSemanticsEvaluationResult result)
+        => result.Result is VBNumericType typed && ArgumentTypedFunctions.IsTypedByItsArgument(procedure) ? typed : null;
+
     // an operand is recorded before the expression that has it, so its node is there to build this one from. An expression that is a compile error is bound
     // to the error and to what it is late-bound, its run-time counterpart.
     private BoundNode NodeFor(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result, OperationPlan? plan)
@@ -121,7 +125,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index
                 when context.Resolver.ResolveValue(callee, ScopeKind.Local, context.Scope.Uri).Symbol is
                     VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index)),
+                => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index)) { ResultType = ResultTypeOf(procedure, result) },
 
             // MS-VBAL §5.6.12: a member of a project or a procedural module - `Constants.vbCrLf`, `Module1.Count` - is what the name means unqualified there,
             // and a member of an enumeration named by its type is a constant: neither is a member of a value. Classified and resolved as the evaluation does.
@@ -133,7 +137,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
                 when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier && NamespaceMemberOf(context, qualifier, access) is { } member
                 => member is VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                    ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
+                    ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index)) { ResultType = ResultTypeOf(procedure, result) }
                     : new BoundIndex(index, new BoundQualifiedName(access, member), ArgumentNodes(index)),
 
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no

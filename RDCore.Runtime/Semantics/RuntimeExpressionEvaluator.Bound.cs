@@ -442,8 +442,15 @@ public sealed partial class RuntimeExpressionEvaluator
         => IsWide(call) ? EvaluateStored(session, call, context)
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
             : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
-                ? InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)
+                ? OfResultType(call, InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments))
                 : EvaluateLate(session, call.Expression, context);
+
+    // a call of a declared type its procedure does not declare - Abs, Int, Fix of a number (ArgumentTypedFunctions) - returns a value of it: the Variant the
+    // procedure returns holds one, which is what an operation of the call operates on, as MS-VBA has it (oracle\s46 F10: `Fix(n) * 7000` overflows).
+    private static RuntimeSemanticsEvaluationResult OfResultType(BoundCall call, RuntimeSemanticsEvaluationResult returned)
+        => call.ResultType is { } typed && returned is { IsSuccess: true, Result: VBVariantValue { TypedValue: var held } } && held.TypeInfo.Name == typed.Name
+            ? RuntimeSemanticsEvaluationResult.Success(held)
+            : returned;
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundUnary(IRuntimeSession session, BoundUnary unary, RuntimeEvaluationContext context)
     {

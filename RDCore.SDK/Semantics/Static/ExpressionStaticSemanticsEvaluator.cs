@@ -51,7 +51,8 @@ public static class ExpressionStaticSemanticsEvaluator
         if (context.Facts is { } facts)
         {
             // children are evaluated first, so what is known of an operand is known when the expression that has it is described.
-            facts.Record(ExpressionFactDescriber.Describe(context, facts, expression, result));
+            var fact = ExpressionFactDescriber.Describe(context, facts, expression, result);
+            facts.Record(OverflowsWhereVariantWidens(context, expression, result) ? fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.OverflowsWhereVariantWidens } : fact);
         }
 
         // so are its bindings, so that the plan of an operation is made for the declared types of its operands.
@@ -59,6 +60,18 @@ public static class ExpressionStaticSemanticsEvaluator
 
         return result;
     }
+
+    // an addition, a subtraction or a multiplication of integers, an operand of which is Abs, Int or Fix of a number: the call is of the number's type, as
+    // MS-VBA types it, and the operation can overflow where MS-VBAL's Variant would widen (ArgumentTypedFunctions; oracle\s46 F10).
+    private static bool OverflowsWhereVariantWidens(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result)
+        => expression is VBBinaryOperatorExpressionNode { Token: Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp } binary
+            && result is { IsSuccess: true, Result: VBByteType or VBIntegerType or VBLongType }
+            && (IsArgumentTypedCall(context, binary.Left) || IsArgumentTypedCall(context, binary.Right));
+
+    private static bool IsArgumentTypedCall(StaticEvaluationContext context, ExpressionNode operand)
+        => operand is IndexExpressionNode { Arguments: [var only] } call && ProcedureNamedBy(context, call.Callee) is { } procedure
+            && ArgumentTypedFunctions.IsTypedByItsArgument(procedure)
+            && ArgumentTypedFunctions.DeclaredTypeOfCall(procedure, Evaluate(context with { Facts = null, Bindings = null }, only is NamedArgumentNode named ? named.Value : only).Result) is not null;
 
     private static StaticSemanticsEvaluationResult EvaluateCore(StaticEvaluationContext context, ExpressionNode expression)
         => expression switch
@@ -261,6 +274,13 @@ public static class ExpressionStaticSemanticsEvaluator
         // parameters is not given the arguments written after it: it is called, and they index what it returns.
         if (ProcedureNamedBy(context, indexExpression.Callee) is { } procedure)
         {
+            // Abs, Int and Fix of a number are of its declared type, as MS-VBA types them (ArgumentTypedFunctions).
+            if (indexExpression.Arguments is [var only] && ArgumentTypedFunctions.IsTypedByItsArgument(procedure)
+                && ArgumentTypedFunctions.DeclaredTypeOfCall(procedure, EvaluateIndexArgument(context, only)?.Result) is { } typed)
+            {
+                return StaticSemanticsEvaluationResult.Success(typed);
+            }
+
             var indexesResult = procedure.Parameters.All(parameter => parameter.Name == "Me")
                 && indexExpression.Arguments is not ([] or [MissingArgumentNode]);
             return indexesResult

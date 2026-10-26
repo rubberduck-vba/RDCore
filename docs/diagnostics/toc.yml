@@ -434,3 +434,5 @@
   href: rdc11012.md
 - name: RDC11013 — Variant compared with a String as text
   href: rdc11013.md
+- name: RDC11018 — Integer arithmetic of Abs, Int or Fix that can overflow
+  href: rdc11018.md
