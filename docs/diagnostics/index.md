@@ -199,6 +199,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBR00440](vbr00440.md)|Automation error — an Automation operation failed|
 |[VBR00442](vbr00442.md)|Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference. — the connection to a type library or object library is lost|
 |[VBR00443](vbr00443.md)|Automation object does not have a default value — an Automation object has no default value|
+|[VBR00444](vbr00444.md)|Method not applicable in this context — a form's `Controls.Remove` is given a control its designer declared|
 |[VBR00445](vbr00445.md)|Object doesn't support this action — an object does not support the action|
 |[VBR00446](vbr00446.md)|Object doesn't support named arguments — an object does not support named arguments|
 |[VBR00447](vbr00447.md)|Object doesn't support current locale setting — an object does not support the current locale setting|

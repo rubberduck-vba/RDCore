@@ -36,6 +36,35 @@ internal sealed class SessionForms
     private readonly HashSet<VBRuntimeObjectId> _unloaded = [];
     private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _held = [];
     private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Stop)> _listening = [];
+    private readonly Dictionary<object, (VBRuntimeObjectId Form, HashSet<string> Names)> _designed = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// The <c>Controls</c> collection of a hosted form, and the names of the controls its designer declares: those <c>Controls.Remove</c> cannot remove (444,
+    /// <c>oracle\s41</c> C06).
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    /// <param name="controls">The handle of its <c>Controls</c> collection.</param>
+    /// <param name="names">The names its designer declares.</param>
+    public void Designed(VBRuntimeObjectId form, object controls, IEnumerable<string> names)
+    {
+        lock (_gate)
+        {
+            _designed[controls] = (form, new HashSet<string>(names, StringComparer.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>
+    /// The names of the controls a hosted form's designer declares, by the handle of the form's <c>Controls</c> collection; <see langword="null"/> for a collection that
+    /// is no hosted form's.
+    /// </summary>
+    /// <param name="controls">The handle of a <c>Controls</c> collection.</param>
+    public IReadOnlySet<string>? DesignedNamesOf(object controls)
+    {
+        lock (_gate)
+        {
+            return _designed.TryGetValue(controls, out var designed) ? designed.Names : null;
+        }
+    }
 
     /// <summary>
     /// A hosted form is listened to, and its controls (<see cref="FormEvents"/>), until it is unloaded or let go of.
@@ -73,6 +102,10 @@ internal sealed class SessionForms
         lock (_gate)
         {
             stop = _listening.Remove(form, out var listened) ? listened.Stop : null;
+            foreach (var controls in _designed.Where(designed => designed.Value.Form.Equals(form)).Select(designed => designed.Key).ToList())
+            {
+                _ = _designed.Remove(controls);
+            }
         }
 
         stop?.Invoke();

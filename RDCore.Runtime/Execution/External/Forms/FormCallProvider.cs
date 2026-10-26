@@ -70,9 +70,21 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     /// </summary>
     public ICallableBindingFactory? Bindings { get; set; }
 
+    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, oracle\s41 C06, C10): Microsoft
+    // Forms itself would remove it.
+    private const string RemoveKey = FormDesigner.MSFormsLibrary + ".Controls.Remove/method";
+
     /// <inheritdoc/>
     public bool CanDispatch(ExternalCallRequest request)
-        => FormObject.IsDeclaredBy(request.Member) || request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key && (key == LoadKey || key == UnloadKey);
+        => FormObject.IsDeclaredBy(request.Member)
+        || request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key && (key == LoadKey || key == UnloadKey || key == RemoveKey && DesignedNamesOf(request) is not null);
+
+    // the names a hosted form's designer declares, when the receiver of a request is that form's Controls collection.
+    private IReadOnlySet<string>? DesignedNamesOf(ExternalCallRequest request)
+        => request.Arguments is [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var receiver }, ..]
+            && session.ExternalObjects.TryGet(receiver, out var owner, out var handle) && ReferenceEquals(owner, outside.Automation)
+            ? SessionForms.Of(session).DesignedNamesOf(handle)
+            : null;
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
@@ -81,6 +93,11 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         if (key == LoadKey || key == UnloadKey)
         {
             return LoadOrUnload(request, resolver, unload: key == UnloadKey);
+        }
+
+        if (key == RemoveKey)
+        {
+            return Remove(request, resolver);
         }
 
         var (form, member, kind) = Parse(key);
@@ -132,6 +149,40 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             // what fails here is the form being hosted - a platform that hosts none, a machine without Microsoft Forms - which is a class that cannot be created (429).
             return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe(), creating: true));
         }
+    }
+
+    // a control the program added is removed, as Microsoft Forms removes it; one the form's designer declares - by its name, or at its position - is not.
+    private RuntimeSemanticsEvaluationResult Remove(ExternalCallRequest request, ISymbolResolver resolver)
+    {
+        if (DesignedNamesOf(request) is not { } designed || request.Arguments.Length < 2
+            || !session.ExternalObjects.TryGet(((VBRuntimeValue<VBRuntimeObjectId>)request.Arguments[0]).StoredValue, out _, out var controls))
+        {
+            return automation.Dispatch(request, resolver);
+        }
+
+        try
+        {
+            var name = VariantOf(request.Arguments[1]) switch
+            {
+                VBStringValue text => text.Value,
+                { } position => outside.Automation.Invoke(
+                    outside.Automation.Invoke(controls, "Item", AutomationInvocation.Get, [position.RuntimeValue.BoxedValue], [false], session.Environment.Culture)!,
+                    "Name", AutomationInvocation.Get, [], [], session.Environment.Culture) as string,
+                _ => null,
+            };
+
+            if (name is not null && designed.Contains(name))
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.MethodNotApplicableInThisContext, request.CallSite,
+                    $"{request.Describe()}: '{name}' is a control of the form's designer, and only a control the program added can be removed."));
+            }
+        }
+        catch (AutomationException)
+        {
+            // a position that is no control's is the collection's to say, as it says it when it is asked to remove it.
+        }
+
+        return automation.Dispatch(request, resolver);
     }
 
     // Load, which the reference to its argument has done already, and Unload: QueryClose (vbFormCode), which can cancel it; then Terminate, the form's window,

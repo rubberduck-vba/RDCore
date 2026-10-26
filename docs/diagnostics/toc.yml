@@ -318,6 +318,8 @@
   href: vbr00442.md
 - name: VBR00443 — Automation object does not have a default value
   href: vbr00443.md
+- name: VBR00444 — Method not applicable in this context
+  href: vbr00444.md
 - name: VBR00445 — Object doesn't support this action
   href: vbr00445.md
 - name: VBR00446 — Object doesn't support named arguments

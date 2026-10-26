@@ -69,6 +69,7 @@ public enum VBRuntimeErrorId
     AutomationError = 440,
     ConnectionToTypeLibraryLost = 442,
     AutomationObjectDoesNotHaveDefaultValue = 443,
+    MethodNotApplicableInThisContext = 444,
     ObjectDoesntSupportThisAction = 445,
     ObjectDoesntSupportNamedArguments = 446,
     ObjectDoesntSupportCurrentLocaleSettings = 447,

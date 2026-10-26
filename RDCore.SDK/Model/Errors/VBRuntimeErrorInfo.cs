@@ -117,6 +117,7 @@ public record class VBRuntimeErrorInfo : VBErrorInfo, IVBRaisableError
         [VBRuntimeErrorId.AutomationError] = "Automation error",
         [VBRuntimeErrorId.ConnectionToTypeLibraryLost] = "Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference.",
         [VBRuntimeErrorId.AutomationObjectDoesNotHaveDefaultValue] = "Automation object does not have a default value",
+        [VBRuntimeErrorId.MethodNotApplicableInThisContext] = "Method not applicable in this context",
         [VBRuntimeErrorId.ObjectDoesntSupportThisAction] = "Object doesn't support this action",
         [VBRuntimeErrorId.ObjectDoesntSupportNamedArguments] = "Object doesn't support named arguments",
         [VBRuntimeErrorId.ObjectDoesntSupportCurrentLocaleSettings] = "Object doesn't support current locale setting",

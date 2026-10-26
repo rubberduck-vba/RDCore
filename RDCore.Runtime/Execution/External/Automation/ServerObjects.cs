@@ -89,9 +89,23 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     {
         if (declared is VBClassType { Symbol: { } named })
         {
-            return Current(resolver, named.GetProperty(SymbolProperties.Library), named.Name) ?? named;
+            var declaredClass = Current(resolver, named.GetProperty(SymbolProperties.Library), named.Name) ?? named;
+
+            // the extender MS-VBA wraps a form's control in (MSForms.Control) is what Controls.Add and Controls(i) are declared to return, and no object's class: the
+            // object is the control it wraps - a CheckBox - which is what TypeName says and what a variable of the control's class holds (oracle\s41 C01, C04, C11).
+            return IsControlExtender(declaredClass) && ServerClassOf(value, resolver) is { } control ? control : declaredClass;
         }
 
+        return ServerClassOf(value, resolver);
+    }
+
+    private static bool IsControlExtender(VBClassModuleSymbol classModule)
+        => classModule.Name == SDK.Semantics.Static.FormControlExtender.ClassName
+            && classModule.GetProperty(SymbolProperties.Library) == SDK.Workspace.Forms.FormDesigner.MSFormsLibrary;
+
+    // the class the server says the object is, among the classes the project's libraries declare.
+    private VBClassModuleSymbol? ServerClassOf(object value, ISymbolResolver resolver)
+    {
         if (server.ClassNameOf(value) is not { Length: > 0 } qualified)
         {
             return null;

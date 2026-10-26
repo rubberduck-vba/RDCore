@@ -73,6 +73,12 @@ internal static class FormEvents
                     return true;
                 }));
 
+            // the form's collection of its controls, whose designer's controls Controls.Remove cannot remove.
+            if (HandleOf(server, form, "Controls", session) is { } controls)
+            {
+                forms.Designed(identity, controls, designer.AllControls().Select(control => control.Name));
+            }
+
             foreach (var control in designer.DeclaredControls())
             {
                 if (live.ClassModule.Members.FirstOrDefault(member => member.GetProperty(SymbolProperties.DesignerControl)

@@ -298,6 +298,53 @@ public sealed class FormHostingTests
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
     }
 
+    // a control added at run time, held by a WithEvents variable, and a handler named after it - which MS-VBA does not run (oracle\s41 C02)
+    private static readonly string[] Dynamic =
+    [
+        "Public WithEvents Chk As MSForms.CheckBox",
+        "Private Sub Chk_Click()", "    Debug.Print \"ChkClick\"", "End Sub",
+        "Private Sub Chk_Change()", "    Debug.Print \"ChkChange\"", "End Sub",
+        "Private Sub Dyn1_Click()", "    Debug.Print \"Dyn1Click\"", "End Sub",
+        "Public Sub AddCheck()", "    Set Chk = Me.Controls.Add(\"Forms.CheckBox.1\", \"Dyn1\", True)", "End Sub",
+    ];
+
+    // oracle\s41 C01-C12: what Controls.Add and Controls.Remove do, as MS-VBA has it. ExampleView has 13 controls of its designer's.
+    [TestMethod]
+    [DataRow(new[] { "Debug.Print ExampleView.Controls.Count", "ExampleView.AddCheck", "Debug.Print ExampleView.Controls.Count", "Debug.Print TypeName(ExampleView.Chk)", "Debug.Print ExampleView.Chk.Name" },
+        new[] { "13", "14", "CheckBox", "Dyn1" }, DisplayName = "C01 Add, and what it returns")]
+    [DataRow(new[] { "ExampleView.AddCheck", "ExampleView.Chk.Value = True" }, new[] { "ChkChange", "ChkClick" },
+        DisplayName = "C02 its events, to the WithEvents variable's handlers, not to one named after it")]
+    [DataRow(new[] { "ExampleView.AddCheck", "Set ExampleView.Chk = Nothing", "ExampleView.Controls(\"Dyn1\").Value = True", "Debug.Print ExampleView.Controls(\"Dyn1\").Value" },
+        new[] { "True" }, DisplayName = "C03 nothing to handle them once the variable lets go")]
+    [DataRow(new[] { "ExampleView.AddCheck", "Debug.Print TypeName(ExampleView.Controls(\"Dyn1\"))", "Debug.Print ExampleView.Controls(\"Dyn1\") Is ExampleView.Chk" },
+        new[] { "CheckBox", "True" }, DisplayName = "C04 the same object, by its name")]
+    [DataRow(new[] { "ExampleView.AddCheck", "ExampleView.Controls.Remove \"Dyn1\"", "Debug.Print Err.Number", "Debug.Print ExampleView.Controls.Count",
+        "Debug.Print ExampleView.Chk Is Nothing", "Debug.Print ExampleView.Chk.Name", "Debug.Print Err.Number" },
+        new[] { "0", "13", "False", "-2147418113" }, DisplayName = "C05 Remove, and the object it leaves")]
+    [DataRow(new[] { "ExampleView.Controls.Remove \"AmountBox\"", "Debug.Print Err.Number", "Debug.Print ExampleView.Controls.Count" },
+        new[] { "444", "13" }, DisplayName = "C06 a control of the designer's cannot be removed")]
+    [DataRow(new[] { "ExampleView.Controls.Remove 0", "Debug.Print Err.Number", "Debug.Print ExampleView.Controls.Count" },
+        new[] { "444", "13" }, DisplayName = "C10 by its position either")]
+    [DataRow(new[] { "ExampleView.AddCheck", "ExampleView.AddCheck", "Debug.Print Err.Number", "Debug.Print ExampleView.Controls.Count" },
+        new[] { "0", "15" }, DisplayName = "C07 a name a control has is no error")]
+    [DataRow(new[] { "ExampleView.Controls.Add \"Forms.Nope.1\"", "Debug.Print Err.Number" }, new[] { "-2147221005" }, DisplayName = "C08 a class that is not registered")]
+    [DataRow(new[] { "Dim c As Object", "Set c = ExampleView.Controls.Add(\"Forms.CheckBox.1\")", "Debug.Print c.Name", "Set c = ExampleView.Controls.Add(\"Forms.CheckBox.1\")", "Debug.Print c.Name" },
+        new[] { "CheckBox1", "CheckBox2" }, DisplayName = "C09 named after its class")]
+    [DataRow(new[] { "Dim c As Object", "Set c = ExampleView.Controls.Add(\"Forms.CommandButton.1\", \"Go\")", "Debug.Print TypeName(c)", "Debug.Print ExampleView.Controls(\"Go\").Name",
+        "ExampleView.Controls.Remove \"Go\"", "Debug.Print ExampleView.Controls.Count" }, new[] { "CommandButton", "Go", "13" }, DisplayName = "C11 any class of Microsoft Forms")]
+    [DataRow(new[] { "ExampleView.AddCheck", "Unload ExampleView", "Debug.Print ExampleView.Controls.Count" }, new[] { "13" }, DisplayName = "C12 gone with the form")]
+    [DataRow(new[] { "Debug.Print ExampleView.AmountBox.Left > 0", "ExampleView.AmountBox.Left = 3", "Debug.Print ExampleView.AmountBox.Left", "Debug.Print Err.Number" },
+        new[] { "True", "3", "0" }, DisplayName = "the extender's members of a designer's control, which its class does not declare")]
+    public async Task ControlsAddedAtRunTime_AreWhatMSVBAMakesThem(string[] body, string[] printed)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+
+        var actual = await RunWithCodeAsync(world, Dynamic, ["On Error Resume Next", .. body]);
+        CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
+    }
+
     [TestMethod]
     public async Task AMemberOfTheFormObject_ThatIsNotHostedYet_SaysSo()
     {
