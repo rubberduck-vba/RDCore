@@ -24,7 +24,8 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// assignment gives it a <c>Variant</c> after them - and what it returns a <c>Variant</c>.
 /// </para>
 /// <para>
-/// 🚧 An argument is passed by value: what the server writes into one is not the variable's (MS-VBA passes a variable by reference).
+/// An argument that is a variable is passed by reference, as MS-VBA passes it: the elements of a param array are the variables they are given
+/// (<strong>MS-VBAL §5.3.1.5</strong>), which the server is given as the types they are declared, and what it writes into one is the variable's.
 /// </para>
 /// </remarks>
 internal static class LateBinding
@@ -92,7 +93,8 @@ internal static class LateBinding
         System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters =
         [
             new VBParameterSymbol(Root, member.Uri, Tokens.Me, SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo),
-            new ParamArrayParameterSymbol(Root, member.Uri, "Arguments", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal),
+            // a param array has no parameter mechanism, and its elements are ByRef: what MS-VBA gives a server for a variable is the variable (MS-VBAL §5.3.1.5).
+            new ParamArrayParameterSymbol(Root, member.Uri, "Arguments", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef),
             .. invocation is AutomationInvocation.Let or AutomationInvocation.Set
                 ? [new VBParameterSymbol(Root, member.Uri, "Value", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal, VBVariantType.TypeInfo)]
                 : System.Collections.Immutable.ImmutableArray<VBParameterSymbol>.Empty,
