@@ -122,4 +122,12 @@ public static class FormObject
     /// <param name="member">A member of a class module.</param>
     public static bool IsDeclaredBy(Symbol member)
         => member.GetProperty(SymbolProperties.ExternalTarget) is { } target && target.StartsWith(LibraryName + ".", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether a class module is a form's: one whose designer declares members of it (<see cref="IsDeclaredBy"/>). Its lifecycle is a UserForm's - its
+    /// <c>UserForm_Initialize</c> and <c>UserForm_Terminate</c> run, not a class module's <c>Class_Initialize</c> and <c>Class_Terminate</c> (Excel-measured,
+    /// <c>oracle\s41</c> L50) - and it is what <c>Load</c> and <c>Unload</c> load and unload.
+    /// </summary>
+    /// <param name="classModule">The class module.</param>
+    public static bool IsFormClass(VBClassModuleSymbol classModule) => classModule.Members.Any(IsDeclaredBy);
 }

@@ -12,7 +12,9 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution.External.Forms;
@@ -33,8 +35,12 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// <c>InsideWidth</c> - and every control is the form object's, called through the automation server as any server object's member is.
 /// </para>
 /// <para>
-/// 🚧 The form's lifecycle is F4's: <c>Load</c>/<c>Unload</c>, the <c>UserForms</c> collection, <c>Initialize</c>/<c>QueryClose</c>/<c>Terminate</c>; the
-/// form object's other members (<c>Left</c>, <c>Move</c>, <c>Tag</c>…) are not hosted yet, and say so.
+/// The standard library's <c>Load</c> and <c>Unload</c> are answered here too: <c>Unload</c> asks the form (<c>QueryClose</c>), terminates it, destroys its
+/// window and lets its default instance go, and leaves an object whose designer's members fail (<see cref="SessionForms"/>).
+/// </para>
+/// <para>
+/// 🚧 Not yet: the <c>UserForms</c> collection; the window's own events (<c>Activate</c>, <c>Deactivate</c>, the close button's <c>QueryClose</c>); the form
+/// object's other members (<c>Left</c>, <c>Move</c>, <c>Tag</c>…), which say so.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose forms these are.</param>
@@ -48,13 +54,36 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     private static readonly HashSet<string> FormObjectMembers = new(
         FormObject.Description.Classes.SelectMany(described => described.Members).Select(member => member.Name), StringComparer.OrdinalIgnoreCase);
 
+    // Load and Unload are the standard library's (its Global), and what they load and unload is the forms this provider knows of: they are answered here, ahead of
+    // the library's own provider, as the servers' provider answers the members of the enumerators it holds.
+    private static readonly string LoadKey = GlobalKey(nameof(IStdGlobalClass.Load));
+    private static readonly string UnloadKey = GlobalKey(nameof(IStdGlobalClass.Unload));
+
+    private static string GlobalKey(string member) => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
+
+    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (oracle\s41 L51).
+    private const int FormUnloaded = unchecked((int)0x80010007);
+
+    /// <summary>
+    /// What calls a procedure of the session's code - a form's <c>UserForm_QueryClose</c> and <c>UserForm_Terminate</c>, which <c>Unload</c> runs. Set once the
+    /// pipeline has composed it, which needs this provider first.
+    /// </summary>
+    public ICallableBindingFactory? Bindings { get; set; }
+
     /// <inheritdoc/>
-    public bool CanDispatch(ExternalCallRequest request) => FormObject.IsDeclaredBy(request.Member);
+    public bool CanDispatch(ExternalCallRequest request)
+        => FormObject.IsDeclaredBy(request.Member) || request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key && (key == LoadKey || key == UnloadKey);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
     {
-        var (form, member, kind) = Parse(request.Member.GetProperty(SymbolProperties.ExternalTarget)!);
+        var key = request.Member.GetProperty(SymbolProperties.ExternalTarget)!;
+        if (key == LoadKey || key == UnloadKey)
+        {
+            return LoadOrUnload(request, resolver, unload: key == UnloadKey);
+        }
+
+        var (form, member, kind) = Parse(key);
         if (request.Arguments is not [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var identity }, ..])
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
@@ -62,6 +91,12 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
         try
         {
+            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (oracle\s41 L15, L51, L52).
+            if (SessionForms.Of(session).IsUnloaded(identity))
+            {
+                throw new AutomationException(FormUnloaded, $"the form '{form}' was unloaded.");
+            }
+
             if (FormOf(identity, form, request) is not { } hosted)
             {
                 return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
@@ -87,6 +122,82 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         {
             return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe()));
         }
+    }
+
+    // Load, which the reference to its argument has done already, and Unload: QueryClose (vbFormCode), which can cancel it; then Terminate, the form's window,
+    // and its default instance, which the next reference makes again (oracle\s41 L10-L19).
+    private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, ISymbolResolver resolver, bool unload)
+    {
+        if (FormArgument(request, resolver) is not { } identity)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.CantLoadOrUnloadThisObject, request.CallSite,
+                $"{request.Describe()}: the object is no form."));
+        }
+
+        var loaded = SessionForms.Of(session);
+        if (!unload || loaded.IsUnloaded(identity))
+        {
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+
+        if (Bindings is not { } bindings)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        var asked = FormHandlers.QueryClose(session, bindings, identity, FormHandlers.FormCode, out var cancelled);
+        if (!asked.IsSuccess || cancelled)
+        {
+            return asked.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : asked;
+        }
+
+        loaded.Unload(identity);
+        var terminated = FormHandlers.Raise(session, bindings, identity, "Terminate");
+
+        // the form's window goes with it; the object stays, for whatever holds it (L15).
+        session.ExternalObjects.Release(identity);
+        ReleaseDefaultInstance(identity);
+        return terminated.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : terminated;
+    }
+
+    // the instance of a form's class the argument is, if it is one.
+    private VBRuntimeObjectId? FormArgument(ExternalCallRequest request, ISymbolResolver resolver)
+    {
+        if (request.Arguments is not [var argument, ..])
+        {
+            return null;
+        }
+
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        {
+            argument = cell.Value;
+        }
+
+        return VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBObjectValue { } value && !value.IsNothing()
+            && session.Symbols.TryGetInstance(value.Value, out var live) && FormObject.IsFormClass(live.ClassModule)
+            ? value.Value
+            : null;
+    }
+
+    // a form's default instance that is unloaded is let go of, as Set UserForm1 = Nothing lets it go: the next reference to it makes another (L12, L55).
+    private void ReleaseDefaultInstance(VBRuntimeObjectId identity)
+    {
+        if (!session.Symbols.TryGetInstance(identity, out var live))
+        {
+            return;
+        }
+
+        var resolver = session.Symbols.Resolver;
+        var instance = new VBPredeclaredInstanceSymbol(live.ClassModule);
+        if (!resolver.TryGetAddress(instance, out var address) || !resolver.TryRead(address, out var holder)
+            || holder.Value is not VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var held } || !held.Equals(identity))
+        {
+            return;
+        }
+
+        var before = ObjectReferences.HeldIn(session, holder);
+        holder.SetValue(resolver, VBObjectValue.Nothing.RuntimeValue);
+        ObjectReferences.Rebind(session, holder, before);
     }
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.

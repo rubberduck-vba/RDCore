@@ -157,6 +157,34 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "Remote", "True", "7", "False" }, printed);
     }
 
+    // oracle\s41 L12, L51: an unloaded form's window is gone; the default instance is made again, with its designer's caption, and a form an Unload leaves is one
+    // whose designer's members fail, as MS-VBA's do (-2147418105).
+    [TestMethod]
+    public async Task AnUnloadedForm_IsGoneWithItsWindow()
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        var caption = $"ExampleView {Guid.NewGuid():N}";
+
+        var printed = await RunAsync(world,
+            $"ExampleView.Caption = \"{caption}\"",
+            "ExampleView.Show vbModeless",
+            "Unload ExampleView",
+            "Debug.Print ExampleView.Caption; ExampleView.Visible",
+            "Dim f As ExampleView",
+            "Set f = New ExampleView",
+            "f.Caption = \"Another\"",
+            "Unload f",
+            "On Error Resume Next",
+            "Debug.Print f.Caption",
+            "Debug.Print Err.Number");
+
+        // the statement that failed under On Error Resume Next prints nothing at all (L51).
+        CollectionAssert.AreEqual(new[] { "ExampleViewFalse", "-2147418105" }, printed, string.Join(" | ", printed));
+        Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
+    }
+
     [TestMethod]
     public async Task AMemberOfTheFormObject_ThatIsNotHostedYet_SaysSo()
     {
