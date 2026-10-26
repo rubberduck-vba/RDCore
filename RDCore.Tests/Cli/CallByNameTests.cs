@@ -63,6 +63,19 @@ public sealed class CallByNameTests
             "Debug.Print CallByName(c, \"Name\", VbGet)",
             "Debug.Print c.Name"));
 
+    // the value assigned is the last argument, and the property's last parameter, whatever Optional index parameters come before it - Microsoft Forms' List(Optional
+    // pvargIndex, Optional pvargColumn), which MVVM's bindings assign by name.
+    [TestMethod]
+    [DataRow("CallByName t, \"Item\", VbLet, \"v\"", "7 v", DisplayName = "the index omitted")]
+    [DataRow("CallByName t, \"Item\", VbLet, 2, \"w\"", "2 w", DisplayName = "the index given")]
+    [DataRow("Set o = New Collection: CallByName t, \"Thing\", VbSet, o", "7 Collection", DisplayName = "Set, the index omitted")]
+    public async Task APropertyWithAnOptionalIndex_IsAssignedTheLastArgument_ByName(string call, string printed)
+        => CollectionAssert.AreEqual(new[] { printed }, await RunAsync(
+            [("Table", ClassModule("Table", "Option Explicit",
+                "Public Property Let Item(Optional ByVal Index As Long = 7, ByVal RHS As Variant)", "    Debug.Print Index & \" \" & RHS", "End Property",
+                "Public Property Set Thing(Optional ByVal Index As Long = 7, ByVal RHS As Object)", "    Debug.Print Index & \" \" & TypeName(RHS)", "End Property"))],
+            $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nDim t As New Table\r\nDim o As Object\r\n{call}\r\nEnd Sub\r\n"));
+
     [TestMethod]
     public async Task AnObjectProperty_IsSet_ByName()
         => CollectionAssert.AreEqual(new[] { "set", "True" }, await Run(
