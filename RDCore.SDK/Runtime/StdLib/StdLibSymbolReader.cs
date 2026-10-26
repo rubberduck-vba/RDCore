@@ -249,6 +249,11 @@ public sealed class StdLibSymbolReader
             symbol = (VBClassModuleSymbol)symbol.With(SymbolProperties.ProgId, progId);
         }
 
+        if (attribute.TypeName is { Length: > 0 } typeName)
+        {
+            symbol = (VBClassModuleSymbol)symbol.With(SymbolProperties.ReportedTypeName, typeName);
+        }
+
         symbol = symbol with
         {
             Members =

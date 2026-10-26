@@ -85,6 +85,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdMatchCollectionClass)] = matches,
             [typeof(IStdMatchClass)] = match,
             [typeof(IStdSubMatchesClass)] = subMatches,
+            [typeof(IStdGlobalClass)] = new StdGlobal(session),
+            [typeof(IStdUserFormsClass)] = new StdUserForms(session, enumerators),
         });
     }
 

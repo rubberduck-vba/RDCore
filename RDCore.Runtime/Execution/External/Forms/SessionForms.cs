@@ -34,6 +34,40 @@ internal sealed class SessionForms
     private readonly object _gate = new();
     private readonly List<VBRuntimeObjectId> _loaded = [];
     private readonly HashSet<VBRuntimeObjectId> _unloaded = [];
+    private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _held = [];
+
+    /// <summary>
+    /// The identity of the session's <c>UserForms</c> collection: one object, the same every time it is asked for (<c>oracle\s41</c> U02). Its instance is made
+    /// by whatever first asks for it.
+    /// </summary>
+    public VBRuntimeObjectId? Collection { get; set; }
+
+    /// <summary>
+    /// Holds a form the collection loaded (<c>UserForms.Add</c>), which stays loaded with nothing else referring to it (U05), until it is unloaded.
+    /// </summary>
+    /// <param name="form">The form.</param>
+    /// <param name="holder">The reference the collection holds it by.</param>
+    public void Hold(VBRuntimeObjectId form, IBindingHandle holder)
+    {
+        lock (_gate)
+        {
+            _held[form] = holder;
+        }
+    }
+
+    /// <summary>
+    /// Lets go of a form the collection held, when it is unloaded.
+    /// </summary>
+    /// <param name="form">The form.</param>
+    /// <param name="holder">The reference the collection held it by.</param>
+    /// <returns>Whether the collection held it.</returns>
+    public bool LetGo(VBRuntimeObjectId form, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IBindingHandle? holder)
+    {
+        lock (_gate)
+        {
+            return _held.Remove(form, out holder);
+        }
+    }
 
     /// <summary>The forms of <paramref name="session"/>.</summary>
     public static SessionForms Of(IRuntimeSession session) => Sessions.GetValue(session, _ => new SessionForms());

@@ -230,7 +230,16 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
             return "Nothing";
         }
 
-        return session.Symbols.TryGetInstance(reference.Value, out var instance) ? instance.ClassModule.Name : "Unknown";
+        if (!session.Symbols.TryGetInstance(reference.Value, out var instance))
+        {
+            return "Unknown";
+        }
+
+        // a form that was unloaded is an object whose form is gone, which MS-VBA calls a UserForm whatever form it was; a class of the library whose objects MS-VBA
+        // names otherwise is what it says (oracle\s41 U15, U01).
+        return Execution.External.Forms.SessionForms.Of(session).IsUnloaded(reference.Value)
+            ? SDK.Workspace.Forms.FormObject.ClassName
+            : instance.ClassModule.GetProperty(SymbolProperties.ReportedTypeName) ?? instance.ClassModule.Name;
     }
 
     // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of.

@@ -97,6 +97,16 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 throw new AutomationException(FormUnloaded, $"the form '{form}' was unloaded.");
             }
 
+            // what needs no window is answered without making one: a form's name is its module's, and one that was never shown is not visible.
+            var bound = session.ExternalObjects.TryGet(identity, out var owner, out _) && ReferenceEquals(owner, outside.Automation);
+            switch (member.ToUpperInvariant(), kind)
+            {
+                case ("NAME", "get"):
+                    return RuntimeSemanticsEvaluationResult.Success(new VBStringValue(form));
+                case ("VISIBLE", "get") when !bound:
+                    return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
+            }
+
             if (FormOf(identity, form, request) is not { } hosted)
             {
                 return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
@@ -110,7 +120,6 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 ("CAPTION", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(outside.Forms.GetCaption(hosted))),
                 ("CAPTION", "let") => Done(() => outside.Forms.SetCaption(hosted, StringOf(request.Arguments[^1]))),
                 ("VISIBLE", "get") => RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(outside.Forms.IsShown(hosted))),
-                ("NAME", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(form)),
                 _ when FormObjectMembers.Contains(member) => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                     VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, request.CallSite, $"{request.Describe()}: the form host does not host '{member}' yet.")),
 
@@ -154,9 +163,13 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         loaded.Unload(identity);
         var terminated = FormHandlers.Raise(session, bindings, identity, "Terminate");
 
-        // the form's window goes with it; the object stays, for whatever holds it (L15).
+        // the form's window goes with it; the object stays, for whatever holds it (L15) - but no longer for the collection, if it loaded it (UserForms.Add).
         session.ExternalObjects.Release(identity);
         ReleaseDefaultInstance(identity);
+        if (loaded.LetGo(identity, out var holder))
+        {
+            _ = session.ReleaseReference(identity, holder);
+        }
         return terminated.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : terminated;
     }
 

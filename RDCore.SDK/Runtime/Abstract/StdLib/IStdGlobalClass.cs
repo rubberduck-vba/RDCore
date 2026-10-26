@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Values.Intrinsic;
+﻿using RDCore.SDK.Model;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.SDK.Runtime.Abstract.StdLib;
@@ -41,4 +42,50 @@ public interface IStdGlobalClass
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     public RuntimeSemanticsEvaluationResult Unload(VBObjectValue @object);
     #endregion
+
+    #region Properties
+    /// <summary>
+    /// The forms that are loaded, in the order they were (<see cref="IStdUserFormsClass"/>).
+    /// </summary>
+    /// <remarks>
+    /// Declared <c>As Object</c>, as MS-VBA declares it: its members are late-bound, and what they are is the collection's, not any interface's a program could
+    /// name. It is the same object every time (Excel-measured, <c>oracle\s41</c> U01, U02).
+    /// </remarks>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    public RuntimeSemanticsEvaluationResult<VBObjectValue> UserForms();
+    #endregion
+}
+
+/// <summary>
+/// The <c>UserForms</c> collection: the forms that are loaded, in the order they were, numbered from 0 (Excel-measured, <c>oracle\s41</c> U01-U19).
+/// </summary>
+/// <remarks>
+/// Its class is one MS-VBA names nothing - <c>TypeName(UserForms)</c> is <c>Object</c> - and nothing can declare a variable of it: it is reached late-bound, through
+/// <see cref="IStdGlobalClass.UserForms"/>. A member it does not have (<c>Remove</c>) is error 438, as any late-bound member that is not there is.
+/// </remarks>
+[StdLibClass("_UserForms", IsCreatable = false, TypeName = "Object")]
+public interface IStdUserFormsClass
+{
+    /// <summary>The number of forms that are loaded.</summary>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBLongValue> Count();
+
+    /// <summary>
+    /// The loaded form at <paramref name="index"/>, from 0: its default member (<c>UserForms(0)</c>). An index that is no form's is error 9, and one that is no
+    /// number - a form's name - error 13 (U04, U09, U17).
+    /// </summary>
+    /// <param name="index">The position of the form.</param>
+    [StdLibMember(UserMemId = WellKnownDispIds.Value)]
+    RuntimeSemanticsEvaluationResult<VBObjectValue> Item(VBLongValue index);
+
+    /// <summary>
+    /// Loads a new instance of the form named <paramref name="name"/> - not its default instance - and returns it; the collection holds it until it is unloaded.
+    /// A name that is no form's is error 424 (U05-U07).
+    /// </summary>
+    /// <param name="name">The name of the form's module.</param>
+    RuntimeSemanticsEvaluationResult<VBObjectValue> Add(VBStringValue name);
+
+    /// <summary>The loaded forms, for <c>For Each</c> (U11, U18).</summary>
+    [StdLibMember("_NewEnum", ReturnType = typeof(IStdEnumVariantClass), IsHidden = true, UserMemId = WellKnownDispIds.NewEnum)]
+    RuntimeSemanticsEvaluationResult<VBObjectValue> NewEnum();
 }

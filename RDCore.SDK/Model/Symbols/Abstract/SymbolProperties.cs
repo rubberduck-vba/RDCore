@@ -187,6 +187,12 @@ public static class SymbolProperties
     /// that can be created.
     /// </summary>
     public static readonly SymbolProperty<string> ProgId = new(nameof(ProgId));
+
+    /// <summary>
+    /// What <c>TypeName</c> says of an object of a class of the standard library, when it is not the class's name (<c>Object</c>, for the <c>UserForms</c>
+    /// collection's). Absent on every other class.
+    /// </summary>
+    public static readonly SymbolProperty<string> ReportedTypeName = new(nameof(ReportedTypeName));
     /// <summary>
     /// Whether a variable is declared with the <c>WithEvents</c> modifier (<strong>MS-VBAL §5.2.3.1.2</strong>): its
     /// declared type is a class with events, and the procedures of the module that are named for the variable and an
