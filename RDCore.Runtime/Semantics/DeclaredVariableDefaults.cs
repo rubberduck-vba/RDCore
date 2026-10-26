@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.Statements;
+using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -52,10 +53,11 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
         }
 
         var type = ((ITypedSymbol)variable).ResolvedType;
-        if (type is VBUserDefinedType record)
+        if (type is VBUserDefinedType declaredRecord)
         {
-            // each field starts as a variable declared as it is: a fixed-size array field with the dimensions its declaration gives it.
-            return new VBUserDefinedTypeValue(record, this);
+            // each field starts as a variable declared as it is: a fixed-size array field with the dimensions its declaration gives it. The fields are the
+            // type's as the session has it now, not as it was when the variable was bound (CurrentTypes): a nested record's own fields come the same way.
+            return new VBUserDefinedTypeValue(CurrentTypes.Of(session.Symbols.Resolver, declaredRecord), this);
         }
 
         if (type is not VBArrayType array || array is VBResizableByteArrayType)

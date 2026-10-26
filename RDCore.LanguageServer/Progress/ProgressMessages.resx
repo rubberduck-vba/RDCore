@@ -36,6 +36,9 @@
   <data name="ItemOf" xml:space="preserve">
     <value>{0} ({1} of {2})</value>
   </data>
+  <data name="Declaring" xml:space="preserve">
+    <value>Declaring the types of {0}</value>
+  </data>
   <data name="Defining" xml:space="preserve">
     <value>Defining {0}</value>
   </data>

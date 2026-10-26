@@ -190,7 +190,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                     break;
 
                 // a record is given again the fields it starts with, when one of them is a fixed-size array: nothing has run that assigned it.
-                case VBUserDefinedType record when HasFixedSizeArrayField(record, [])
+                case VBUserDefinedType record when HasFixedSizeArrayField(session.Symbols.Resolver, record, [])
                     && defaults.DefaultValueOf(member) is VBUserDefinedTypeValue sized:
                     handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
                     break;
@@ -208,12 +208,13 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                 ? ClassModuleSemanticFlags.Stateful
                 : ClassModuleSemanticFlags.None);
 
-    // directly, or in a record that is a field of it. A type that holds itself is not one MS-VBA compiles, and is looked into once.
-    private static bool HasFixedSizeArrayField(VBUserDefinedType record, HashSet<VBUserDefinedType> seen)
-        => seen.Add(record) && record.Fields().Any(field => field.ResolvedType switch
+    // directly, or in a record that is a field of it. A type that holds itself is not one MS-VBA compiles, and is looked into once. The fields are the type's
+    // as the session has it now (CurrentTypes).
+    private static bool HasFixedSizeArrayField(ISymbolResolver resolver, VBUserDefinedType declared, HashSet<VBUserDefinedType> seen)
+        => CurrentTypes.Of(resolver, declared) is var record && seen.Add(record) && record.Fields().Any(field => field.ResolvedType switch
         {
             VBFixedSizeArrayType => true,
-            VBUserDefinedType nested => HasFixedSizeArrayField(nested, seen),
+            VBUserDefinedType nested => HasFixedSizeArrayField(resolver, nested, seen),
             _ => false,
         });
 

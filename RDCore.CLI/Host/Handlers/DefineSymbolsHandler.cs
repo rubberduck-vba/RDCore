@@ -43,62 +43,45 @@ internal sealed class DefineSymbolsHandler(
         ApplyDirectives(session, request);
 
         var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var (defined, replaced, merged, skipped) = request.CodeOnly
-            ? (0, 0, 0, [])
-            : DefineSymbols(session, request, unresolvedTypeNames, replace: request.Replace);
-
-        // A type that a declaration names is defined by the same request that declares it, and everything is read before anything is defined: so a variable declared as
-        // a user-defined type of its own module was read before the type was there, and kept the name as written. The module is read again, now that it is, and
-        // defined over what it was - as many times as a type can be made of types that were not there either (a type with a field of a type), and no more.
-        if (!request.CodeOnly && (unresolvedTypeNames.Count > 0 || request.Symbols.Any(symbol => symbol.Kind == SymbolDescriptorKind.UserDefinedType)))
-        {
-            for (var pass = 0; pass < MaxTypePasses; pass++)
-            {
-                unresolvedTypeNames.Clear();
-                _ = DefineSymbols(session, request, unresolvedTypeNames, replace: true);
-            }
-        }
-
-        // A type of a module that is defined after this one - an Enum of a class module that comes later (MVVM's BindingManager names IPropertyBinding's
-        // BindingMode) - is not there yet either: the module's symbols are read again when its code is sent, which is once every module's symbols are defined.
-        var pending = PendingTypes.GetOrCreateValue(session);
-        var composing = request;
+        var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
         if (!request.CodeOnly)
         {
-            if (unresolvedTypeNames.Count > 0)
+            // the three phases (DefineSymbolsParams.DeclareTypesOnly): the module's types are declared - its user-defined types and enumerations - so that
+            // every declaration that names one is bound to a type that exists. Everything a request carries is read before anything of it is defined, which
+            // is why the types are a request of their own: a request that binds declares its own types first, which the declare phase already did for a
+            // workspace (first definition wins, and they are skipped), and which a module defined on its own needs.
+            var types = request with { Symbols = [.. request.Symbols.Where(IsTypeDeclaration)] };
+            var declaredTypes = DefineSymbols(session, types, [], replace: request.Replace);
+            if (request.DeclareTypesOnly)
             {
-                pending[request.ModuleName] = request;
+                (defined, replaced, merged, skipped) = declaredTypes;
             }
             else
             {
-                _ = pending.TryRemove(request.ModuleName, out _);
+                // then they are bound: a field of a type of another module, or of a type its own module declares after it, names a type that exists now.
+                var boundTypes = DefineSymbols(session, types, unresolvedTypeNames, replace: true);
+                var rest = request with { Symbols = [.. request.Symbols.Where(descriptor => !IsTypeDeclaration(descriptor))] };
+                var bound = DefineSymbols(session, rest, unresolvedTypeNames, replace: request.Replace);
+                // a type the declare phase defined is the one this request binds, not one it skipped.
+                (defined, replaced, merged, skipped) = (declaredTypes.Defined + bound.Defined, boundTypes.Replaced + bound.Replaced,
+                    declaredTypes.Merged + bound.Merged, bound.Skipped);
+
+                // a class module's symbol is composed from a project without being read; what makes it the class its members declare, and the one that
+                // implements the interfaces its directives name, is this, once its members are bound. A module that is not a class has nothing to compose.
+                session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
+
+                // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable named after it, which the code of every
+                // module names - so it is there before any code is loaded, which is after every module's symbols are.
+                DefineDefaultInstance(session, request);
             }
         }
-        else if (pending.TryRemove(request.ModuleName, out var earlier))
-        {
-            for (var pass = 0; pass < MaxTypePasses; pass++)
-            {
-                unresolvedTypeNames.Clear();
-                _ = DefineSymbols(session, earlier, unresolvedTypeNames, replace: true);
-            }
-
-            composing = earlier;
-        }
-
-        // a class module's symbol is composed from a project without being read; what makes it the class its members declare, and
-        // the one that implements the interfaces its directives name, is this. A module that is not a class has nothing to compose.
-        session.Symbols.TryComposeClassModule(composing.ModuleName, composing.ImplementedInterfaceNames, composing.ImplementedInterfaceRanges);
-
-        // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable named after it, which the code of every module
-        // names - so it is there before any code is loaded, which is after every module's symbols are.
-        DefineDefaultInstance(session, request);
 
         // the module's procedures get their code now that everything they are keyed by is defined.
         var loadErrors = LoadCode(session, request);
 
         // a module that declares a function of a native library can call it as soon as it runs, and what makes the call is got ready now - in an environment that
         // lets a program make one at all.
-        if (session.Environment.AllowDllImports
+        if (session.Environment.AllowDllImports && !request.DeclareTypesOnly
             && request.Symbols.Any(symbol => symbol.Kind is SymbolDescriptorKind.ExternalProcedure or SymbolDescriptorKind.ExternalFunction))
         {
             sessionProvider.Outside.Libraries.Prepare();
@@ -122,11 +105,9 @@ internal sealed class DefineSymbolsHandler(
         });
     }
 
-    /// <summary>How many times a module is read again for the types it names: a user-defined type of user-defined types is as deep as its fields.</summary>
-    private const int MaxTypePasses = 3;
-
-    // the modules of a session that named a type no module defined yet when their symbols were read, by name: read again when their code is sent.
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession, System.Collections.Concurrent.ConcurrentDictionary<string, DefineSymbolsParams>> PendingTypes = [];
+    // what declares a type: a user-defined type, with its fields, and an enumeration, with its members (DefineSymbolsParams.DeclareTypesOnly).
+    private static bool IsTypeDeclaration(SymbolDescriptor descriptor)
+        => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum;
 
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server already collapses #If-branch duplicates, but stay
     // defensive: fuse any that still arrive with the same identity (uri + concrete type) so the session never sees a colliding define. Property Get/Let/Set

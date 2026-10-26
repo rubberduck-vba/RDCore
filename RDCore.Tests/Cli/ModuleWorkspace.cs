@@ -246,22 +246,27 @@ internal static class ModuleWorkspace
             workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), project.ProjectInfo.Name,
             libraries: librarySymbols);
 
-        // as the language server does: every module is defined, and then the code of each is sent.
-        foreach (var module in parsed)
+        // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then
+        // the code of each is sent.
+        foreach (var declareTypesOnly in new[] { true, false })
         {
-            var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-            await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
-                .Handle(Wire.RoundTrip(new DefineSymbolsParams
-                {
-                    WorkspaceRoot = workspaceRoot,
-                    ModuleUri = module.Uri,
-                    ModuleName = module.Module.Name,
-                    Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
-                    Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
-                    ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-                    Replace = true,
-                }), CancellationToken.None);
+            foreach (var module in parsed)
+            {
+                var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
+                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                    .Handle(Wire.RoundTrip(new DefineSymbolsParams
+                    {
+                        WorkspaceRoot = workspaceRoot,
+                        ModuleUri = module.Uri,
+                        ModuleName = module.Module.Name,
+                        Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
+                        Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                        ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
+                        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                        Replace = true,
+                        DeclareTypesOnly = declareTypesOnly,
+                    }), CancellationToken.None);
+            }
         }
 
         foreach (var module in parsed)

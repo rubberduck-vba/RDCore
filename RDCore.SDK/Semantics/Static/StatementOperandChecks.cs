@@ -89,10 +89,12 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         }
     }
 
-    private static bool IsObject(VBType type, bool throughUserDefinedTypes) => type switch
+    // the fields of a user-defined type are the type's as the composition has it now (CurrentTypes).
+    private bool IsObject(VBType type, bool throughUserDefinedTypes) => type switch
     {
         VBObjectType or VBClassType => true,
-        VBUserDefinedType udt when throughUserDefinedTypes => udt.Fields().Any(field => field.ResolvedType is { } fieldType && IsObject(fieldType, true)),
+        VBUserDefinedType udt when throughUserDefinedTypes
+            => CurrentTypes.Of(context, udt).Fields().Any(field => field.ResolvedType is { } fieldType && IsObject(fieldType, true)),
         _ => false,
     };
 

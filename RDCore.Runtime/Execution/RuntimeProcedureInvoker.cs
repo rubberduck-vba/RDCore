@@ -17,6 +17,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Semantics.Static;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Execution;
@@ -139,9 +140,10 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             // variable" - seeded to the declared return type's own default, exactly like a fresh Dim,
             // before the body ever runs (a Function that never assigns its own name still returns
             // something well-defined, not an uninitialized slot).
-            // A record is seeded field by field, as a declared variable of it is: a fixed-size array field has its dimensions.
+            // A record is seeded field by field, as a declared variable of it is: a fixed-size array field has its dimensions, and the fields are the type's as
+            // the session has it now (CurrentTypes).
             frame.ReturnValue = returning.ResolvedType is VBUserDefinedType record && Session.Symbols.Defaults is { } defaults
-                ? new VBUserDefinedTypeValue(record, defaults)
+                ? new VBUserDefinedTypeValue(CurrentTypes.Of(Session.Symbols.Resolver, record), defaults)
                 : returning.ResolvedType.DefaultValue;
         }
 

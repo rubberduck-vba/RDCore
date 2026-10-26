@@ -187,11 +187,28 @@ internal sealed class SymbolSyncService(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
                 implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 
-            // a module is defined, and then its code is loaded: two steps of each, half the work each.
+            // three phases, each for every module before the next (DefineSymbolsParams.DeclareTypesOnly): its types are declared, its declarations are bound,
+            // and its code is loaded - a third of the work each.
             var totalDefined = 0;
             var step = 0;
             void Step(string message, string module) => progress?.Report(new WorkProgressStep(
-                string.Format(ProgressMessages.ItemOf, string.Format(message, module), step % modules.Count + 1, modules.Count), 100 * step++ / (2 * modules.Count)));
+                string.Format(ProgressMessages.ItemOf, string.Format(message, module), step % modules.Count + 1, modules.Count), 100 * step++ / (3 * modules.Count)));
+
+            // every type exists before any declaration is bound to it, whichever module declares it and in whichever order the project lists them.
+            foreach (var module in modules)
+            {
+                token.ThrowIfCancellationRequested();
+                Step(ProgressMessages.Declaring, module.Name);
+                try
+                {
+                    totalDefined += await DefineModuleSymbolsAsync(
+                        workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: false, token, declareTypesOnly: true);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogError(exception, "❌ Declaring the types of module {module} failed; continuing with the remaining workspace modules.", module.Name);
+                }
+            }
 
             foreach (var module in modules)
             {
@@ -241,12 +258,18 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token)
+        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false)
     {
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
             withImplicitDeclarations: true, ImplicitScope).ProvideSymbols();
         var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
+
+        // a module that declares no type has nothing to declare in the first phase.
+        if (declareTypesOnly && !descriptors.Any(descriptor => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum))
+        {
+            return 0;
+        }
 
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams
@@ -260,6 +283,7 @@ internal sealed class SymbolSyncService(
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = withCode ? PlatformJson.Serialize(parseResult) : string.Empty,
                 Replace = replace,
+                DeclareTypesOnly = declareTypesOnly,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))

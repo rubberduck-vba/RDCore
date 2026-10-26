@@ -41,6 +41,13 @@ public sealed class ModuleOrderTests
             Main("Dim s As Segment", "s.B.Y = 5", "Debug.Print s.B.Y", "Dim k As Kind", "k = kSecond", "Debug.Print k")));
 
     [TestMethod]
+    public async Task ARecordOfAModuleListedAfter_IsReturned_AndHasItsFixedSizeArrayField()
+        => CollectionAssert.AreEqual(new[] { "9", "3" }, await RunProgramFirstAsync([],
+            [("Shapes", StandardModule("Shapes", "Public Type Point", "    X As Long", "End Type", "Public Type Path", "    Ends As Point", "    Steps(1 To 3) As Long", "End Type",
+                "Public Function Origin() As Path", "    Origin.Ends.X = 9", "End Function"))],
+            Main("Dim p As Path", "p = Origin()", "Debug.Print p.Ends.X", "Debug.Print UBound(p.Steps)")));
+
+    [TestMethod]
     public async Task AModuleListedAfterTheModuleThatUsesIt_HasItsConstantsAndProcedures()
         => CollectionAssert.AreEqual(new[] { "100", "42" }, await RunProgramFirstAsync([],
             [("Consts", StandardModule("Consts", "Public Const MaxItems = 100")), ("Greetings", StandardModule("Greetings", "Public Sub PrintGreeting()", "    Debug.Print 42", "End Sub"))],

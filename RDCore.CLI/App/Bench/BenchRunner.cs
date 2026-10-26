@@ -120,21 +120,26 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
             root, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(environment.Is64Bit),
             workspace.Project.Name, scope, librarySymbols);
 
+        // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).
         var define = new DefineSymbolsHandler(provider, messages, loggers.CreateLogger<DefineSymbolsHandler>());
-        foreach (var (module, uri, parse) in parsed)
+        foreach (var declareTypesOnly in new[] { true, false })
         {
-            var symbols = new SyntaxTreeSymbolProvider(root, uri, module.Type, parse, resolver, withImplicitDeclarations: true, scope).ProvideSymbols();
-            await define.Handle(new DefineSymbolsParams
+            foreach (var (module, uri, parse) in parsed)
             {
-                WorkspaceRoot = root,
-                ModuleUri = uri,
-                ModuleName = module.Name,
-                Symbols = SymbolDescriptorProjector.Project(symbols, uri),
-                Directives = parse.SyntaxTree!.GetModuleDirectives(),
-                ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-                Replace = true,
-            }, token);
+                var symbols = new SyntaxTreeSymbolProvider(root, uri, module.Type, parse, resolver, withImplicitDeclarations: true, scope).ProvideSymbols();
+                await define.Handle(new DefineSymbolsParams
+                {
+                    WorkspaceRoot = root,
+                    ModuleUri = uri,
+                    ModuleName = module.Name,
+                    Symbols = SymbolDescriptorProjector.Project(symbols, uri),
+                    Directives = parse.SyntaxTree!.GetModuleDirectives(),
+                    ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
+                    ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    Replace = true,
+                    DeclareTypesOnly = declareTypesOnly,
+                }, token);
+            }
         }
 
         var symbolsTime = stopwatch.Elapsed;

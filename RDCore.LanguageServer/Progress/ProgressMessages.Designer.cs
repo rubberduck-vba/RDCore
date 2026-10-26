@@ -88,6 +88,15 @@ namespace RDCore.LanguageServer.Progress {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Declaring the types of {0}.
+        /// </summary>
+        internal static string Declaring {
+            get {
+                return ResourceManager.GetString("Declaring", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Defining {0}.
         /// </summary>
         internal static string Defining {
