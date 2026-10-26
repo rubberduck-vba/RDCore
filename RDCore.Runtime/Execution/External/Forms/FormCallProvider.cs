@@ -12,7 +12,9 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution.External.Forms;
@@ -33,8 +35,12 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// <c>InsideWidth</c> - and every control is the form object's, called through the automation server as any server object's member is.
 /// </para>
 /// <para>
-/// 🚧 The form's lifecycle is F4's: <c>Load</c>/<c>Unload</c>, the <c>UserForms</c> collection, <c>Initialize</c>/<c>QueryClose</c>/<c>Terminate</c>; the
-/// form object's other members (<c>Left</c>, <c>Move</c>, <c>Tag</c>…) are not hosted yet, and say so.
+/// The standard library's <c>Load</c> and <c>Unload</c> are answered here too: <c>Unload</c> asks the form (<c>QueryClose</c>), terminates it, destroys its
+/// window and lets its default instance go, and leaves an object whose designer's members fail (<see cref="SessionForms"/>).
+/// </para>
+/// <para>
+/// 🚧 Not yet: the <c>UserForms</c> collection; the window's own events (<c>Activate</c>, <c>Deactivate</c>, the close button's <c>QueryClose</c>); the form
+/// object's other members (<c>Left</c>, <c>Move</c>, <c>Tag</c>…), which say so.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose forms these are.</param>
@@ -48,13 +54,53 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     private static readonly HashSet<string> FormObjectMembers = new(
         FormObject.Description.Classes.SelectMany(described => described.Members).Select(member => member.Name), StringComparer.OrdinalIgnoreCase);
 
+    // Load and Unload are the standard library's (its Global), and what they load and unload is the forms this provider knows of: they are answered here, ahead of
+    // the library's own provider, as the servers' provider answers the members of the enumerators it holds.
+    private static readonly string LoadKey = GlobalKey(nameof(IStdGlobalClass.Load));
+    private static readonly string UnloadKey = GlobalKey(nameof(IStdGlobalClass.Unload));
+
+    private static string GlobalKey(string member) => StdLibSymbolReader.ExternalTargetOf(typeof(IStdGlobalClass), typeof(IStdGlobalClass).GetMethod(member)!);
+
+    // RPC_E_SERVER_DIED_DNE, what MS-VBA reports for a member of a form that was unloaded: Err.Number -2147418105 (oracle\s41 L51).
+    private const int FormUnloaded = unchecked((int)0x80010007);
+
+    /// <summary>
+    /// What calls a procedure of the session's code - a form's <c>UserForm_QueryClose</c> and <c>UserForm_Terminate</c>, which <c>Unload</c> runs. Set once the
+    /// pipeline has composed it, which needs this provider first.
+    /// </summary>
+    public ICallableBindingFactory? Bindings { get; set; }
+
+    // Controls.Remove of a hosted form's Controls collection, which MS-VBA's form host refuses for a control of the form's designer (444, oracle\s41 C06, C10): Microsoft
+    // Forms itself would remove it.
+    private const string RemoveKey = FormDesigner.MSFormsLibrary + ".Controls.Remove/method";
+
     /// <inheritdoc/>
-    public bool CanDispatch(ExternalCallRequest request) => FormObject.IsDeclaredBy(request.Member);
+    public bool CanDispatch(ExternalCallRequest request)
+        => FormObject.IsDeclaredBy(request.Member)
+        || request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key && (key == LoadKey || key == UnloadKey || key == RemoveKey && DesignedNamesOf(request) is not null);
+
+    // the names a hosted form's designer declares, when the receiver of a request is that form's Controls collection.
+    private IReadOnlySet<string>? DesignedNamesOf(ExternalCallRequest request)
+        => request.Arguments is [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var receiver }, ..]
+            && session.ExternalObjects.TryGet(receiver, out var owner, out var handle) && ReferenceEquals(owner, outside.Automation)
+            ? SessionForms.Of(session).DesignedNamesOf(handle)
+            : null;
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
     {
-        var (form, member, kind) = Parse(request.Member.GetProperty(SymbolProperties.ExternalTarget)!);
+        var key = request.Member.GetProperty(SymbolProperties.ExternalTarget)!;
+        if (key == LoadKey || key == UnloadKey)
+        {
+            return LoadOrUnload(request, resolver, unload: key == UnloadKey);
+        }
+
+        if (key == RemoveKey)
+        {
+            return Remove(request, resolver);
+        }
+
+        var (form, member, kind) = Parse(key);
         if (request.Arguments is not [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var identity }, ..])
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
@@ -62,6 +108,22 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
         try
         {
+            // an unloaded form's own variables are still there, but its form is gone, and nothing loads it again (oracle\s41 L15, L51, L52).
+            if (SessionForms.Of(session).IsUnloaded(identity))
+            {
+                throw new AutomationException(FormUnloaded, $"the form '{form}' was unloaded.");
+            }
+
+            // what needs no window is answered without making one: a form's name is its module's, and one that was never shown is not visible.
+            var bound = session.ExternalObjects.TryGet(identity, out var owner, out _) && ReferenceEquals(owner, outside.Automation);
+            switch (member.ToUpperInvariant(), kind)
+            {
+                case ("NAME", "get"):
+                    return RuntimeSemanticsEvaluationResult.Success(new VBStringValue(form));
+                case ("VISIBLE", "get") when !bound:
+                    return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
+            }
+
             if (FormOf(identity, form, request) is not { } hosted)
             {
                 return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
@@ -75,7 +137,6 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 ("CAPTION", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(outside.Forms.GetCaption(hosted))),
                 ("CAPTION", "let") => Done(() => outside.Forms.SetCaption(hosted, StringOf(request.Arguments[^1]))),
                 ("VISIBLE", "get") => RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(outside.Forms.IsShown(hosted))),
-                ("NAME", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(form)),
                 _ when FormObjectMembers.Contains(member) => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                     VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, request.CallSite, $"{request.Describe()}: the form host does not host '{member}' yet.")),
 
@@ -85,8 +146,82 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
         catch (AutomationException failure)
         {
-            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe()));
+            // what fails here is the form being hosted - a platform that hosts none, a machine without Microsoft Forms - which is a class that cannot be created (429).
+            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe(), creating: true));
         }
+    }
+
+    // a control the program added is removed, as Microsoft Forms removes it; one the form's designer declares - by its name, or at its position - is not.
+    private RuntimeSemanticsEvaluationResult Remove(ExternalCallRequest request, ISymbolResolver resolver)
+    {
+        if (DesignedNamesOf(request) is not { } designed || request.Arguments.Length < 2
+            || !session.ExternalObjects.TryGet(((VBRuntimeValue<VBRuntimeObjectId>)request.Arguments[0]).StoredValue, out _, out var controls))
+        {
+            return automation.Dispatch(request, resolver);
+        }
+
+        try
+        {
+            var name = VariantOf(request.Arguments[1]) switch
+            {
+                VBStringValue text => text.Value,
+                { } position => outside.Automation.Invoke(
+                    outside.Automation.Invoke(controls, "Item", AutomationInvocation.Get, [position.RuntimeValue.BoxedValue], [false], session.Environment.Culture)!,
+                    "Name", AutomationInvocation.Get, [], [], session.Environment.Culture) as string,
+                _ => null,
+            };
+
+            if (name is not null && designed.Contains(name))
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.MethodNotApplicableInThisContext, request.CallSite,
+                    $"{request.Describe()}: '{name}' is a control of the form's designer, and only a control the program added can be removed."));
+            }
+        }
+        catch (AutomationException)
+        {
+            // a position that is no control's is the collection's to say, as it says it when it is asked to remove it.
+        }
+
+        return automation.Dispatch(request, resolver);
+    }
+
+    // Load, which the reference to its argument has done already, and Unload: QueryClose (vbFormCode), which can cancel it; then Terminate, the form's window,
+    // and its default instance, which the next reference makes again (oracle\s41 L10-L19).
+    private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, ISymbolResolver resolver, bool unload)
+    {
+        if (FormArgument(request, resolver) is not { } identity)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.CantLoadOrUnloadThisObject, request.CallSite,
+                $"{request.Describe()}: the object is no form."));
+        }
+
+        if (!unload)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+
+        return Bindings is { } bindings
+            ? FormHandlers.Unload(session, bindings, identity, FormHandlers.FormCode)
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // the instance of a form's class the argument is, if it is one.
+    private VBRuntimeObjectId? FormArgument(ExternalCallRequest request, ISymbolResolver resolver)
+    {
+        if (request.Arguments is not [var argument, ..])
+        {
+            return null;
+        }
+
+        while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
+        {
+            argument = cell.Value;
+        }
+
+        return VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBObjectValue { } value && !value.IsNothing()
+            && session.Symbols.TryGetInstance(value.Value, out var live) && FormObject.IsFormClass(live.ClassModule)
+            ? value.Value
+            : null;
     }
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
@@ -109,6 +244,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
 
         session.ExternalObjects.Bind(identity, outside.Automation, created);
+        FormEvents.Listen(session, outside.Automation, identity, created, designer);
         return created;
     }
 

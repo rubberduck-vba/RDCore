@@ -1,0 +1,882 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- What each member of the standard library does, in a sentence - a tooltip, not the documentation site's text - and each of its parameters: what a
+       completion list and a signature help show of them (StdLibSymbolReader). Keyed by the module or the class and the member (Strings_Left), and the
+       parameter after them (Strings_Left_Length); a $ function has the doc strings of the one it is the String version of. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Strings_Asc" xml:space="preserve">
+    <value>The character code of the first character of a string.</value>
+  </data>
+  <data name="Strings_AscB" xml:space="preserve">
+    <value>The first byte of a string.</value>
+  </data>
+  <data name="Strings_AscW" xml:space="preserve">
+    <value>The Unicode code of the first character of a string.</value>
+  </data>
+  <data name="Strings_Chr" xml:space="preserve">
+    <value>The character of a character code.</value>
+  </data>
+  <data name="Strings_ChrB" xml:space="preserve">
+    <value>A string of one byte, of a character code.</value>
+  </data>
+  <data name="Strings_ChrW" xml:space="preserve">
+    <value>The character of a Unicode code.</value>
+  </data>
+  <data name="Strings_Filter" xml:space="preserve">
+    <value>The strings of an array that contain a text, or that do not.</value>
+  </data>
+  <data name="Strings_Filter_SourceArray" xml:space="preserve">
+    <value>The array of strings to filter.</value>
+  </data>
+  <data name="Strings_Filter_Match" xml:space="preserve">
+    <value>The text to look for.</value>
+  </data>
+  <data name="Strings_Filter_Include" xml:space="preserve">
+    <value>True keeps the strings that contain it; False, those that do not.</value>
+  </data>
+  <data name="Strings_Filter_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_Format" xml:space="preserve">
+    <value>A value formatted as a format says.</value>
+  </data>
+  <data name="Strings_Format_Expression" xml:space="preserve">
+    <value>The value to format.</value>
+  </data>
+  <data name="Strings_Format_Format" xml:space="preserve">
+    <value>A named format, or a format of symbols.</value>
+  </data>
+  <data name="Strings_Format_FirstDayOfWeek" xml:space="preserve">
+    <value>The first day of the week.</value>
+  </data>
+  <data name="Strings_Format_FirstWeekOfYear" xml:space="preserve">
+    <value>The first week of the year.</value>
+  </data>
+  <data name="Strings_FormatCurrency" xml:space="preserve">
+    <value>A number formatted as an amount of money.</value>
+  </data>
+  <data name="Strings_FormatCurrency_Expression" xml:space="preserve">
+    <value>The number to format.</value>
+  </data>
+  <data name="Strings_FormatCurrency_NumDigitsAfterDecimal" xml:space="preserve">
+    <value>How many digits after the decimal; -1 is the regional settings'.</value>
+  </data>
+  <data name="Strings_FormatCurrency_IncludeLeadingDigit" xml:space="preserve">
+    <value>Whether a fraction has a 0 before the decimal.</value>
+  </data>
+  <data name="Strings_FormatCurrency_UseParensForNegativeNumbers" xml:space="preserve">
+    <value>Whether a negative number is in parentheses.</value>
+  </data>
+  <data name="Strings_FormatCurrency_GroupDigits" xml:space="preserve">
+    <value>Whether the digits are grouped.</value>
+  </data>
+  <data name="Strings_FormatDateTime" xml:space="preserve">
+    <value>A date or a time in a named format.</value>
+  </data>
+  <data name="Strings_FormatDateTime_Expression" xml:space="preserve">
+    <value>The date to format.</value>
+  </data>
+  <data name="Strings_FormatDateTime_NamedFormat" xml:space="preserve">
+    <value>Which format: general, long or short date, long or short time.</value>
+  </data>
+  <data name="Strings_FormatNumber" xml:space="preserve">
+    <value>A number formatted with a number of digits after the decimal.</value>
+  </data>
+  <data name="Strings_FormatNumber_Expression" xml:space="preserve">
+    <value>The number to format.</value>
+  </data>
+  <data name="Strings_FormatNumber_NumDigitsAfterDecimal" xml:space="preserve">
+    <value>How many digits after the decimal; -1 is the regional settings'.</value>
+  </data>
+  <data name="Strings_FormatNumber_IncludeLeadingDigit" xml:space="preserve">
+    <value>Whether a fraction has a 0 before the decimal.</value>
+  </data>
+  <data name="Strings_FormatNumber_UseParensForNegativeNumbers" xml:space="preserve">
+    <value>Whether a negative number is in parentheses.</value>
+  </data>
+  <data name="Strings_FormatNumber_GroupDigits" xml:space="preserve">
+    <value>Whether the digits are grouped.</value>
+  </data>
+  <data name="Strings_FormatPercent" xml:space="preserve">
+    <value>A number formatted as a percentage.</value>
+  </data>
+  <data name="Strings_FormatPercent_Expression" xml:space="preserve">
+    <value>The number to format.</value>
+  </data>
+  <data name="Strings_FormatPercent_NumDigitsAfterDecimal" xml:space="preserve">
+    <value>How many digits after the decimal; -1 is the regional settings'.</value>
+  </data>
+  <data name="Strings_FormatPercent_IncludeLeadingDigit" xml:space="preserve">
+    <value>Whether a fraction has a 0 before the decimal.</value>
+  </data>
+  <data name="Strings_FormatPercent_UseParensForNegativeNumbers" xml:space="preserve">
+    <value>Whether a negative number is in parentheses.</value>
+  </data>
+  <data name="Strings_FormatPercent_GroupDigits" xml:space="preserve">
+    <value>Whether the digits are grouped.</value>
+  </data>
+  <data name="Strings_InStr" xml:space="preserve">
+    <value>Where a text is first found in a string.</value>
+  </data>
+  <data name="Strings_InStr_Arg1" xml:space="preserve">
+    <value>Where to start searching, from 1; or the string to search, without it.</value>
+  </data>
+  <data name="Strings_InStr_Arg2" xml:space="preserve">
+    <value>The string to search; or the text to find, without a start.</value>
+  </data>
+  <data name="Strings_InStr_Arg3" xml:space="preserve">
+    <value>The text to find, after a start.</value>
+  </data>
+  <data name="Strings_InStr_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_InStrB" xml:space="preserve">
+    <value>Where a text is first found in a string, in bytes.</value>
+  </data>
+  <data name="Strings_InStrB_Arg1" xml:space="preserve">
+    <value>Where to start searching, from 1; or the string to search, without it.</value>
+  </data>
+  <data name="Strings_InStrB_Arg2" xml:space="preserve">
+    <value>The string to search; or the text to find, without a start.</value>
+  </data>
+  <data name="Strings_InStrB_Arg3" xml:space="preserve">
+    <value>The text to find, after a start.</value>
+  </data>
+  <data name="Strings_InStrB_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_InStrRev" xml:space="preserve">
+    <value>Where a text is last found in a string, searching from its end.</value>
+  </data>
+  <data name="Strings_InStrRev_StringCheck" xml:space="preserve">
+    <value>The string to search.</value>
+  </data>
+  <data name="Strings_InStrRev_StringMatch" xml:space="preserve">
+    <value>The text to find.</value>
+  </data>
+  <data name="Strings_InStrRev_Start" xml:space="preserve">
+    <value>Where to search back from; -1 is the end.</value>
+  </data>
+  <data name="Strings_InStrRev_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_Join" xml:space="preserve">
+    <value>The strings of an array, joined with a delimiter between them.</value>
+  </data>
+  <data name="Strings_Join_SourceArray" xml:space="preserve">
+    <value>The array of strings to join.</value>
+  </data>
+  <data name="Strings_Join_Delimiter" xml:space="preserve">
+    <value>What goes between them; a space without it.</value>
+  </data>
+  <data name="Strings_LCase" xml:space="preserve">
+    <value>A string in lowercase.</value>
+  </data>
+  <data name="Strings_Left" xml:space="preserve">
+    <value>The first characters of a string.</value>
+  </data>
+  <data name="Strings_Left_String" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_Left_Length" xml:space="preserve">
+    <value>How many characters.</value>
+  </data>
+  <data name="Strings_LeftB" xml:space="preserve">
+    <value>The first bytes of a string.</value>
+  </data>
+  <data name="Strings_LeftB_String" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_LeftB_Length" xml:space="preserve">
+    <value>How many bytes.</value>
+  </data>
+  <data name="Strings_Len" xml:space="preserve">
+    <value>How many characters a string has, or how many bytes a variable takes.</value>
+  </data>
+  <data name="Strings_LenB" xml:space="preserve">
+    <value>How many bytes a string or a variable takes.</value>
+  </data>
+  <data name="Strings_LTrim" xml:space="preserve">
+    <value>A string without the spaces it starts with.</value>
+  </data>
+  <data name="Strings_RTrim" xml:space="preserve">
+    <value>A string without the spaces it ends with.</value>
+  </data>
+  <data name="Strings_Trim" xml:space="preserve">
+    <value>A string without the spaces it starts and ends with.</value>
+  </data>
+  <data name="Strings_Mid" xml:space="preserve">
+    <value>Characters from the middle of a string.</value>
+  </data>
+  <data name="Strings_Mid_String" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_Mid_Start" xml:space="preserve">
+    <value>The position of the first character, from 1.</value>
+  </data>
+  <data name="Strings_Mid_Length" xml:space="preserve">
+    <value>How many characters; the rest of the string without it.</value>
+  </data>
+  <data name="Strings_MidB" xml:space="preserve">
+    <value>Bytes from the middle of a string.</value>
+  </data>
+  <data name="Strings_MidB_String" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_MidB_Start" xml:space="preserve">
+    <value>The position of the first byte, from 1.</value>
+  </data>
+  <data name="Strings_MidB_Length" xml:space="preserve">
+    <value>How many bytes; the rest of the string without it.</value>
+  </data>
+  <data name="Strings_MonthName" xml:space="preserve">
+    <value>The name of a month.</value>
+  </data>
+  <data name="Strings_MonthName_Month" xml:space="preserve">
+    <value>The month, from 1 to 12.</value>
+  </data>
+  <data name="Strings_MonthName_Abbreviate" xml:space="preserve">
+    <value>Whether the name is abbreviated.</value>
+  </data>
+  <data name="Strings_Replace" xml:space="preserve">
+    <value>A string with each occurrence of a text replaced by another.</value>
+  </data>
+  <data name="Strings_Replace_Expression" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_Replace_Find" xml:space="preserve">
+    <value>The text to replace.</value>
+  </data>
+  <data name="Strings_Replace_Replace" xml:space="preserve">
+    <value>What replaces it.</value>
+  </data>
+  <data name="Strings_Replace_Start" xml:space="preserve">
+    <value>Where the string starts being searched; what is before it is left out.</value>
+  </data>
+  <data name="Strings_Replace_Count" xml:space="preserve">
+    <value>How many to replace; -1 is every one.</value>
+  </data>
+  <data name="Strings_Replace_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_Right" xml:space="preserve">
+    <value>The last characters of a string.</value>
+  </data>
+  <data name="Strings_Right_String" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_Right_Length" xml:space="preserve">
+    <value>How many characters.</value>
+  </data>
+  <data name="Strings_RightB" xml:space="preserve">
+    <value>The last bytes of a string.</value>
+  </data>
+  <data name="Strings_RightB_String" xml:space="preserve">
+    <value>The string.</value>
+  </data>
+  <data name="Strings_RightB_Length" xml:space="preserve">
+    <value>How many bytes.</value>
+  </data>
+  <data name="Strings_Space" xml:space="preserve">
+    <value>A string of a number of spaces.</value>
+  </data>
+  <data name="Strings_Split" xml:space="preserve">
+    <value>The parts of a string a delimiter separates, as an array.</value>
+  </data>
+  <data name="Strings_Split_Expression" xml:space="preserve">
+    <value>The string to split.</value>
+  </data>
+  <data name="Strings_Split_Delimiter" xml:space="preserve">
+    <value>What separates the parts; a space without it.</value>
+  </data>
+  <data name="Strings_Split_Limit" xml:space="preserve">
+    <value>How many parts at most; -1 is every one.</value>
+  </data>
+  <data name="Strings_Split_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_StrComp" xml:space="preserve">
+    <value>Whether a string sorts before another, after it, or with it: -1, 1 or 0.</value>
+  </data>
+  <data name="Strings_StrComp_String1" xml:space="preserve">
+    <value>The first string.</value>
+  </data>
+  <data name="Strings_StrComp_String2" xml:space="preserve">
+    <value>The second string.</value>
+  </data>
+  <data name="Strings_StrComp_Compare" xml:space="preserve">
+    <value>How strings are compared: binary or text.</value>
+  </data>
+  <data name="Strings_StrConv" xml:space="preserve">
+    <value>A string converted: its case, its width, or to and from Unicode.</value>
+  </data>
+  <data name="Strings_StrConv_String" xml:space="preserve">
+    <value>The string to convert.</value>
+  </data>
+  <data name="Strings_StrConv_Conversion" xml:space="preserve">
+    <value>Which conversion: vbUpperCase, vbLowerCase, vbProperCase, vbUnicode, ...</value>
+  </data>
+  <data name="Strings_StrConv_LocaleID" xml:space="preserve">
+    <value>The locale of the conversion.</value>
+  </data>
+  <data name="Strings_String" xml:space="preserve">
+    <value>A string of a character, repeated.</value>
+  </data>
+  <data name="Strings_String_Number" xml:space="preserve">
+    <value>How many times.</value>
+  </data>
+  <data name="Strings_String_Character" xml:space="preserve">
+    <value>The character, or its code.</value>
+  </data>
+  <data name="Strings_StrReverse" xml:space="preserve">
+    <value>A string with its characters in reverse order.</value>
+  </data>
+  <data name="Strings_UCase" xml:space="preserve">
+    <value>A string in uppercase.</value>
+  </data>
+  <data name="Strings_WeekdayName" xml:space="preserve">
+    <value>The name of a day of the week.</value>
+  </data>
+  <data name="Strings_WeekdayName_Weekday" xml:space="preserve">
+    <value>The day of the week, from 1 to 7.</value>
+  </data>
+  <data name="Strings_WeekdayName_Abbreviate" xml:space="preserve">
+    <value>Whether the name is abbreviated.</value>
+  </data>
+  <data name="Strings_WeekdayName_FirstDayOfWeek" xml:space="preserve">
+    <value>The first day of the week.</value>
+  </data>
+  <data name="Interaction_CallByName" xml:space="preserve">
+    <value>Calls a member of an object by its name.</value>
+  </data>
+  <data name="Interaction_CallByName_ObjectValue" xml:space="preserve">
+    <value>The object.</value>
+  </data>
+  <data name="Interaction_CallByName_ProcName" xml:space="preserve">
+    <value>The name of the member.</value>
+  </data>
+  <data name="Interaction_CallByName_CallType" xml:space="preserve">
+    <value>A method, or a property that is got, let or set.</value>
+  </data>
+  <data name="Interaction_CallByName_Args" xml:space="preserve">
+    <value>The arguments of the call.</value>
+  </data>
+  <data name="Interaction_Choose" xml:space="preserve">
+    <value>The value at a position of a list.</value>
+  </data>
+  <data name="Interaction_Choose_Index" xml:space="preserve">
+    <value>The position, from 1.</value>
+  </data>
+  <data name="Interaction_Choose_Choice" xml:space="preserve">
+    <value>The values to choose from.</value>
+  </data>
+  <data name="Interaction_Command" xml:space="preserve">
+    <value>The command line the program was started with.</value>
+  </data>
+  <data name="Interaction_CreateObject" xml:space="preserve">
+    <value>Creates an object of a class, by its programmatic identifier.</value>
+  </data>
+  <data name="Interaction_CreateObject_ObjectClass" xml:space="preserve">
+    <value>The programmatic identifier: Scripting.Dictionary.</value>
+  </data>
+  <data name="Interaction_CreateObject_ServerName" xml:space="preserve">
+    <value>The machine the object is created on.</value>
+  </data>
+  <data name="Interaction_DoEvents" xml:space="preserve">
+    <value>Lets the environment process its events.</value>
+  </data>
+  <data name="Interaction_Environ" xml:space="preserve">
+    <value>The value of an environment variable.</value>
+  </data>
+  <data name="Interaction_GetAllSettings" xml:space="preserve">
+    <value>Every setting of a section of an application's settings.</value>
+  </data>
+  <data name="Interaction_GetAllSettings_AppName" xml:space="preserve">
+    <value>The name of the application.</value>
+  </data>
+  <data name="Interaction_GetAllSettings_Section" xml:space="preserve">
+    <value>The section.</value>
+  </data>
+  <data name="Interaction_GetAllJsonSettings" xml:space="preserve">
+    <value>Every setting of a key of a JSON settings file.</value>
+  </data>
+  <data name="Interaction_GetAllJsonSettings_Key" xml:space="preserve">
+    <value>The key.</value>
+  </data>
+  <data name="Interaction_GetAllJsonSettings_Config" xml:space="preserve">
+    <value>The settings file; appsettings.json without it.</value>
+  </data>
+  <data name="Interaction_GetAttr" xml:space="preserve">
+    <value>The attributes of a file or a folder.</value>
+  </data>
+  <data name="Interaction_GetObject" xml:space="preserve">
+    <value>The object of a file, or a running object of a class.</value>
+  </data>
+  <data name="Interaction_GetObject_PathName" xml:space="preserve">
+    <value>The path of a file.</value>
+  </data>
+  <data name="Interaction_GetObject_ClassName" xml:space="preserve">
+    <value>The class of the object.</value>
+  </data>
+  <data name="Interaction_GetSetting" xml:space="preserve">
+    <value>A setting of an application's settings.</value>
+  </data>
+  <data name="Interaction_GetSetting_AppName" xml:space="preserve">
+    <value>The name of the application.</value>
+  </data>
+  <data name="Interaction_GetSetting_Section" xml:space="preserve">
+    <value>The section.</value>
+  </data>
+  <data name="Interaction_GetSetting_Key" xml:space="preserve">
+    <value>The setting.</value>
+  </data>
+  <data name="Interaction_GetSetting_DefaultValue" xml:space="preserve">
+    <value>What it is when there is no such setting.</value>
+  </data>
+  <data name="Interaction_GetJsonSetting" xml:space="preserve">
+    <value>A setting of a JSON settings file.</value>
+  </data>
+  <data name="Interaction_GetJsonSetting_Key" xml:space="preserve">
+    <value>The key of the setting.</value>
+  </data>
+  <data name="Interaction_GetJsonSetting_Config" xml:space="preserve">
+    <value>The settings file; appsettings.json without it.</value>
+  </data>
+  <data name="Interaction_GetJsonSetting_DefaultValue" xml:space="preserve">
+    <value>What it is when there is no such setting.</value>
+  </data>
+  <data name="Interaction_IIf" xml:space="preserve">
+    <value>One of two values, as an expression is true or not.</value>
+  </data>
+  <data name="Interaction_IIf_Expression" xml:space="preserve">
+    <value>What decides.</value>
+  </data>
+  <data name="Interaction_IIf_TruePart" xml:space="preserve">
+    <value>The value when it is true.</value>
+  </data>
+  <data name="Interaction_IIf_FalsePart" xml:space="preserve">
+    <value>The value when it is not.</value>
+  </data>
+  <data name="Interaction_InputBox" xml:space="preserve">
+    <value>Asks the user for a text.</value>
+  </data>
+  <data name="Interaction_InputBox_Prompt" xml:space="preserve">
+    <value>What the user is asked.</value>
+  </data>
+  <data name="Interaction_InputBox_Title" xml:space="preserve">
+    <value>The title of the dialog.</value>
+  </data>
+  <data name="Interaction_InputBox_DefaultValue" xml:space="preserve">
+    <value>The text the dialog starts with.</value>
+  </data>
+  <data name="Interaction_InputBox_Xpos" xml:space="preserve">
+    <value>Where the dialog is from the left, in twips.</value>
+  </data>
+  <data name="Interaction_InputBox_Ypos" xml:space="preserve">
+    <value>Where the dialog is from the top, in twips.</value>
+  </data>
+  <data name="Interaction_InputBox_HelpFile" xml:space="preserve">
+    <value>The help file.</value>
+  </data>
+  <data name="Interaction_InputBox_HelpContext" xml:space="preserve">
+    <value>The topic of the help file.</value>
+  </data>
+  <data name="Interaction_MsgBox" xml:space="preserve">
+    <value>Shows a message, and says which button the user chose.</value>
+  </data>
+  <data name="Interaction_MsgBox_Prompt" xml:space="preserve">
+    <value>The message.</value>
+  </data>
+  <data name="Interaction_MsgBox_Buttons" xml:space="preserve">
+    <value>The buttons and the icon: vbOKCancel + vbQuestion.</value>
+  </data>
+  <data name="Interaction_MsgBox_Title" xml:space="preserve">
+    <value>The title of the dialog.</value>
+  </data>
+  <data name="Interaction_MsgBox_HelpFile" xml:space="preserve">
+    <value>The help file.</value>
+  </data>
+  <data name="Interaction_MsgBox_HelpContext" xml:space="preserve">
+    <value>The topic of the help file.</value>
+  </data>
+  <data name="Interaction_Partition" xml:space="preserve">
+    <value>The range of numbers a number is in, as text.</value>
+  </data>
+  <data name="Interaction_Partition_Number" xml:space="preserve">
+    <value>The number.</value>
+  </data>
+  <data name="Interaction_Partition_Start" xml:space="preserve">
+    <value>Where the ranges start.</value>
+  </data>
+  <data name="Interaction_Partition_Stop" xml:space="preserve">
+    <value>Where the ranges stop.</value>
+  </data>
+  <data name="Interaction_Partition_Interval" xml:space="preserve">
+    <value>How wide each range is.</value>
+  </data>
+  <data name="Interaction_Shell" xml:space="preserve">
+    <value>Runs a program.</value>
+  </data>
+  <data name="Interaction_Shell_Path" xml:space="preserve">
+    <value>The program, and its arguments.</value>
+  </data>
+  <data name="Interaction_Shell_WindowStyle" xml:space="preserve">
+    <value>How its window is shown.</value>
+  </data>
+  <data name="Interaction_Switch" xml:space="preserve">
+    <value>The value of the first expression that is true.</value>
+  </data>
+  <data name="Interaction_Switch_VarExpr" xml:space="preserve">
+    <value>Pairs of an expression and its value.</value>
+  </data>
+  <data name="Interaction_AppActivate" xml:space="preserve">
+    <value>Activates the window of an application.</value>
+  </data>
+  <data name="Interaction_AppActivate_Title" xml:space="preserve">
+    <value>The title of the window, or the task ID of the program.</value>
+  </data>
+  <data name="Interaction_AppActivate_Wait" xml:space="preserve">
+    <value>Whether to wait until the program has the focus.</value>
+  </data>
+  <data name="Interaction_Beep" xml:space="preserve">
+    <value>Sounds a tone.</value>
+  </data>
+  <data name="Interaction_DeleteSetting" xml:space="preserve">
+    <value>Deletes a setting, or a section, of an application's settings.</value>
+  </data>
+  <data name="Interaction_DeleteSetting_AppName" xml:space="preserve">
+    <value>The name of the application.</value>
+  </data>
+  <data name="Interaction_DeleteSetting_Section" xml:space="preserve">
+    <value>The section.</value>
+  </data>
+  <data name="Interaction_DeleteSetting_Key" xml:space="preserve">
+    <value>The setting; every setting of the section without it.</value>
+  </data>
+  <data name="Interaction_SaveSetting" xml:space="preserve">
+    <value>Saves a setting of an application's settings.</value>
+  </data>
+  <data name="Interaction_SaveSetting_AppName" xml:space="preserve">
+    <value>The name of the application.</value>
+  </data>
+  <data name="Interaction_SaveSetting_Section" xml:space="preserve">
+    <value>The section.</value>
+  </data>
+  <data name="Interaction_SaveSetting_Key" xml:space="preserve">
+    <value>The setting.</value>
+  </data>
+  <data name="Interaction_SaveSetting_Setting" xml:space="preserve">
+    <value>The value.</value>
+  </data>
+  <data name="Interaction_SaveJsonSetting" xml:space="preserve">
+    <value>Saves a setting in a JSON settings file.</value>
+  </data>
+  <data name="Interaction_SaveJsonSetting_Key" xml:space="preserve">
+    <value>The key of the setting.</value>
+  </data>
+  <data name="Interaction_SaveJsonSetting_Setting" xml:space="preserve">
+    <value>The value.</value>
+  </data>
+  <data name="Interaction_SaveJsonSetting_Config" xml:space="preserve">
+    <value>The settings file; appsettings.json without it.</value>
+  </data>
+  <data name="Interaction_SendKeys" xml:space="preserve">
+    <value>Sends keystrokes to the active window.</value>
+  </data>
+  <data name="Interaction_SendKeys_String" xml:space="preserve">
+    <value>The keystrokes.</value>
+  </data>
+  <data name="Interaction_SendKeys_Wait" xml:space="preserve">
+    <value>Whether to wait until they are processed.</value>
+  </data>
+  <data name="Conversion_CBool" xml:space="preserve">
+    <value>A value converted to a Boolean.</value>
+  </data>
+  <data name="Conversion_CByte" xml:space="preserve">
+    <value>A value converted to a Byte.</value>
+  </data>
+  <data name="Conversion_CCur" xml:space="preserve">
+    <value>A value converted to a Currency.</value>
+  </data>
+  <data name="Conversion_CDate" xml:space="preserve">
+    <value>A value converted to a Date.</value>
+  </data>
+  <data name="Conversion_CVDate" xml:space="preserve">
+    <value>A value converted to a Date, in a Variant.</value>
+  </data>
+  <data name="Conversion_CDbl" xml:space="preserve">
+    <value>A value converted to a Double.</value>
+  </data>
+  <data name="Conversion_CDec" xml:space="preserve">
+    <value>A value converted to a Decimal.</value>
+  </data>
+  <data name="Conversion_CInt" xml:space="preserve">
+    <value>A value converted to an Integer.</value>
+  </data>
+  <data name="Conversion_CLng" xml:space="preserve">
+    <value>A value converted to a Long.</value>
+  </data>
+  <data name="Conversion_CLngLng" xml:space="preserve">
+    <value>A value converted to a LongLong.</value>
+  </data>
+  <data name="Conversion_CLngPtr" xml:space="preserve">
+    <value>A value converted to a LongPtr.</value>
+  </data>
+  <data name="Conversion_CSng" xml:space="preserve">
+    <value>A value converted to a Single.</value>
+  </data>
+  <data name="Conversion_CStr" xml:space="preserve">
+    <value>A value converted to a String.</value>
+  </data>
+  <data name="Conversion_CVar" xml:space="preserve">
+    <value>A value converted to a Variant.</value>
+  </data>
+  <data name="Conversion_CVErr" xml:space="preserve">
+    <value>The error value of an error number.</value>
+  </data>
+  <data name="Conversion_Error" xml:space="preserve">
+    <value>The message of an error number.</value>
+  </data>
+  <data name="Conversion_Fix" xml:space="preserve">
+    <value>The whole part of a number.</value>
+  </data>
+  <data name="Conversion_Hex" xml:space="preserve">
+    <value>A number in hexadecimal.</value>
+  </data>
+  <data name="Conversion_Int" xml:space="preserve">
+    <value>The greatest whole number that is not greater than a number.</value>
+  </data>
+  <data name="Conversion_Oct" xml:space="preserve">
+    <value>A number in octal.</value>
+  </data>
+  <data name="Conversion_Str" xml:space="preserve">
+    <value>A number as a string, with a space for its sign.</value>
+  </data>
+  <data name="Conversion_Val" xml:space="preserve">
+    <value>The number a string starts with.</value>
+  </data>
+  <data name="Math_Abs" xml:space="preserve">
+    <value>The absolute value of a number.</value>
+  </data>
+  <data name="Math_Atn" xml:space="preserve">
+    <value>The arctangent of a number, in radians.</value>
+  </data>
+  <data name="Math_Cos" xml:space="preserve">
+    <value>The cosine of an angle in radians.</value>
+  </data>
+  <data name="Math_Exp" xml:space="preserve">
+    <value>e to the power of a number.</value>
+  </data>
+  <data name="Math_Log" xml:space="preserve">
+    <value>The natural logarithm of a number.</value>
+  </data>
+  <data name="Math_Rnd" xml:space="preserve">
+    <value>A random number from 0 up to 1.</value>
+  </data>
+  <data name="Math_Round" xml:space="preserve">
+    <value>A number rounded to a number of decimals.</value>
+  </data>
+  <data name="Math_Round_Number" xml:space="preserve">
+    <value>The number.</value>
+  </data>
+  <data name="Math_Round_NumDigitsAfterDecimal" xml:space="preserve">
+    <value>How many digits after the decimal; 0 without it.</value>
+  </data>
+  <data name="Math_Sgn" xml:space="preserve">
+    <value>The sign of a number: -1, 0 or 1.</value>
+  </data>
+  <data name="Math_Sin" xml:space="preserve">
+    <value>The sine of an angle in radians.</value>
+  </data>
+  <data name="Math_Sqr" xml:space="preserve">
+    <value>The square root of a number.</value>
+  </data>
+  <data name="Math_Tan" xml:space="preserve">
+    <value>The tangent of an angle in radians.</value>
+  </data>
+  <data name="Math_Randomize" xml:space="preserve">
+    <value>Seeds the random number generator.</value>
+  </data>
+  <data name="Information_Err" xml:space="preserve">
+    <value>The object of the last run-time error.</value>
+  </data>
+  <data name="Information_Erl" xml:space="preserve">
+    <value>The line number of the last run-time error.</value>
+  </data>
+  <data name="Information_IMEStatus" xml:space="preserve">
+    <value>The status of the input method editor.</value>
+  </data>
+  <data name="Information_IsArray" xml:space="preserve">
+    <value>Whether a variable is an array.</value>
+  </data>
+  <data name="Information_IsDate" xml:space="preserve">
+    <value>Whether a value can be read as a date.</value>
+  </data>
+  <data name="Information_IsEmpty" xml:space="preserve">
+    <value>Whether a variable is not initialized.</value>
+  </data>
+  <data name="Information_IsError" xml:space="preserve">
+    <value>Whether a value is an error value.</value>
+  </data>
+  <data name="Information_IsMissing" xml:space="preserve">
+    <value>Whether an optional Variant argument was left out.</value>
+  </data>
+  <data name="Information_IsNull" xml:space="preserve">
+    <value>Whether a value is Null.</value>
+  </data>
+  <data name="Information_IsNumeric" xml:space="preserve">
+    <value>Whether a value can be read as a number.</value>
+  </data>
+  <data name="Information_IsObject" xml:space="preserve">
+    <value>Whether a variable refers to an object.</value>
+  </data>
+  <data name="Information_QBColor" xml:space="preserve">
+    <value>The RGB color of a QuickBASIC color number.</value>
+  </data>
+  <data name="Information_RGB" xml:space="preserve">
+    <value>The color of a red, a green and a blue value.</value>
+  </data>
+  <data name="Information_RGB_Red" xml:space="preserve">
+    <value>The red, from 0 to 255.</value>
+  </data>
+  <data name="Information_RGB_Green" xml:space="preserve">
+    <value>The green, from 0 to 255.</value>
+  </data>
+  <data name="Information_RGB_Blue" xml:space="preserve">
+    <value>The blue, from 0 to 255.</value>
+  </data>
+  <data name="Information_TypeName" xml:space="preserve">
+    <value>The name of the type of a value.</value>
+  </data>
+  <data name="Information_VarType" xml:space="preserve">
+    <value>The subtype of a variable, as a number.</value>
+  </data>
+  <data name="DateTime_DateAdd" xml:space="preserve">
+    <value>A date with an interval added to it.</value>
+  </data>
+  <data name="DateTime_DateAdd_Interval" xml:space="preserve">
+    <value>The interval: yyyy, q, m, d, ww, h, n, s, ...</value>
+  </data>
+  <data name="DateTime_DateAdd_Number" xml:space="preserve">
+    <value>How many intervals; a negative number is earlier.</value>
+  </data>
+  <data name="DateTime_DateAdd_Date" xml:space="preserve">
+    <value>The date.</value>
+  </data>
+  <data name="DateTime_DateDiff" xml:space="preserve">
+    <value>How many intervals are between two dates.</value>
+  </data>
+  <data name="DateTime_DateDiff_Interval" xml:space="preserve">
+    <value>The interval: yyyy, q, m, d, ww, h, n, s, ...</value>
+  </data>
+  <data name="DateTime_DateDiff_Date1" xml:space="preserve">
+    <value>The first date.</value>
+  </data>
+  <data name="DateTime_DateDiff_Date2" xml:space="preserve">
+    <value>The second date.</value>
+  </data>
+  <data name="DateTime_DateDiff_FirstDayOfWeek" xml:space="preserve">
+    <value>The first day of the week.</value>
+  </data>
+  <data name="DateTime_DateDiff_FirstWeekOfYear" xml:space="preserve">
+    <value>The first week of the year.</value>
+  </data>
+  <data name="DateTime_DatePart" xml:space="preserve">
+    <value>A part of a date: its year, its month, its day, ...</value>
+  </data>
+  <data name="DateTime_DatePart_Interval" xml:space="preserve">
+    <value>The part: yyyy, q, m, d, ww, h, n, s, ...</value>
+  </data>
+  <data name="DateTime_DatePart_BaseDate" xml:space="preserve">
+    <value>The date.</value>
+  </data>
+  <data name="DateTime_DatePart_FirstDayOfWeek" xml:space="preserve">
+    <value>The first day of the week.</value>
+  </data>
+  <data name="DateTime_DatePart_FirstWeekOfYear" xml:space="preserve">
+    <value>The first week of the year.</value>
+  </data>
+  <data name="DateTime_DateSerial" xml:space="preserve">
+    <value>The date of a year, a month and a day.</value>
+  </data>
+  <data name="DateTime_DateSerial_Year" xml:space="preserve">
+    <value>The year.</value>
+  </data>
+  <data name="DateTime_DateSerial_Month" xml:space="preserve">
+    <value>The month.</value>
+  </data>
+  <data name="DateTime_DateSerial_Day" xml:space="preserve">
+    <value>The day.</value>
+  </data>
+  <data name="DateTime_DateValue" xml:space="preserve">
+    <value>The date a string says.</value>
+  </data>
+  <data name="DateTime_Day" xml:space="preserve">
+    <value>The day of the month of a date.</value>
+  </data>
+  <data name="DateTime_Hour" xml:space="preserve">
+    <value>The hour of a time.</value>
+  </data>
+  <data name="DateTime_Minute" xml:space="preserve">
+    <value>The minute of a time.</value>
+  </data>
+  <data name="DateTime_Month" xml:space="preserve">
+    <value>The month of a date.</value>
+  </data>
+  <data name="DateTime_Second" xml:space="preserve">
+    <value>The second of a time.</value>
+  </data>
+  <data name="DateTime_TimeSerial" xml:space="preserve">
+    <value>The time of an hour, a minute and a second.</value>
+  </data>
+  <data name="DateTime_TimeSerial_Hour" xml:space="preserve">
+    <value>The hour.</value>
+  </data>
+  <data name="DateTime_TimeSerial_Minute" xml:space="preserve">
+    <value>The minute.</value>
+  </data>
+  <data name="DateTime_TimeSerial_Second" xml:space="preserve">
+    <value>The second.</value>
+  </data>
+  <data name="DateTime_TimeValue" xml:space="preserve">
+    <value>The time a string says.</value>
+  </data>
+  <data name="DateTime_Weekday" xml:space="preserve">
+    <value>The day of the week of a date.</value>
+  </data>
+  <data name="DateTime_Weekday_Date" xml:space="preserve">
+    <value>The date.</value>
+  </data>
+  <data name="DateTime_Weekday_FirstDayOfWeek" xml:space="preserve">
+    <value>The first day of the week.</value>
+  </data>
+  <data name="DateTime_Year" xml:space="preserve">
+    <value>The year of a date.</value>
+  </data>
+  <data name="DateTime_Calendar" xml:space="preserve">
+    <value>The calendar dates are read and written in.</value>
+  </data>
+  <data name="DateTime_Date" xml:space="preserve">
+    <value>Today's date.</value>
+  </data>
+  <data name="DateTime_Now" xml:space="preserve">
+    <value>The date and the time, now.</value>
+  </data>
+  <data name="DateTime_Time" xml:space="preserve">
+    <value>The time, now.</value>
+  </data>
+  <data name="DateTime_Timer" xml:space="preserve">
+    <value>How many seconds have passed since midnight.</value>
+  </data>
+</root>

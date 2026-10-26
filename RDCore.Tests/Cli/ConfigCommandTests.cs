@@ -168,16 +168,35 @@ public sealed class ConfigCommandTests
     }
 
     [TestMethod]
-    public async Task TheShellsVerb_WritesWhatItSays()
+    public async Task TheShellsVerb_WritesWhatItSays_AndTellsThePlatformALiveSettingTakesEffectNow()
     {
         var console = Substitute.For<IReplConsole>();
-        var themes = Substitute.For<IAppThemeService>();
-        var command = new ConfigReplCommand(Sut, themes);
-        var context = new ReplCommandContext(new ReplProgram(), console, Substitute.For<IReplPlatformClient>(), null!, []);
+        var platform = Substitute.For<IReplPlatformClient>();
+        var live = Substitute.For<ILiveSettings>();
+        var command = new ConfigReplCommand(new ConfigCommand(_settings, appliesLive: true), Substitute.For<IAppThemeService>(), live);
+        var context = new ReplCommandContext(new ReplProgram(), console, platform, null!, []);
 
         Assert.AreEqual(ReplCommandResult.Continue, await command.ExecuteAsync(context, "Server.Verbose false", CancellationToken.None));
-        console.Received(1).WriteMessage(MessageKind.Success, string.Format(Resources.Config_Set, "Server.Verbose", "False"), null);
+        console.Received(1).WriteMessage(MessageKind.Success, string.Format(Resources.Config_SetLive, "Server.Verbose", "False"), null);
+        live.Received(1).Refresh();
+        await platform.Received(1).NotifyLiveSettingsChangedAsync(Arg.Any<CancellationToken>());
         CollectionAssert.AreEqual(new[] { "CONFIGURE" }, command.Aliases.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ASettingThatIsNotLive_TakesEffectNextTime_AndWhatIsRefusedTellsNoOne()
+    {
+        var console = Substitute.For<IReplConsole>();
+        var platform = Substitute.For<IReplPlatformClient>();
+        var command = new ConfigReplCommand(new ConfigCommand(_settings, appliesLive: true), Substitute.For<IAppThemeService>(), Substitute.For<ILiveSettings>());
+        var context = new ReplCommandContext(new ReplProgram(), console, platform, null!, []);
+
+        await command.ExecuteAsync(context, "Server.ConnectTimeoutSeconds 10", CancellationToken.None);
+        console.Received(1).WriteMessage(MessageKind.Success, string.Format(Resources.Config_Set, "Server.ConnectTimeoutSeconds", "10"), null);
+
+        platform.ClearReceivedCalls();
+        await command.ExecuteAsync(context, "Server.Verbose maybe", CancellationToken.None);
+        await platform.DidNotReceive().NotifyLiveSettingsChangedAsync(Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

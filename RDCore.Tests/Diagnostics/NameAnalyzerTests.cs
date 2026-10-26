@@ -130,6 +130,23 @@ public sealed class NameAnalyzerTests
         CollectionAssert.AreEqual(new[] { "total1", "PI2", "a" }, Names(findings));
     }
 
+    // a live setting: the client says the names while the extension runs, and the analyzer that is built already reads them when it analyzes.
+    [TestMethod]
+    public void TheApprovedNames_AreTheOnesTheSettingsSayWhenAModuleIsAnalyzed()
+    {
+        var options = Options();
+        var meaningful = new UseMeaningfulIdentifierNamesAnalyzer(options);
+        var hungarian = new HungarianNotationAnalyzer(options);
+        var before = Names(Run(meaningful, Declarations));
+
+        options.Value.MeaningfulNames.AllowedNames = ["I", "X", "tmp"];
+        options.Value.HungarianNotation.AllowedNames = [.. Names(Run(hungarian, Declarations))];
+
+        CollectionAssert.Contains(before, "tmp");
+        CollectionAssert.AreEqual(new[] { "total1", "PI2", "a" }, Names(Run(meaningful, Declarations)));
+        Assert.IsEmpty(Run(hungarian, Declarations));
+    }
+
     [TestMethod]
     public void TheNameOfAnImplementationOrAHandler_IsTheInterfaceOrTheEventToChoose()
         => Assert.IsFalse(Names(Run(new UseMeaningfulIdentifierNamesAnalyzer(Options()), Declarations)).Contains("Handler_Click"));

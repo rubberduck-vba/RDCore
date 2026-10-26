@@ -54,13 +54,13 @@ public sealed class WindowsFormHost : IFormHost
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
-    public object Create(FormDefinition form) => _apartment.Invoke(() =>
+    public object Create(FormDefinition form) => OnApartment(() =>
     {
         var created = CreateForm();
         HostedForm hosted;
         try
         {
-            hosted = HostedForm.Create(form, created);
+            hosted = HostedForm.Create(form, created, _apartment);
         }
         catch (COMException failure)
         {
@@ -75,34 +75,34 @@ public sealed class WindowsFormHost : IFormHost
     })!;
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal) => _apartment.Invoke<object?>(() =>
+    public void Show(object form, bool modal) => OnApartment<object?>(() =>
     {
-        HostedOf(form).Show(_apartment, modal);
+        HostedOf(form).Show(modal);
         return null;
     });
 
     /// <inheritdoc/>
-    public void Hide(object form) => _apartment.Invoke<object?>(() =>
+    public void Hide(object form) => OnApartment<object?>(() =>
     {
         HostedOf(form).Hide();
         return null;
     });
 
     /// <inheritdoc/>
-    public bool IsShown(object form) => _apartment.Invoke(() => HostedOf(form).IsShown);
+    public bool IsShown(object form) => OnApartment(() => HostedOf(form).IsShown);
 
     /// <inheritdoc/>
-    public string GetCaption(object form) => _apartment.Invoke(() => HostedOf(form).Caption)!;
+    public string GetCaption(object form) => OnApartment(() => HostedOf(form).Caption)!;
 
     /// <inheritdoc/>
-    public void SetCaption(object form, string caption) => _apartment.Invoke<object?>(() =>
+    public void SetCaption(object form, string caption) => OnApartment<object?>(() =>
     {
         HostedOf(form).Caption = caption;
         return null;
     });
 
     /// <inheritdoc/>
-    public void Destroy(object form) => _apartment.Invoke<object?>(() =>
+    public void Destroy(object form) => OnApartment<object?>(() =>
     {
         if (_forms.Remove(form, out var hosted))
         {
@@ -111,6 +111,9 @@ public sealed class WindowsFormHost : IFormHost
 
         return null;
     });
+
+    // a call the program waits for, on the apartment: what a form raises while it is made - a click while a modal Show waits - is the answer to it.
+    private T? OnApartment<T>(Func<T?> call) => _apartment.Invoke(() => _apartment.Counted(call));
 
     private HostedForm HostedOf(object form)
         => _forms.TryGetValue(form, out var hosted) && !hosted.IsDestroyed ? hosted : throw new AutomationException(InvalidArgument, ExternalMessages.NotAForm);

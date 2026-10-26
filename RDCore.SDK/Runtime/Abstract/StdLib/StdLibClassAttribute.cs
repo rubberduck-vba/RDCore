@@ -44,4 +44,10 @@ public sealed class StdLibClassAttribute(string? name = null) : Attribute
     /// </summary>
     /// <remarks>The part after the last dot is the name of the class.</remarks>
     public string? ProgId { get; init; }
+
+    /// <summary>
+    /// What <c>TypeName</c> says of an object of the class, when it is not the class's name: the VBA library's <c>UserForms</c> collection is an object whose class
+    /// MS-VBA names nothing, and <c>TypeName(UserForms)</c> is <c>Object</c> (Excel-measured, <c>oracle\s41</c> U01).
+    /// </summary>
+    public string? TypeName { get; init; }
 }

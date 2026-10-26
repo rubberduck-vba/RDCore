@@ -242,6 +242,23 @@ public interface IReplPlatformClient
     Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server what the call being written at a position of a module takes: the signature help of the line at the prompt.
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="line">The zero-based line of the cursor in <paramref name="source"/>.</param>
+    /// <param name="character">The zero-based character of the cursor on <paramref name="line"/>.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The signature help; <see langword="null"/> where no call is being written.</returns>
+    Task<SignatureHelp?> SignatureHelpAsync(string source, string moduleName, int line, int character, CancellationToken token);
+
+    /// <summary>
+    /// Says to the language server that the live settings changed (<c>workspace/didChangeConfiguration</c>): it asks the shell for them, and passes them on.
+    /// </summary>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task NotifyLiveSettingsChangedAsync(CancellationToken token);
+
+    /// <summary>
     /// Registers the verbs of the shell's commands with the language server, described: what it completes their arguments by.
     /// </summary>
     /// <param name="verbs">The verbs, described.</param>

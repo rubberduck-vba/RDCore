@@ -293,6 +293,8 @@ public abstract class RDCoreServerApp(
             .OnStarted(HandleLanguageServerStartedAsync)
             .OnInitialize(HandleLanguageServerInitializeAsync)
             .OnInitialized(HandleLanguageServerInitializedAsync)
+            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change:
+            .WithConfigurationSection(LiveSettingsProtocol.Section)
             // core SDK handlers:
             .ConfigureCoreSdkHandlers()
             // OmniSharp 0.19.9 cannot write a pull diagnostic report, and the throw takes the entire
@@ -381,7 +383,39 @@ public abstract class RDCoreServerApp(
     /// <param name="clientCapabilities">The <em>client capabilities</em> reported by the client.</param>
     protected abstract void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities);
 
-    private async Task HandleLanguageServerStartedAsync(ILanguageServer server, CancellationToken token) => OnLanguageServerStarted(server);
+    private async Task HandleLanguageServerStartedAsync(ILanguageServer server, CancellationToken token)
+    {
+        FollowClientConfiguration(server);
+        OnLanguageServerStarted(server);
+    }
+
+    // what the client says the live settings are (LSP 3.17 §Configuration Request): the server asks for the section when it is initialized and whenever the
+    // client says it changed - OmniSharp's own pull, for the section it was configured with - and the answer is set on the component's settings.
+    private void FollowClientConfiguration(ILanguageServer server)
+    {
+        if (ExternalServices?.GetService(typeof(ILiveSettings)) is not ILiveSettings liveSettings)
+        {
+            return;
+        }
+
+        Microsoft.Extensions.Primitives.ChangeToken.OnChange(server.Configuration.GetReloadToken, () =>
+        {
+            var settings = LiveSettingsProtocol.Read(server.Configuration);
+            liveSettings.Apply(settings);
+            LogIfEnabled(LogLevel.Information, $"⚙️ The client's live settings were applied ({settings.Count} value(s)).");
+            _ = OnLiveSettingsChangedAsync(server);
+        });
+    }
+
+    /// <summary>
+    /// The client said the live settings changed, and they were set on the component's settings (<see cref="ILiveSettings"/>).
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation does nothing. A server that is the client of other components says so to them - they ask it, as it asked its own client - and
+    /// one that diagnoses documents asks its client to pull its diagnostics again.
+    /// </remarks>
+    /// <param name="server">The language server.</param>
+    protected virtual Task OnLiveSettingsChangedAsync(ILanguageServer server) => Task.CompletedTask;
 
     /// <summary>
     /// 🚀 LSP initialization has completed, server is ready to start receiving and responding to client requests and notifications.

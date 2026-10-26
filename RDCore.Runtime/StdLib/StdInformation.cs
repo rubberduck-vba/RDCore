@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using static RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule;
 
 namespace RDCore.Runtime.StdLib;
@@ -52,7 +53,8 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     {
         if (!session.Symbols.TryGetInstance(_errorObject, out _))
         {
-            var declared = session.Symbols.Resolver.ResolveType("ErrObject", ScopeKind.Global, StaticSymbol.GlobalUri).Symbol;
+            // the standard library's class, named by its library, whatever else a referenced library declares by that name.
+            var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StdLibSymbolProvider.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
             if (declared is not VBClassModuleSymbol errorClass)
             {
                 return Fail<VBObjectValue>(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,
@@ -228,7 +230,16 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
             return "Nothing";
         }
 
-        return session.Symbols.TryGetInstance(reference.Value, out var instance) ? instance.ClassModule.Name : "Unknown";
+        if (!session.Symbols.TryGetInstance(reference.Value, out var instance))
+        {
+            return "Unknown";
+        }
+
+        // a form that was unloaded is an object whose form is gone, which MS-VBA calls a UserForm whatever form it was; a class of the library whose objects MS-VBA
+        // names otherwise is what it says (oracle\s41 U15, U01).
+        return Execution.External.Forms.SessionForms.Of(session).IsUnloaded(reference.Value)
+            ? SDK.Workspace.Forms.FormObject.ClassName
+            : instance.ClassModule.GetProperty(SymbolProperties.ReportedTypeName) ?? instance.ClassModule.Name;
     }
 
     // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of.

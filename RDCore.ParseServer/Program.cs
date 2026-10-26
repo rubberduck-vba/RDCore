@@ -68,7 +68,7 @@ public class RDCoreParserAppHost : RDCorePlatformServerHost<RDCoreParserApp>
     {
         builder.AddFile(
             System.IO.Path.Combine(RDCore.SDK.Platform.PlatformEnvironment.Default.LogsDirectory, "RDCore.ParseServer.log"),
-            ResolveTraceLevel(configuration));
+            LogLevel.Trace);
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 }

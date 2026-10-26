@@ -153,4 +153,81 @@ public sealed class ConsolePromptEditorTests
     [TestMethod]
     public async Task FromAScript_TheLineIsReadAsItIs()
         => Assert.AreEqual("10 PRINT 1", await EnterAsync(new ScriptedKeys(interactive: false).Lines("10 PRINT 1")));
+
+    // ---- what the call being typed takes ----
+
+    private const string LeftSignature = "Function Left(String As Variant, Length As Long) As Variant";
+
+    // Left's signature, its second parameter at the cursor once a comma is typed; what is asked is recorded.
+    private sealed class Signatures
+    {
+        public List<string> Asked { get; } = [];
+
+        public Task<SignatureHelp?> SignatureAsync(string line, int cursor, CancellationToken token)
+        {
+            Asked.Add(line[..cursor]);
+            if (!line[..cursor].Contains("Left("))
+            {
+                return Task.FromResult<SignatureHelp?>(null);
+            }
+
+            var active = line[..cursor].Count(character => character == ',');
+            return Task.FromResult<SignatureHelp?>(new SignatureHelp
+            {
+                Signatures = new Container<SignatureInformation>(new SignatureInformation
+                {
+                    Label = LeftSignature,
+                    Documentation = new StringOrMarkupContent("Returns the first characters of a string."),
+                    Parameters = new Container<ParameterInformation>(
+                        new ParameterInformation { Label = new ParameterInformationLabel((14, 31)) },
+                        new ParameterInformation { Label = new ParameterInformationLabel((33, 47)), Documentation = new StringOrMarkupContent("How many characters.") }),
+                }),
+                ActiveParameter = active,
+            });
+        }
+    }
+
+    private static string[] Rows(StringWriter output)
+        => [.. output.ToString().Split("\u001b[1B\r").Select(row => System.Text.RegularExpressions.Regex.Replace(row, "\u001b\\[[0-9;]*[A-Za-z]", string.Empty))];
+
+    [TestMethod]
+    public async Task AnArgumentList_ShowsTheSignature_ItsParameterUnderlined_AndWhatTheyDoUnderIt()
+    {
+        var signatures = new Signatures();
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type("x = Left(s, ").Press(Key(ConsoleKey.Enter)), output, () => 80) { Signature = signatures.SignatureAsync };
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        // the last row drawn under the line runs into the line drawn again after it.
+        var rows = Rows(output);
+        Assert.IsTrue(rows.Any(row => row == LeftSignature), "the signature, on one line");
+        Assert.IsTrue(rows.Any(row => row.StartsWith("Returns the first characters of a string.")), "what it does");
+        Assert.IsTrue(rows.Any(row => row.StartsWith("Length: How many characters.")), "what the parameter at the cursor is");
+        StringAssert.Contains(output.ToString(), "\u001b[4mLength As Long\u001b[24m", "the parameter of the argument at the cursor is underlined");
+        CollectionAssert.IsSubsetOf(new[] { "x = Left(", "x = Left(s,", "x = Left(s, " }, signatures.Asked, "asked as the list opens and as each argument starts");
+    }
+
+    [TestMethod]
+    public async Task EscapeCloses_TheSignature_AndLeavesTheLine()
+    {
+        var signatures = new Signatures();
+        var line = await new ConsolePromptEditor(new ScriptedKeys().Type("x = Left(").Press(Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)), new StringWriter(), () => 80)
+        {
+            Signature = signatures.SignatureAsync,
+        }.ReadLineAsync(CancellationToken.None);
+
+        Assert.AreEqual("x = Left(", line);
+    }
+
+    [TestMethod]
+    public async Task ASignatureLongerThanTheLine_IsShownFromNearTheParameterAtTheCursor()
+    {
+        var signatures = new Signatures();
+        var output = new StringWriter();
+        await new ConsolePromptEditor(new ScriptedKeys().Type("Left(s, ").Press(Key(ConsoleKey.Enter)), output, () => 30) { Signature = signatures.SignatureAsync }
+            .ReadLineAsync(CancellationToken.None);
+
+        Assert.IsTrue(Rows(output).Any(row => row.StartsWith("nt, Length As Long)")), "four characters before the parameter, to the edge of the line");
+    }
 }

@@ -147,6 +147,29 @@ public interface IFormHost
 }
 
 /// <summary>
+/// The events a form host raises for the window a form is in, on the form's handle, to whatever listens to the form's events: the program's side of the form, which
+/// runs its handlers.
+/// </summary>
+/// <remarks>
+/// <c>Activate</c> and <c>Deactivate</c> are the VBA form object's events, raised by name. The close button is not an event of the form: it asks the program to close
+/// the form (<see cref="Close"/>), which is the program's to decide - its <c>QueryClose</c> can cancel it - and to do, as <c>Unload</c> does.
+/// </remarks>
+public static class FormWindowEvents
+{
+    /// <summary>The form's window is shown, and is the active form: the form object's <c>Activate</c>.</summary>
+    public const string Activate = "Activate";
+
+    /// <summary>Another form is shown, and is the active one: the form object's <c>Deactivate</c>.</summary>
+    public const string Deactivate = "Deactivate";
+
+    /// <summary>
+    /// The user closed the form's window - its close button, Alt+F4: the program asks the form (<c>QueryClose</c>, with <c>vbFormControlMenu</c>) and unloads it
+    /// unless it cancels. Not an event any handler is named after.
+    /// </summary>
+    public const string Close = "[Close]";
+}
+
+/// <summary>
 /// The form host of a machine that has none: no form can be created.
 /// </summary>
 public sealed class UnavailableFormHost : IFormHost

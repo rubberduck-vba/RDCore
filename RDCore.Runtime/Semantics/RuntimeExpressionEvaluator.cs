@@ -1022,8 +1022,22 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (objectValue.RuntimeValue, implementation);
         }
 
-        return InvocableMemberOf(instance.ClassModule, memberName) is { } member ? (objectValue.RuntimeValue, member) : null;
+        if (InvocableMemberOf(instance.ClassModule, memberName) is { } member)
+        {
+            return (objectValue.RuntimeValue, member);
+        }
+
+        return IsReachedByName(session, objectValue.Value, instance.ClassModule)
+            ? (objectValue.RuntimeValue, Execution.External.Automation.LateBinding.MemberOf(instance.ClassModule, memberName, RDCore.External.Automation.AutomationInvocation.Get))
+            : null;
     }
+
+    // A server's object answers to the names it has, whatever its library's description declares of its class: the extender MS-VBA wraps a form's control in
+    // (Left, SetFocus) is the control's own, as an extensible interface's members are the object's (MS-VBAL §5.6.12: an extensible class's members are bound at run
+    // time). A member the class does not declare is reached by name, as a late-bound object's is, and the server answers it or raises 438.
+    private static bool IsReachedByName(IRuntimeSession session, VBRuntimeObjectId identity, VBClassModuleSymbol classModule)
+        => classModule.GetProperty(SymbolProperties.Extensible)
+            && session.ExternalObjects.TryGet(identity, out var owner, out _) && owner is RDCore.External.Automation.IAutomationServer;
 
     // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
     // reading the property is its Get.
@@ -1221,6 +1235,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         {
             (member, isAccessor) = AssignableMemberOf(session, context, memberAccess, actual, isSet);
             _assignmentSites[memberAccess] = new AssignmentSite(scopes, actual, isSet, member, isAccessor);
+        }
+
+        if (member is null && IsReachedByName(session, owner.Value, actual))
+        {
+            (member, isAccessor) = (Execution.External.Automation.LateBinding.MemberOf(
+                actual, memberAccess.Member.IdentifierName, isSet ? RDCore.External.Automation.AutomationInvocation.Set : RDCore.External.Automation.AutomationInvocation.Let), true);
         }
 
         return member is null ? null

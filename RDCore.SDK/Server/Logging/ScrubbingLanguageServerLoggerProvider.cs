@@ -19,10 +19,9 @@ namespace RDCore.SDK.Server.Logging;
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/> — how a forwarded source path is rewritten.</param>
 public sealed class ScrubbingLanguageServerLoggerProvider(ILanguageServerFacade languageServer, IOptions<SdkServerOptions> serverOptions) : ILoggerProvider
 {
-    private readonly SourcePathScrubMode _scrubMode = serverOptions.Value.WireErrorDetail;
-
+    // read for each record: how a path is rewritten is a live setting, which the client can change while the server runs.
     /// <inheritdoc/>
-    public ILogger CreateLogger(string categoryName) => new ScrubbingLanguageServerLogger(languageServer, categoryName, _scrubMode);
+    public ILogger CreateLogger(string categoryName) => new ScrubbingLanguageServerLogger(languageServer, categoryName, () => serverOptions.Value.WireErrorDetail);
 
     /// <inheritdoc/>
     public void Dispose()
@@ -34,7 +33,7 @@ public sealed class ScrubbingLanguageServerLoggerProvider(ILanguageServerFacade 
 /// The <see cref="ILogger"/> half of <see cref="ScrubbingLanguageServerLoggerProvider"/>. Composes
 /// the record text the same way OmniSharp's internal <c>LanguageServerLogger</c> does, then scrubs it.
 /// </summary>
-internal sealed class ScrubbingLanguageServerLogger(ILanguageServerFacade responseRouter, string categoryName, SourcePathScrubMode scrubMode) : ILogger
+internal sealed class ScrubbingLanguageServerLogger(ILanguageServerFacade responseRouter, string categoryName, Func<SourcePathScrubMode> scrubMode) : ILogger
 {
     /// <inheritdoc/>
     // never null — see NullLogScope: OmniSharp's request-timing logger disposes this without a null check.
@@ -56,7 +55,7 @@ internal sealed class ScrubbingLanguageServerLogger(ILanguageServerFacade respon
         responseRouter.Window.Log(new LogMessageParams
         {
             Type = messageType,
-            Message = SourcePathAnonymizer.Scrub(LspProtocolLog.ComposeMessage(categoryName, state, exception, formatter), scrubMode),
+            Message = SourcePathAnonymizer.Scrub(LspProtocolLog.ComposeMessage(categoryName, state, exception, formatter), scrubMode()),
         });
     }
 }

@@ -42,6 +42,18 @@ public sealed class ForEachObjectTests
         => CollectionAssert.AreEqual(new[] { "1", "2", "3" },
             await RunAsync("Dim c As New Collection", "c.Add 1", "c.Add 2", "c.Add 3", "Dim v As Variant", "For Each v In c", "Debug.Print v", "Next"));
 
+    // stdole declares an IEnumVARIANT of its own, and a project that references it - or MSForms, which depends on it - made every enumerator one of stdole's:
+    // the loop's MoveNext was then 438, a member stdole's has not.
+    [TestMethod]
+    [DataRow("stdole", DisplayName = "stdole")]
+    [DataRow("MSForms", DisplayName = "MSForms, which depends on stdole")]
+    public async Task ACollection_IsEnumerated_InAProjectThatReferencesALibraryWithAnIEnumVariantOfItsOwn(string reference)
+        => CollectionAssert.AreEqual(new[] { "1", "2" },
+            await ModuleWorkspace.RunAsync([],
+                "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nDim c As New Collection, v As Variant\r\nc.Add 1\r\nc.Add 2\r\nFor Each v In c\r\nDebug.Print v\r\nNext\r\nEnd Sub\r\n",
+                new ModuleWorkspace.WorkspaceLibraries([reference],
+                    new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols))));
+
     [TestMethod]
     public async Task AnEmptyCollection_RunsTheBodyNever()
         => CollectionAssert.AreEqual(new[] { "done" },

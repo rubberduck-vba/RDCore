@@ -21,7 +21,10 @@ internal class CoreDiagnosticsAppHost() : RDCorePlatformServerHost<CoreDiagnosti
 
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<DiagnosticsOptions>(configuration.GetSection($"{SettingsSchema.Root}:{DiagnosticsOptions.Section}"));
+        services
+            .Configure<DiagnosticsOptions>(configuration.GetSection($"{SettingsSchema.Root}:{DiagnosticsOptions.Section}"))
+            // the analyzers' settings are live: what the client says they are is set on the options the analyzers read when they analyze.
+            .AddLiveSettings<DiagnosticsOptions>(DiagnosticsOptions.Schema, DiagnosticsOptions.Section);
     }
 }
 

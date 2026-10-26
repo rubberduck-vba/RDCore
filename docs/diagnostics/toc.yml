@@ -280,6 +280,8 @@
   href: vbr00322.md
 - name: VBR00325 — Invalid format in resource file
   href: vbr00325.md
+- name: VBR00361 — Can't load or unload this object
+  href: vbr00361.md
 - name: VBR00380 — Invalid property value
   href: vbr00380.md
 - name: VBR00381 — Invalid property array index
@@ -316,6 +318,8 @@
   href: vbr00442.md
 - name: VBR00443 — Automation object does not have a default value
   href: vbr00443.md
+- name: VBR00444 — Method not applicable in this context
+  href: vbr00444.md
 - name: VBR00445 — Object doesn't support this action
   href: vbr00445.md
 - name: VBR00446 — Object doesn't support named arguments

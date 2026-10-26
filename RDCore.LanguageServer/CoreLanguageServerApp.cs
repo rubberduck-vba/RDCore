@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Completion;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
@@ -95,6 +96,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<CompletionHandler>();
+        builder.WithHandler<SignatureHelpHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionDiscardHandler>();
@@ -109,6 +111,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionDebugExecuteHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionCompletionHandler>();
+        builder.WithHandler<SessionSignatureHelpHandler>();
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
@@ -366,6 +369,34 @@ internal sealed class CoreLanguageServerApp(
         catch (Exception exception)
         {
             LogIfEnabled(LogLevel.Error, $"❌ Failed to bring up {label}:\n{exception}");
+        }
+    }
+
+    // what the client said is said to every component: each asks the language server, which answers with what the client said. A client that pulls its
+    // diagnostics is asked to pull them again - a diagnostic's settings are among the live ones.
+    protected override async Task OnLiveSettingsChangedAsync(ILanguageServer server)
+    {
+        var components = new[] { orchestration.ParsingService, orchestration.RuntimeEnvironment }
+            .Concat(orchestration.Extensions)
+            .Where(component => component is not null)
+            .ToList();
+        foreach (var component in components)
+        {
+            try
+            {
+                await component.NotifyLiveSettingsChangedAsync(_componentsCts.Token);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or OperationCanceledException)
+            {
+                // a component that is not up yet asks for the settings when it is.
+                LogIfEnabled(LogLevel.Debug, $"⚙️ A component was not told the live settings changed: {exception.Message}");
+            }
+        }
+
+        if (server.ClientSettings.Capabilities?.Workspace?.Diagnostics.IsSupported == true
+            && server.ClientSettings.Capabilities.Workspace.Diagnostics.Value.RefreshSupport)
+        {
+            server.Workspace.SendDiagnosticRefresh(new DiagnosticRefreshParams());
         }
     }
 

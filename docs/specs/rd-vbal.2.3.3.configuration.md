@@ -30,10 +30,6 @@ When a change of a setting takes effect is part of the setting ([`SettingAttribu
 A `Deployment` setting is read before there is a client to ask: which component a process is, and how it connects. A user does not set one, because a bad value
 would keep the platform from starting, and with it the client that could put it back.
 
-> [!NOTE]
-> **Not implemented.** No setting takes effect while the platform runs: every component reads its settings when it starts, `Live` ones included. Live changes
-> come with `workspace/configuration` and `workspace/didChangeConfiguration`.
-
 A setting that decides what a program may do to the machine it runs on is _trust-sensitive_
 ([`TrustSensitiveSettingAttribute`](../api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)): `Environment.AllowDllImports`,
 `Environment.AllowAutomation`, `Environment.LegacyRegistrySettings`, and `Platform.Extensions.*`. Setting one says so, with a caution callout.
@@ -57,6 +53,34 @@ Each component reads it after its deployed `appsettings.json`, and before the en
 Of the file, only values the settings can be are read: a value a setting cannot be, a value of a `Deployment` setting, and a file that is not JSON are not read.
 A file written by hand never keeps the platform from starting. A setting the component does not know of is read as it is: it is another component's.
 
+A component reads the file when it starts, and not again: that is when a `NextStart` setting takes effect.
+
+## Live Settings
+
+A `Live` setting takes effect while the platform runs. The client says it, as **LSP 3.17** has a client own its user's settings
+([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md#workspaceconfiguration-and-workspacedidchangeconfiguration)):
+
+1. The shell writes the setting to the user's settings, and sends `workspace/didChangeConfiguration`.
+2. The language server asks the shell for the section `rdcore` (`workspace/configuration`). The shell answers with the live settings of the user's settings.
+3. The language server sets the live settings it has on its own settings, and sends `workspace/didChangeConfiguration` to each component it is the client of:
+   the parsing server, the environment host, and each extension.
+4. Each component asks the language server, which answers with what the shell said, and sets the live settings it has. A setting it does not have is another
+   component's, and is passed on as it is.
+
+A server asks for the section when it is initialized, too. A live setting the client says nothing of takes the value the component started with back. A value
+a setting cannot be is not set ([`LiveSettings`](../api/RDCore.SDK.Server.Configuration.LiveSettings.html)).
+
+A live setting is set on the object the component reads its settings off, in place. What reads a setting each time it uses it reads the new value:
+
+|Setting|Takes effect|
+|---|---|
+|`Server.TraceLevel`|For the next message each component's logs write ([`LiveLogLevel`](../api/RDCore.SDK.Server.Logging.LiveLogLevel.html)).|
+|`Server.Verbose`|For the next message the console writes.|
+|`Server.WireErrorDetail`|For the next record forwarded to the client.|
+|`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|
+
+`rdc config` writes the user's settings without a running platform to tell: what it sets takes effect when the platform next starts, a live setting included.
+
 ## `CONFIG`
 
 `CONFIG` (`CONFIGURE`) is a verb of the interactive shell. `rdc config` does the same in command mode, without starting the platform; it exits with `1` when it
@@ -67,7 +91,7 @@ writes an error.
 |`CONFIG`|Lists what the user set.|
 |`CONFIG Server.Verbose`|Shows the setting: what the user set it to, what it does, and what it can be.|
 |`CONFIG Server`|Lists the settings of a section, with what the user set them to.|
-|`CONFIG Server.Verbose False`|Sets the setting for the user. A value it cannot be, a `Deployment` setting, and a key that names no setting are errors, and nothing is written.|
+|`CONFIG Server.Verbose False`|Sets the setting for the user; a live one takes effect at once ([Live Settings](#live-settings)). A value it cannot be, a `Deployment` setting, and a key that names no setting are errors, and nothing is written.|
 |`CONFIG RESET Server.Verbose`|Removes what the user set of a setting, or of every setting of a section (`CONFIG RESET Server`).|
 |`CONFIG RESET`|Removes every setting the user set, and the file with them, whether or not it can be read.|
 
@@ -84,6 +108,8 @@ The shell completes the arguments of `CONFIG` a part at a time: the sections, th
 |[`SettingAttribute`](../api/RDCore.SDK.Server.Configuration.SettingAttribute.html), [`TrustSensitiveSettingAttribute`](../api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)|When a change of a setting takes effect; whether it is trust-sensitive.|
 |[`UserSettingsStore`](../api/RDCore.SDK.Server.Configuration.UserSettingsStore.html)|Reads, sets and resets what the user set.|
 |[`UserSettingsConfiguration.AddUserSettings`](../api/RDCore.SDK.Server.Configuration.UserSettingsConfiguration.html)|Adds the user's settings to a component's configuration, checked against its settings.|
+|[`LiveSettings`](../api/RDCore.SDK.Server.Configuration.LiveSettings.html), [`LiveSettingsTarget`](../api/RDCore.SDK.Server.Configuration.LiveSettingsTarget.html)|Sets the live settings a client said on a component's settings objects; what it hands down.|
+|[`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)|The section `rdcore`: what a client answers `workspace/configuration` with, and what a server reads of it.|
 |[`AppHost.Settings`](../api/RDCore.SDK.Server.AppHost-1.html)|The settings of a component: the platform's, combined with the component's own.|
 |[`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html)|The settings an extension is configured with, written into its manifest.|
 
