@@ -24,8 +24,10 @@ namespace RDCore.SDK.Semantics.Static;
 /// </para>
 /// <para>
 /// 👉 MS-VBAL §5.6.16.1 also admits a call of <c>Int</c>, <c>Fix</c>, <c>Abs</c>, <c>Sgn</c>, <c>Len</c>, <c>LenB</c> and the conversion functions. MS-VBA
-/// refuses every one of them in a constant (<c>Const k = Len("abc")</c>, <c>Abs(-1)</c>, <c>CLng(1.5)</c>), and RD-VBA refuses them as MS-VBA does. MS-VBA
-/// admits <c>Len</c> and <c>LenB</c> of a constant expression in the bounds of an array (<c>Dim d(Len(K))</c>, oracle\s46 F02), and so does RD-VBA.
+/// refuses them in a constant (<c>Const k = Len("abc")</c>, <c>Abs(-1)</c>, <c>CLng(1.5)</c>; of a module, oracle\s44 C01, C02, and <c>LenB</c> of a
+/// procedure, C05), and RD-VBA refuses them as MS-VBA does. A <c>Const</c> of a procedure valued <c>Len</c> of a constant compiles in MS-VBA, and crashes the
+/// host when it runs (C03, C04): RD-VBA refuses it too. MS-VBA admits <c>Len</c> and <c>LenB</c> of a constant expression in the bounds of an array, of a
+/// procedure and of a module (<c>Dim d(Len(K))</c>, oracle\s46 F02, oracle\s44 C06), and so does RD-VBA.
 /// </para>
 /// <para>
 /// The <c>Nothing</c> literal is a constant expression, of a type no constant can have: <see cref="VBCompileErrorId.InvalidDataTypeForConstant"/>.
