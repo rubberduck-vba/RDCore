@@ -193,6 +193,13 @@ public static class SymbolProperties
     /// collection's). Absent on every other class.
     /// </summary>
     public static readonly SymbolProperty<string> ReportedTypeName = new(nameof(ReportedTypeName));
+
+    /// <summary>
+    /// The class of a referenced library whose default interface a class of that library is (<c>ReturnBoolean</c>, on <c>MSForms.IReturnBoolean</c>): a type
+    /// name of its own, with the class's members, which an object of the class is - and whose objects are of the class. Absent on every other class.
+    /// </summary>
+    public static readonly SymbolProperty<string> DefaultInterfaceOf = new(nameof(DefaultInterfaceOf));
+
     /// <summary>
     /// Whether a variable is declared with the <c>WithEvents</c> modifier (<strong>MS-VBAL §5.2.3.1.2</strong>): its
     /// declared type is a class with events, and the procedures of the module that are named for the variable and an

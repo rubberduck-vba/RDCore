@@ -91,6 +91,14 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         {
             var declaredClass = Current(resolver, named.GetProperty(SymbolProperties.Library), named.Name) ?? named;
 
+            // a class's default interface is no class an object is of: the object is of the class (an MSForms.IReturnBoolean is a ReturnBoolean), which is one,
+            // and which a variable of the class holds too.
+            if (declaredClass.GetProperty(SymbolProperties.DefaultInterfaceOf) is { Length: > 0 } coclass
+                && Current(resolver, declaredClass.GetProperty(SymbolProperties.Library), coclass) is { } ofClass)
+            {
+                declaredClass = ofClass;
+            }
+
             // the extender MS-VBA wraps a form's control in (MSForms.Control) is what Controls.Add and Controls(i) are declared to return, and no object's class: the
             // object is the control it wraps - a CheckBox - which is what TypeName says and what a variable of the control's class holds (oracle\s41 C01, C04, C11).
             return IsControlExtender(declaredClass) && ServerClassOf(value, resolver) is { } control ? control : declaredClass;

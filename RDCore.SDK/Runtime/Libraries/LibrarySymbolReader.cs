@@ -99,6 +99,17 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
                 }
 
                 var symbol = ReadClass(library, description, types);
+
+                // the class's default interface is a type name too (`As MSForms.IReturnBoolean`), with the class's members, and an object of the class is one.
+                if (description.DefaultInterface is { Length: > 0 } interfaceName && !byName.ContainsKey(interfaceName)
+                    && !classes.ContainsKey((library.Name, interfaceName)))
+                {
+                    var defaultInterface = InterfaceOf(library, symbol, interfaceName);
+                    classes[(library.Name, interfaceName)] = VBClassType.FromClassModule(defaultInterface);
+                    symbols.Add(defaultInterface);
+                    symbol = symbol with { ImplementedInterfaces = [defaultInterface] };
+                }
+
                 classes[(library.Name, description.Name)] = VBClassType.FromClassModule(symbol);
                 symbols.Add(symbol);
             }
@@ -163,6 +174,22 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
 
         symbol = symbol with { Members = members };
         return symbol with { DefaultInterfaceMembers = VBClassType.FromClassModule(symbol).Members };
+    }
+
+    // the default interface of a class: no class of its own, and none that is created; its members are the class's, called on the object as the class's are.
+    private VBClassModuleSymbol InterfaceOf(LibraryDescription library, VBClassModuleSymbol coclass, string name)
+    {
+        var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(workspaceRoot, new VBProjectSymbol(workspaceRoot, library.Name).Uri, name)
+            .With(SymbolProperties.Library, library.Name)
+            .With(SymbolProperties.Creatable, false)
+            .With(SymbolProperties.Extensible, true)
+            .With(SymbolProperties.DefaultInterfaceOf, coclass.Name);
+
+        return symbol with
+        {
+            Members = [.. coclass.Members.OfType<VBTypeMemberSymbol>().Where(member => member is not VBEventMemberSymbol)],
+            DefaultInterfaceMembers = coclass.DefaultInterfaceMembers,
+        };
     }
 
     private VBTypeMemberSymbol ReadMember(
