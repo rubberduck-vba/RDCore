@@ -15,6 +15,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -329,6 +330,16 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return _assignments.AssignThroughFunction(session, context, assignment, assignment.Target, assignment.Value, valueResult.Result!, isSet: true);
         }
 
+        // MS-VBAL §5.4.3.9: a property is Set by invoking its Property Set with the value - one of a standard module on nothing, from anywhere, by its bare
+        // name or through its module (MS-VBA, oracle\s44 W01); one of a class, from the class's own code, on the object whose code it is. It has no storage of
+        // its own for the value to be written to.
+        if (!isOwnResult && target is IVBPropertyMemberSymbol && ((Symbol)target).Uri.AbsoluteUri != context.Scope.AbsoluteUri
+            && (target as VBPropertySetMemberSymbol ?? session.Symbols.MembersOf(((Symbol)target).ParentUri).OfType<VBPropertySetMemberSymbol>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Name, ((Symbol)target).Name, StringComparison.OrdinalIgnoreCase))) is { } setter)
+        {
+            return SetProperty(session, context, assignment, setter, valueResult.Result!);
+        }
+
         // Set-coercion (MS-VBAL §5.5.2.2) is not an operator - the same direct entry point
         // WithStatementRuntimeSemantics already uses for its own With-target coercion.
         var coercionResult = _setCoercion.EvaluateSetCoercion(session, assignment.Value, valueResult.Result!, declared);
@@ -382,5 +393,28 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         }
 
         return RuntimeExecutionOutcome.Next;
+    }
+
+    // the Property Set invoked with the value, which it Set-coerces to its value parameter's type: on the object whose code this is when it is a class's, and
+    // on nothing when it is a standard module's.
+    private RuntimeExecutionOutcome SetProperty(
+        IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment, VBPropertySetMemberSymbol setter, VBTypedValue value)
+    {
+        IRuntimeValue? receiver = null;
+        if (RuntimeProcedureInvoker.GetParameters(setter) is [{ Name: Tokens.Me }, ..])
+        {
+            var me = _expressionEvaluator.Evaluate(session, new InstanceExpressionNode(assignment.Target.Identity, assignment.Target.Location), context);
+            if (!me.IsSuccess)
+            {
+                return me.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(me.ErrorInfo!);
+            }
+
+            receiver = me.Result!.RuntimeValue;
+        }
+
+        var invocation = _expressionEvaluator.InvokeAssignment(session, context, setter, receiver, [], value, assignment.Value, isSet: true);
+        return invocation.IsSuccess ? RuntimeExecutionOutcome.Next
+            : invocation.IsInternalError ? RuntimeExecutionOutcome.InternalError
+            : RuntimeExecutionOutcome.Error(invocation.ErrorInfo!);
     }
 }

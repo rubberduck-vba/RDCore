@@ -91,6 +91,26 @@ public sealed class PropertyAssignmentByNameTests
         StringAssert.Contains(errors[0], "Fixed");
     }
 
+    // MS-VBAL §5.4.3.9: a Set of another module's property invokes its Property Set, by its bare name or through its module (MS-VBA, oracle\s44 W01).
+    [TestMethod]
+    [DataRow("Store.")]
+    [DataRow("")]
+    public async Task ASetOfAnotherModulesProperty_InvokesItsPropertySet(string qualifier)
+    {
+        var program = string.Join("\r\n", "Attribute VB_Name = \"Program\"", "Public Sub Main()",
+            $"Set {qualifier}Items = New Collection", "Debug.Print CStr(Store.Items Is Nothing)", "Debug.Print CStr(Store.Count)",
+            $"Set {qualifier}Items = Nothing", "Debug.Print CStr(Store.Items Is Nothing)", "Debug.Print CStr(Store.Count)", "End Sub") + "\r\n";
+        var store = ModuleWorkspace.StandardModule("Store",
+            "Private mItems As Collection",
+            "Public Count As Long",
+            "Public Property Get Items() As Collection", "    Set Items = mItems", "End Property",
+            "Public Property Set Items(ByVal c As Collection)", "    Set mItems = c", "    Count = Count + 1", "End Property");
+
+        var printed = await ModuleWorkspace.RunAsync([], [("Store", store)], program);
+
+        Assert.AreEqual("False | 1 | True | 2", string.Join(" | ", printed));
+    }
+
     private static async Task AssertSetIsInvalidAsync(string statement)
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], string.Join("\r\n",
