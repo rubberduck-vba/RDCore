@@ -471,10 +471,11 @@ public sealed class StdLibSymbolReader
                     $"which only an optional ByVal parameter declared as a {nameof(VBCompareMethod)} can.");
             }
 
+            // MS-VBAL §5.3.1.5: a param array is declared with no parameter mechanism, and its elements are ByRef.
             if (paramArray)
             {
                 builder.Add(new ParamArrayParameterSymbol(
-                    _workspaceRoot, memberUri, name, SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal));
+                    _workspaceRoot, memberUri, name, SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef));
                 continue;
             }
 

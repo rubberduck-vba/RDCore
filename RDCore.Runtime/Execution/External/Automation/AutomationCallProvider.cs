@@ -207,8 +207,22 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
         public List<bool> ByReference { get; } = [];
 
         // where the server wrote an argument that was passed by reference, so the variable it names can be told: the type the variable is declared, the
-        // argument's position among the values, the address of the variable, and what it held.
-        public List<(VBType Declared, int Position, MemoryAddress Address, object? Sent)> Variables { get; } = [];
+        // argument's position among the values, the cell of the variable, and what it held.
+        public List<(VBType Declared, int Position, IBindingHandle Variable, object? Sent)> Variables { get; } = [];
+
+        // an argument the server is given, and whether by reference: only a variable can be written to, and one of a type the server cannot write a result
+        // of back to (an object, an array) is not told.
+        public void Add(object? converted, VBType declared, IBindingHandle? variable)
+        {
+            var writable = variable is not null && converted is not (Array or null) and not Type and not System.Runtime.InteropServices.DispatchWrapper;
+            if (writable)
+            {
+                Variables.Add((declared, Values.Count, variable!, converted));
+            }
+
+            Values.Add(converted);
+            ByReference.Add(writable);
+        }
     }
 
     // the arguments in the order the server takes them. The caller has Let-coerced each to the parameter's declared type, which is what recovers the
@@ -223,24 +237,30 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
             if (parameter is ParamArrayParameterSymbol)
             {
-                // the arguments the caller collected for a ParamArray are the rest of the call.
+                // the arguments the caller collected for a ParamArray are the rest of the call - a late-bound member's are all of them. An element that is a
+                // variable (MS-VBAL §5.3.1.5) is the variable, given by reference as the type it is declared, as MS-VBA gives a server a variable it names.
                 if (parameter.ResolvedType.CreateValue(new ValueBindingHandle(argument)) is VBArrayValue collected)
                 {
                     for (var element = 0; element < collected.Length; element++)
                     {
-                        passed.Values.Add(AutomationMarshaller.ToAutomation(collected.ElementAt(element)!, _objects.ToServer));
-                        passed.ByReference.Add(false);
+                        if (collected.CellAt(element) is VariantReferenceBindingHandle { Variable: var variable, DeclaredType: var variableType })
+                        {
+                            passed.Add(AutomationMarshaller.ToAutomation(TypedAs(variableType, variable.Value), _objects.ToServer), variableType, variable);
+                            continue;
+                        }
+
+                        passed.Add(AutomationMarshaller.ToAutomation(collected.ElementAt(element)!, _objects.ToServer), VBVariantType.TypeInfo, null);
                     }
                 }
 
                 continue;
             }
 
-            MemoryAddress? address = null;
+            IBindingHandle? addressed = null;
             VBType? referenced = null;
             while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
             {
-                address ??= reference.Value;
+                addressed ??= cell;
                 referenced ??= reference.DeclaredType;
                 argument = cell.Value;
             }
@@ -248,35 +268,29 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             // MS-VBAL §5.3.1.11: a variable passed to a Variant parameter is the variable, of the type it is declared - which is what the server is given, by reference.
             var declared = referenced ?? parameter.ResolvedType;
 
-            // MS-VBAL §5.2.3.4: a member of an enumeration is a Long, and so is a value of its type to a server, which knows it as one.
-            var typed = declared is VBEnumType
-                ? new VBLongValue(Convert.ToInt32(argument.BoxedValue, System.Globalization.CultureInfo.InvariantCulture))
-                : declared.CreateValue(new ValueBindingHandle(argument));
+            var typed = TypedAs(declared, argument);
             // an object of the session is given as MS-VBA gives one: the server holds a stand-in for it (SessionObjectHost).
             var converted = AutomationMarshaller.ToAutomation(typed, _objects.ToServer, omitEmpty: parameter.IsOptional && parameter.ResolvedType is VBVariantType);
-
-            // only a variable can be written to; one of a type the server cannot write a result of back to (an object, an array) is not told.
-            var writable = address is { } && parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef
-                && converted is not (Array or null) and not Type and not System.Runtime.InteropServices.DispatchWrapper;
-            if (writable)
-            {
-                passed.Variables.Add((declared, passed.Values.Count, address!.Value, converted));
-            }
-
-            passed.Values.Add(converted);
-            passed.ByReference.Add(writable);
+            passed.Add(converted, declared, parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef ? addressed : null);
         }
 
         return passed;
     }
 
+    // the value an argument is, as the type it is declared. MS-VBAL §5.2.3.4: a member of an enumeration is a Long, and so is a value of its type to a server,
+    // which knows it as one.
+    private static VBTypedValue TypedAs(VBType declared, IRuntimeValue argument)
+        => declared is VBEnumType
+            ? new VBLongValue(Convert.ToInt32(argument.BoxedValue, System.Globalization.CultureInfo.InvariantCulture))
+            : declared.CreateValue(new ValueBindingHandle(argument));
+
     // MS-VBAL §5.3.1.11: a reference parameter is the variable the argument names, so a server that wrote to it has written to the variable.
     private void WriteBack(PassedArguments passed, object?[] values, ISymbolResolver resolver)
     {
-        foreach (var (variableType, position, address, sent) in passed.Variables)
+        foreach (var (variableType, position, variable, sent) in passed.Variables)
         {
             var now = values[position];
-            if (Equals(sent, now) || !resolver.TryRead(address, out var cell))
+            if (Equals(sent, now))
             {
                 continue;
             }
@@ -284,7 +298,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             try
             {
                 var written = AutomationMarshaller.FromAutomation(now, variableType, (value, declared) => Wrap(value, declared, resolver));
-                cell.SetValue(resolver, written.RuntimeValue);
+                variable.SetValue(resolver, written.RuntimeValue);
             }
             catch (AutomationException)
             {

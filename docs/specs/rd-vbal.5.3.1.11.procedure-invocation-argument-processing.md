@@ -135,9 +135,13 @@ The arguments passed to a `ParamArray` parameter are collected by
   1:1.
 - `RuntimeExpressionEvaluator.CollectParamArrayArguments` collects the arguments into a fresh, 0-based array of
   `Variant`.
-- Each argument collected into a `ParamArray` is Let-coerced to `Variant`, the same way any other `ByVal`
-  argument is Let-coerced to its parameter's declared type (see
-  [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)).
+- Each element is a `ByRef` `Variant` parameter (**MS-VBAL §5.3.1.5**: the param array "behaves as if it was an array
+  whose elements were 'byref' &lt;positional-param&gt; elements whose declared types were Variant"). An argument that is a
+  variable - a name, an element of an array, an element of another `ParamArray` - is passed by reference: the element
+  *is* the variable, and what the procedure assigns to it, the variable is assigned. See [Elements that are variables](#elements-that-are-variables).
+- Any other argument - a literal, an expression, a variable in parentheses (`Bump (n)`) - is Let-coerced to `Variant`, the
+  same way any other `ByVal` argument is Let-coerced to its parameter's declared type (see
+  [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)), and the element is a copy.
 - A `ParamArray` parameter is never targetable by name.
 - A `ParamArray` parameter is always considered satisfied, even with nothing collected: it receives an empty
   array, not error 449.
@@ -148,6 +152,32 @@ whose `Size` is 0. An empty `ParamArray` array has a non-positive storage size, 
 
 A `ParamArray` call with nothing left over is the most common `ParamArray` call shape, which is why zero-size
 storage is supported. See [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md).
+
+#### Elements that are variables
+
+An element given a variable keeps the variable's declared type, as MS-VBA does (recorded in Excel):
+
+|Given|In the procedure|After the call|
+|---|---|---|
+|`Dim n As Variant: n = 1`|`a(0) = a(0) + 1`|`n` is 2.|
+|`Dim n As Long: n = 1`|`a(0) = a(0) + 1`|`n` is 2, and still a `Long`.|
+|`Dim n As Long`|`a(0) = "7"`|`n` is 7: the value is Let-coerced to the variable's type.|
+|`Dim n As Long: n = 1`|`a(0) = "abc"`|Error 13; `n` is still 1.|
+|`Dim s As String`|`a(0) = 3.5`|`s` is `"3.5"`.|
+|`Dim v As Variant`|`Set a(0) = New Collection`|`v` holds the collection.|
+|`Dim x(2) As Long`, `Bump 0, x(1)`|`a(1) = a(1) + 1`|`x(1)` is written.|
+|`n`, passed on as `Bump b(0)` from another `ParamArray b()`|`a(0) = a(0) + 1`|`n` is written.|
+
+Read, the element is a `Variant` holding the variable's value as its declared type: `TypeName(a(0))` of a `Long` is
+`Long`. The element's cell is a [VariantReferenceBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.VariantReferenceBindingHandle.html)
+over the variable's own cell. An assignment to the element is coerced to the type it gives
+(`VariantReferenceBindingHandle.DeclaredTypeOf`), and an object the variable holds is the variable's to let go of, not the
+array's. A variable that is an array, a record or a fixed-length `String` is still given as a copy: MS-VBA's behaviour
+with one is not recorded yet.
+
+A member of a server called late-bound takes its arguments as a `ParamArray` ([**RD-VBAL §6.0**](rd-vbal.6.0.standard-library.md#late-bound-calls)).
+An element that is a variable is given to the server by reference (`VT_BYREF`), as the type the variable is declared, and
+what the server writes into it is the variable's, as MS-VBA passes it.
 
 ### ByVal and ByRef Binding
 
@@ -180,7 +210,7 @@ its bounds kept.
 |`ByRef`, declared as a class or `Object`|A variable of a different declared type|A `ByVal`-style copy: the class/`Object` copy-back is not modeled.|
 |`ByRef`|Not recognized as aliasable: an expression, a literal, a variable of mismatched declared type, a read-only target|The same `ByVal`-style Let-coerced copy: **MS-VBAL §5.3.1.11**'s "otherwise" case. Never an error.|
 |`Optional`|None (unmapped)|The default value; see [Optional Parameters](#optional-parameters).|
-|`ParamArray`|The remaining positional arguments|A fresh, 0-based `Variant` array; see [ParamArray](#paramarray).|
+|`ParamArray`|The remaining positional arguments|A fresh, 0-based `Variant` array whose elements given variables are those variables; see [ParamArray](#paramarray).|
 
 A reference binding is made as follows:
 

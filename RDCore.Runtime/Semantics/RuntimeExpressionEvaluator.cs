@@ -2044,8 +2044,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (parameter is ParamArrayParameterSymbol)
             {
                 var collected = boundArgument is null
-                    ? CollectParamArrayArguments(session, context, mapResult.ParamArrayArguments)
-                    : CollectParamArrayArguments(session, context, default, boundArgument.Elements);
+                    ? CollectParamArrayArguments(session, context, parameter, borrowed, mapResult.ParamArrayArguments)
+                    : CollectParamArrayArguments(session, context, parameter, borrowed, default, boundArgument.Elements);
                 if (collected.Error is { } collectError)
                 {
                     return collectError;
@@ -2253,15 +2253,17 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);
 
-    // MS-VBAL §5.3.1.11: the trailing extra positional arguments become a fresh, 0-based Variant array
-    // bound to the ParamArray parameter - never an alias onto anything the caller passed, since there's
-    // no single caller variable the whole collection could reference. Each element is Let-coerced to
-    // Variant, the same rule any other ByVal argument follows. Boxed as VBRuntimeArrayValue (matching
-    // SymbolAddressTable.FreshBinding's own shape for an array value) so VBArrayType.CreateValue can
-    // unbox it correctly once RuntimeProcedureInvoker pushes it onto the callee's frame.
+    // MS-VBAL §5.3.1.11: the trailing extra positional arguments become a fresh, 0-based Variant array bound to the ParamArray parameter. Boxed as
+    // VBRuntimeArrayValue (matching SymbolAddressTable.FreshBinding's own shape for an array value) so VBArrayType.CreateValue can unbox it correctly once
+    // RuntimeProcedureInvoker pushes it onto the callee's frame.
+    // MS-VBAL §5.3.1.5: the param array "behaves as if it was an array whose elements were 'byref' <positional-param> elements whose declared types were
+    // Variant": an argument that is a variable is passed by reference, and its element is the variable - its own cell for a Variant, and a Variant that
+    // refers to it for a variable of another type (VariantReferenceBindingHandle), which what is assigned to the element is coerced to (MS-VBA, recorded
+    // in Excel: oracle\s44 P01-P12). Any other argument - a value, an expression, a variable in parentheses - is a copy, Let-coerced to Variant.
     // elementNodes: the arguments collected, bound with the call (S1.7), in place of argumentNodes.
     private ParamArrayCollectResult CollectParamArrayArguments(
-        IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> argumentNodes, ImmutableArray<BoundNode> elementNodes = default)
+        IRuntimeSession session, RuntimeEvaluationContext context, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
+        ImmutableArray<ExpressionNode> argumentNodes, ImmutableArray<BoundNode> elementNodes = default)
     {
         var count = elementNodes.IsDefault ? argumentNodes.Length : elementNodes.Length;
 
@@ -2271,9 +2273,18 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         for (var i = 0; i < count; i++)
         {
             var argumentNode = elementNodes.IsDefault ? argumentNodes[i] : elementNodes[i].Expression;
-            var argumentResult = elementNodes.IsDefault
+            RuntimeSemanticsEvaluationResult? evaluatedInstead = null;
+            if (TryReferenceVariable(session, context, argumentNode, elementNodes.IsDefault ? null : elementNodes[i], parameter, borrowed, out var variable,
+                    out evaluatedInstead))
+            {
+                array.TrySetElement(variable, i);
+                continue;
+            }
+
+            // an element whose subscripts were evaluated in trying it as a variable is what they selected: they are not evaluated again.
+            var argumentResult = evaluatedInstead ?? (elementNodes.IsDefault
                 ? EvaluateIndexArgument(session, argumentNode, context)
-                : EvaluateBoundArgument(session, elementNodes[i], context);
+                : EvaluateBoundArgument(session, elementNodes[i], context));
             if (argumentResult is { } evaluated && !evaluated.IsSuccess)
             {
                 return new ParamArrayCollectResult(null, evaluated);
@@ -2314,6 +2325,59 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         return new ParamArrayCollectResult(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array)), null);
     }
+
+    // the cell an element of a param array is when its argument is a variable, passed by reference as one is to a ByRef Variant parameter: a Variant that
+    // refers to the variable, as the type it is declared. An array, a record and a fixed-length String are given as a copy: MS-VBA's behaviour with one is
+    // not recorded yet. bound: the argument's node, bound with the call (S1.7); null binds it here.
+    private bool TryReferenceVariable(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode argument, BoundNode? bound, VBParameterSymbol paramArray,
+        List<MemoryAddress> borrowed, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IBindingHandle? cell, out RuntimeSemanticsEvaluationResult? evaluated)
+    {
+        cell = null;
+        evaluated = null;
+
+        // only a name, a member and an element of an array can be a variable: a literal, an operator's result, a parenthesized expression is a copy.
+        if (argument is not (SimpleNameExpressionNode or IndexExpressionNode or MemberAccessExpressionNode))
+        {
+            return false;
+        }
+
+        // a variable named by its bare name is bound once, and is read and written through its cell (IR lowering S1.3): the cell is what the element refers
+        // to, with no address made for it - when nothing is assumed of it. A Variant reference parameter given a variable of another type is not this.
+        if (!AssumesVariables && Observation is null && (bound as BoundVariable ?? BoundVariableOf(session, argument, context)) is { } named
+            && named.Variable is ITypedSymbol { ResolvedType: var declaredAs } && BindingOf(session, named) is (var variableCell, null)
+            && variableCell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            if (declaredAs is VBArrayType or VBUserDefinedType or VBFixedStringType)
+            {
+                return false;
+            }
+
+            cell = new VariantReferenceBindingHandle(variableCell, declaredAs);
+            return true;
+        }
+
+        if (!TryResolveByRefArgument(session, context, argument, ElementParameterOf(paramArray), borrowed, out var reference, out evaluated)
+            || !session.Symbols.Resolver.TryRead(reference.Value, out var variable))
+        {
+            return false;
+        }
+
+        if (reference.DeclaredType is VBArrayType or VBUserDefinedType or VBFixedStringType)
+        {
+            return false;
+        }
+
+        cell = new VariantReferenceBindingHandle(variable, reference.DeclaredType ?? VBVariantType.TypeInfo);
+        return true;
+    }
+
+    // what each element of a param array is declared as: a ByRef Variant parameter (MS-VBAL §5.3.1.5), one for each param array.
+    private static VBParameterSymbol ElementParameterOf(VBParameterSymbol paramArray)
+        => ElementParameters.GetValue(paramArray, static declared => new VBParameterSymbol(declared.WorkspaceRoot, declared.ParentUri, declared.Name,
+            declared.Range, declared.SelectionRange, ParameterKind.ExplicitByRef, VBVariantType.TypeInfo));
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VBParameterSymbol, VBParameterSymbol> ElementParameters = [];
 
     private readonly record struct ArgumentMapResult(ExpressionNode?[]? Mapped, ImmutableArray<ExpressionNode> ParamArrayArguments, RuntimeSemanticsEvaluationResult? Error);
 

@@ -332,9 +332,11 @@ internal static class ObjectReferences
             return;
         }
 
+        // an element of a param array given a variable is the variable (MS-VBAL §5.3.1.5): what it holds is the variable's, which lets go of it, and not the
+        // array's - the activation that ends with the array does not.
         for (var index = 0; index < array.Length; index++)
         {
-            if (array.CellAt(index) is { } cell && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
+            if (array.CellAt(index) is { } cell and not VariantReferenceBindingHandle && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
             {
                 Collect(cell, cell.Value, ref holds);
             }

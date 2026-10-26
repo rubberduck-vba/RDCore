@@ -50,7 +50,7 @@ public sealed class CreateObjectTests
 
         public string Describe(object? first, object? second) => $"{first}/{second}";
 
-        public void Bump(ref object? amount) => amount = (int)amount! + 1;
+        public void Bump(ref object? amount) => amount = Convert.ToInt32(amount, System.Globalization.CultureInfo.InvariantCulture) + 1;
     }
 
     private sealed class FakeServer : IAutomationServer
@@ -218,16 +218,19 @@ public sealed class CreateObjectTests
             "s.Nope",
             "Debug.Print Err.Number"));
 
-    // 🚧 a late-bound member's arguments are passed by value (LateBinding): MS-VBA passes a variable by reference, and what the server writes is the variable's.
+    // a late-bound member's arguments are a param array, whose elements are the variables they are given (MS-VBAL §5.3.1.5): the server is given a variable
+    // by reference, and what it writes is the variable's, as MS-VBA passes it.
     [TestMethod]
-    [Ignore("late-bound arguments are passed by value; MS-VBA passes a variable by reference")]
-    public async Task AVariablePassedToALateBoundMember_IsTheVariableTheServerWritesTo()
-        => CollectionAssert.AreEqual(new[] { "2" }, await Run(
+    [DataRow("Variant", "s.Bump n", "2", DisplayName = "a Variant")]
+    [DataRow("Long", "s.Bump n", "2", DisplayName = "a Long, given as a Long")]
+    [DataRow("Variant", "s.Bump (n)", "1", DisplayName = "in parentheses, a copy")]
+    public async Task AVariablePassedToALateBoundMember_IsTheVariableTheServerWritesTo(string declared, string call, string expected)
+        => CollectionAssert.AreEqual(new[] { expected }, await Run(
             "Dim s As Object",
-            "Dim n As Variant",
+            $"Dim n As {declared}",
             "n = 1",
             "Set s = CreateObject(\"Lab.Shelf\")",
-            "s.Bump n",
+            call,
             "Debug.Print n"));
 
     [TestMethod]

@@ -38,7 +38,10 @@ public record UnboundVBParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string 
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-/// <param name="ParameterKind">Describes how an argument is passed to this parameter.</param>
+/// <param name="ParameterKind">
+/// Describes how an argument is passed to this parameter: <see cref="ParameterKind.ImplicitByRef"/>. <strong>MS-VBAL §5.3.1.5</strong> declares a param array with
+/// no parameter mechanism, and its elements are "byref" positional parameters of declared type <c>Variant</c>; a mechanism written on one is a syntax error.
+/// </param>
 public record ParamArrayParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, ParameterKind ParameterKind)
     : VBParameterSymbol(WorkspaceRoot, ParentUri, Name, Range, SelectionRange, ParameterKind, VBFixedSizeArrayType.TypeInfo, IsOptional: false)
 { }

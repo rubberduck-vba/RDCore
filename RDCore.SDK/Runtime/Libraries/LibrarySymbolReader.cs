@@ -288,8 +288,9 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
         {
             if (description.IsParamArray)
             {
+                // MS-VBAL §5.3.1.5: a param array is declared with no parameter mechanism, and its elements are ByRef.
                 builder.Add(new ParamArrayParameterSymbol(
-                    workspaceRoot, memberUri, description.Name, SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal));
+                    workspaceRoot, memberUri, description.Name, SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef));
                 continue;
             }
 

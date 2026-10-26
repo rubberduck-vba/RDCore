@@ -232,13 +232,16 @@ public sealed class LetAssignmentEvaluator(
 
         // a subscript outside the bounds is error 9 - unless it, or the array, is not known: the error is not known to happen, and there is
         // no element to assign. A fixed-size array's bounds are its declaration's, known whatever it holds.
-        var isElement = indicesKnown && array.GetElementHandle(indices) is not null;
+        var elementCell = indicesKnown ? array.GetElementHandle(indices) : null;
+        var isElement = elementCell is not null;
         if (indicesKnown && !isElement && (!array.IsIndeterminate || array is VBFixedSizeArrayValue { IsInitialized: true }))
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.SubscriptOutOfRange, arrayExpression.Location, string.Join(", ", indices)));
         }
 
+        // an element of a param array given a variable is the variable, assigned as it is declared (MS-VBAL §5.3.1.5; VariantReferenceBindingHandle).
+        var elementType = VariantReferenceBindingHandle.DeclaredTypeOf(elementCell, array.ItemType);
         if (isSet)
         {
             if (expressions.SetCoercion is not { } setCoercion)
@@ -246,7 +249,7 @@ public sealed class LetAssignmentEvaluator(
                 return RuntimeExecutionOutcome.InternalError;
             }
 
-            var setResult = setCoercion.EvaluateSetCoercion(session, source, value, array.ItemType);
+            var setResult = setCoercion.EvaluateSetCoercion(session, source, value, elementType);
             if (!setResult.IsSuccess)
             {
                 return RuntimeExecutionOutcome.Error(setResult.ErrorInfo!);
@@ -267,7 +270,7 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
-        var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(array.ItemType), ConversionSite.Assignment);
+        var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(elementType), ConversionSite.Assignment);
         var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
         if (!coerced.IsApplicable)
         {
