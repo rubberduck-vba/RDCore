@@ -432,3 +432,5 @@
   href: rdc11011.md
 - name: RDC11012 — Set of a call that always fails
   href: rdc11012.md
+- name: RDC11013 — Variant compared with a String as text
+  href: rdc11013.md

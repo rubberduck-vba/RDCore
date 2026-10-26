@@ -71,6 +71,15 @@ public enum ComparisonOperatorSemanticFlags
     /// 👉 In such cases the <em>numeric</em> <c>VBVariant</c> operand <strong>is always considered <em>less than</em></strong> the <em>string</em> <c>VBVariant</c> operand.
     /// </remarks>
     IsVariantStringNumericException = 1 << 19,
+    /// <summary>
+    /// <c>true</c> if one operand is a <c>VBVariant</c> holding a number, a <c>Date</c> or a <c>Boolean</c>, and the other a <c>String</c> that is no
+    /// <c>VBVariant</c> - a variable declared <c>As String</c>, a literal: the two are compared as text, as MS-VBA compares them.
+    /// </summary>
+    /// <remarks>
+    /// 👉 <strong>MS-VBAL §5.6.9.5</strong> makes the effective type the number's, which makes a <c>String</c> that is no number a type mismatch (13);
+    /// MS-VBA compares the text of the <c>Variant</c>'s value with the <c>String</c>, as Microsoft Learn documents it (RD-VBAL §5.6.9.5).
+    /// </remarks>
+    IsVariantComparedWithStringAsText = 1 << 20,
 
     /// <summary>
     /// Combines all values.
@@ -82,5 +91,5 @@ public enum ComparisonOperatorSemanticFlags
         | StringEffectiveType | StringComparisonBinary | StringComparisonText 
         | NullEffectiveType 
         | ErrorEffectiveType | HasStandardErrorCodes 
-        | IsVariantStringNumericException
+        | IsVariantStringNumericException | IsVariantComparedWithStringAsText
 }

@@ -60,6 +60,41 @@ The comparison is legitimate, and almost never meant: the analysis states it as 
 (`ComparisonOperatorSemanticFlags.IsVariantStringNumericException`), and RDCore.Diagnostics reports it as
 [`RDC11011`](../diagnostics/rdc11011.md), a warning.
 
+### Variant compared with a String
+
+RD-VBA compares a `Variant` holding a number, a `Date` or a `Boolean` with a `String` operand that is not a `Variant` (a
+variable declared `As String`, or a string literal) **as text**, as MS-VBA does:
+
+- The effective value type is `String`.
+- The `Variant`'s value is Let-coerced to `String`, and the two `String` values are compared
+  ([String comparison](#string-comparison)).
+- No error is raised, whatever the `String` holds.
+
+🎯 This departs from **MS-VBAL §5.6.9.5**. Its effective-value-type table gives a numeric operand and a `String` operand
+the numeric type, so the `String` is Let-coerced to a number, which raises run-time error 13 (Type mismatch) when it is
+not one. Its one exception covers two `Variant` operands only (above).
+
+MS-VBA compares the text instead, as [Microsoft Learn documents it](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators):
+"One expression is a **String** and the other is any **Variant** except a **Null**: perform a string comparison". These
+results were measured in Excel:
+
+|`Variant` holds|`String`|Comparison|MS-VBA|MS-VBAL §5.6.9.5|
+|---|---|---|---|---|
+|`0@` (`Currency`)|`"."`|`=`|`False`|Type mismatch (13)|
+|`5@`|`"."`|`>`|`True`, as `"5"` comes after `"."`|Type mismatch (13)|
+|`10@`|`"9"`|`>`|`False`, as `"10"` comes before `"9"`|`True`|
+|`1.5`|`"1.5"`|`=`|`True`|`True`|
+|`10`|`""`|`>`|`True`|Type mismatch (13)|
+|`#1/2/2020#`|`"x"`|`=`|`False`|Type mismatch (13)|
+|`True`|`"x"`|`=`|`False`|Type mismatch (13)|
+
+When neither operand is a `Variant` (a `Currency` and a `String` variable, say), the table applies, and MS-VBA raises the
+type mismatch too. A `Variant` holding an `Error` keeps the table's behaviour, which nothing has measured otherwise.
+
+RD-VBA runs the code as MS-VBA does. The analysis states the departure as a fact of the operation
+(`ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText`), and RDCore.Diagnostics reports it as
+[`RDC11013`](../diagnostics/rdc11013.md), a warning that stands in for the type mismatch the specification raises.
+
 ### String comparison
 
 Each of the six operators compares two `String` operands as

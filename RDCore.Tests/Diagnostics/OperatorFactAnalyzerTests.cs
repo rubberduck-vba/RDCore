@@ -104,4 +104,28 @@ public sealed class OperatorFactAnalyzerTests
         Assert.IsEmpty(await FindAsync(new VariantNumberStringComparisonAnalyzer(), "",
             "Dim a As Variant, b As Variant, r As Boolean", "a = 5", "b = 4", "r = a < b"));
     }
+
+    // RDC11013: MS-VBA compares a Variant number with a String as text, where MS-VBAL's table makes the String that is no number a type mismatch.
+    [TestMethod]
+    [DataRow("a = 10", "b = \"9\"", DisplayName = "a number")]
+    [DataRow("a = #1/2/2020#", "b = \"x\"", DisplayName = "a Date")]
+    [DataRow("a = True", "b = \"x\"", DisplayName = "a Boolean")]
+    public async Task AVariantNumberComparedWithAString_IsComparedAsText(string first, string second)
+    {
+        var finding = (await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "",
+            "Dim a As Variant, b As String, r As Boolean", first, second, "r = a < b")).Single();
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariantComparedWithStringAsText, finding.Id);
+        Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
+        Assert.AreEqual(6, finding.Range.Start.Line);
+    }
+
+    [TestMethod]
+    [DataRow("Dim a As Variant, b As Variant, r As Boolean", "a = 5", DisplayName = "two Variants")]
+    [DataRow("Dim a As Long, b As String, r As Boolean", "a = 5", DisplayName = "two declared types")]
+    [DataRow("Dim a As Variant, b As String, r As Boolean", "a = \"5\"", DisplayName = "a Variant String")]
+    public async Task AComparisonOfAnotherKind_IsNotComparedAsText(string declarations, string first)
+    {
+        Assert.IsEmpty(await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "", declarations, first, "b = \"4\"", "r = a < b"));
+    }
 }

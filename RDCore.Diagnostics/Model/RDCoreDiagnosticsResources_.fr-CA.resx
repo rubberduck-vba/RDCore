@@ -270,6 +270,9 @@
   <data name="VariantNumberStringComparison_Message" xml:space="preserve">
     <value>'{0}' compare un Variant qui contient un nombre à un Variant qui contient une String: le nombre est toujours plus petit que la String, quelles que soient leurs valeurs.</value>
   </data>
+  <data name="VariantComparedWithStringAsText_Message" xml:space="preserve">
+    <value>'{0}' compare un Variant qui contient un nombre, une date ou un Boolean à une String: MS-VBA compare leurs textes, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13) quand la String n'est pas un nombre.</value>
+  </data>
   <data name="UnmatchedEventHandler_Message" xml:space="preserve">
     <value>&apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus.</value>
   </data>
