@@ -61,7 +61,9 @@ public interface IStdHiddenModule
     /// <strong>InputB</strong> Gets the <em>bytes</em> read from a file, as <see cref="Input"/> gets characters.
     /// </summary>
     /// <remarks>
-    /// 🚧 Not implemented: a file channel reads characters, and nothing in it reads a byte.
+    /// The bytes as they are in the file, not the characters they encode: a <c>String</c> of <paramref name="number"/> bytes, which <c>StrConv(…, vbUnicode)</c>
+    /// reads as characters. It reads at the same position <see cref="Input"/> does, on a file opened for <c>Input</c> or <c>Binary</c>: on any other, it is error
+    /// 54 (Bad file mode); past the end of the file, error 62.
     /// </remarks>
     /// <param name="number">The number of bytes to read.</param>
     /// <param name="fileNumber">The file number of an open file.</param>

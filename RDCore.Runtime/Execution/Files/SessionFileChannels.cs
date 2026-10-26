@@ -257,6 +257,20 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
             return peeked;
         }
 
+        public int ReadByte()
+        {
+            // a character Peek decoded has its bytes behind the stream's position already: the byte to read is its first. A file's stream is seekable,
+            // which is what makes stepping back over them possible; the decoder starts again from there.
+            if (_peeked >= 0 && stream.CanSeek)
+            {
+                stream.Position -= encoding.GetByteCount([(char)_peeked]);
+                _peeked = -1;
+            }
+
+            _decoder.Reset();
+            return stream.ReadByte();
+        }
+
         public string? ReadLine()
         {
             // "If the file is empty or there are no characters after file-pointer-position, then runtime

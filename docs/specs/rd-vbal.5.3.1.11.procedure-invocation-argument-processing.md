@@ -97,12 +97,11 @@ defaults `VarType` and the `Is` functions call a default member with all take it
 reference binding.
 
 > [!NOTE]
-> **Not implemented.** Where `VarType` and the `Is` functions call an object's default member, a default that cannot be
-> its parameter's value (`Optional b As Byte = 300`) stands in as the type's default value, rather than raising its error.
+> **Not implemented.** Where `VarType`, the `Is` functions and `CallByName` call a member, a default that cannot be its
+> parameter's value (`Optional b As Byte = 300`) stands in as the type's default value, rather than raising its error.
 
-> [!NOTE]
-> **Not implemented.** `CallByName` fills an argument it is not given with its parameter type's default value: a
-> declared default is not used, and a `Variant` is `Empty` rather than Missing.
+`CallByName` gives an argument it is not given what a call written in source gives it: the declared default, or Missing
+for a `Variant` that declares none, as **MS-VBA** does (recorded in Excel).
 
 ### Omitted Arguments and IsMissing
 

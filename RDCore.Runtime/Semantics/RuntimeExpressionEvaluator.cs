@@ -584,12 +584,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// (<see cref="SymbolProperties.DefaultsToOptionCompare"/>) takes that instead of its declared default.
     /// </para>
     /// <para>
-    /// A call's argument binding, the call a Let-coercion makes to an object's default member, and the declared defaults a variable
-    /// starts as (<see cref="DeclaredVariableDefaults"/>) all ask here, so that they agree.
-    /// </para>
-    /// <para>
-    /// 🚧 <c>CallByName</c> fills an omitted argument on its own, with its parameter type's default value: a declared default is not
-    /// used, and a <c>Variant</c> is Empty rather than Missing. TODO.
+    /// A call's argument binding, the call a Let-coercion makes to an object's default member, <c>CallByName</c>, and the declared defaults a
+    /// variable starts as (<see cref="DeclaredVariableDefaults"/>) all ask here, so that they agree.
     /// </para>
     /// </remarks>
     /// <param name="session">The session the default's names resolve against.</param>

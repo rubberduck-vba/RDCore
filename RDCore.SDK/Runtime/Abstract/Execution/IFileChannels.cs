@@ -278,6 +278,16 @@ public interface IFileChannelInput
     int Read();
 
     /// <summary>
+    /// The byte at the current <em>file-pointer-position</em>, advancing past it: what <c>InputB</c> reads, as bytes and not as the characters they
+    /// encode.
+    /// </summary>
+    /// <remarks>
+    /// The same position the characters are read at: a byte read after a character <see cref="Peek"/> is the first byte of that character.
+    /// </remarks>
+    /// <returns>The byte, or <c>-1</c> at end of file.</returns>
+    int ReadByte();
+
+    /// <summary>
     /// Reads from the current <em>file-pointer-position</em> through the end of the current line
     /// (<strong>MS-VBAL §5.4.5.6</strong>), leaving the position after the line termination sequence.
     /// </summary>

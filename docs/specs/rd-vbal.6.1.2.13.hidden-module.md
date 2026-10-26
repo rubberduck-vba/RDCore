@@ -17,7 +17,7 @@ A hidden member is left out of a completion list and resolves anyway, being a me
 |---|---|
 |`Array(ParamArray arglist())`|✅ See below.|
 |`Input(Number, FileNumber)`, `Input$(Number, FileNumber)`|✅ The characters read from a file opened for `Input` or `Binary`, with no parsing: a quotation mark or a comma is a character. Error 62 when the file ends first, 52 when the file number is not open, 54 when it was opened in a mode that cannot be read this way ([**RD-VBAL §5.4.5.1**](rd-vbal.5.4.5.file-statements.md)).|
-|`InputB(Number, FileNumber)`, `InputB$(Number, FileNumber)`|🚧 A file channel reads characters, and nothing in it reads a byte.|
+|`InputB(Number, FileNumber)`, `InputB$(Number, FileNumber)`|The bytes of the file as they are, not the characters they encode: a `String` of `Number` bytes (`LenB` is `Number`), which `StrConv(…, vbUnicode)` reads as characters. It reads at the same position `Input` does, on a file opened `For Input` or `For Binary`; on any other, error `54`; past the end of the file, `62`; a negative `Number`, `5`. As **MS-VBA** has it (recorded in Excel).|
 |`ObjPtr(Ptr As Unknown)`|✅ The address of an interface of an object in the session's memory, a `LongPtr`. See below.|
 |`StrPtr(Ptr As String)`|✅ The address of the characters of a `String` in the session's memory, a `LongPtr`. See below.|
 |`VarPtr(Ptr As Any)`|✅ The address of a variable in the session's memory, a `LongPtr`. See below.|

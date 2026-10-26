@@ -10,20 +10,11 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Runtime.StdLib;
 
 /// <inheritdoc cref="IStdHiddenModule"/>
-/// <remarks>
-/// 🚧 <see cref="InputB"/> and <see cref="InputBString"/> are declared and not written:
-/// each says why, in the declaration.
-/// </remarks>
 /// <param name="session">The session whose file channels, call stack and environment these members read.</param>
 public sealed class StdHidden(IRuntimeSession session) : IStdHiddenModule
 {
     // MS-VBAL 5.4.5.7: "If Line width is less than 0 or greater than 255 an error (number 5...) is raised."
     private const int MaxLineWidth = 255;
-
-    private static RuntimeSemanticsEvaluationResult<TValue> NotImplemented<TValue>(string member, string because)
-        where TValue : SDK.Model.Values.Abstract.VBTypedValue
-        => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(
-            VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, default, $"'{member}' is declared but not implemented yet: {because}."));
 
     private static RuntimeSemanticsEvaluationResult<TValue> Failed<TValue>(VBRuntimeErrorId error, string detail)
         where TValue : SDK.Model.Values.Abstract.VBTypedValue
@@ -91,11 +82,51 @@ public sealed class StdHidden(IRuntimeSession session) : IStdHiddenModule
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> InputB(VBLongValue number, VBIntegerValue fileNumber)
-        => NotImplemented<VBVariantValue>(nameof(InputB), "a file channel reads characters, and nothing in it reads a byte");
+    {
+        var read = ReadBytes(number.Value, fileNumber.Value);
+        return read.IsSuccess
+            ? RuntimeSemanticsEvaluationResult<VBVariantValue>.Success(new VBVariantValue(read.Result!))
+            : RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(read.ErrorInfo!);
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBStringValue> InputBString(VBLongValue number, VBIntegerValue fileNumber)
-        => NotImplemented<VBStringValue>("InputB$", "a file channel reads characters, and nothing in it reads a byte");
+        => ReadBytes(number.Value, fileNumber.Value);
+
+    // the bytes themselves, at the same file-pointer-position characters are read at, as a String of those bytes: "ABC" read 2 bytes at a time is one
+    // character, of the bytes 41 42 (StrConv(s, vbUnicode) is "AB"). Valid where Input is, and failing as it does (MS-VBA, Excel-verified, oracle\s40
+    // I01-I11).
+    private RuntimeSemanticsEvaluationResult<VBStringValue> ReadBytes(int number, int fileNumber)
+    {
+        if (number < 0)
+        {
+            return Failed<VBStringValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, $"InputB({number}, #{fileNumber}): the number of bytes cannot be negative.");
+        }
+
+        if (!session.Files.TryGet(fileNumber, out var channel))
+        {
+            return Failed<VBStringValue>(VBRuntimeErrorId.BadFileNameOrNumber, $"#{fileNumber} is not open");
+        }
+
+        if (!FileStatementAccess.IsValid(SDK.Model.Tokens.Input, channel!.Mode, channel.Access))
+        {
+            return Failed<VBStringValue>(VBRuntimeErrorId.BadFileMode, $"InputB is not valid on #{fileNumber}, opened For {channel.Mode} Access {channel.Access}");
+        }
+
+        var bytes = new byte[number];
+        for (var read = 0; read < number; read++)
+        {
+            var next = channel.Input.ReadByte();
+            if (next < 0)
+            {
+                return Failed<VBStringValue>(VBRuntimeErrorId.InputPastEndOfFile, $"InputB({number}, #{fileNumber}) read {read}");
+            }
+
+            bytes[read] = (byte)next;
+        }
+
+        return RuntimeSemanticsEvaluationResult<VBStringValue>.Success(VBStringValue.FromBytes(bytes));
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBLongPtrValue> ObjPtr(VBLongLongValue ptr)

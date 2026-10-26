@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -187,8 +188,9 @@ public sealed class StdInteraction(
     /// <c>Function</c> (or, failing those, a <c>Property Get</c>); <see cref="VBCallType.VBGet"/> a <c>Property Get</c>, a <c>Function</c> or a public variable;
     /// <see cref="VBCallType.VBLet"/> and <see cref="VBCallType.VBSet"/> a <c>Property Let</c> and a <c>Property Set</c>, the value assigned being the last argument.
     /// <para>
-    /// The arguments are passed by value, each Let-coerced to the type of its parameter. An omitted <c>Optional</c> parameter is given its type's default.
-    /// 🚧 Assigning a public variable by name is not supported yet (error 438).
+    /// The arguments are passed by value, each Let-coerced to the type of its parameter. An omitted <c>Optional</c> parameter is given what a call written in
+    /// source gives it: its declared default, or Missing for a <c>Variant</c> that declares none. <see cref="VBCallType.VBLet"/> and
+    /// <see cref="VBCallType.VBSet"/> of a public variable assign it, as an assignment written in source does.
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> CallByName(VBObjectValue objectValue, VBStringValue procName, VBCallType callType, params VBVariantValue[] args)
@@ -246,10 +248,19 @@ public sealed class StdInteraction(
                 : Fail<VBVariantValue>(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, $"'{field.Name}' is a variable, and takes no arguments.");
         }
 
+        if (callType is VBCallType.VBLet or VBCallType.VBSet
+            && candidates.FirstOrDefault(member => member.Kind is SymbolKindExt.Field or SymbolKindExt.Variable) is { } assigned)
+        {
+            return AssignVariable(objectValue, instance, assigned, callType is VBCallType.VBSet, args);
+        }
+
         if (MemberOf(candidates, callType) is not { } target)
         {
-            return Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod,
-                $"The object has no member '{procName.Value}' that can be called as {callType}.");
+            // a Function asked for as a property is the member, called the wrong way (MS-VBA: 450, Excel-verified, oracle\s40 B22, B28); a name that is no
+            // member to be called so at all is 438.
+            return callType is VBCallType.VBGet && candidates.Any(member => member is VBFunctionMemberSymbol)
+                ? Fail<VBVariantValue>(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, $"'{procName.Value}' is a function, and no property to get.")
+                : Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, $"The object has no member '{procName.Value}' that can be called as {callType}.");
         }
 
         var parameters = RuntimeProcedureInvoker.GetParameters(target).Where(parameter => parameter.Name != "Me").ToArray();
@@ -270,7 +281,9 @@ public sealed class StdInteraction(
                     return Fail<VBVariantValue>(VBRuntimeErrorId.ArgumentNotOptional, $"'{target.Name}' was not given its argument '{parameter.Name}'.");
                 }
 
-                bound[index] = parameter.ResolvedType.DefaultValue.RuntimeValue;
+                // what a call written in source gives an omitted parameter: its declared default, or Missing for a Variant that declares none (MS-VBAL
+                // §5.3.1.11; MS-VBA, Excel-verified, oracle\s40 B06-B09, B13).
+                bound[index] = (session.Symbols.Defaults?.DefaultValueOf(parameter) ?? parameter.ResolvedType.DefaultValue).RuntimeValue;
                 continue;
             }
 
@@ -292,6 +305,108 @@ public sealed class StdInteraction(
         return Succeed(called.Result is null or VBVoidValue ? new VBVariantValue(VBEmptyValue.Empty) : InVariant(called.Result));
     }
 
+    // VbLet and VbSet of a public variable of the object assign it, as `obj.Name = value` and `Set obj.Name = value` do: the value is the one argument (MS-VBA,
+    // Excel-verified, oracle\s40 B01-B05, B15, B18, B20, B21, B23-B27, B30-B32). None is error 446 and more than one 451, as MS-VBA has it; a Let of an object
+    // is a Let of its default member's value; a Let into a variable of an object assigns the object's default member, of which Nothing has none (91); a Set
+    // into a variable that holds no object is 451, and of what is no object, or an object of another class, 13.
+    private RuntimeSemanticsEvaluationResult<VBVariantValue> AssignVariable(
+        VBObjectValue owner, IObjectInstance instance, VBTypeMemberSymbol variable, bool isSet, VBVariantValue[] args)
+    {
+        if (args.Length == 0)
+        {
+            return Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportNamedArguments, $"'{variable.Name}' was not given the value it is assigned.");
+        }
+
+        if (args.Length > 1)
+        {
+            return Fail<VBVariantValue>(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, $"'{variable.Name}' is a variable, and takes no arguments.");
+        }
+
+        var declared = variable.ResolvedType;
+        var holdsAnObject = declared is VBObjectType or VBClassType;
+        var handle = instance.GetValue(variable);
+        var value = Unwrapped(args[0]);
+        VBTypedValue stored;
+        if (isSet)
+        {
+            if (!holdsAnObject && declared is not VBVariantType)
+            {
+                return Fail<VBVariantValue>(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, $"'{variable.Name}' is a {declared.Name}, which holds no object to Set.");
+            }
+
+            if (value is not VBObjectValue assignedObject)
+            {
+                return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch, $"What is Set into '{variable.Name}' is no object.");
+            }
+
+            if (declared is VBClassType { Symbol: var classModule } && !assignedObject.IsNothing()
+                && (!session.Symbols.TryGetInstance(assignedObject.Value, out var assignedInstance) || !IsOrImplements(assignedInstance!.ClassModule, classModule, [])))
+            {
+                return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch, $"'{variable.Name}' is a {declared.Name}, and the object Set into it is not one.");
+            }
+
+            stored = declared is VBVariantType ? new VBVariantValue(assignedObject) : assignedObject;
+        }
+        else if (holdsAnObject)
+        {
+            // a Let into a variable of an object is a Let of the object's default member.
+            var held = declared.CreateValue(handle.ForReading()) as VBObjectValue;
+            if (held is null || held.IsNothing())
+            {
+                return Fail<VBVariantValue>(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, $"'{variable.Name}' holds Nothing, which has no default member to assign.");
+            }
+
+            return session.Symbols.TryGetInstance(held.Value, out var heldInstance) && ObjectDefaultMember.TryFind(heldInstance!.ClassModule, out var defaultMember)
+                ? CallByName(held, new VBStringValue(defaultMember.Name), VBCallType.VBLet, args)
+                : Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, $"The object '{variable.Name}' holds has no default member to assign.");
+        }
+        else
+        {
+            // a Let of an object is a Let of its default member's value, into a Variant too.
+            var assigned = args[0];
+            if (value is VBObjectValue)
+            {
+                var read = ObjectDefaultMember.ValueOf(session, value);
+                if (!read.IsSuccess)
+                {
+                    return RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(read.ErrorInfo!);
+                }
+
+                assigned = InVariant(read.Result!);
+            }
+
+            var coerced = Coerce(assigned, declared);
+            if (!coerced.IsSuccess)
+            {
+                return RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(coerced.ErrorInfo!);
+            }
+
+            stored = coerced.Result!;
+        }
+
+        var withEvents = variable.GetProperty(SymbolProperties.WithEvents);
+        var previous = holdsAnObject && declared.CreateValue(handle.ForReading()) is VBObjectValue before ? new VBObjectValue(before.Value) : null;
+        if (withEvents)
+        {
+            EventAttachments.Detach(session, owner.Value, variable, previous);
+        }
+
+        var heldBefore = ObjectReferences.HeldIn(session, handle);
+        handle.Store(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(stored), !stored.IsIndeterminate);
+        ObjectReferences.Rebind(session, handle, heldBefore);
+        if (withEvents)
+        {
+            EventAttachments.Attach(session, owner.Value, variable, stored as VBObjectValue);
+        }
+
+        return Succeed(new VBVariantValue(VBEmptyValue.Empty));
+    }
+
+    // whether a class is, or implements, another.
+    private static bool IsOrImplements(VBClassModuleSymbol classModule, VBClassModuleSymbol target, HashSet<string> visited)
+        => classModule.Uri.AbsoluteUri == target.Uri.AbsoluteUri
+            || visited.Add(classModule.Uri.AbsoluteUri) && classModule.ImplementedInterfaces.Any(implemented => IsOrImplements(implemented, target, visited));
+
     private static VBTypeMemberSymbol? MemberOf(IReadOnlyList<VBTypeMemberSymbol> candidates, VBCallType callType)
     {
         bool IsMethod(VBTypeMemberSymbol member) => member is VBFunctionMemberSymbol or VBProcedureMemberSymbol
@@ -300,7 +415,8 @@ public sealed class StdInteraction(
         return callType switch
         {
             VBCallType.VBMethod => candidates.FirstOrDefault(IsMethod) ?? candidates.FirstOrDefault(member => member is VBPropertyGetMemberSymbol),
-            VBCallType.VBGet => candidates.FirstOrDefault(member => member is VBPropertyGetMemberSymbol) ?? candidates.FirstOrDefault(member => member is VBFunctionMemberSymbol),
+            // a Function is no property to get: VbGet of one is 450, as MS-VBA has it (Excel-verified, oracle\s40 B22, B28).
+            VBCallType.VBGet => candidates.FirstOrDefault(member => member is VBPropertyGetMemberSymbol),
             VBCallType.VBLet => candidates.FirstOrDefault(member => member is VBPropertyLetMemberSymbol),
             VBCallType.VBSet => candidates.FirstOrDefault(member => member is VBPropertySetMemberSymbol),
             _ => null,
