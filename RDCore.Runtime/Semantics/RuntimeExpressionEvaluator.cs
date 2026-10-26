@@ -733,7 +733,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // §5.6.16.1) and cannot be folded. A parameter's default is another declaration's, and Nothing is a value that folds.
     private static bool ReadsWhatRuns(IRuntimeSession session, Symbol constant, ExpressionNode value)
         => constant is VBConstantMemberSymbol or VBLocalConstantSymbol
-            && ConstantExpressionStaticSemantics.ValueError(session.Symbols.Resolver, constant.ParentUri, value) is { VBCompileErrorId: VBCompileErrorId.ConstantExpressionRequired };
+            && ConstantExpressionStaticSemantics.ValueErrorOf(session.Symbols.Resolver, constant, value) is { VBCompileErrorId: VBCompileErrorId.ConstantExpressionRequired };
 
     // MS-VBAL 5.2.3.2: "the constant binding of a constant ... is the data value of the <constant-expression> Let-coerced to the declared
     // type of the constant" - which, without an As clause or a type character, is the expression's own, so there is nothing to coerce to.

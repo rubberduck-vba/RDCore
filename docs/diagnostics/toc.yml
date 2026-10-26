@@ -434,3 +434,5 @@
   href: rdc11012.md
 - name: RDC11013 — Variant compared with a String as text
   href: rdc11013.md
+- name: RDC11021 — Constant of a procedure valued with Len
+  href: rdc11021.md

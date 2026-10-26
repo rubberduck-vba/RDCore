@@ -545,5 +545,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("SetThroughACallFails_NoDefaultMemberToSet_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to La valeur de la constante &apos;{0}&apos; appelle Len : MS-VBA l&apos;accepte dans une procédure, mais la refuse dans un module (Expression constante requise), et son exécution n&apos;est pas fiable. Écrivez la longueur elle-même..
+        /// </summary>
+        public static string ProcedureConstantLength_Message {
+            get {
+                return ResourceManager.GetString("ProcedureConstantLength_Message", resourceCulture);
+            }
+        }
     }
 }

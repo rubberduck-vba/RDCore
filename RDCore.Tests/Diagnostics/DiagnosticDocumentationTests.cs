@@ -135,6 +135,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
         (RDCoreDiagnosticId.SetThroughACallFails, 11012),
+        (RDCoreDiagnosticId.ProcedureConstantLength, 11021),
     ];
 
     [TestMethod]
