@@ -73,17 +73,21 @@ public sealed class PropertyAssignmentByNameTests
     public Task ASetOfAPropertyWithNoPropertySet_QualifiedByItsModule_IsAnInvalidUseOfProperty()
         => AssertSetIsInvalidAsync("Set Program.Items = Nothing");
 
+    // MS-VBA, Excel-measured, oracle\s44 W02, W03: another module's property, qualified by its module or by its bare name.
     [TestMethod]
-    public async Task ASetOfAnotherModulesProperty_QualifiedByItsModule_IsCheckedAgainstThatModulesAccessors()
+    [DataRow("Store.")]
+    [DataRow("")]
+    public async Task ASetOfAnotherModulesProperty_IsCheckedAgainstThatModulesAccessors(string qualifier)
     {
-        var program = string.Join("\r\n", "Attribute VB_Name = \"Program\"", "Public Sub Main()", "Set Store.Items = Nothing", "Set Store.Fixed = Nothing", "End Sub") + "\r\n";
+        var program = string.Join("\r\n", "Attribute VB_Name = \"Program\"", "Public Sub Main()", $"Set {qualifier}Items = Nothing", $"Set {qualifier}Fixed = Nothing", "End Sub") + "\r\n";
         var store = ModuleWorkspace.StandardModule("Store",
             "Public Property Get Items() As Collection", "End Property", "Public Property Set Items(ByVal c As Collection)", "End Property",
             "Public Property Get Fixed() As Collection", "End Property");
 
         var errors = await ModuleWorkspace.LoadErrorsAsync([], [("Store", store)], program);
 
-        StringAssert.StartsWith(Assert.ContainsSingle(errors), "Invalid use of property");
+        Assert.HasCount(1, errors, string.Join(" | ", errors));
+        StringAssert.StartsWith(errors[0], "Invalid use of property");
         StringAssert.Contains(errors[0], "Fixed");
     }
 

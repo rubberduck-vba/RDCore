@@ -1044,7 +1044,8 @@ public static class StatementStaticSemanticsEvaluator
         var isSet = assignment.Kind == AssignmentKind.Set;
         if (assignment.Kind is not (AssignmentKind.LSet or AssignmentKind.RSet) && HasOnlyAPropertyGet(context, assignment.Target, isSet))
         {
-            return VBCompileErrorInfo.For(isSet ? VBCompileErrorId.InvalidUseOfProperty : VBCompileErrorId.CantAssignToReadOnlyProperty, location, name);
+            var property = assignment.Target is SimpleNameExpressionNode { IdentifierName: var named } ? named : name;
+            return VBCompileErrorInfo.For(isSet ? VBCompileErrorId.InvalidUseOfProperty : VBCompileErrorId.CantAssignToReadOnlyProperty, location, property);
         }
 
         // the default instance of a class can be the target of a Set, as it is in MS-VBA (RD-VBAL §5.2.4.1.2), but not an extensible class's - a document
@@ -1098,18 +1099,19 @@ public static class StatementStaticSemanticsEvaluator
         VBTypeMemberSymbol[] members;
         if (target is SimpleNameExpressionNode name)
         {
-            // whichever accessor the name resolves to, the property is all of them. It is one of the module's own: a property of another module, or of the
-            // library, named by its bare name is called, as MS-VBA compiles `Set Now = Nothing` (oracle\s28 W5)
+            // whichever accessor the name resolves to, the property is all of them: of the module's own, or of another module of the workspace (MS-VBA,
+            // Excel-verified, oracle\s44 W03). A property of a library named by its bare name is called, as MS-VBA compiles `Set Now = Nothing` (s28 W5).
             var module = context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?.Uri;
             if (context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is not VBTypeMemberSymbol { } property
                 || property is not IVBPropertyMemberSymbol
                 || property.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri
-                || module is null || property.ParentUri.AbsoluteUri != module.AbsoluteUri)
+                || module is null
+                || property.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 })
             {
                 return false;
             }
 
-            // its accessors and whatever else the module declares of the name, as the module's scope has them
+            // its accessors and whatever else its module declares of the name, as the scope has them
             members = [.. context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name)).OfType<VBTypeMemberSymbol>()
                 .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri)];
         }
