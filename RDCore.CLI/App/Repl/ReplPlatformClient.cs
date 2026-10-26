@@ -56,6 +56,51 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token)
+    {
+        var report = await client.SendRequestAsync<DocumentDiagnosticParams, RelatedDocumentDiagnosticReport>(
+            new DocumentDiagnosticParams { TextDocument = new TextDocumentIdentifier(document) }, token);
+        return report is RelatedFullDocumentDiagnosticReport full ? [.. full.Items] : [];
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<CodeAction>> GetCodeActionsAsync(Uri document, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range,
+        IReadOnlyList<Diagnostic> diagnostics, CancellationToken token)
+    {
+        var actions = await client.SendRequestAsync<CodeActionParams, CommandOrCodeActionContainer?>(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(document),
+                Range = range,
+                Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(diagnostics) },
+            }, token);
+        return actions is null ? [] : [.. actions.Where(item => item.IsCodeAction).Select(item => item.CodeAction!)];
+    }
+
+    /// <inheritdoc/>
+    public Task<ReplRenameAnswer<PlaceholderRange>> PrepareRenameAsync(Uri document, Position position, CancellationToken token)
+        => AnswerAsync(async () => (await client.SendRequestAsync<PrepareRenameParams, RangeOrPlaceholderRange?>(
+            new PrepareRenameParams { TextDocument = new TextDocumentIdentifier(document), Position = position }, token))?.PlaceholderRange);
+
+    /// <inheritdoc/>
+    public Task<ReplRenameAnswer<WorkspaceEdit>> RenameAsync(Uri document, Position position, string newName, CancellationToken token)
+        => AnswerAsync(() => client.SendRequestAsync<RenameParams, WorkspaceEdit?>(
+            new RenameParams { TextDocument = new TextDocumentIdentifier(document), Position = position, NewName = newName }, token));
+
+    // a rename the server refuses is answered with an error, whose message says why.
+    private static async Task<ReplRenameAnswer<T>> AnswerAsync<T>(Func<Task<T?>> ask) where T : class
+    {
+        try
+        {
+            return new(await ask(), null);
+        }
+        catch (OmniSharp.Extensions.JsonRpc.Server.JsonRpcException exception)
+        {
+            return new(null, exception.Message);
+        }
+    }
+
+    /// <inheritdoc/>
     public Task SaveDocumentAsync(Uri document, string text, CancellationToken token)
         => client.SendNotificationAsync(
             new DidSaveTextDocumentParams { TextDocument = new TextDocumentIdentifier(document), Text = text }, token);

@@ -167,6 +167,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, FrameReplCommand>()
             .AddSingleton<IReplCommand, RunReplCommand>()
             .AddSingleton<IReplCommand, AnalyzeReplCommand>()
+            .AddSingleton<IReplCommand, DuckyReplCommand>()
             .AddSingleton<IReplCommand, PeekReplCommand>()
             .AddSingleton<IReplCommand, PokeReplCommand>()
             .AddSingleton<IReplCommand, NewReplCommand>()

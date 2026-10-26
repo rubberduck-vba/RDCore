@@ -1374,5 +1374,113 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Config_SetLive", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Proposes what can be done about the program, or one of its lines, and does what is chosen..
+        /// </summary>
+        public static string Repl_Ducky_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to NOTHING TO DO.
+        /// </summary>
+        public static string Repl_Ducky_NothingToDo {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_NothingToDo", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program is no document of the platform&apos;s: SAVE it first..
+        /// </summary>
+        public static string Repl_Ducky_NotADocument {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_NotADocument", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to DUCKY.
+        /// </summary>
+        public static string Repl_Ducky_Choose_Title {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Choose_Title", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Which one? (1-{0}, Esc cancels).
+        /// </summary>
+        public static string Repl_Ducky_Choose_Prompt {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Choose_Prompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to RENAME.
+        /// </summary>
+        public static string Repl_Ducky_Rename_Title {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Rename_Title", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The new name of &apos;{0}&apos; (Esc cancels):.
+        /// </summary>
+        public static string Repl_Ducky_Rename_Prompt {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Rename_Prompt", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to NOT DONE.
+        /// </summary>
+        public static string Repl_Ducky_Refused {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Refused", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to DONE: {0} ({1} EDIT(S)).
+        /// </summary>
+        public static string Repl_Ducky_Done {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Done", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to It also edits {0}, which the shell does not hold: nothing is edited..
+        /// </summary>
+        public static string Repl_Ducky_OtherDocuments {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_OtherDocuments", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program changed since the platform answered: nothing is edited..
+        /// </summary>
+        public static string Repl_Ducky_Stale {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_Stale", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is no command the shell runs..
+        /// </summary>
+        public static string Repl_Ducky_UnknownCommand {
+            get {
+                return ResourceManager.GetString("Repl_Ducky_UnknownCommand", resourceCulture);
+            }
+        }
     }
 }

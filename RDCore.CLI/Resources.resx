@@ -589,4 +589,40 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Config_SetLive" xml:space="preserve">
     <value>{0} = {1}. It takes effect now.</value>
   </data>
+  <data name="Repl_Ducky_Summary" xml:space="preserve">
+    <value>Proposes what can be done about the program, or one of its lines, and does what is chosen.</value>
+  </data>
+  <data name="Repl_Ducky_NothingToDo" xml:space="preserve">
+    <value>NOTHING TO DO</value>
+  </data>
+  <data name="Repl_Ducky_NotADocument" xml:space="preserve">
+    <value>The program is no document of the platform's: SAVE it first.</value>
+  </data>
+  <data name="Repl_Ducky_Choose_Title" xml:space="preserve">
+    <value>DUCKY</value>
+  </data>
+  <data name="Repl_Ducky_Choose_Prompt" xml:space="preserve">
+    <value>Which one? (1-{0}, Esc cancels)</value>
+  </data>
+  <data name="Repl_Ducky_Rename_Title" xml:space="preserve">
+    <value>RENAME</value>
+  </data>
+  <data name="Repl_Ducky_Rename_Prompt" xml:space="preserve">
+    <value>The new name of '{0}' (Esc cancels):</value>
+  </data>
+  <data name="Repl_Ducky_Refused" xml:space="preserve">
+    <value>NOT DONE</value>
+  </data>
+  <data name="Repl_Ducky_Done" xml:space="preserve">
+    <value>DONE: {0} ({1} EDIT(S))</value>
+  </data>
+  <data name="Repl_Ducky_OtherDocuments" xml:space="preserve">
+    <value>It also edits {0}, which the shell does not hold: nothing is edited.</value>
+  </data>
+  <data name="Repl_Ducky_Stale" xml:space="preserve">
+    <value>The program changed since the platform answered: nothing is edited.</value>
+  </data>
+  <data name="Repl_Ducky_UnknownCommand" xml:space="preserve">
+    <value>'{0}' is no command the shell runs.</value>
+  </data>
 </root>

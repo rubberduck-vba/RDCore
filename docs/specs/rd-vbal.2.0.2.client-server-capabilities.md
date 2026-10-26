@@ -253,6 +253,8 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 |[RDC01001](../diagnostics/rdc01001.md) - a name that does not say what it is|A rename to a name the user chooses.|
 |[RDC01002](../diagnostics/rdc01002.md) - Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
 
+The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document - in a shell attached to a workspace, a program that was neither loaded nor saved - is to be saved first, which `DUCKY` says.
+
 ### `workspace/configuration` and `workspace/didChangeConfiguration`
 
 The settings a user changes while the platform runs travel as **LSP 3.17** has them (§Configuration Request, §DidChangeConfiguration Notification): the client

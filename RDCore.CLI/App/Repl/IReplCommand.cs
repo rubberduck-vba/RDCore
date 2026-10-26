@@ -110,6 +110,45 @@ public interface IReplPlatformClient
     Task<IReadOnlyList<ReplSemanticToken>> GetSemanticTokensAsync(Uri document, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server what it finds in a document (<c>textDocument/diagnostic</c>): the diagnostics as an editor gets them, with what fixes them in
+    /// their <c>data</c>.
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The diagnostics; none when the server has none to give.</returns>
+    Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server what can be done in a range of a document (<c>textDocument/codeAction</c>), about the diagnostics of the range and otherwise.
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="range">The range, in the text of the document.</param>
+    /// <param name="diagnostics">The diagnostics of the range, as the server gave them.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The actions, in the order the server offers them.</returns>
+    Task<IReadOnlyList<CodeAction>> GetCodeActionsAsync(Uri document, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range, IReadOnlyList<Diagnostic> diagnostics,
+        CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server what a rename at a position of a document would rename (<c>textDocument/prepareRename</c>).
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="position">The position of the name.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The name as it is declared, or why it is not renamed.</returns>
+    Task<ReplRenameAnswer<PlaceholderRange>> PrepareRenameAsync(Uri document, Position position, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server for the edits that rename the symbol named at a position of a document (<c>textDocument/rename</c>).
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="position">The position of the name.</param>
+    /// <param name="newName">The new name.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The edits, or why there are none.</returns>
+    Task<ReplRenameAnswer<WorkspaceEdit>> RenameAsync(Uri document, Position position, string newName, CancellationToken token);
+
+    /// <summary>
     /// Tells the language server that a document was saved (<c>textDocument/didSave</c>).
     /// </summary>
     /// <param name="document">The document's URI.</param>
@@ -289,6 +328,13 @@ public interface IReplPlatformClient
     /// <param name="token">A token that cancels the request.</param>
     Task<PokeSessionResult> PokeAsync(int address, byte value, CancellationToken token);
 }
+
+/// <summary>
+/// What the language server answers a rename request with: the answer, or why there is none, as the server said it.
+/// </summary>
+/// <param name="Value">The answer.</param>
+/// <param name="Refusal">Why there is none: the message of the error the server answered with.</param>
+public sealed record class ReplRenameAnswer<T>(T? Value, string? Refusal) where T : class;
 
 /// <summary>
 /// Everything a shell command acts on. Deliberately a growable type rather than a parameter list:

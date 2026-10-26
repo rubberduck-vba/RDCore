@@ -10,6 +10,7 @@ internal static class ReplCommandNames
     public const string Cls = "CLS"; // alias for CLEAR
     public const string Config = "CONFIG";
     public const string Configure = "CONFIGURE"; // alias for CONFIG
+    public const string Ducky = "DUCKY";
     public const string Cont = "CONT";
     public const string Frame = "FRAME";
     public const string Continue = "CONTINUE"; // alias for CONT

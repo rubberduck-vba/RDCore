@@ -587,4 +587,40 @@
   <data name="Config_SetLive" xml:space="preserve">
     <value>{0} = {1}. Ce réglage prend effet maintenant.</value>
   </data>
+  <data name="Repl_Ducky_Summary" xml:space="preserve">
+    <value>Propose ce qui peut être fait du programme, ou d'une de ses lignes, et fait ce qui est choisi.</value>
+  </data>
+  <data name="Repl_Ducky_NothingToDo" xml:space="preserve">
+    <value>RIEN À FAIRE</value>
+  </data>
+  <data name="Repl_Ducky_NotADocument" xml:space="preserve">
+    <value>Le programme n'est pas un document de la plateforme : enregistrez-le d'abord (SAVE).</value>
+  </data>
+  <data name="Repl_Ducky_Choose_Title" xml:space="preserve">
+    <value>DUCKY</value>
+  </data>
+  <data name="Repl_Ducky_Choose_Prompt" xml:space="preserve">
+    <value>Laquelle? (1-{0}, Échap annule)</value>
+  </data>
+  <data name="Repl_Ducky_Rename_Title" xml:space="preserve">
+    <value>RENOMMER</value>
+  </data>
+  <data name="Repl_Ducky_Rename_Prompt" xml:space="preserve">
+    <value>Le nouveau nom de « {0} » (Échap annule) :</value>
+  </data>
+  <data name="Repl_Ducky_Refused" xml:space="preserve">
+    <value>NON FAIT</value>
+  </data>
+  <data name="Repl_Ducky_Done" xml:space="preserve">
+    <value>FAIT : {0} ({1} MODIFICATION(S))</value>
+  </data>
+  <data name="Repl_Ducky_OtherDocuments" xml:space="preserve">
+    <value>Cela modifie aussi {0}, que le shell ne détient pas : rien n'est modifié.</value>
+  </data>
+  <data name="Repl_Ducky_Stale" xml:space="preserve">
+    <value>Le programme a changé depuis la réponse de la plateforme : rien n'est modifié.</value>
+  </data>
+  <data name="Repl_Ducky_UnknownCommand" xml:space="preserve">
+    <value>« {0} » n'est pas une commande que le shell exécute.</value>
+  </data>
 </root>
