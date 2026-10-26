@@ -2210,6 +2210,21 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
             // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
             // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
+            // a record that is no variable of its own - the field of another record, `This.Id` - is passed by reference as a copy, in a temporary of the statement:
+            // the record as the field holds it is no value with a binding of its own to hand over.
+            if (coercionResult.Result is VBUserDefinedTypeValue record && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
+            {
+                if (!session.Storage.TryAllocate(record.Size, SymbolAddressTable.FreshBinding(record), out var copy))
+                {
+                    return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, argumentNode.Location,
+                        Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
+                }
+
+                session.Objects.PushTemporary(new ArgumentTemporary(copy));
+                bound[i] = new VBRuntimeReference(copy, record.TypeInfo);
+                continue;
+            }
+
             bound[i] = coercionResult.Result is VBArrayValue array
                 ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
                 : coercionResult.Result!.RuntimeValue;
@@ -2439,7 +2454,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     && (!typedByAddress || HoldsValueOf(parameter, reference.DeclaredType!, () => Evaluate(session, memberAccess, context).Result));
             }
 
-            return !takesAny && TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference);
+            return !takesAny && (TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference)
+                || TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external));
         }
 
         if (qualified is null && argument is not SimpleNameExpressionNode)
@@ -2722,6 +2738,39 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         return true;
     }
 
+    // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
+    // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
+    // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own to give: it
+    // is passed as a copy (BindArguments).
+    private bool TryResolveRecordFieldByRefArgument(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
+        out VBRuntimeReference reference, bool external)
+    {
+        reference = VBRuntimeReference.NullRef;
+        if (access.Owner is not { } owner || !DenotesAVariable(session, context, owner)
+            || Evaluate(session, owner, context).Result is not VBUserDefinedTypeValue { IsIndeterminate: false } record
+            || ((VBUserDefinedType)record.TypeInfo).Field(access.Member.IdentifierName) is not { ResolvedType: { } fieldType and not VBUserDefinedType }
+            || record.GetFieldHandle(access.Member.IdentifierName) is not { } cell
+            || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        if (!IsOfDeclaredType(parameter, fieldType) && parameter.ResolvedType is not VBVariantType && !(external && parameter.ResolvedType is VBUnknownType))
+        {
+            return false;
+        }
+
+        if (!session.Storage.TryAllocate(fieldType.DefaultValue.Size, cell, out var address))
+        {
+            return false;
+        }
+
+        borrowed.Add(address);
+        reference = new VBRuntimeReference(address, external && parameter.ResolvedType is VBUnknownType ? fieldType : ReferencedType(parameter, fieldType));
+        return true;
+    }
+
     // what the elements passed by reference were given to be passed as: the call they were passed to is over.
     private static void GiveBack(IRuntimeSession session, List<MemoryAddress> borrowed)
     {
@@ -2753,8 +2802,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         => session.CallStack.Current is { } current && current.TryGetReferencedType(symbol, out var referenced) ? referenced : declared;
 
     // MS-VBAL §5.3.1.11: a public variable of an object is a variable too, with an address of its own, and a ByRef parameter is a second name for it
-    // when the types agree, as for a variable of the code's own - which is also what lets a callee lock it (§5.4.3.3). A property, and the field of a
-    // user-defined type, which has no address of its own, fall through to the copy.
+    // when the types agree, as for a variable of the code's own - which is also what lets a callee lock it (§5.4.3.3). A property falls through to the copy;
+    // the field of a user-defined type to TryResolveRecordFieldByRefArgument.
     private bool TryResolveFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBParameterSymbol parameter, out VBRuntimeReference reference)
     {

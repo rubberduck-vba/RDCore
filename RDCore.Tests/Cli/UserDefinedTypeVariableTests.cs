@@ -13,6 +13,30 @@ public sealed class UserDefinedTypeVariableTests
 
     private static Task<string[]> RunAsync(params string[] lines) => ModuleWorkspace.RunAsync([], Program(lines));
 
+    // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable, which a ByRef parameter is a second name for: what the callee assigns is the field's.
+    [TestMethod]
+    [DataRow("Dim t As TState", "Bump t.Count", "Debug.Print t.Count", DisplayName = "A field of a local")]
+    [DataRow("", "Bump State.Count", "Debug.Print State.Count", DisplayName = "A field of a variable of the module")]
+    [DataRow("Dim o As TOuter", "Bump o.Inner.Count", "Debug.Print o.Inner.Count", DisplayName = "A field of a record's field")]
+    [DataRow("Dim t As TState", "Touch t.Count", "Debug.Print t.Count", DisplayName = "To a Variant parameter")]
+    public async Task AFieldOfARecord_PassedByReference_IsWhatTheCalleeAssigns(string declaration, string call, string print)
+        => CollectionAssert.AreEqual(new[] { "1" }, await RunAsync(
+            "Private Type TState", "Count As Long", "End Type",
+            "Private Type TOuter", "Inner As TState", "End Type",
+            "Private State As TState",
+            "Private Sub Bump(ByRef n As Long)", "n = n + 1", "End Sub",
+            "Private Sub Touch(ByRef v As Variant)", "v = 1", "End Sub",
+            "Public Sub Main()", declaration, call, print, "End Sub"));
+
+    // MVVM's ControlEventsPunk keeps its state in `This As TState` and passes its fields to the procedures that write them.
+    [TestMethod]
+    public async Task AFieldOfAClassModulesRecord_PassedByReference_IsWhatTheCalleeAssigns()
+        => CollectionAssert.AreEqual(new[] { "42" }, await ModuleWorkspace.RunAsync(
+            [("Holder", ModuleWorkspace.ClassModule("Holder", "Option Explicit", "Private Type TState", "Cookie As Long", "End Type", "Private This As TState",
+                "Private Sub Connect(ByRef pdwCookie As Long)", "pdwCookie = 42", "End Sub",
+                "Public Function Cookie() As Long", "Connect This.Cookie", "Cookie = This.Cookie", "End Function"))],
+            Program("Public Sub Main()", "Dim h As New Holder", "Debug.Print h.Cookie", "End Sub")));
+
     [TestMethod]
     public async Task ALocal_OfAUserDefinedType_HasItsFields()
         => CollectionAssert.AreEqual(new[] { "9" }, await RunAsync(

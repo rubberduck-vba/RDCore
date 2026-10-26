@@ -592,6 +592,37 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
     }
 
+    // MVVM's ControlEventsPunk keeps the interface and the cookie in the fields of a record (`This`), which ConnectToConnectionPoint reads and writes by reference.
+    private static readonly (string Name, string Source) RecordPunk = ("RecordPunk", ModuleWorkspace.ClassModule("RecordPunk",
+        "Option Explicit",
+        "Private Type GUID", "    Data1 As Long", "    Data2 As Integer", "    Data3 As Integer", "    Data4(0 To 7) As Byte", "End Type",
+        "Private Type TState", "    RefIID As GUID", "    Target As Object", "    Cookie As Long", "End Type",
+        "Private This As TState",
+        "Private Declare PtrSafe Function ConnectToConnectionPoint Lib \"shlwapi\" Alias \"#168\" (ByVal Punk As stdole.IUnknown, ByRef riidEvent As GUID, ByVal fConnect As Long, ByVal PunkTarget As stdole.IUnknown, ByRef pdwCookie As Long, Optional ByVal ppcpOut As LongPtr) As Long",
+        "Public Function Connect(ByVal t As Object) As Long",
+        "    Set This.Target = t",
+        "    This.RefIID.Data1 = &H20400: This.RefIID.Data4(0) = &HC0: This.RefIID.Data4(7) = &H46",
+        "    Connect = ConnectToConnectionPoint(Me, This.RefIID, 1, This.Target, This.Cookie, 0&)",
+        "End Function",
+        "Public Function Disconnect() As Long", "    Disconnect = ConnectToConnectionPoint(Me, This.RefIID, 0, This.Target, This.Cookie, 0&)", "End Function",
+        "Public Property Get CookieValue() As Long", "    CookieValue = This.Cookie", "End Property",
+        "Public Sub OnEnter()", "Attribute OnEnter.VB_UserMemId = -2147384830", "    Debug.Print \"R:Enter\"", "End Sub"));
+
+    [TestMethod]
+    public async Task ASinkThatKeepsItsStateInARecord_IsConnected_AndDisconnected()
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+
+        var actual = await ModuleWorkspace.RunAsync([RecordPunk], Program(["On Error Resume Next", "Dim p As New RecordPunk", "Debug.Print p.Connect(ExampleView.AmountBox)",
+            "Debug.Print p.CookieValue <> 0", "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"", "Debug.Print p.Disconnect", "ExampleView.Go \"AmountBox\"",
+            "Debug.Print Err.Number", "Unload ExampleView"]),
+            new ModuleWorkspace.WorkspaceLibraries(["MSForms", "stdole"], Shipped, Outside: world), [ExampleView(Focus)]);
+        CollectionAssert.AreEqual(new[] { "Initialize", "0", "True", "AmountEnter", "R:Enter", "Activate", "AmountExit", "ComboEnter", "0", "ComboExit", "AmountEnter",
+            "0", "QueryClose 1", "AmountExit", "Terminate" }, actual, string.Join(" | ", actual));
+    }
+
     // the dispatch identifier an event is raised with crosses from the external host with it, and the sink's Cancel is Microsoft Forms' object there.
     [TestMethod]
     public async Task ASinkConnectedToAControl_ThroughAnExternalHost_IsCalledByTheIdentifierTheEventIsRaisedWith()
