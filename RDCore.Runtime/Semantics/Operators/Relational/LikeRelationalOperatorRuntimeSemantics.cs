@@ -13,9 +13,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace RDCore.Runtime.Semantics.Operators.Relational;
 
@@ -49,12 +46,10 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
         {
             return base.EvaluateBinaryOperatorExpressionResult(resolver, context, expression, frame);
         }
-        catch (ArgumentException)
+        catch (InvalidLikePatternException)
         {
-            // MS-VBAL 5.6.9.6: the pattern doesn't form a valid, complete like-pattern-element —
-            // runtime error 93 (Invalid pattern string), never an uncaught regex exception.
-            // RegexParseException (an unterminated charlist that still slips past ToRegex's own
-            // check) derives from ArgumentException too, so this also covers that edge.
+            // MS-VBAL 5.6.9.6: the pattern doesn't form a valid, complete like-pattern-element - run-time error 93 (Invalid pattern string),
+            // which MS-VBA raises where the match reaches that element (LikePattern).
             return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InvalidPatternString, expression,
                 Exceptions.LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose));
         }
@@ -68,88 +63,8 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     /// 🚧 Whether MS-VBA's <c>Like</c> sees a trailing byte is yet to be run against MS-VBA.
     /// </para>
     /// </remarks>
-    protected override bool ComparisonOp(VBStringValue lhs, VBStringValue rhs, StringComparisonRules rules) => Matches(lhs.Value, rhs.Value, rules);
-
-    private static bool Matches(string lhs, string rhs, StringComparisonRules rules)
-    {
-        var pattern = ToRegex(rhs);
-        if (!rules.IgnoresCase)
-        {
-            return Regex.IsMatch(lhs, pattern, RegexOptions.CultureInvariant);
-        }
-
-        // MS-VBAL 5.6.9.6: in text mode the match is regardless of case, by the regional settings of the environment; a Regex
-        // takes the culture it ignores case by from the current culture at the time it is constructed.
-        var previous = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = rules.EffectiveCulture;
-        try
-        {
-            return new Regex(pattern, RegexOptions.IgnoreCase).IsMatch(lhs);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = previous;
-        }
-    }
+    protected override bool ComparisonOp(VBStringValue lhs, VBStringValue rhs, StringComparisonRules rules)
+        => LikePattern.Get(rhs.Value).IsMatch(lhs.Value, rules);
 
     protected override bool ComparisonOp<T>(T lhs, T rhs) => throw new NotSupportedException();
-
-    private static string ToRegex(string likePattern)
-    {
-        StringBuilder regexStr = new();
-        for (var i = 0; i < likePattern.Length; i++)
-        {
-            var token = likePattern[i];
-            switch (token)
-            {
-                case '?':
-                    regexStr.Append('.');
-                    break;
-                case '#':
-                    regexStr.Append(@"\d");
-                    break;
-                case '*':
-                    regexStr.Append(@".*?");
-                    break;
-                case '[':
-                    var close = likePattern.IndexOf(']', i + 1);
-                    if (close < 0)
-                    {
-                        // like-pattern-charlist = "[" ["!"] ["-"] *like-pattern-charlist-element ["-"] "]"
-                        // — an unterminated charlist is not a valid, complete like-pattern-element.
-                        throw new ArgumentException("Unterminated like-pattern-charlist.", nameof(likePattern));
-                    }
-                    regexStr.Append(ToCharListRegex(likePattern[(i + 1)..close]));
-                    i = close;
-                    break;
-                default:
-                    // any other character matches itself literally — escape it so a regex
-                    // metacharacter in the source string (".", "+", "(", ...) can't be misread
-                    // as pattern-matching syntax.
-                    regexStr.Append(Regex.Escape(token.ToString()));
-                    break;
-
-            }
-        }
-        // Full string match, e.g. "abcd" should NOT match "a.c"
-        return $"^{regexStr}$";
-    }
-
-    /// <summary>
-    /// Translates a VBA <c>like-pattern-charlist</c> body (the text between "[" and "]", exclusive)
-    /// into a .NET regex character class. VBA's "!" negation prefix and "-" range syntax already
-    /// match .NET's own char-class syntax; only characters ".NET" treats specially inside a class
-    /// ("^", "\", "]") that VBA does not need escaping so they can't be misread as regex syntax.
-    /// </summary>
-    private static string ToCharListRegex(string body)
-    {
-        var negate = body.StartsWith('!');
-        if (negate)
-        {
-            body = body[1..];
-        }
-
-        var escaped = body.Replace("\\", "\\\\").Replace("^", "\\^").Replace("]", "\\]");
-        return negate ? $"[^{escaped}]" : $"[{escaped}]";
-    }
 }
