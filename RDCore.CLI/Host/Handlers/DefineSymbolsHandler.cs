@@ -59,9 +59,35 @@ internal sealed class DefineSymbolsHandler(
             }
         }
 
+        // A type of a module that is defined after this one - an Enum of a class module that comes later (MVVM's BindingManager names IPropertyBinding's
+        // BindingMode) - is not there yet either: the module's symbols are read again when its code is sent, which is once every module's symbols are defined.
+        var pending = PendingTypes.GetOrCreateValue(session);
+        var composing = request;
+        if (!request.CodeOnly)
+        {
+            if (unresolvedTypeNames.Count > 0)
+            {
+                pending[request.ModuleName] = request;
+            }
+            else
+            {
+                _ = pending.TryRemove(request.ModuleName, out _);
+            }
+        }
+        else if (pending.TryRemove(request.ModuleName, out var earlier))
+        {
+            for (var pass = 0; pass < MaxTypePasses; pass++)
+            {
+                unresolvedTypeNames.Clear();
+                _ = DefineSymbols(session, earlier, unresolvedTypeNames, replace: true);
+            }
+
+            composing = earlier;
+        }
+
         // a class module's symbol is composed from a project without being read; what makes it the class its members declare, and
         // the one that implements the interfaces its directives name, is this. A module that is not a class has nothing to compose.
-        session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
+        session.Symbols.TryComposeClassModule(composing.ModuleName, composing.ImplementedInterfaceNames, composing.ImplementedInterfaceRanges);
 
         // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable named after it, which the code of every module
         // names - so it is there before any code is loaded, which is after every module's symbols are.
@@ -98,6 +124,9 @@ internal sealed class DefineSymbolsHandler(
 
     /// <summary>How many times a module is read again for the types it names: a user-defined type of user-defined types is as deep as its fields.</summary>
     private const int MaxTypePasses = 3;
+
+    // the modules of a session that named a type no module defined yet when their symbols were read, by name: read again when their code is sent.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession, System.Collections.Concurrent.ConcurrentDictionary<string, DefineSymbolsParams>> PendingTypes = [];
 
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server already collapses #If-branch duplicates, but stay
     // defensive: fuse any that still arrive with the same identity (uri + concrete type) so the session never sees a colliding define. Property Get/Let/Set

@@ -47,6 +47,19 @@ public sealed class WorkspaceEnumTypeTests
     }
 
     [TestMethod]
+    public async Task AParameterOfAnEnumOfAModuleDefinedLater_IsALong_ItsDefaultIncluded()
+    {
+        // the host defines the modules one at a time: Picker names Holder's Enum before Holder is defined, and its parameter was of a type nothing knew - the
+        // omitted argument's default raised 13 (MVVM's BindingManager, whose Mode is an IPropertyBinding.BindingMode).
+        var picker = ("Picker", ClassModule("Picker", "Option Explicit",
+            "Public Sub Pick(Optional ByVal Mode As BindingMode = BindingMode.OneWay)", "Debug.Print Mode", "End Sub"));
+        var holder = ("Holder", ClassModule("Holder", "Option Explicit", "Public Enum BindingMode", "TwoWay", "OneWay", "End Enum"));
+
+        CollectionAssert.AreEqual(new[] { "1", "0" }, await RunAsync([picker, holder], Program("",
+            "Dim p As New Picker", "p.Pick", "p.Pick TwoWay")));
+    }
+
+    [TestMethod]
     public async Task AValueAssignedToIt_IsLetCoercedToLong()
     {
         // MS-VBAL §5.2.3.4: the Enum's name in an As clause means Long - 1.7 rounds to 2, 2.5 to the even 2, and a String holding a number is that number.
