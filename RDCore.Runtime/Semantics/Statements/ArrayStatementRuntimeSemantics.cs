@@ -94,14 +94,12 @@ public sealed record class ArrayStatementRuntimeSemantics(
         if (held is not VBArrayValue array)
         {
             // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
-            // value type is not an array" - which cannot be read as covering the Empty a Variant starts as,
-            // since the static rule admits a Variant target precisely so that it can become an array, and
-            // `Dim v As Variant: ReDim v(5)` would otherwise be impossible to write. What the Variant holds
-            // is what the rule is about, so it is the unwrapped value that decides: a Variant holding a
-            // number is the error, and one holding nothing yet is not.
-            return held is null or VBEmptyValue
-                ? Store(session, context, redim, target, Redimensioned(Resized(session, bounds, stated ?? ItemTypeOf(target.Current))))
-                : Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
+            // value type is not an array" - which MS-VBA reads as a ReDim Preserve, the one that has the elements of an array to keep: a plain
+            // ReDim makes the Variant an array whatever it held, a number, a String, an object or Null (recorded in Excel, oracle\findings-labels
+            // V01, V04-V06), and only a ReDim Preserve of a Variant holding a value raises 13 (V02). One that holds nothing yet is dimensioned.
+            return redim.IsPreserve && held is not (null or VBEmptyValue)
+                ? Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array")
+                : Store(session, context, redim, target, Redimensioned(Resized(session, bounds, stated ?? ItemTypeOf(target.Current))));
         }
 
         // an array that was never dimensioned has no bounds for Preserve to keep, nor an element: MS-VBA dimensions it (recorded in Excel, oracle\s20 S05),

@@ -271,11 +271,21 @@ public sealed class ArrayStatementTests
     }
 
     [TestMethod]
-    public void Redim_ATargetHoldingSomethingThatIsNotAnArray_IsTypeMismatch()
+    public void Redim_AVariantHoldingSomethingThatIsNotAnArray_BecomesAnArray()
+    {
+        // MS-VBA reads 5.4.3.3's error 13 as a ReDim Preserve's (recorded in Excel, oracle\findings-labels V01).
+        var (outcome, array) = Run([("V", VBVariantType.TypeInfo)], "V = 42", "ReDim V(1 To 3)");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(3, array("V")!.Length);
+    }
+
+    [TestMethod]
+    public void RedimPreserve_AVariantHoldingSomethingThatIsNotAnArray_IsTypeMismatch()
     {
         // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
-        // value type is not an array."
-        var (outcome, _) = Run([("V", VBVariantType.TypeInfo)], "V = 42", "ReDim V(1 To 3)");
+        // value type is not an array" - which has no elements to keep (oracle\findings-labels V02).
+        var (outcome, _) = Run([("V", VBVariantType.TypeInfo)], "V = 42", "ReDim Preserve V(1 To 3)");
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
         Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, outcome.ErrorInfo!.ErrorId);

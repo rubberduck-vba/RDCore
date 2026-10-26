@@ -85,8 +85,12 @@ dial rather than something the statement wrote.
 |---|---|
 |A resizable array|Re-dimensioned.|
 |A `Variant` holding an array|Re-dimensioned. The variable keeps storing a `Variant`.|
-|A `Variant` holding nothing yet|Becomes an array. The static rule admits a `Variant` target so that it can become an array, so the `Empty` a `Variant` starts as is not the error below.|
-|A `Variant` holding anything else|Runtime error 13, `Type mismatch`.|
+|A `Variant` holding anything else|Becomes an array: a number, a `String`, an object or `Null`, and the `Empty` a `Variant` starts as.|
+|A `Variant` holding anything but an array or `Empty`, with `Preserve`|Runtime error 13, `Type mismatch`.|
+
+**MS-VBAL §5.4.3.3** says "Runtime Error 13 is raised if the declared type of a redimensioned variable is `Variant` and its value type is not an array". RD-VBA
+reads the sentence as **MS-VBA** does (recorded in Excel): as a `ReDim Preserve`'s, the one that has the elements of an array to keep. A `ReDim` without
+`Preserve` keeps nothing of what the `Variant` held, and makes it an array whatever that was.
 
 Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). An upper bound below its
 lower bound is runtime error 9, `Subscript out of range`.
