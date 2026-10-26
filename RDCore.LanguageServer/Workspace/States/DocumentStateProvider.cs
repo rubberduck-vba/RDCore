@@ -74,29 +74,75 @@ public class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDoc
 {
     private readonly Dictionary<TextDocumentIdentifier, DocumentState> _state = [];
 
-    public DocumentState GetCurrentState(TextDocumentIdentifier id) => _state[id];
-    public void OnDocumentUnloaded(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is LoadedDocumentState ? DocumentState.Unloaded : throw new InvalidDocumentStateException(DocumentStateValue.Unloaded);
-    public void OnDocumentLoaded(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is UnloadedDocumentState ? DocumentState.Loaded : throw new InvalidDocumentStateException(DocumentStateValue.Loaded);
-    public void OnDocumentMissing(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is UnloadedDocumentState ? DocumentState.Missing : throw new InvalidDocumentStateException(DocumentStateValue.Missing);
-    public void OnDocumentLoadError(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is UnloadedDocumentState ? DocumentState.LoadError : throw new InvalidDocumentStateException(DocumentStateValue.LoadError);
-    public void OnDocumentOpened(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is LoadedDocumentState ? DocumentState.Opened : throw new InvalidDocumentStateException(DocumentStateValue.Opened);
-    public void OnDocumentClosed(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is OpenedDocumentState ? DocumentState.Loaded : throw new InvalidDocumentStateException(DocumentStateValue.Loaded);
+    // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync) while requests read their states: each transition is a read and a
+    // write that no other may come between.
+    private readonly Lock _gate = new();
 
-    public bool IsTracked(TextDocumentIdentifier id) => _state.ContainsKey(id);
-    public void OnDocumentOpenedByClient(TextDocumentIdentifier id) => _state[id] = DocumentState.Opened;
-    public void Forget(TextDocumentIdentifier id) => _state.Remove(id);
+    public DocumentState GetCurrentState(TextDocumentIdentifier id)
+    {
+        lock (_gate)
+        {
+            return _state[id];
+        }
+    }
+
+    public void OnDocumentUnloaded(TextDocumentIdentifier id) => Transition(id, value => value is LoadedDocumentState, DocumentState.Unloaded, DocumentStateValue.Unloaded);
+    public void OnDocumentLoaded(TextDocumentIdentifier id) => Transition(id, value => value is UnloadedDocumentState, DocumentState.Loaded, DocumentStateValue.Loaded);
+    public void OnDocumentMissing(TextDocumentIdentifier id) => Transition(id, value => value is UnloadedDocumentState, DocumentState.Missing, DocumentStateValue.Missing);
+    public void OnDocumentLoadError(TextDocumentIdentifier id) => Transition(id, value => value is UnloadedDocumentState, DocumentState.LoadError, DocumentStateValue.LoadError);
+    public void OnDocumentOpened(TextDocumentIdentifier id) => Transition(id, value => value is LoadedDocumentState, DocumentState.Opened, DocumentStateValue.Opened);
+    public void OnDocumentClosed(TextDocumentIdentifier id) => Transition(id, value => value is OpenedDocumentState, DocumentState.Loaded, DocumentStateValue.Loaded);
+
+    public bool IsTracked(TextDocumentIdentifier id)
+    {
+        lock (_gate)
+        {
+            return _state.ContainsKey(id);
+        }
+    }
+
+    public void OnDocumentOpenedByClient(TextDocumentIdentifier id)
+    {
+        lock (_gate)
+        {
+            _state[id] = DocumentState.Opened;
+        }
+    }
+
+    public void Forget(TextDocumentIdentifier id)
+    {
+        lock (_gate)
+        {
+            _state.Remove(id);
+        }
+    }
 
     public void Initialize(IEnumerable<TextDocumentIdentifier> workspaceDocumentIds)
     {
-        _state.Clear();
-        foreach (var id in workspaceDocumentIds)
+        int count;
+        lock (_gate)
         {
-            _state[id] = DocumentState.Unloaded;
+            _state.Clear();
+            foreach (var id in workspaceDocumentIds)
+            {
+                _state[id] = DocumentState.Unloaded;
+            }
+
+            count = _state.Count;
         }
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("✅ Initialize completed; tracking {documents} unloaded workspace document(s).", _state.Count);
+            logger.LogInformation("✅ Initialize completed; tracking {documents} unloaded workspace document(s).", count);
+        }
+    }
+
+    // the document goes to the state when it is in one it may go there from; anything else is a transition the lifecycle does not have.
+    private void Transition(TextDocumentIdentifier id, Func<DocumentState, bool> from, DocumentState to, DocumentStateValue toValue)
+    {
+        lock (_gate)
+        {
+            _state[id] = _state.TryGetValue(id, out var value) && from(value) ? to : throw new InvalidDocumentStateException(toValue);
         }
     }
 }
