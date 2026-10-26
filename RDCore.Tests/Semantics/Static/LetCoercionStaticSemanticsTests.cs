@@ -176,9 +176,10 @@ public sealed class LetCoercionStaticSemanticsTests : StaticSemanticsTests
     // This rule applies to a class source regardless of destination (unlike the Object/Class-destination
     // rule above, which fires first and independently for that specific destination). ---
 
+    // RD-VBAL 5.5.1.1: MS-VBA compiles a class that has no default member, where a value is expected, and raises 438 when it runs - as RD-VBA does.
     [TestMethod]
-    public void ClassWithNoDefaultMember_ToNumeric_IsInvalid()
-        => AssertInvalid(ClassWithDefaultMember(null), VBLongType.TypeInfo);
+    public void ClassWithNoDefaultMember_ToNumeric_IsReadWhenItRuns()
+        => AssertValid(ClassWithDefaultMember(null), VBLongType.TypeInfo);
 
     [TestMethod]
     public void ClassWithValidDefaultMember_ToCompatibleNumeric_IsValid()

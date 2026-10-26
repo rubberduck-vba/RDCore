@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 
@@ -38,8 +39,9 @@ namespace RDCore.SDK.Semantics.Static;
 /// (<see cref="ValueDestination.StringOrVariable"/>).</item>
 /// </list>
 /// <para>
-/// 👉 An object of a class that has no default member, where a value of a declared type is expected, is <see cref="VBCompileErrorId.TypeMismatch"/> too: MS-VBAL
-/// §5.5.1.1 makes it statically invalid. MS-VBA compiles it, and raises error 438 when it runs, which the error says (<see cref="NoDefaultMember"/>).
+/// 👉 An object of a class that has no default member, where a value of a declared type is expected, is statically invalid by MS-VBAL §5.5.1.1. MS-VBA compiles
+/// it, and raises error 438 when it runs (91 when the object is <c>Nothing</c>): RD-VBA does the same (<strong>RD-VBAL §5.5.1.1</strong>), and states it
+/// (<see cref="MarkNoDefaultMember"/>).
 /// </para>
 /// </remarks>
 public static class ObjectValueStaticSemantics
@@ -53,8 +55,8 @@ public static class ObjectValueStaticSemantics
     /// <param name="destination">What the place that expects a value expects of an object.</param>
     /// <returns>
     /// <paramref name="declaredType"/> for anything that is not an object of a class; the declared type of the class's default member for one that has a
-    /// default member; <see cref="VBObjectType"/> - late-bound - where a value of any type is expected, for one that has none or whose default member returns
-    /// an object; or the error.
+    /// default member; <see cref="VBObjectType"/> - late-bound - for one that has none, and where a value of any type is expected, for one whose default
+    /// member returns an object; or the error.
     /// </returns>
     public static StaticSemanticsEvaluationResult ValueOf(StaticEvaluationContext context, ExpressionNode expression, VBType declaredType, ValueDestination destination)
     {
@@ -78,10 +80,14 @@ public static class ObjectValueStaticSemantics
         var classType = CurrentTypes.Of(context, declaredClass);
         if (classType.DefaultMember is not { } defaultMember)
         {
-            // MS-VBAL 5.5.1.1: statically invalid. A function that takes a value of any type reads it when it runs, as MS-VBA has it.
-            return destination is ValueDestination.TypedValue
-                ? StaticSemanticsEvaluationResult.Error(NoDefaultMember(expression, classType))
-                : StaticSemanticsEvaluationResult.Success(VBObjectType.TypeInfo);
+            // MS-VBAL 5.5.1.1 makes it statically invalid; MS-VBA compiles it, and raises 438 when it runs - 91 when the object is Nothing (RD-VBAL 5.5.1.1).
+            // The object is read for a value when it runs, as a late-bound one is.
+            if (destination is ValueDestination.TypedValue)
+            {
+                MarkNoDefaultMember(context.Facts, expression);
+            }
+
+            return StaticSemanticsEvaluationResult.Success(VBObjectType.TypeInfo);
         }
 
         if (OwnParameters(ParametersOf(defaultMember)).Any(parameter => !parameter.IsOptional && parameter is not ParamArrayParameterSymbol))
@@ -106,17 +112,22 @@ public static class ObjectValueStaticSemantics
     }
 
     /// <summary>
-    /// The compile error of an object of a class that has no default member, Let-coerced to a value (<strong>MS-VBAL §5.5.1.1</strong>).
+    /// Tells the fact of <paramref name="expression"/> that it is an object of a class that has no default member, Let-coerced to a value
+    /// (<see cref="ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember"/>).
     /// </summary>
+    /// <param name="facts">Where the fact of <paramref name="expression"/> is; nothing is told without one.</param>
     /// <param name="expression">The expression that is the object.</param>
-    /// <param name="classType">The class of the object.</param>
     /// <remarks>
-    /// 👉 MS-VBA compiles it, and raises error 438 (Object doesn't support this property or method) when it runs; RD-VBA validates at compile time what the
-    /// specification says is validated at compile time, and says so in the error.
+    /// 👉 <strong>MS-VBAL §5.5.1.1</strong> makes it statically invalid. MS-VBA compiles it, and raises error 438 (Object doesn't support this property or
+    /// method) when it runs, or 91 when the object is <c>Nothing</c>; RD-VBA does as MS-VBA does, and the fact is for an analyzer to report.
     /// </remarks>
-    public static VBCompileErrorInfo NoDefaultMember(ExpressionNode expression, VBClassType classType)
-        => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
-            string.Format(Exceptions.VBCompileError_ClassHasNoDefaultMember_Verbose, classType.Name));
+    public static void MarkNoDefaultMember(IExpressionFactSink? facts, ExpressionNode expression)
+    {
+        if (facts is not null && facts.TryGet(expression.Identity, out var fact))
+        {
+            facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember });
+        }
+    }
 
     /// <summary>
     /// What <paramref name="parameter"/> expects of an object given to it; <see langword="null"/> when it takes an object as it is.

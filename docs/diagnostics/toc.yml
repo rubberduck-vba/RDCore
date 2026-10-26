@@ -434,3 +434,5 @@
   href: rdc11012.md
 - name: RDC11013 — Variant compared with a String as text
   href: rdc11013.md
+- name: RDC11015 — Object with no default member used as a value
+  href: rdc11015.md

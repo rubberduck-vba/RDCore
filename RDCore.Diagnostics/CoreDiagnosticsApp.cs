@@ -88,6 +88,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ValueOfObjectWithNoDefaultMemberAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();

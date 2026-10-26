@@ -1438,15 +1438,6 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to {0} has no default member to give it a value, which makes it statically invalid to Let-coerce to one (MS-VBAL §5.5.1.1). MS-VBA compiles it, and raises run-time error 438 (Object doesn&apos;t support this property or method) when it runs..
-        /// </summary>
-        public static string VBCompileError_ClassHasNoDefaultMember_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ClassHasNoDefaultMember_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to Len and LenB take a String expression or the name of a variable (MS-VBAL §6.1.2.11.1.22): this is a value of type {0}, which is neither. Assign it to a variable of that type to measure the variable, or convert it to a String to count its characters..
         /// </summary>
         public static string VBCompileError_LenOfAValue_Verbose {

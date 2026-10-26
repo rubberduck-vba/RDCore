@@ -279,4 +279,7 @@
   <data name="SetThroughACallFails_NoDefaultMemberToSet_Message" xml:space="preserve">
     <value>Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute.</value>
   </data>
+  <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
+    <value>Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type).</value>
+  </data>
 </root>
