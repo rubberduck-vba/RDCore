@@ -111,6 +111,7 @@ When the source value is outside that range, it raises `Overflow`. Otherwise:
 |Narrowing to a wider-or-equal integral type|The value is copied, converted to the destination's representation.|
 |Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion.|
 |Integral → floating-point|🎯 A plain widening copy (see the divergence note below).|
+|`Single` → `Decimal`|The value to 7 significant digits, ties to even, as **MS-VBA** has it: `CDec(CSng(0.1))` is `0.1`, a `Single` of `16777217` is `16777220` (recorded in Excel). A `Double` keeps 15 digits; a `Currency` is the exact value.|
 
 A `Date` source let-coerced to a numeric destination reports `ConversionSemanticFlags.DateSerial`
 ([ConversionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ConversionSemanticFlags.html)).

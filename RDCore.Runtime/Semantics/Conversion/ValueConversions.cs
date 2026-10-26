@@ -104,6 +104,13 @@ public static partial class ValueConversions
         IFloatingPointNumericType when destination is VBSingleType or VBDoubleType && !double.IsFinite(((VBNumericTypedValue)source).AsDouble)
             => ValueConversionResult.Success(destination.CreateValue(((VBNumericTypedValue)source).AsDouble)),
 
+        // a Single made a Decimal is its value to 7 significant digits, ties to even, as MS-VBA has it: CDec(CSng(0.1)) is 0.1, and a Single of 16777217
+        // is 16777220 - where a Double keeps the 15 digits a Double's conversion does (recorded in Excel, grid oracle\s43 K01-K26, J01).
+        VBSingleType when destination is VBDecimalType
+            => Ranged(((VBSingleValue)source).Value, destination)
+                ? ValueConversionResult.Success(new VBDecimalValue((decimal)((VBSingleValue)source).Value))
+                : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
+
         // Double -> Single, Single -> Currency, and so on.
         IFloatingPointNumericType
             => Ranged(((VBNumericTypedValue)source).AsDouble, destination)
