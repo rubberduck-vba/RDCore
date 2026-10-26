@@ -113,5 +113,6 @@ public sealed class RefactoringWireTests
         var refused = await Assert.ThrowsAsync<OmniSharp.Extensions.JsonRpc.Server.JsonRpcException>(
             () => languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(1, 5), NewName = "Next" }, timeout.Token));
         StringAssert.Contains(refused.Message, "Next", "the message of the refusal is the client's to show");
+        Assert.AreEqual(-32803, refused.ErrorCode, "RequestFailed: an answer, which a client does not log as a fault");
     }
 }

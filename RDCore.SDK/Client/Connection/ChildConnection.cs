@@ -279,12 +279,22 @@ public sealed class ChildConnection(
             logger.LogDebug(exception, "← {method} cancelled", method);
             throw;
         }
+        catch (OmniSharp.Extensions.JsonRpc.Server.JsonRpcException exception) when (exception.ErrorCode is RequestFailedCode or ContentModifiedCode)
+        {
+            // a request the server refused (a rename to a keyword), or that an edit overtook, is answered: the caller is told why, and decides what to say.
+            logger.LogDebug("← {method} answered {code}: {message}", method, exception.ErrorCode, exception.Message);
+            throw;
+        }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "← {method} faulted", method);
             throw;
         }
     }
+
+    // LSP 3.17 ErrorCodes: the request was valid and refused; the content it was about changed while it was answered.
+    private const int RequestFailedCode = -32803;
+    private const int ContentModifiedCode = -32801;
 
     /// <summary>
     /// Sends a notification over the connection.
