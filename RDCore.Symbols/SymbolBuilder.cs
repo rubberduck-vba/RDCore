@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -458,17 +459,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
 
     private long? ConstantLengthOf(string length, Uri handle)
     {
-        var value = resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol switch
-        {
-            VBConstantMemberSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue.RuntimeValue.BoxedValue,
-            VBLocalConstantSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue.RuntimeValue.BoxedValue,
-            VBEnumConstMemberSymbol { DeclaredValue: null } => 0,
-            VBEnumConstMemberSymbol { DeclaredValue: { BaseValue: null, Offset: var offset } } => offset,
-            VBEnumConstMemberSymbol { DeclaredValue: { BaseValue: LiteralExpressionNode literal, Offset: var offset } }
-                when literal.StaticValue.RuntimeValue.BoxedValue is { } number && IsNumber(number)
-                => Convert.ToDouble(number, System.Globalization.CultureInfo.InvariantCulture) + offset,
-            _ => null,
-        };
+        var value = ValueOfConstant(resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol, handle, depth: 0);
 
         // Let-coerced to Long: a fraction rounds half to even (Const K = 2.5 is 2), and a String that reads as a number is that number (Const K = "3" is 3),
         // as MS-VBA has it (Excel-verified, oracle\s29 F05, F06).
@@ -480,6 +471,65 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             _ => null,
         };
     }
+
+    // the value of a constant, as far as the length of a fixed-length string needs it - before the constants are folded, which the host does once the
+    // module is loaded: a constant whose value is a literal, a member of an enumeration, or an expression of them - parentheses, a negation and arithmetic
+    // - which MS-VBA folds (Const K = 1 + 2: Dim s As String * K is a String * 3). null for anything else, whose length the host's checks report.
+    private object? ValueOfConstant(Symbol? constant, Uri handle, int depth) => constant switch
+    {
+        VBConstantMemberSymbol { Value: var expression } => ValueOfExpression(expression, handle, depth + 1),
+        VBLocalConstantSymbol { Value: var expression } => ValueOfExpression(expression, handle, depth + 1),
+        VBEnumConstMemberSymbol { DeclaredValue: null } => 0,
+        VBEnumConstMemberSymbol { DeclaredValue: { BaseValue: null, Offset: var offset } } => offset,
+        VBEnumConstMemberSymbol { DeclaredValue: { BaseValue: { } baseValue, Offset: var offset } }
+            when NumberOf(ValueOfExpression(baseValue, handle, depth + 1)) is { } number
+            => number + offset,
+        _ => null,
+    };
+
+    // a constant expression of numbers: arithmetic in Double, as far as a length is concerned - a whole number of characters, from a few to 65,526.
+    private object? ValueOfExpression(ExpressionNode? expression, Uri handle, int depth)
+    {
+        if (depth > 64)
+        {
+            return null;
+        }
+
+        switch (expression)
+        {
+            case LiteralExpressionNode literal:
+                return literal.StaticValue.RuntimeValue.BoxedValue;
+            case SimpleNameExpressionNode name:
+                return ValueOfConstant(resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, handle).Symbol, handle, depth);
+            case VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp } enclosed:
+                return ValueOfExpression(enclosed.Operand, handle, depth + 1);
+            case VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp } negation:
+                return NumberOf(ValueOfExpression(negation.Operand, handle, depth + 1)) is { } negated ? -negated : null;
+            case VBBinaryOperatorExpressionNode binary
+                when NumberOf(ValueOfExpression(binary.Left, handle, depth + 1)) is { } left && NumberOf(ValueOfExpression(binary.Right, handle, depth + 1)) is { } right:
+                return binary.Token switch
+                {
+                    Tokens.AdditionOp => left + right,
+                    Tokens.SubtractionOp => left - right,
+                    Tokens.MultiplicationOp => left * right,
+                    Tokens.DivisionOp when right != 0 => left / right,
+                    Tokens.IntegerDivisionOp when RoundToLong(right) is { } divisor and not 0 && RoundToLong(left) is { } dividend => (double)(dividend / divisor),
+                    Tokens.ModuloOp when RoundToLong(right) is { } divisor and not 0 && RoundToLong(left) is { } dividend => (double)(dividend % divisor),
+                    Tokens.PowerOp => Math.Pow(left, right),
+                    _ => null,
+                };
+            default:
+                return null;
+        }
+    }
+
+    // a value as a number, as a Let-coercion to a number reads it: a number is itself, a String that reads as one is that number.
+    private static double? NumberOf(object? value) => value switch
+    {
+        _ when value is not null && IsNumber(value) => Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture),
+        string text when double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) => number,
+        _ => null,
+    };
 
     private static bool IsNumber(object value) => value is byte or short or int or long or float or double or decimal;
 

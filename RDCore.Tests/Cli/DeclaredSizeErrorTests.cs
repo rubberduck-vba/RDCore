@@ -87,10 +87,13 @@ public sealed class DeclaredSizeErrorTests
         => AssertPrinted(expected, [], statement, statement.Contains("ReDim") ? "Debug.Print Len(s(0))" : "Debug.Print Len(s)");
 
     [TestMethod]
-    [Ignore("TODO: the language server types a String * K before the constants are folded, so a K whose value is an expression (1 + 2) leaves the "
-        + "variable a variable-length String; the host reduces it to report a length that is invalid, but not to type the variable")]
-    public Task ALengthAConstantExpressionGives_IsTheLengthOfTheString()
-        => AssertPrinted("3", [], "Const K = 1 + 2: Dim s As String * K", "Debug.Print Len(s)");
+    [DataRow("Const K = 1 + 2: Dim s As String * K", "3")]
+    [DataRow("Const J = 2: Const K = J * (J + 1): Dim s As String * K", "6")]
+    [DataRow("Const K = -(-7) \\ 2: Dim s As String * K", "3")]
+    [DataRow("Const K = 10 Mod 4 + 2 ^ 2: Dim s As String * K", "6")]
+    [DataRow("Const K = 5 / 2: Dim s As String * K", "2")]
+    public Task ALengthAConstantExpressionGives_IsTheLengthOfTheString(string statement, string expected)
+        => AssertPrinted(expected, [], statement, "Debug.Print Len(s)");
 
     [TestMethod]
     [DataRow("Dim a(1E10) As Long")]
