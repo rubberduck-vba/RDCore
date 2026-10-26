@@ -61,7 +61,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
             return new VBObjectValue(existing);
         }
 
-        var classModule = ClassOf(value, declared, resolver) ?? LateBinding.ClassNamed(server.ClassNameOf(value));
+        var classModule = ClassOf(value, declared, resolver) ?? LateBinding.ClassNamed(ClassNameOf(value));
 
         var identity = session.Objects.CreateObject();
         session.Symbols.CreateInstance(identity, classModule);
@@ -127,10 +127,20 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         => classModule.Name == SDK.Semantics.Static.FormControlExtender.ClassName
             && classModule.GetProperty(SymbolProperties.Library) == SDK.Workspace.Forms.FormDesigner.MSFormsLibrary;
 
+    // what the server names the class of an object: asked as a call is made, the program waiting with its turn given up - an event the server raises meanwhile (a
+    // form's message dispatched) is handled while it does, or the two would wait for each other.
+    private string? ClassNameOf(object value)
+    {
+        using (session.Turn.Yield())
+        {
+            return server.ClassNameOf(value);
+        }
+    }
+
     // the class the server says the object is, among the classes the project's libraries declare.
     private VBClassModuleSymbol? ServerClassOf(object value, ISymbolResolver resolver)
     {
-        if (server.ClassNameOf(value) is not { Length: > 0 } qualified)
+        if (ClassNameOf(value) is not { Length: > 0 } qualified)
         {
             return null;
         }
