@@ -45,12 +45,15 @@ public sealed class DuckyReplCommandTests
     private void Offers(params CodeAction[] actions)
         => _platform.GetCodeActionsAsync(Arg.Any<Uri>(), Arg.Any<Range>(), Arg.Any<IReadOnlyList<Diagnostic>>(), Arg.Any<CancellationToken>()).Returns(actions);
 
+    // the URI of the program as the server writes it: what a client reads back of DocumentUri, whose drive is c%3A where the shell's is C:.
+    private static DocumentUri AsWritten => DocumentUri.Parse(DocumentUri.From(Document).ToString());
+
     // the edits of the program, at the version of the buffer.
     private WorkspaceEdit Edits(params TextEdit[] edits) => new()
     {
         DocumentChanges = new Container<WorkspaceEditDocumentChange>(new WorkspaceEditDocumentChange(new TextDocumentEdit
         {
-            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(Document), Version = _program.Version },
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = AsWritten, Version = _program.Version },
             Edits = new TextEditContainer(edits),
         })),
     };

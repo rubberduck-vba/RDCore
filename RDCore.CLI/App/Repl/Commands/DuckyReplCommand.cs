@@ -169,11 +169,13 @@ internal sealed class DuckyReplCommand(ReplUserInteraction interaction) : IReplC
     {
         var changes = (edit.DocumentChanges ?? [])
             .Where(change => change.IsTextDocumentEdit)
-            .Select(change => (Uri: change.TextDocumentEdit!.TextDocument.Uri.ToUri(), change.TextDocumentEdit.TextDocument.Version, Edits: change.TextDocumentEdit.Edits.ToList()))
-            .Concat((edit.Changes ?? new Dictionary<DocumentUri, IEnumerable<TextEdit>>()).Select(change => (Uri: change.Key.ToUri(), Version: (int?)null, Edits: change.Value.ToList())))
+            .Select(change => (Uri: change.TextDocumentEdit!.TextDocument.Uri, change.TextDocumentEdit.TextDocument.Version, Edits: change.TextDocumentEdit.Edits.ToList()))
+            .Concat((edit.Changes ?? new Dictionary<DocumentUri, IEnumerable<TextEdit>>()).Select(change => (Uri: change.Key, Version: (int?)null, Edits: change.Value.ToList())))
             .ToList();
 
-        var others = changes.Where(change => change.Uri.AbsoluteUri != document.AbsoluteUri).Select(change => Path.GetFileName(change.Uri.LocalPath)).Distinct().ToList();
+        // the program is the same document however the server writes its URI: a drive and its colon are c%3A or C:, as LSP lets it.
+        var program = DocumentUri.From(document);
+        var others = changes.Where(change => change.Uri != program).Select(change => Path.GetFileName(change.Uri.GetFileSystemPath())).Distinct().ToList();
         if (others.Count > 0)
         {
             context.Console.WriteMessage(MessageKind.Error, Resources.Repl_Ducky_Refused, string.Format(Resources.Repl_Ducky_OtherDocuments, string.Join(", ", others)));
