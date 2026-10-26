@@ -29,7 +29,12 @@ public sealed class CreateObjectTests
                 Name = "Shelf",
                 ProgId = "Lab.Shelf",
                 IsCreatable = true,
-                Members = [new MemberDescription { Name = "Label", Kind = MemberKind.PropertyGet, Type = "String" }],
+                Members =
+                [
+                    new MemberDescription { Name = "Label", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription { Name = "Blank", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription { Name = "Stamp", Kind = MemberKind.PropertyGet, Type = "Date" },
+                ],
             },
         ],
     };
@@ -38,6 +43,11 @@ public sealed class CreateObjectTests
     private sealed class Shelf
     {
         public string Label { get; set; } = "empty";
+
+        // what a server returns where it says nothing - a null BSTR, as Microsoft Forms' Text of an empty TextBox is - for a String and a Date.
+        public string? Blank => null;
+
+        public object? Stamp => null;
 
         // the member the server calls its default one (DISPID_VALUE).
         public object? Value { get; set; } = 42;
@@ -246,6 +256,16 @@ public sealed class CreateObjectTests
         Assert.HasCount(1, server.Released);
         Assert.AreSame(server.Created[0], server.Released[0]);
     }
+
+    // what a member declared As String returns where the server said nothing is "" - not the text of the number 0 - and a Date's is day 0.
+    [TestMethod]
+    public async Task NothingReturnedForAStringOrADate_IsTheirDefault()
+        => CollectionAssert.AreEqual(new[] { "[]", "0", "True" }, (await Run(true, ["Lab"],
+            "Dim s As Lab.Shelf",
+            "Set s = CreateObject(\"Lab.Shelf\")",
+            "Debug.Print \"[\" & s.Blank & \"]\"",
+            "Debug.Print Len(s.Blank)",
+            "Debug.Print s.Stamp = 0")).Output);
 
     [TestMethod]
     public async Task AnObjectOfAClassAReferencedLibraryDeclares_IsAnObjectOfThatClass()
