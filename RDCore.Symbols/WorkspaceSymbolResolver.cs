@@ -85,7 +85,11 @@ public static class WorkspaceSymbolResolver
         ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null)
     {
         var symbols = new List<Symbol>();
-        if (projectName is not null)
+
+        // a module named as its project keeps the name: MS-VBA refuses one ("Name conflicts with existing module, project, or object library"), and the shell's
+        // own project is named as its one module.
+        if (projectName is not null
+            && !modules.Any(module => string.Equals(module.ModuleUri.Fragment.TrimStart('#'), projectName, StringComparison.OrdinalIgnoreCase)))
         {
             symbols.Add(new VBProjectSymbol(workspaceRoot, projectName));
         }

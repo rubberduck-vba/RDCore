@@ -232,10 +232,18 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return module;
         }
 
-        // 3. otherwise the member exactly one of its procedural modules has.
-        return projectScope is not null
-            && SelectTier(projectScope, projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))) is { } member
-                ? member
+        // 3. otherwise the member exactly one of its procedural modules has - a class's default instance variable among them, which §5.2.4.1.2 declares
+        // as if at module level, under the class's name (MVVM.AppContext.Create), and which the global scope holds as it does for the name unqualified.
+        if (projectScope is not null
+            && SelectTier(projectScope, projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))) is { } member)
+        {
+            return member;
+        }
+
+        return global is not null
+            && SelectTier(global, global.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && !IsProjectOrProceduralModule(candidate) && InProject(candidate)))
+                is { } instance
+                ? instance
                 : SymbolResolutionResult.Unbound;
     }
 

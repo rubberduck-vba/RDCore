@@ -26,6 +26,7 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
 {
     public IEnumerable<Symbol> ProvideSymbols()
     {
+        var modules = new List<Symbol>();
         foreach (var module in project.Modules)
         {
             var source = ReadSourceOrNull(module.RelativeUri);
@@ -33,9 +34,23 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
 
             // kind is the source's business: a VERSION header makes it a class/designer module.
             // .doccls modules carry no VBE header and are out of scope for now.
-            yield return ModuleHeader.IsClassModule(source) ?? false
+            modules.Add(ModuleHeader.IsClassModule(source) ?? false
                 ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
-                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name);
+                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name));
+        }
+
+        // the project itself, by its name: what qualifies the names of its own modules and types (MVVM.AppContext, MS-VBAL §5.6.12), as a library's name
+        // qualifies its own. It is of no library, which is what tells it from the libraries' projects. A module named as the project keeps the name, as the
+        // language server's composition has it: MS-VBA refuses one, and the shell's own project is named as its one module.
+        if (project.Name is { Length: > 0 } projectName
+            && !modules.Any(module => string.Equals(module.Name, projectName, StringComparison.OrdinalIgnoreCase)))
+        {
+            yield return new VBProjectSymbol(workspaceRoot, projectName);
+        }
+
+        foreach (var module in modules)
+        {
+            yield return module;
         }
     }
 

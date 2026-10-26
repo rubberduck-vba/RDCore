@@ -24,6 +24,12 @@ internal interface IReferencedLibraryService
     IReadOnlyList<Symbol> SymbolsUnder(Uri workspaceRoot);
 
     /// <summary>
+    /// The name of the project that references them, which qualifies the project's own names as a library's qualifies its own (<c>MVVM.AppContext</c>);
+    /// <see langword="null"/> when no project is loaded.
+    /// </summary>
+    string? ProjectName => null;
+
+    /// <summary>
     /// The symbols of a library whether or not the project references it, and of the libraries it depends on, addressed under a workspace: what tooling knows of
     /// the class of an object created by name, and never names of the project (<see cref="LibrarySymbolProvider.ReadDescribed"/>).
     /// </summary>
@@ -49,6 +55,8 @@ internal sealed class ReferencedLibraryService(
     private (string Key, ReferencedLibraries Libraries)? _loaded;
     private (Uri Root, IReadOnlyList<Symbol> Symbols)? _symbols;
     private readonly Dictionary<(string Root, string Library), IReadOnlyList<Symbol>> _described = [];
+
+    public string? ProjectName => project.Project?.ProjectInfo?.Name is { Length: > 0 } name ? name : null;
 
     public ReferencedLibraries Libraries
     {

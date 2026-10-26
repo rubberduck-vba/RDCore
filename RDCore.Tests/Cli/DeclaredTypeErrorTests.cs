@@ -195,9 +195,8 @@ public sealed class DeclaredTypeErrorTests
     [TestMethod]
     public async Task AFieldOrALocalConstantOfATypeTheProjectQualifies_LoadsAndRuns_AsItDidBefore()
     {
-        // a type qualified by the enclosing project's name does not resolve: the host defines no symbol for the enclosing project, and a variable declared
-        // `As Project1.Widget` is refused. A field's and a local constant's types are not checked for a name that does not resolve, so these load and run
-        // as they did before either type was checked.
+        // a type qualified by the enclosing project's name resolves to the project's own (ProjectQualifiedNameTests): a field and a local constant declared
+        // as one load and run.
         var widget = ("Widget", ModuleWorkspace.ClassModule("Widget", "Public X As Long"));
         var field = await ModuleWorkspace.RunAsync([widget], Running(["Private Type TRecord", "W As Project1.Widget", "End Type"], "Dim t As TRecord", "Debug.Print 1"));
         var constant = await ModuleWorkspace.RunAsync(

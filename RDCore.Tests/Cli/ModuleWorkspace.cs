@@ -232,7 +232,8 @@ internal static class ModuleWorkspace
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
                 workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
         var resolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), libraries: librarySymbols);
+            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), project.ProjectInfo.Name,
+            libraries: librarySymbols);
 
         // as the language server does: every module is defined, and then the code of each is sent.
         foreach (var module in parsed)
