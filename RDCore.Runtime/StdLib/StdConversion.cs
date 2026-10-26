@@ -312,26 +312,46 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBEmptyValue:
                 return Succeed(new VBStringValue("0"));
 
-            // "If the data value of the parameter Number has the value type LongLong, it is not coerced."
+            // "If the data value of the parameter Number has the value type LongLong, it is not coerced." Nor, in MS-VBA, is a number of any other
+            // integer type: each is written in its own width - an Integer and a Boolean in 16 bits, a Long in 32, a LongPtr in its own - where the
+            // specification picks the width by the value (recorded in Excel, grid oracle\s43 X01-X16: Hex$(CLng(-7)) is FFFFFFF9, Hex$(CInt(-32768)) 8000).
             case VBLongLongValue longLong:
-                return Succeed(new VBStringValue(Digits(longLong.Value, radix, wide: true)));
+                return Succeed(new VBStringValue(Digits(longLong.Value, radix, 64)));
+            case VBLongPtrValue pointer:
+                return Succeed(new VBStringValue(Digits(pointer.Value, radix, pointer.Is64Bit ? 64 : 32)));
+            case VBLongValue @long:
+                return Succeed(new VBStringValue(Digits(@long.Value, radix, 32)));
+            case VBIntegerValue integer:
+                return Succeed(new VBStringValue(Digits(integer.Value, radix, 16)));
+            case VBByteValue @byte:
+                return Succeed(new VBStringValue(Digits(@byte.Value, radix, 16)));
+            case VBBooleanValue boolean:
+                return Succeed(new VBStringValue(Digits(boolean.Value.StoredValue, radix, 16)));
         }
 
-        // "If the data value of the parameter Number is any other value, it is Let-coerced to Long".
+        // "If the data value of the parameter Number is any other value, it is Let-coerced to Long" - to a LongLong, in MS-VBA where there is one, and
+        // written in 64 bits: Hex$(-7.5) is FFFFFFFFFFFFFFF8, and Hex$(4294967296#) 100000000, with no overflow (X05-X13). Where there is no LongLong,
+        // in 32 bits, as the specification has it.
+        if (session.Environment.Is64Bit)
+        {
+            var wide = ToNumeric<VBLongLongValue>(number, VBLongLongType.TypeInfo, errorAsCode: false);
+            return wide.IsSuccess
+                ? Succeed(new VBStringValue(Digits(wide.Result!.Value, radix, 64)))
+                : RuntimeSemanticsEvaluationResult<VBStringValue>.Error(wide.ErrorInfo!);
+        }
+
         var converted = ToNumeric<VBLongValue>(number, VBLongType.TypeInfo, errorAsCode: false);
         return converted.IsSuccess
-            ? Succeed(new VBStringValue(Digits(converted.Result!.Value, radix, wide: false)))
+            ? Succeed(new VBStringValue(Digits(converted.Result!.Value, radix, 32)))
             : RuntimeSemanticsEvaluationResult<VBStringValue>.Error(converted.ErrorInfo!);
     }
 
-    // a positive value is its digits with no leading zeros; a negative one is its two's complement, in the
-    // narrowest of the 16, 32 and 64 bit widths the specification gives a range to: -32,767 to -1, then down to
-    // -2,147,483,648, then the rest. An argument that was a LongLong is never narrowed below 64 bits.
-    private static string Digits(long value, int radix, bool wide) => (value, wide) switch
+    // a positive value is its digits with no leading zeros; a negative one is its two's complement, in the width of its type.
+    private static string Digits(long value, int radix, int bits) => (value, bits) switch
     {
         ( >= 0, _) => System.Convert.ToString(value, radix).ToUpperInvariant(),
-        ( >= -32767, false) => System.Convert.ToString((short)value, radix).ToUpperInvariant(),
-        ( >= int.MinValue, false) => System.Convert.ToString((int)value, radix).ToUpperInvariant(),
+        (_, 16) => System.Convert.ToString((short)value, radix).ToUpperInvariant(),
+        (_, 32) => System.Convert.ToString((int)value, radix).ToUpperInvariant(),
         _ => System.Convert.ToString(value, radix).ToUpperInvariant(),
     };
 
