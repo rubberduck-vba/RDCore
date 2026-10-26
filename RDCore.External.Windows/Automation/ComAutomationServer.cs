@@ -363,14 +363,28 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         while (points.Next(1, found, IntPtr.Zero) == 0)
         {
             found[0].GetConnectionInterface(out var interfaceId);
-            library.GetTypeInfoOfGuid(ref interfaceId, out var declaring);
-            if (declaring is not null)
+            if (DeclaringOf(library, interfaceId) is { } declaring)
             {
                 return (found[0], EventsOfInterface(declaring), interfaceId);
             }
         }
 
         return null;
+    }
+
+    // the interface of a connection point, if the object's own library describes it. A Microsoft Forms control's first connection point is IDispatch itself, and its
+    // library answers TYPE_E_ELEMENTNOTFOUND for it - as it does for IPropertyNotifySink: neither is the control's events interface, which comes after them.
+    private static ITypeInfo? DeclaringOf(ITypeLib library, Guid interfaceId)
+    {
+        try
+        {
+            library.GetTypeInfoOfGuid(ref interfaceId, out var declaring);
+            return declaring;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
     }
 
     /// <inheritdoc/>
