@@ -349,7 +349,8 @@ where TFlags : struct, Enum
     /// <param name="frame">The evaluation frame encapsulating the operation inputs.</param>
     /// <remarks>
     /// An operation of an indeterminate operand (<see cref="VBTypedValue.IsIndeterminate"/>) yields an indeterminate value, and raises nothing:
-    /// what it would raise because of the value an operand assumes is not known to happen.
+    /// what it would raise because of the value an operand assumes is not known to happen - but for an error the types of the operands decide
+    /// (<see cref="VBRuntimeErrorInfo.IsDecidedByTypes"/>), which is raised whatever the values are.
     /// </remarks>
     protected RuntimeSemanticsEvaluationResult Evaluate(
         ISymbolResolver resolver,
@@ -359,10 +360,39 @@ where TFlags : struct, Enum
     {
         var (result, effectiveType) = EvaluateOperation(resolver, context, expression, frame);
 
-        // an internal error is a defect of the semantics, whatever the operands are.
-        return frame.Operands.Any(operand => operand.IsIndeterminate) && result.ErrorInfo?.ErrorId != (int)VBRuntimeErrorId.InternalError
-            ? RuntimeSemanticsEvaluationResult.Success(IndeterminateResultOf(frame, result, effectiveType))
-            : result;
+        // an internal error is a defect of the semantics, whatever the operands are; one the types decide - an operand's let-coercion, or the operation
+        // itself - is raised whatever their values are.
+        if (!frame.Operands.Any(operand => operand.IsIndeterminate) || result.ErrorInfo?.ErrorId == (int)VBRuntimeErrorId.InternalError
+            || result.ErrorInfo is VBRuntimeErrorInfo { IsDecidedByTypes: true })
+        {
+            return result;
+        }
+
+        // MS-VBAL 5.6.9: an operation whose operands' types have no effective type is a type mismatch, whatever they hold.
+        if (effectiveType is null && result.ErrorInfo is VBRuntimeErrorInfo { ErrorId: (int)VBRuntimeErrorId.TypeMismatch } mismatch
+            && frame.Operands.All(IsOfItsType))
+        {
+            return RuntimeSemanticsEvaluationResult.Error(mismatch with { IsDecidedByTypes = true });
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(IndeterminateResultOf(frame, result, effectiveType));
+    }
+
+    // whether an operand's type is the type of its value, known or not: a Variant whose value is not known has no type that is, and an object - held as it
+    // is or in a Variant - is operated on as what its default member returns, which its class decides when the code runs.
+    private static bool IsOfItsType(VBTypedValue operand)
+    {
+        while (operand is VBVariantValue variant)
+        {
+            if (variant.IsIndeterminate)
+            {
+                return false;
+            }
+
+            operand = variant.TypedValue;
+        }
+
+        return operand is not VBObjectValue;
     }
 
     /// <summary>

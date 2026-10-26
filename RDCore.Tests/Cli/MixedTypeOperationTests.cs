@@ -45,6 +45,15 @@ public sealed class MixedTypeOperationTests
             "Debug.Print TypeName(L \\ 2.5)",
             "Debug.Print TypeName(I Mod 2.5)"));
 
+    // MS-VBA: a Boolean and a LongLong are combined as LongLongs, whichever side the Boolean is on (MS-VBAL 5.6.9.8's table names no Boolean there).
+    [TestMethod]
+    public async Task ABoolean_AndALongLong_AreCombinedAsLongLongs()
+        => CollectionAssert.AreEqual(new[] { "5", "5", "LongLong", "LongLong" }, await RunMainAsync(
+            "Debug.Print True And 5^",
+            "Debug.Print 5^ And True",
+            "Debug.Print TypeName(True And 5^)",
+            "Debug.Print TypeName(5^ Or False)"));
+
     // MS-VBAL 5.6.9.8.1: Not negates a Boolean in a Boolean.
     [TestMethod]
     public async Task TheNot_OfABoolean_IsABoolean()

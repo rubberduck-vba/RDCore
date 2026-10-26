@@ -246,6 +246,46 @@ public sealed class DiagnoseDocumentHandlerTests
     public async Task ARunTimeError_IsOfTheRuntimePhase()
         => Assert.IsEmpty(await LanguageDiagnosticsAsync(AnalysisPhase.Static));
 
+    // the run-time diagnostics of the body of Main, written after a declaration of each of these variables and a Function Half(ByVal Value As Long).
+    private static async Task<Diagnostic[]> RuntimeDiagnosticsOfAsync(params string[] body)
+    {
+        var module = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n"
+            + "    Dim b() As Byte\r\n    Dim n As Long\r\n    Dim i As Integer\r\n    Dim s As String\r\n    Dim v As Variant\r\n"
+            + string.Concat(body.Select(line => $"    {line}\r\n"))
+            + "End Sub\r\nPrivate Function Half(ByVal Value As Long) As Long\r\n    Half = Value \\ 2\r\nEnd Function\r\n";
+        var semantics = (await Cli.ModuleWorkspace.SemanticsAsync([], module)).Modules.Single();
+        var result = await HandleAsync(RequestFor(module, out _, semantics: semantics, phase: AnalysisPhase.Runtime), new SaysSomething(AnalysisPhase.All, 0));
+        return [.. result.Diagnostics.Where(diagnostic => diagnostic.Code!.Value.String!.StartsWith("VB"))];
+    }
+
+    // the first line of the body of Main, after its declarations.
+    private const int FirstLineOfTheBody = 8;
+
+    // MS-VBAL 5.5.1.2.6: a Byte() is let-coerced to nothing but a Byte() and a String. What it holds is not known to an analysis, but its type is, and the
+    // type decides: whatever it holds, it is error 13.
+    [TestMethod]
+    [DataRow("n = b", DisplayName = "assigned to a Long")]
+    [DataRow("n = Half(b)", DisplayName = "passed to a ByVal Long parameter")]
+    [DataRow("n = (b)", DisplayName = "in parentheses, assigned to a Long")]
+    [DataRow("i = b", DisplayName = "assigned to an Integer")]
+    public async Task AByteArray_WhereItIsNoNumber_IsATypeMismatch_WhateverItHolds(string line)
+    {
+        var diagnostic = (await RuntimeDiagnosticsOfAsync(line)).Single();
+
+        Assert.AreEqual("VBR00013", diagnostic.Code!.Value.String);
+        Assert.AreEqual(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.AreEqual(FirstLineOfTheBody, diagnostic.Range.Start.Line);
+    }
+
+    // what is not known to happen is not said: a Byte() is a String, a Variant can hold a Long, and a Long can fit an Integer.
+    [TestMethod]
+    [DataRow("s = b", DisplayName = "a Byte() assigned to a String")]
+    [DataRow("n = v", DisplayName = "a Variant assigned to a Long")]
+    [DataRow("i = n", DisplayName = "a Long assigned to an Integer")]
+    [DataRow("n = v + 1", DisplayName = "a Variant operand")]
+    public async Task AnErrorTheValuesMayOrMayNotRaise_IsNotReported(string line)
+        => Assert.IsEmpty(await RuntimeDiagnosticsOfAsync(line));
+
     [TestMethod]
     public async Task AnErrorTheCodeRaisesForItself_IsNotReported()
         => Assert.IsFalse((await LanguageDiagnosticsAsync(AnalysisPhase.Runtime)).Any(diagnostic => diagnostic.Range.Start.Line == 5), "Error 5 is what the code is there to do");
