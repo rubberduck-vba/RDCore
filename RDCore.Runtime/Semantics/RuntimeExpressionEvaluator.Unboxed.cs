@@ -730,25 +730,40 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// Evaluates the selector of a <c>Select Case</c> on payloads (MS-VBAL §5.4.2.10's select-expression, evaluated once), when it is an expression
-    /// evaluated on them: what each <c>Case</c> compares, with no value made of it (IR lowering S1.6).
+    /// evaluated on them: what each <c>Case</c> compares, with no value made of it (IR lowering S1.6). A selector declared <c>Variant</c> is not: the value of a
+    /// <c>Case</c> is compared with it as it is, where it is converted to the type of a selector of a scalar type (RD-VBAL §5.4.2.10), the payload's.
     /// </summary>
     /// <returns><see langword="false"/> when the selector is not evaluated here, and is to be evaluated the way it always is.</returns>
     internal bool TryEvaluateSelectorUnboxed(IRuntimeSession session, ExpressionNode selector, RuntimeEvaluationContext context, out ScalarPayload payload)
     {
         payload = default;
         return UnboxedEvaluation.IsEnabled && Observation is null && !AssumesVariables
-            && TryEvaluatePayload(session, BoundTreeOf(session, selector, context), out payload);
+            && BoundTreeOf(session, selector, context) is var node && !IsDeclaredVariant(node)
+            && TryEvaluatePayload(session, node, out payload);
     }
 
+    // whether an expression evaluated on payloads is declared Variant: a Variant variable or constant, what parentheses enclose of one, and an operation of a
+    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value (S1.4).
+    private static bool IsDeclaredVariant(BoundNode node) => node switch
+    {
+        BoundVariable { Variable: ITypedSymbol { ResolvedType: VBVariantType } } => true,
+        BoundName { Symbol: ITypedSymbol { ResolvedType: VBVariantType } } or BoundQualifiedName { Member: ITypedSymbol { ResolvedType: VBVariantType } } => true,
+        BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp
+            or SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed } => IsDeclaredVariant(enclosed),
+        BoundBinary { Plan: not { IsDeferred: false } } or BoundUnary { Plan: not { IsDeferred: false } } => true,
+        _ => false,
+    };
+
     /// <summary>
-    /// Compares the selector of a <c>Select Case</c> with the value of a <c>Case</c> on payloads (MS-VBAL §5.4.2.10): <c>selector operator value</c>, when the
-    /// selector is a payload and the value an expression evaluated on them.
+    /// Compares the selector of a <c>Select Case</c> with the value of a <c>Case</c> on payloads (MS-VBAL §5.4.2.10): <c>selector operator value</c>, the value
+    /// converted to the type of the selector (RD-VBAL §5.4.2.10), when the selector is a payload, the value an expression evaluated on them, and the conversion
+    /// one that is exact.
     /// </summary>
     /// <returns><see langword="false"/> when the comparison is not made here, and is to be made the way it always is.</returns>
     internal bool TryCompareUnboxed(IRuntimeSession session, string comparisonOperator, VBTypedValue selector, ExpressionNode value, RuntimeEvaluationContext context, out bool isMatch)
     {
         isMatch = false;
-        return !selector.IsIndeterminate && ScalarPayload.TryOf(selector.TypeInfo, selector.RuntimeValue, out var lhs)
+        return selector is not VBVariantValue && !selector.IsIndeterminate && ScalarPayload.TryOf(selector.TypeInfo, selector.RuntimeValue, out var lhs)
             && TryCompareUnboxed(session, comparisonOperator, lhs, value, context, out isMatch);
     }
 
@@ -758,7 +773,8 @@ public sealed partial class RuntimeExpressionEvaluator
     {
         isMatch = false;
         if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
-            || !TryEvaluatePayload(session, BoundTreeOf(session, value, context), out var rhs)
+            || !TryEvaluatePayload(session, BoundTreeOf(session, value, context), out var evaluated)
+            || !TryConvertPayload(evaluated, CaseValueTypeOf(lhs.Type, evaluated.Type), out var rhs)
             || OperationPlanner.ForValues(comparisonOperator, lhs.Type, rhs.Type) is not { OperandDestination: { } destination }
             || !TryConvertPayload(lhs, destination, out var l) || !TryConvertPayload(rhs, destination, out var r)
             || !TryCompare(comparisonOperator, l, r, out var result))
@@ -769,6 +785,11 @@ public sealed partial class RuntimeExpressionEvaluator
         isMatch = result.IsTrue;
         return true;
     }
+
+    // the type the value of a Case is converted to, for a selector of a type (RD-VBAL 5.4.2.10): the selector's, but for an integer and a Single selector,
+    // where the integer is compared at its exact value (s48 M02, s42 D22) - as CaseMatchEvaluator converts a value that is no payload.
+    private static VBType CaseValueTypeOf(VBType selector, VBType value)
+        => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
     // integer type, an integer as a floating-point value, a Single as a Double. Anything else is the boxed coercion's (MS-VBAL §5.5.1.2.1), which rounds.

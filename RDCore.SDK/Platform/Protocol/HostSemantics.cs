@@ -243,13 +243,15 @@ public record class OperatorFactDto(
 /// Whether what the statement works with is known, as opposed to a value its type merely allows; <see langword="true"/> for a statement whose fact does not
 /// depend on it.
 /// </param>
+/// <param name="CaseClauseFlags">What is known about a range clause of a <c>Case</c> (<see cref="CaseClauseStatementFact"/>).</param>
 public record class StatementFactDto(
     SyntaxNodeId Node,
     SourceLocation Location,
     string Statement,
     FixedAssignmentSemanticFlags? FixedAssignmentFlags,
     WithStatementSemanticFlags? WithStatementFlags,
-    bool IsValueKnown = true)
+    bool IsValueKnown = true,
+    CaseClauseSemanticFlags? CaseClauseFlags = null)
 {
     /// <summary>
     /// Describes a statement for the wire.
@@ -261,7 +263,13 @@ public record class StatementFactDto(
         fact.Statement,
         (fact as FixedAssignmentStatementFact)?.Flags,
         (fact as WithStatementFact)?.Flags,
-        (fact as WithStatementFact)?.IsValueKnown ?? true);
+        fact switch
+        {
+            WithStatementFact with => with.IsValueKnown,
+            CaseClauseStatementFact clause => clause.IsValueKnown,
+            _ => true,
+        },
+        (fact as CaseClauseStatementFact)?.Flags);
 }
 
 /// <summary>

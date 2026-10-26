@@ -735,14 +735,17 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
 
         // a Variant selector's own TypeInfo mirrors its wrapped value's, but stays a VBVariantValue
-        // instance - unwrap it here (recursively) so a Null (or any other) selector held in a Variant
-        // is recognized the same way a directly-typed one would be.
-        while (selector is VBVariantValue { TypedValue: var wrapped })
+        // instance - unwrap it here (recursively) so a Null selector held in a Variant is recognized the
+        // same way a directly-typed one would be. The clauses are compared with the Variant itself: its
+        // value is compared as a Variant's, and the value of a clause is not converted to the type of what
+        // it holds (RD-VBAL 5.4.2.10).
+        var held = selector;
+        while (held is VBVariantValue { TypedValue: var wrapped })
         {
-            selector = wrapped;
+            held = wrapped;
         }
 
-        if (selector is VBNullValue)
+        if (held is VBNullValue)
         {
             // MS-VBAL §5.4.2.10: "If select-expression is the data value Null, only the case-else-clause
             // is executed" - every Case header treats itself as non-matching, without evaluating any of

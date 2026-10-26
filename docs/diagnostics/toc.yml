@@ -434,3 +434,5 @@
   href: rdc11012.md
 - name: RDC11013 — Variant compared with a String as text
   href: rdc11013.md
+- name: RDC11014 — Case Is compared in the selector's type
+  href: rdc11014.md

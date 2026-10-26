@@ -527,7 +527,16 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("VariantComparedWithStringAsText_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to MS-VBA convertit la valeur de ce Case Is au type déclaré du sélecteur avant de les comparer, alors que MS-VBAL §5.4.2.10 en fait l&apos;expression « sélecteur opérateur valeur » : le résultat peut différer..
+        /// </summary>
+        public static string CaseComparedInSelectorType_Message {
+            get {
+                return ResourceManager.GetString("CaseComparedInSelectorType_Message", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus..
         /// </summary>

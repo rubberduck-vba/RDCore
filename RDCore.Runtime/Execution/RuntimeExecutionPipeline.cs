@@ -222,7 +222,7 @@ public sealed class RuntimeExecutionPipeline
             statements,
             conditions,
             new WithTargetEvaluator(expressions, new WithStatementRuntimeSemantics(setCoercion, letCoercion), observation),
-            new CaseMatchEvaluator(expressions, operators),
+            new CaseMatchEvaluator(expressions, operators, letCoercion, observation),
             new ForLoopEvaluator(expressions, operators, letCoercion),
             new ForEachEvaluator(expressions, operators, setCoercion),
             new JumpTableEvaluator(expressions, letCoercion),
