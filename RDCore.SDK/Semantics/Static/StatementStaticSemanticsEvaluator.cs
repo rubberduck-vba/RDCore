@@ -1113,6 +1113,27 @@ public static class StatementStaticSemanticsEvaluator
             members = [.. context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name)).OfType<VBTypeMemberSymbol>()
                 .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri)];
         }
+        else if (target is MemberAccessExpressionNode { Owner: { } qualified } moduleAccess
+            && context.Resolver.NamespaceOf(qualified, context.Scope.Uri) is { } qualifier)
+        {
+            // a property of a standard module named through the module - `Set Program.Items = Nothing` - is the property its bare name is, from anywhere
+            // (MS-VBA, Excel-verified, oracle\s44 V01-V04): its accessors are the module's members of the name.
+            if (context.Resolver.ResolveMember(qualifier, moduleAccess.Member, context.Scope.Uri).Symbol is not VBTypeMemberSymbol { } property
+                || property is not IVBPropertyMemberSymbol
+                || property.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri)
+            {
+                return false;
+            }
+
+            members = qualifier is VBModuleSymbol { Members: { IsDefaultOrEmpty: false } declared }
+                ? [.. declared.Where(member => string.Equals(member.Name, property.Name, StringComparison.OrdinalIgnoreCase))]
+                : [.. context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name)).OfType<VBTypeMemberSymbol>()
+                    .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri)];
+            if (members.Length == 0)
+            {
+                members = [property];
+            }
+        }
         else if (target is MemberAccessExpressionNode access)
         {
             var owner = access.Owner is { } ownerExpression
