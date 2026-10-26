@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Why a refactoring is refused (RenameRefusal): Rename_ and the RenameRefusalKind. {0} is the name, {1} what else the refusal names, {2} where. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Rename_NoName" xml:space="preserve">
+    <value>There is no name here to rename.</value>
+  </data>
+  <data name="Rename_NotDeclaredByWorkspace" xml:space="preserve">
+    <value>'{0}' is not declared by the workspace: only what the workspace declares can be renamed.</value>
+  </data>
+  <data name="Rename_Type" xml:space="preserve">
+    <value>'{0}' is a type: renaming a module, a class, a Type or an Enum is not supported yet.</value>
+  </data>
+  <data name="Rename_NamedByConvention" xml:space="preserve">
+    <value>'{0}' is named after an event or an interface member that it handles or implements: renamed, it would be neither.</value>
+  </data>
+  <data name="Rename_Event" xml:space="preserve">
+    <value>'{0}' is an event, and its handlers are named after it: renaming an event is not supported yet.</value>
+  </data>
+  <data name="Rename_WithEvents" xml:space="preserve">
+    <value>'{0}' is declared WithEvents, and its handlers are named after it: renaming it is not supported yet.</value>
+  </data>
+  <data name="Rename_Control" xml:space="preserve">
+    <value>'{0}' is a control, which its form's designer names: renaming a control is not supported yet.</value>
+  </data>
+  <data name="Rename_ExternalProcedure" xml:space="preserve">
+    <value>'{0}' is an external procedure, which its library names: it cannot be renamed.</value>
+  </data>
+  <data name="Rename_InterfaceMember" xml:space="preserve">
+    <value>'{0}' is a member of an interface ({1}): renaming the member of an interface is not supported yet.</value>
+  </data>
+  <data name="Rename_Empty" xml:space="preserve">
+    <value>A name cannot be empty.</value>
+  </data>
+  <data name="Rename_NotAnIdentifier" xml:space="preserve">
+    <value>'{0}' is not a name: a name begins with a letter, and has only letters, digits and underscores.</value>
+  </data>
+  <data name="Rename_Reserved" xml:space="preserve">
+    <value>'{0}' is a keyword of the language: nothing can be named '{0}'.</value>
+  </data>
+  <data name="Rename_Conflict" xml:space="preserve">
+    <value>'{0}' already means {1} at {2}: the rename would change what the code refers to.</value>
+  </data>
+  <data name="Rename_Unresolved" xml:space="preserve">
+    <value>What '{0}' refers to at {2} is not known: the rename could miss it.</value>
+  </data>
+</root>

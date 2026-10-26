@@ -200,6 +200,40 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/R
 
 `rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
 
+### `textDocument/rename` and `textDocument/prepareRename`
+
+The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name - a text that is the same in a comment, a string, or another procedure's local is not renamed ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
+
+`textDocument/prepareRename` answers the range of the name at the position and the name the symbol is declared with (`placeholder`). `textDocument/rename` answers a `WorkspaceEdit` of `documentChanges`, one `TextDocumentEdit` per document whose text changes, at the version the server holds. An edit replaces a name only: a type-declaration character after it stays (`s$`).
+
+What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.6.10**, §5.6.12):
+
+|Written|Refers to|
+|---|---|
+|A name in a procedure, a constant's expression, an array's bounds|What it resolves to in the scope it is written in.|
+|A member, after a `.`, a `With` block's included|The member of the declared type of the object.|
+|A named argument (`count:=`)|The parameter of the procedure that is called.|
+|A member's attribute (`Attribute Value.VB_UserMemId`)|The member.|
+|The key of a dictionary access (`c!key`)|Nothing: it is a string.|
+
+The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound - on an `Object` or a `Variant` - is not known to refer to the symbol, and is not renamed.
+
+A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
+
+|Refused|Because|
+|---|---|
+|The new name is empty, not an identifier, or a keyword (**MS-VBAL §3.3.5**, §3.3.5.2)|Code cannot declare it ([`VBIdentifier`](../api/RDCore.SDK.Model.VBIdentifier.html)). A letter of another script is a letter: `Données` is a name.|
+|The new name is declared where the symbol is|Two declarations would have one name.|
+|The new name means something nearer, or as near, where the code refers to the symbol|The code would refer to that instead.|
+|The symbol would be nearer, or as near, than what the new name means where the code writes it already|The code would refer to the symbol instead.|
+|What a name written as the symbol's refers to is not known|The rename could miss it.|
+|The symbol is a module, a class, a `Type` or an `Enum`|A type is not renamed yet.|
+|The symbol is an event, a `WithEvents` variable, a form's control, or a member of a class another implements|What is named after it is not renamed yet.|
+|The symbol is a procedure of a class module with an underscore in its name|It is named after the event it handles or the member it implements.|
+|The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
+
+A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
+
 ### `workspace/configuration` and `workspace/didChangeConfiguration`
 
 The settings a user changes while the platform runs travel as **LSP 3.17** has them (§Configuration Request, §DidChangeConfiguration Notification): the client

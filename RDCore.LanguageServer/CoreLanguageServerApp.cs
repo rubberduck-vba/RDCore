@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Completion;
+using RDCore.LanguageServer.Refactoring;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Folding;
@@ -97,6 +98,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<CompletionHandler>();
         builder.WithHandler<SignatureHelpHandler>();
+        builder.WithHandler<RenameHandler>();
+        builder.WithHandler<PrepareRenameHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionDiscardHandler>();
@@ -133,6 +136,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IParsingClientService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISemanticTokensService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Completion;
+using RDCore.LanguageServer.Refactoring;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
@@ -60,6 +61,7 @@ internal static class LanguageServerServices
             .AddSingleton<IClientVerbRegistry, ClientVerbRegistry>()
             .AddSingleton<RDCore.SDK.Server.Progress.IWorkProgressReporter>(_ => new RDCore.SDK.Server.Progress.WorkProgressReporter())
             .AddSingleton<ICompletionService, CompletionService>()
+            .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()

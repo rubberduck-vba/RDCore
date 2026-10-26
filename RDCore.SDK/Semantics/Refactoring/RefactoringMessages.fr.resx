@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Why a refactoring is refused (RenameRefusal): Rename_ and the RenameRefusalKind. {0} is the name, {1} what else the refusal names, {2} where. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Rename_NoName" xml:space="preserve">
+    <value>Il n'y a pas de nom à renommer ici.</value>
+  </data>
+  <data name="Rename_NotDeclaredByWorkspace" xml:space="preserve">
+    <value>« {0} » n'est pas déclaré par l'espace de travail : seul ce que l'espace de travail déclare peut être renommé.</value>
+  </data>
+  <data name="Rename_Type" xml:space="preserve">
+    <value>« {0} » est un type : renommer un module, une classe, un Type ou un Enum n'est pas encore pris en charge.</value>
+  </data>
+  <data name="Rename_NamedByConvention" xml:space="preserve">
+    <value>« {0} » est nommé d'après l'événement ou le membre d'interface qu'il gère ou implémente : renommé, il ne serait ni l'un ni l'autre.</value>
+  </data>
+  <data name="Rename_Event" xml:space="preserve">
+    <value>« {0} » est un événement, et ses gestionnaires sont nommés d'après lui : renommer un événement n'est pas encore pris en charge.</value>
+  </data>
+  <data name="Rename_WithEvents" xml:space="preserve">
+    <value>« {0} » est déclaré WithEvents, et ses gestionnaires sont nommés d'après lui : le renommer n'est pas encore pris en charge.</value>
+  </data>
+  <data name="Rename_Control" xml:space="preserve">
+    <value>« {0} » est un contrôle, que le concepteur de son formulaire nomme : renommer un contrôle n'est pas encore pris en charge.</value>
+  </data>
+  <data name="Rename_ExternalProcedure" xml:space="preserve">
+    <value>« {0} » est une procédure externe, que sa bibliothèque nomme : elle ne peut pas être renommée.</value>
+  </data>
+  <data name="Rename_InterfaceMember" xml:space="preserve">
+    <value>« {0} » est un membre d'une interface ({1}) : renommer le membre d'une interface n'est pas encore pris en charge.</value>
+  </data>
+  <data name="Rename_Empty" xml:space="preserve">
+    <value>Un nom ne peut pas être vide.</value>
+  </data>
+  <data name="Rename_NotAnIdentifier" xml:space="preserve">
+    <value>« {0} » n'est pas un nom : un nom commence par une lettre, et n'a que des lettres, des chiffres et des traits de soulignement.</value>
+  </data>
+  <data name="Rename_Reserved" xml:space="preserve">
+    <value>« {0} » est un mot clé du langage : rien ne peut être nommé « {0} ».</value>
+  </data>
+  <data name="Rename_Conflict" xml:space="preserve">
+    <value>« {0} » désigne déjà {1} à {2} : le renommage changerait ce à quoi le code fait référence.</value>
+  </data>
+  <data name="Rename_Unresolved" xml:space="preserve">
+    <value>Ce que « {0} » désigne à {2} n'est pas connu : le renommage pourrait l'oublier.</value>
+  </data>
+</root>
