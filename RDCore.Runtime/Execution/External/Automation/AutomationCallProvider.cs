@@ -79,7 +79,8 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
         }
         catch (AutomationException failure)
         {
-            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe(), obtaining: request.Obtains is not null));
+            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(
+                failure, request.CallSite, request.Describe(), obtaining: request.Obtains is not null, creating: request.IsCreation));
         }
     }
 

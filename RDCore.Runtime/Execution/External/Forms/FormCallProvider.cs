@@ -129,7 +129,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
         catch (AutomationException failure)
         {
-            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe()));
+            // what fails here is the form being hosted - a platform that hosts none, a machine without Microsoft Forms - which is a class that cannot be created (429).
+            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe(), creating: true));
         }
     }
 
