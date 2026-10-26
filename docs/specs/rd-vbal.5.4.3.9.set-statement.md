@@ -26,6 +26,12 @@ it returns is Set-assigned through its default member. As in MS-VBA (recorded in
 `Set Err = Nothing`: MS-VBA's library declares `Err` a property. What passes is called when it runs, and what returns no
 object is error `424` (`Set Command = Nothing`, `Set Now = Nothing`).
 
+A property of a module of the project that has a `Property Get` and no `Property Set` is
+[`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_, unless what its `Property Get` returns has a default
+member that can be Set. As in MS-VBA (recorded in Excel), this holds wherever the statement is written: in the property's
+own module, in another module by its bare name (`Set Fixed = Nothing`), or through its module (`Set Store.Fixed = Nothing`).
+Only a property of a library is called instead, as `Set Now = Nothing` is.
+
 The default instance variable of a predeclared class is a valid target of a `Set` assignment, whatever is assigned to it,
 as it is in **MS-VBA**.
 [**MS-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/189fb41b-cc3a-4999-a6d2-ba89f72d2870)
@@ -61,6 +67,10 @@ Two things happen around the assignment of an object to a variable.
 - **`WithEvents`.** When the variable is declared `WithEvents`
   ([**RD-VBAL §5.2.3.1.2**](rd-vbal.5.2.3.module-declarations.md)), its event handlers are detached from the object it holds before the assignment, and attached to the object it is given after it. They handle the events that object raises with `RaiseEvent`
   ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)); an object that is destroyed handles no more.
+
+A property of a standard module that has a `Property Set` is assigned by invoking its `Property Set` with the value, on no object:
+by its bare name or through its module (`Set Store.Items = New Collection`), from any module. A property of a class, Set by its bare
+name in the class's own code, is invoked on the object whose code it is.
 
 `Set obj.Member = value` assigns a member as `Let` does ([**RD-VBAL §5.4.3.8**](rd-vbal.5.4.3.8.let-statement.md)), through the
 `Property Set` or the public variable, and with the same two things around it: the references and the `WithEvents` handlers are those of
