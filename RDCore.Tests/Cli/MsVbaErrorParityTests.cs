@@ -230,7 +230,6 @@ public sealed class MsVbaErrorParityTests
 
     // MS-VBA compiles a constant subscript out of an array's bounds, and raises error 9 when it runs; the sweep states it before the program runs.
     [TestMethod]
-    [Ignore("the sweep assumes every variable it reads, an array included: the bounds of a fixed-size array are declared, and certain, but its read makes the subscript's error 9 an assumed one, which is not stated")]
     public async Task AConstantSubscriptOutOfBounds_IsStatedBeforeTheProgramRuns()
     {
         var model = await ModelAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Dim a(5) As Long\r\n    a(6) = 1\r\nEnd Sub\r\n");
@@ -238,6 +237,17 @@ public sealed class MsVbaErrorParityTests
         var facts = model.Procedures.Single().Runtime;
         Assert.IsNotNull(facts, "the module was loaded, so its code was evaluated");
         Assert.AreEqual((int)RDCore.SDK.Model.Errors.VBRuntimeErrorId.SubscriptOutOfRange, facts.Errors.Single().ErrorId);
+    }
+
+    // the bounds are certain, what the array holds is not: an error that hangs on an element's value is not stated, whatever the sweep read it as.
+    [TestMethod]
+    public async Task AnErrorOfAnElementsValue_IsNotStatedBeforeTheProgramRuns()
+    {
+        var model = await ModelAsync([], "Attribute VB_Name = \"Program\"\r\nPrivate a(5) As Long\r\nPublic Sub Main()\r\n    Dim x As Long\r\n    x = 1 \\ a(1)\r\nEnd Sub\r\n");
+
+        var facts = model.Procedures.Single().Runtime;
+        Assert.IsNotNull(facts, "the module was loaded, so its code was evaluated");
+        Assert.IsEmpty(facts.Errors);
     }
 
     // what MS-VBA compiles, and raises at run time: each statement prints the error it raised.

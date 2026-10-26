@@ -95,13 +95,20 @@ public sealed class KnowledgeContainersRuntimeTests
     [TestMethod]
     public void ASubscriptOutOfTheBounds_IsAnError_OfAnArrayThatIsKnown_AndNotKnownToBeOneOfAnArrayThatIsNot()
     {
-        var known = Run(arrayIsKnown: true, resizableIsKnown: true, "X = A(99)");
-        var unknown = Run(arrayIsKnown: false, resizableIsKnown: true, "X = A(99)", "X = 1");
+        var known = Run(arrayIsKnown: true, resizableIsKnown: true, "X = R(99)");
+        var unknown = Run(arrayIsKnown: true, resizableIsKnown: false, "X = R(99)", "X = 1");
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, known.Outcome.Kind);
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, unknown.Outcome.Kind);
         CollectionAssert.AreEqual(new[] { false, true }, unknown.Assigned);
     }
+
+    // a fixed-size array's bounds are its declaration's, whatever it holds (MS-VBAL §5.2.3.1.3): a subscript outside them is error 9, read or assigned.
+    [TestMethod]
+    [DataRow("X = A(99)")]
+    [DataRow("A(99) = 1")]
+    public void ASubscriptOutOfTheBounds_IsAnError_OfAFixedSizeArrayThatIsNotKnown(string statement)
+        => Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, Run(arrayIsKnown: false, resizableIsKnown: true, statement).Outcome.Kind);
 
     [TestMethod]
     public void Erase_MakesAFixedSizeArrayKnown_WhateverItHeld()

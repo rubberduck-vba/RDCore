@@ -195,7 +195,7 @@ public sealed class LetAssignmentEvaluator(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode arrayExpression,
         System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts, ExpressionNode source, VBTypedValue value, bool isSet)
     {
-        var evaluated = expressions.Evaluate(session, arrayExpression, context);
+        var evaluated = expressions.EvaluateIndexed(session, arrayExpression, context);
         if (!evaluated.IsSuccess)
         {
             return evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
@@ -231,9 +231,9 @@ public sealed class LetAssignmentEvaluator(
         }
 
         // a subscript outside the bounds is error 9 - unless it, or the array, is not known: the error is not known to happen, and there is
-        // no element to assign.
+        // no element to assign. A fixed-size array's bounds are its declaration's, known whatever it holds.
         var isElement = indicesKnown && array.GetElementHandle(indices) is not null;
-        if (indicesKnown && !isElement && !array.IsIndeterminate)
+        if (indicesKnown && !isElement && (!array.IsIndeterminate || array is VBFixedSizeArrayValue { IsInitialized: true }))
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.SubscriptOutOfRange, arrayExpression.Location, string.Join(", ", indices)));

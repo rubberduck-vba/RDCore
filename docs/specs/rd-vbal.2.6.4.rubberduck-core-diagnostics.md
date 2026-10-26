@@ -86,6 +86,8 @@ instruction of the procedure once (the *sweep*), and only when it is true of the
 An error is stated only when nothing the instruction did was *assumed*: the value of a variable or a parameter, what a procedure that is not called returns, the
 state of the standard library or of the outside world (files, `Rnd`, `CreateObject`), or what another instruction left behind (a loop's counter, a `With` block's
 target). `Dim c As Collection: c.Add 1` raises error 91 when it runs, but the sweep does not follow paths and cannot tell that nothing set `c`, so it says nothing.
+The bounds of a fixed-size array are not assumed: they are its declaration's, whatever it holds. `Dim a(5) As Long: a(6) = 1` is error 9 whenever it runs, and
+is stated; what an element holds is assumed, so `x = 1 \ a(1)` says nothing.
 `MemberAccessOperationSemanticFlags.CallByNameAccess` is not stated yet: a `CallByName` call is a call of the library, which the sweep does not look into.
 
 ## Language Core Conditions and Analyzer Opinions

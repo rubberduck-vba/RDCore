@@ -260,8 +260,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// <param name="handle">Its binding, in the current activation.</param>
     /// <param name="referenced">The declared type of the variable a Variant reference parameter is bound to, if the variable is such a parameter.</param>
     /// <param name="isAutoInstantiated">Whether the variable is declared <c>As New</c>.</param>
+    /// <param name="boundsOnly">
+    /// Whether the variable is read for what an index expression indexes: a fixed-size array's bounds are its declaration's, and are certain whatever it was
+    /// last assigned, so the read of one is not <see cref="AssumesVariables">assumed</see>; an element read out of it is (<see cref="IndexValue"/>).
+    /// </param>
     private RuntimeSemanticsEvaluationResult ReadVariable(
-        IRuntimeSession session, ITypedSymbol variable, IBindingHandle handle, VBType? referenced, bool isAutoInstantiated)
+        IRuntimeSession session, ITypedSymbol variable, IBindingHandle handle, VBType? referenced, bool isAutoInstantiated, bool boundsOnly = false)
     {
         // MS-VBAL §5.3.1.11: a Variant reference parameter bound to a variable of another type "is treated as having a declared type of Variant": what it reads is a
         // Variant, holding the variable's value as the type the variable is declared to be.
@@ -271,6 +275,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         var value = variable.ResolvedType.CreateValue(handle.ForReading());
+        if (boundsOnly && AssumesVariables && value is VBFixedSizeArrayValue)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(value.AsIndeterminate());
+        }
 
         // MS-VBAL §5.2.3.1.4 / §2.5.1: a variable declared As New - a class module's default instance among them - is
         // never Nothing when it is referred to: the reference creates the object it was waiting for, which is also
@@ -1510,7 +1518,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
         else
         {
-            calleeResult = Evaluate(session, indexExpression.Callee, context);
+            calleeResult = EvaluateIndexed(session, indexExpression.Callee, context);
         }
 
         return IndexValue(session, context, expression, indexExpression, calleeResult);
@@ -1590,6 +1598,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         var element = array[subscripts];
+
+        // a fixed-size array's bounds are its declaration's: a subscript outside them is error 9 whatever the array holds, and what is read out of it is
+        // what is assumed.
+        if (array is VBFixedSizeArrayValue { IsIndeterminate: true, IsInitialized: true })
+        {
+            return element is not null
+                ? Assumed(RuntimeSemanticsEvaluationResult.Success(element))
+                : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location, string.Join(", ", subscripts)));
+        }
 
         // MS-VBAL §2.5.1: each element of an array declared As New is an automatic instantiation variable, which is never Nothing when it is referred to: the
         // reference creates the object, in the element (MS-VBA, Excel-verified, oracle\s19 N16-N17).

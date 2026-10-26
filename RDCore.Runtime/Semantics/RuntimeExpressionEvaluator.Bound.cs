@@ -91,11 +91,23 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // a variable of the current activation is read through its slot; any other - a Static variable, a field, a variable of an activation the slot is not
     // of - is looked up, as a name that is not bound is.
-    private RuntimeSemanticsEvaluationResult ReadBoundVariable(IRuntimeSession session, BoundVariable variable)
+    private RuntimeSemanticsEvaluationResult ReadBoundVariable(IRuntimeSession session, BoundVariable variable, bool boundsOnly = false)
     {
         var (handle, referenced) = BindingOf(session, variable);
-        return ReadVariable(session, (ITypedSymbol)variable.Variable, handle, referenced, variable.IsAutoInstantiated);
+        return ReadVariable(session, (ITypedSymbol)variable.Variable, handle, referenced, variable.IsAutoInstantiated, boundsOnly);
     }
+
+    /// <summary>
+    /// Evaluates what an index expression indexes, or an assignment to one of its elements: a variable declared a fixed-size array is read for its bounds,
+    /// which its declaration makes certain, when an evaluation <see cref="AssumesVariables">assumes</see> what variables hold.
+    /// </summary>
+    /// <param name="session">The session the expression is evaluated in.</param>
+    /// <param name="callee">The callee of the index expression.</param>
+    /// <param name="context">The scope it is written in.</param>
+    internal RuntimeSemanticsEvaluationResult EvaluateIndexed(IRuntimeSession session, ExpressionNode callee, RuntimeEvaluationContext context)
+        => AssumesVariables && BoundVariableOf(session, callee, context) is { } variable
+            ? ReadBoundVariable(session, variable, boundsOnly: true)
+            : Evaluate(session, callee, context);
 
     /// <summary>
     /// The variable a statement's target names, bound (IR lowering S0.11): what a <c>Set</c>, an <c>LSet</c> or an <c>RSet</c> writes to, found once.
@@ -223,7 +235,8 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundMember member => EvaluateBoundMember(session, member, context),
         BoundNew created => CreateObject(session, created.New, created.Class),
         BoundTypeOf typeOf => EvaluateBoundTypeOf(session, typeOf, context),
-        BoundIndex index => IndexValue(session, context, index.Index, index.Index, EvaluateBoundNode(session, index.Callee, context)),
+        BoundIndex index => IndexValue(session, context, index.Index, index.Index,
+            AssumesVariables && index.Callee is BoundVariable indexed ? ReadBoundVariable(session, indexed, boundsOnly: true) : EvaluateBoundNode(session, index.Callee, context)),
         BoundInstance instance => ReadInstance(session, instance),
         BoundArrayBound arrayBound => EvaluateBoundArrayBound(session, arrayBound, context),
         BoundArray array => EvaluateBoundArray(session, array, context),
