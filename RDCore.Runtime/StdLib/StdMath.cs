@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Numerics;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
@@ -26,9 +27,10 @@ namespace RDCore.Runtime.StdLib;
 /// one MS-VBA generates.</item>
 /// </list>
 /// <para>
-/// 👉 <see cref="Sin"/>, <see cref="Cos"/> and <see cref="Tan"/> refuse an angle of 2<sup>63</sup> radians or more, as MS-VBA does, and otherwise answer
-/// the closest <c>Double</c> to the true value. MS-VBA's reduction of a large angle to a turn is less precise than that, so for an angle far from zero, or
-/// a tangent close to a pole, its last digits differ - which are the digits the specification's "the sine of an angle" does not have.
+/// 👉 <see cref="Sin"/>, <see cref="Cos"/> and <see cref="Tan"/> refuse an angle of 2<sup>63</sup> radians or more, as MS-VBA does. A sine and a cosine
+/// are the platform's, within a unit of the last place of the true value as MS-VBA's are, and its to the last bit but for about one argument in forty;
+/// a tangent is MS-VBA's quotient of the two, divided in 80 bits - not the platform's own tangent, which differs in the last bit for one in three
+/// (recorded in Excel, grid oracle\s43 M01-M03, T: 80 arguments).
 /// </para>
 /// <para>
 /// An object argument stands for its simple data value (<strong>MS-VBAL §5.5.1.2.13</strong>), read through its default member
@@ -353,7 +355,7 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBDoubleValue> Tan(VBDoubleValue Number)
-        => Angle(Number.Value, Math.Tan);
+        => Angle(Number.Value, x => Float80.Divide(Float80.FromDouble(Math.Sin(x)), Float80.FromDouble(Math.Cos(x)), out _).ToDouble(out _));
 
     private static RuntimeSemanticsEvaluationResult<VBDoubleValue> Angle(double radians, Func<double, double> function)
         => Math.Abs(radians) < LargestAngle
