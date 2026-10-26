@@ -111,6 +111,25 @@ public sealed class PropertyAssignmentByNameTests
         Assert.AreEqual("False | 1 | True | 2", string.Join(" | ", printed));
     }
 
+    // MS-VBAL §5.4.3.9: a class's property Set by its bare name from the class's own code invokes its Property Set on the object whose code it is.
+    [TestMethod]
+    public async Task ASetOfAClassesProperty_ByNameFromItsOwnCode_InvokesItsPropertySetOnTheObject()
+    {
+        var keeper = ("Keeper", ModuleWorkspace.ClassModule("Keeper",
+            "Option Explicit",
+            "Private mItems As Collection",
+            "Public Count As Long",
+            "Public Property Get Items() As Collection", "    Set Items = mItems", "End Property",
+            "Public Property Set Items(ByVal c As Collection)", "    Set mItems = c", "    Count = Count + 1", "End Property",
+            "Public Sub Fill()", "    Set Items = New Collection", "End Sub"));
+        var program = string.Join("\r\n", "Attribute VB_Name = \"Program\"", "Public Sub Main()",
+            "Dim k As New Keeper", "k.Fill", "Debug.Print CStr(k.Items Is Nothing)", "Debug.Print CStr(k.Count)", "End Sub") + "\r\n";
+
+        var printed = await ModuleWorkspace.RunAsync([keeper], program);
+
+        Assert.AreEqual("False | 1", string.Join(" | ", printed));
+    }
+
     private static async Task AssertSetIsInvalidAsync(string statement)
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], string.Join("\r\n",

@@ -1100,13 +1100,14 @@ public static class StatementStaticSemanticsEvaluator
         if (target is SimpleNameExpressionNode name)
         {
             // whichever accessor the name resolves to, the property is all of them: of the module's own, or of another module of the workspace (MS-VBA,
-            // Excel-verified, oracle\s44 W03). A property of a library named by its bare name is called, as MS-VBA compiles `Set Now = Nothing` (s28 W5).
+            // Excel-verified, oracle\s44 W03). A library's property named by its bare name outside its module is called, as MS-VBA compiles
+            // `Set Now = Nothing` (s28 W5); a form's control, named in the form, is the form's own.
             var module = context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?.Uri;
             if (context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is not VBTypeMemberSymbol { } property
                 || property is not IVBPropertyMemberSymbol
                 || property.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri
                 || module is null
-                || property.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 })
+                || property.ParentUri.AbsoluteUri != module.AbsoluteUri && property.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 })
             {
                 return false;
             }
