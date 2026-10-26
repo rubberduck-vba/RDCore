@@ -36,6 +36,9 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     // MS-VBAL 5.6.9.6: Like let-coerces both operands to String, whatever a Variant holds.
     protected override bool RanksVariantNumberBelowString => false;
 
+    // and matches a pattern, which compares no values.
+    protected override bool ComparesValues => false;
+
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,

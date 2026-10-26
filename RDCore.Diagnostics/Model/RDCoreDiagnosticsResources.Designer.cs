@@ -518,6 +518,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("VariantNumberStringComparison_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; compare un Variant qui contient un nombre, une date ou un Boolean à une String: MS-VBA compare leurs textes, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13) quand la String n&apos;est pas un nombre..
+        /// </summary>
+        public static string VariantComparedWithStringAsText_Message {
+            get {
+                return ResourceManager.GetString("VariantComparedWithStringAsText_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus..

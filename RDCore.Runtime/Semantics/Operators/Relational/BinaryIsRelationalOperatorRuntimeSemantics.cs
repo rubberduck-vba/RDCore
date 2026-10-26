@@ -31,6 +31,9 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
 {
     protected override string Operator => Tokens.CompareIsOp;
 
+    // MS-VBAL 5.6.9.7: Is compares two object references, and no values.
+    protected override bool ComparesValues => false;
+
     protected override bool ComparisonOp(VBStringValue lhs, VBStringValue rhs, StringComparisonRules rules) => throw new NotSupportedException();
     protected override bool ComparisonOp<T>(T lhs, T rhs) => throw new NotSupportedException();
 

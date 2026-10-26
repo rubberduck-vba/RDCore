@@ -53,6 +53,12 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     /// </summary>
     protected virtual bool RanksVariantNumberBelowString => true;
 
+    /// <summary>
+    /// Whether the operator compares the values of its operands, as the six relational operators do - and a <c>Variant</c> number with a <c>String</c> as text
+    /// (<see cref="ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText"/>) - rather than a pattern (<c>Like</c>) or two objects (<c>Is</c>).
+    /// </summary>
+    protected virtual bool ComparesValues => true;
+
     protected override OperatorAnalysisContext<ComparisonOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,
         DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
@@ -97,6 +103,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             && variantSubTypes.Any(subType => subType is VBNumericType))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringNumericException);
+        }
+
+        if (ComparesValues && operands is [var left, var right] && IsComparedAsText(left, right))
+        {
+            builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText);
         }
 
         return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
@@ -155,6 +166,17 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         return false;
     }
 
+    // MS-VBA compares a Variant holding a number, a Date or a Boolean with a String that is no Variant - one declared As String, a literal - as text: the
+    // Variant's value is let-coerced to String, as Microsoft Learn's Comparison operators documents it ("One expression is a String and the other is any Variant
+    // except a Null: Perform a string comparison"; Excel-measured, oracle\s41 V01-V04, W01-W08, W10 - `10 > "9"` is False). MS-VBAL 5.6.9.5's table makes the
+    // effective type the number's, which makes a String that is no number a type mismatch (13): RD-VBA does what MS-VBA does, and the analysis states it
+    // (IsVariantComparedWithStringAsText) for RDCore.Diagnostics to report (RDC11013). A Variant holding an Error is left to the table, which no oracle measured.
+    private static bool IsComparedAsText(VBTypedValue left, VBTypedValue right)
+        => IsTextComparedVariant(left) && right is VBStringValue || IsTextComparedVariant(right) && left is VBStringValue;
+
+    private static bool IsTextComparedVariant(VBTypedValue operand)
+        => operand is VBVariantValue { TypedValue.TypeInfo: VBNumericType or VBDateType or VBBooleanType };
+
     protected override LetCoercionResult ValidateOperand(
         ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
     {
@@ -183,7 +205,9 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame)
         => IsVariantStringNumericException(frame, out _)
             ? DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo)
-            : PlannedEffectiveType(expression, frame);
+            : ComparesValues && IsComparedAsText(frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand])
+                ? DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo)
+                : PlannedEffectiveType(expression, frame);
 
     /// <summary>
     /// The effective type the plan of the operation says, for the value types of its operands.
