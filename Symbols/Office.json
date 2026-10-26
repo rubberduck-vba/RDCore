@@ -23318,6 +23318,7 @@
     },
     {
       "name": "CommandBars",
+      "defaultInterface": "_CommandBars",
       "members": [
         {
           "name": "Application",
@@ -23793,6 +23794,7 @@
     },
     {
       "name": "CommandBarComboBox",
+      "defaultInterface": "_CommandBarComboBox",
       "members": [
         {
           "name": "accParent",
@@ -24675,6 +24677,8 @@
     },
     {
       "name": "CommandBarButton",
+      "defaultInterface": "_CommandBarButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "accParent",
@@ -26493,6 +26497,8 @@
     },
     {
       "name": "MsoEnvelope",
+      "defaultInterface": "IMsoEnvelopeVB",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Introduction",
@@ -32390,6 +32396,7 @@
     {
       "name": "CustomXMLSchemaCollection",
       "isCreatable": true,
+      "defaultInterface": "_CustomXMLSchemaCollection",
       "members": [
         {
           "name": "Application",
@@ -33042,6 +33049,8 @@
     },
     {
       "name": "CustomXMLPart",
+      "defaultInterface": "_CustomXMLPart",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -33303,6 +33312,8 @@
     },
     {
       "name": "CustomXMLParts",
+      "defaultInterface": "_CustomXMLParts",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -35676,6 +35687,7 @@
     },
     {
       "name": "CustomTaskPane",
+      "defaultInterface": "_CustomTaskPane",
       "members": [
         {
           "name": "Title",
@@ -49394,6 +49406,8 @@
     },
     {
       "name": "SensitivityLabel",
+      "defaultInterface": "ISensitivityLabel",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",

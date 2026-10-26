@@ -1345,6 +1345,8 @@
     {
       "name": "ReturnInteger",
       "isCreatable": true,
+      "defaultInterface": "IReturnInteger",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Value",
@@ -1369,6 +1371,8 @@
     {
       "name": "ReturnBoolean",
       "isCreatable": true,
+      "defaultInterface": "IReturnBoolean",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Value",
@@ -1393,6 +1397,8 @@
     {
       "name": "ReturnString",
       "isCreatable": true,
+      "defaultInterface": "IReturnString",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Value",
@@ -1417,6 +1423,8 @@
     {
       "name": "ReturnSingle",
       "isCreatable": true,
+      "defaultInterface": "IReturnSingle",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Value",
@@ -1441,6 +1449,8 @@
     {
       "name": "ReturnEffect",
       "isCreatable": true,
+      "defaultInterface": "IReturnEffect",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Value",
@@ -1465,6 +1475,8 @@
     {
       "name": "DataObject",
       "isCreatable": true,
+      "defaultInterface": "IDataAutoWrapper",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Clear"
@@ -1708,6 +1720,7 @@
     {
       "name": "Control",
       "isCreatable": true,
+      "defaultInterface": "IControl",
       "members": [
         {
           "name": "Cancel",
@@ -2298,6 +2311,8 @@
     },
     {
       "name": "UserForm",
+      "defaultInterface": "_UserForm",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "ActiveControl",
@@ -3382,6 +3397,8 @@
     },
     {
       "name": "Frame",
+      "defaultInterface": "IOptionFrame",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "ActiveControl",
@@ -4716,6 +4733,8 @@
     },
     {
       "name": "Label",
+      "defaultInterface": "ILabelControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -5383,6 +5402,8 @@
     },
     {
       "name": "CommandButton",
+      "defaultInterface": "ICommandButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -6058,6 +6079,8 @@
     },
     {
       "name": "TextBox",
+      "defaultInterface": "IMdcText",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -7145,6 +7168,8 @@
     },
     {
       "name": "ListBox",
+      "defaultInterface": "IMdcList",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -8146,6 +8171,8 @@
     },
     {
       "name": "ComboBox",
+      "defaultInterface": "IMdcCombo",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -9421,6 +9448,8 @@
     },
     {
       "name": "CheckBox",
+      "defaultInterface": "IMdcCheckBox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Accelerator",
@@ -10208,6 +10237,8 @@
     },
     {
       "name": "OptionButton",
+      "defaultInterface": "IMdcOptionButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Accelerator",
@@ -10995,6 +11026,8 @@
     },
     {
       "name": "ToggleButton",
+      "defaultInterface": "IMdcToggleButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Accelerator",
@@ -11783,6 +11816,7 @@
     {
       "name": "NewFont",
       "isCreatable": true,
+      "defaultInterface": "Font",
       "members": [
         {
           "name": "Name",
@@ -11917,6 +11951,8 @@
     },
     {
       "name": "ScrollBar",
+      "defaultInterface": "IScrollbar",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -12311,6 +12347,8 @@
     },
     {
       "name": "TabStrip",
+      "defaultInterface": "ITabStrip",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -13060,6 +13098,8 @@
     },
     {
       "name": "SpinButton",
+      "defaultInterface": "ISpinbutton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -13427,6 +13467,8 @@
       "name": "Image",
       "progId": "Forms.Image.1",
       "isCreatable": true,
+      "defaultInterface": "IImage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Enabled",
@@ -13872,6 +13914,8 @@
     },
     {
       "name": "HTMLSubmit",
+      "defaultInterface": "IWHTMLSubmitButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Action",
@@ -13980,6 +14024,8 @@
     },
     {
       "name": "HTMLImage",
+      "defaultInterface": "IWHTMLImage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Action",
@@ -14088,6 +14134,8 @@
     },
     {
       "name": "HTMLReset",
+      "defaultInterface": "IWHTMLReset",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Caption",
@@ -14148,6 +14196,8 @@
     },
     {
       "name": "HTMLCheckbox",
+      "defaultInterface": "IWHTMLCheckbox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14226,6 +14276,8 @@
     },
     {
       "name": "HTMLOption",
+      "defaultInterface": "IWHTMLOption",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14310,6 +14362,8 @@
     },
     {
       "name": "HTMLText",
+      "defaultInterface": "IWHTMLText",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14404,6 +14458,8 @@
     },
     {
       "name": "HTMLHidden",
+      "defaultInterface": "IWHTMLHidden",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14466,6 +14522,8 @@
     },
     {
       "name": "HTMLPassword",
+      "defaultInterface": "IWHTMLPassword",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14560,6 +14618,8 @@
     },
     {
       "name": "HTMLSelect",
+      "defaultInterface": "IWHTMLSelect",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14664,6 +14724,8 @@
     },
     {
       "name": "HTMLTextArea",
+      "defaultInterface": "IWHTMLTextArea",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -14897,6 +14959,8 @@
     },
     {
       "name": "MultiPage",
+      "defaultInterface": "IMultiPage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -15653,6 +15717,8 @@
     {
       "name": "Page",
       "isCreatable": true,
+      "defaultInterface": "IPage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Controls",
@@ -16377,6 +16443,8 @@
     {
       "name": "TextBox2",
       "isHidden": true,
+      "defaultInterface": "IMdcText",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -17465,6 +17533,8 @@
     {
       "name": "CommandButton2",
       "isHidden": true,
+      "defaultInterface": "ICommandButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -18143,6 +18213,8 @@
       "progId": "Forms.Image.1",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "IImage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Enabled",
@@ -18589,6 +18661,8 @@
     {
       "name": "Label2",
       "isHidden": true,
+      "defaultInterface": "ILabelControl",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -19257,6 +19331,8 @@
     {
       "name": "ScrollBar2",
       "isHidden": true,
+      "defaultInterface": "IScrollbar",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -19652,6 +19728,8 @@
     {
       "name": "SpinButton2",
       "isHidden": true,
+      "defaultInterface": "ISpinbutton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -20018,6 +20096,8 @@
     {
       "name": "TabStrip2",
       "isHidden": true,
+      "defaultInterface": "ITabStrip",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -20768,6 +20848,8 @@
     {
       "name": "ListBox2",
       "isHidden": true,
+      "defaultInterface": "IMdcList",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -21770,6 +21852,8 @@
     {
       "name": "ComboBox2",
       "isHidden": true,
+      "defaultInterface": "IMdcCombo",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "AutoSize",
@@ -23046,6 +23130,8 @@
     {
       "name": "CheckBox2",
       "isHidden": true,
+      "defaultInterface": "IMdcCheckBox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Accelerator",
@@ -23834,6 +23920,8 @@
     {
       "name": "OptionButton2",
       "isHidden": true,
+      "defaultInterface": "IMdcOptionButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Accelerator",
@@ -24622,6 +24710,8 @@
     {
       "name": "ToggleButton2",
       "isHidden": true,
+      "defaultInterface": "IMdcToggleButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Accelerator",
@@ -25410,6 +25500,8 @@
     {
       "name": "UserForm2",
       "isHidden": true,
+      "defaultInterface": "_UserForm",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "ActiveControl",
@@ -26495,6 +26587,8 @@
     {
       "name": "Frame2",
       "isHidden": true,
+      "defaultInterface": "IOptionFrame",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "ActiveControl",
@@ -27564,6 +27658,8 @@
     {
       "name": "DataObject2",
       "isHidden": true,
+      "defaultInterface": "IDataAutoWrapper",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Clear"
@@ -27630,6 +27726,8 @@
     {
       "name": "MultiPage2",
       "isHidden": true,
+      "defaultInterface": "IMultiPage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "BackColor",
@@ -28386,6 +28484,8 @@
     {
       "name": "HTMLSubmit2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLSubmitButton",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Action",
@@ -28495,6 +28595,8 @@
     {
       "name": "HTMLImage2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLImage",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Action",
@@ -28604,6 +28706,8 @@
     {
       "name": "HTMLReset2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLReset",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Caption",
@@ -28665,6 +28769,8 @@
     {
       "name": "HTMLCheckbox2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLCheckbox",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -28744,6 +28850,8 @@
     {
       "name": "HTMLOption2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLOption",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -28829,6 +28937,8 @@
     {
       "name": "HTMLText2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLText",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -28924,6 +29034,8 @@
     {
       "name": "HTMLHidden2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLHidden",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -28987,6 +29099,8 @@
     {
       "name": "HTMLPassword2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLPassword",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -29082,6 +29196,8 @@
     {
       "name": "HTMLSelect2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLSelect",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",
@@ -29187,6 +29303,8 @@
     {
       "name": "HTMLTextArea2",
       "isHidden": true,
+      "defaultInterface": "IWHTMLTextArea",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "HTMLName",

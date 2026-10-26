@@ -189982,6 +189982,7 @@
     {
       "name": "QueryTable",
       "isCreatable": true,
+      "defaultInterface": "_QueryTable",
       "members": [
         {
           "name": "Application",
@@ -190973,6 +190974,7 @@
       "name": "Application",
       "progId": "Excel.Application",
       "isCreatable": true,
+      "defaultInterface": "_Application",
       "members": [
         {
           "name": "Application",
@@ -197086,6 +197088,7 @@
       "name": "Chart",
       "progId": "Excel.Chart",
       "isCreatable": true,
+      "defaultInterface": "_Chart",
       "members": [
         {
           "name": "Application",
@@ -199826,6 +199829,7 @@
       "name": "Worksheet",
       "progId": "Excel.Sheet.8",
       "isCreatable": true,
+      "defaultInterface": "_Worksheet",
       "members": [
         {
           "name": "Application",
@@ -202047,6 +202051,8 @@
       "isCreatable": true,
       "isHidden": true,
       "isApplication": true,
+      "defaultInterface": "_Global",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -203150,6 +203156,7 @@
     {
       "name": "Workbook",
       "isCreatable": true,
+      "defaultInterface": "_Workbook",
       "members": [
         {
           "name": "Application",
@@ -206849,6 +206856,7 @@
     {
       "name": "OLEObject",
       "isCreatable": true,
+      "defaultInterface": "_OLEObject",
       "members": [
         {
           "name": "Application",
