@@ -502,7 +502,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// zero-length Match is in every other element. Each element is read as a <c>String</c> parameter would Let-coerce it, all of
     /// them before any is kept, so a Null element is error 94 whether it would be kept or not; an element never assigned in a
     /// <c>Variant()</c> is Empty, a zero-length string. What is kept is that <c>String</c>, unchanged: the filter selects
-    /// elements, and transforms none.
+    /// elements, and transforms none. A SourceArray with no dimensions yet - a dynamic array never <c>ReDim</c>'d - is filtered to a
+    /// <c>String()</c> with none either, whose <c>UBound</c> is error 9 (recorded in Excel, oracle\s41 M03).
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> Filter(VBVariantValue sourceArray, VBStringValue match, VBBooleanValue? include = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -513,8 +514,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         }
 
         var keep = (bool)Given(include).Value;
-        if (!TryRulesFor(compare, nameof(Filter), out var rules, out error)
-            || !TryReadElements(array, nameof(Filter), out var elements, out error))
+        if (!TryRulesFor(compare, nameof(Filter), out var rules, out error))
+        {
+            return Fail<VBVariantValue>(error);
+        }
+
+        if (array.Rank == 0)
+        {
+            return InVariant(new VBResizableArrayValue([], VBStringType.TypeInfo));
+        }
+
+        if (!TryReadElements(array, nameof(Filter), out var elements, out error))
         {
             return Fail<VBVariantValue>(error);
         }
@@ -1036,7 +1046,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <remarks>
     /// "A string created by joining a number of substrings contained in an array", in index order from its lower bound, whatever
     /// that is. The Delimiter, "if omitted, the space character", and "if Delimiter is a zero-length string (""), all items in the
-    /// list are concatenated with no delimiters". An array with no elements joins to a zero-length string.
+    /// list are concatenated with no delimiters". An array with no elements joins to a zero-length string, and so does one with no
+    /// dimensions yet - a dynamic array never <c>ReDim</c>'d (recorded in Excel, oracle\s41 M01, M02).
     /// <para>
     /// 👉 The Delimiter and each element are read as a <c>String</c> parameter would Let-coerce them: Empty is a zero-length string,
     /// a number is written in the environment's regional settings, Null is error 94, and an Error, an object or an array that is not
@@ -1051,8 +1062,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBStringValue>(error);
         }
 
-        if (!TryReadDelimiter(delimiter, nameof(Join), out var separator, out error)
-            || !TryReadElements(array, nameof(Join), out var elements, out error))
+        if (!TryReadDelimiter(delimiter, nameof(Join), out var separator, out error))
+        {
+            return Fail<VBStringValue>(error);
+        }
+
+        if (array.Rank == 0)
+        {
+            return Succeed(new VBStringValue(string.Empty));
+        }
+
+        if (!TryReadElements(array, nameof(Join), out var elements, out error))
         {
             return Fail<VBStringValue>(error);
         }
@@ -1453,15 +1473,15 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     }
 
     // Join's and Filter's SourceArray, declared SourceArray() and a Variant here only so that a String() reaches the member: a
-    // one-dimensional array of any element type, fixed or resizable, and anything else 13, as the declaration would raise.
+    // one-dimensional array of any element type, fixed or resizable, or one with no dimensions yet (oracle\s41 M01-M03), and anything
+    // else 13, as the declaration would raise.
     private static bool TryReadArray(VBVariantValue sourceArray, string member, [NotNullWhen(true)] out VBArrayValue? array, [NotNullWhen(false)] out IVBRaisableError? error)
     {
         var value = Unwrapped(sourceArray);
         array = value as VBArrayValue;
         error = value switch
         {
-            VBArrayValue { Rank: 1 } => null,
-            VBArrayValue { Rank: 0 } => Failure(VBRuntimeErrorId.TypeMismatch, member, "SourceArray is an array with no dimensions yet"),
+            VBArrayValue { Rank: 0 or 1 } => null,
             VBArrayValue { Rank: var rank } => Failure(VBRuntimeErrorId.TypeMismatch, member, $"SourceArray is a one-dimensional array, not one of {rank} dimensions"),
             _ => Failure(VBRuntimeErrorId.TypeMismatch, member, $"SourceArray is a one-dimensional array, not a value of type {value.TypeInfo.Name}"),
         };

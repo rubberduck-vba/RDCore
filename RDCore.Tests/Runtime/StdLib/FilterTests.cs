@@ -82,11 +82,23 @@ public sealed class FilterTests
         {
             VNull, VEmpty, V("abc"),
             V(new VBResizableArrayValue([(0, 1), (0, 1)], VBStringType.TypeInfo)),
-            V(new VBResizableArrayValue([], VBStringType.TypeInfo)),
-            V(VBResizableArrayValue.Empty),
         })
         {
             Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, ErrorOf(Module().Filter(notOne, new VBStringValue("a"), Include, Binary)));
+        }
+    }
+
+    [TestMethod]
+    public void Filter_OfAnArrayWithNoDimensionsYet_IsAStringArrayWithNoneEither()
+    {
+        // a dynamic array never ReDim'd filters to a String() whose UBound is error 9 (recorded in Excel, oracle\s41 M03).
+        foreach (var undimensioned in new[] { V(new VBResizableArrayValue([], VBStringType.TypeInfo)), V(VBResizableArrayValue.Empty) })
+        {
+            var filtered = Module().Filter(undimensioned, new VBStringValue("a"), Include, Binary);
+            Assert.IsTrue(filtered.IsSuccess);
+            var array = (VBArrayValue)filtered.Result!.TypedValue;
+            Assert.AreEqual(0, array.Rank);
+            Assert.IsInstanceOfType<VBStringType>(array.ItemType);
         }
     }
 
