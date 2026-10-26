@@ -171,11 +171,11 @@ public sealed class ExpressionBindings
             // is: the owner bound, the member found from the value each time. A name of a namespace or of an enumeration is
             // no owner of the kind, whether or not the member is found in it.
             MemberAccessExpressionNode { Owner: { } owner } access when !IsQualifier(context, owner)
-                => new BoundMember(access, access, ChildNode(owner), null, null, null),
+                => new BoundMember(access, access, ChildNode(owner), null, null, null) { IsLateBound = IsDeclaredObjectOrVariant(context, owner) },
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
                 when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is null
-                => new BoundMember(index, access, ChildNode(owner), null, null, index),
+                => new BoundMember(index, access, ChildNode(owner), null, null, index) { IsLateBound = IsDeclaredObjectOrVariant(context, owner) },
 
             // a member of the target of the enclosing With block (MS-VBAL §5.6.15), declared as a class: the object is the block's, not an expression's.
             MemberAccessExpressionNode { Owner: null } access
@@ -188,9 +188,11 @@ public sealed class ExpressionBindings
                 => new BoundMember(index, access, null, declared, member, index, BoundArgumentsOf(member, index)),
 
             // a member of the target of a With block declared as anything else: the object is the block's, the member found from it.
-            MemberAccessExpressionNode { Owner: null } access => new BoundMember(access, access, null, null, null, null),
+            MemberAccessExpressionNode { Owner: null } access
+                => new BoundMember(access, access, null, null, null, null) { IsLateBound = IsDeclaredObjectOrVariant(context, null) },
 
-            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: null } access } index => new BoundMember(index, access, null, null, null, index),
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: null } access } index
+                => new BoundMember(index, access, null, null, null, index) { IsLateBound = IsDeclaredObjectOrVariant(context, null) },
 
             // the special forms and the dictionary access: their operands are bound, and what those evaluate to is the evaluation's to bound, gather or
             // look up, each time.
@@ -206,6 +208,12 @@ public sealed class ExpressionBindings
 
             _ => new BoundLate(expression),
         };
+
+    // whether the owner of a member - the expression written before the dot, or the target of the enclosing With block - is declared Object or Variant: what
+    // the member returns is then a Variant, whatever it declares (BoundMember.IsLateBound).
+    private static bool IsDeclaredObjectOrVariant(StaticEvaluationContext context, ExpressionNode? owner)
+        => (owner is null ? context.EnclosingWithTargetType
+            : ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner).Result) is VBObjectType or VBVariantType;
 
     // what a qualified name means when its owner is a namespace - the member of the namespace, and nothing else when it has none - or an enumeration, which
     // the evaluation asks in that order.

@@ -170,8 +170,9 @@ public sealed class RuntimeExpressionEvaluatorTests
         var memberAccess = new MemberAccessExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), new SimpleNameExpressionNode(NextId(), TestLocations.TestLocation, "State"));
         var result = Evaluator().Evaluate(session, memberAccess, new(ProcedureUri));
 
+        // obj is declared Object: the read is late-bound, and what it returns is a Variant holding the Long (MS-VBAL §5.6.12; oracle\s46 F11).
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
-        Assert.AreEqual(7, ((VBLongValue)result.Result!).Value);
+        Assert.AreEqual(7, ((VBLongValue)((VBVariantValue)result.Result!).TypedValue).Value);
     }
 
     [TestMethod]
