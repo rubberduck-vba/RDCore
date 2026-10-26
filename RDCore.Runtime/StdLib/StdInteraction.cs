@@ -524,12 +524,18 @@ public sealed class StdInteraction(
     /// <inheritdoc/>
     /// <remarks>
     /// The session's turn is given up for the events that wait for it - those of the objects of a library, which only Windows has - and the messages that wait in
-    /// the queue of the thread the program runs on are processed, which only Windows has either. Elsewhere there is nothing to yield to, and it returns at once.
-    /// The answer is <c>0</c>: the number of open forms, of which there are none.
+    /// the queue of the thread the program runs on are processed, which only Windows has either. So are the messages the windows of the program's forms held
+    /// while it ran (<see cref="External.Forms.IFormHost.DoEvents"/>): what they raise is handled now, as the answer to the call. Elsewhere there is nothing to yield
+    /// to, and it returns at once. The answer is <c>0</c>: the number of open forms, of which there are none.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBIntegerValue> DoEvents()
     {
         session.Turn.Pump();
+        using (session.Turn.Yield())
+        {
+            _outside.Forms.DoEvents();
+        }
+
         _outside.Desktop.DoEvents();
         return Succeed(new VBIntegerValue(0));
     }

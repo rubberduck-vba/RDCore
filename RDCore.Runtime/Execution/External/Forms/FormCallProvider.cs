@@ -237,6 +237,9 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             return null;
         }
 
+        // from the first form on, its windows' messages wait while a program runs - what Microsoft Forms posts as it creates this one included.
+        SessionForms.Of(session).HoldWhileRunning(session, outside.Forms);
+
         object created;
         using (session.Turn.Yield())
         {

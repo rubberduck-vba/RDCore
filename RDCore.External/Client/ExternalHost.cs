@@ -66,6 +66,20 @@ public sealed class ExternalHost : IDisposable
     internal Action<SessionReleaseParams>? SessionRelease { get; set; }
 
     /// <summary>
+    /// The incarnation that is running, if one is: what is said to an external host that is not needed yet does not start one.
+    /// </summary>
+    internal Incarnation? Running
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _current is { IsLost: false } running ? running : null;
+            }
+        }
+    }
+
+    /// <summary>
     /// The incarnation that is running, started if none is.
     /// </summary>
     /// <exception cref="ExternalHostUnavailableException">The external host could not be started.</exception>

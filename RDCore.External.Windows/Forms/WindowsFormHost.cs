@@ -119,6 +119,25 @@ public sealed class WindowsFormHost : IFormHost
         return null;
     });
 
+    /// <inheritdoc/>
+    public void Hold(bool running) => _apartment.HoldsMessages = running;
+
+    /// <inheritdoc/>
+    public void DoEvents()
+    {
+        // a program that hosts no form has no window to dispatch for, nor an apartment to start for it.
+        if (_forms.Count == 0)
+        {
+            return;
+        }
+
+        _ = OnApartment<object?>(() =>
+        {
+            _apartment.DispatchWaiting();
+            return null;
+        });
+    }
+
     // a call the program waits for, on the apartment: what a form raises while it is made - a click while a modal Show waits - is the answer to it.
     private T? OnApartment<T>(Func<T?> call) => _apartment.Invoke(() => _apartment.Counted(call));
 

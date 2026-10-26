@@ -175,6 +175,25 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         _ = Send<FormParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormLeave, new FormParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
     }
 
+    // an external host that is not running hosts no form to hold the messages of: it is not started for that.
+    /// <inheritdoc/>
+    public void Hold(bool running)
+    {
+        if (_host.Running is { } incarnation)
+        {
+            _ = Send<FormHoldParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormHold, new FormHoldParams { Running = running, HandlingEvent = _handlingEvent });
+        }
+    }
+
+    /// <inheritdoc/>
+    public void DoEvents()
+    {
+        if (_host.Running is { } incarnation)
+        {
+            _ = Send<FormDoEventsParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormDoEvents, new FormDoEventsParams { HandlingEvent = _handlingEvent });
+        }
+    }
+
     // a form is destroyed when it is let go of, as any of the external host's objects is released: there is nothing to ask of it before.
     /// <inheritdoc/>
     public void Destroy(object form) => Release(form);

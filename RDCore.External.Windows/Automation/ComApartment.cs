@@ -16,7 +16,9 @@ namespace RDCore.External.Windows.Automation;
 /// </para>
 /// <para>
 /// Between calls the thread waits for the next one or for a message, whichever comes first (<c>MsgWaitForMultipleObjectsEx</c>), so a form that is shown modeless
-/// is drawn and answers its user while the program runs. A key goes to the active object of a form before it is dispatched, which is what moves the focus with Tab.
+/// is drawn and answers its user when no program runs. While one does, the messages of the windows wait, as MS-VBA's do (<see cref="HoldsMessages"/>), until it
+/// waits for them - <c>DoEvents</c>, a modal <c>Show</c> - or ends. A key goes to the active object of a form before it is dispatched, which is what moves the focus
+/// with Tab.
 /// The thread is aware of the DPI of each monitor (<c>DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2</c>): a window it makes is told its DPI, and when it changes.
 /// </para>
 /// </remarks>
@@ -32,7 +34,10 @@ public sealed class ComApartment : IDisposable
     private readonly Lazy<Thread> _thread;
     private readonly List<Func<Native.Message, bool>> _translators = [];
     private volatile bool _completed;
+    private volatile bool _holding;
     private int _inCall;
+    private int _modal;
+    private IntPtr[]? _comWindows;
 
     /// <summary>
     /// Creates the apartment; its thread is started by the first call that needs it.
@@ -139,7 +144,50 @@ public sealed class ComApartment : IDisposable
             throw new InvalidOperationException("Only the apartment's own thread pumps it.");
         }
 
-        Pump(() => done() || _completed);
+        // a modal window's loop is a program that waits: what was held is dispatched first, in the order it came.
+        _modal++;
+        try
+        {
+            Pump(() => done() || _completed);
+        }
+        finally
+        {
+            _modal--;
+        }
+    }
+
+    /// <summary>
+    /// Whether the messages of the apartment's windows wait - what their user does, what they draw, what Microsoft Forms posts to its own windows - because a program
+    /// runs: MS-VBA dispatches none until the program waits for them (<c>DoEvents</c>, a modal <c>Show</c>) or ends (Excel-measured, <c>oracle\s41</c> E09, E12
+    /// against E14, E15). What COM sends the apartment is dispatched all the same: a server's call back, an Excel event raised while the program runs.
+    /// </summary>
+    public bool HoldsMessages
+    {
+        get => _holding;
+        set
+        {
+            _holding = value;
+
+            // what was held is dispatched as soon as nothing runs.
+            _ = _ready.Set();
+        }
+    }
+
+    /// <summary>
+    /// Dispatches every message that waits in the apartment's queue, held or not, as <c>DoEvents</c> does. Called on the apartment.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The current thread is not the apartment's.</exception>
+    public void DispatchWaiting()
+    {
+        if (!IsCurrent)
+        {
+            throw new InvalidOperationException("Only the apartment's own thread pumps it.");
+        }
+
+        while (Native.PeekMessage(out var message, IntPtr.Zero, 0, 0, Native.PM_REMOVE))
+        {
+            Dispatch(message);
+        }
     }
 
     /// <summary>
@@ -227,7 +275,8 @@ public sealed class ComApartment : IDisposable
                 continue;
             }
 
-            if (Native.PeekMessage(out var message, IntPtr.Zero, 0, 0, Native.PM_REMOVE))
+            var holding = _holding && _modal == 0;
+            if (holding ? TryPeekCom(out var message) : Native.PeekMessage(out message, IntPtr.Zero, 0, 0, Native.PM_REMOVE))
             {
                 Dispatch(message);
                 continue;
@@ -243,9 +292,42 @@ public sealed class ComApartment : IDisposable
             _ = _ready.Reset();
             if (_work.IsEmpty && !done())
             {
-                _ = Native.MsgWaitForMultipleObjectsEx(1, handles, Native.Infinite, Native.QS_ALLINPUT, Native.MWMO_INPUTAVAILABLE);
+                // what is held stays in the queue: the wait is for what comes next, not for what is there already (which would wake it at once, and again).
+                // what came between the look and the reset is looked for once more, or it would be taken as seen and wake nothing.
+                if (holding)
+                {
+                    _ = Native.GetQueueStatus(Native.QS_ALLINPUT);
+                    if (TryPeekCom(out var late))
+                    {
+                        Dispatch(late);
+                        continue;
+                    }
+                }
+
+                _ = Native.MsgWaitForMultipleObjectsEx(1, handles, Native.Infinite, Native.QS_ALLINPUT, holding ? 0 : Native.MWMO_INPUTAVAILABLE);
             }
         }
+    }
+
+    // a message of COM's own windows (OleMainThreadWndClass, made when the thread entered its apartment): the calls of other apartments and processes, which a program
+    // that runs answers too.
+    private bool TryPeekCom(out Native.Message message)
+    {
+        if (_comWindows is not { Length: > 0 })
+        {
+            _comWindows = Native.ComWindowsOf(Native.GetCurrentThreadId());
+        }
+
+        foreach (var window in _comWindows)
+        {
+            if (Native.PeekMessage(out message, window, 0, 0, Native.PM_REMOVE))
+            {
+                return true;
+            }
+        }
+
+        message = default;
+        return false;
     }
 
     private void Dispatch(Native.Message message)
@@ -312,5 +394,39 @@ public sealed class ComApartment : IDisposable
 
         [DllImport("user32.dll")]
         public static extern uint MsgWaitForMultipleObjectsEx(uint count, IntPtr[] handles, uint milliseconds, uint wakeMask, uint flags);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetQueueStatus(uint flags);
+
+        [DllImport("kernel32.dll")]
+        public static extern uint GetCurrentThreadId();
+
+        // COM's windows of a thread: message-only windows (HWND_MESSAGE) on today's Windows, top-level ones on older.
+        public static IntPtr[] ComWindowsOf(uint thread)
+        {
+            const string comClass = "OleMainThreadWndClass";
+            var found = new List<IntPtr>();
+            foreach (var parent in new[] { MessageOnly, IntPtr.Zero })
+            {
+                var window = IntPtr.Zero;
+                while ((window = FindWindowEx(parent, window, comClass, null)) != IntPtr.Zero)
+                {
+                    if (GetWindowThreadProcessId(window, out _) == thread)
+                    {
+                        found.Add(window);
+                    }
+                }
+            }
+
+            return [.. found];
+        }
+
+        private static readonly IntPtr MessageOnly = -3;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string className, string? title);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
     }
 }

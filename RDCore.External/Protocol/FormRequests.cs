@@ -51,6 +51,18 @@ public sealed record class FormShowParams : AutomationRequest
     public bool Modal { get; init; }
 }
 
+/// <summary>Request for <see cref="ExternalProtocol.FormHold"/>.</summary>
+public sealed record class FormHoldParams : AutomationRequest
+{
+    /// <summary>Whether a program runs.</summary>
+    public bool Running { get; init; }
+}
+
+/// <summary>Request for <see cref="ExternalProtocol.FormDoEvents"/>.</summary>
+public sealed record class FormDoEventsParams : AutomationRequest
+{
+}
+
 /// <summary>Request for <see cref="ExternalProtocol.FormHide"/> and <see cref="ExternalProtocol.FormIsShown"/>.</summary>
 public sealed record class FormParams : AutomationRequest
 {

@@ -24,6 +24,28 @@ public sealed class SessionTurnTests
         });
 
     [TestMethod]
+    public void Running_IsSaidWhenTheFirstProgramStarts_AndWhenTheLastEnds()
+    {
+        // what a host of windows holds their messages by: once when a program starts running, once when none runs any more - not for a program run by another.
+        var turn = new SessionTurn();
+        var said = new List<bool>();
+        turn.Running += said.Add;
+
+        turn.Enter();
+        Assert.IsTrue(turn.IsRunning);
+        using (turn.Yield())
+        {
+            turn.Enter();
+            turn.Exit();
+        }
+
+        turn.Exit();
+
+        CollectionAssert.AreEqual(new[] { true, false }, said);
+        Assert.IsFalse(turn.IsRunning);
+    }
+
+    [TestMethod]
     public async Task WhenNothingRuns_AnEventIsHandledAsItArrives()
     {
         var turn = new SessionTurn();

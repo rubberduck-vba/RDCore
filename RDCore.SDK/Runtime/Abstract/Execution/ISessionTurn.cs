@@ -55,6 +55,18 @@ public interface ISessionTurn
     bool IsOpenForEvents { get; }
 
     /// <summary>
+    /// Raised with <see langword="true"/> when a program starts running in the session and none was, and with <see langword="false"/> when the last one ends: what a
+    /// host of windows needs to know to hold their messages while a program runs, as MS-VBA does (none is dispatched until the program waits for it, at <c>DoEvents</c>
+    /// or a modal form, or ends). Raised on the thread that starts or ends the program.
+    /// </summary>
+    event Action<bool>? Running;
+
+    /// <summary>
+    /// Whether a program runs in the session: what <see cref="Running"/> last said.
+    /// </summary>
+    bool IsRunning { get; }
+
+    /// <summary>
     /// Says that an asynchronous event waits for the session to be open to it, for as long as the returned scope is not disposed - which is how <see cref="Pump"/> knows
     /// there is something to wait for.
     /// </summary>

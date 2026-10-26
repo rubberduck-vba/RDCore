@@ -159,6 +159,10 @@ internal sealed class HostedForm
         _ = Desktop.GetClientRect(Window, out var client);
         _ = ((IOleObject)Form).DoVerb(Ole.UIActivate, IntPtr.Zero, _site, 0, Window, ref client);
 
+        // the control the form enters takes in what was held for it while the program ran - a change made before the form was shown is its update now, before the
+        // form's Activate (Excel-measured, oracle\s41 E12).
+        _apartment.DispatchWaiting();
+
         if (_active is { } previous && previous != this && previous.IsShown)
         {
             previous.Raise(FormWindowEvents.Deactivate);

@@ -368,7 +368,7 @@ public sealed class FormHostingTests
     }
 
     // the handlers of the extender's events of two controls, AmountBox (the first in the tab order) and ComboBox1, as the Excel oracle's FocusForm has them; and Go,
-    // which moves the focus as the program does.
+    // which moves the focus as the program does, then lets the form take in what that posted (DoEvents), as the oracle's Go does.
     private static readonly string[] Focus =
     [
         "Public CancelExit As Boolean",
@@ -384,7 +384,7 @@ public sealed class FormHostingTests
         "Private Sub AmountBox_Change()", "    Debug.Print \"AmountChange\"", "End Sub",
         "Private Sub ComboBox1_Enter()", "    Debug.Print \"ComboEnter\"", "End Sub",
         "Private Sub ComboBox1_Exit(ByVal Cancel As MSForms.ReturnBoolean)", "    Debug.Print \"ComboExit\"", "End Sub",
-        "Public Sub Go(ByVal name As String)", "    Me.Controls(name).SetFocus", "End Sub",
+        "Public Sub Go(ByVal name As String)", "    Me.Controls(name).SetFocus", "    DoEvents", "End Sub",
     ];
 
     // oracle\s41 E01-E17: the extender's events as the focus moves, in the order Excel raises them - by Microsoft Forms itself, and by the host when the form is unloaded.
@@ -453,8 +453,8 @@ public sealed class FormHostingTests
 
     // oracle\s41 E09, E12: the same changes as E14, E15, with nothing pumped between the program's statements - which MS-VBA does not do until DoEvents, a modal Show
     // or the program's end, and Microsoft Forms then counts the change as the focused control's.
+    // MS-VBA dispatches no message while a program runs: a change Microsoft Forms posts, nothing pumped, is the next focused control's update (E09, E12, against E14, E15).
     [TestMethod]
-    [Ignore("The apartment dispatches the forms' messages between every call the program makes; MS-VBA dispatches none while a program runs, so a change Microsoft Forms posts is the next focused control's update there (E09, E12, against E14, E15). Pumping only when the program waits is a design ruling to ask for.")]
     [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"", "ExampleView.AmountBox.Text = \"7\"", "ExampleView.Go \"AmountBox\"", "ExampleView.Go \"ComboBox1\"",
         "Unload ExampleView" },
         new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "AmountChange", "ComboExit", "AmountEnter", "AmountBeforeUpdate",
@@ -490,6 +490,23 @@ public sealed class FormHostingTests
 
     // the Cancel argument is Microsoft Forms' object, in the external host, which the handler's assignment reaches across the process; the SetFocus whose move is
     // cancelled fails, as Excel's does (oracle\s41 E16, E17).
+    [TestMethod]
+    public async Task AChangeNothingPumped_ThroughAnExternalHost_IsTheNextUpdate()
+    {
+        // E09 where the forms are: the external host holds their messages while the program runs, and DoEvents (Go's) dispatches them.
+        RequireMicrosoftForms();
+        using var host = ExternalHosts.New();
+
+        var actual = await RunWithCodeAsync(ExternalHosts.WorldOf(host), Focus, "On Error Resume Next", "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"",
+            "ExampleView.AmountBox.Text = \"7\"", "ExampleView.Go \"AmountBox\"", "ExampleView.Go \"ComboBox1\"", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "AmountChange", "ComboExit", "AmountEnter", "AmountBeforeUpdate",
+            "AmountAfterUpdate", "AmountExit", "ComboEnter", "QueryClose 1", "ComboExit", "Terminate",
+        }, actual, string.Join(" | ", actual));
+    }
+
     [TestMethod]
     public async Task TheExtendersEvents_ThroughAnExternalHost_AreCancelled()
     {

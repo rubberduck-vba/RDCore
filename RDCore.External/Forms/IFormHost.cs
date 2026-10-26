@@ -154,6 +154,23 @@ public interface IFormHost
     /// </summary>
     /// <param name="form">The handle of the form.</param>
     void Destroy(object form);
+
+    /// <summary>
+    /// Says whether a program runs. While one does, the messages of the forms' windows wait - what their user does, what they draw, what Microsoft Forms posts to its
+    /// own windows - as MS-VBA dispatches none until the program waits for them (<see cref="DoEvents"/>, a modal <see cref="Show"/>) or ends (Excel-measured,
+    /// <c>oracle\s41</c> E09, E12 against E14, E15): a change Microsoft Forms has not taken in yet is the next focused control's update.
+    /// </summary>
+    /// <param name="running">Whether a program runs.</param>
+    void Hold(bool running)
+    {
+    }
+
+    /// <summary>
+    /// Dispatches the messages that wait in the forms' windows, held or not, as <c>DoEvents</c> does: what a form raises meanwhile is the answer to this call.
+    /// </summary>
+    void DoEvents()
+    {
+    }
 }
 
 /// <summary>

@@ -25,17 +25,30 @@ internal sealed class SessionTurn : ISessionTurn
     public bool IsOpenForEvents => Volatile.Read(ref _programs) == 0 || Volatile.Read(ref _pumping) > 0 || Volatile.Read(ref _yielded) > 0;
 
     /// <inheritdoc/>
+    public event Action<bool>? Running;
+
+    /// <inheritdoc/>
+    public bool IsRunning => Volatile.Read(ref _programs) > 0;
+
+    /// <inheritdoc/>
     public void Enter()
     {
         _baton.Wait();
         _held = true;
-        _ = Interlocked.Increment(ref _programs);
+        if (Interlocked.Increment(ref _programs) == 1)
+        {
+            Running?.Invoke(true);
+        }
     }
 
     /// <inheritdoc/>
     public void Exit()
     {
-        _ = Interlocked.Decrement(ref _programs);
+        if (Interlocked.Decrement(ref _programs) == 0)
+        {
+            Running?.Invoke(false);
+        }
+
         Release();
     }
 

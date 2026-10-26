@@ -37,6 +37,29 @@ internal sealed class SessionForms
     private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _held = [];
     private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Leave, Action Stop)> _listening = [];
     private readonly Dictionary<object, (VBRuntimeObjectId Form, HashSet<string> Names)> _designed = new(ReferenceEqualityComparer.Instance);
+    private bool _holding;
+
+    /// <summary>
+    /// Holds the messages of the windows of <paramref name="host"/>'s forms while a program of the session runs, from now on (<see cref="RDCore.External.Forms.IFormHost.Hold"/>):
+    /// MS-VBA dispatches none until the program waits for them or ends. Done once, when the session's first form is created.
+    /// </summary>
+    /// <param name="session">The session whose programs hold them.</param>
+    /// <param name="host">The host of the session's forms.</param>
+    public void HoldWhileRunning(IRuntimeSession session, RDCore.External.Forms.IFormHost host)
+    {
+        lock (_gate)
+        {
+            if (_holding)
+            {
+                return;
+            }
+
+            _holding = true;
+        }
+
+        session.Turn.Running += host.Hold;
+        host.Hold(session.Turn.IsRunning);
+    }
 
     /// <summary>
     /// The <c>Controls</c> collection of a hosted form, and the names of the controls its designer declares: those <c>Controls.Remove</c> cannot remove (444,

@@ -61,6 +61,8 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormParams, FormIsShownResult>(ExternalProtocol.FormIsShown, IsFormShown);
         channel.Handle<FormCaptionParams, FormCaptionResult>(ExternalProtocol.FormCaption, FormCaption);
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
+        channel.Handle<FormHoldParams, ExternalDoneResult>(ExternalProtocol.FormHold, HoldForms);
+        channel.Handle<FormDoEventsParams, ExternalDoneResult>(ExternalProtocol.FormDoEvents, DoEvents);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
         InvokeOnClient = call => channel.CallAsync<SessionInvokeParams, SessionInvokeResult>(ExternalProtocol.SessionInvoke, call);
         ReleaseOnClient = released => channel.CallAsync<SessionReleaseParams, ExternalDoneResult>(ExternalProtocol.SessionRelease, released);
@@ -165,6 +167,20 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     public ExternalDoneResult LeaveForm(FormParams request) => Answer(request.HandlingEvent, () =>
     {
         _forms.Leave(_handles.ObjectOf(request.Target));
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormHold"/>.</summary>
+    public ExternalDoneResult HoldForms(FormHoldParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.Hold(request.Running);
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormDoEvents"/>.</summary>
+    public ExternalDoneResult DoEvents(FormDoEventsParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.DoEvents();
         return new ExternalDoneResult();
     }, Failed<ExternalDoneResult>);
 
