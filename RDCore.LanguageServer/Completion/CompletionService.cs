@@ -23,6 +23,7 @@ using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Completion;
@@ -106,10 +107,17 @@ internal sealed class CompletionService(
     ILibrarySource librarySource,
     IClientVerbRegistry verbs,
     IOptions<SdkAppOptions> options,
-    ILogger<CompletionService> logger) : ICompletionService
+    ILogger<CompletionService> logger,
+    WorkspaceCompositionCache? compositions = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
     private const string Probe = "RDCoreCompletionProbe";
+
+    // the workspace as each list composed it last: a name typed on the same line is completed in the same composition.
+    private readonly WorkspaceCompositionCache _compositions = compositions ?? new();
+
+    // the parse of a fragment with the designer of its document: the very same parse for the same two, which is what makes it the same composition.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ModuleParseResult, Tuple<FormDescriptor, ModuleParseResult>> _designed = [];
 
     private static readonly CompletionList Empty = new(isIncomplete: false);
 
@@ -335,7 +343,7 @@ internal sealed class CompletionService(
     {
         lines[line] = (qualifier.Length > 0 ? $"{Probe} = {qualifier}" : string.Empty) + (lines[line].EndsWith('\r') ? "\r" : string.Empty);
         var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', lines), token);
-        if (parse.SyntaxTree is null)
+        if (parse.SyntaxTree is not { } syntaxTree)
         {
             return null;
         }
@@ -343,17 +351,32 @@ internal sealed class CompletionService(
         // a form's controls are declared by its designer, which the parse of a fragment of its text does not read: the document's own parse has it.
         if (parsing.TryGetCached(address, out var cached) && cached.Designer is { } designer)
         {
-            parse = parse with { Designer = designer };
+            parse = WithDesigner(parse, designer);
         }
 
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
         var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+        var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 
-        return (composition, parse.SyntaxTree, workspaceRoot, moduleUri);
+        return (composition, syntaxTree, workspaceRoot, moduleUri);
+    }
+
+    private ModuleParseResult WithDesigner(ModuleParseResult parse, FormDescriptor designer)
+    {
+        lock (_designed)
+        {
+            if (_designed.TryGetValue(parse, out var designed) && ReferenceEquals(designed.Item1, designer))
+            {
+                return designed.Item2;
+            }
+
+            var withDesigner = parse with { Designer = designer };
+            _designed.AddOrUpdate(parse, Tuple.Create(designer, withDesigner));
+            return withDesigner;
+        }
     }
 
     // the workspace's modules but the one being completed, as the symbol sync composes them.

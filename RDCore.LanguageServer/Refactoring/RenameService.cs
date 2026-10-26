@@ -79,8 +79,12 @@ internal sealed class RenameService(
     ISymbolResolver resolver,
     IReferencedLibraryService referencedLibraries,
     IOptions<SdkAppOptions> options,
-    ILogger<RenameService> logger) : IRenameService
+    ILogger<RenameService> logger,
+    WorkspaceCompositionCache? compositions = null) : IRenameService
 {
+    // the workspace as it was composed last, for as long as no document changed: a prepared rename, the rename and the code actions of a line are of one.
+    private readonly WorkspaceCompositionCache _compositions = compositions ?? new();
+
     public async Task<RenameAnswer<PlaceholderRange>> PrepareAsync(Uri documentUri, Position position, CancellationToken token)
         => await ComposeAsync(token) is { } workspace ? workspace.Prepare(documentUri, position) : RenameWorkspace.NoName<PlaceholderRange>();
 
@@ -118,7 +122,7 @@ internal sealed class RenameService(
                 ParsingClientService.ModuleSourceOf(document)));
         }
 
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+        var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Parse))], resolver,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedLibraries.SymbolsUnder(workspaceRoot));

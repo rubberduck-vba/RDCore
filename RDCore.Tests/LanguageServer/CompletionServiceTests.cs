@@ -226,6 +226,45 @@ public sealed class CompletionServiceTests
     }
 
     [TestMethod]
+    public async Task TheNamesTypedOnOneLine_AreCompletedInOneComposition_UntilAModuleChanges()
+    {
+        // the platform's parser answers a text it parsed last with the parse it was (ParsingClientService), and its libraries are read once.
+        var parses = new Dictionary<string, ModuleParseResult>();
+        _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var text = call.Arg<string>();
+            if (!parses.TryGetValue(text, out var parse))
+            {
+                parses[text] = parse = new ModuleParser().Parse(call.Arg<Uri>(), text);
+            }
+
+            return Task.FromResult(parse);
+        });
+
+        var source = new InMemoryLibrarySource(Lab);
+        IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> symbols = [.. new LibrarySymbolProvider(new Uri(Root), ReferencedLibraries.Load(source, [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols()];
+        var libraries = Substitute.For<IReferencedLibraryService>();
+        libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(symbols);
+        var compositions = new WorkspaceCompositionCache();
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var sut = new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, compositions);
+
+        async Task<string[]> CompleteAsync(string module)
+        {
+            var (text, position) = At(module);
+            return [.. (await sut.CompleteFragmentAsync("Main", text, position, CancellationToken.None)).Items.Select(item => item.Label)];
+        }
+
+        CollectionAssert.Contains(await CompleteAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Tw|\r\nEnd Sub\r\n"), "Twice");
+        CollectionAssert.Contains(await CompleteAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Twice(1) + Wh|\r\nEnd Sub\r\n"), "vbWhite");
+        Assert.AreEqual(1, compositions.Composed, "the line is taken out of the module the list is composed of: the rest of it is what it was");
+
+        WorkspaceHas(new WorkspaceDocument("Helpers.bas", Root, Helpers.Replace("Twice", "Thrice")));
+        CollectionAssert.Contains(await CompleteAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Th|\r\nEnd Sub\r\n"), "Thrice");
+        Assert.AreEqual(2, compositions.Composed, "a module that changed is another parse, and the workspace is composed again");
+    }
+
+    [TestMethod]
     public async Task AListIsNarrowedToTheLettersTyped_InTheirOrder_WhereverTheyAreInTheName()
     {
         var labels = await LabelsAsync("""

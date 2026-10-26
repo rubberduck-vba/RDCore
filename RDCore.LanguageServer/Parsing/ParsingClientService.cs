@@ -32,12 +32,15 @@ internal interface IParsingClientService
     Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token);
 
     /// <summary>
-    /// Parses source that is not a workspace document, and caches nothing.
+    /// Parses source that is not a workspace document; the last few parses are kept apart from the documents' own, by the text they are of.
     /// </summary>
     /// <remarks>
     /// Not every module a client wants parsed is a file. An interactive shell's program lives in a
     /// buffer, and its immediate-mode line is a procedure that exists for one statement's worth of
     /// time — neither is a workspace document, and neither should evict the cached parse of one.
+    /// A completion list is asked of the same text at each name typed on a line - the module with
+    /// the line taken out - and the text that was parsed last is answered with the very parse it was,
+    /// which is what lets what is composed of it be reused too.
     /// </remarks>
     /// <param name="documentUri">The URI the parse result is addressed under.</param>
     /// <param name="source">The source to parse.</param>
@@ -114,15 +117,44 @@ internal sealed class ParsingClientService(
 
     public async Task<ModuleParseResult> ParseFragmentAsync(Uri documentUri, string source, CancellationToken token)
     {
+        lock (_fragments)
+        {
+            var index = _fragments.FindIndex(fragment => fragment.Uri == documentUri.AbsoluteUri && fragment.Source == source);
+            if (index >= 0)
+            {
+                var kept = _fragments[index];
+                _fragments.RemoveAt(index);
+                _fragments.Insert(0, kept);
+                return kept.Parse;
+            }
+        }
+
         await orchestration.ParsingService.WaitForReadyAsync(token);
 
         var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
             new ParseDocumentParams { DocumentUri = documentUri, Fragment = source }, token);
 
-        return envelope is not null
-            ? envelope.Unwrap<ModuleParseResult>()
-            : ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
+        if (envelope is null)
+        {
+            return ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
+        }
+
+        var parse = envelope.Unwrap<ModuleParseResult>();
+        lock (_fragments)
+        {
+            _fragments.Insert(0, (documentUri.AbsoluteUri, source, parse));
+            if (_fragments.Count > KeptFragments)
+            {
+                _fragments.RemoveAt(_fragments.Count - 1);
+            }
+        }
+
+        return parse;
     }
+
+    // the fragments parsed last, the last first: a few, since each holds the syntax tree of a whole module.
+    private const int KeptFragments = 4;
+    private readonly List<(string Uri, string Source, ModuleParseResult Parse)> _fragments = [];
 
     public async Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token)
     {

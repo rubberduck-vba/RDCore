@@ -60,6 +60,8 @@ internal static class LanguageServerServices
             .AddSingleton<ISemanticTokensService, SemanticTokensService>()
             .AddSingleton<IClientVerbRegistry, ClientVerbRegistry>()
             .AddSingleton<RDCore.SDK.Server.Progress.IWorkProgressReporter>(_ => new RDCore.SDK.Server.Progress.WorkProgressReporter())
+            // the workspace as it was composed last, which completion, signature help and rename reuse for as long as no module changed.
+            .AddSingleton(_ => new RDCore.Symbols.WorkspaceCompositionCache())
             .AddSingleton<ICompletionService, CompletionService>()
             .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()

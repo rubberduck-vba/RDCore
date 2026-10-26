@@ -222,6 +222,35 @@ public sealed class ParsingClientServiceTests
     }
 
     [TestMethod]
+    public async Task AFragmentParsedAgain_IsTheParseItWas_WithoutAskingTheParser()
+    {
+        var (sut, parser, _) = Build();
+        var uri = TestUri.TestModuleUri();
+
+        var first = await sut.ParseFragmentAsync(uri, "Public Sub A()\r\nEnd Sub", CancellationToken.None);
+        var again = await sut.ParseFragmentAsync(uri, "Public Sub A()\r\nEnd Sub", CancellationToken.None);
+        var other = await sut.ParseFragmentAsync(uri, "Public Sub B()\r\nEnd Sub", CancellationToken.None);
+
+        Assert.AreSame(first, again, "the very same parse: what is composed of it is reused too");
+        Assert.AreNotSame(first, other);
+        await parser.Received(2).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task OnlyTheLastFewFragments_AreKept()
+    {
+        var (sut, parser, _) = Build();
+        var uri = TestUri.TestModuleUri();
+
+        foreach (var name in new[] { "A", "B", "C", "D", "E", "A" })
+        {
+            await sut.ParseFragmentAsync(uri, $"Public Sub {name}()\r\nEnd Sub", CancellationToken.None);
+        }
+
+        await parser.Received(6).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public void PlatformJsonEnvelope_RoundTripsAPolymorphicParseResult()
     {
         var original = new ModuleParser().Parse(TestUri.TestModuleUri(),
