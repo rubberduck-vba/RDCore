@@ -177,7 +177,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, ThemeReplCommand>()
             .AddSingleton<IReplCommand, ClearReplCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
-            .AddSingleton<ConfigCommand>()
+            // the shell is the client of a running platform: a live setting takes effect as it is set.
+            .AddSingleton(provider => new ConfigCommand(provider.GetRequiredService<IPlatformSettings>(), appliesLive: true))
             .AddSingleton<IReplCommand, ConfigReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
             .AddSingleton<ReplShell>()
@@ -484,7 +485,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
     {
         builder.AddFile(
             System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"),
-            ResolveTraceLevel(configuration));
+            LogLevel.Trace);
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 }
@@ -520,7 +521,7 @@ internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHost
     {
         builder.AddFile(
             System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.ExternalHost.log"),
-            ResolveTraceLevel(configuration));
+            LogLevel.Trace);
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 }

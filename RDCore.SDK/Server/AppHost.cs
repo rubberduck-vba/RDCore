@@ -11,6 +11,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.Logging;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
@@ -97,6 +98,7 @@ public abstract class AppHost<TApp>() : IDisposable
     {
         _host = builder.Build();
         _app = _host.Services.GetRequiredService<TApp>();
+        FollowLiveLogLevel(_host.Services);
         LogIfEnabled(LogLevel.Information, "Application resolved successfully. Starting application host...");
 
         await BeforeAppStartAsync(_host.Services);
@@ -131,6 +133,19 @@ public abstract class AppHost<TApp>() : IDisposable
                 LogIfEnabled(LogLevel.Warning, $"Host did not stop cleanly: {exception.Message}");
             }
         }
+    }
+
+    // the log level follows the live settings: what the client says it is, or what the component started with.
+    private static void FollowLiveLogLevel(IServiceProvider services)
+    {
+        if (services.GetService<LiveLogLevel>() is not { } level || services.GetService<ILiveSettings>() is not { } settings)
+        {
+            return;
+        }
+
+        var started = level.Minimum;
+        settings.Changed += (_, _) => level.Minimum =
+            settings.Current.TryGetValue("Server:TraceLevel", out var text) && Enum.TryParse<LogLevel>(text, ignoreCase: true, out var traceLevel) ? traceLevel : started;
     }
 
     /// <summary>
@@ -256,6 +271,12 @@ public abstract class AppHost<TApp>() : IDisposable
         services.Configure<SdkAppOptions>(config);
         services.Configure<SdkServerOptions>(config.GetSection("Server"));
 
+        // the settings that take effect while the component runs are set on the objects it reads its settings off: both of the platform's.
+        services
+            .AddLiveSettings<SdkAppOptions>(SettingsSchema.Platform, string.Empty)
+            .AddLiveSettings<SdkServerOptions>(SettingsSchema.Platform, "Server")
+            .AddSingleton<ILiveSettings>(sp => new LiveSettings(sp.GetServices<LiveSettingsTarget>(), Settings, sp.GetRequiredService<IPlatformEnvironment>()));
+
         services
             .AddSingleton<IRuntimeEnvironmentProfile>(sp =>
             {
@@ -315,7 +336,11 @@ public abstract class AppHost<TApp>() : IDisposable
     /// </remarks>
     protected virtual void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        builder.SetMinimumLevel(ResolveTraceLevel(configuration));
+        // the level is a live setting: every provider writes what the level is now, which the filter reads for each message.
+        var level = new LiveLogLevel(ResolveTraceLevel(configuration));
+        services.AddSingleton(level);
+        builder.SetMinimumLevel(LogLevel.Trace);
+        builder.AddFilter((_, _, messageLevel) => level.IsEnabled(messageLevel));
 
         // Server:JsonRpcTrace flips OmniSharp's protocol logging on without turning the whole log to Debug.
         if (configuration.GetValue("Configuration:Server:JsonRpcTrace", false))
@@ -327,11 +352,10 @@ public abstract class AppHost<TApp>() : IDisposable
     }
 
     /// <summary>
-    /// The effective minimum log level — <see cref="SdkServerOptions.TraceLevel"/> from configuration,
-    /// or <see cref="LogLevel.Information"/> when it is unset or invalid. Pass this to the
-    /// <c>AddFile(path, level)</c> overload in a <see cref="ConfigureExternalLogging"/> override; the
-    /// bare <c>AddFile(path)</c> pins the file at <see cref="LogLevel.Information"/> and hides
-    /// JSON-RPC protocol tracing.
+    /// The minimum log level a component starts with — <see cref="SdkServerOptions.TraceLevel"/> from configuration,
+    /// or <see cref="LogLevel.Information"/> when it is unset or invalid. It is a live setting (<see cref="LiveLogLevel"/>): a provider added in a
+    /// <see cref="ConfigureExternalLogging"/> override is added with <see cref="LogLevel.Trace"/> - the bare <c>AddFile(path)</c> pins the file at
+    /// <see cref="LogLevel.Information"/> and hides JSON-RPC protocol tracing - and the base implementation's filter decides.
     /// </summary>
     protected static LogLevel ResolveTraceLevel(IConfiguration configuration)
         => Enum.TryParse<LogLevel>(configuration["Configuration:Server:TraceLevel"], out var level) ? level : LogLevel.Information;

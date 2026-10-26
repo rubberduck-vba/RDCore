@@ -46,7 +46,7 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
     {
         builder.AddFile(
             Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.DebugAdapter.log"),
-            ResolveTraceLevel(configuration));
+            LogLevel.Trace);
 
         base.ConfigureExternalLogging(services, builder, configuration);
     }

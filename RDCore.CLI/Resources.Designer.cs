@@ -1365,5 +1365,14 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Config_Values_TextList", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} = {1}. It takes effect now..
+        /// </summary>
+        public static string Config_SetLive {
+            get {
+                return ResourceManager.GetString("Config_SetLive", resourceCulture);
+            }
+        }
     }
 }

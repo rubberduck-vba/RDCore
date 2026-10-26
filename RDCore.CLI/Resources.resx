@@ -586,4 +586,7 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Config_Values_TextList" xml:space="preserve">
     <value>Values: texts separated by commas.</value>
   </data>
+  <data name="Config_SetLive" xml:space="preserve">
+    <value>{0} = {1}. It takes effect now.</value>
+  </data>
 </root>

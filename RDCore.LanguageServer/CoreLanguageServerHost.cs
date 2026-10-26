@@ -21,7 +21,7 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
     {
         builder.AddFile(
             Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.LanguageServer.log"),
-            ResolveTraceLevel(configuration));
+            LogLevel.Trace);
 
         // forward the same narration to the connected client ($/logTrace + window/logMessage,
         // scrubbed); the file sink above keeps the unredacted copy.

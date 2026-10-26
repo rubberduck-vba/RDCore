@@ -28,6 +28,12 @@ public interface IRDCoreClientApp : IRDCoreApp
     Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>;
     Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest;
     /// <summary>
+    /// Says to the server that the live settings changed (<c>workspace/didChangeConfiguration</c>): it asks for them (<c>workspace/configuration</c>), and is
+    /// answered with what this component hands down (<see cref="ILiveSettings.Current"/>).
+    /// </summary>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task NotifyLiveSettingsChangedAsync(CancellationToken token);
+    /// <summary>
     /// Completes once the connection to the child server is <see cref="ConnectionStateValue.Ready"/>;
     /// faults if the connection reaches a terminal state first.
     /// </summary>
@@ -127,6 +133,14 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     public Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest
         => Connection.SendNotificationAsync(notification, token);
+
+    // the settings of the notification are not read: the server asks for the section it wants.
+    public Task NotifyLiveSettingsChangedAsync(CancellationToken token)
+        => SendNotificationAsync(new DidChangeConfigurationParams { Settings = new Newtonsoft.Json.Linq.JObject() }, token);
+
+    // what this component hands down to its server, when it asks: what its own client said, or what its user set.
+    private OmniSharp.Extensions.LanguageServer.Protocol.Models.Container<Newtonsoft.Json.Linq.JToken> AnswerConfiguration(ConfigurationParams request)
+        => LiveSettingsProtocol.Answer(request, _hostServices?.GetService<ILiveSettings>()?.Current ?? new Dictionary<string, string>());
 
     /// <inheritdoc/>
     public async Task WaitForReadyAsync(CancellationToken token)
@@ -286,6 +300,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     {
         // said either way: the language client says it supports progress unless it is told otherwise, and a server would create tokens for nothing.
         Window = new WindowClientCapabilities { WorkDoneProgress = SupportsWorkDoneProgress },
+        // the server asks for the live settings, and is told when they change.
+        Workspace = new WorkspaceClientCapabilities { Configuration = true, DidChangeConfiguration = new DidChangeConfigurationCapability() },
     };
 
     protected virtual InitializeParams CreateInitializationParams() => new()
@@ -325,6 +341,9 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             .OnStarted(OnLanguageClientStartedAsync)
             .OnInitialize(HandleLanguageClientInitializeAsync)
             .OnInitialized(HandleLanguageClientInitializedAsync);
+
+        // the server asks for the live settings (workspace/configuration).
+        OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(options, (request, _) => Task.FromResult(AnswerConfiguration(request)));
 
         // the workspace root the server loads its project from — OmniSharp does not set it itself,
         // so an absent RootUri here is why a server never loads a workspace.

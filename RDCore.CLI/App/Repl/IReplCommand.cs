@@ -253,6 +253,12 @@ public interface IReplPlatformClient
     Task<SignatureHelp?> SignatureHelpAsync(string source, string moduleName, int line, int character, CancellationToken token);
 
     /// <summary>
+    /// Says to the language server that the live settings changed (<c>workspace/didChangeConfiguration</c>): it asks the shell for them, and passes them on.
+    /// </summary>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task NotifyLiveSettingsChangedAsync(CancellationToken token);
+
+    /// <summary>
     /// Registers the verbs of the shell's commands with the language server, described: what it completes their arguments by.
     /// </summary>
     /// <param name="verbs">The verbs, described.</param>
