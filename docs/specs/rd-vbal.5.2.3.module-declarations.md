@@ -87,7 +87,12 @@ field of a `Type` alike, as **MS-VBA** reduces it (recorded in Excel):
 |Past the range of a `Long`, written or given by a constant|`Dim a(1E10) As Long`, `Const K = 1E10: Dim a(K) As Byte`|[VBC09352](../diagnostics/vbc09352.md) _Overflow_|
 |An upper bound below the lower one|`Dim a(5 To 1) As Long`, `Dim a(-1) As Long`|[VBC09365](../diagnostics/vbc09365.md) _Range has no values_|
 |A fraction, or a `String` that reads as a number|`Dim a(2.6) As Long`, `Dim a("3") As Long`|Valid: the bound is rounded half to even, or read, as Let-coercion to `Long` does: `3`.|
-|`Len` or `LenB` of a constant expression|`Const K = "abcd": Dim a(Len(K)) As Long`|Valid: `4`, and `8` for `LenB`. **MS-VBAL §5.6.16.1** lists both among constant expressions; MS-VBA admits them in a bound, though not in the value of a `Const`.|
+|`Len` or `LenB` of a constant expression|`Const K = "abcd": Dim a(Len(K)) As Long`|Valid: `4`, and `8` for `LenB`, of a local and of a module's variable alike. **MS-VBAL §5.6.16.1** lists both among constant expressions; MS-VBA admits them in a bound (recorded in Excel), though not in the value of a `Const`: see below.|
+
+**MS-VBAL §5.6.16.1** lists `Len` and `LenB` among constant expressions, and so a valid value of a `Const`. MS-VBA refuses them there with
+[VBC09350](../diagnostics/vbc09350.md) _Constant expression required_ (recorded in Excel), and so does RD-VBA. That is no check MS-VBA skips but one it adds, so
+no warning goes with it. One case is left as it is: a `Const` of a procedure valued `Len` of a constant (`Const K3 = Len(K)`) compiles in MS-VBA, and crashes
+the host when it runs, and RD-VBA refuses it as every other `Const` of `Len` is refused. `String * Len(K)` is a syntax error in both.
 
 ### 5.2.3.1.4 Variable Type Declarations
 
