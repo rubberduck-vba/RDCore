@@ -505,7 +505,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         // Anything else is a different variable - or no variable - and is replaced the long way.
         var sameDeclaration = existing is ITypedSymbol { ResolvedType: var before }
             && symbol is ITypedSymbol { ResolvedType: var after }
-            && Equals(before, after)
+            && IsSameType(before, after)
             && SessionBindings.TryGetAddress(existing, out _);
         if (!sameDeclaration)
         {
@@ -516,6 +516,45 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         // symbol itself leaves what it holds where it is.
         table.Replace(symbol, scope);
         return true;
+    }
+
+    // a record type is the type it was only if its fields are of the types they were: one whose field was of a type not resolved yet when the variable was first
+    // defined - a record of another record of the module, defined in a later pass (DefineSymbolsHandler) - is another, and the variable is given a record of it.
+    // A pair of record types met again on the way down is taken as the same: a type that contains itself, which no compile check stops yet, ends there.
+    private static bool IsSameType(VBType? before, VBType? after, HashSet<(VBUserDefinedType, VBUserDefinedType)>? comparing = null)
+    {
+        if (!Equals(before, after))
+        {
+            return false;
+        }
+
+        if (before is not VBUserDefinedType beforeRecord || after is not VBUserDefinedType afterRecord)
+        {
+            return true;
+        }
+
+        comparing ??= new(ReferenceTupleComparer.Instance);
+        if (!comparing.Add((beforeRecord, afterRecord)))
+        {
+            return true;
+        }
+
+        var beforeFields = beforeRecord.Fields().ToList();
+        var afterFields = afterRecord.Fields().ToList();
+        return beforeFields.Count == afterFields.Count
+            && beforeFields.Zip(afterFields).All(pair => IsSameType(pair.First.ResolvedType, pair.Second.ResolvedType, comparing));
+    }
+
+    // pairs of record types by identity: a record type's own equality is its name's, which is what the comparison looks past.
+    private sealed class ReferenceTupleComparer : IEqualityComparer<(VBUserDefinedType, VBUserDefinedType)>
+    {
+        public static readonly ReferenceTupleComparer Instance = new();
+
+        public bool Equals((VBUserDefinedType, VBUserDefinedType) x, (VBUserDefinedType, VBUserDefinedType) y)
+            => ReferenceEquals(x.Item1, y.Item1) && ReferenceEquals(x.Item2, y.Item2);
+
+        public int GetHashCode((VBUserDefinedType, VBUserDefinedType) pair)
+            => HashCode.Combine(RuntimeHelpers.GetHashCode(pair.Item1), RuntimeHelpers.GetHashCode(pair.Item2));
     }
 
     public void ResetStorage()

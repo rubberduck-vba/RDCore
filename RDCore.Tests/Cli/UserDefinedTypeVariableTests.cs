@@ -37,6 +37,33 @@ public sealed class UserDefinedTypeVariableTests
                 "Public Function Cookie() As Long", "Connect This.Cookie", "Cookie = This.Cookie", "End Function"))],
             Program("Public Sub Main()", "Dim h As New Holder", "Debug.Print h.Cookie", "End Sub")));
 
+    // a field that is a record itself is a variable as well: the callee writes its fields, or assigns it whole, and the field is what the callee left.
+    [TestMethod]
+    [DataRow("Dim o As TOuter", "Fill o.Inner", "Debug.Print o.Inner.Count; o.Inner.Name", "1 one", DisplayName = "Its fields, written by the callee")]
+    [DataRow("Dim o As TOuter", "Swap o.Inner", "Debug.Print o.Inner.Count; o.Inner.Name", "2 two", DisplayName = "Assigned whole by the callee")]
+    [DataRow("", "Fill Outer.Inner", "Debug.Print Outer.Inner.Count; Outer.Inner.Name", "1 one", DisplayName = "A field of a variable of the module")]
+    [DataRow("Dim o As TOuter", "o.Inner.Count = 7: Peek o.Inner", "Debug.Print o.Inner.Count", "7 | 7", DisplayName = "Read by the callee as it is")]
+    public async Task AFieldThatIsARecord_PassedByReference_IsWhatTheCalleeLeaves(string declaration, string call, string print, string printed)
+        => CollectionAssert.AreEqual(printed.Split(" | "), await RunAsync(
+            "Private Type TState", "Count As Long", "Name As String", "End Type",
+            "Private Type TOuter", "Inner As TState", "End Type",
+            "Private Outer As TOuter",
+            "Private Sub Fill(ByRef s As TState)", "s.Count = 1", "s.Name = \"one\"", "End Sub",
+            "Private Sub Swap(ByRef s As TState)", "Dim t As TState", "t.Count = 2", "t.Name = \"two\"", "s = t", "End Sub",
+            "Private Sub Peek(ByRef s As TState)", "Debug.Print s.Count", "End Sub",
+            "Public Sub Main()", declaration, call, print, "End Sub"));
+
+    // MVVM's ControlEventsPunk keeps its interface identifier in `This.RefIID As GUID`, which ConnectToConnectionPoint takes by reference.
+    [TestMethod]
+    public async Task AFieldThatIsARecord_OfAClassModulesRecord_PassedByReference_IsWhatTheCalleeLeaves()
+        => CollectionAssert.AreEqual(new[] { "1024 70" }, await ModuleWorkspace.RunAsync(
+            [("Holder", ModuleWorkspace.ClassModule("Holder", "Option Explicit",
+                "Private Type GUID", "Data1 As Long", "Data4(0 To 7) As Byte", "End Type",
+                "Private Type TState", "RefIID As GUID", "End Type", "Private This As TState",
+                "Private Sub Fill(ByRef riid As GUID)", "riid.Data1 = &H400", "riid.Data4(7) = &H46", "End Sub",
+                "Public Function Show() As String", "Fill This.RefIID", "Show = This.RefIID.Data1 & \" \" & This.RefIID.Data4(7)", "End Function"))],
+            Program("Public Sub Main()", "Dim h As New Holder", "Debug.Print h.Show", "End Sub")));
+
     [TestMethod]
     public async Task ALocal_OfAUserDefinedType_HasItsFields()
         => CollectionAssert.AreEqual(new[] { "9" }, await RunAsync(
@@ -144,6 +171,19 @@ public sealed class UserDefinedTypeVariableTests
             "Private Type TBox", "Values(0 To 1) As Long", "End Type",
             "Private Type TCrate", "Box As TBox", "End Type",
             "Public Sub Main()", "Dim c As TCrate", "c.Box.Values(1) = 5", "Debug.Print c.Box.Values(1)", "End Sub"));
+
+    // a variable of the module is defined with the module, before a later pass resolves the types of its type's fields: the record it holds is one of the
+    // resolved type, whose field that is a record is one (it was a field of a type nothing knew, and reading it failed).
+    [TestMethod]
+    [DataRow("Debug.Print Outer.Inner.Count", "0", DisplayName = "Read")]
+    [DataRow("Outer.Inner.Count = 3: Debug.Print Outer.Inner.Count", "3", DisplayName = "Written")]
+    [DataRow("Dim o As TOuter: Outer.Inner.Count = 4: o = Outer: Debug.Print o.Inner.Count", "4", DisplayName = "Copied")]
+    public async Task ARecordFieldOfARecord_OfAVariableOfTheModule_HasItsFields(string body, string printed)
+        => CollectionAssert.AreEqual(new[] { printed }, await RunAsync(
+            "Private Type TState", "Count As Long", "End Type",
+            "Private Type TOuter", "Inner As TState", "End Type",
+            "Private Outer As TOuter",
+            "Public Sub Main()", body, "End Sub"));
 
     [TestMethod]
     public async Task AFixedSizeArrayField_OfAVariableOfAClass_HasItsDimensions()
