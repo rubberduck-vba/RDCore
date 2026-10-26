@@ -57,7 +57,7 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
             return StaticSemanticsEvaluationResult.Success(VBVariantType.TypeInfo);
         }
 
-        if (owner is not VBClassType classType)
+        if (owner is not VBClassType declaredClass)
         {
             // "invalid if the declared type of l-expression is a type other than a specific class,
             // Object or Variant" (MS-VBAL 5.6.14). VBUnknownType (not yet resolved/modeled) can't be
@@ -68,6 +68,8 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
                     $"'{owner.Name}' is not a specific class, Object, or Variant."));
         }
 
+        // the default member of the class as the composition has it now (CurrentTypes).
+        var classType = CurrentTypes.Of(context, declaredClass);
         return classType.DefaultMember is { } defaultMember
             ? StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType)
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));

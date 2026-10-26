@@ -544,13 +544,13 @@ public static class ExpressionStaticSemanticsEvaluator
         var right = rightResult.Result!;
         if (binaryOperator.Token != Tokens.CompareIsOp)
         {
-            var leftValue = ObjectValueStaticSemantics.ValueOf(binaryOperator.Left, left, ValueDestination.TypedValue);
+            var leftValue = ObjectValueStaticSemantics.ValueOf(context, binaryOperator.Left, left, ValueDestination.TypedValue);
             if (leftValue.IsError)
             {
                 return leftValue;
             }
 
-            var rightValue = ObjectValueStaticSemantics.ValueOf(binaryOperator.Right, right, ValueDestination.TypedValue);
+            var rightValue = ObjectValueStaticSemantics.ValueOf(context, binaryOperator.Right, right, ValueDestination.TypedValue);
             if (rightValue.IsError)
             {
                 return rightValue;
@@ -599,7 +599,7 @@ public static class ExpressionStaticSemanticsEvaluator
             // the simple data value of what parentheses enclose is of whatever type it is - an object, when the default member returns one; an operand of
             // any other unary operator is a value of a declared type.
             var destination = unaryOperator.Token == OperatorSymbolNames.UnaryArithmeticPrecedenceOp ? ValueDestination.SimpleDataValue : ValueDestination.TypedValue;
-            var value = ObjectValueStaticSemantics.ValueOf(unaryOperator.Operand, operand, destination);
+            var value = ObjectValueStaticSemantics.ValueOf(context, unaryOperator.Operand, operand, destination);
             if (value.IsError)
             {
                 return value;

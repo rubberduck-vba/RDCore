@@ -70,9 +70,10 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
             return StaticSemanticsEvaluationResult.Success(array.ItemType);
         }
 
-        if (callee is VBClassType classType)
+        if (callee is VBClassType declaredClass)
         {
-            // a specific class needs a public default member to be callable this way.
+            // a specific class needs a public default member to be callable this way: the class as the composition has it now (CurrentTypes).
+            var classType = CurrentTypes.Of(context, declaredClass);
             return classType.DefaultMember is { } defaultMember
                 ? StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType)
                 : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));

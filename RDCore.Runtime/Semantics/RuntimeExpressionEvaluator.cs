@@ -358,6 +358,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var flags = kind | (ownerExpression is null ? MemberAccessOperationSemanticFlags.WithBlockVariable : 0);
         var declared = DeclaredTypeOfOwner(session, context, ownerExpression ?? context.EnclosingWithTargetExpression);
 
+        // what a class declares is read from the class as the session has it now, not as it was when the declaration was bound (CurrentTypes).
+        if (declared is VBClassType declaredClass)
+        {
+            declared = CurrentTypes.Of(session.Symbols.Resolver, declaredClass);
+        }
+
         VBTypeMemberSymbol? member = null;
         if (declared is VBVariantType or VBObjectType)
         {
@@ -439,7 +445,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         MemberAccessExpressionNode { Owner: { } owner } access => DeclaredTypeOfOwner(session, context, owner) switch
         {
             VBUserDefinedType => true,
-            VBClassType declared => declared.Members.FirstOrDefault(member
+            VBClassType declared => CurrentTypes.Of(session.Symbols.Resolver, declared).Members.FirstOrDefault(member
                 => member.Name.Equals(access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)) is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field },
             _ => false,
         },

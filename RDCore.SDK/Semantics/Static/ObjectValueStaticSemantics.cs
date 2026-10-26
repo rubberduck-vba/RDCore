@@ -47,6 +47,7 @@ public static class ObjectValueStaticSemantics
     /// <summary>
     /// The declared type of the value <paramref name="expression"/> stands for where a value is expected, or the compile error that it has none.
     /// </summary>
+    /// <param name="context">The compile-time context: the class of an object is read from it as the composition has it now (see <see cref="CurrentTypes"/>).</param>
     /// <param name="expression">The expression whose value is expected.</param>
     /// <param name="declaredType">The declared type of <paramref name="expression"/>.</param>
     /// <param name="destination">What the place that expects a value expects of an object.</param>
@@ -55,7 +56,7 @@ public static class ObjectValueStaticSemantics
     /// default member; <see cref="VBObjectType"/> - late-bound - where a value of any type is expected, for one that has none or whose default member returns
     /// an object; or the error.
     /// </returns>
-    public static StaticSemanticsEvaluationResult ValueOf(ExpressionNode expression, VBType declaredType, ValueDestination destination)
+    public static StaticSemanticsEvaluationResult ValueOf(StaticEvaluationContext context, ExpressionNode expression, VBType declaredType, ValueDestination destination)
     {
         if (IsNothingLiteral(expression))
         {
@@ -69,11 +70,12 @@ public static class ObjectValueStaticSemantics
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, expression.Location, NameOf(expression) ?? string.Empty));
         }
 
-        if (declaredType is not VBClassType classType)
+        if (declaredType is not VBClassType declaredClass)
         {
             return StaticSemanticsEvaluationResult.Success(declaredType);
         }
 
+        var classType = CurrentTypes.Of(context, declaredClass);
         if (classType.DefaultMember is not { } defaultMember)
         {
             // MS-VBAL 5.5.1.1: statically invalid. A function that takes a value of any type reads it when it runs, as MS-VBA has it.
@@ -207,7 +209,7 @@ public static class ObjectValueStaticSemantics
                 continue;
             }
 
-            if (ValueOf(passed, type, destination) is { IsError: true } refused)
+            if (ValueOf(context, passed, type, destination) is { IsError: true } refused)
             {
                 return refused.ErrorInfo as VBCompileErrorInfo;
             }
@@ -258,12 +260,12 @@ public static class ObjectValueStaticSemantics
     // measured. An object stands for its default member's value, which is no variable: MS-VBA refuses it unless that value is a String or a Variant.
     private static VBCompileErrorInfo? StringOrVariableError(StaticEvaluationContext context, ExpressionNode expression, VBType type)
     {
-        if (ValueOf(expression, type, ValueDestination.AnyValue) is { IsError: true } refused)
+        if (ValueOf(context, expression, type, ValueDestination.AnyValue) is { IsError: true } refused)
         {
             return refused.ErrorInfo as VBCompileErrorInfo;
         }
 
-        if (type is VBClassType { DefaultMember: { } defaultMember } classType)
+        if (type is VBClassType declaredClass && CurrentTypes.Of(context, declaredClass) is { DefaultMember: { } defaultMember } classType)
         {
             return IsReadAsAString(defaultMember.ResolvedType) && defaultMember.ResolvedType is not (VBClassType or VBObjectType)
                 ? null
@@ -293,7 +295,7 @@ public static class ObjectValueStaticSemantics
         MemberAccessExpressionNode { Owner: { } owner } access => ExpressionStaticSemanticsEvaluator.Evaluate(Unrecorded(context), owner) switch
         {
             { IsSuccess: true, Result: VBUserDefinedType } => true,
-            { IsSuccess: true, Result: VBClassType declared } => declared.Members.FirstOrDefault(member
+            { IsSuccess: true, Result: VBClassType declared } => CurrentTypes.Of(context, declared).Members.FirstOrDefault(member
                 => member.Name.Equals(access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)) is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field },
             _ => false,
         },

@@ -19,6 +19,12 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         var destinationType = operandDeclaredTypes[(int)InputIndex.CoercionDestinationType];
         var sourceType = operandDeclaredTypes[(int)InputIndex.CoercionSourceValue];
 
+        // what an object's class declares is read from the class as the composition has it now, not as it was when the declaration was bound.
+        if (sourceType is VBClassType declaredClass)
+        {
+            sourceType = CurrentTypes.Of(context, declaredClass);
+        }
+
         // an object of a class that has no default member has no value to give a Variant either: the error says what MS-VBA does with it instead.
         if (sourceType is VBClassType { DefaultMember: null } noDefault && destinationType is VBVariantType)
         {
@@ -28,7 +34,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         // a destination of a value type expects a value of the source: an object stands for its default member's value, which it must have.
         if (ObjectValueStaticSemantics.IsValueType(destinationType))
         {
-            var value = ObjectValueStaticSemantics.ValueOf(expression, sourceType, ValueDestination.TypedValue);
+            var value = ObjectValueStaticSemantics.ValueOf(context, expression, sourceType, ValueDestination.TypedValue);
             if (value.IsError)
             {
                 return value;
