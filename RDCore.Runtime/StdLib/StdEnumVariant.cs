@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 
 namespace RDCore.Runtime.StdLib;
 
@@ -70,7 +71,10 @@ internal sealed class StdEnumVariant : IStdEnumVariantClass, IStdLibReceiverBoun
     /// <returns>The enumerator, or <see langword="null"/> when the library has no such class.</returns>
     public VBObjectValue? Create(IReadOnlyList<VBTypedValue> members)
     {
-        if (session.Symbols.Resolver.ResolveType("IEnumVARIANT", ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is not VBClassModuleSymbol enumerator)
+        // the standard library's class, named by its library: stdole declares an IEnumVARIANT too (Next, Skip, Reset, Clone), and a project that references it - or
+        // MSForms, which depends on it - would otherwise make every enumerator one of stdole's, with no MoveNext to call.
+        if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StdLibSymbolProvider.LibraryName, "IEnumVARIANT", StaticSymbol.GlobalUri).Symbol
+            is not VBClassModuleSymbol enumerator)
         {
             return null;
         }
