@@ -158,7 +158,7 @@
 </value>
   </data>
   <data name="RDCore_Slogan" xml:space="preserve">
-    <value>{$VIVAT}  ♥  {$CUCUMIS}</value>
+    <value>{$VIVAT}  {$HEART}  {$CUCUMIS}</value>
     <comment>DO NOT LOCALIZE.
 Long Live the Cucumber (Latin)</comment>
   </data>

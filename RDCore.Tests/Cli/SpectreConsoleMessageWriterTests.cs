@@ -35,6 +35,29 @@ public sealed class SpectreConsoleMessageWriterTests
     }
 
     [TestMethod]
+    public void Slogan_ReadsAsItAlwaysHas()
+    {
+        var (sut, console) = NewSut();
+
+        sut.WriteSlogan();
+
+        StringAssert.Contains(console.Output, "V I V A T  ♥  C U C U M I S ™");
+    }
+
+    // the heart is written in red, whatever the theme: its colour is part of what it means.
+    [TestMethod]
+    public void Slogan_WritesTheHeartInRed()
+    {
+        var console = new TestConsole().EmitAnsiSequences().Colors(Spectre.Console.ColorSystem.TrueColor);
+        var themes = Substitute.For<IAppThemeService>();
+        themes.Theme.Returns(AppTheme.Neutral);
+
+        new SpectreConsoleMessageWriter(console, themes).WriteSlogan();
+
+        StringAssert.Contains(console.Output, "\u001b[38;2;255;0;0m♥");
+    }
+
+    [TestMethod]
     public void BodyLessBuilder_DoesNotThrow()
     {
         var (sut, console) = NewSut();

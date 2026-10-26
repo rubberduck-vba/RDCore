@@ -158,7 +158,7 @@
 </value>
   </data>
   <data name="RDCore_Slogan" xml:space="preserve">
-    <value>{$VIVAT}  ♥  {$CUCUMIS}</value>
+    <value>{$VIVAT}  {$HEART}  {$CUCUMIS}</value>
   </data>
   <data name="RDCoreSplash_Foreground" xml:space="preserve">
     <value>&gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 

@@ -72,6 +72,13 @@ public record class ConsoleMessageBuilder
     /// <summary>Adds a string placeholder span, substituted where <c>{$name}</c> appears in the body.</summary>
     public ConsoleMessageBuilder WithPlaceholder(string placeholder, string value) => WithPart(ConsoleMessageMetricPartFactory.CreatePlaceholderPart($"{{${placeholder}}}", value));
 
+    /// <summary>
+    /// Adds a string placeholder span written in <paramref name="color"/> rather than in the theme's metric style, substituted where <c>{$name}</c>
+    /// appears in the body.
+    /// </summary>
+    public ConsoleMessageBuilder WithPlaceholder(string placeholder, string value, ConsoleRgbColor color)
+        => WithPart(ConsoleMessageMetricPartFactory.CreatePlaceholderPart($"{{${placeholder}}}", value, color));
+
     /// <summary>Adds an arbitrary part.</summary>
     public ConsoleMessageBuilder WithPart(ConsoleMessagePart part) => this with { Parts = [.. Parts, part] };
 

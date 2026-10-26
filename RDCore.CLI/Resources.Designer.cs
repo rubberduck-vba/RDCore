@@ -610,7 +610,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {$VIVAT}  ♥  {$CUCUMIS}.
+        ///   Looks up a localized string similar to {$VIVAT}  {$HEART}  {$CUCUMIS}.
         /// </summary>
         public static string RDCore_Slogan {
             get {

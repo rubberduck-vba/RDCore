@@ -95,17 +95,22 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         return this;
     }
 
-    // markup-escape the literal text, then splice each {$PLACEHOLDER} back in as a metric-styled span.
+    // markup-escape the literal text, then splice each {$PLACEHOLDER} back in as a metric-styled span - or, for one that has a colour of its own, a span
+    // of that colour.
     private static string Substitute(MessageKind kind, AppTheme theme, string text, IReadOnlyList<ConsoleMessageStringLiteralPlaceholderPart> placeholders)
     {
         var metric = theme.GetStyle(kind, MessagePart.Metric);
         var result = Markup.Escape(text);
         foreach (var placeholder in placeholders)
         {
-            result = result.Replace(placeholder.Placeholder, $"[{metric}]{Markup.Escape(placeholder.Value)}[/]");
+            var style = placeholder is ConsoleMessageColoredPlaceholderPart { Color: var color } ? $"#{color.R:x2}{color.G:x2}{color.B:x2}" : metric;
+            result = result.Replace(placeholder.Placeholder, $"[{style}]{Markup.Escape(placeholder.Value)}[/]");
         }
         return result;
     }
+
+    // the heart of the slogan is red, whatever the theme.
+    private static readonly ConsoleRgbColor HeartRed = new(0xFF, 0x00, 0x00);
 
     public IConsoleMessageWriter WriteAssemblyInfo()
     {
@@ -131,6 +136,7 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         .WithKind((MessageKind)(-1))
         .WithMessageBody($"{new string(' ', 36)}{Resources.RDCore_Slogan} ™")
         .WithPlaceholder("VIVAT", "V I V A T")
+        .WithPlaceholder("HEART", "♥", HeartRed)
         .WithPlaceholder("CUCUMIS", "C U C U M I S")
         .WithLineBreak());
 }
