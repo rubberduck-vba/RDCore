@@ -22,21 +22,39 @@ namespace RDCore.External.Windows.Forms;
 /// Office is told so, rather than told that the library is not there.
 /// </para>
 /// </remarks>
-/// <param name="apartment">The apartment: the automation server's, whose objects the forms' controls are.</param>
 [SupportedOSPlatform("windows")]
-public sealed class WindowsFormHost(ComApartment apartment) : IFormHost
+public sealed class WindowsFormHost : IFormHost
 {
     private const int ClassNotRegistered = unchecked((int)0x80040154);
     private const int InvalidArgument = unchecked((int)0x80070057);
 
+    private readonly ComApartment _apartment;
     private readonly Dictionary<object, HostedForm> _forms = new(ReferenceEqualityComparer.Instance);
     private IDisposable? _keys;
+
+    /// <summary>
+    /// Hosts forms on <paramref name="apartment"/>.
+    /// </summary>
+    /// <param name="apartment">The apartment: the automation server's, whose objects the forms' controls are.</param>
+    public WindowsFormHost(ComApartment apartment)
+    {
+        _apartment = apartment;
+
+        // a form the automation server lets go of - the program's last reference to it is gone - is destroyed, window and all.
+        apartment.Releasing += released =>
+        {
+            if (_forms.Remove(released, out var hosted))
+            {
+                hosted.Destroy();
+            }
+        };
+    }
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
-    public object Create(FormDefinition form) => apartment.Invoke(() =>
+    public object Create(FormDefinition form) => _apartment.Invoke(() =>
     {
         var created = CreateForm();
         HostedForm hosted;
@@ -51,40 +69,40 @@ public sealed class WindowsFormHost(ComApartment apartment) : IFormHost
         }
 
         // the keys of every form go to its active object first, which is what moves the focus with Tab.
-        _keys ??= apartment.TranslateKeys(HostedForm.TranslateKey);
+        _keys ??= _apartment.TranslateKeys(HostedForm.TranslateKey);
         _forms[created] = hosted;
         return created;
     })!;
 
     /// <inheritdoc/>
-    public void Show(object form, bool modal) => apartment.Invoke<object?>(() =>
+    public void Show(object form, bool modal) => _apartment.Invoke<object?>(() =>
     {
-        HostedOf(form).Show(apartment, modal);
+        HostedOf(form).Show(_apartment, modal);
         return null;
     });
 
     /// <inheritdoc/>
-    public void Hide(object form) => apartment.Invoke<object?>(() =>
+    public void Hide(object form) => _apartment.Invoke<object?>(() =>
     {
         HostedOf(form).Hide();
         return null;
     });
 
     /// <inheritdoc/>
-    public bool IsShown(object form) => apartment.Invoke(() => HostedOf(form).IsShown);
+    public bool IsShown(object form) => _apartment.Invoke(() => HostedOf(form).IsShown);
 
     /// <inheritdoc/>
-    public string GetCaption(object form) => apartment.Invoke(() => HostedOf(form).Caption)!;
+    public string GetCaption(object form) => _apartment.Invoke(() => HostedOf(form).Caption)!;
 
     /// <inheritdoc/>
-    public void SetCaption(object form, string caption) => apartment.Invoke<object?>(() =>
+    public void SetCaption(object form, string caption) => _apartment.Invoke<object?>(() =>
     {
         HostedOf(form).Caption = caption;
         return null;
     });
 
     /// <inheritdoc/>
-    public void Destroy(object form) => apartment.Invoke<object?>(() =>
+    public void Destroy(object form) => _apartment.Invoke<object?>(() =>
     {
         if (_forms.Remove(form, out var hosted))
         {

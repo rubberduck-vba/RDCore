@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Text.Json.Serialization.Metadata;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution;
 
@@ -25,10 +26,31 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     private volatile ImmutableDictionary<SemanticId, InstructionList> _procedures = ImmutableDictionary<SemanticId, InstructionList>.Empty;
     private ImmutableDictionary<string, ImmutableArray<SemanticId>> _modules = ImmutableDictionary<string, ImmutableArray<SemanticId>>.Empty;
 
+    private volatile ImmutableDictionary<string, FormDescriptor> _forms = ImmutableDictionary.Create<string, FormDescriptor>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// What the semantic analysis pass found out about the code of the session: the model of each module, as of the last time it was loaded.
     /// </summary>
     public SemanticModelStore Semantics { get; } = new();
+
+    /// <summary>
+    /// What the designers of the session's forms declare, by the name of the form's module: what a form is created from - its state, its caption, where it starts
+    /// up - when the program first uses it.
+    /// </summary>
+    public IReadOnlyDictionary<string, FormDescriptor> Forms => _forms;
+
+    /// <summary>
+    /// Keeps what a form module's designer declares, replacing what was kept for it before; a module that is no form is forgotten as one.
+    /// </summary>
+    /// <param name="module">The name of the module.</param>
+    /// <param name="designer">What its designer declares; <see langword="null"/> for a module that is no form.</param>
+    public void DefineForm(string module, FormDescriptor? designer)
+    {
+        lock (_loading)
+        {
+            _forms = designer is null ? _forms.Remove(module) : _forms.SetItem(module, designer);
+        }
+    }
 
     /// <summary>
     /// Loads the procedures of a module, replacing every one that was loaded for it before.

@@ -31,8 +31,10 @@ internal static class MachineExternal
                 NullLogger<ChildConnection>.Instance),
             ExternalHost.DefaultExecutable,
             NullLogger<ExternalHost>.Instance);
-        return new ExternalWorld(new RemoteAutomationServer(host), new RemoteNativeLibraryHost(host))
+        var servers = new RemoteAutomationServer(host);
+        return new ExternalWorld(servers, new RemoteNativeLibraryHost(host))
         {
+            Forms = servers,
             Interaction = MachinePlatform.Interaction,
             Desktop = MachinePlatform.Desktop,
         };

@@ -132,6 +132,16 @@ public sealed record class FormDescriptor(
     };
 
     /// <summary>
+    /// The designer's state of the form, as the library that hosts it loads it: for a VBA UserForm, the compound file its <c>.frx</c> keeps
+    /// (<see cref="FormDesigner.StateOf"/>), opaque here. Empty for a form whose designer keeps none, and for one read without its companion file.
+    /// </summary>
+    /// <remarks>
+    /// What a form declares is read from it once (<see cref="Controls"/>); the state itself travels with the descriptor so that whatever runs the form - the
+    /// environment host, which has no file of the workspace - can hand it to the form host as it is.
+    /// </remarks>
+    public ReadOnlyMemory<byte> State { get; init; }
+
+    /// <summary>
     /// Every control of the form, at any depth, in the order the designer persisted them.
     /// </summary>
     public IEnumerable<FormControlDescriptor> AllControls() => Controls.SelectMany(control => control.DescendantsAndSelf());

@@ -149,6 +149,18 @@ public sealed class ComApartment : IDisposable
     }
 
     /// <summary>
+    /// Raised on the apartment when an object that lives on it is let go of by whatever held it, before it is released: what made more of it than the object - a
+    /// form's window - lets go of that too.
+    /// </summary>
+    internal event Action<object>? Releasing;
+
+    /// <summary>
+    /// Says that <paramref name="released"/> is being let go of (<see cref="Releasing"/>). Called on the apartment.
+    /// </summary>
+    /// <param name="released">The object.</param>
+    internal void OnReleasing(object released) => Releasing?.Invoke(released);
+
+    /// <summary>
     /// Ends the apartment, once the calls that were asked of it are done. Every object that was made on it has been let go of by whatever held it.
     /// </summary>
     public void Dispose()

@@ -629,6 +629,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     public void Release(object handle) => OnApartment<object?>(() =>
     {
         StopListening(handle);
+        _apartment.OnReleasing(handle);
         if (Marshal.IsComObject(handle))
         {
             _ = Marshal.FinalReleaseComObject(handle);

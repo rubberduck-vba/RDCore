@@ -2,6 +2,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.External.Automation;
 using RDCore.External;
+using RDCore.Runtime.Execution.External.Forms;
 using RDCore.Runtime.Execution.External.Native;
 using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
@@ -160,6 +161,8 @@ public sealed class RuntimeExecutionPipeline
         Sweep,
     }
 
+    private static readonly IReadOnlyDictionary<string, SDK.Workspace.Forms.FormDescriptor> NoForms = new Dictionary<string, SDK.Workspace.Forms.FormDescriptor>();
+
     private static RuntimeExecutionPipeline Build(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
@@ -238,15 +241,20 @@ public sealed class RuntimeExecutionPipeline
         // whichever provider can reach it runs it.
         // an analysis does not make a call the platform does not run itself, and no policy decides whether it may: the outside world answers
         // with a value that is not known. What the library does depends on state the analysis does not have, which the observation is told of.
+        var world = outside ?? ExternalWorld.None;
+        var servers = new AutomationCallProvider(session, world.Automation);
         var external = analysis
             ? new ExternalCallPipeline(session, observation is null ? [] : [new AssumedCallInterceptor(observation)], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
-            // the servers' provider is asked first: it answers the members of the standard library's enumerator for the enumerators it holds, and for nothing else of it.
+            // a member a form's designer declares is the form host's, which calls the members of the form object itself through the servers' provider.
+            // The servers' provider is asked next: it answers the members of the standard library's enumerator for the enumerators it holds, and for nothing else of it.
             // A Declare'd procedure is a native library's, and is called when the policy over library imports lets it through.
             : ExternalCallPipeline.For(session,
                 [
-                    new AutomationCallProvider(session, (outside ?? ExternalWorld.None).Automation),
+                    // the image keeps what the designers of its forms declare; bodies that are only bodies have no forms.
+                    new FormCallProvider(session, world, servers, bodies is ProgramImage image ? image.Forms : NoForms),
+                    servers,
                     StdLibDispatcher.For(session, outside, cancellation),
-                    new DeclaredProcedureProvider(session, (outside ?? ExternalWorld.None).Libraries),
+                    new DeclaredProcedureProvider(session, world.Libraries),
                 ]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         expressions.ProcedureInvoker = invoker;

@@ -91,7 +91,9 @@ public sealed class ExternalHost : IDisposable
                 calls.Connect(TimeSpan.FromSeconds(30));
                 incarnation.Attach(new CallChannel(calls), raised => AutomationEvent is { } handle ? handle(incarnation, raised) : new AutomationEventResult { Arguments = raised.Arguments });
 
-                incarnation.IsAutomationAvailable = incarnation.Send<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, new AutomationStatusParams()).IsAvailable;
+                var status = incarnation.Send<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, new AutomationStatusParams());
+                incarnation.IsAutomationAvailable = status.IsAvailable;
+                incarnation.IsFormHostAvailable = status.IsFormHostAvailable;
             }
             catch (Exception exception) when (exception is not ExternalHostUnavailableException)
             {
@@ -198,6 +200,11 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     /// Whether the process has automation servers to reach.
     /// </summary>
     public bool IsAutomationAvailable { get; set; }
+
+    /// <summary>
+    /// Whether the process can host forms.
+    /// </summary>
+    public bool IsFormHostAvailable { get; set; }
 
     /// <summary>
     /// Says the process has stopped.

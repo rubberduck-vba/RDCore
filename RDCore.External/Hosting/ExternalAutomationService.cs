@@ -21,8 +21,14 @@ namespace RDCore.External.Hosting;
 /// </para>
 /// </remarks>
 /// <param name="platform">The automation servers of the platform.</param>
-public sealed class ExternalAutomationService(IAutomationServer platform)
+/// <param name="forms">
+/// The form host of the platform, whose forms are objects of <paramref name="platform"/> like any other: they share its handles, and a member of a form is an
+/// <see cref="ExternalProtocol.AutomationInvoke"/> of one. A platform that hosts no forms is told so when one is asked for.
+/// </param>
+public sealed class ExternalAutomationService(IAutomationServer platform, Forms.IFormHost? forms = null)
 {
+    private readonly Forms.IFormHost _forms = forms ?? Forms.UnavailableFormHost.Instance;
+
     private readonly ExternalHandles _handles = new();
     private readonly ConcurrentDictionary<long, EventWait> _events = new();
     private long _lastEvent;
@@ -48,11 +54,50 @@ public sealed class ExternalAutomationService(IAutomationServer platform)
         channel.Handle<AutomationAdviseParams, ExternalDoneResult>(ExternalProtocol.AutomationAdvise, Advise);
         channel.Handle<AutomationUnadviseParams, ExternalDoneResult>(ExternalProtocol.AutomationUnadvise, Unadvise);
         channel.Handle<AutomationReleaseParams, ExternalDoneResult>(ExternalProtocol.AutomationRelease, Release);
+        channel.Handle<FormCreateParams, AutomationObjectResult>(ExternalProtocol.FormCreate, CreateForm);
+        channel.Handle<FormShowParams, ExternalDoneResult>(ExternalProtocol.FormShow, ShowForm);
+        channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormHide, HideForm);
+        channel.Handle<FormParams, FormIsShownResult>(ExternalProtocol.FormIsShown, IsFormShown);
+        channel.Handle<FormCaptionParams, FormCaptionResult>(ExternalProtocol.FormCaption, FormCaption);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
     }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
-    public AutomationStatusResult Status(AutomationStatusParams request) => new() { IsAvailable = platform.IsAvailable };
+    public AutomationStatusResult Status(AutomationStatusParams request) => new() { IsAvailable = platform.IsAvailable, IsFormHostAvailable = _forms.IsAvailable };
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormCreate"/>.</summary>
+    public AutomationObjectResult CreateForm(FormCreateParams request)
+        => Answer(request.HandlingEvent, () => new AutomationObjectResult { Handle = _handles.HandleOf(_forms.Create(request.ToDefinition())) }, Failed<AutomationObjectResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormShow"/>: a modal form is answered once it is hidden.</summary>
+    public ExternalDoneResult ShowForm(FormShowParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.Show(_handles.ObjectOf(request.Target), request.Modal);
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormHide"/>.</summary>
+    public ExternalDoneResult HideForm(FormParams request) => Answer(request.HandlingEvent, () =>
+    {
+        _forms.Hide(_handles.ObjectOf(request.Target));
+        return new ExternalDoneResult();
+    }, Failed<ExternalDoneResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormIsShown"/>.</summary>
+    public FormIsShownResult IsFormShown(FormParams request)
+        => Answer(request.HandlingEvent, () => new FormIsShownResult { IsShown = _forms.IsShown(_handles.ObjectOf(request.Target)) }, Failed<FormIsShownResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.FormCaption"/>.</summary>
+    public FormCaptionResult FormCaption(FormCaptionParams request) => Answer(request.HandlingEvent, () =>
+    {
+        var form = _handles.ObjectOf(request.Target);
+        if (request.Caption is { } caption)
+        {
+            _forms.SetCaption(form, caption);
+        }
+
+        return new FormCaptionResult { Caption = _forms.GetCaption(form) };
+    }, Failed<FormCaptionResult>);
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
     public AutomationObjectResult Create(AutomationCreateParams request)

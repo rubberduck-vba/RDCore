@@ -53,6 +53,21 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/automation/event</c>: an object raised an event, which the environment host handles.</summary>
     public const string AutomationEvent = "rdcore/external/automation/event";
 
+    /// <summary><c>rdcore/external/forms/create</c>: creates a form from its definition, an object of the automation server like any other.</summary>
+    public const string FormCreate = "rdcore/external/forms/create";
+
+    /// <summary><c>rdcore/external/forms/show</c>: shows a form, modeless or modal; a modal one is answered once it is hidden.</summary>
+    public const string FormShow = "rdcore/external/forms/show";
+
+    /// <summary><c>rdcore/external/forms/hide</c>: hides a form.</summary>
+    public const string FormHide = "rdcore/external/forms/hide";
+
+    /// <summary><c>rdcore/external/forms/isShown</c>: whether a form is shown.</summary>
+    public const string FormIsShown = "rdcore/external/forms/isShown";
+
+    /// <summary><c>rdcore/external/forms/caption</c>: gets a form's caption, or sets it when the request gives one.</summary>
+    public const string FormCaption = "rdcore/external/forms/caption";
+
     /// <summary><c>rdcore/external/native/call</c>: calls a function of a native library, as a <c>Declare</c> names it.</summary>
     public const string NativeCall = "rdcore/external/native/call";
 
@@ -127,6 +142,9 @@ public sealed record class AutomationStatusResult : ExternalResult
 {
     /// <summary>Whether the external host has automation servers to reach: <see cref="IAutomationServer.IsAvailable"/>.</summary>
     public bool IsAvailable { get; init; }
+
+    /// <summary>Whether the external host can host forms: <see cref="Forms.IFormHost.IsAvailable"/>.</summary>
+    public bool IsFormHostAvailable { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
