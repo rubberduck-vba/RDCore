@@ -304,8 +304,9 @@ public readonly struct Float80 : IEquatable<Float80>
             return SignedInfinity(negative);
         }
 
-        // in the extended format: a 64-bit significand whose bit 63 is the leading bit, and a biased exponent - or a subnormal of it, under its least.
-        var mantissa = (ulong)(kept << (64 - length));
+        // in the extended format: a 64-bit significand whose bit 63 is the leading bit, and a biased exponent - or a subnormal of it, under its least. A
+        // carry out of 64 kept bits is 2^64, one bit too long: its leading bit is all there is to keep of it.
+        var mantissa = length > 64 ? (ulong)(kept >> (length - 64)) : (ulong)(kept << (64 - length));
         var biased = leading + ExponentBias;
         if (biased <= 0)
         {

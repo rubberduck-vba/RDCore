@@ -184,6 +184,34 @@ public sealed class Float80Tests
         AssertIsRounded(Sum(ExactOf(a), Negated(ExactOf(b))), Float80.Subtract(a, b, out _), ExtendedFmt, $"{a} - {b}");
     }
 
+    // a result whose 64 kept bits are all ones and round up: the carry makes it the next power of two. 1 - x for an x under half the unit of the last bit
+    // under 1 is 1 (grid oracle\s43: MS-VBA's Rate iterates through (1 + r)^115 - 1 with (1 + r)^115 of 1.9E-20).
+    [TestMethod]
+    [DataRow(1.8879052018214916E-20)]
+    [DataRow(1E-20)]
+    [DataRow(2.7E-20)]
+    [DataRow(1E-30)]
+    [DataRow(1E-300)]
+    public void ARoundingThatCarriesOutOfSixtyFourBits_IsThePowerOfTwo(double x)
+    {
+        var tiny = Float80.FromDouble(x);
+        var one = Float80.FromDouble(1);
+        AssertIsRounded(Sum(ExactOf(one), Negated(ExactOf(tiny))), Float80.Subtract(one, tiny, out _), ExtendedFmt, $"1 - {x:R}");
+        AssertIsRounded(Sum(Negated(ExactOf(one)), ExactOf(tiny)), Float80.Add(one.Negate(), tiny, out _), ExtendedFmt, $"-1 + {x:R}");
+        Assert.AreEqual(1.0, Float80.Subtract(one, tiny, out _).ToDouble(out _));
+        Assert.AreEqual(-1.0, Float80.Subtract(tiny, one, out _).ToDouble(out _));
+    }
+
+    [TestMethod]
+    public void AProductThatRoundsUpToAPowerOfTwo_IsIt()
+    {
+        // (1 - 2^-64) * (1 + 2^-64) = 1 - 2^-128, which rounds to 1.
+        var below = Float80.Subtract(Float80.FromDouble(1), Float80.FromDouble(Math.Pow(2, -64)), out _);
+        var above = Float80.Add(Float80.FromDouble(1), Float80.FromDouble(Math.Pow(2, -63)), out _);
+        var product = Float80.Multiply(below, above, out _);
+        AssertIsRounded(Product(ExactOf(below), ExactOf(above)), product, ExtendedFmt, $"{below} * {above}");
+    }
+
     [TestMethod]
     public void TheProduct_IsCorrectlyRounded()
     {
