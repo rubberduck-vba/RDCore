@@ -221,7 +221,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
             Parameters =
             [
                 new ParamArrayParameterSymbol(
-                    _workspaceRoot, print.Uri, "OutputList", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal),
+                    _workspaceRoot, print.Uri, "OutputList", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef),
             ],
         };
     }
