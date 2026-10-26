@@ -47,9 +47,11 @@ internal static class ExternalEvents
     /// <param name="source">The object.</param>
     public static void StopWhenUnheard(IRuntimeSession session, VBRuntimeObjectId source)
     {
-        // a form's control is listened to by its form, for as long as the form is (FormEvents), whatever variable lets it go.
+        // a form's control is listened to by its form, for as long as the form is (FormEvents), whatever variable lets it go; an object a sink is connected to,
+        // until it is disconnected (ConnectToConnectionPoint).
         if (session.Objects.EventSubscribers(source).Count != 0
             || Forms.SessionForms.Of(session).IsListenedControl(source)
+            || SessionConnections.Of(session).IsConnected(source)
             || !session.ExternalObjects.TryGet(source, out var owner, out var handle) || owner is not IAutomationServer server
             || !session.ExternalObjects.TryEndListening(source))
         {

@@ -255,6 +255,8 @@ public sealed class RuntimeExecutionPipeline
                     forms,
                     servers,
                     StdLibDispatcher.For(session, outside, cancellation),
+                    // the shlwapi function that connects an object of the program's own to a server's events is the session's to run, not the native library's.
+                    new ConnectionPointCallProvider(session, world.Automation),
                     new DeclaredProcedureProvider(session, world.Libraries),
                 ]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);

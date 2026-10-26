@@ -488,6 +488,109 @@ public sealed class FormHostingTests
         }, actual, string.Join(" | ", actual));
     }
 
+    // a sink a program connects to a control itself, as MVVM's ControlEventsPunk does: shlwapi's ConnectToConnectionPoint, IDispatch, and members by the dispatch
+    // identifiers of VBA's extender (and Change's, 2). Kind 0 connects IDispatch's point, 1 Microsoft Forms' ControlEvents'.
+    private static readonly (string Name, string Source) Punk = ("Punk", ModuleWorkspace.ClassModule("Punk",
+        "Option Explicit",
+        "Private Type GUID", "    Data1 As Long", "    Data2 As Integer", "    Data3 As Integer", "    Data4(0 To 7) As Byte", "End Type",
+        "Private Declare PtrSafe Function ConnectToConnectionPoint Lib \"shlwapi\" Alias \"#168\" (ByVal Punk As stdole.IUnknown, ByRef riidEvent As GUID, ByVal fConnect As Long, ByVal PunkTarget As stdole.IUnknown, ByRef pdwCookie As Long, Optional ByVal ppcpOut As LongPtr) As Long",
+        "Public Tag As String",
+        "Public CancelExit As Boolean",
+        "Public CancelUpdate As Boolean",
+        "Private Target As Object",
+        "Private Cookie As Long",
+        "Private Iid As GUID",
+        "Public Function Connect(ByVal t As Object, ByVal kind As Long) As Long",
+        "    Set Target = t",
+        "    If kind = 0 Then",
+        "        Iid.Data1 = &H20400: Iid.Data4(0) = &HC0: Iid.Data4(7) = &H46",
+        "    Else",
+        "        Iid.Data1 = &H9A4BBF53: Iid.Data2 = &H4E46: Iid.Data3 = &H101B: Iid.Data4(0) = &H8B: Iid.Data4(1) = &HBD: Iid.Data4(3) = &HAA: Iid.Data4(5) = &H3E: Iid.Data4(6) = &H3B: Iid.Data4(7) = &H29",
+        "    End If",
+        "    Connect = ConnectToConnectionPoint(Me, Iid, 1, t, Cookie, 0)",
+        "End Function",
+        "Public Function Disconnect() As Long", "    Disconnect = ConnectToConnectionPoint(Me, Iid, 0, Target, Cookie, 0)", "End Function",
+        "Public Property Get CookieValue() As Long", "    CookieValue = Cookie", "End Property",
+        "Public Sub OnAfterUpdate()", "Attribute OnAfterUpdate.VB_UserMemId = -2147384832", "    Debug.Print Tag & \"AfterUpdate\"", "End Sub",
+        "Public Sub OnBeforeUpdate(ByVal Cancel As MSForms.IReturnBoolean)", "Attribute OnBeforeUpdate.VB_UserMemId = -2147384831", "    Debug.Print Tag & \"BeforeUpdate\"",
+        "    If CancelUpdate Then Cancel.Value = True", "End Sub",
+        "Public Sub OnEnter()", "Attribute OnEnter.VB_UserMemId = -2147384830", "    Debug.Print Tag & \"Enter\"", "End Sub",
+        "Public Sub OnExit(ByVal Cancel As MSForms.IReturnBoolean)", "Attribute OnExit.VB_UserMemId = -2147384829", "    Debug.Print Tag & \"Exit\"",
+        "    If CancelExit Then Cancel.Value = True", "End Sub",
+        "Public Sub OnEnter82()", "Attribute OnEnter82.VB_UserMemId = -2147384318", "    Debug.Print Tag & \"Enter82\"", "End Sub",
+        "Public Sub OnChange()", "Attribute OnChange.VB_UserMemId = 2", "    Debug.Print Tag & \"Change\"", "End Sub"));
+
+    // oracle\s41 P01-P06, Q01-Q04: what a connected sink is called for, and when, and what ConnectToConnectionPoint returns.
+    [TestMethod]
+    [DataRow(new[] { "Dim p As New Punk", "p.Tag = \"P:\"", "Debug.Print p.Connect(ExampleView.AmountBox, 0)", "Debug.Print p.CookieValue <> 0", "ExampleView.Show vbModeless",
+        "ExampleView.Go \"ComboBox1\"", "ExampleView.Go \"AmountBox\"", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"", "Debug.Print p.Disconnect",
+        "ExampleView.Go \"AmountBox\"", "Unload ExampleView" },
+        new[] { "Initialize", "0", "True", "AmountEnter", "P:Enter", "Activate", "AmountExit", "P:Exit", "ComboEnter", "ComboExit", "AmountEnter", "P:Enter", "AmountChange",
+            "P:Change", "AmountBeforeUpdate", "P:BeforeUpdate", "AmountAfterUpdate", "P:AfterUpdate", "AmountExit", "P:Exit", "ComboEnter", "0", "ComboExit", "AmountEnter",
+            "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "P01 the extender's events and the control's own, after the form's handler, until it is disconnected")]
+    [DataRow(new[] { "Dim p As New Punk", "p.Tag = \"P:\"", "Debug.Print p.Connect(ExampleView.AmountBox, 1)", "Debug.Print p.CookieValue", "ExampleView.Show vbModeless",
+        "ExampleView.Go \"ComboBox1\"", "Unload ExampleView" },
+        new[] { "Initialize", "-2147467262", "0", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "QueryClose 1", "ComboExit", "Terminate" },
+        DisplayName = "P02 Q02 an interface other than IDispatch is E_NOINTERFACE")]
+    [DataRow(new[] { "Dim p As New Punk", "p.Tag = \"P:\"", "Debug.Print p.Connect(ExampleView.Controls(\"AmountBox\"), 0)", "p.CancelExit = True", "ExampleView.Show vbModeless",
+        "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Err.Clear", "Debug.Print ExampleView.ActiveControl.Name", "p.CancelExit = False", "Unload ExampleView" },
+        new[] { "Initialize", "0", "AmountEnter", "P:Enter", "Activate", "AmountExit", "P:Exit", "-2147467259", "AmountBox", "QueryClose 1", "AmountExit", "P:Exit", "Terminate" },
+        DisplayName = "P03 the sink cancels Exit")]
+    [DataRow(new[] { "Dim p As New Punk", "p.Tag = \"P:\"", "Debug.Print p.Connect(ExampleView.AmountBox, 0)", "p.CancelUpdate = True", "ExampleView.Show vbModeless",
+        "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Err.Clear", "p.CancelUpdate = False", "Unload ExampleView" },
+        new[] { "Initialize", "0", "AmountEnter", "P:Enter", "Activate", "AmountChange", "P:Change", "AmountBeforeUpdate", "P:BeforeUpdate", "-2147467259", "QueryClose 1",
+            "AmountBeforeUpdate", "P:BeforeUpdate", "AmountAfterUpdate", "P:AfterUpdate", "AmountExit", "P:Exit", "Terminate" },
+        DisplayName = "P04 the sink cancels BeforeUpdate")]
+    [DataRow(new[] { "Dim p As New Punk", "Dim q As New Punk", "p.Tag = \"P:\"", "q.Tag = \"Q:\"", "Debug.Print p.Connect(ExampleView.AmountBox, 0)",
+        "Debug.Print q.Connect(ExampleView.AmountBox, 0)", "Debug.Print p.CookieValue <> q.CookieValue", "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"",
+        "Unload ExampleView" },
+        new[] { "Initialize", "0", "0", "True", "AmountEnter", "P:Enter", "Q:Enter", "Activate", "AmountExit", "P:Exit", "Q:Exit", "ComboEnter", "QueryClose 1", "ComboExit",
+            "Terminate" },
+        DisplayName = "P05 Q04 two sinks, in the order they were connected")]
+    [DataRow(new[] { "Dim p As New Punk", "p.Tag = \"P:\"", "ExampleView.Show vbModeless", "Debug.Print p.Connect(ExampleView.AmountBox, 0)", "ExampleView.Go \"ComboBox1\"",
+        "Set p = Nothing", "ExampleView.Go \"AmountBox\"", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "0", "AmountExit", "P:Exit", "ComboEnter", "ComboExit", "AmountEnter", "P:Enter", "QueryClose 1", "AmountExit", "P:Exit",
+            "Terminate" },
+        DisplayName = "P06 the connection holds the sink the program let go of")]
+    [DataRow(new[] { "Dim p As New Punk", "Dim c As Collection", "Set c = New Collection", "Debug.Print p.Connect(c, 0)", "Debug.Print Err.Number", "Debug.Print p.CookieValue" },
+        new[] { "-2147467262", "0", "0" },
+        DisplayName = "Q03 an object that has no connection points is E_NOINTERFACE")]
+    [DataRow(new[] { "Dim p As New Punk", "Debug.Print p.Connect(ExampleView.AmountBox, 0)", "Debug.Print p.Disconnect", "Debug.Print p.Disconnect", "Unload ExampleView" },
+        new[] { "Initialize", "0", "0", "0", "QueryClose 1", "Terminate" },
+        DisplayName = "Q01 disconnecting, twice")]
+    public async Task ASinkConnectedToAControl_IsCalledAsMSVBACallsIt(string[] body, string[] printed)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+
+        var actual = await ModuleWorkspace.RunAsync(
+            [Punk], Program(["On Error Resume Next", .. body]), new ModuleWorkspace.WorkspaceLibraries(["MSForms", "stdole"], Shipped, Outside: world), [ExampleView(Focus)]);
+        CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
+    }
+
+    // the dispatch identifier an event is raised with crosses from the external host with it, and the sink's Cancel is Microsoft Forms' object there.
+    [TestMethod]
+    public async Task ASinkConnectedToAControl_ThroughAnExternalHost_IsCalledByTheIdentifierTheEventIsRaisedWith()
+    {
+        RequireMicrosoftForms();
+        using var host = ExternalHosts.New();
+
+        var actual = await ModuleWorkspace.RunAsync(
+            [Punk],
+            Program("On Error Resume Next", "Dim p As New Punk", "p.Tag = \"P:\"", "Debug.Print p.Connect(ExampleView.AmountBox, 0)", "p.CancelExit = True",
+                "ExampleView.Show vbModeless", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Err.Clear", "p.CancelExit = False",
+                "Debug.Print p.Disconnect", "Unload ExampleView"),
+            new ModuleWorkspace.WorkspaceLibraries(["MSForms", "stdole"], Shipped, Outside: ExternalHosts.WorldOf(host)), [ExampleView(Focus)]);
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Initialize", "0", "AmountEnter", "P:Enter", "Activate", "AmountChange", "P:Change", "AmountBeforeUpdate", "P:BeforeUpdate", "AmountAfterUpdate", "P:AfterUpdate",
+            "AmountExit", "P:Exit", "-2147467259", "0", "QueryClose 1", "AmountExit", "Terminate",
+        }, actual, string.Join(" | ", actual));
+    }
+
     [TestMethod]
     public async Task AMemberOfTheFormObject_ThatIsNotHostedYet_SaysSo()
     {

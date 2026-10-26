@@ -1,4 +1,6 @@
 ﻿using RDCore.External.Automation;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
@@ -35,8 +37,13 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// What handles an event itself, at the time it is handled, instead of the procedures the route names: a form's close, which the session does as <c>Unload</c> does.
 /// Returns whether it handled it.
 /// </param>
+/// <param name="source">
+/// The object of the session the events are raised by, whose connected sinks (<see cref="SessionConnections"/>) are called after the procedures the route names;
+/// <see langword="null"/> for one that is not the program's to connect to.
+/// </param>
 internal sealed class ServerEventRouter(
-    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route, Func<string, object?[], bool>? intercept = null) : IAutomationEventSink
+    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route, Func<string, object?[], bool>? intercept = null,
+    VBRuntimeObjectId? source = null) : IAutomationEventSink
 {
     private readonly ServerObjects _objects = new(session, server);
 
@@ -49,7 +56,7 @@ internal sealed class ServerEventRouter(
     public ServerEventRouter(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId source)
         : this(session, server, name => session.Symbols.TryGetInstance(source, out var live) && live.ClassModule.FindEvent(name) is { } raised
             ? new ServerEventRoute(raised, SubscribersOf(session, source, raised))
-            : null)
+            : null, source: source)
     {
     }
 
@@ -80,7 +87,7 @@ internal sealed class ServerEventRouter(
     {
         if (raised.IsSynchronous)
         {
-            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments));
+            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments, raised.DispatchId));
             return;
         }
 
@@ -91,33 +98,76 @@ internal sealed class ServerEventRouter(
                 raised.Serve(TimeSpan.FromMilliseconds(10));
             }
 
-            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments));
+            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments, raised.DispatchId));
         }
     }
 
-    private void Handle(string name, object?[] arguments)
+    private void Handle(string name, object?[] arguments, int? dispatchId)
     {
-        if (intercept?.Invoke(name, arguments) == true)
+        if (intercept?.Invoke(name, arguments) == true || session.Callables is not { } callables)
         {
             return;
         }
 
-        if (session.Callables is not { } callables || route(name) is not { } routed || routed.Handlers.ToList() is not { Count: > 0 } handlers)
+        // what the server hands over is held for as long as the event is handled: a handler that lets go of it does not release it from under the next, whether a
+        // handler of the route or a connected sink (Cancel is one object to all of them).
+        var handed = new Dictionary<VBRuntimeObjectId, IBindingHandle>();
+        try
         {
-            return;
+            if (route(name) is { } routed && routed.Handlers.ToList() is { Count: > 0 } handlers && !Run(callables, routed.Raised.Parameters, arguments, handlers, handed))
+            {
+                return;
+            }
+
+            // then the sinks the program connected to the object itself (ConnectToConnectionPoint), in the order they were connected: each is called by its member of
+            // the dispatch identifier the event was raised with, with the arguments as that member declares them, as IDispatch hands them over.
+            if (source is not { } connectedTo || dispatchId is not { } raisedWith)
+            {
+                return;
+            }
+
+            // the extender's events are raised as Microsoft Forms' ControlEvents (Enter is 0x80018202), which is what MVVM's ControlEventsPunk answers to.
+            foreach (var connection in SessionConnections.Of(session).Of(connectedTo))
+            {
+                if (session.Symbols.TryGetInstance(connection.Sink, out var sink) && SinkMemberOf(sink.ClassModule, raisedWith) is { } member
+                    && !Run(callables, DeclaredParametersOf(member), arguments, [(connection.Sink, member)], handed))
+                {
+                    return;
+                }
+            }
         }
+        finally
+        {
+            foreach (var (identity, holder) in handed)
+            {
+                _ = session.ReleaseReference(identity, holder);
+                _objects.Discard(identity);
+            }
+        }
+    }
 
-        var raised = routed.Raised;
+    // the public member of a sink's class that answers to a dispatch identifier (VB_UserMemId).
+    private static VBTypeMemberSymbol? SinkMemberOf(VBClassModuleSymbol sink, int dispatchId)
+        => sink.Members.FirstOrDefault(member => member is VBProcedureMemberSymbol or VBReturningMemberSymbol
+            && member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
+            && member.TryGetProperty(SymbolProperties.UserMemId, out var identifier) && identifier == dispatchId);
 
+    // the parameters a member of a class declares: its first is its Me, which the call is made on, and no argument of the event's.
+    private static VBParameterSymbol[] DeclaredParametersOf(VBTypeMemberSymbol member)
+        => RuntimeProcedureInvoker.GetParameters(member) is [{ Name: Tokens.Me }, .. var declared] ? [.. declared] : [.. RuntimeProcedureInvoker.GetParameters(member)];
+
+    // runs the handlers of an event with its arguments, read as `parameters` declares them: whether they all ran.
+    private bool Run(
+        ICallableBindingFactory callables, IReadOnlyList<VBParameterSymbol> parameters, object?[] arguments,
+        IReadOnlyList<(VBRuntimeObjectId Subscriber, VBTypeMemberSymbol Handler)> handlers, Dictionary<VBRuntimeObjectId, IBindingHandle> handed)
+    {
         var resolver = session.Symbols.Resolver;
-        var handed = new List<VBRuntimeObjectId>();
         var temporaries = new List<(int Parameter, MemoryAddress Address)>();
-        var parameters = raised.Parameters;
-        var bound = new IRuntimeValue[parameters.Length];
+        var bound = new IRuntimeValue[parameters.Count];
 
         try
         {
-            for (var index = 0; index < parameters.Length; index++)
+            for (var index = 0; index < parameters.Count; index++)
             {
                 var parameter = parameters[index];
                 var value = AutomationMarshaller.FromAutomation(
@@ -125,8 +175,14 @@ internal sealed class ServerEventRouter(
                     parameter.ResolvedType,
                     (handle, declared) =>
                     {
-                        var wrapped = _objects.Wrap(handle, declared, resolver);
-                        handed.Add(((VBObjectValue)wrapped).Value);
+                        var wrapped = (VBObjectValue)_objects.Wrap(handle, declared, resolver);
+                        if (!handed.ContainsKey(wrapped.Value))
+                        {
+                            var holder = new ValueBindingHandle(wrapped.RuntimeValue);
+                            session.Objects.AddRef(wrapped.Value, holder);
+                            handed[wrapped.Value] = holder;
+                        }
+
                         return wrapped;
                     });
 
@@ -143,17 +199,19 @@ internal sealed class ServerEventRouter(
                 }
             }
 
+            var ran = true;
             foreach (var (subscriber, handler) in handlers)
             {
                 var handled = callables.ForMember(handler).Call(resolver, [new VBObjectValue(subscriber).RuntimeValue, .. bound]);
                 if (!handled.IsSuccess)
                 {
                     Report(handled);
+                    ran = false;
                     break;
                 }
             }
 
-            // what the handlers left in the parameters the server passed by reference is what it finds.
+            // what the handlers left in the parameters the server passed by reference is what it finds - and what the next handlers start with.
             foreach (var (index, address) in temporaries)
             {
                 if (resolver.TryRead(address, out var cell))
@@ -161,21 +219,19 @@ internal sealed class ServerEventRouter(
                     arguments[index] = AutomationMarshaller.ToAutomation(parameters[index].ResolvedType.CreateValue(new ValueBindingHandle(cell.Value)), _objects.HandleOf);
                 }
             }
+
+            return ran;
         }
         catch (AutomationException)
         {
             // a value that crossed one way and cannot cross the other is one the server gets back as it passed it.
+            return true;
         }
         finally
         {
             foreach (var (_, address) in temporaries)
             {
                 session.Storage.TryDeallocate(address);
-            }
-
-            foreach (var identity in handed)
-            {
-                _objects.Discard(identity);
             }
         }
     }
