@@ -163,6 +163,25 @@ public abstract class VBABaseParser : Parser
 
         return IsTokenType(TokenTypeAtRelativePosition(offset), VBALexer.NEWLINE, VBALexer.LINE_CONTINUATION);
     }
+
+    // MS-VBAL §5.4.1.1: a name followed by a colon at the start of a line is a statement label, never a call of a procedure by that name (MS-VBA, Excel-
+    // verified, oracle\findings-labels L20: `PrintGreeting:` at the start of a line calls nothing). Without this, a block took a label right before the line
+    // that ends it (`Fin: End If`) for a call of `Fin`, since a label alone needs an end of statement after it, and the block's end is none.
+    protected bool IsLabelAhead()
+    {
+        if (!IsAtLineStart())
+        {
+            return false;
+        }
+
+        var offset = 2;
+        while (TokenTypeAtRelativePosition(offset) == VBALexer.WS)
+        {
+            offset++;
+        }
+
+        return TokenTypeAtRelativePosition(offset) == VBALexer.COLON;
+    }
     #endregion
 
     #region Grammar-level recovery helpers

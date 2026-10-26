@@ -132,9 +132,10 @@ moduleBodyElement :
     | subStmt 
 ;
 
-block : (blockStmt endOfStatement)*;
-
-unterminatedBlock : blockStmt (endOfStatement blockStmt)*;
+// a label may be the last thing of a block, right before the line that ends it (`Fin: End If`): it is matched here, in the block, because a label the
+// block's end matched instead would be a decision ANTLR makes after leaving this rule, where the predicates of a label are not weighed the same way, and
+// `Fin:` was found no viable alternative. The rules that end a block still allow the label too; the block takes it first.
+block : (blockStmt endOfStatement)* (statementLabelDefinition whiteSpace?)?;
 
 blockStmt :
     statementLabelDefinition whiteSpace? mainBlockStmt?
@@ -377,16 +378,19 @@ eventStmt : (visibility whiteSpace)? EVENT whiteSpace identifier whiteSpace? arg
 exitStmt : EXIT_DO | EXIT_FOR | EXIT_FUNCTION | EXIT_PROPERTY | EXIT_SUB;
 
 forEachStmt : 
-    FOR whiteSpace EACH whiteSpace expression whiteSpace IN whiteSpace expression 
-	(endOfStatement unterminatedBlock)?
-    (endOfStatement statementLabelDefinition? whiteSpace? NEXT (whiteSpace expression)? 
+    FOR whiteSpace EACH whiteSpace expression whiteSpace IN whiteSpace expression
+	// non-greedy, as forNextStmt's: see there.
+	(endOfStatement blockStmt)*?
+    (endOfStatement statementLabelDefinition? whiteSpace? NEXT (whiteSpace expression)?
 	| whiteSpace? COMMA whiteSpace? expression)
 ;
 
 // expression EQ expression refactored to expression to allow SLL
 forNextStmt : 
-    FOR whiteSpace expression whiteSpace TO whiteSpace expression stepStmt? whiteSpace* 
-	(endOfStatement unterminatedBlock)?
+    FOR whiteSpace expression whiteSpace TO whiteSpace expression stepStmt? whiteSpace*
+	// the statements of the loop end as soon as the line that ends it can: a label right before Next (`Fin: Next`) is decided at the end of the line
+	// before it, where the predicate that makes `Fin:` a label and not a call (IsLabelAhead) is not weighed, and a greedy loop took it for a statement.
+	(endOfStatement blockStmt)*?
     (endOfStatement statementLabelDefinition? whiteSpace? NEXT (whiteSpace expression)? 
 	| whiteSpace? COMMA whiteSpace? expression)
 ; 
@@ -508,9 +512,10 @@ modeSpecifier :	(MID | MIDB) DOLLAR? ;
 
 integerExpression : expression;
 
+// a name and a colon at the start of a line are a label, never a call: see IsLabelAhead.
 callStmt :
     CALL whiteSpace lExpression
-    | lExpression (whiteSpace argumentList)?
+    | {!IsLabelAhead()}? lExpression (whiteSpace argumentList)?
 ;
 
 resumeStmt : RESUME (whiteSpace (NEXT | expression))?;
