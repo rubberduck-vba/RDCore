@@ -53,13 +53,23 @@ public sealed class FormHostingTests
     }
 
     // MVVM's ExampleView - its designer, AmountBox and all - with no code behind it: the header and the attributes of the module, and nothing of MVVM.
-    private static (string Name, string Source, FormDescriptor Designer) ExampleView()
+    private static (string Name, string Source, FormDescriptor Designer) ExampleView(params string[] code)
     {
         var frm = Encoding.UTF8.GetString(Fixture("ExampleView.frm"));
         var lines = frm.Split("\r\n");
         var header = string.Join("\r\n", lines.Take(Array.FindLastIndex(lines, line => line.StartsWith("Attribute VB_", StringComparison.Ordinal)) + 1));
-        return ("ExampleView", header + "\r\nOption Explicit\r\n", FormDesigner.Read(frm, Fixture("ExampleView.frx"))!);
+        return ("ExampleView", header + "\r\nOption Explicit\r\n" + string.Join("\r\n", code) + "\r\n", FormDesigner.Read(frm, Fixture("ExampleView.frx"))!);
     }
+
+    private static Task<string[]> RunWithCodeAsync(ExternalWorld world, string[] code, params string[] body)
+        => ModuleWorkspace.RunAsync([], Program(body), new ModuleWorkspace.WorkspaceLibraries(["MSForms"], Shipped, Outside: world), [ExampleView(code)]);
+
+    // the form's code, handling the events of a control and of the form
+    private static readonly string[] Handlers =
+    [
+        "Private Sub AmountBox_Change()", "    Debug.Print \"changed to \"; AmountBox.Text", "End Sub",
+        "Private Sub UserForm_Click()", "    Debug.Print \"form clicked\"", "End Sub",
+    ];
 
     private static string Program(params string[] body)
         => $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
@@ -185,6 +195,109 @@ public sealed class FormHostingTests
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
     }
 
+    // a control raises its event inside the call that made it - Change while its Text is assigned - and the handler the form's code has for it runs then, inside it.
+    [TestMethod]
+    public async Task AControlsEvent_RunsTheHandlerNamedAfterIt()
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+
+        var printed = await RunWithCodeAsync(world, Handlers, "ExampleView.Show vbModeless", "ExampleView.AmountBox.Text = \"42\"", "Debug.Print \"after\"", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[] { "changed to 42", "after" }, printed, string.Join(" | ", printed));
+    }
+
+    [TestMethod]
+    public async Task AControlsEvent_ThroughAnExternalHost_RunsTheHandler()
+    {
+        RequireMicrosoftForms();
+        using var host = ExternalHosts.New();
+
+        var printed = await RunWithCodeAsync(ExternalHosts.WorldOf(host), Handlers, "ExampleView.Show vbModeless", "ExampleView.AmountBox.Text = \"7\"", "Debug.Print \"after\"", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[] { "changed to 7", "after" }, printed, string.Join(" | ", printed));
+    }
+
+    // a modal Show waits; a click on the form while it does is the answer to that call, and runs UserForm_Click inside it - which hides the form, which ends the wait.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task AClickOnAModalForm_RunsItsHandler_WhichCanHideIt(bool external)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        using var host = ExternalHosts.New();
+        var caption = $"ExampleView {Guid.NewGuid():N}";
+        string[] code = ["Private Sub UserForm_Click()", "    Debug.Print \"form clicked\"", "    Me.Hide", "End Sub"];
+
+        var running = RunWithCodeAsync(external ? ExternalHosts.WorldOf(host) : world, code, $"ExampleView.Caption = \"{caption}\"", "ExampleView.Show", "Debug.Print \"after\"");
+
+        // the form's own window is the only child of the host's: a click on it, away from its controls, is the form's.
+        var window = await WindowOfAsync(caption);
+        var form = FindWindowEx(window, IntPtr.Zero, null, null);
+        Assert.AreNotEqual(IntPtr.Zero, form);
+        Assert.IsTrue(GetClientRect(form, out var client));
+        var at = (IntPtr)(((client.Bottom - 4) << 16) | ((client.Right - 4) & 0xFFFF));
+        Assert.IsTrue(PostMessage(form, 0x0201, (IntPtr)1, at));
+        Assert.IsTrue(PostMessage(form, 0x0202, IntPtr.Zero, at));
+
+        CollectionAssert.AreEqual(new[] { "form clicked", "after" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
+    // oracle\s41 V01-V03: Show activates the form; showing another deactivates the first, then activates the other.
+    [TestMethod]
+    public async Task ShowingAForm_ActivatesIt_AndDeactivatesTheOneBefore()
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        string[] code =
+        [
+            "Private Sub UserForm_Activate()", "    Debug.Print \"Activate \"; Me.Caption", "End Sub",
+            "Private Sub UserForm_Deactivate()", "    Debug.Print \"Deactivate \"; Me.Caption", "End Sub",
+        ];
+
+        var printed = await RunWithCodeAsync(world, code,
+            "ExampleView.Show vbModeless", "Dim other As ExampleView", "Set other = New ExampleView", "other.Caption = \"Other\"", "other.Show vbModeless",
+            "Unload other", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[] { "Activate ExampleView", "Deactivate ExampleView", "Activate Other" }, printed, string.Join(" | ", printed));
+    }
+
+    // the close button asks the form (QueryClose, vbFormControlMenu = 0), which unloads it as Unload does - which ends a modal Show; a QueryClose that cancels keeps it.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task TheCloseButton_AsksTheForm_ThenUnloadsIt(bool external)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        using var host = ExternalHosts.New();
+        var caption = $"ExampleView {Guid.NewGuid():N}";
+        string[] code =
+        [
+            "Private Asked As Long",
+            "Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", "    Asked = Asked + 1", "    Debug.Print \"QueryClose\"; CloseMode",
+            "    If Asked = 1 Then Cancel = True", "End Sub",
+            "Private Sub UserForm_Terminate()", "    Debug.Print \"Terminate\"", "End Sub",
+        ];
+
+        var running = RunWithCodeAsync(external ? ExternalHosts.WorldOf(host) : world, code, $"ExampleView.Caption = \"{caption}\"", "ExampleView.Show", "Debug.Print \"after\"");
+
+        var window = await WindowOfAsync(caption);
+        Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
+        await Task.Delay(500);
+        Assert.IsFalse(running.IsCompleted, "the first QueryClose cancels: the form stays, and Show still waits");
+        Assert.AreNotEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption));
+
+        Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
+        CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
+    }
+
     [TestMethod]
     public async Task AMemberOfTheFormObject_ThatIsNotHostedYet_SaysSo()
     {
@@ -219,4 +332,20 @@ public sealed class FormHostingTests
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? className, string? title);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetClientRect(IntPtr window, out Rect rectangle);
 }

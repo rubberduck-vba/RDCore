@@ -27,10 +27,51 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// </remarks>
 /// <param name="session">The session whose procedures handle the events.</param>
 /// <param name="server">The server that raises them.</param>
-/// <param name="source">The object that raises them.</param>
-internal sealed class ServerEventRouter(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId source) : IAutomationEventSink
+/// <param name="route">
+/// What an event is, by its name, and the procedures that handle it, in the order they run: the subscribers and their handlers. <see langword="null"/> for an event the
+/// source does not declare.
+/// </param>
+/// <param name="intercept">
+/// What handles an event itself, at the time it is handled, instead of the procedures the route names: a form's close, which the session does as <c>Unload</c> does.
+/// Returns whether it handled it.
+/// </param>
+internal sealed class ServerEventRouter(
+    IRuntimeSession session, IAutomationServer server, Func<string, ServerEventRoute?> route, Func<string, object?[], bool>? intercept = null) : IAutomationEventSink
 {
     private readonly ServerObjects _objects = new(session, server);
+
+    /// <summary>
+    /// Routes the events of <paramref name="source"/> to the <c>WithEvents</c> variables that hold it.
+    /// </summary>
+    /// <param name="session">The session whose procedures handle the events.</param>
+    /// <param name="server">The server that raises them.</param>
+    /// <param name="source">The object that raises them.</param>
+    public ServerEventRouter(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId source)
+        : this(session, server, name => session.Symbols.TryGetInstance(source, out var live) && live.ClassModule.FindEvent(name) is { } raised
+            ? new ServerEventRoute(raised, SubscribersOf(session, source, raised))
+            : null)
+    {
+    }
+
+    /// <summary>
+    /// The handlers of the <c>WithEvents</c> variables that hold <paramref name="source"/>, of the event <paramref name="raised"/>, in the order the variables were
+    /// assigned.
+    /// </summary>
+    /// <param name="session">The session whose variables hold the object.</param>
+    /// <param name="source">The object.</param>
+    /// <param name="raised">The event.</param>
+    public static IEnumerable<(VBRuntimeObjectId Subscriber, VBTypeMemberSymbol Handler)> SubscribersOf(IRuntimeSession session, VBRuntimeObjectId source, VBEventMemberSymbol raised)
+    {
+        foreach (var subscription in session.Objects.EventSubscribers(source))
+        {
+            if (session.Symbols.TryGetInstance(subscription.Subscriber, out var subscriber)
+                && subscription.Variable is VBTypeMemberSymbol variable
+                && subscriber.ClassModule.FindEventHandler(variable, raised) is { } handler)
+            {
+                yield return (subscription.Subscriber, handler);
+            }
+        }
+    }
 
     // a synchronous event is the answer to the call the program waits for, and is handled inside it; any other waits for the session to be open to it - nothing runs,
     // or the program pumps - doing meanwhile what is asked of the thread it was raised on.
@@ -56,13 +97,17 @@ internal sealed class ServerEventRouter(IRuntimeSession session, IAutomationServ
 
     private void Handle(string name, object?[] arguments)
     {
-        if (session.Callables is not { } callables
-            || !session.Symbols.TryGetInstance(source, out var live)
-            || live.ClassModule.FindEvent(name) is not { } raised
-            || session.Objects.EventSubscribers(source) is not { Count: > 0 } subscriptions)
+        if (intercept?.Invoke(name, arguments) == true)
         {
             return;
         }
+
+        if (session.Callables is not { } callables || route(name) is not { } routed || routed.Handlers.ToList() is not { Count: > 0 } handlers)
+        {
+            return;
+        }
+
+        var raised = routed.Raised;
 
         var resolver = session.Symbols.Resolver;
         var handed = new List<VBRuntimeObjectId>();
@@ -98,16 +143,9 @@ internal sealed class ServerEventRouter(IRuntimeSession session, IAutomationServ
                 }
             }
 
-            foreach (var subscription in subscriptions)
+            foreach (var (subscriber, handler) in handlers)
             {
-                if (!session.Symbols.TryGetInstance(subscription.Subscriber, out var subscriber)
-                    || subscription.Variable is not VBTypeMemberSymbol variable
-                    || subscriber.ClassModule.FindEventHandler(variable, raised) is not { } handler)
-                {
-                    continue;
-                }
-
-                var handled = callables.ForMember(handler).Call(resolver, [new VBObjectValue(subscription.Subscriber).RuntimeValue, .. bound]);
+                var handled = callables.ForMember(handler).Call(resolver, [new VBObjectValue(subscriber).RuntimeValue, .. bound]);
                 if (!handled.IsSuccess)
                 {
                     Report(handled);
@@ -150,3 +188,10 @@ internal sealed class ServerEventRouter(IRuntimeSession session, IAutomationServ
         session.Output.WriteLine();
     }
 }
+
+/// <summary>
+/// An event a server's object raised, and who handles it.
+/// </summary>
+/// <param name="Raised">The event, as the class that declares it declares it: its parameters are what the server's arguments are read as.</param>
+/// <param name="Handlers">The procedures that handle it, in the order they run, each with the object whose procedure it is.</param>
+internal sealed record class ServerEventRoute(VBEventMemberSymbol Raised, IEnumerable<(VBRuntimeObjectId Subscriber, VBTypeMemberSymbol Handler)> Handlers);

@@ -35,6 +35,48 @@ internal sealed class SessionForms
     private readonly List<VBRuntimeObjectId> _loaded = [];
     private readonly HashSet<VBRuntimeObjectId> _unloaded = [];
     private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _held = [];
+    private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Stop)> _listening = [];
+
+    /// <summary>
+    /// A hosted form is listened to, and its controls (<see cref="FormEvents"/>), until it is unloaded or let go of.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    /// <param name="controls">Its controls, as the program knows them.</param>
+    /// <param name="stop">What stops listening, and lets the controls go.</param>
+    public void Listening(VBRuntimeObjectId form, VBRuntimeObjectId[] controls, Action stop)
+    {
+        lock (_gate)
+        {
+            _listening[form] = (controls, stop);
+        }
+    }
+
+    /// <summary>
+    /// Whether an object is a control a form listens to: its events are the form's to handle, whatever <c>WithEvents</c> variable lets it go.
+    /// </summary>
+    /// <param name="control">The object.</param>
+    public bool IsListenedControl(VBRuntimeObjectId control)
+    {
+        lock (_gate)
+        {
+            return _listening.Values.Any(listened => listened.Controls.Contains(control));
+        }
+    }
+
+    /// <summary>
+    /// Stops listening to a form and its controls, when it is unloaded or let go of. A form that is not listened to is left as it is.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    public void StopListening(VBRuntimeObjectId form)
+    {
+        Action? stop;
+        lock (_gate)
+        {
+            stop = _listening.Remove(form, out var listened) ? listened.Stop : null;
+        }
+
+        stop?.Invoke();
+    }
 
     /// <summary>
     /// The identity of the session's <c>UserForms</c> collection: one object, the same every time it is asked for (<c>oracle\s41</c> U02). Its instance is made
@@ -141,6 +183,68 @@ internal static class FormHandlers
 {
     /// <summary>The <c>CloseMode</c> of a form <c>Unload</c> unloads (<strong>MS-VBAL §6.1.1.13</strong> <c>vbFormCode</c>).</summary>
     public const short FormCode = 1;
+
+    /// <summary>The <c>CloseMode</c> of a form its user closes - its close button, Alt+F4 (<strong>MS-VBAL §6.1.1.13</strong> <c>vbFormControlMenu</c>).</summary>
+    public const short FormControlMenu = 0;
+
+    /// <summary>
+    /// Unloads a form, as <c>Unload</c> does and as its user closing it does (Excel-measured, <c>oracle\s41</c>): its <c>QueryClose</c> first, which can cancel it;
+    /// then its <c>Terminate</c>, its window, its default instance - which the next reference makes again - and the collection's hold on it, if <c>UserForms.Add</c>
+    /// loaded it. The object stays, for whatever holds it, and its designer's members fail. A form that was unloaded already is left as it is.
+    /// </summary>
+    /// <param name="session">The session.</param>
+    /// <param name="bindings">What calls a procedure of the session's code.</param>
+    /// <param name="form">The form's instance.</param>
+    /// <param name="closeMode">Why it is unloaded: <see cref="FormCode"/>, <see cref="FormControlMenu"/>.</param>
+    public static RuntimeSemanticsEvaluationResult Unload(IRuntimeSession session, ICallableBindingFactory bindings, VBRuntimeObjectId form, short closeMode)
+    {
+        var forms = SessionForms.Of(session);
+        if (forms.IsUnloaded(form))
+        {
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+
+        var asked = QueryClose(session, bindings, form, closeMode, out var cancelled);
+        if (!asked.IsSuccess || cancelled)
+        {
+            return asked.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : asked;
+        }
+
+        forms.Unload(form);
+        forms.StopListening(form);
+        var terminated = Raise(session, bindings, form, "Terminate");
+
+        // the form's window goes with it; the object stays, for whatever holds it (L15) - but no longer for the collection, if it loaded it (UserForms.Add).
+        session.ExternalObjects.Release(form);
+        ReleaseDefaultInstance(session, form);
+        if (forms.LetGo(form, out var holder))
+        {
+            _ = session.ReleaseReference(form, holder);
+        }
+
+        return terminated.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : terminated;
+    }
+
+    // a form's default instance that is unloaded is let go of, as Set UserForm1 = Nothing lets it go: the next reference to it makes another (L12, L55).
+    private static void ReleaseDefaultInstance(IRuntimeSession session, VBRuntimeObjectId form)
+    {
+        if (!session.Symbols.TryGetInstance(form, out var live))
+        {
+            return;
+        }
+
+        var resolver = session.Symbols.Resolver;
+        var instance = new VBPredeclaredInstanceSymbol(live.ClassModule);
+        if (!resolver.TryGetAddress(instance, out var address) || !resolver.TryRead(address, out var holder)
+            || holder.Value is not VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var held } || !held.Equals(form))
+        {
+            return;
+        }
+
+        var before = ObjectReferences.HeldIn(session, holder);
+        holder.SetValue(resolver, VBObjectValue.Nothing.RuntimeValue);
+        ObjectReferences.Rebind(session, holder, before);
+    }
 
     /// <summary>
     /// Runs a form's handler of an event that has no arguments, if its code has one.

@@ -50,7 +50,11 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     /// controls are its objects too.
     /// </summary>
     /// <param name="apartment">The apartment; whoever made it ends it.</param>
-    public ComAutomationServer(ComApartment apartment) => _apartment = apartment;
+    public ComAutomationServer(ComApartment apartment)
+    {
+        _apartment = apartment;
+        _apartment.RaiseEvent = RaiseFor;
+    }
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
@@ -312,7 +316,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
     private readonly Dictionary<object, Connection> _connections = new(ReferenceEqualityComparer.Instance);
 
-    private sealed record Connection(IConnectionPoint Point, int Cookie, object Receiver);
+    private sealed record Connection(IConnectionPoint Point, int Cookie, object Receiver, Action<string, object?[]> Raise);
 
     /// <inheritdoc/>
     public void Advise(object source, IAutomationEventSink sink) => OnApartment<object?>(() =>
@@ -323,14 +327,25 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             return null;
         }
 
-        var receiver = new EventReceiver(
-            declaring,
-            events,
-            (name, arguments) => sink.OnEvent(new AutomationEvent(name, arguments, Volatile.Read(ref _inCall) > 0, _apartment.Serve)));
+        void Raise(string name, object?[] arguments) => sink.OnEvent(new AutomationEvent(name, arguments, _apartment.IsInCall, _apartment.Serve));
+        var receiver = new EventReceiver(declaring, events, Raise);
         point.Advise(receiver, out var cookie);
-        _connections[source] = new Connection(point, cookie, receiver);
+        _connections[source] = new Connection(point, cookie, receiver, Raise);
         return null;
     });
+
+    // an event the object did not raise through its connection point, but something else of the apartment raises for it - the form host, for the window a form is
+    // in: it goes to whatever listens to the object's events. Called on the apartment.
+    private bool RaiseFor(object source, string name, object?[] arguments)
+    {
+        if (!_connections.TryGetValue(source, out var connection))
+        {
+            return false;
+        }
+
+        connection.Raise(name, arguments);
+        return true;
+    }
 
     // The connection point to listen to, and the events it raises by the identifier they are raised with. An object that says which interface is its default source
     // (IProvideClassInfo2) is asked; one that does not - Excel's do not - has the connection points it has, each of an interface its own type library describes.
@@ -741,22 +756,6 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         }
     }
 
-    // how many calls the program has made that are being made: an event the server raises while there is one is the answer to a call, and is handled inside it.
-    private int _inCall;
-
-    private T? Counted<T>(Func<T?> call)
-    {
-        _ = Interlocked.Increment(ref _inCall);
-        try
-        {
-            return call();
-        }
-        finally
-        {
-            _ = Interlocked.Decrement(ref _inCall);
-        }
-    }
-
     // runs it on the apartment and waits: the pipeline is synchronous, and the object that a call is made on is on that thread.
     // A server calls the sink of its events on a thread of its own, not on the apartment, which is busy - it is inside the call that raised the event, waiting for the handlers.
     // What the handlers call is therefore called from where they run: COM carries it to the apartment, which handles it while it waits for the server, and the
@@ -766,7 +765,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     private static bool _handlingEvent;
 
     private T? OnApartment<T>(Func<T?> call)
-        => _handlingEvent ? Counted(call) : _apartment.Invoke(() => Counted(call));
+        => _handlingEvent ? _apartment.Counted(call) : _apartment.Invoke(() => _apartment.Counted(call));
 
     // IDispatch, for the one thing the runtime's binder does not offer: asking an object what it is. The members it is declared with are in the order of the
     // interface's table, and the ones that are not called are only there to keep the later ones where they belong.

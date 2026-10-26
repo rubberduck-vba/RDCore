@@ -32,6 +32,7 @@ public sealed class ComApartment : IDisposable
     private readonly Lazy<Thread> _thread;
     private readonly List<Func<Native.Message, bool>> _translators = [];
     private volatile bool _completed;
+    private int _inCall;
 
     /// <summary>
     /// Creates the apartment; its thread is started by the first call that needs it.
@@ -51,6 +52,30 @@ public sealed class ComApartment : IDisposable
     /// Whether the current thread is the apartment's.
     /// </summary>
     public bool IsCurrent => _thread.IsValueCreated && Environment.CurrentManagedThreadId == _thread.Value.ManagedThreadId;
+
+    /// <summary>
+    /// Whether a call the program waits for is being made on the apartment (<see cref="Counted"/>): an event an object of the apartment raises meanwhile is the answer
+    /// to that call, and is handled inside it - a control's <c>Click</c> while a modal form's <c>Show</c> waits, an Excel event inside the call that raised it.
+    /// </summary>
+    public bool IsInCall => Volatile.Read(ref _inCall) > 0;
+
+    /// <summary>
+    /// Makes a call the program waits for, counted as one while it is made (<see cref="IsInCall"/>). Called on the apartment.
+    /// </summary>
+    /// <typeparam name="T">What the call returns.</typeparam>
+    /// <param name="call">The call.</param>
+    public T? Counted<T>(Func<T?> call)
+    {
+        _ = Interlocked.Increment(ref _inCall);
+        try
+        {
+            return call();
+        }
+        finally
+        {
+            _ = Interlocked.Decrement(ref _inCall);
+        }
+    }
 
     /// <summary>
     /// Runs <paramref name="call"/> on the apartment and waits for it; on the apartment itself, it is run at once.
@@ -147,6 +172,13 @@ public sealed class ComApartment : IDisposable
         _translators.Add(translator);
         return new Removal(() => _translators.Remove(translator));
     }
+
+    /// <summary>
+    /// Raises an event of an object that lives on the apartment to whatever listens to the object's events: the events a
+    /// form's window raises for it, which no connection point of the form does. Returns whether anything listens; set by the automation server. Called on the apartment.
+    /// (<see cref="RDCore.External.Automation.IAutomationServer.Advise"/> is what listens.)
+    /// </summary>
+    internal Func<object, string, object?[], bool>? RaiseEvent { get; set; }
 
     /// <summary>
     /// Raised on the apartment when an object that lives on it is let go of by whatever held it, before it is released: what made more of it than the object - a

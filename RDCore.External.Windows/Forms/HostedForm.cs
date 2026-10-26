@@ -36,16 +36,22 @@ internal sealed class HostedForm
 
     private static Dictionary<IntPtr, HostedForm> Windows => _windows ??= [];
 
+    // the form that was shown last, and is shown still: the active one, which another's Show deactivates.
+    [ThreadStatic]
+    private static HostedForm? _active;
+
     private readonly FormDefinition _definition;
     private readonly FormSite _site;
+    private readonly ComApartment _apartment;
     private bool _shownBefore;
 
-    private HostedForm(FormDefinition definition, object form, IntPtr window)
+    private HostedForm(FormDefinition definition, object form, IntPtr window, ComApartment apartment)
     {
         _definition = definition;
         Form = form;
         Window = window;
         _site = new FormSite(window);
+        _apartment = apartment;
     }
 
     /// <summary>The form: the automation object its own object model is.</summary>
@@ -82,8 +88,9 @@ internal sealed class HostedForm
     /// </summary>
     /// <param name="definition">The form.</param>
     /// <param name="form">A new Microsoft Forms form, not sited yet.</param>
+    /// <param name="apartment">The apartment the form lives on: pumped while it is shown modal, and what raises its window's events to the program.</param>
     /// <exception cref="COMException">The form would not be sited, loaded or activated.</exception>
-    public static HostedForm Create(FormDefinition definition, object form)
+    public static HostedForm Create(FormDefinition definition, object form, ComApartment apartment)
     {
         _ = Registered.Value;
         var window = Desktop.CreateWindowEx(
@@ -93,7 +100,7 @@ internal sealed class HostedForm
             throw new COMException(null, Marshal.GetHRForLastWin32Error());
         }
 
-        var hosted = new HostedForm(definition, form, window);
+        var hosted = new HostedForm(definition, form, window, apartment);
         Windows[window] = hosted;
         try
         {
@@ -134,9 +141,12 @@ internal sealed class HostedForm
     /// Shows the window - placed where the form starts up, the first time - and activates the form for its user. A modal form is the only one of the apartment's its
     /// user can use, and this returns when it is hidden; a modeless one returns at once.
     /// </summary>
-    /// <param name="apartment">The apartment, which is pumped while a modal form waits.</param>
+    /// <remarks>
+    /// The form that was active is deactivated, and this one activated: its <c>Deactivate</c>, then this one's <c>Activate</c> - on every <c>Show</c>, one after a
+    /// <c>Hide</c> included (Excel-measured, <c>oracle\s41</c> V01-V03). A form hidden or unloaded activates none back (V02).
+    /// </remarks>
     /// <param name="modal">Whether the form is shown modal.</param>
-    public void Show(ComApartment apartment, bool modal)
+    public void Show(bool modal)
     {
         if (!_shownBefore)
         {
@@ -148,6 +158,14 @@ internal sealed class HostedForm
         _ = Desktop.SetForegroundWindow(Window);
         _ = Desktop.GetClientRect(Window, out var client);
         _ = ((IOleObject)Form).DoVerb(Ole.UIActivate, IntPtr.Zero, _site, 0, Window, ref client);
+
+        if (_active is { } previous && previous != this && previous.IsShown)
+        {
+            previous.Raise(FormWindowEvents.Deactivate);
+        }
+
+        _active = this;
+        Raise(FormWindowEvents.Activate);
 
         if (!modal)
         {
@@ -163,7 +181,7 @@ internal sealed class HostedForm
 
         try
         {
-            apartment.PumpUntil(() => !IsShown);
+            _apartment.PumpUntil(() => !IsShown);
         }
         finally
         {
@@ -197,6 +215,11 @@ internal sealed class HostedForm
 
         Hide();
         IsDestroyed = true;
+        if (_active == this)
+        {
+            _active = null;
+        }
+
         var ole = (IOleObject)Form;
         _ = ole.Close(Ole.CloseNoSave);
         _ = ole.SetClientSite(null);
@@ -268,6 +291,9 @@ internal sealed class HostedForm
         _ = Desktop.SetWindowPos(Window, IntPtr.Zero, x, y, 0, 0, Desktop.SWP_NOSIZE | Desktop.SWP_NOZORDER | Desktop.SWP_NOACTIVATE);
     }
 
+    // an event of the form's window, to whatever listens to the form's events: the program's side of it.
+    private bool Raise(string name) => _apartment.RaiseEvent?.Invoke(Form, name, []) ?? false;
+
     private static Point PointOf(double left, double top, uint dpi) => new() { X = (int)Math.Round(left * dpi / 72), Y = (int)Math.Round(top * dpi / 72) };
 
     // the designer's state as a storage the form can load from, or a new one for a form that has none.
@@ -329,9 +355,14 @@ internal sealed class HostedForm
     {
         switch (message)
         {
-            // 🚧 the close button hides the form, which ends a modal Show; QueryClose, and the Unload that follows it, are the form's lifecycle (F4).
+            // the close button asks the program to close the form: its QueryClose, then the Unload that destroys this window - which ends a modal Show. A form no program
+            // listens to is hidden, which ends it too.
             case Desktop.WM_CLOSE:
-                Hide();
+                if (!Raise(FormWindowEvents.Close))
+                {
+                    Hide();
+                }
+
                 return IntPtr.Zero;
 
             case Desktop.WM_ACTIVATE:

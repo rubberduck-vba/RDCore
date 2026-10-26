@@ -143,34 +143,14 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 $"{request.Describe()}: the object is no form."));
         }
 
-        var loaded = SessionForms.Of(session);
-        if (!unload || loaded.IsUnloaded(identity))
+        if (!unload)
         {
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
 
-        if (Bindings is not { } bindings)
-        {
-            return RuntimeSemanticsEvaluationResult.InternalError();
-        }
-
-        var asked = FormHandlers.QueryClose(session, bindings, identity, FormHandlers.FormCode, out var cancelled);
-        if (!asked.IsSuccess || cancelled)
-        {
-            return asked.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : asked;
-        }
-
-        loaded.Unload(identity);
-        var terminated = FormHandlers.Raise(session, bindings, identity, "Terminate");
-
-        // the form's window goes with it; the object stays, for whatever holds it (L15) - but no longer for the collection, if it loaded it (UserForms.Add).
-        session.ExternalObjects.Release(identity);
-        ReleaseDefaultInstance(identity);
-        if (loaded.LetGo(identity, out var holder))
-        {
-            _ = session.ReleaseReference(identity, holder);
-        }
-        return terminated.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : terminated;
+        return Bindings is { } bindings
+            ? FormHandlers.Unload(session, bindings, identity, FormHandlers.FormCode)
+            : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
     // the instance of a form's class the argument is, if it is one.
@@ -190,27 +170,6 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             && session.Symbols.TryGetInstance(value.Value, out var live) && FormObject.IsFormClass(live.ClassModule)
             ? value.Value
             : null;
-    }
-
-    // a form's default instance that is unloaded is let go of, as Set UserForm1 = Nothing lets it go: the next reference to it makes another (L12, L55).
-    private void ReleaseDefaultInstance(VBRuntimeObjectId identity)
-    {
-        if (!session.Symbols.TryGetInstance(identity, out var live))
-        {
-            return;
-        }
-
-        var resolver = session.Symbols.Resolver;
-        var instance = new VBPredeclaredInstanceSymbol(live.ClassModule);
-        if (!resolver.TryGetAddress(instance, out var address) || !resolver.TryRead(address, out var holder)
-            || holder.Value is not VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var held } || !held.Equals(identity))
-        {
-            return;
-        }
-
-        var before = ObjectReferences.HeldIn(session, holder);
-        holder.SetValue(resolver, VBObjectValue.Nothing.RuntimeValue);
-        ObjectReferences.Rebind(session, holder, before);
     }
 
     // the form an instance of the form's class is: the one it is bound to, or one created for it now from what the designer declares.
@@ -233,6 +192,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
         }
 
         session.ExternalObjects.Bind(identity, outside.Automation, created);
+        FormEvents.Listen(session, outside.Automation, identity, created, designer);
         return created;
     }
 

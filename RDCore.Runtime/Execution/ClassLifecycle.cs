@@ -44,6 +44,8 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
     {
         if (IsForm(instance))
         {
+            // what the form listened to goes with it; one that was unloaded stopped listening then.
+            External.Forms.SessionForms.Of(session).StopListening(instance);
             return External.Forms.SessionForms.Of(session).Release(instance)
                 ? External.Forms.FormHandlers.Raise(session, bindings, instance, "Terminate")
                 : RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
