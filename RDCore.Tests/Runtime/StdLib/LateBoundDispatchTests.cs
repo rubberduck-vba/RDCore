@@ -99,9 +99,8 @@ public sealed class LateBoundDispatchTests
     public void LateBound_TheDefaultMemberOfWhatIsIndexed_IsAssignedThroughIDispatch(string body, string expected)
         => Assert.AreEqual(expected, Run(body));
 
-    // 🚧 E04: early-bound, MS-VBA calls Item(1) and assigns what it returns, which is no object: 424. RD-VBA finds no Property Let for the default member: 438.
+    // E04: early-bound, MS-VBA calls Item(1) and assigns what it returns, which is no object: 424 (ObjectMemberTargetTests).
     [TestMethod]
-    [Ignore("an early-bound assignment to the default member of a library's object, a function given arguments, is 438 where MS-VBA invokes the function and raises 424 for what it returns")]
     public async Task EarlyBound_AnIndexedCollection_IsAssignedWhatItsItemReturns()
         => Assert.AreEqual("424|", await RunInWorkspace("""Dim c As New Collection ;; c.Add 1 ;; Err.Clear ;; c(1) = 5 ;; P Err.Number"""));
 

@@ -52,6 +52,15 @@ variable. A name written with a type-declaration character is what its identifie
 `Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused, and assigns the variable or the result when it
 runs.
 
+A member of an object is held to the same rules, early-bound, as in MS-VBA (recorded in Excel):
+
+|Target|Error|Example|
+|---|---|---|
+|A function of an object whose declared type is neither a `Variant` nor an object, with no argument|[`VBC09355`](../diagnostics/vbc09355.md) _Function call on left-hand side of assignment must return Variant or Object_|`c.Count = 3` of a `Collection`|
+|A `Sub` of an object, or of a module named through it, with arguments or without|[`VBC09340`](../diagnostics/vbc09340.md) _Expected Function or variable_|`Err.Clear = 1`, `c.Remove(1) = 5`, `Module1.DoIt = 1`|
+
+A `Sub` named by its bare name compiles in MS-VBA, and is not refused.
+
 ## Runtime Semantics
 
 The executor dispatches a Let-assignment statement to its statement runtime semantics: Let-assignment is one of
@@ -111,9 +120,10 @@ What is indexed can be an object - or a `Variant` holding one - rather than an a
 arguments, as `c.Item(1) = value` does, and `Set c(1) = obj` its `Property Set` ([**RD-VBAL §5.6.13** Object
 Callee](rd-vbal.5.6.13.index-expressions.md#object-callee)).
 
-> [!NOTE]
-> **Not implemented.** Early-bound, the default member of a standard-library object that is a function given arguments (`c(1) = 5` with
-> `Dim c As Collection`) is error 438, where MS-VBA invokes it and raises 424 for what it returns.
+A member of an object that is a function - or a `Property Get` that takes no argument, given arguments that index what it returns - has no
+`Property Let` to assign through: it is called, with the arguments written after it, and what it returns is assigned through its default member, as
+a function of a module is. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection` holding a number, are error 424; an item that is an object is
+assigned its own default member, and one that takes an argument is error 438.
 
 A `ReDim` of an array gives it the element type of the variable's declaration (`Dim a() As Long`), including a variable of an object.
 

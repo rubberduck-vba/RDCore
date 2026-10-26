@@ -1056,6 +1056,32 @@ public static class StatementStaticSemanticsEvaluator
             return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, location, instance.Name);
         }
 
+        // a Sub of an object or of a module, named through it, has no value to assign through, with arguments or without, by a Let or a Set (MS-VBAL §5.6.2.1;
+        // MS-VBA, Excel-verified, oracle\s44 E04, E10, F02, F03, F08, F09: "Expected Function or variable"). MS-VBA compiles a Sub named by its bare name (F10).
+        var reached = assignment.Target is IndexExpressionNode { Callee: var indexed } ? indexed : assignment.Target;
+        if (target is VBVoidType && reached is MemberAccessExpressionNode { Member: var sub })
+        {
+            return VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, location, sub.IdentifierName);
+        }
+
+        // a function of an object, named as the target with no argument, is called as one given arguments is (`c.Count = 3`): a Let of one that returns neither
+        // a Variant nor an object, as below; a Set of one is an invalid use of the property, and with arguments a type mismatch (MS-VBA, Excel-verified,
+        // oracle\s44 E03, F01, F05, F07).
+        if (reached is MemberAccessExpressionNode { Owner: { } owner } && context.Resolver.NamespaceOf(owner, context.Scope.Uri) is null
+            && ObjectValueStaticSemantics.MemberOfCallee(context, reached) is VBFunctionMemberSymbol { ResolvedType: not (VBVariantType or VBObjectType or VBClassType or VBUnknownType) } called)
+        {
+            var isIndexed = assignment.Target is IndexExpressionNode;
+            if (assignment.Kind == AssignmentKind.Set)
+            {
+                return VBCompileErrorInfo.For(isIndexed ? VBCompileErrorId.TypeMismatch : VBCompileErrorId.InvalidUseOfProperty, location, called.Name);
+            }
+
+            if (assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet && !isIndexed)
+            {
+                return VBCompileErrorInfo.For(VBCompileErrorId.FunctionCallOnLeftHandSideMustReturnVariantOrObject, location, called.Name);
+            }
+        }
+
         // a call of a function, written as the target of a Let statement, assigns the default member of what it returns: a value that is neither a Variant
         // nor an object has none (MS-VBAL §5.4.3.8; MS-VBA, Excel-verified). The function's own name in its body is its result, and is no call.
         if (assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet

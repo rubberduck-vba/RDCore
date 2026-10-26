@@ -476,6 +476,15 @@ public sealed class LetAssignmentEvaluator(
                 return AssignThroughDispatch(session, context, statement, memberAccess, indexArguments, owner, dispatched, source, value, isSet, throughDefaultMember);
             }
 
+            // MS-VBAL §5.4.3.8, §5.4.3.9: a function of the object - or a Property Get that declares no parameter, given arguments that index what it
+            // returns - is called, and what it returns is assigned through its default member: error 424 when it is no object (MS-VBA, Excel-verified,
+            // oracle\s44 E01-E18: `c(1) = 5` of a Collection holding a number, `Set c.Item(1) = …`, `o.V = 5` of a Variant function of a class).
+            if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments))
+            {
+                ExpressionNode called = indexArguments.IsEmpty ? memberAccess : CallOf(memberAccess, indexArguments);
+                return AssignThroughFunction(session, context, statement, called, source, value, isSet);
+            }
+
             // a property the object can read and not assign - a Property Get, and no Property Let or Set - is error 451 for a Let of one that returns no
             // object, and 450 for a Set; no member of the name at all is 438 (MS-VBA, Excel-verified).
             var name = memberAccess.Member.IdentifierName;
@@ -658,6 +667,27 @@ public sealed class LetAssignmentEvaluator(
                 : VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, memberAccess.Location,
                     string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name)));
     }
+
+    // whether the member of the name is called when it is assigned, for what it returns to be assigned through: a function, or a Property Get that declares
+    // no parameter and is given arguments, which index what it returns.
+    private static bool IsCalledToBeAssignedThrough(
+        IRuntimeSession session, VBObjectValue owner, string name, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments)
+        => session.Symbols.TryGetInstance(owner.Value, out var instance)
+            && instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)) switch
+            {
+                VBFunctionMemberSymbol => true,
+                VBPropertyGetMemberSymbol get => !arguments.IsEmpty && RuntimeProcedureInvoker.GetParameters(get) is [] or [{ Name: Tokens.Me }],
+                _ => false,
+            };
+
+    // the call of a member with the arguments an assignment's target gives it: one for each access, as the bound tree of an expression is the expression's.
+    private IndexExpressionNode CallOf(MemberAccessExpressionNode access, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments)
+        => _memberCalls.TryGetValue(access, out var call) && call.Arguments == arguments
+            ? call
+            : _memberCalls[access] = new IndexExpressionNode(access.Identity, access.Location, access, arguments);
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<MemberAccessExpressionNode, IndexExpressionNode> _memberCalls =
+        new(ReferenceEqualityComparer.Instance);
 
     // whether the class of the object has a Property Get of the name - for a Let, one declared as a type that holds no object: one that does is the default
     // member of the object it returns that MS-VBAL §5.4.3.8 assigns, which is not this.
