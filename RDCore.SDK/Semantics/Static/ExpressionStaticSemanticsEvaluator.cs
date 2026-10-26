@@ -323,14 +323,23 @@ public static class ExpressionStaticSemanticsEvaluator
             SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
             MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
                 => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+            // the class as the composition has it now: a type a class's own member returns (`Function Append() As SB` of SB) was built before the class had
+            // its members, and a call on what such a member returns (`SB.Append("a").Append("b")`) is a call all the same.
             MemberAccessExpressionNode { Owner: { } owner } access when Evaluate(context, owner) is { IsSuccess: true, Result: VBClassType classType }
-                => classType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
-                    && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol),
+                => ReturningMemberOf(context, classType, access),
+            // a member of the innermost With block's target (MS-VBAL §5.6.15): `With .LabelFor("x")` calls LabelFor, and does not index what it returns.
+            MemberAccessExpressionNode { Owner: null } access when context.EnclosingWithTargetType is VBClassType withTarget
+                => ReturningMemberOf(context, withTarget, access),
             _ => null,
         };
 
         return symbol as VBReturningMemberSymbol;
     }
+
+    private static Symbol? ReturningMemberOf(StaticEvaluationContext context, VBClassType owner, MemberAccessExpressionNode access)
+        => Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, owner)
+            .FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
 
     // MissingArgumentNode is a placeholder, not a value - nothing to evaluate. NamedArgumentNode and
     // AddressOfExpressionNode wrap the expression actually worth checking for errors; neither has a
