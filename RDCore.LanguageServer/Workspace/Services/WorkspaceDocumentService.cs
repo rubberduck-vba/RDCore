@@ -337,9 +337,10 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogWarning("⚠️ Document '{uri}' was opened when it already was (v{existing}); the text the client sent is the document.", documentUri, existing.Version);
         }
 
-        // a document the client opens need not be in the workspace folder: its own path is what addresses it then.
+        // a document the client opens need not be in the workspace folder: its own path is what addresses it then - and so it is when no workspace could
+        // be loaded, which leaves no root to be relative to.
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
-        var relativePath = ioPath.GetRelativePath(WorkspaceRoot, path);
+        var relativePath = WorkspaceRoot.Length == 0 ? path : ioPath.GetRelativePath(WorkspaceRoot, path);
         var document = WithCompanion(
             new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, WorkspaceRoot, text, version),
             path);

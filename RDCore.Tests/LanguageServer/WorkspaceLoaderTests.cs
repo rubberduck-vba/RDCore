@@ -70,6 +70,22 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual("src/Mod1.bas", sut.Project.ProjectInfo.Modules[0].RelativeUri);
     }
 
+    // a project file that is not JSON says so, and where: it used to surface later as a didOpen error about an empty path (HexIDE's findings desk #26).
+    [TestMethod]
+    public async Task ProjectFileService_LoadAsync_ProjectFileThatIsNotJson_SaysWhereItIsNot()
+    {
+        var sut = ProjectService(new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData("{\r\n  \"Version\": \"0.1.0\",\r\n  \"ProjectInfo\": { \"Name\": \"Check\" ]\r\n}"),
+        }));
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => sut.LoadAsync(Root));
+
+        StringAssert.Contains(error.Message, ProjectFilePath);
+        StringAssert.Contains(error.Message, "3");
+        Assert.IsInstanceOfType<JsonException>(error.InnerException);
+    }
+
     [TestMethod]
     public async Task ProjectFileService_LoadAsync_NoProjectFile_Throws()
     {
