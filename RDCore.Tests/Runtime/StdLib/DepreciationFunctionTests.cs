@@ -105,10 +105,10 @@ public sealed class DepreciationFunctionTests
             ErrorOf(Financial.DDB(new(cost), new(salvage), new(life), new(period), Variant(factor))));
 
     [TestMethod]
-    public void DDB_WithAFactorOtherThanTwo_OverATwoPeriodLife_DeclinesByThatFactor()
-        // a factor of 1 over a life of 2 takes half the cost in the first period. The VB runtime's own function
-        // answers 900 here, the whole depreciable amount: over a life of exactly 2 it ignores the factor.
-        => AreClose(500, Financial.DDB(new(1000), new(100), new(2), new(1), Variant(1)));
+    public void DDB_OverATwoPeriodLife_TakesEverythingInTheFirstPeriod_WhateverTheFactor()
+        // a factor of 1 over a life of 2 would take half the cost in the first period; MS-VBA takes the whole depreciable amount over a life of exactly
+        // 2, whatever the factor (grid oracle\s43 V31).
+        => AreClose(900, Financial.DDB(new(1000), new(100), new(2), new(1), Variant(1)));
 
     [TestMethod]
     public void DDB_WithAnExplicitEmptyFactor_IsError5()
@@ -118,18 +118,18 @@ public sealed class DepreciationFunctionTests
             ErrorOf(Financial.DDB(new(2400), new(300), new(10), new(1), new(VBEmptyValue.Empty))));
 
     [TestMethod]
-    [DataRow(1, 900)]
-    [DataRow(1.5, 0)]
-    public void DDB_OverALifeShorterThanTwo_TakesEverythingInTheFirstPeriod_AndNothingAfter(double period, double expected)
-        // twice the straight-line rate over a life of 1.5 is a rate above 100%. The VB runtime's own function
-        // answers 900 for both periods: over a life under 2 it takes the whole depreciable amount in every one.
-        => AreClose(expected, Financial.DDB(new(1000), new(100), new(1.5), new(period)));
+    [DataRow(1)]
+    [DataRow(1.5)]
+    public void DDB_OverALifeShorterThanTwo_TakesEverythingInEveryPeriod(double period)
+        // twice the straight-line rate over a life of 1.5 is a rate above 100%, which would take everything in the first period and leave nothing
+        // after; MS-VBA takes the whole depreciable amount in every period of a life under 2 (grid oracle\s43 V32-V33).
+        => AreClose(900, Financial.DDB(new(1000), new(100), new(1.5), new(period)));
 
     [TestMethod]
-    public void DDB_WithAFactorGreaterThanTheLife_TakesEverythingInTheFirstPeriod_AndNothingAfter()
-        // a factor of 4 over a life of 3 is a rate above 100%, so the first period takes all 900 and none is left.
-        // The VB runtime's own function answers 11.11 for the third period here: (1 - 4/3) squared is positive.
-        => Assert.AreEqual(0, ValueOf(Financial.DDB(new(1000), new(100), new(3), new(3), Variant(4))));
+    public void DDB_WithAFactorGreaterThanTheLife_IsThePowerOfANegativeRemainder()
+        // a factor of 4 over a life of 3 is a rate above 100%, which would take all 900 in the first period and leave none; MS-VBA declines the cost by
+        // (1 - 4/3) each period, and (1 - 4/3) squared is positive: 11.11 for the third period (grid oracle\s43 V34).
+        => Assert.AreEqual(BitConverter.Int64BitsToDouble(0x402638E38E38E3C0), ValueOf(Financial.DDB(new(1000), new(100), new(3), new(3), Variant(4))));
 
     [TestMethod]
     public void DDB_FromSource_TakesTheDoubleDecliningFactorWhenItIsLeftOut()

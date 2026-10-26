@@ -17,9 +17,10 @@ namespace RDCore.Tests.Runtime.StdLib;
 /// <remarks>
 /// "For all arguments, cash paid out (such as deposits to savings) is represented by negative numbers; cash
 /// received (such as dividend checks) is represented by positive numbers" — so borrowing 8000 is a present
-/// value of -8000 to the lender, repaid by positive payments. The expected values are the exact ones, which the
-/// VB runtime's own functions, ported to .NET as <c>Microsoft.VisualBasic.Financial</c>, agree with to twelve
-/// significant digits, or an iterated rate to within 1E-07, except where a test says otherwise.
+/// value of -8000 to the lender, repaid by positive payments. The expected values are the exact ones, which MS-VBA's
+/// agree with to twelve significant digits, or an iterated rate to within 1E-07 - except where MS-VBA's own algorithm,
+/// the VB runtime's (<c>Microsoft.VisualBasic.Financial</c> is its port to .NET), gives another answer, or none: what it
+/// gives then is recorded in Excel (grid <c>oracle\s43</c> V), to the bit.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.6 Financial")]
@@ -110,13 +111,23 @@ public sealed class AnnuityFunctionTests
     [DataRow(0.0825, 20, -50000, 1000000, 0, 277054.5976721123)]
     [DataRow(0.08 / 12, 12 * 20, 500, 0, 0, -59777.14585118802)]
     [DataRow(0.05, 1000, -100, 0, 0, 2000)]
-    [DataRow(0.05, 20000, -100, 0, 0, 2000)]
     [DataRow(-0.05, 10, -100, 0, 0, 1340.3651402301862)]
     public void PV_DiscountsTheFutureValueAndEveryPayment(double rate, double nPer, double pmt, double fv, int due, double expected)
         // the first row is the example of the Office documentation, word for word. Over a thousand periods the
-        // present value approaches the perpetuity, 100 / 5% - and over twenty thousand it is that, although
-        // (1.05)^20000 is too large for a Double: the VB runtime's own function answers NaN.
+        // present value approaches the perpetuity, 100 / 5%.
         => AreClose(expected, Financial.PV(new(rate), new(nPer), new(pmt), Variant(fv), Variant(due)));
+
+    // (1.05)^20000 is too large for a Double, and what the annuity functions compute of it is no number - an infinity over an infinity - where the exact
+    // answer is the perpetuity, or the interest alone: MS-VBA raises 6 for each (grid oracle\s43 V01-V05).
+    [TestMethod]
+    public void AnAnnuityOverPeriodsPastTheRangeOfADouble_IsError6()
+    {
+        Assert.AreEqual((int)VBRuntimeErrorId.Overflow, ErrorOf(Financial.PV(new(0.05), new(20000), new(-100), Variant(0), Variant(0))));
+        Assert.AreEqual((int)VBRuntimeErrorId.Overflow, ErrorOf(Financial.Pmt(new(0.05), new(20000), new(1000), Variant(0), Variant(0))));
+        Assert.AreEqual((int)VBRuntimeErrorId.Overflow, ErrorOf(Financial.IPmt(new(0.05), new(14420), new(20000), new(1000), Variant(0), Variant(0))));
+        Assert.AreEqual((int)VBRuntimeErrorId.Overflow, ErrorOf(Financial.IPmt(new(0.05), new(20000), new(20000), new(1000), Variant(0), Variant(0))));
+        Assert.AreEqual((int)VBRuntimeErrorId.Overflow, ErrorOf(Financial.IPmt(new(0.05), new(20000), new(20000), new(1000), Variant(500), Variant(1))));
+    }
 
     [TestMethod]
     public void PV_AtARateOfMinusOne_IsError6()
@@ -130,11 +141,8 @@ public sealed class AnnuityFunctionTests
     [DataRow(0.06 / 12, 18 * 12, 0, 50000, 0, -129.08116086799092)]
     [DataRow(0.05, 10, 1000, -500, 0, -89.75228748272835)]
     [DataRow(0.05 / 12, 360, 200000, 0, 0, -1073.643246024278)]
-    [DataRow(0.05, 20000, 1000, 0, 0, -50)]
     [DataRow(0, 48, -8000, 1000, 1, 145.83333333333334)]
     public void Pmt_SpreadsTheDifferenceOverThePeriods(double rate, double nPer, double pv, double fv, int due, double expected)
-        // over twenty thousand periods the payment is the interest alone, 5% of 1000, where the VB runtime's own
-        // function answers NaN.
         => AreClose(expected, Financial.Pmt(new(rate), new(nPer), new(pv), Variant(fv), Variant(due)));
 
     [TestMethod]
@@ -217,16 +225,6 @@ public sealed class AnnuityFunctionTests
         => AreClose(expected, Financial.IPmt(new(0.1 / 12), new(per), new(48), new(-8000)));
 
     [TestMethod]
-    [DataRow(14420, 0, 0, -50)]
-    [DataRow(20000, 0, 0, -2.3809523809523814)]
-    [DataRow(20000, 500, 1, 20.408163265306122)]
-    public void IPmt_OfAPeriodFarIntoALongAnnuity_IsStillAnAnswer(double per, double fv, int due, double expected)
-        // 1.05 to the power of 20000 is far beyond a Double, and so is what the payments made by the 14420th period
-        // have grown to; what that is over the growth of the whole annuity is not. The VB runtime's own function
-        // answers NaN for all three.
-        => AreClose(expected, Financial.IPmt(new(0.05), new(per), new(20000), new(1000), Variant(fv), Variant(due)));
-
-    [TestMethod]
     [DataRow(0.1 / 12, 1, 48, -8000, 0, 0, 136.23400081131086)]
     [DataRow(0.1 / 12, 48, 48, -8000, 0, 0, 201.22380245749838)]
     [DataRow(0.08, 10, 10, 200000, 0, 0, -27598.053462421376)]
@@ -241,13 +239,12 @@ public sealed class AnnuityFunctionTests
         => AreClose(expected, Financial.PPmt(new(rate), new(per), new(nPer), new(pv), Variant(fv), Variant(due)));
 
     [TestMethod]
-    [DataRow(1, 1.2298272132899146E-15)]
-    [DataRow(50, 5.227761818279862E-07)]
-    public void PPmt_OfALoanThatBarelyPaysAnythingOff_IsStillExact(double per, double expected)
-        // at 50% a period over a hundred periods, the interest is all but the whole payment, and the principal is
-        // what is left of it - which as a difference would be all rounding: the VB runtime's own function answers
-        // 0 for both.
-        => Assert.AreEqual(expected, ValueOf(Financial.PPmt(new(0.5), new(per), new(100), new(-1000))), expected * 1e-12);
+    [DataRow(1)]
+    [DataRow(50)]
+    public void PPmt_OfALoanThatBarelyPaysAnythingOff_IsWhatTheDifferenceRoundsTo(double per)
+        // at 50% a period over a hundred periods, the interest is all but the whole payment, and the principal is what is left of it: 1.2E-15 and
+        // 5.2E-07 exactly, but MS-VBA computes it as the payment less the interest, which is all rounding - 0 for both (grid oracle\s43 V06-V07).
+        => Assert.AreEqual(0, ValueOf(Financial.PPmt(new(0.5), new(per), new(100), new(-1000))));
 
     [TestMethod]
     [DataRow(0)]
@@ -294,51 +291,48 @@ public sealed class AnnuityFunctionTests
     [DataRow(360, -400, 5200, 264923.20449585986, 1, 0.0034000000000001763)]
     [DataRow(480, -100, 1200, 186000.12902711597, 0, 0.004999999999999821)]
     [DataRow(480, -100, 1500, 183708.63829278492, 1, 0.00499999999999982)]
-    [DataRow(508, -924.02, 29906.73, 841403207.4303956, 1, 0.02206194883602405)]
     [DataRow(480, -100, 1000, 188191.61976145758, 0, 0.005)]
-    [DataRow(480, 100, -1000, -188191.61976145758, 0, 0.005)]
     public void Rate_OfASavingsPlanWithABonusToStartIt_IsTheRateOfTheSavings(double nPer, double pmt, double pv, double fv, int due, double expected)
-        // a present value of the future value's sign can give the equation a second root, below the rate at which
-        // the payments are only the interest on the present value - 500% a period for the fifth row; the first
-        // three, paying a bonus of no more than a payment at the start of each period, have none - and from a
-        // guess of 10% a ratio of what is received to what is paid can head for it. For the other rows that rate
-        // is from 3.2% to 10%, no more than the guess. In five of them the first bracket holds the second root:
-        // that is found, and then the lower root, heading down from the bracket's lower end. In the eleventh, a
-        // step from above lands below the rate, so the first bracket holds the rate itself, and nothing is found
-        // below it. The last two are one plan with its signs reversed, from a guess of exactly its interest-only
-        // rate, where the imbalance rounds to 0: the guess is taken as the second root, and the lower one is found
-        // below it, the same way in both. The VB runtime's own function finds neither the eleventh row nor the
-        // last.
+        // a present value of the future value's sign can give the equation a second root, below the rate at which the payments are only the interest
+        // on the present value - 500% a period for the fifth row; the first three, paying a bonus of no more than a payment at the start of each period,
+        // have none. From a guess of 10%, MS-VBA's secant steps reach the rate of the savings for these.
         => Assert.AreEqual(expected, ValueOf(Financial.Rate(new(nPer), new(pmt), new(pv), Variant(fv), Variant(due))), IteratedAccuracy);
 
     [TestMethod]
-    [DataRow(191, -292.2357407372892, 1560.3127525952086, 235207.16792899993, 0.5, 0.01338830314338588)]
     [DataRow(360, -100, 5000, 49964.4718552713, 0.022, 0.002999999999999612)]
-    [DataRow(360, 100, -5000, -49964.4718552713, 0.022, 0.002999999999999612)]
     [DataRow(252, -400, 6400, 173813.0383463367, 0.05, 0.004799999999999772)]
-    [DataRow(480, -100, 1200, 186000.12902711597, -0.02, 0.004999999999999821)]
-    [DataRow(480, -100, 1200, 186000.12902711597, -0.05, 0.004999999999999821)]
     public void Rate_OfASavingsPlanWithABonus_FromAGuessAwayFromTheRate_IsTheRateOfTheSavings(
         double nPer, double pmt, double pv, double fv, double guess, double expected)
-        // from 50%, above both roots, the first bracket holds the second root, at 18.7%: that is found, and then
-        // the lower root, heading down from the bracket's lower end. From 2.2%, above the 2% at which the payments
-        // are only the interest on the bonus, the first bracket's lower end is so near the second root, at 1.98%,
-        // that a step up from it would bracket that root again: the iteration steps down - and does the same with
-        // every sign reversed. From 5%, the first bracket reaches down to -10.7%, where the imbalance in future
-        // value is all but flat, and would close too slowly on it: it is closed on the logarithm of what is
-        // received over what is paid instead. From -2% and -5%, below the rate, that imbalance is all but flat and
-        // falling, and a ratio of what is received to what is paid leads to the rate instead. The VB runtime's own
-        // function finds the first, second and fourth, answers the third with the second root, and finds neither
-        // of the last two.
         => Assert.AreEqual(expected, ValueOf(Financial.Rate(new(nPer), new(pmt), new(pv), Variant(fv), Variant(0), Variant(guess))), IteratedAccuracy);
 
+    // the rate MS-VBA's iteration finds where another one exists: from 2.2%, the same plan as above with every sign reversed balances at the second root,
+    // 1.98%; from 300%, a plan whose only root is just below 200% gives -1.25, which is no rate at all; and 1000 grown with nothing to offset it, which
+    // balances at no rate, gives -0.906, where 1000 * (1+r)^10 has fallen below the tolerance on the way to -1 (grid oracle\s43 V13, V14, V19).
     [TestMethod]
-    public void Rate_OfASavingsPlanWithNoLowerRoot_FindsTheOneItHasFromAGuessAboveIt()
-        // a payout of less than one payment leaves no rate below the trough at which the plan balances: its only
-        // root is just below 200%, where the payments are only the interest on the bonus, and from a guess of 300%
-        // it is found first, and nothing below it, so it is the result. The VB runtime's own function answers
-        // -1.25, which is no rate at all.
-        => Assert.AreEqual(1.9999902149290758, ValueOf(Financial.Rate(new(12), new(-1000), new(500), Variant(800), Variant(0), Variant(3))), IteratedAccuracy);
+    [DataRow(360, 100, -5000, -49964.4718552713, 0, 0.022, 0x3F9449F47EB61784L)]
+    [DataRow(12, -1000, 500, 800, 0, 3, unchecked((long)0xBFF3FFFFDF800C74UL))]
+    [DataRow(10, 0, 1000, 0, 0, 0.1, unchecked((long)0xBFED018D50188027UL))]
+    public void Rate_WhereTheIterationLandsElsewhere_IsWhatItLandsOn(double nPer, double pmt, double pv, double fv, int due, double guess, long expected)
+        => Assert.AreEqual(BitConverter.Int64BitsToDouble(expected),
+            ValueOf(Financial.Rate(new(nPer), new(pmt), new(pv), Variant(fv), Variant(due), Variant(guess))));
+
+    // where MS-VBA's forty secant steps find no rate within 1E-07 of balancing, or two steps meet the same imbalance - from a guess far from the rate,
+    // for a savings plan with a large bonus, for 10 payments of 100 repaying 1000 with no interest at all, whose imbalance near 0 is noise above the
+    // tolerance - it is error 5, though there is a rate (grid oracle\s43 V08-V12, V15-V18, V20).
+    [TestMethod]
+    [DataRow(508, -924.02, 29906.73, 841403207.4303956, 1, 0.1)]
+    [DataRow(480, 100, -1000, -188191.61976145758, 0, 0.1)]
+    [DataRow(480, -100, 1200, 186000.12902711597, 0, -0.05)]
+    [DataRow(480, -100, 1200, 186000.12902711597, 0, -0.02)]
+    [DataRow(191, -292.2357407372892, 1560.3127525952086, 235207.16792899993, 0, 0.5)]
+    [DataRow(120, -100, 0, 20000, 0, -0.5)]
+    [DataRow(360, -1073.64, 200000, 0, 0, 1.02)]
+    [DataRow(360, -1073.64, 200000, 0, 0, 1.91)]
+    [DataRow(48, -200, 8000, 0, 0, -0.8)]
+    [DataRow(10, -100, 1000, 0, 0, 0.1)]
+    public void Rate_ThatTheIterationDoesNotFind_IsError5(double nPer, double pmt, double pv, double fv, int due, double guess)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument,
+            ErrorOf(Financial.Rate(new(nPer), new(pmt), new(pv), Variant(fv), Variant(due), Variant(guess))));
 
     [TestMethod]
     public void Rate_OfASavingsPlanWhoseLowerRootIsOutOfReach_IsTheSecondRoot()
@@ -370,25 +364,6 @@ public sealed class AnnuityFunctionTests
         => AreClose(202.90066747797752, Financial.Pmt(new(0.1 / 12), new(48), new(-8000), new(VBEmptyValue.Empty), new(VBEmptyValue.Empty)));
 
     [TestMethod]
-    [DataRow(48, -200, 8000, 0, -0.8, 0.007701472488202044)]
-    [DataRow(360, -1073.64, 200000, 0, 1.02, 0.004166644536345542)]
-    [DataRow(360, -1073.64, 200000, 0, 1.91, 0.004166644536345542)]
-    [DataRow(120, -100, 0, 20000, -0.5, 0.007984103181033108)]
-    public void Rate_FromAGuessFarFromTheRate_StillFindsIt(double nPer, double pmt, double pv, double fv, double guess, double expected)
-        // -80%, 102%, 191% and -50% a period, for a loan, a mortgage and a savings plan at under 1%: the VB
-        // runtime's own function finds none of them within its forty tries. From -50%, the savings plan's first
-        // step would take the iteration to a rate it could not come back from, if a step were not limited in
-        // length.
-        => Assert.AreEqual(expected, ValueOf(Financial.Rate(new(nPer), new(pmt), new(pv), Variant(fv), Variant(0), Variant(guess))), IteratedAccuracy);
-
-    [TestMethod]
-    public void Rate_OfAnAnnuityThatBalancesAtZero_IsZero()
-        // 10 payments of 100 repay 1000 with no interest at all. The VB runtime's own function cannot find this
-        // one: its test of the result is how far the equation is from balancing, and near a rate of zero that is
-        // noise above its tolerance. The test here is where the rate changes sign, and it does at 0.
-        => Assert.AreEqual(0, ValueOf(Financial.Rate(new(10), new(-100), new(1000))), IteratedAccuracy);
-
-    [TestMethod]
     public void Rate_AtARootTheAnnuityOnlyTouches_IsThatRoot()
         // -100·(1+r)² + 200·(2+r) - 300 is -100·r²: 0 at 0 and negative either side, so it changes sign nowhere,
         // and an imbalance of exactly 0 is all there is to find - here from a guess of 0, the root itself.
@@ -399,13 +374,6 @@ public sealed class AnnuityFunctionTests
     [DataRow(-48, -200, 8000)]
     public void Rate_OverNoPeriods_IsError5(double nPer, double pmt, double pv)
         => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Financial.Rate(new(nPer), new(pmt), new(pv))));
-
-    [TestMethod]
-    public void Rate_WithNoRateThatBalances_IsError5()
-        // 1000 grows at any rate, with no payment and no future value to offset it, so there is nothing to
-        // iterate towards. The VB runtime's own function answers -0.906 here, where 1000 * (1+r)^10 has fallen
-        // below its tolerance on the way to -1 without ever reaching 0.
-        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Financial.Rate(new(10), new(0), new(1000))));
 
     [TestMethod]
     public void Rate_ThatIteratesWithoutFindingOne_IsError5()
