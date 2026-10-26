@@ -45,7 +45,8 @@ public sealed record class ArrayBoundEvaluator(
     {
         value = 0;
         isKnown = true;
-        var evaluated = Expressions.Evaluate(session, expression, context);
+        // a Single, Double or Date bound is converted to a Long from the extended format it is computed in (MS-VBAL §5.6.9.3; s42 E08).
+        var evaluated = Expressions.EvaluateLetCoercedTo(session, expression, VBLongType.TypeInfo, context);
         if (!evaluated.IsSuccess)
         {
             failure = evaluated.IsInternalError

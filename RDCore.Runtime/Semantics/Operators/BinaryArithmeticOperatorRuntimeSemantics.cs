@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Numerics;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -105,6 +106,11 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     // one is an overflow (MS-VBAL §5.6.9.3; recorded in Excel, grid oracle\s16 D01-D10, H01).
     private RuntimeSemanticsEvaluationResult SingleResult(OperatorEvaluationFrame frame, VBSingleValue lhs, VBSingleValue rhs, ExpressionNode expression)
     {
+        if (!frame.HasVariantOperand && ExtendedIntermediates.IsArithmetic(Operator))
+        {
+            return ExtendedResult(VBSingleType.TypeInfo, Float80.FromSingle(lhs.Value), Float80.FromSingle(rhs.Value), expression);
+        }
+
         var value = EvaluateManagedNumericOp(lhs.Value, rhs.Value);
         if (VariantArithmeticOverflow.WidensSingle(frame, value))
         {
@@ -120,6 +126,11 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     // a Variant Double result that is not finite is an overflow, which assigns nothing (VariantArithmeticOverflow.OverflowsDouble); a typed one is IEEE 754's.
     private RuntimeSemanticsEvaluationResult DoubleResult(OperatorEvaluationFrame frame, VBDoubleValue lhs, VBDoubleValue rhs, ExpressionNode expression)
     {
+        if (!frame.HasVariantOperand && ExtendedIntermediates.IsArithmetic(Operator))
+        {
+            return ExtendedResult(VBDoubleType.TypeInfo, Float80.FromDouble(lhs.Value), Float80.FromDouble(rhs.Value), expression);
+        }
+
         var value = EvaluateManagedNumericOp(lhs.Value, rhs.Value);
         if (VariantArithmeticOverflow.OverflowsDouble(frame, value))
         {
@@ -130,6 +141,28 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
             ? Overflowed(expression, new VBDoubleValue(value))
             : RuntimeSemanticsEvaluationResult.Success(new VBDoubleValue(value));
     }
+
+    // MS-VBAL §5.6.9.3: a Single or Double operation of typed operands, on its own - not one of an expression the evaluator computes in the extended format
+    // (ExtendedIntermediates): a step of a For loop, a Case - is computed in that format too, and stored as its type: rounded twice, as MS-VBA rounds it. A
+    // division by zero is error 11, an invalid operation or an overflow 6, and the error carries the value IEEE 754 arithmetic gave, which a Let assignment
+    // assigns to a Single or Double variable before raising it (recorded in Excel, grid oracle\s16 D01-D10, F01-F15; oracle\s42).
+    private static RuntimeSemanticsEvaluationResult ExtendedResult(VBType type, Float80 lhs, Float80 rhs, string token, ExpressionNode expression)
+    {
+        var none = FloatingPointExceptions.None;
+        var wide = ExtendedIntermediates.Operate(token, new WideValue(lhs, type, none), new WideValue(rhs, type, none), type);
+        var stored = ExtendedIntermediates.Store(wide, out var error)!.Value;
+        var value = type is VBSingleType ? (VBTypedValue)new VBSingleValue((float)stored.Floating) : new VBDoubleValue(stored.Floating);
+        return error switch
+        {
+            VBRuntimeErrorId.DivisionByZero => RuntimeSemanticsEvaluationResult.Error(
+                OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero).ErrorInfo!, value),
+            not null => Overflowed(expression, value),
+            _ => RuntimeSemanticsEvaluationResult.Success(value),
+        };
+    }
+
+    private RuntimeSemanticsEvaluationResult ExtendedResult(VBType type, Float80 lhs, Float80 rhs, ExpressionNode expression)
+        => ExtendedResult(type, lhs, rhs, Operator, expression);
 
     // MS-VBAL §5.6.9.3: Single and Double operations are IEEE 754's, which an overflow stops: finite operands whose result is not finite - and MS-VBA
     // raises the invalid operation of operands that are no NaN, whose result is one (infinity less infinity), as an overflow too. An operation of an

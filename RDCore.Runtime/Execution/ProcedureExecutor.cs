@@ -857,13 +857,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        var startResult = forLoop.EvaluateOperand(session, forStatement.StartExpression, context);
+        // the loop counts in one numeric type, which the start, the end and the step are Let-coerced to.
+        var counterType = counterSymbol is ITypedSymbol typed ? typed.ResolvedType : VBVariantType.TypeInfo;
+        var startResult = forLoop.EvaluateOperand(session, forStatement.StartExpression, counterType, context);
         if (!startResult.IsSuccess)
         {
             return ToFailureOutcome(startResult);
         }
 
-        var endResult = forLoop.EvaluateOperand(session, forStatement.EndExpression, context);
+        var endResult = forLoop.EvaluateOperand(session, forStatement.EndExpression, counterType, context);
         if (!endResult.IsSuccess)
         {
             return ToFailureOutcome(endResult);
@@ -874,7 +876,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         VBTypedValue? step = null;
         if (forStatement.StepExpression is { } stepExpression)
         {
-            var stepResult = forLoop.EvaluateOperand(session, stepExpression, context);
+            var stepResult = forLoop.EvaluateOperand(session, stepExpression, counterType, context);
             if (!stepResult.IsSuccess)
             {
                 return ToFailureOutcome(stepResult);
@@ -883,8 +885,6 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             step = stepResult.Result!;
         }
 
-        // the loop counts in one numeric type, which the start, the end and the step are Let-coerced to.
-        var counterType = counterSymbol is ITypedSymbol typed ? typed.ResolvedType : VBVariantType.TypeInfo;
         if (forLoop.Operands(session, forStatement, counterType, startResult.Result!, endResult.Result!, step, out var counted) is { } operandError)
         {
             return ToFailureOutcome(RuntimeSemanticsEvaluationResult.Error(operandError));

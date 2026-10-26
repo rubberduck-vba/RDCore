@@ -1638,7 +1638,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var evaluated = new int[arguments.Length];
         for (var i = 0; i < arguments.Length; i++)
         {
-            var argumentResult = EvaluateIndexArgument(session, arguments[i], context);
+            // a Single, Double or Date subscript is converted to a Long from the extended format it is computed in (MS-VBAL §5.6.9.3; s42 E07).
+            var argumentResult = arguments[i] is MissingArgumentNode or NamedArgumentNode or AddressOfExpressionNode
+                ? EvaluateIndexArgument(session, arguments[i], context)
+                : EvaluateLetCoercedTo(session, arguments[i], VBLongType.TypeInfo, context);
             if (argumentResult is { } failed && !failed.IsSuccess)
             {
                 return failed;
@@ -2062,11 +2065,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 continue;
             }
 
-            // an argument is evaluated once: what binding it by reference already evaluated is what is passed, and not evaluated again.
-            var argumentResult = evaluatedInstead ?? (value is null ? EvaluateIndexArgument(session, argumentNode, context) : EvaluateBoundArgument(session, value, context));
+            // an argument is evaluated once: what binding it by reference already evaluated is what is passed, and not evaluated again. A Single, Double or
+            // Date expression is converted to the parameter's type from the extended format it is computed in (MS-VBAL §5.6.9.3; s42 D01, D02, D28).
+            var argumentResult = evaluatedInstead
+                ?? (value is null ? EvaluateIndexArgument(session, argumentNode, context)
+                    : IsWide(value) ? EvaluateLetCoercedTo(session, value, parameter.ResolvedType, context)
+                    : EvaluateBoundArgument(session, value, context));
             if (argumentResult is { } evaluated && !evaluated.IsSuccess)
             {
-                return evaluated;
+                // what an argument raises is the call's error, with no value of its own for the call to have returned.
+                return Unvalued(evaluated);
             }
             if (argumentResult is null)
             {

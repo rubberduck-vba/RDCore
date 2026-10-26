@@ -57,23 +57,14 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         {
             var lhsNumeric = (VBNumericTypedValue)lhs;
             var rhsNumeric = (VBNumericTypedValue)rhs;
-            if (rhsNumeric.AsDouble == 0)
+            // MS-VBAL §5.6.9.3.5: a division by zero of typed operands is the extended format's (ExtendedIntermediates) - error 11, or 6 for 0 / 0, carrying
+            // the IEEE 754 value of the division, which a Let assignment assigns to a Single or Double variable before raising it. A Variant operand's
+            // assigns nothing (recorded in Excel, grid oracle\s16 D08, F05-F06, H03).
+            if (rhsNumeric.AsDouble == 0 && frame.HasVariantOperand)
             {
-                // MS-VBAL §5.6.9.3.5: the error carries the IEEE 754 value of the division - an infinity, or the NaN of 0 / 0 - which a Let assignment
-                // assigns before raising it: MS-VBAL says so of operands declared Double, and MS-VBA does it for a Single or Double variable assigned
-                // any such division of typed operands; a Variant operand's assigns nothing (recorded in Excel, grid oracle\s16 D08, F05-F06, H03).
-                var failed = lhsNumeric.AsDouble == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
+                return lhsNumeric.AsDouble == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
                     ? OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow)
                     : OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
-                if (frame.HasVariantOperand)
-                {
-                    return failed;
-                }
-
-                var quotient = frame.EffectiveType is VBSingleType
-                    ? (VBTypedValue)new VBSingleValue((float)lhsNumeric.AsDouble / (float)rhsNumeric.AsDouble)
-                    : new VBDoubleValue(lhsNumeric.AsDouble / rhsNumeric.AsDouble);
-                return RuntimeSemanticsEvaluationResult.Error(failed.ErrorInfo!, quotient);
             }
 
             return EvaluateBinaryExpressionResult(frame, (VBNumericType)frame.EffectiveType, lhsNumeric, rhsNumeric, expression);

@@ -110,16 +110,12 @@ public sealed class FloatingPointOverflowTests
 
     // MS-VBAL §5.6.9.3 lets an implementation "perform floating point operations with a higher-precision than the effective value type (such as an
     // 'extended' or 'long double' type)", and MS-VBA does: an intermediate result past the range of a Double is no overflow until it is stored or made a
-    // Double (F02, F18). RD-VBA computes in Double, and overflows at the intermediate operation.
-    private const string WiderIntermediates = "Undecided gap (author): MS-VBA keeps intermediate results in a range wider than a Double; RD-VBA computes in Double.";
-
+    // Double (F02, F18) - so does RD-VBA (ExtendedIntermediates; ExtendedIntermediateTests for the rest of it).
     [TestMethod]
-    [Ignore(WiderIntermediates)]
     public void TwoIntermediateResultsPastADouble_SubtractedToZero_AreNoOverflow()
         => Assert.AreEqual("0|0", Run("Dim d As Double, e As Double ;; d = 1E+308 ;; e = (d * 10) - (d * 10) ;; Debug.Print Err.Number & \"|\" & e"));
 
     [TestMethod]
-    [Ignore(WiderIntermediates)]
     public void AnIntermediateResultPastADouble_Compared_IsNoOverflow()
-        => Assert.AreEqual("gt|0", Run("Dim d As Double ;; d = 1E+308 ;; If d * 10 > 0 Then Debug.Print \"gt\" ;; Debug.Print Err.Number"));
+        => Assert.AreEqual("gt/0", Run("Dim d As Double ;; d = 1E+308 ;; If d * 10 > 0 Then Debug.Print \"gt\" ;; Debug.Print Err.Number"));
 }

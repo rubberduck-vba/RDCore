@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics.Operators;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
@@ -45,8 +46,7 @@ public sealed partial class RuntimeExpressionEvaluator
         var bound = BoundTreeOf(session, target, context);
         if (bound is BoundName { Symbol: var function } && ResultFrameOf(session, function, context) is { } frame)
         {
-            if (!TryEvaluatePayload(session, BoundTreeOf(session, value, context), out var result)
-                || !TryConvertPayload(result, ((ITypedSymbol)function).ResolvedType, out var assigned))
+            if (!TryEvaluatePayloadAs(session, BoundTreeOf(session, value, context), ((ITypedSymbol)function).ResolvedType, out var assigned))
             {
                 return false;
             }
@@ -59,7 +59,7 @@ public sealed partial class RuntimeExpressionEvaluator
         if (bound is BoundIndex index)
         {
             return ElementCellOf(session, index) is { } element
-                && TryEvaluatePayload(session, BoundTreeOf(session, value, context), out var written) && TryWritePayload(element, written);
+                && TryEvaluatePayloadAs(session, BoundTreeOf(session, value, context), element.Type, out var written) && TryWritePayload(element, written);
         }
 
         if (bound is not BoundVariable variable)
@@ -67,8 +67,15 @@ public sealed partial class RuntimeExpressionEvaluator
             return false;
         }
 
+        // MS-VBAL §5.6.9.3: a Single, Double or Date expression is converted to the type of a scalar variable from the extended format it is computed in,
+        // and stored as its own type in a Variant (ExtendedIntermediates).
         var (cell, referenced) = BindingOf(session, variable);
-        if (referenced is null && cell is ScalarCell or VariantCell)
+        if (referenced is null && cell is ScalarCell scalar)
+        {
+            return TryEvaluatePayloadAs(session, BoundTreeOf(session, value, context), scalar.Type, out var converted) && TryWritePayload(cell, converted);
+        }
+
+        if (referenced is null && cell is VariantCell)
         {
             return TryEvaluatePayload(session, BoundTreeOf(session, value, context), out var payload) && TryWritePayload(cell, payload);
         }
@@ -256,8 +263,12 @@ public sealed partial class RuntimeExpressionEvaluator
 
         switch (BindingOf(session, loop.Counter!))
         {
+            // counter + step of a Single, Double or Date counter is computed in the extended format, and stored (MS-VBAL §5.6.9.3).
             case (ScalarCell cell, null) when cell.TryRead(out var value) && ReferenceEquals(cell.Type, loop.Step.Type)
-                && TryOperate(Tokens.AdditionOp, cell.Type, value, loop.Step, out var sum):
+                && (ExtendedIntermediates.IsFloating(cell.Type)
+                    ? TryStored(ExtendedIntermediates.Operate(Tokens.AdditionOp, ExtendedIntermediates.Widened(value, cell.Type),
+                        ExtendedIntermediates.Widened(loop.Step, cell.Type), cell.Type), cell.Type, out var sum)
+                    : TryOperate(Tokens.AdditionOp, cell.Type, value, loop.Step, out sum)):
                 cell.Write(sum);
                 isOutOfRange = sum.IsIntegral
                     ? state.CountsDown ? sum.Integral < loop.End.Integral : sum.Integral > loop.End.Integral
@@ -323,6 +334,15 @@ public sealed partial class RuntimeExpressionEvaluator
         payload = default;
         switch (node)
         {
+            // MS-VBAL §5.6.9.3: a Single, Double or Date operation of operands of declared types is computed in the extended format and stored as its type
+            // (ExtendedIntermediates); an operand of an operation that is not one is converted to the type the operation coerces it to. One that raises an
+            // error declines.
+            case BoundBinary or BoundUnary when IsWide(node):
+                return TryEvaluateWide(session, node, out var wide) && TryStored(wide, wide.Type, out payload);
+            case BoundBinary binary when PlanOf(binary) is { IsDeferred: false } plan && (IsWide(binary.Left) || IsWide(binary.Right)):
+                return TryOperateWithWide(session, binary, plan, out payload);
+            case BoundUnary { Plan: not null } unary when PlanOf(unary) is { IsDeferred: false, OperandDestination: { } destination } plan && IsWide(unary.Operand):
+                return TryEvaluatePayloadAs(session, unary.Operand, destination, out var converted) && TryOperateUnary(plan, converted, out payload);
             case BoundLiteral literal:
                 return ScalarPayload.TryOf(literal.Literal.StaticValue.TypeInfo, literal.Literal.StaticValue.RuntimeValue, out payload);
             case BoundVariable variable:
@@ -357,6 +377,106 @@ public sealed partial class RuntimeExpressionEvaluator
             default:
                 return false;
         }
+    }
+
+    // an extended intermediate on payloads (ExtendedIntermediates): operations and negations of them, in parentheses or not. Abs and the other functions
+    // computed on one are calls, which are the boxed evaluation's.
+    private bool TryEvaluateWide(IRuntimeSession session, BoundNode node, out WideValue value)
+    {
+        value = default;
+        switch (node)
+        {
+            case BoundBinary binary when PlanOf(binary) is { } plan:
+                if (!TryEvaluateWideOperand(session, binary.Left, plan, out var left) || !TryEvaluateWideOperand(session, binary.Right, plan, out var right))
+                {
+                    return false;
+                }
+
+                value = ExtendedIntermediates.Operate(plan.Operator, left, right, plan.EffectiveType!);
+                return true;
+            case BoundUnary { Plan: not null } unary when PlanOf(unary) is { } plan:
+                if (!TryEvaluateWideOperand(session, unary.Operand, plan, out var operand))
+                {
+                    return false;
+                }
+
+                value = ExtendedIntermediates.Negate(operand, plan.EffectiveType!);
+                return true;
+            case BoundUnary { Plan: null } unary:
+                return TryEvaluateWide(session, unary.Operand, out value);
+            default:
+                return false;
+        }
+    }
+
+    private bool TryEvaluateWideOperand(IRuntimeSession session, BoundNode operand, OperationPlan plan, out WideValue value)
+    {
+        if (IsWide(operand))
+        {
+            return TryEvaluateWide(session, operand, out value);
+        }
+
+        value = default;
+        if (!TryEvaluatePayload(session, operand, out var payload))
+        {
+            return false;
+        }
+
+        value = ExtendedIntermediates.Widened(payload, plan.EffectiveType!);
+        return true;
+    }
+
+    // an extended value converted to destination - or stored, when that is its own type - when the conversion raises no error.
+    private static bool TryStored(WideValue value, VBType destination, out ScalarPayload payload)
+    {
+        payload = default;
+        if (ExtendedIntermediates.Convert(value, destination, out var error) is not { } converted || error is not null)
+        {
+            return false;
+        }
+
+        payload = converted;
+        return true;
+    }
+
+    // a node evaluated on payloads and let-coerced to destination: an extended intermediate converted to it from its 80 bits, when that is a numeric type,
+    // and anything else coerced from its payload.
+    private bool TryEvaluatePayloadAs(IRuntimeSession session, BoundNode node, VBType destination, out ScalarPayload payload)
+    {
+        if (IsWide(node) && ExtendedIntermediates.ConvertsDirectly(destination))
+        {
+            payload = default;
+            return TryEvaluateWide(session, node, out var wide) && TryStored(wide, destination, out payload);
+        }
+
+        payload = default;
+        return TryEvaluatePayload(session, node, out var evaluated) && TryConvertPayload(evaluated, destination, out payload);
+    }
+
+    // an operation an operand of which is an extended intermediate (EvaluateWithWideOperand): a comparison of a floating-point effective type compares the
+    // extended values at its precision; any other operation is given each operand let-coerced to the type it coerces them to.
+    private bool TryOperateWithWide(IRuntimeSession session, BoundBinary binary, OperationPlan plan, out ScalarPayload payload)
+    {
+        payload = default;
+        if (ExtendedIntermediates.IsComparison(plan.Operator) && ExtendedIntermediates.IsFloating(plan.EffectiveType))
+        {
+            if (!TryEvaluateWideOperand(session, binary.Left, plan, out var left) || !TryEvaluateWideOperand(session, binary.Right, plan, out var right)
+                || ExtendedIntermediates.Compare(plan.Operator, left, right, plan.EffectiveType!, out _) is not { } isTrue)
+            {
+                return false;
+            }
+
+            payload = ScalarPayload.OfBoolean(isTrue);
+            return true;
+        }
+
+        if (plan.OperandDestination is not { } destination)
+        {
+            return false;
+        }
+
+        return TryEvaluatePayloadAs(session, binary.Left, destination, out var lhs) && TryEvaluatePayloadAs(session, binary.Right, destination, out var rhs)
+            && TryOperateBinary(plan, lhs, rhs, out payload);
     }
 
     private static bool IsConstant(Symbol symbol) => symbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol;
@@ -399,7 +519,7 @@ public sealed partial class RuntimeExpressionEvaluator
         Span<int> subscripts = stackalloc int[MaxPayloadRank];
         for (var k = 0; k < index.Arguments.Length; k++)
         {
-            if (!TryEvaluatePayload(session, index.Arguments[k], out var subscript) || !TryConvertPayload(subscript, VBLongType.TypeInfo, out var integral))
+            if (!TryEvaluatePayloadAs(session, index.Arguments[k], VBLongType.TypeInfo, out var integral))
             {
                 return null;
             }
@@ -468,20 +588,12 @@ public sealed partial class RuntimeExpressionEvaluator
             {
                 var parameter = parameters[i];
                 // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted (S1.7).
+                // any other is let-coerced to the parameter's type - an extended intermediate from its 80 bits (MS-VBAL §5.6.9.3).
                 var isVariant = parameter.ResolvedType is VBVariantType;
                 if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter is ParamArrayParameterSymbol
                     || !(isVariant || ScalarPayload.IsScalar(parameter.ResolvedType))
                     || ArgumentOf(i) is not { } argument
-                    || !TryEvaluatePayload(session, argument, out var payload))
-                {
-                    return false;
-                }
-
-                if (isVariant)
-                {
-                    arguments[i] = payload;
-                }
-                else if (!TryConvertPayload(payload, parameter.ResolvedType, out arguments[i]))
+                    || !(isVariant ? TryEvaluatePayload(session, argument, out arguments[i]) : TryEvaluatePayloadAs(session, argument, parameter.ResolvedType, out arguments[i])))
                 {
                     return false;
                 }
@@ -561,18 +673,18 @@ public sealed partial class RuntimeExpressionEvaluator
             return false;
         }
 
-        if (!TryEvaluatePayload(session, node, out var payload))
-        {
-            return false;
-        }
-
         if (isVariant)
         {
+            if (!TryEvaluatePayload(session, node, out var payload))
+            {
+                return false;
+            }
+
             value = VariantCell.Holding(payload.Type, payload.Box());
             return true;
         }
 
-        if (!TryConvertPayload(payload, parameterType, out var converted))
+        if (!TryEvaluatePayloadAs(session, node, parameterType, out var converted))
         {
             return false;
         }
@@ -589,8 +701,25 @@ public sealed partial class RuntimeExpressionEvaluator
     internal bool TryEvaluateConditionUnboxed(IRuntimeSession session, ExpressionNode condition, RuntimeEvaluationContext context, out bool isTrue)
     {
         isTrue = false;
-        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
-            || !TryEvaluatePayload(session, BoundTreeOf(session, condition, context), out var payload))
+        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables)
+        {
+            return false;
+        }
+
+        // an extended intermediate is converted to a Boolean from its 80 bits (MS-VBAL §5.6.9.3; s42 E01).
+        var node = BoundTreeOf(session, condition, context);
+        if (IsWide(node))
+        {
+            if (!TryEvaluatePayloadAs(session, node, VBBooleanType.TypeInfo, out var converted))
+            {
+                return false;
+            }
+
+            isTrue = converted.IsTrue;
+            return true;
+        }
+
+        if (!TryEvaluatePayload(session, node, out var payload))
         {
             return false;
         }

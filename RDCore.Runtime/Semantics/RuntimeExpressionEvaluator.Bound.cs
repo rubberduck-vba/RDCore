@@ -393,16 +393,29 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {
+        // MS-VBAL §5.6.9.3: a Single, Double or Date operation of operands of declared types is computed in the extended format (ExtendedIntermediates),
+        // and so is an operand of an operation that is not one.
+        if (IsWide(binary))
+        {
+            return EvaluateStored(session, binary, context);
+        }
+
+        if (PlanOf(binary) is { IsDeferred: false } plan && (IsWide(binary.Left) || IsWide(binary.Right)))
+        {
+            return EvaluateWithWideOperand(session, binary, plan, context);
+        }
+
+        // an operand that raised an error raises it with no value: a Variant operation of it assigns nothing (MS-VBA: e = s * 10 + v leaves e - s42 E06).
         var leftResult = EvaluateBoundNode(session, binary.Left, context);
         if (!leftResult.IsSuccess)
         {
-            return leftResult;
+            return Unvalued(leftResult);
         }
 
         var rightResult = EvaluateBoundNode(session, binary.Right, context);
         if (!rightResult.IsSuccess)
         {
-            return rightResult;
+            return Unvalued(rightResult);
         }
 
         return OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, leftResult.Result!, rightResult.Result!);
@@ -410,13 +423,29 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // what EvaluateIndex does with a callee that resolves to a procedure, its callee resolved once: a function that declares no parameter is not given what
     // follows it in parentheses, which indexes what it returns - and that is evaluated late-bound.
+    // Abs, Int, Fix, CSng and CDbl of an extended intermediate are computed on it, CByte to CBool convert it, and Sgn takes its sign, none storing it first
+    // (ExtendedIntermediates).
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
-        => call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
-            ? InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)
-            : EvaluateLate(session, call.Expression, context);
+        => IsWide(call) ? EvaluateStored(session, call, context)
+            : EvaluateWideConversion(session, call, context) is { } converted ? converted
+            : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
+                ? InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)
+                : EvaluateLate(session, call.Expression, context);
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundUnary(IRuntimeSession session, BoundUnary unary, RuntimeEvaluationContext context)
     {
+        if (IsWide(unary))
+        {
+            return EvaluateStored(session, unary, context);
+        }
+
+        // Not of an extended intermediate: converted to the type it is coerced to, from its 80 bits.
+        if (PlanOf(unary) is { IsDeferred: false } plan && IsWide(unary.Operand))
+        {
+            var converted = EvaluateOperandOf(session, unary.Operand, plan.OperandDestination, context);
+            return converted.IsSuccess ? OperatorProvider.EvaluateUnaryOperator(session, unary.Operation, converted.Result!) : converted;
+        }
+
         var operandResult = EvaluateBoundNode(session, unary.Operand, context);
         return operandResult.IsSuccess
             ? OperatorProvider.EvaluateUnaryOperator(session, unary.Operation, operandResult.Result!)

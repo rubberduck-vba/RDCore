@@ -205,7 +205,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return RuntimeExecutionOutcome.Next;
         }
 
-        var valueResult = _expressionEvaluator.Evaluate(session, assignment.Value, context);
+        // a Single, Double or Date expression, computed in the extended format, is converted to the declared type of the target from it (MS-VBAL §5.6.9.3).
+        var valueResult = _expressionEvaluator.EvaluateAssigned(session, assignment.Target, assignment.Value, context);
         if (!valueResult.IsSuccess)
         {
             if (valueResult is { IsError: true, Result: VBSingleValue or VBDoubleValue } overflowed)

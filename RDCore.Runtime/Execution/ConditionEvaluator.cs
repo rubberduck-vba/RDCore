@@ -34,7 +34,8 @@ public sealed class ConditionEvaluator(RuntimeExpressionEvaluator expressionEval
             return RuntimeSemanticsEvaluationResult.Success(isTrue ? VBBooleanValue.True : VBBooleanValue.False);
         }
 
-        var valueResult = expressionEvaluator.Evaluate(session, condition, context);
+        // a Single, Double or Date condition is converted to a Boolean from the extended format it is computed in (MS-VBAL §5.6.9.3; s42 E01).
+        var valueResult = expressionEvaluator.EvaluateLetCoercedTo(session, condition, VBBooleanType.TypeInfo, context);
         if (!valueResult.IsSuccess)
         {
             return valueResult;
