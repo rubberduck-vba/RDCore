@@ -1059,7 +1059,8 @@ public static class StatementStaticSemanticsEvaluator
         // a Sub of an object or of a module, named through it, has no value to assign through, with arguments or without, by a Let or a Set (MS-VBAL §5.6.2.1;
         // MS-VBA, Excel-verified, oracle\s44 E04, E10, F02, F03, F08, F09: "Expected Function or variable"). MS-VBA compiles a Sub named by its bare name (F10).
         var reached = assignment.Target is IndexExpressionNode { Callee: var indexed } ? indexed : assignment.Target;
-        if (target is VBVoidType && reached is MemberAccessExpressionNode { Member: var sub })
+        if (target is VBVoidType && reached is MemberAccessExpressionNode { Member: var sub }
+            && ObjectValueStaticSemantics.MemberOfCallee(context, reached) is VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol))
         {
             return VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, location, sub.IdentifierName);
         }
