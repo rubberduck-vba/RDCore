@@ -70,8 +70,19 @@ public sealed class LikeOperatorTests
     [DataRow("Text", "ChrW(233) Like '[a-z]' ;; ChrW(201) Like '[a-z]' ;; ChrW(223) Like '[a-z]' ;; ChrW(233) Like 'E' ;; ChrW(228) Like '[a-b]' ;; '_' Like '[0-z]' ;; ChrW(233) Like 'e'",
         "False|False|False|False|False|True|False", DisplayName = "L03 accents are not case")]
     [DataRow("Text", "'A' Like 'a' ;; 'a' Like '[B-C]' ;; 'b' Like '[A-C]' ;; 'B' Like '[!a-c]'", "True|False|True|False", DisplayName = "L06 case")]
+    // a - that starts a list starts a range when another - follows it: [--a] is the range from - to a. Binary mode has no ligatures.
+    [DataRow("Binary", "ChrW(230) Like 'ae' ;; ChrW(230) Like 'a*' ;; 'i' Like 'I' ;; '-' Like '[--a]' ;; '0' Like '[--a]'",
+        "False|False|False|True|True", DisplayName = "Q02 binary, [--a]")]
     public async Task Like_AnswersWhatMsVbaAnswers(string compare, string expressions, string expected)
         => CollectionAssert.AreEqual(expected.Split('|'), await RunAsync(compare, expressions));
+
+    // MS-VBAL 5.6.9.6: in text mode "some number of actual characters in <expression> can match a different number of characters in the
+    // pattern", by the regional collation; MS-VBA does so (oracle s47 Q01). The matcher folds one character to one character.
+    [TestMethod]
+    [Ignore("Like in text mode does not match a character with its expansion (æ with ae, ß with ss), nor part of one with ? or * (MS-VBAL 5.6.9.6)")]
+    public async Task LikeInTextMode_MatchesACharacterWithItsExpansion()
+        => CollectionAssert.AreEqual("True|True|True|True|True|True|True".Split('|'), await RunAsync("Text",
+            "ChrW(230) Like 'ae' ;; 'ae' Like ChrW(230) ;; ChrW(230) Like 'a?' ;; ChrW(230) Like 'a*' ;; ChrW(230) Like '[' & ChrW(230) & 'a]' ;; 'ss' Like ChrW(223) ;; ChrW(198) Like ChrW(230)"));
 
     [TestMethod]
     [Timeout(10_000, CooperativeCancellation = true)]
