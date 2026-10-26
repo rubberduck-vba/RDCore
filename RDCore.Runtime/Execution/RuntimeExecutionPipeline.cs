@@ -315,5 +315,8 @@ public sealed class RuntimeExecutionPipeline
 
         public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
+
+        public LetCoercionResult EvaluateUnstated(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+            => Inner.EvaluateUnstated(resolver, expression, frame);
     }
 }

@@ -273,6 +273,9 @@
   <data name="VariantComparedWithStringAsText_Message" xml:space="preserve">
     <value>'{0}' compares a Variant holding a number, a Date or a Boolean with a String: MS-VBA compares their text, where MS-VBAL §5.6.9.5 makes it a type mismatch (13) when the String is no number.</value>
   </data>
+  <data name="VariantStringThatIsNoNumberRanked_Message" xml:space="preserve">
+    <value>'{0}' compares a Variant holding a String that is no number with a number, a Date or a Boolean: MS-VBA ranks the String above it, whatever their values, where MS-VBAL §5.6.9.5 makes it a type mismatch (13).</value>
+  </data>
   <data name="UnmatchedEventHandler_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is named as the handler of an event of a control, and does not match the event: the event never calls it, and neither does anything else.</value>
   </data>

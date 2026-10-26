@@ -62,6 +62,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, AmbiguousConcatenationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariantNumberStringComparisonAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariantComparedWithStringAsTextAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, VariantStringThatIsNoNumberRankedAnalyzer>();
 
         // the ones that read how the module is written.
         services.AddSingleton<IModuleAnalyzer, OptionBaseAnalyzer>();

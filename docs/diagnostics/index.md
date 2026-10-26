@@ -262,6 +262,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String — the number is less, whatever the values|
 |[RDC11012](rdc11012.md)|Set of a call that always fails — a function whose default member has no Property Set, as the target of a Set|
 |[RDC11013](rdc11013.md)|Variant compared with a String as text — MS-VBA compares their text, where MS-VBAL specifies a type mismatch|
+|[RDC11020](rdc11020.md)|Variant String that is no number, compared with a number — MS-VBA ranks the String above it, where MS-VBAL specifies a type mismatch|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

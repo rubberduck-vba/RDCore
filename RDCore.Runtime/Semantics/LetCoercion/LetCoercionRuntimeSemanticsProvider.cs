@@ -55,6 +55,16 @@ public interface ILetCoercionRuntimeSemanticsProvider
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         LetCoercionStackFrame frame);
+
+    /// <summary>
+    /// Evaluates a let-coercion as <see cref="EvaluateLetCoercionSemantics"/> does, without stating it as a fact: a question the semantics of an operation
+    /// ask before deciding how to evaluate it, which is not a conversion the code makes.
+    /// </summary>
+    /// <param name="resolver">A symbol lookup service.</param>
+    /// <param name="expression">The <c>ExpressionNode</c> that is being evaluated.</param>
+    /// <param name="frame">The coercion that is asked about.</param>
+    LetCoercionResult EvaluateUnstated(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        => EvaluateLetCoercionSemantics(resolver, expression, frame);
 }
 
 /// <summary>
@@ -244,6 +254,21 @@ public class LetCoercionRuntimeSemanticsProvider(
         }
 
         return result;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>A coercion a strategy evaluates for it (a <c>Variant</c>'s value, coerced first) is not stated either.</remarks>
+    public LetCoercionResult EvaluateUnstated(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    {
+        if (observation is null)
+        {
+            return EvaluateUnobserved(resolver, expression, frame);
+        }
+
+        using (observation.Suspend())
+        {
+            return EvaluateUnobserved(resolver, expression, frame);
+        }
     }
 
     // States the coercion that has just been evaluated as a fact: the types and the site are the code's, the flags are the

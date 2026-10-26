@@ -128,4 +128,26 @@ public sealed class OperatorFactAnalyzerTests
     {
         Assert.IsEmpty(await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "", declarations, first, "b = \"4\"", "r = a < b"));
     }
+
+    [TestMethod]
+    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"abc\"", DisplayName = "a Long")]
+    [DataRow("Dim a As Variant, b As Date, r As Boolean", "a = \"abc\"", DisplayName = "a Date")]
+    [DataRow("Dim a As Variant, b As Boolean, r As Boolean", "a = \"\"", DisplayName = "a Boolean, and an empty String")]
+    public async Task AVariantStringThatIsNoNumber_ComparedWithANumber_IsRanked(string declarations, string first)
+    {
+        var finding = (await FindAsync(new VariantStringThatIsNoNumberRankedAnalyzer(), "", declarations, first, "b = 5", "r = a < b")).Single();
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariantStringThatIsNoNumberRanked, finding.Id);
+        Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
+        Assert.AreEqual(6, finding.Range.Start.Line);
+    }
+
+    [TestMethod]
+    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"3\"", DisplayName = "a number's text")]
+    [DataRow("Dim a As Variant, b As Variant, r As Boolean", "a = \"abc\"", DisplayName = "two Variants (RDC11011)")]
+    [DataRow("Dim a As String, b As Long, r As Boolean", "a = \"3\"", DisplayName = "a String declared as one")]
+    public async Task AComparisonOfAnotherKind_IsNotRanked(string declarations, string first)
+    {
+        Assert.IsEmpty(await FindAsync(new VariantStringThatIsNoNumberRankedAnalyzer(), "", declarations, first, "b = 5", "r = a < b"));
+    }
 }
