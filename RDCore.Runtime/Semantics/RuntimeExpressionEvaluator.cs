@@ -2227,8 +2227,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
             // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
             // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
-            // a record that is no variable of its own - the field of another record, `This.Id` - is passed by reference as a copy, in a temporary of the statement:
-            // the record as the field holds it is no value with a binding of its own to hand over.
+            // a record that is no variable - what a function or a property returns - is passed by reference as a copy, in a temporary of the statement: it is no
+            // value with a binding of its own to hand over. (A field of a record held by a variable is one: TryResolveRecordFieldByRefArgument.)
             if (coercionResult.Result is VBUserDefinedTypeValue record && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
             {
                 if (!session.Storage.TryAllocate(record.Size, SymbolAddressTable.FreshBinding(record), out var copy))
@@ -2757,8 +2757,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
     // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
-    // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own to give: it
-    // is passed as a copy (BindArguments).
+    // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own: it is given
+    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`.
     private bool TryResolveRecordFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, bool external)
@@ -2766,9 +2766,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         reference = VBRuntimeReference.NullRef;
         if (access.Owner is not { } owner || !DenotesAVariable(session, context, owner)
             || Evaluate(session, owner, context).Result is not VBUserDefinedTypeValue { IsIndeterminate: false } record
-            || ((VBUserDefinedType)record.TypeInfo).Field(access.Member.IdentifierName) is not { ResolvedType: { } fieldType and not VBUserDefinedType }
-            || record.GetFieldHandle(access.Member.IdentifierName) is not { } cell
-            || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+            || record.TypeInfo is not VBUserDefinedType recordType
+            || recordType.Field(access.Member.IdentifierName) is not { ResolvedType: { } fieldType } field)
+        {
+            return false;
+        }
+
+        IBindingHandle? cell = fieldType is VBUserDefinedType nestedType
+            ? new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), nestedType)
+            : record.GetFieldHandle(access.Member.IdentifierName);
+        if (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
             return false;
         }
