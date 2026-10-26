@@ -98,6 +98,7 @@ public record class VBRuntimeErrorInfo : VBErrorInfo, IVBRaisableError
         [VBRuntimeErrorId.InvalidFileFormat] = "Invalid file format",
         [VBRuntimeErrorId.CantCreateNecessaryTemporaryFile] = "Can't create necessary temporary file",
         [VBRuntimeErrorId.InvalidFormatInResourceFile] = "Invalid format in resource file",
+        [VBRuntimeErrorId.CantLoadOrUnloadThisObject] = "Can't load or unload this object",
         [VBRuntimeErrorId.InvalidPropertyValue] = "Invalid property value",
         [VBRuntimeErrorId.InvalidPropertyArrayIndex] = "Invalid property array index",
         [VBRuntimeErrorId.SetNotSupportedAtRuntime] = "Set not supported at runtime",

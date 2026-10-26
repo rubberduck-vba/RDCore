@@ -280,6 +280,8 @@
   href: vbr00322.md
 - name: VBR00325 — Invalid format in resource file
   href: vbr00325.md
+- name: VBR00361 — Can't load or unload this object
+  href: vbr00361.md
 - name: VBR00380 — Invalid property value
   href: vbr00380.md
 - name: VBR00381 — Invalid property array index

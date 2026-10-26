@@ -180,6 +180,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBR00321](vbr00321.md)|Invalid file format — a file's format is not valid|
 |[VBR00322](vbr00322.md)|Can't create necessary temporary file — a temporary file the operation needs cannot be created|
 |[VBR00325](vbr00325.md)|Invalid format in resource file — a resource file's format is not valid|
+|[VBR00361](vbr00361.md)|Can't load or unload this object — `Load` or `Unload` is given an object that is no form|
 |[VBR00380](vbr00380.md)|Invalid property value — a property is given a value it does not accept|
 |[VBR00381](vbr00381.md)|Invalid property array index — a property array index is not valid|
 |[VBR00382](vbr00382.md)|Set not supported at runtime — a property cannot be set at run time|

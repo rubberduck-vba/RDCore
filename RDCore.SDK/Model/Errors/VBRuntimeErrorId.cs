@@ -50,6 +50,7 @@ public enum VBRuntimeErrorId
     InvalidFileFormat = 321,
     CantCreateNecessaryTemporaryFile = 322,
     InvalidFormatInResourceFile = 325,
+    CantLoadOrUnloadThisObject = 361,
     InvalidPropertyValue = 380,
     InvalidPropertyArrayIndex = 381,
     SetNotSupportedAtRuntime = 382,
