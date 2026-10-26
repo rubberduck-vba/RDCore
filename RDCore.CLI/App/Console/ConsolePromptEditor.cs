@@ -13,6 +13,15 @@ namespace RDCore.CLI.App.Console;
 public delegate Task<IReadOnlyList<CompletionItem>> ConsoleCompletionSource(string line, int cursor, CancellationToken token);
 
 /// <summary>
+/// Where a prompt's line editor asks what the call being typed takes: the signature help of the line as it is typed so far, at the cursor; <see langword="null"/>
+/// where no call is being typed.
+/// </summary>
+/// <param name="line">The line, as it is typed so far.</param>
+/// <param name="cursor">Where the cursor is in it.</param>
+/// <param name="token">A token that cancels the request: the line has moved on.</param>
+public delegate Task<SignatureHelp?> ConsoleSignatureSource(string line, int cursor, CancellationToken token);
+
+/// <summary>
 /// The line of a shell's prompt as an editor has it: typed and edited in place, with the lines entered before it a key away, and a completion list that drops
 /// down under the word that is typed - the member list after a <c>.</c>, the names that complete a word as it is typed, or on <kbd>Ctrl</kbd>+<kbd>Space</kbd>.
 /// </summary>
@@ -47,6 +56,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     private const string NormalVideo = "\u001b[27m";
     private const string Faint = "\u001b[2m";
     private const string NormalIntensity = "\u001b[22m";
+    private const string Underline = "\u001b[4m";
+    private const string NoUnderline = "\u001b[24m";
 
     // the fewest cells a description is wrapped to beside the column of the list; a list nearer the right edge than that has its description at the left one.
     private const int MinimumDescriptionWidth = 32;
@@ -88,6 +99,17 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     /// is no ghost text.
     /// </remarks>
     public Func<string, string?>? Ghost { get; init; }
+
+    /// <summary>
+    /// Where what the call being typed takes comes from: its signature, drawn on one line under the line with the parameter the argument at the cursor is given to
+    /// underlined, and what the procedure and that parameter do under it, faint - the VBE's <em>Parameter Info</em>. None is shown without it.
+    /// </summary>
+    /// <remarks>
+    /// It is asked for as an argument list opens and as an argument starts - after a <c>(</c>, a <c>,</c>, and a space, which starts the arguments of a call
+    /// statement - and after a <c>)</c>, for the call around the one it closes; while one is shown, again whenever the line or the cursor moves. Asking never holds
+    /// up what is typed. <kbd>Esc</kbd> closes it, and so does entering the line.
+    /// </remarks>
+    public ConsoleSignatureSource? Signature { get; init; }
 
     /// <summary>
     /// What the drawing of the console is serialized on: the editor draws the line holding it, and whatever else draws at the console while a line is not being
@@ -159,6 +181,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private Task<IReadOnlyList<CompletionItem>>? _asked;
         private int _askedAnchor;
         private CancellationTokenSource? _asking;
+        private SignatureHelp? _signature;
+        private Task<SignatureHelp?>? _signing;
+        private CancellationTokenSource? _signingCancellation;
         private int _drawnRows;
         private int _reservedRows;
 
@@ -178,11 +203,31 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 {
                     key ??= Task.Run(() => editor._keys.ReadKey(token), CancellationToken.None);
 
-                    // a list that is there is shown before the next key is taken; what is drawn under the line is drawn again when it changes.
-                    var done = _asked is { } asked ? await Task.WhenAny(asked, key, invalidated) : await Task.WhenAny(key, invalidated);
+                    // a list or a signature that is there is shown before the next key is taken - Task.WhenAny answers the first of those that are done, in
+                    // the order they are given - and what is drawn under the line is drawn again when it changes.
+                    List<Task> waiting = [];
+                    if (_asked is { } asked)
+                    {
+                        waiting.Add(asked);
+                    }
+
+                    if (_signing is { } signing)
+                    {
+                        waiting.Add(signing);
+                    }
+
+                    waiting.AddRange([key, invalidated]);
+                    var done = await Task.WhenAny(waiting);
                     if (done == _asked)
                     {
                         Arrived(await _asked!);
+                        Draw();
+                        continue;
+                    }
+
+                    if (done == _signing)
+                    {
+                        Signed(await _signing!);
                         Draw();
                         continue;
                     }
@@ -200,6 +245,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     {
                         // the line is entered: nothing is left under it, for what is written after it is written there.
                         Close();
+                        CloseSignature();
                         (_cursor, _start) = (_text.Length, 0);
                         Draw(entered: true);
                         Output.WriteLine();
@@ -212,6 +258,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             finally
             {
                 _asking?.Cancel();
+                _signingCancellation?.Cancel();
             }
         }
 
@@ -265,16 +312,22 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 case ConsoleKey.Enter:
                     return true;
+                case ConsoleKey.Escape when _signature is not null:
+                    CloseSignature();
+                    return false;
                 case ConsoleKey.Escape:
                     _text.Clear();
                     _cursor = 0;
                     Close();
+                    CloseSignature();
                     return false;
                 case ConsoleKey.UpArrow:
                     Recall(-1);
+                    CloseSignature();
                     return false;
                 case ConsoleKey.DownArrow:
                     Recall(+1);
+                    CloseSignature();
                     return false;
                 case ConsoleKey.Spacebar or ConsoleKey.J when control:
                     Ask(WordStart());
@@ -286,6 +339,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     }
 
                     Follow();
+                    FollowSignature();
                     return false;
                 case ConsoleKey.Delete:
                     if (_cursor < _text.Length)
@@ -294,22 +348,27 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     }
 
                     Follow();
+                    FollowSignature();
                     return false;
                 case ConsoleKey.LeftArrow:
                     _cursor = control ? PreviousWord() : Math.Max(0, _cursor - 1);
                     Follow();
+                    FollowSignature();
                     return false;
                 case ConsoleKey.RightArrow:
                     _cursor = control ? NextWord() : Math.Min(_text.Length, _cursor + 1);
                     Follow();
+                    FollowSignature();
                     return false;
                 case ConsoleKey.Home:
                     _cursor = 0;
                     Follow();
+                    FollowSignature();
                     return false;
                 case ConsoleKey.End:
                     _cursor = _text.Length;
                     Follow();
+                    FollowSignature();
                     return false;
             }
 
@@ -318,6 +377,13 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 // a word starts with a letter, or with a digit - the line number an argument can be - and the list is asked for once, as it starts.
                 var startsWord = char.IsLetterOrDigit(typed) && (_cursor == 0 || !IsNameCharacter(_text[_cursor - 1]));
                 _text.Insert(_cursor++, typed);
+
+                // an argument list opens, an argument starts, or one closes: what the call takes is asked for again.
+                if (typed is '(' or ',' or ' ' or ')')
+                {
+                    AskSignature();
+                }
+
                 if (typed is '.' or '!')
                 {
                     Ask(_cursor);
@@ -556,6 +622,55 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             _list = null;
         }
 
+        // what the call at the cursor takes is asked for; a signature on its way is not wanted any more, and the one shown stays until the new one comes.
+        private void AskSignature()
+        {
+            if (editor.Signature is not { } source)
+            {
+                return;
+            }
+
+            _signingCancellation?.Cancel();
+            _signingCancellation = new CancellationTokenSource();
+            _signing = AskSignatureAsync(source, Text, _cursor, _signingCancellation.Token);
+        }
+
+        private static async Task<SignatureHelp?> AskSignatureAsync(ConsoleSignatureSource source, string text, int cursor, CancellationToken token)
+        {
+            try
+            {
+                return await source(text, cursor, token);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                // a signature that cannot be had is none: typing goes on.
+                return null;
+            }
+        }
+
+        private void Signed(SignatureHelp? help)
+        {
+            _signing = null;
+            _signature = help is { Signatures: { } signatures } && signatures.Any() ? help : null;
+        }
+
+        // a signature that is shown follows the cursor: the argument it is in, or the call it is in, may be another one now.
+        private void FollowSignature()
+        {
+            if (_signature is not null || _signing is not null)
+            {
+                AskSignature();
+            }
+        }
+
+        private void CloseSignature()
+        {
+            _signingCancellation?.Cancel();
+            _signingCancellation = null;
+            _signing = null;
+            _signature = null;
+        }
+
         // ---- drawing ----
 
         // the line, and what is under it - unless the line is entered, which leaves nothing under it.
@@ -596,6 +711,11 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             if (!entered && editor.Status?.Invoke(columns) is { } status)
             {
                 rows.AddRange(status.Select(row => ToColumn(1) + row));
+            }
+
+            if (!entered)
+            {
+                rows.AddRange(SignatureRows(columns));
             }
 
             if (_list is { IsEmpty: false } list)
@@ -672,6 +792,55 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             ];
 
             return lines.Take(editor.DescriptionHeight);
+        }
+
+        // what the call being typed takes: its signature on one line, the parameter of the argument at the cursor underlined - a signature longer than the line is
+        // shown from a little before that parameter - then what the procedure does and what that parameter is, faint, each wrapped to the console.
+        private IEnumerable<string> SignatureRows(int columns)
+        {
+            if (_signature is not { } help || help.Signatures.FirstOrDefault() is not { } signature)
+            {
+                return [];
+            }
+
+            var width = Math.Max(1, columns - 1);
+            var margin = ToColumn(1);
+            var active = help.ActiveParameter ?? signature.ActiveParameter;
+            var parameter = active is int index ? signature.Parameters?.ElementAtOrDefault(index) : null;
+            (int Start, int End)? range = parameter is { Label.IsRange: true } ? parameter.Label.Range : null;
+
+            var label = signature.Label;
+            var from = range is { } shown && shown.End > width - 1 ? Math.Clamp(shown.Start - 4, 0, label.Length) : 0;
+            var visible = ConsoleText.Truncate(label[from..], width);
+            var line = range is { } underlined && underlined.Start >= from && underlined.Start - from < visible.Length
+                ? string.Concat(
+                    visible[..(underlined.Start - from)],
+                    Underline,
+                    visible[(underlined.Start - from)..Math.Min(visible.Length, underlined.End - from)],
+                    NoUnderline,
+                    visible[Math.Min(visible.Length, underlined.End - from)..])
+                : visible;
+
+            var said = signature.Documentation is { } documentation ? documentation.HasMarkupContent ? documentation.MarkupContent?.Value : documentation.String : null;
+            var parameterSaid = parameter?.Documentation is { } parameterDocumentation
+                ? parameterDocumentation.HasMarkupContent ? parameterDocumentation.MarkupContent?.Value : parameterDocumentation.String
+                : null;
+            var parameterName = range is { } named ? ParameterNameOf(label[named.Start..named.End]) : null;
+
+            IEnumerable<string> notes =
+            [
+                .. said is { Length: > 0 } text ? ConsoleText.Wrap(text, width) : [],
+                .. parameterSaid is { Length: > 0 } note ? ConsoleText.Wrap(parameterName is null ? note : $"{parameterName}: {note}", width) : [],
+            ];
+
+            return [margin + line, .. notes.Take(editor.DescriptionHeight).Select(note => $"{margin}{Faint}{note}{NormalIntensity}")];
+        }
+
+        // the name of a parameter as its signature writes it: `Optional ByVal Length As Long` is Length's.
+        private static string ParameterNameOf(string written)
+        {
+            var words = written.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(word => word is not ("Optional" or "ByVal" or "ByRef" or "ParamArray")).ToList();
+            return words.Count > 0 ? words[0].TrimEnd('(', ')') : written;
         }
 
         // what kind of name an item is, in one character the width of any other: the VBE has an icon for it.

@@ -41,7 +41,13 @@ public sealed class SyntaxTreeSymbolProvider(
     bool withImplicitDeclarations = true,
     ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure) : ISymbolProvider
 {
-    public IEnumerable<Symbol> ProvideSymbols() => ProvideDeclaredSymbols().Select(WithUserMemId);
+    public IEnumerable<Symbol> ProvideSymbols() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription);
+
+    // what a member's own module says it does (`Attribute Item.VB_Description = "..."`): what a completion list and a signature help show of it.
+    private Symbol WithDescription(Symbol member)
+        => member is VBTypeMemberSymbol typeMember && parseResult.SyntaxTree?.GetMemberDescription(typeMember.Name) is { } description
+            ? typeMember.With(SymbolProperties.DocString, description)
+            : member;
 
     // the id a member's own module gave it (`Attribute Item.VB_UserMemId = 0`): what marks the default member of a class and its enumeration member
     // (`_NewEnum`, -4). It is stamped here, on what the provider yields, so that both of its consumers have it - the resolver that binds the workspace, and the

@@ -52,6 +52,7 @@ public sealed class CompletionServiceTests
     private const string Helpers = """
         Attribute VB_Name = "Helpers"
         Public Function Twice(ByVal Value As Long) As Long
+        Attribute Twice.VB_Description = "Doubles a ""value""."
             Twice = Value * 2
         End Function
         """;
@@ -571,4 +572,119 @@ public sealed class CompletionServiceTests
         Assert.AreEqual("Print C.Count", items.Single(item => item.Label == "30").Detail);
         Assert.AreEqual("Removes every breakpoint", items.Single(item => item.Label == "CLEAR").Detail);
     }
+
+    // ---- what the call being written takes ----
+
+    private async Task<SignatureHelp?> SignatureAsync(string module, ILibrarySource? libraries = null, params string[] references)
+    {
+        var (source, position) = At(module);
+        return await Sut(source: libraries, references: references).SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
+    }
+
+    private static string ActiveParameterOf(SignatureHelp help)
+    {
+        var signature = help.Signatures.Single();
+        var label = signature.Parameters!.ElementAt(help.ActiveParameter!.Value).Label.Range;
+        return signature.Label[label.start..label.end];
+    }
+
+    [TestMethod]
+    public async Task AProcedureOfAModule_IsShownWithItsSignature_AndWhatItsDescriptionSays()
+    {
+        var help = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                x = Helpers.Twice(|
+            End Sub
+            """);
+
+        var signature = help!.Signatures.Single();
+        Assert.AreEqual("Function Twice(ByVal Value As Long) As Long", signature.Label);
+        Assert.AreEqual("Doubles a \"value\".", signature.Documentation?.String);
+        Assert.AreEqual("ByVal Value As Long", ActiveParameterOf(help));
+    }
+
+    [TestMethod]
+    public async Task TheArgumentAtTheCursor_IsTheParameterItIsGivenTo_InTheInnermostCall()
+    {
+        var mid = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                x = Left(Mid("abc", |
+            End Sub
+            """);
+        Assert.AreEqual("Mid", mid!.Signatures.Single().Label.Split('(')[0].Split(' ')[1]);
+        Assert.AreEqual(1, mid.ActiveParameter);
+
+        var left = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                x = Left(Mid("abc", 2), |
+            End Sub
+            """);
+        StringAssert.StartsWith(left!.Signatures.Single().Label, "Function Left");
+        Assert.AreEqual(1, left.ActiveParameter);
+    }
+
+    [TestMethod]
+    public async Task ACallStatement_TakesItsArgumentsWithoutParentheses_AndANamedArgumentIsItsParameters()
+    {
+        var positional = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                MsgBox "Hello", |
+            End Sub
+            """);
+        StringAssert.StartsWith(ActiveParameterOf(positional!), "Optional ByVal Buttons");
+
+        var named = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                MsgBox "Hello", Title:=|
+            End Sub
+            """);
+        StringAssert.Contains(ActiveParameterOf(named!), "Title");
+    }
+
+    [TestMethod]
+    public async Task AMemberOfAnObject_HasNoImplicitMe_AmongItsParameters()
+    {
+        var help = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                Dim w As New Widget
+                w.Grow(|
+            End Sub
+            """);
+
+        StringAssert.StartsWith(help!.Signatures.Single().Label, "Function Grow(ByVal By As Long)");
+        Assert.AreEqual(1, help.Signatures.Single().Parameters!.Count());
+    }
+
+    [TestMethod]
+    public async Task AMemberOfAnObjectCreatedByName_IsTheMemberItsLibraryDescribes()
+    {
+        var help = await SignatureAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                Dim o As Object
+                Set o = CreateObject("Scripting.Dictionary")
+                o.Add "key", |
+            End Sub
+            """, new DirectoryLibrarySource(new FileSystem(), ShippedLibrariesTests.Symbols));
+
+        var signature = help!.Signatures.Single();
+        StringAssert.StartsWith(signature.Label, "Sub Add(");
+        Assert.IsFalse(string.IsNullOrEmpty(signature.Documentation?.String), "what the library says it does");
+        Assert.AreEqual(1, help.ActiveParameter);
+    }
+
+    [TestMethod]
+    [DataRow("    x = 1 + (|", DisplayName = "the parentheses of an expression")]
+    [DataRow("    x = Left(\"a, (|", DisplayName = "in a string literal")]
+    [DataRow("    x = Twice(1) ' Twice(|", DisplayName = "in a comment")]
+    [DataRow("    x = |", DisplayName = "no call")]
+    [DataRow("    Dim y As Long, |", DisplayName = "no procedure")]
+    public async Task WhereNoCallOfAProcedureIsWritten_ThereIsNoSignature(string line)
+        => Assert.IsNull(await SignatureAsync($"Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n{line}\r\nEnd Sub\r\n"));
 }

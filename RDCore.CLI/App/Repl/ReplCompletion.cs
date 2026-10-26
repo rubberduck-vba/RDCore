@@ -77,6 +77,26 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
         return items;
     }
 
+    /// <summary>
+    /// What the call being typed at <paramref name="cursor"/> of <paramref name="line"/> takes, in the program the line will be part of once it is entered.
+    /// </summary>
+    /// <param name="line">The line, as it is typed so far.</param>
+    /// <param name="cursor">Where the cursor is in it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The signature help; <see langword="null"/> for a line that is one of the shell's commands, where no call is typed, and without the capability.</returns>
+    public async Task<SignatureHelp?> SignatureHelpAsync(string line, int cursor, CancellationToken token)
+    {
+        // a command's arguments are no call of the program's.
+        var typed = line[..Math.Min(cursor, line.Length)].TrimStart();
+        var verb = typed.Length > 0 && !char.IsAsciiDigit(typed[0]) ? typed[..IndexOfSeparator(typed)] : string.Empty;
+        if (verb.Length > 0 && commands.IsCommandName(verb) || !platform.Provides<SessionSignatureHelp>() || program.ToCompletionSource(line, cursor) is not { } site)
+        {
+            return null;
+        }
+
+        return await platform.SignatureHelpAsync(site.Source, ReplProgram.ModuleName, site.Line, site.Character, token);
+    }
+
     // the described verbs that are not registered as they are now, in one request; none when every one of them is.
     private async Task RegisterAsync(CancellationToken token)
     {

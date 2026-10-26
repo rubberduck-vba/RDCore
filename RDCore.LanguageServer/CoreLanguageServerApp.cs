@@ -95,6 +95,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<CompletionHandler>();
+        builder.WithHandler<SignatureHelpHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionDiscardHandler>();
@@ -109,6 +110,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionDebugExecuteHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionCompletionHandler>();
+        builder.WithHandler<SessionSignatureHelpHandler>();
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();

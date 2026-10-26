@@ -134,6 +134,11 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
             new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
 
     /// <inheritdoc/>
+    public Task<SignatureHelp?> SignatureHelpAsync(string source, string moduleName, int line, int character, CancellationToken token)
+        => client.SendRequestAsync<SessionSignatureHelpParams, SignatureHelp?>(
+            new SessionSignatureHelpParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
+
+    /// <inheritdoc/>
     public Task<SessionCommandsResult> RegisterCommandsAsync(IReadOnlyList<VerbDescriptor> verbs, CancellationToken token)
         => client.SendRequestAsync<SessionCommandsParams, SessionCommandsResult>(new SessionCommandsParams { Verbs = verbs }, token);
 

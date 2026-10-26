@@ -101,7 +101,7 @@ public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix
     private static bool IsIdentifierCharacter(char character) => char.IsLetterOrDigit(character) || character == '_';
 
     // a string literal that is not closed yet, or a comment, runs to the end of the line: nothing typed in either is a name.
-    private static bool IsInLiteralOrComment(string text)
+    internal static bool IsInLiteralOrComment(string text)
     {
         var inString = false;
         for (var index = 0; index < text.Length; index++)
@@ -133,7 +133,7 @@ public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix
 
     // the expression a member access is written on, back from the `.` at `dot`: names, the argument lists of calls and indexes, and the `.` and `!` between them.
     // An empty string when there is none (a With block's member); null when what is before the dot is not something a member is accessed on (`1.5`).
-    private static string? QualifierBefore(string text, int dot)
+    internal static string? QualifierBefore(string text, int dot)
     {
         var end = dot;
         var index = dot;

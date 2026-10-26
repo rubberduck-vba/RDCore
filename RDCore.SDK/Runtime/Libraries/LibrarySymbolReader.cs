@@ -199,6 +199,12 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
         member = member.With(SymbolProperties.Library, library.Name)
             .With(SymbolProperties.ExternalTarget, ExternalTargetOf(library, owner, description));
 
+        // what the library says the member does: what a completion list and a signature help show of it.
+        if (description.Description is { Length: > 0 } docString)
+        {
+            member = member.With(SymbolProperties.DocString, docString);
+        }
+
         // the default member of a class and its enumerator are found by the id they carry, as those of a workspace class are by their attributes.
         if (description.DispId is 0 or -4)
         {

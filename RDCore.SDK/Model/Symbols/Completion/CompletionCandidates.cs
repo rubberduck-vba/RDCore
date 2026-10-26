@@ -419,43 +419,15 @@ public static class CompletionCandidates
     // the type of what has one, and the signature of what is called: `Function Mid(String As Variant, Start As Long, Optional Length As Variant) As Variant`.
     private static string? DetailOf(Symbol symbol)
     {
-        var type = symbol is ITypedSymbol typed && typed.ResolvedType is not VBUnknownType ? typed.ResolvedType : null;
-        var parameters = ParametersOf(symbol);
-        var keyword = symbol.Kind switch
+        if (SignatureDescription.Of(symbol) is { } signature)
         {
-            SymbolKindExt.Procedure => "Sub",
-            SymbolKindExt.Function => "Function",
-            SymbolKindExt.Property => "Property",
-            _ => null,
-        };
-
-        if (keyword is null)
-        {
-            return type is null || symbol is VBModuleSymbol or VBProjectSymbol || symbol.Kind is SymbolKindExt.Enum or SymbolKindExt.UserDefinedType or SymbolKindExt.Class
-                ? null
-                : $"{symbol.Name} As {type.Name}";
+            return signature.Label;
         }
 
-        var signature = $"{keyword} {symbol.Name}({string.Join(", ", parameters)})";
-        return keyword == "Sub" || type is null || type.Name == VBTypeNames.VBVoid ? signature : $"{signature} As {type.Name}";
-    }
-
-    private static IEnumerable<string> ParametersOf(Symbol symbol)
-    {
-        static string Bound(VBParameterSymbol parameter)
-            => $"{(parameter.IsOptional ? "Optional " : string.Empty)}{(parameter.ParameterKind == ParameterKind.ExplicitByVal ? "ByVal " : string.Empty)}{parameter.Name} As {parameter.ResolvedType.Name}";
-
-        static string Unbound(UnboundVBParameterSymbol parameter)
-            => $"{(parameter.IsOptional ? "Optional " : string.Empty)}{(parameter.ParameterKind == ParameterKind.ExplicitByVal ? "ByVal " : string.Empty)}{parameter.Name} As {parameter.ResolvedType.Name}";
-
-        return symbol switch
-        {
-            VBReturningMemberSymbol member => member.Parameters.Select(Bound),
-            VBProcedureMemberSymbol member => member.Parameters.Select(Bound),
-            UnboundVBReturningMemberSymbol member => member.Parameters.Select(Unbound),
-            UnboundVBProcedureMemberSymbol member => member.Parameters.Select(Unbound),
-            _ => [],
-        };
+        var type = symbol is ITypedSymbol typed && typed.ResolvedType is not VBUnknownType ? typed.ResolvedType : null;
+        return type is null || symbol is VBModuleSymbol or VBProjectSymbol || symbol.Kind is SymbolKindExt.Enum or SymbolKindExt.UserDefinedType or SymbolKindExt.Class
+            ? null
+            : $"{symbol.Name} As {type.Name}";
     }
 
     // one candidate per name, the first one added - which is the one nearest to where the list was asked for - ranked by where it was found.

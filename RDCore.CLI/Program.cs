@@ -206,6 +206,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                 {
                     // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text.
                     Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
+                    // what the call being typed takes is shown under the line, as it is typed.
+                    Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
                 })
                 // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.
                 .AddSingleton(provider => new ReplProgressDisplay(
@@ -308,6 +310,8 @@ internal class RDCoreConsoleClientApp(
             SessionAnalyze = new SessionAnalyze(true),
             // the line at the prompt is completed as it is typed.
             SessionCompletion = new SessionCompletion(true),
+            // and what the call being typed at it takes is shown under it.
+            SessionSignatureHelp = new SessionSignatureHelp(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
             // the shell answers the dialogs a program opens, at its console.
             SessionInteraction = new SessionInteraction(true),

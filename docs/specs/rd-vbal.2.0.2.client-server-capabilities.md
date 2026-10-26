@@ -95,6 +95,7 @@ This catalogue is intended to document every platform capability the SDK defines
 |[`DiagnoseDocument`](../api/RDCore.SDK.Client.DiagnoseDocument.html)|`rdcore/diagnostics/document`|`Extension`|Advertised by a _diagnostics provider_: a platform extension whose manifest advertises this capability. A provider declares it with `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` (see [below](#rdcorediagnosticsdocument)).|
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
 |[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
+|[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
 
 > [!NOTE]
 > The handshake for every capability listed is _informational_ (see [**RD-VBAL §2.0.2.1** The `rdcore/platform/initialize` handshake](#2021-the-rdcoreplatforminitialize-handshake)).
@@ -169,6 +170,35 @@ A verb is registered once. It is registered again only when its descriptor chang
 - a path or text with nothing.
 
 A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line), `THEME` (`LIST`, `<theme>`) and `CONFIG` (`RESET [setting]`, `<setting> [value]`; [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)) the first time one is completed. A command it does not describe is offered nothing after its verb.
+
+### `textDocument/signatureHelp` and `rdcore/session/signatureHelp`
+
+The language server answers `textDocument/signatureHelp` (**LSP 3.17** §Signature Help) for the documents it holds. Its trigger characters are `(`, `,` and a space, which starts the arguments of a call statement; `)` triggers it again, for the call around the one it closes.
+
+The call is read off the line before the cursor ([`SignatureSite`](../api/RDCore.SDK.Model.Symbols.Completion.SignatureSite.html)):
+
+|Written|The call|
+|---|---|
+|An argument list that is open after a name: `Left(s, `, `o.Item(`, `.Add(`|The innermost one. An argument list after no name - the parentheses of an expression - is no call, and the one around it is the call.|
+|A name, a space, and arguments, at the start of a statement: `MsgBox "a", `|The call statement's own (**MS-VBAL §5.4.2.1**). An assignment is not one.|
+|In a string literal or a comment|None.|
+
+The argument at the cursor is counted by the commas before it in its argument list. A named argument (`Title:=`) is the parameter it names; an argument after the last parameter is the `ParamArray`'s, when the last parameter is one.
+
+What is called is found as a completion list finds it: a name in the scope of the line, or a member of what its qualifier is, an object created by name included. The answer has one signature ([`SignatureDescription`](../api/RDCore.SDK.Model.Symbols.Completion.SignatureDescription.html)): the procedure's signature on one line, each parameter by its range in the line, the active parameter, and what the procedure and each parameter do. An instance member's implicit `Me` is none of its parameters. The answer is `null` where no call is written, or what is called is no procedure.
+
+What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)), a sentence:
+
+|Procedure|Doc string|
+|---|---|
+|Of a module of the workspace|Its `Attribute <member>.VB_Description`.|
+|Of a referenced library, or of an unreferenced one an object is created of by name|The `description` of the member in the library's description file.|
+|Of the standard library|An entry of the platform's resources, in the language of the user interface, for the member and for each parameter. A `$` function has the doc strings of the one it is the `String` version of.|
+
+> [!NOTE]
+> **Not implemented.** The standard library's doc strings cover the `Strings`, `Interaction`, `Conversion`, `Math`, `Information` and `DateTime` modules, and the parameters of the members of `Strings`, `Interaction` and `DateTime` that take several, and of `Round` and `RGB`. The other modules' members have a signature and no doc string; a parameter with none shows none.
+
+`rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
 
 ### `window/workDoneProgress`
 

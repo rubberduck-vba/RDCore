@@ -59,6 +59,25 @@ internal interface ICompletionService
     /// <param name="command">The verb, and what is typed after it.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token);
+
+    /// <summary>
+    /// What the call being written at a position of a document the server holds takes (<strong>LSP 3.17</strong> §Signature Help): the signature of what is
+    /// called, the parameter the argument at the cursor is given to, and what both do.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">The position of the cursor, in the text of the document.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The signature help; <see langword="null"/> where no call is being written, or what is called is no procedure the workspace has.</returns>
+    Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token);
+
+    /// <summary>
+    /// What the call being written at a position of a module a client supplies takes, the module standing for the module of the workspace by its name.
+    /// </summary>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="source">The source of the module.</param>
+    /// <param name="position">The position of the cursor, in <paramref name="source"/>.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<SignatureHelp?> SignatureHelpFragmentAsync(string moduleName, string source, Position position, CancellationToken token);
 }
 
 /// <inheritdoc cref="ICompletionService"/>
@@ -221,12 +240,101 @@ internal sealed class CompletionService(
         var placement = CompletionPlacement.Read(lines, line);
 
         // the line is taken out, and only what the list needs of it goes back in.
-        lines[line] =(context is { Kind: CompletionSiteKind.Member, Qualifier.Length: > 0 } ? $"{Probe} = {context.Qualifier}" : string.Empty)
-            + (lines[line].EndsWith('\r') ? "\r" : string.Empty);
+        if (await ComposeAsync(address, moduleName, kind, lines, line, context is { Kind: CompletionSiteKind.Member } ? context.Qualifier : string.Empty, token)
+            is not { } composed)
+        {
+            return Empty;
+        }
+
+        var (composition, module, workspaceRoot, moduleUri) = composed;
+        var tree = composition.ScopeTree;
+        var origin = CompletionCandidates.OriginAt(tree, moduleUri, new SourcePosition(line, character));
+        var candidates = context.Kind switch
+        {
+            CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
+                new CompletionLanguage(kind == ModuleType.ClassModule, options.Value.Workspace.SupportedLanguage.HasBarePrint)),
+            CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
+            _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
+        };
+
+        if (logger.IsEnabled(LogLevel.Debug))
+        {
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {count} candidate(s).", moduleName, line, character, context.Kind, context.Prefix, candidates.Count);
+        }
+
+        return new CompletionList(candidates.Select(candidate => candidate.ToCompletionItem()), isIncomplete: false);
+    }
+
+    public async Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token)
+    {
+        if (!documents.TryGetDocument(documentUri, out var document))
+        {
+            return null;
+        }
+
+        var isProgram = BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath());
+        var source = ParsingClientService.ModuleSourceOf(document);
+        var line = isProgram ? position.Line + BasicProgramText.HeaderLines : position.Line;
+
+        var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
+        return await SignatureHelpAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position.Character, token);
+    }
+
+    public Task<SignatureHelp?> SignatureHelpFragmentAsync(string moduleName, string source, Position position, CancellationToken token)
+    {
+        var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
+        var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
+        return SignatureHelpAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token);
+    }
+
+    // the call being written, as its procedure is found: a name in the scope of the line, or a member of what its qualifier is - as a completion list after the
+    // qualifier's dot would offer it.
+    private async Task<SignatureHelp?> SignatureHelpAsync(Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token)
+    {
+        var lines = source.Split('\n');
+        if (line < 0 || line >= lines.Length)
+        {
+            return null;
+        }
+
+        var text = lines[line].TrimEnd('\r');
+        if (SignatureSite.Read(text[..Math.Clamp(character, 0, text.Length)]) is not { } site
+            || await ComposeAsync(address, moduleName, kind, lines, line, site.IsMemberAccess ? site.Qualifier : string.Empty, token) is not { } composed)
+        {
+            return null;
+        }
+
+        var (composition, module, workspaceRoot, moduleUri) = composed;
+        var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character));
+        var procedure = site.IsMemberAccess
+            ? MembersOf(composition, workspaceRoot, moduleUri, origin, new CompletionSite(CompletionSiteKind.Member, Qualifier: site.Qualifier), module, line)
+                .FirstOrDefault(candidate => string.Equals(candidate.Label, site.Name, StringComparison.OrdinalIgnoreCase))?.Symbol
+            : composition.Resolver.ResolveValue(site.Name, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol;
+
+        if (procedure is null || SignatureDescription.Of(procedure) is not { } signature)
+        {
+            return null;
+        }
+
+        var active = signature.ActiveParameterOf(site.ArgumentIndex, site.ArgumentName);
+        return new SignatureHelp
+        {
+            Signatures = new Container<SignatureInformation>(signature.ToSignatureInformation(active)),
+            ActiveSignature = 0,
+            ActiveParameter = active,
+        };
+    }
+
+    // the module with its line taken out - and, for a member access, put back as an assignment of what the member is accessed on - parsed and composed with the
+    // workspace; nothing when the module cannot be parsed even so.
+    private async Task<(WorkspaceComposition Composition, ModuleNode Module, Uri WorkspaceRoot, Uri ModuleUri)?> ComposeAsync(
+        Uri address, string moduleName, ModuleType kind, string[] lines, int line, string qualifier, CancellationToken token)
+    {
+        lines[line] = (qualifier.Length > 0 ? $"{Probe} = {qualifier}" : string.Empty) + (lines[line].EndsWith('\r') ? "\r" : string.Empty);
         var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', lines), token);
         if (parse.SyntaxTree is null)
         {
-            return Empty;
+            return null;
         }
 
         // a form's controls are declared by its designer, which the parse of a fragment of its text does not read: the document's own parse has it.
@@ -242,22 +350,7 @@ internal sealed class CompletionService(
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 
-        var tree = composition.ScopeTree;
-        var origin = CompletionCandidates.OriginAt(tree, moduleUri, new SourcePosition(line, character));
-        var candidates = context.Kind switch
-        {
-            CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
-                new CompletionLanguage(kind == ModuleType.ClassModule, options.Value.Workspace.SupportedLanguage.HasBarePrint)),
-            CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
-            _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, parse.SyntaxTree, line),
-        };
-
-        if (logger.IsEnabled(LogLevel.Debug))
-        {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {count} candidate(s).", moduleName, line, character, context.Kind, context.Prefix, candidates.Count);
-        }
-
-        return new CompletionList(candidates.Select(candidate => candidate.ToCompletionItem()), isIncomplete: false);
+        return (composition, parse.SyntaxTree, workspaceRoot, moduleUri);
     }
 
     // the workspace's modules but the one being completed, as the symbol sync composes them.

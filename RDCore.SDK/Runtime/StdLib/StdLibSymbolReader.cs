@@ -43,6 +43,11 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// </remarks>
 public sealed class StdLibSymbolReader
 {
+    // what each member does, in a sentence, and each of its parameters: what a completion list and a signature help show of them. Keyed by the module or the
+    // class and the member (`Strings_Left`), and the parameter after them (`Strings_Left_Length`); a `$` function has the doc strings of the one it is the
+    // String version of, and a member without an entry has none.
+    private static readonly System.Resources.ResourceManager DocStrings = new("RDCore.SDK.Runtime.StdLib.StdLibDocStrings", typeof(StdLibSymbolReader).Assembly);
+
     private readonly Uri _workspaceRoot;
     private readonly Uri _globalsOwnerUri;
     private readonly bool _is64Bit;
@@ -249,7 +254,7 @@ public sealed class StdLibSymbolReader
             Members =
             [
                 .. MembersOf(declaration).Select(method =>
-                    (VBTypeMemberSymbol)ReadMember(method, symbol.Uri, ScopeKind.Instance, enumTypes, classTypes)),
+                    (VBTypeMemberSymbol)ReadMember(method, name, symbol.Uri, ScopeKind.Instance, enumTypes, classTypes)),
             ],
         };
         // a pure function of Members, and fixed the moment they are known — the same ordering a
@@ -269,7 +274,7 @@ public sealed class StdLibSymbolReader
         // `vbCrLf`, a constant being a member like any other. A hidden module's procedures are hidden,
         // which is a flag of each member and leaves them resolving just the same.
         var members = MembersOf(declaration)
-            .Select(method => ReadMember(method, module.Uri, ScopeKind.Module, enumTypes, classTypes, attribute.IsHidden))
+            .Select(method => ReadMember(method, name, module.Uri, ScopeKind.Module, enumTypes, classTypes, attribute.IsHidden))
             .Concat(ConstantsOf(declaration).Select(field => ReadConstant(field, module.Uri)))
             .ToArray();
 
@@ -301,6 +306,36 @@ public sealed class StdLibSymbolReader
             _workspaceRoot, moduleUri, name, ScopeKind.Module, type, SourceRange.Empty, SourceRange.Empty,
             AccessModifier.Public, LiteralOf((VBTypedValue)field.GetValue(null)!, moduleUri));
     }
+
+    private Symbol ReadMember(
+        MethodInfo method, string ownerName, Uri ownerUri, ScopeKind scope,
+        Dictionary<Type, VBEnumType> enumTypes, Dictionary<Type, VBClassType> classTypes, bool ownerIsHidden = false)
+        => WithDocStrings(ReadMember(method, ownerUri, scope, enumTypes, classTypes, ownerIsHidden), ownerName);
+
+    private static Symbol WithDocStrings(Symbol member, string ownerName)
+    {
+        var key = $"{ownerName}_{member.Name.TrimEnd('$')}";
+        var parameters = member switch
+        {
+            VBReturningMemberSymbol returning => returning.Parameters,
+            VBProcedureMemberSymbol procedure => procedure.Parameters,
+            _ => [],
+        };
+
+        ImmutableArray<VBParameterSymbol> described = [.. parameters.Select(parameter => DocString($"{key}_{parameter.Name}") is { } docString
+            ? (VBParameterSymbol)parameter.With(SymbolProperties.DocString, docString)
+            : parameter)];
+        member = member switch
+        {
+            VBReturningMemberSymbol returning when parameters.Length > 0 => returning with { Parameters = described },
+            VBProcedureMemberSymbol procedure when parameters.Length > 0 => procedure with { Parameters = described },
+            _ => member,
+        };
+
+        return DocString(key) is { } memberDocString ? member.With(SymbolProperties.DocString, memberDocString) : member;
+    }
+
+    private static string? DocString(string key) => DocStrings.GetString(key, System.Globalization.CultureInfo.CurrentUICulture);
 
     private Symbol ReadMember(
         MethodInfo method, Uri ownerUri, ScopeKind scope,
