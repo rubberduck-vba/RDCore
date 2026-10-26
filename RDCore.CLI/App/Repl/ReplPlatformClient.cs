@@ -59,8 +59,8 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     public async Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token)
     {
         // the report is read as a record of its own: OmniSharp reads no RelatedDocumentDiagnosticReport (DocumentDiagnosticPullParams).
-        var report = await client.SendRequestAsync<DocumentDiagnosticPullParams, DocumentDiagnosticPullReport?>(
-            new DocumentDiagnosticPullParams { TextDocument = new TextDocumentIdentifier(document) }, token);
+        var report = await AskAgainIfModifiedAsync(() => client.SendRequestAsync<DocumentDiagnosticPullParams, DocumentDiagnosticPullReport?>(
+            new DocumentDiagnosticPullParams { TextDocument = new TextDocumentIdentifier(document) }, token));
         return report?.Items ?? [];
     }
 
@@ -68,14 +68,32 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     public async Task<IReadOnlyList<CodeAction>> GetCodeActionsAsync(Uri document, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range,
         IReadOnlyList<Diagnostic> diagnostics, CancellationToken token)
     {
-        var actions = await client.SendRequestAsync<CodeActionParams, CommandOrCodeActionContainer?>(
+        var actions = await AskAgainIfModifiedAsync(() => client.SendRequestAsync<CodeActionParams, CommandOrCodeActionContainer?>(
             new CodeActionParams
             {
                 TextDocument = new TextDocumentIdentifier(document),
                 Range = range,
                 Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(diagnostics) },
-            }, token);
+            }, token));
         return actions is null ? [] : [.. actions.Where(item => item.IsCodeAction).Select(item => item.CodeAction!)];
+    }
+
+    // a request the server answers with ContentModified was overtaken by a change of the document (LSP 3.17 ErrorCodes.ContentModified), which a client asks
+    // again, of the text as it is now; a few times, and then the error is the answer.
+    private static async Task<T> AskAgainIfModifiedAsync<T>(Func<Task<T>> ask)
+    {
+        const int Attempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await ask();
+            }
+            catch (OmniSharp.Extensions.JsonRpc.Server.ContentModifiedException) when (attempt < Attempts)
+            {
+                await Task.Delay(100 * attempt);
+            }
+        }
     }
 
     /// <inheritdoc/>
