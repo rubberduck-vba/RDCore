@@ -58,9 +58,10 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     /// <inheritdoc/>
     public async Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token)
     {
-        var report = await client.SendRequestAsync<DocumentDiagnosticParams, RelatedDocumentDiagnosticReport>(
-            new DocumentDiagnosticParams { TextDocument = new TextDocumentIdentifier(document) }, token);
-        return report is RelatedFullDocumentDiagnosticReport full ? [.. full.Items] : [];
+        // the report is read as a record of its own: OmniSharp reads no RelatedDocumentDiagnosticReport (DocumentDiagnosticPullParams).
+        var report = await client.SendRequestAsync<DocumentDiagnosticPullParams, DocumentDiagnosticPullReport?>(
+            new DocumentDiagnosticPullParams { TextDocument = new TextDocumentIdentifier(document) }, token);
+        return report?.Items ?? [];
     }
 
     /// <inheritdoc/>
