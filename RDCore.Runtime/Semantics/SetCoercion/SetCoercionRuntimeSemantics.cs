@@ -65,6 +65,12 @@ public sealed record class SetCoercionRuntimeSemantics(IVerboseMessageBuilder Fo
 
         if (destinationType is VBClassType destinationClass)
         {
+            // an object of a server is what it answers to (QueryInterface): a form's control is a MSForms.Control, the extender it is wrapped in.
+            if (Execution.External.Automation.ServerObjects.IsInstanceOf(session, sourceObject.Value, destinationClass.Symbol) is { } answered)
+            {
+                return answered ? SetCoercionResult.Success(sourceObject) : SetCoercionResult.Error(OnSetCoercionTypeMismatch(expression));
+            }
+
             return session.Symbols.TryGetInstance(sourceObject.Value, out var instance)
                 && IsCompatibleClass(VBClassType.FromClassModule(instance.ClassModule), destinationClass)
                     ? SetCoercionResult.Success(sourceObject)

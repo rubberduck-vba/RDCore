@@ -219,6 +219,19 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "changed to 7", "after" }, printed, string.Join(" | ", printed));
     }
 
+    // what an object answers to is asked of it where it lives: in the external host (oracle\s41 M04, M05).
+    [TestMethod]
+    public async Task AControl_ThroughAnExternalHost_IsTheExtenderItIsWrappedIn()
+    {
+        RequireMicrosoftForms();
+        using var host = ExternalHosts.New();
+
+        var printed = await RunWithCodeAsync(ExternalHosts.WorldOf(host), Handlers, "Debug.Print TypeOf ExampleView.AmountBox Is MSForms.Control",
+            "Debug.Print TypeOf ExampleView.AmountBox Is MSForms.ComboBox", "Dim c As MSForms.Control", "Set c = ExampleView.AmountBox", "Debug.Print c.Name", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[] { "True", "False", "AmountBox" }, printed, string.Join(" | ", printed));
+    }
+
     // a modal Show waits; a click on the form while it does is the answer to that call, and runs UserForm_Click inside it - which hides the form, which ends the wait.
     [TestMethod]
     [DataRow(false, DisplayName = "in the process")]
@@ -335,6 +348,15 @@ public sealed class FormHostingTests
     [DataRow(new[] { "ExampleView.AddCheck", "Unload ExampleView", "Debug.Print ExampleView.Controls.Count" }, new[] { "13" }, DisplayName = "C12 gone with the form")]
     [DataRow(new[] { "Debug.Print ExampleView.AmountBox.Left > 0", "ExampleView.AmountBox.Left = 3", "Debug.Print ExampleView.AmountBox.Left", "Debug.Print Err.Number" },
         new[] { "True", "3", "0" }, DisplayName = "the extender's members of a designer's control, which its class does not declare")]
+    [DataRow(new[] { "Debug.Print TypeOf ExampleView.AmountBox Is MSForms.Control", "Debug.Print TypeOf ExampleView.AmountBox Is MSForms.TextBox",
+        "Debug.Print TypeOf ExampleView.AmountBox Is MSForms.ComboBox", "Debug.Print TypeOf ExampleView.Controls(0) Is MSForms.Control" },
+        new[] { "True", "True", "False", "True" }, DisplayName = "M04 M08 a control is the extender it is wrapped in, and its own class")]
+    [DataRow(new[] { "Dim c As MSForms.Control", "Set c = ExampleView.AmountBox", "Debug.Print TypeName(c)", "Debug.Print c Is ExampleView.AmountBox", "Debug.Print c.Name",
+        "Dim t As MSForms.TextBox", "Set t = c", "Debug.Print TypeName(t)" },
+        new[] { "TextBox", "True", "AmountBox", "TextBox" }, DisplayName = "M05 M07 a variable of the extender's class holds the control")]
+    [DataRow(new[] { "Dim c As MSForms.Control", "Set c = ExampleView", "Debug.Print Err.Number", "Dim d As Object", "Set d = CreateObject(\"Scripting.Dictionary\")",
+        "Debug.Print TypeOf d Is MSForms.Control" },
+        new[] { "13", "False" }, DisplayName = "M06 M09 a form, and an object of another library, are none")]
     public async Task ControlsAddedAtRunTime_AreWhatMSVBAMakesThem(string[] body, string[] printed)
     {
         RequireMicrosoftForms();

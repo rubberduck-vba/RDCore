@@ -160,15 +160,9 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         {
             // the class the object says it is, or the class its library makes the interface it answers to the default one of: the class MS-VBA's TypeName
             // names (`Dictionary`, of an object that answers to `IDictionary`; recorded in Excel, oracle\s25).
-            var typeInfo = ClassInfoOf(target);
-            if (typeInfo is null)
+            if (TypeInfoOf(target) is not { } typeInfo)
             {
-                if (target is not IDispatchTypeInformation dispatch || dispatch.GetTypeInfoCount(out var count) != 0 || count == 0)
-                {
-                    return null;
-                }
-
-                dispatch.GetTypeInfo(0, 0, out typeInfo);
+                return null;
             }
 
             typeInfo.GetContainingTypeLib(out var library, out _);
@@ -180,6 +174,98 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             return null;
         }
     });
+
+    /// <inheritdoc/>
+    public bool? IsInstanceOf(object target, string library, string className) => OnApartment(() =>
+    {
+        try
+        {
+            if (TypeInfoOf(target) is not { } typeInfo)
+            {
+                return null;
+            }
+
+            typeInfo.GetContainingTypeLib(out var containing, out _);
+            containing.GetDocumentation(-1, out var libraryName, out _, out _, out _);
+            if (!string.Equals(libraryName, library, StringComparison.OrdinalIgnoreCase) || InterfaceNamed(containing, className) is not { } interfaceIdentifier)
+            {
+                return (bool?)null;
+            }
+
+            // MS-VBA asks the object itself, as QueryInterface does: what it answers to is what it is.
+            var unknown = Marshal.GetIUnknownForObject(target);
+            try
+            {
+                if (Marshal.QueryInterface(unknown, in interfaceIdentifier, out var answered) != 0)
+                {
+                    return false;
+                }
+
+                _ = Marshal.Release(answered);
+                return true;
+            }
+            finally
+            {
+                _ = Marshal.Release(unknown);
+            }
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+    });
+
+    // the interface a library's type of a name is: the interface itself, or the default one of a class.
+    private static Guid? InterfaceNamed(ITypeLib library, string name)
+    {
+        for (var index = 0; index < library.GetTypeInfoCount(); index++)
+        {
+            library.GetDocumentation(index, out var candidateName, out _, out _, out _);
+            if (!string.Equals(candidateName, name, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            library.GetTypeInfo(index, out var candidate);
+            var (kind, identifier, implemented) = AttributesOf(candidate);
+            if (kind is not TYPEKIND.TKIND_COCLASS)
+            {
+                return kind is TYPEKIND.TKIND_INTERFACE or TYPEKIND.TKIND_DISPATCH ? identifier : null;
+            }
+
+            for (var implementation = 0; implementation < implemented; implementation++)
+            {
+                candidate.GetImplTypeFlags(implementation, out var flags);
+                if (flags.HasFlag(IMPLTYPEFLAGS.IMPLTYPEFLAG_FDEFAULT) && !flags.HasFlag(IMPLTYPEFLAGS.IMPLTYPEFLAG_FSOURCE))
+                {
+                    candidate.GetRefTypeOfImplType(implementation, out var reference);
+                    candidate.GetRefTypeInfo(reference, out var defaultInterface);
+                    return AttributesOf(defaultInterface).Identifier;
+                }
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    // the type an object describes itself as: its class, or the interface its IDispatch is of.
+    private static ITypeInfo? TypeInfoOf(object target)
+    {
+        if (ClassInfoOf(target) is { } classInfo)
+        {
+            return classInfo;
+        }
+
+        if (target is not IDispatchTypeInformation dispatch || dispatch.GetTypeInfoCount(out var count) != 0 || count == 0)
+        {
+            return null;
+        }
+
+        dispatch.GetTypeInfo(0, 0, out var typeInfo);
+        return typeInfo;
+    }
 
     // IProvideClassInfo, which not every object answers to, nor answers when it does.
     private static ITypeInfo? ClassInfoOf(object target)

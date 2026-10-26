@@ -48,7 +48,9 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<AutomationCreateParams, AutomationObjectResult>(ExternalProtocol.AutomationCreate, Create);
         channel.Handle<AutomationObtainParams, AutomationObjectResult>(ExternalProtocol.AutomationObtain, Obtain);
         channel.Handle<AutomationInvokeParams, AutomationInvokeResult>(ExternalProtocol.AutomationInvoke, Invoke);
-        channel.Handle<AutomationClassNameParams, AutomationClassNameResult>(ExternalProtocol.AutomationClassName, ClassName);        channel.Handle<AutomationMoveNextParams, AutomationMoveNextResult>(ExternalProtocol.AutomationMoveNext, MoveNext);
+        channel.Handle<AutomationClassNameParams, AutomationClassNameResult>(ExternalProtocol.AutomationClassName, ClassName);
+        channel.Handle<AutomationIsInstanceOfParams, AutomationIsInstanceOfResult>(ExternalProtocol.AutomationIsInstanceOf, IsInstanceOf);
+        channel.Handle<AutomationMoveNextParams, AutomationMoveNextResult>(ExternalProtocol.AutomationMoveNext, MoveNext);
         channel.Handle<AutomationResetParams, ExternalDoneResult>(ExternalProtocol.AutomationReset, Reset);
         channel.Handle<AutomationAdviseParams, ExternalDoneResult>(ExternalProtocol.AutomationAdvise, Advise);
         channel.Handle<AutomationUnadviseParams, ExternalDoneResult>(ExternalProtocol.AutomationUnadvise, Unadvise);
@@ -213,6 +215,14 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     /// <summary>Answers <see cref="ExternalProtocol.AutomationClassName"/>.</summary>
     public AutomationClassNameResult ClassName(AutomationClassNameParams request)
         => Answer(request.HandlingEvent, () => new AutomationClassNameResult { Name = platform.ClassNameOf(_handles.ObjectOf(request.Target)) }, Failed<AutomationClassNameResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>
+    public AutomationIsInstanceOfResult IsInstanceOf(AutomationIsInstanceOfParams request)
+        => Answer(request.HandlingEvent, () => new AutomationIsInstanceOfResult
+        {
+            IsInstance = platform.IsInstanceOf(_handles.ObjectOf(request.Target), request.Library, request.ClassName),
+        }, Failed<AutomationIsInstanceOfResult>);
+
     /// <summary>Answers <see cref="ExternalProtocol.AutomationMoveNext"/>.</summary>
     public AutomationMoveNextResult MoveNext(AutomationMoveNextParams request) => Answer(request.HandlingEvent, () =>
     {

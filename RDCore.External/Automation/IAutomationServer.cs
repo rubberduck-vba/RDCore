@@ -132,6 +132,19 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     string? ClassNameOf(object target);
 
     /// <summary>
+    /// Gets whether an object is an instance of a class of the library its own class is of, as the object says: whether it answers to the class's interface.
+    /// </summary>
+    /// <remarks>
+    /// What <c>TypeOf ... Is</c> asks of an object of a server (<strong>MS-VBAL §5.6.7</strong>), and what only the object knows: a form's control is a
+    /// <c>MSForms.Label</c>, and a <c>MSForms.Control</c> too, the extender its form wraps it in. <see langword="null"/> when the server cannot tell - the class
+    /// is of another library, or the object describes none.
+    /// </remarks>
+    /// <param name="target">The handle of the object.</param>
+    /// <param name="library">The library that declares the class.</param>
+    /// <param name="className">The name of the class, or of the interface.</param>
+    bool? IsInstanceOf(object target, string library, string className) => null;
+
+    /// <summary>
     /// Moves the enumerator an object's enumeration member returned (<c>_NewEnum</c>) to its next member.
     /// </summary>
     /// <remarks>

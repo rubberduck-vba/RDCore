@@ -34,6 +34,10 @@ public static class ExternalProtocol
 
     /// <summary><c>rdcore/external/automation/className</c>: the name a server gives the class of an object.</summary>
     public const string AutomationClassName = "rdcore/external/automation/className";
+
+    /// <summary><c>rdcore/external/automation/isInstanceOf</c>: whether an object answers to a class of its library.</summary>
+    public const string AutomationIsInstanceOf = "rdcore/external/automation/isInstanceOf";
+
     /// <summary><c>rdcore/external/automation/moveNext</c>: moves an enumerator to its next member.</summary>
     public const string AutomationMoveNext = "rdcore/external/automation/moveNext";
 
@@ -235,6 +239,27 @@ public sealed record class AutomationClassNameResult : ExternalResult
     /// <summary>The name a server gives the class of the object, qualified by its library; <see langword="null"/> when it gives none.</summary>
     public string? Name { get; init; }
 }
+
+/// <summary>Request for <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>
+public sealed record class AutomationIsInstanceOfParams : AutomationRequest
+{
+    /// <summary>The handle of the object.</summary>
+    public long Target { get; init; }
+
+    /// <summary>The library that declares the class.</summary>
+    public string Library { get; init; } = string.Empty;
+
+    /// <summary>The name of the class, or of the interface.</summary>
+    public string ClassName { get; init; } = string.Empty;
+}
+
+/// <summary>Response for <see cref="ExternalProtocol.AutomationIsInstanceOf"/>.</summary>
+public sealed record class AutomationIsInstanceOfResult : ExternalResult
+{
+    /// <summary>Whether the object answers to the class; <see langword="null"/> when the server cannot tell.</summary>
+    public bool? IsInstance { get; init; }
+}
+
 /// <summary>Request for <see cref="ExternalProtocol.AutomationMoveNext"/>.</summary>
 public sealed record class AutomationMoveNextParams : AutomationRequest
 {

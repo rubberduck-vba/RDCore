@@ -2947,6 +2947,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var objectValue = (VBObjectValue)operandResult.Result!;
 
+        // an object of a server is what it answers to (QueryInterface): a form's control is the extender it is wrapped in too - `TypeOf Label1 Is MSForms.Control`,
+        // which is how MVVM's BindingManager tells a control - and that is no class its class implements.
+        if (Execution.External.Automation.ServerObjects.IsInstanceOf(session, objectValue.Value, targetClass) is { } answered)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(answered));
+        }
+
         return session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(IsOrImplements(instance.ClassModule, targetClass, [])))
             : RuntimeSemanticsEvaluationResult.InternalError();

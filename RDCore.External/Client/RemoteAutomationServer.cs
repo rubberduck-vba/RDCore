@@ -258,6 +258,26 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     }
 
     /// <inheritdoc/>
+    public bool? IsInstanceOf(object target, string library, string className)
+    {
+        if (target is not RemoteObject { Incarnation.IsLost: false } remote)
+        {
+            return null;
+        }
+
+        try
+        {
+            return Send<AutomationIsInstanceOfParams, AutomationIsInstanceOfResult>(
+                remote.Incarnation, ExternalProtocol.AutomationIsInstanceOf,
+                new AutomationIsInstanceOfParams { Target = remote.Handle, Library = library, ClassName = className, HandlingEvent = _handlingEvent }).IsInstance;
+        }
+        catch (AutomationException)
+        {
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
     public bool MoveNext(object enumerator, out object? current)
     {
         var remote = Live(enumerator);

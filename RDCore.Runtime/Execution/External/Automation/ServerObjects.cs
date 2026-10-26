@@ -143,6 +143,34 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     }
 
     /// <summary>
+    /// Whether an object of a server is an instance of a class of a library, as the object says (<see cref="IAutomationServer.IsInstanceOf"/>): what
+    /// <c>TypeOf ... Is</c> and Set-coercion ask of it (<strong>MS-VBAL §5.6.7, §5.5.2.2</strong>).
+    /// </summary>
+    /// <remarks>
+    /// A form's control is the extender its form wraps it in (<c>MSForms.Control</c>) too, which is no class its own class implements: only the object knows.
+    /// <see langword="null"/> for an object of the session's own, a class of no library, and an object its server cannot tell of.
+    /// </remarks>
+    /// <param name="session">The session that holds the object.</param>
+    /// <param name="identity">The object.</param>
+    /// <param name="target">The class it is asked of.</param>
+    public static bool? IsInstanceOf(IRuntimeSession session, VBRuntimeObjectId identity, VBClassModuleSymbol target)
+    {
+        if (!session.ExternalObjects.TryGet(identity, out var owner, out var handle)
+            || owner is not IAutomationServer server
+            || target.GetProperty(SymbolProperties.Library) is not { Length: > 0 } library)
+        {
+            return null;
+        }
+
+        // the program waits for the server, as it does for a call: an event the server raises meanwhile - one a form's message raised - is handled while it does,
+        // or the two would wait for each other.
+        using (session.Turn.Yield())
+        {
+            return server.IsInstanceOf(handle, library, target.Name);
+        }
+    }
+
+    /// <summary>
     /// The class of a library by its name, as the project has it now.
     /// </summary>
     public static VBClassModuleSymbol? Current(ISymbolResolver resolver, string? library, string name)
