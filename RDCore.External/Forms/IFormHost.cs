@@ -140,6 +140,16 @@ public interface IFormHost
     void SetCaption(object form, string caption);
 
     /// <summary>
+    /// The focus leaves a form for good, as it does when the form is unloaded: the form is deactivated and closed, and the control that has the focus is left - the
+    /// events of the extender MS-VBA wraps it in, its pending update (<c>BeforeUpdate</c>, asked once more when it is cancelled, then <c>AfterUpdate</c> unless it
+    /// is cancelled again) and its <c>Exit</c>, whose cancel changes nothing (Excel-measured, <c>oracle\s41</c> E01, E05, E10, E11). The form's window stays until
+    /// it is destroyed.
+    /// </summary>
+    /// <param name="form">The handle of the form.</param>
+    /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
+    void Leave(object form);
+
+    /// <summary>
     /// Destroys a form and its window, and lets go of what it holds. A form that is shown is hidden first; one that was destroyed already is left as it is.
     /// </summary>
     /// <param name="form">The handle of the form.</param>
@@ -203,6 +213,11 @@ public sealed class UnavailableFormHost : IFormHost
 
     /// <inheritdoc/>
     public void SetCaption(object form, string caption) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
+
+    /// <inheritdoc/>
+    public void Leave(object form)
+    {
+    }
 
     /// <inheritdoc/>
     public void Destroy(object form)

@@ -345,6 +345,149 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
     }
 
+    // the handlers of the extender's events of two controls, AmountBox (the first in the tab order) and ComboBox1, as the Excel oracle's FocusForm has them; and Go,
+    // which moves the focus as the program does.
+    private static readonly string[] Focus =
+    [
+        "Public CancelExit As Boolean",
+        "Public CancelUpdate As Boolean",
+        "Private Sub UserForm_Initialize()", "    Debug.Print \"Initialize\"", "End Sub",
+        "Private Sub UserForm_Activate()", "    Debug.Print \"Activate\"", "End Sub",
+        "Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", "    Debug.Print \"QueryClose\"; CloseMode", "End Sub",
+        "Private Sub UserForm_Terminate()", "    Debug.Print \"Terminate\"", "End Sub",
+        "Private Sub AmountBox_Enter()", "    Debug.Print \"AmountEnter\"", "End Sub",
+        "Private Sub AmountBox_Exit(ByVal Cancel As MSForms.ReturnBoolean)", "    Debug.Print \"AmountExit\"", "    If CancelExit Then Cancel = True", "End Sub",
+        "Private Sub AmountBox_BeforeUpdate(ByVal Cancel As MSForms.ReturnBoolean)", "    Debug.Print \"AmountBeforeUpdate\"", "    If CancelUpdate Then Cancel = True", "End Sub",
+        "Private Sub AmountBox_AfterUpdate()", "    Debug.Print \"AmountAfterUpdate\"", "End Sub",
+        "Private Sub AmountBox_Change()", "    Debug.Print \"AmountChange\"", "End Sub",
+        "Private Sub ComboBox1_Enter()", "    Debug.Print \"ComboEnter\"", "End Sub",
+        "Private Sub ComboBox1_Exit(ByVal Cancel As MSForms.ReturnBoolean)", "    Debug.Print \"ComboExit\"", "End Sub",
+        "Public Sub Go(ByVal name As String)", "    Me.Controls(name).SetFocus", "End Sub",
+    ];
+
+    // oracle\s41 E01-E17: the extender's events as the focus moves, in the order Excel raises them - by Microsoft Forms itself, and by the host when the form is unloaded.
+    [TestMethod]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "Debug.Print ExampleView.ActiveControl.Name", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountBox", "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "E01 Show enters the first control before Activate, Unload exits it after QueryClose")]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Go \"AmountBox\"", "ExampleView.Go \"ComboBox1\"", "ExampleView.Go \"AmountBox\"", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "ComboExit", "AmountEnter", "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "E02 a move exits one control and enters the next")]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Go \"AmountBox\"", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountChange", "AmountBeforeUpdate", "AmountAfterUpdate", "AmountExit", "ComboEnter", "QueryClose 1",
+            "ComboExit", "Terminate" },
+        DisplayName = "E03 a changed control is updated before it is exited")]
+    [DataRow(new[] { "ExampleView.CancelExit = True", "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"", "Debug.Print ExampleView.ActiveControl.Name",
+        "ExampleView.CancelExit = False", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "AmountBox", "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "E04 Exit cancelled keeps the focus")]
+    [DataRow(new[] { "ExampleView.CancelUpdate = True", "ExampleView.Show vbModeless", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"",
+        "Debug.Print ExampleView.ActiveControl.Name", "Debug.Print ExampleView.AmountBox.Text", "ExampleView.CancelUpdate = False", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountChange", "AmountBeforeUpdate", "AmountBox", "5", "QueryClose 1", "AmountBeforeUpdate", "AmountAfterUpdate",
+            "AmountExit", "Terminate" },
+        DisplayName = "E05 BeforeUpdate cancelled keeps the focus, and the update pending")]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Hide", "ExampleView.Show vbModeless", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "Activate", "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "E07 Hide and Show again enter and exit nothing")]
+    [DataRow(new[] { "Load ExampleView", "ExampleView.Go \"AmountBox\"", "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "AmountExit", "ComboEnter", "0", "QueryClose 1", "ComboExit", "Terminate" },
+        DisplayName = "E08 a form that is not shown")]
+    [DataRow(new[] { "ExampleView.CancelExit = True", "ExampleView.Show vbModeless", "Unload ExampleView", "Debug.Print Err.Number" },
+        new[] { "Initialize", "AmountEnter", "Activate", "QueryClose 1", "AmountExit", "Terminate", "0" },
+        DisplayName = "E10 Exit cancelled at Unload changes nothing")]
+    [DataRow(new[] { "ExampleView.CancelUpdate = True", "ExampleView.Show vbModeless", "ExampleView.AmountBox.Text = \"5\"", "Unload ExampleView", "Debug.Print Err.Number" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountChange", "QueryClose 1", "AmountBeforeUpdate", "AmountBeforeUpdate", "AmountExit", "Terminate", "0" },
+        DisplayName = "E11 BeforeUpdate cancelled at Unload is asked once more, then not made")]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Hide", "ExampleView.Go \"ComboBox1\"", "Debug.Print ExampleView.ActiveControl.Name", "Debug.Print \"shown\"",
+        "ExampleView.Show vbModeless", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "ComboBox1", "shown", "Activate", "QueryClose 1", "ComboExit", "Terminate" },
+        DisplayName = "E13 the focus moves on a hidden form too")]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"", "ExampleView.AmountBox.Text = \"7\"", "DoEvents", "ExampleView.Go \"AmountBox\"",
+        "ExampleView.Go \"ComboBox1\"", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "AmountChange", "ComboExit", "AmountEnter", "AmountExit", "ComboEnter", "QueryClose 1",
+            "ComboExit", "Terminate" },
+        DisplayName = "E14 a change while the focus is elsewhere, pumped at once, is no update")]
+    [DataRow(new[] { "Load ExampleView", "ExampleView.AmountBox.Text = \"1\"", "DoEvents", "Debug.Print \"pumped\"", "ExampleView.Show vbModeless", "Unload ExampleView" },
+        new[] { "Initialize", "AmountChange", "pumped", "AmountEnter", "Activate", "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "E15 nothing is entered before Show, and a change pumped before it is no update")]
+    [DataRow(new[] { "ExampleView.CancelExit = True", "ExampleView.Show vbModeless", "ExampleView.Controls(\"ComboBox1\").SetFocus", "Debug.Print Err.Number",
+        "Debug.Print Err.Description", "Err.Clear", "Debug.Print ExampleView.ActiveControl.Name", "ExampleView.CancelExit = False", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "-2147467259", "Unspecified error.", "AmountBox", "QueryClose 1", "AmountExit", "Terminate" },
+        DisplayName = "E16 the SetFocus whose move Exit cancels fails")]
+    [DataRow(new[] { "ExampleView.CancelUpdate = True", "ExampleView.Show vbModeless", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Controls(\"ComboBox1\").SetFocus",
+        "Debug.Print Err.Number", "Debug.Print Err.Description", "Err.Clear", "ExampleView.CancelUpdate = False", "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountChange", "AmountBeforeUpdate", "-2147467259", "Unspecified error.", "QueryClose 1", "AmountBeforeUpdate",
+            "AmountAfterUpdate", "AmountExit", "Terminate" },
+        DisplayName = "E17 the SetFocus whose move BeforeUpdate cancels fails")]
+    public async Task TheExtendersEvents_FollowTheFocus_AsMSVBARaisesThem(string[] body, string[] printed)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+
+        var actual = await RunWithCodeAsync(world, Focus, ["On Error Resume Next", .. body]);
+        CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
+    }
+
+    // oracle\s41 E09, E12: the same changes as E14, E15, with nothing pumped between the program's statements - which MS-VBA does not do until DoEvents, a modal Show
+    // or the program's end, and Microsoft Forms then counts the change as the focused control's.
+    [TestMethod]
+    [Ignore("The apartment dispatches the forms' messages between every call the program makes; MS-VBA dispatches none while a program runs, so a change Microsoft Forms posts is the next focused control's update there (E09, E12, against E14, E15). Pumping only when the program waits is a design ruling to ask for.")]
+    [DataRow(new[] { "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"", "ExampleView.AmountBox.Text = \"7\"", "ExampleView.Go \"AmountBox\"", "ExampleView.Go \"ComboBox1\"",
+        "Unload ExampleView" },
+        new[] { "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "AmountChange", "ComboExit", "AmountEnter", "AmountBeforeUpdate",
+            "AmountAfterUpdate", "AmountExit", "ComboEnter", "QueryClose 1", "ComboExit", "Terminate" },
+        DisplayName = "E09 a change while the focus is elsewhere is updated when the control is next exited")]
+    [DataRow(new[] { "Load ExampleView", "Debug.Print \"afterLoad\"", "ExampleView.AmountBox.Text = \"1\"", "Debug.Print \"afterText\"", "ExampleView.Show vbModeless",
+        "Debug.Print \"afterShow\"", "Unload ExampleView" },
+        new[] { "Initialize", "afterLoad", "AmountChange", "afterText", "AmountEnter", "AmountBeforeUpdate", "AmountAfterUpdate", "Activate", "afterShow", "QueryClose 1",
+            "AmountExit", "Terminate" },
+        DisplayName = "E12 a change before Show, not pumped, is updated when Show enters the control")]
+    public async Task TheExtendersEvents_OfAChangeNothingPumped_AreMSVBAs(string[] body, string[] printed)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+
+        var actual = await RunWithCodeAsync(world, Focus, ["On Error Resume Next", .. body]);
+        CollectionAssert.AreEqual(printed, actual, string.Join(" | ", actual));
+    }
+
+    // oracle\s41 E01: the Cancel argument is an object of Microsoft Forms' that says it is an IReturnBoolean, and has no class to say otherwise.
+    [TestMethod]
+    [Ignore("TypeName of a server's object names the class the runtime binds it as (the parameter's ReturnBoolean), or the class whose default interface the object answers to; MS-VBA names the interface an object without class information says it is (IReturnBoolean). Follow-up.")]
+    public async Task TheCancelArgument_IsNamedAsTheObjectSaysItIs()
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        string[] code = ["Private Sub AmountBox_Exit(ByVal Cancel As MSForms.ReturnBoolean)", "    Debug.Print TypeName(Cancel)", "End Sub"];
+
+        CollectionAssert.AreEqual(new[] { "IReturnBoolean" }, await RunWithCodeAsync(world, code, "ExampleView.Show vbModeless", "Unload ExampleView"));
+    }
+
+    // the Cancel argument is Microsoft Forms' object, in the external host, which the handler's assignment reaches across the process; the SetFocus whose move is
+    // cancelled fails, as Excel's does (oracle\s41 E16, E17).
+    [TestMethod]
+    public async Task TheExtendersEvents_ThroughAnExternalHost_AreCancelled()
+    {
+        RequireMicrosoftForms();
+        using var host = ExternalHosts.New();
+
+        var actual = await RunWithCodeAsync(ExternalHosts.WorldOf(host), Focus, "On Error Resume Next",
+            "ExampleView.CancelExit = True", "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Err.Clear",
+            "Debug.Print ExampleView.ActiveControl.Name", "ExampleView.CancelExit = False",
+            "ExampleView.CancelUpdate = True", "ExampleView.AmountBox.Text = \"5\"", "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Err.Clear",
+            "Debug.Print ExampleView.ActiveControl.Name", "ExampleView.CancelUpdate = False",
+            "ExampleView.Go \"ComboBox1\"", "Debug.Print Err.Number", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Initialize", "AmountEnter", "Activate", "AmountExit", "-2147467259", "AmountBox", "AmountChange", "AmountBeforeUpdate", "-2147467259", "AmountBox",
+            "AmountBeforeUpdate", "AmountAfterUpdate", "AmountExit", "ComboEnter", "0", "QueryClose 1", "ComboExit", "Terminate",
+        }, actual, string.Join(" | ", actual));
+    }
+
     [TestMethod]
     public async Task AMemberOfTheFormObject_ThatIsNotHostedYet_SaysSo()
     {

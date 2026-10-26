@@ -68,6 +68,9 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/forms/caption</c>: gets a form's caption, or sets it when the request gives one.</summary>
     public const string FormCaption = "rdcore/external/forms/caption";
 
+    /// <summary><c>rdcore/external/forms/leave</c>: the focus leaves a form for good - its active control is exited - as it does when the form is unloaded.</summary>
+    public const string FormLeave = "rdcore/external/forms/leave";
+
     /// <summary><c>rdcore/external/native/call</c>: calls a function of a native library, as a <c>Declare</c> names it.</summary>
     public const string NativeCall = "rdcore/external/native/call";
 

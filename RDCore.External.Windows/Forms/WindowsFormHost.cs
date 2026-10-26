@@ -102,6 +102,13 @@ public sealed class WindowsFormHost : IFormHost
     });
 
     /// <inheritdoc/>
+    public void Leave(object form) => OnApartment<object?>(() =>
+    {
+        HostedOf(form).Leave();
+        return null;
+    });
+
+    /// <inheritdoc/>
     public void Destroy(object form) => OnApartment<object?>(() =>
     {
         if (_forms.Remove(form, out var hosted))
