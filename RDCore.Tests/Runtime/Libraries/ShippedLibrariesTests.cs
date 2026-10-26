@@ -82,9 +82,61 @@ public sealed class ShippedLibrariesTests
         foreach (var library in libraries.Libraries)
         {
             Assert.IsTrue(symbols.OfType<VBProjectSymbol>().Any(project => project.Name == library.Name), library.Name);
-            Assert.AreEqual(
-                library.Classes.Length, symbols.OfType<VBClassModuleSymbol>().Count(symbol => symbol.GetProperty(SymbolProperties.Library) == library.Name), library.Name);
+            // a class, and the default interface it names, each a type name of the library.
+            var named = library.Classes.Select(declared => declared.Name)
+                .Concat(library.Classes.Select(declared => declared.DefaultInterface).OfType<string>())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+            Assert.AreEqual(named, symbols.OfType<VBClassModuleSymbol>().Count(symbol => symbol.GetProperty(SymbolProperties.Library) == library.Name), library.Name);
         }
+    }
+
+    // VBA's Object Browser hides them, but a program can declare a variable as a class's default interface, and as stdole's IUnknown (MVVM does both).
+    [TestMethod]
+    public async Task AClassesDefaultInterface_AndIUnknown_AreTypeNames()
+    {
+        var code = Program(
+            "Public Sub Use(ByVal Cancel As MSForms.IReturnBoolean, ByVal Punk As stdole.IUnknown, ByVal map As Scripting.IDictionary, ByVal sheet As Excel._Worksheet)",
+            "Cancel.Value = True",
+            "Debug.Print map.Count",
+            "End Sub");
+
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], code, new ModuleWorkspace.WorkspaceLibraries(["MSForms", "stdole", "Scripting", "Excel"], Source));
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    // an object of the class is one of its default interface, and the other way: they are one interface, as QueryInterface has it. Any object is an IUnknown.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task AnObject_IsSetToItsClassesDefaultInterface_AndBack_AndToIUnknown()
+    {
+        var code = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n" + string.Join("\r\n",
+            "Dim map As Scripting.IDictionary", "Set map = New Scripting.Dictionary", "map.Add \"a\", 1",
+            "Dim same As Scripting.Dictionary", "Set same = map", "Debug.Print same.Count", "Debug.Print same Is map",
+            "Dim punk As stdole.IUnknown", "Set punk = map", "Debug.Print TypeName(punk)", "Set punk = New Collection", "Debug.Print TypeName(punk)") + "\r\nEnd Sub\r\n";
+
+        var printed = await ModuleWorkspace.RunAsync([], code, new ModuleWorkspace.WorkspaceLibraries(["Scripting", "stdole"], Source));
+
+        CollectionAssert.AreEqual(new[] { "1", "True", "Dictionary", "Collection" }, printed, string.Join(" | ", printed));
+    }
+
+    [TestMethod]
+    public void AClassesDefaultInterface_HasItsMembers_AndTheClassImplementsIt()
+    {
+        var libraries = ReferencedLibraries.Load(Source, ["MSForms"], ["VBA"]);
+
+        var classes = new LibrarySymbolProvider(new Uri("file:///c:/ws/"), libraries).ProvideSymbols().OfType<VBClassModuleSymbol>()
+            .Where(symbol => symbol.GetProperty(SymbolProperties.Library) == "MSForms")
+            .ToArray();
+        var returnBoolean = classes.Single(symbol => symbol.Name == "ReturnBoolean");
+        var defaultInterface = classes.Single(symbol => symbol.Name == "IReturnBoolean");
+
+        Assert.AreEqual("ReturnBoolean", defaultInterface.GetProperty(SymbolProperties.DefaultInterfaceOf));
+        Assert.IsFalse(defaultInterface.GetProperty(SymbolProperties.Creatable));
+        CollectionAssert.AreEqual(returnBoolean.Members.Select(member => member.Name).ToArray(), defaultInterface.Members.Select(member => member.Name).ToArray());
+        Assert.IsTrue(returnBoolean.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri == defaultInterface.Uri.AbsoluteUri),
+            string.Join(", ", returnBoolean.ImplementedInterfaces.Select(implemented => implemented.Name)));
     }
 
     [TestMethod]

@@ -133,37 +133,28 @@ public sealed class CashFlowFunctionTests
     }
 
     [TestMethod]
-    [DataRow(-100000, 600, 360, 0.0050058250067624074)]
-    [DataRow(-25000, 500, 60, 0.006183413161253964)]
-    [DataRow(-1000, 20, 10, -0.22003386210264734)]
-    [DataRow(-1000, 20, 40, -0.01047032576311746)]
-    public void IRR_OfAnOutlayRepaidInEqualInstalments_IsTheirRatePerPeriod(double outlay, double instalment, int count, double expected)
-        // a 30-year mortgage and a five-year car loan, paid monthly; and two investments only partly returned,
-        // whose rate is negative. The VB runtime's own function finds none of these within its forty tries.
-        => Assert.AreEqual(expected, ValueOf(Financial.IRR(Flows(Instalments(outlay, instalment, count)))), IteratedAccuracy);
+    public void IRR_FromAGuessFarBelowTheRate_StillFindsIt()
+        => Assert.AreEqual(0.17743588442252728, ValueOf(Financial.IRR(Flows(Example), Variant(-0.7))), IteratedAccuracy);
+
+    // where MS-VBA's forty secant steps find no rate within 1E-07, with a net present value within 1E-09 of the largest flow, it is error 5, though
+    // there is a rate: a 30-year mortgage and a five-year car loan, paid monthly, and two investments only partly returned, from the default guess;
+    // and from guesses far from the rate (grid oracle\s43 V21-V24, V26-V30).
+    [TestMethod]
+    [DataRow(-100000, 600, 360, 0.1)]
+    [DataRow(-25000, 500, 60, 0.1)]
+    [DataRow(-1000, 20, 10, 0.1)]
+    [DataRow(-1000, 20, 40, 0.1)]
+    [DataRow(-800000, 1000, 480, 0.3)]
+    [DataRow(-100000, 600, 360, -0.5)]
+    [DataRow(-100000, 600, 360, 1.5)]
+    [DataRow(-100000, 600, 360, 2)]
+    public void IRR_ThatTheIterationDoesNotFind_IsError5(double outlay, double instalment, int count, double guess)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument,
+            ErrorOf(Financial.IRR(Flows(Instalments(outlay, instalment, count)), Variant(guess))));
 
     [TestMethod]
-    [DataRow(-0.7)]
-    [DataRow(1.9)]
-    public void IRR_FromAGuessFarFromTheRate_StillFindsIt(double guess)
-        => Assert.AreEqual(0.17743588442252728, ValueOf(Financial.IRR(Flows(Example), Variant(guess))), IteratedAccuracy);
-
-    [TestMethod]
-    public void IRR_OfALongInvestmentOnlyPartlyReturned_FromAGuessFarAbove_StillFindsIt()
-        // forty years of 1000 a month return 480,000 of 800,000, a rate just below 0. From a guess of 30%, the
-        // logarithm of what the outlay is worth over what the returns are falls too slowly to reach it in twenty
-        // tries; the ratio itself, which the iteration measures up to e^4, falls fast enough. The VB runtime's own
-        // function finds it neither from 30% nor from the default guess.
-        => Assert.AreEqual(-0.0019682687904386776, ValueOf(Financial.IRR(Flows(Instalments(-800000, 1000, 480)), Variant(0.3))), IteratedAccuracy);
-
-    [TestMethod]
-    [DataRow(-0.5)]
-    [DataRow(1.5)]
-    [DataRow(2)]
-    public void IRR_OfAMortgage_FromAGuessFarFromTheRate_StillFindsIt(double guess)
-        // the VB runtime's own function finds this one only from a guess close to the rate, and from none of
-        // these.
-        => Assert.AreEqual(0.0050058250067624074, ValueOf(Financial.IRR(Flows(Instalments(-100000, 600, 360)), Variant(guess))), IteratedAccuracy);
+    public void IRR_FromAGuessFarAboveTheRate_IsError5()
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Financial.IRR(Flows(Example), Variant(1.9))));
 
     [TestMethod]
     public void IRR_AtARootTheFlowsOnlyTouch_IsThatRoot()

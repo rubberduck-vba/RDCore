@@ -48,6 +48,10 @@
   ],
   "classes": [
     {
+      "name": "IUnknown",
+      "isHidden": true
+    },
+    {
       "name": "IEnumVARIANT",
       "isHidden": true,
       "members": [
@@ -291,6 +295,7 @@
       "name": "StdFont",
       "progId": "StdFont",
       "isCreatable": true,
+      "defaultInterface": "Font",
       "members": [
         {
           "name": "Name",
@@ -611,6 +616,7 @@
       "name": "StdPicture",
       "progId": "StdPicture",
       "isCreatable": true,
+      "defaultInterface": "Picture",
       "members": [
         {
           "name": "Render",

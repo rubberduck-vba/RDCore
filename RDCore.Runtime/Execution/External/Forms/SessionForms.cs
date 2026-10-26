@@ -35,7 +35,7 @@ internal sealed class SessionForms
     private readonly List<VBRuntimeObjectId> _loaded = [];
     private readonly HashSet<VBRuntimeObjectId> _unloaded = [];
     private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _held = [];
-    private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Stop)> _listening = [];
+    private readonly Dictionary<VBRuntimeObjectId, (VBRuntimeObjectId[] Controls, Action Leave, Action Stop)> _listening = [];
     private readonly Dictionary<object, (VBRuntimeObjectId Form, HashSet<string> Names)> _designed = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
@@ -71,13 +71,31 @@ internal sealed class SessionForms
     /// </summary>
     /// <param name="form">The instance of the form's class.</param>
     /// <param name="controls">Its controls, as the program knows them.</param>
+    /// <param name="leave">What makes the focus leave the form, when it is unloaded (<see cref="Leave"/>).</param>
     /// <param name="stop">What stops listening, and lets the controls go.</param>
-    public void Listening(VBRuntimeObjectId form, VBRuntimeObjectId[] controls, Action stop)
+    public void Listening(VBRuntimeObjectId form, VBRuntimeObjectId[] controls, Action leave, Action stop)
     {
         lock (_gate)
         {
-            _listening[form] = (controls, stop);
+            _listening[form] = (controls, leave, stop);
         }
+    }
+
+    /// <summary>
+    /// The focus leaves a form that is being unloaded, while it is still listened to: the extender's events of the control that had it - its pending update, its
+    /// <c>Exit</c> - after the form's <c>QueryClose</c> and before its <c>Terminate</c> (<c>oracle\s41</c> E01, E05, E10, E11). A form that is not listened to is left
+    /// as it is.
+    /// </summary>
+    /// <param name="form">The instance of the form's class.</param>
+    public void Leave(VBRuntimeObjectId form)
+    {
+        Action? leave;
+        lock (_gate)
+        {
+            leave = _listening.TryGetValue(form, out var listened) ? listened.Leave : null;
+        }
+
+        leave?.Invoke();
     }
 
     /// <summary>
@@ -222,8 +240,8 @@ internal static class FormHandlers
 
     /// <summary>
     /// Unloads a form, as <c>Unload</c> does and as its user closing it does (Excel-measured, <c>oracle\s41</c>): its <c>QueryClose</c> first, which can cancel it;
-    /// then its <c>Terminate</c>, its window, its default instance - which the next reference makes again - and the collection's hold on it, if <c>UserForms.Add</c>
-    /// loaded it. The object stays, for whatever holds it, and its designer's members fail. A form that was unloaded already is left as it is.
+    /// then the focus leaves it (<see cref="SessionForms.Leave"/>); then its <c>Terminate</c>, its window, its default instance - which the next reference makes
+    /// again - and the collection's hold on it, if <c>UserForms.Add</c> loaded it. The object stays, for whatever holds it, and its designer's members fail. A form that was unloaded already is left as it is.
     /// </summary>
     /// <param name="session">The session.</param>
     /// <param name="bindings">What calls a procedure of the session's code.</param>
@@ -241,6 +259,15 @@ internal static class FormHandlers
         if (!asked.IsSuccess || cancelled)
         {
             return asked.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void) : asked;
+        }
+
+        try
+        {
+            forms.Leave(form);
+        }
+        catch (RDCore.External.Automation.AutomationException)
+        {
+            // a form whose window is gone already - its host went with it - has no control to leave.
         }
 
         forms.Unload(form);

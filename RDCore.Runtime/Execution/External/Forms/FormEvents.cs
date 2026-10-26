@@ -1,4 +1,5 @@
 ﻿using RDCore.External.Automation;
+using RDCore.External.Forms;
 using RDCore.Runtime.Execution.External.Automation;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -8,6 +9,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution.External.Forms;
@@ -24,8 +26,11 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// (<c>KeyPress(KeyAscii)</c>, <c>BeforeUpdate(Cancel)</c>) written back. A <c>WithEvents</c> variable the program assigns a control to handles its events too.
 /// </para>
 /// <para>
-/// 🚧 The events of the extender MS-VBA wraps a control in (<c>Enter</c>, <c>Exit</c>, <c>BeforeUpdate</c>, <c>AfterUpdate</c>) are its container's, which the form
-/// host does not raise yet.
+/// The events of the extender MS-VBA wraps a control in (<c>Enter</c>, <c>Exit</c>, <c>BeforeUpdate</c>, <c>AfterUpdate</c>) come with the control's own: Microsoft
+/// Forms, the container of its controls, raises them through the control's connection point as the focus moves, which the control's class does not declare. They run
+/// the form's handlers named after the control, and no <c>WithEvents</c> variable's, whose class does not declare them either (<see cref="FormControlExtender"/>).
+/// Unloading the form leaves the control that has the focus (<see cref="IFormHost.Leave"/>): its pending update, then its <c>Exit</c>, while the form is still
+/// listened to.
 /// </para>
 /// </remarks>
 internal static class FormEvents
@@ -35,10 +40,11 @@ internal static class FormEvents
     /// </summary>
     /// <param name="session">The session whose code handles the events.</param>
     /// <param name="server">The automation server the form and its controls are objects of.</param>
+    /// <param name="host">The form host the form is hosted by, which the focus leaves the form through when it is unloaded.</param>
     /// <param name="identity">The instance of the form's class.</param>
     /// <param name="form">The hosted form.</param>
     /// <param name="designer">What the form's designer declares.</param>
-    public static void Listen(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId identity, object form, FormDescriptor designer)
+    public static void Listen(IRuntimeSession session, IAutomationServer server, IFormHost host, VBRuntimeObjectId identity, object form, FormDescriptor designer)
     {
         if (!session.Symbols.TryGetInstance(identity, out var live))
         {
@@ -49,6 +55,7 @@ internal static class FormEvents
         var forms = SessionForms.Of(session);
         var objects = new ServerObjects(session, server);
         var listened = new List<(object Handle, VBRuntimeObjectId Control, IBindingHandle Holder)>();
+        var extender = FormControlExtender.Of(resolver, StaticSymbol.GlobalUri);
 
         using (session.Turn.Yield())
         {
@@ -98,13 +105,29 @@ internal static class FormEvents
                 var controlName = control.Name;
                 var controlIdentity = wrapped.Value;
                 Advise(server, handle, new ServerEventRouter(session, server, name =>
-                    session.Symbols.TryGetInstance(controlIdentity, out var source) && source.ClassModule.FindEvent(name) is { } raised
+                {
+                    if (!session.Symbols.TryGetInstance(controlIdentity, out var source))
+                    {
+                        return null;
+                    }
+
+                    // the control's own events, or its extender's, which Microsoft Forms raises with them and only the form's handlers handle.
+                    return source.ClassModule.FindEvent(name) is { } raised
                         ? new ServerEventRoute(raised, [.. HandlerOf(session, identity, $"{controlName}_{name}"), .. ServerEventRouter.SubscribersOf(session, controlIdentity, raised)])
-                        : null));
+                        : extender?.FindEvent(name) is { } extended
+                            ? new ServerEventRoute(extended, [.. HandlerOf(session, identity, $"{controlName}_{name}")])
+                            : null;
+                }));
             }
         }
 
         forms.Listening(identity, [.. listened.Select(entry => entry.Control)], () =>
+        {
+            using (session.Turn.Yield())
+            {
+                host.Leave(form);
+            }
+        }, () =>
         {
             using (session.Turn.Yield())
             {

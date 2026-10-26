@@ -540,6 +540,7 @@
     {
       "name": "Windows",
       "isCreatable": true,
+      "defaultInterface": "_Windows",
       "members": [
         {
           "name": "VBE",
@@ -609,6 +610,7 @@
     {
       "name": "LinkedWindows",
       "isCreatable": true,
+      "defaultInterface": "_LinkedWindows",
       "members": [
         {
           "name": "VBE",
@@ -824,6 +826,7 @@
     {
       "name": "ReferencesEvents",
       "isCreatable": true,
+      "defaultInterface": "_ReferencesEvents",
       "events": [
         {
           "name": "ItemAdded",
@@ -850,6 +853,7 @@
     {
       "name": "CommandBarEvents",
       "isCreatable": true,
+      "defaultInterface": "_CommandBarControlEvents",
       "events": [
         {
           "name": "Click",
@@ -875,6 +879,8 @@
       "name": "ProjectTemplate",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_ProjectTemplate",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -1010,6 +1016,8 @@
     {
       "name": "VBProject",
       "isCreatable": true,
+      "defaultInterface": "_VBProject",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -1205,6 +1213,7 @@
     {
       "name": "VBProjects",
       "isCreatable": true,
+      "defaultInterface": "_VBProjects",
       "members": [
         {
           "name": "Item",
@@ -1316,6 +1325,8 @@
       "name": "Components",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Components",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Item",
@@ -1464,6 +1475,7 @@
     {
       "name": "VBComponents",
       "isCreatable": true,
+      "defaultInterface": "_VBComponents",
       "members": [
         {
           "name": "Item",
@@ -1561,6 +1573,8 @@
       "name": "Component",
       "isCreatable": true,
       "isHidden": true,
+      "defaultInterface": "_Component",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Application",
@@ -1690,6 +1704,7 @@
     {
       "name": "VBComponent",
       "isCreatable": true,
+      "defaultInterface": "_VBComponent",
       "members": [
         {
           "name": "Saved",
@@ -1909,6 +1924,7 @@
     {
       "name": "Properties",
       "isCreatable": true,
+      "defaultInterface": "_Properties",
       "members": [
         {
           "name": "Item",
@@ -1954,6 +1970,7 @@
     {
       "name": "Addins",
       "isCreatable": true,
+      "defaultInterface": "_AddIns",
       "members": [
         {
           "name": "Item",
@@ -2071,6 +2088,8 @@
     {
       "name": "CodeModule",
       "isCreatable": true,
+      "defaultInterface": "_CodeModule",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Parent",
@@ -2337,6 +2356,7 @@
     {
       "name": "CodePanes",
       "isCreatable": true,
+      "defaultInterface": "_CodePanes",
       "members": [
         {
           "name": "Parent",
@@ -2394,6 +2414,7 @@
     {
       "name": "CodePane",
       "isCreatable": true,
+      "defaultInterface": "_CodePane",
       "members": [
         {
           "name": "Collection",
@@ -2555,6 +2576,8 @@
     {
       "name": "References",
       "isCreatable": true,
+      "defaultInterface": "_References",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Parent",

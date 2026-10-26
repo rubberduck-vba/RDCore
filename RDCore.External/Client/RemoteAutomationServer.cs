@@ -102,6 +102,13 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
             remote.Incarnation, ExternalProtocol.FormCaption, new FormCaptionParams { Target = remote.Handle, Caption = caption, HandlingEvent = _handlingEvent });
     }
 
+    /// <inheritdoc/>
+    public void Leave(object form)
+    {
+        var remote = Live(form);
+        _ = Send<FormParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormLeave, new FormParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
+    }
+
     // a form is destroyed when it is let go of, as any of the external host's objects is released: there is nothing to ask of it before.
     /// <inheritdoc/>
     public void Destroy(object form) => Release(form);

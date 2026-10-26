@@ -144,6 +144,16 @@ public sealed record class ClassDescription
     /// </summary>
     public bool IsApplication { get; init; }
 
+    /// <summary>
+    /// The name of the interface the class's <see cref="Members"/> are declared by, when it is not the class's own: <c>IReturnBoolean</c> of Microsoft Forms'
+    /// <c>ReturnBoolean</c>, <c>_Worksheet</c> of Excel's <c>Worksheet</c>. It is a type name of the library too, which a program can declare a variable as
+    /// (<c>As MSForms.IReturnBoolean</c>), and which an object of the class is; <see langword="null"/> for a class whose interface is not described.
+    /// </summary>
+    public string? DefaultInterface { get; init; }
+
+    /// <summary>Whether the library leaves the <see cref="DefaultInterface"/> out of what it shows.</summary>
+    public bool IsDefaultInterfaceHidden { get; init; }
+
     /// <summary>The members of the class, in declaration order.</summary>
     public ImmutableArray<MemberDescription> Members { get; init; } = [];
 

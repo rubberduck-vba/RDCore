@@ -11,23 +11,41 @@ thirteen functions of annuities, depreciation and series of cash flows all retur
 its arguments alone.
 
 
+## MS-VBA's Algorithm
+
+The specification states what each function computes, not how — and it is the how that decides the last digits of a
+result, and which arguments have one at all. RD-VBA computes each function the way MS-VBA does: the VB runtime's
+algorithm, which .NET's `Microsoft.VisualBasic.Financial` ports, evaluated as MS-VBA's x87 code evaluates it — each
+statement's expression in the 80-bit extended format
+([**RD-VBAL §5.6.9.3**](rd-vbal.5.6.9.3.arithmetic-operators.md#extended-intermediates)), its value stored in a
+`Double`, and a power by the platform's `Math.Pow`. A few places differ from the port, as MS-VBA does:
+
+- `FV`'s payments term is `pmt·(1+r·d)·((1+r)ⁿ−1)/r`, multiplied before it is divided by the rate, and `IPmt` computes
+  the balance it takes the interest on with that `FV`.
+- `NPV` keeps its discount and its total in 80 bits from one flow to the next, and `IRR` and `MIRR` measure a rate
+  with that `NPV`.
+- `SYD` keeps the depreciable amount over the sum of the digits in 80 bits.
+
+What a function returns is MS-VBA's to the last bit, recorded in Excel (grid `oracle\s43`: 30 random calls of each
+function, and the calls of the tests). Where the exact answer is another — a principal of nearly nothing, which as the
+payment less the interest is all rounding; a rate the iteration does not reach — RD-VBA answers what MS-VBA answers.
+
+
 ## Errors
 
-**MS-VBAL §6.1.2.6** names no error for any of its functions, so what each of them raises is decided here, once, for
-the whole module:
+**MS-VBAL §6.1.2.6** names no error for any of its functions; these are MS-VBA's:
 
 |When|Error|
 |---|---|
-|An argument a function cannot compute with — a period outside the life or the annuity, no periods, a rate of `-1` for `NPer`, `NPV` or `MIRR`, a `Guess` of `-1` or less|`5`|
-|An `IRR` series without both a payment and a receipt|`5`|
-|`Rate` or `IRR` finds no result within 20 tries|`5`|
-|A `Double` result overflows|`6`, rather than an infinity|
+|An argument a function cannot compute with — a period outside the life or the annuity, no periods, a rate of `-1` or less for `NPer`, a rate of `-1` for `NPV` or `MIRR`, an `IRR` `Guess` of `-1` or less, fewer than two flows for `IRR` or `MIRR`|`5`|
+|`Rate` or `IRR` finds no result ([Iteration](#iteration))|`5`|
+|A result overflows, or is no number — an infinity over an infinity, of a (1+_r_)ⁿ past the range of a `Double`|`6`|
 |`MIRR` has no payment to finance|`11`, the division by zero it is|
 |An optional argument is `Null`|`94`|
 |An optional argument is not a number, nor a `String` that reads as one|`13`|
 
-A result that is infinite is error `6` — a present value at a rate of `-1`, say, which divides by (1+_r_)ⁿ = 0 —
-except `MIRR`'s missing payment, which is error `11`.
+`PV(0.05, 20000, -100)`, `Pmt(0.05, 20000, 1000)` and the interest of a period of that annuity are error `6`: (1.05)²⁰⁰⁰⁰
+is past the range of a `Double`, though the exact answers — the perpetuity, the interest alone — are not.
 
 
 ## The Annuity Equation
@@ -41,8 +59,11 @@ pv·(1+r)ⁿ + pmt·(1+r·d)·((1+r)ⁿ−1)/r + fv = 0      (r ≠ 0)
 pv + pmt·n + fv = 0                                (r = 0)
 ```
 
-`IPmt` and `PPmt` split one payment into the interest the balance outstanding earns over the period, and the rest. A
-`Due` other than `0` is the start of the period, any value other than `0` being `True`.
+`IPmt` is the rate times the balance outstanding at the start of the period: the future value of the periods before it.
+A payment due at the start of the first period is made before anything has earned interest, and its interest is `0`;
+one due at the start of a later period is counted from a present value the first payment has reduced, at the end of
+the period before. `PPmt` is the payment less the interest. A `Due` other than `0` is the start of the period, any value
+other than `0` being `True`.
 
 
 ## Omitted Optionals
@@ -64,93 +85,26 @@ settings of the session ([**RD-VBAL §5.5.1.2.4**](rd-vbal.5.5.1.2.runtime-seman
 `Pmt(0.1, 12, -1000, "0", "1")` is `Pmt(0.1, 12, -1000, 0, 1)`, as **MS-VBA** has it (recorded in Excel). One that reads
 as no number is error `13`.
 
-👉 MS-VBA's last digit of a `PV` or a `PPmt` can differ from RD-VBA's (`649.506100518608` and `649.506100518607`), and
-its `Rate` converges a few units in the eleventh digit away: both compute the same equation in a different order, and
-iterate it as the specification allows ("accurate to within 0.00001 percent").
-
 
 ## Iteration
 
 `Rate` and `IRR` "cycle through the calculation until the result is accurate to within 0.00001 percent. If [they]
-can't find a result after 20 tries, [they fail]." A try is one step of the iteration. A result is accurate once a root
-is found within 0.00001 percent of it — of a rate that is itself a fraction, so `1E-07`: two points that straddle a
-root are that close together, or a step that short lands between two points `1E-07` either side of it that straddle
-one. A short step proves nothing on its own, since beside a steep point every step is short.
+can't find a result after 20 tries, [they fail]." MS-VBA's iteration is the secant method, of at most 40 steps:
 
-- The iteration runs on ln(1 + _r_) rather than on _r_, so that no step can reach a rate of `-1` or less. A result
-  within `1E-07` of `-1` is no result.
-- Each try is a step of the secant method until two points straddle a root, and from then on a step of regula falsi
-  with the Anderson–Björck correction, which keeps the root between its last two points.
-- Before two points straddle a root, a step is no longer than `1` in ln(1 + _r_) — twice that after a step cut short,
-  and so on, so that a root that really is far away is still reached in a few. A step that lands where the imbalance
-  has no finite value is taken back halfway for another try. A step from a stretch where the imbalance hardly changes
-  would otherwise throw the iteration to a rate it cannot come back from.
-- An imbalance of exactly `0`, at the guess or after it, is a result — a root the imbalance may only touch without
-  changing sign, as −100·_r_² does at `0` — unless it is `0` either side of it too, as it is where an annuity of one
-  period balances at every rate. A root the imbalance only touches is found only by landing on it, exactly or nearly:
-  from the default guess `Rate(2, 200, -100, -300)` is error `5`, and from a guess of `1E-06` it is `1.6E-07`, more
-  than `1E-07` from it.
-- Rounding can make an imbalance `0` where there is no root, as it can make one change sign. Where an equation
-  balances only to within rounding — a single period a unit or two in the last place from balancing, or cash flows
-  with a root of three or more times — a result can come back with no root within `1E-07` of it. An annuity of one
-  period that balances exactly can return a rate near the guess rather than error `5`.
-- A root above about `5.5E+07` per period is error `5`, unless found by chance. The iteration's points are `Double`s
-  in ln(1 + _r_), and from a rate of `1E+07` on, two next to each other are 2⁻⁴⁸ of 1 + _r_ apart as rates. Past about
-  `5.6E+07` that is wider than the span `1E-07` either side of a point, within which a root is looked for.
+- `Rate` starts from the guess and from half of it, where the equation's imbalance at the guess is positive, or twice
+  it; it has found the rate once the imbalance is within `1E-07` of `0`.
+- `IRR` starts from the guess and from `1E-05` beside it, toward where the net present value falls; it has found the
+  rate once a step moved it less than `1E-07` and the net present value is within `1E-09` of the largest flow. A step
+  to `-1` or below goes halfway from the last rate to `-1` instead.
+- Two points with the same value take a step of `1E-05` aside; if that has the same value too, there is no result.
 
-Every form of the equation has the same root, but the iteration is only as quick as its function is straight, and each
-form is nearly a straight line in ln(1 + _r_) in a different case. So the form is chosen by the case:
-
-- A single amount against the amounts that balance it — `IRR`'s one payment and the receipts that return it, `Rate`'s
-  loan and the payments that repay it, with a future value of the payments' sign or a smaller one of its own — is what
-  the one side is worth over what the other is. Near the root that ratio, less `1`, is close to proportional to the
-  rate over a long series. Well below the root, and well above it, one amount outweighs the others, and it is the
-  ratio's logarithm that is. The two are joined without a kink at a ratio of e⁴, a point found by trial: any from
-  e^2.5 to e^5 converged on every loan, mortgage and series of cash flows tried, and e⁴ took the fewest tries at the
-  extremes.
-- A savings plan with a bonus to start it is measured in two ways ([**RD-VBAL §6.1.2.6.1.11** Rate](#6126111-rate)).
-- Anything else — payments saved towards a future value, compounding alone — is the logarithm of what is received over
-  what is paid.
-
-
-## Precision
-
-The closed forms keep their accuracy where the obvious formula loses it:
-
-- (1+_r_)ⁿ − 1 and ln(1 + _r_) are computed without the cancellation they suffer near a rate of `0`.
-- A present value or a payment whose (1+_r_)ⁿ is too large for a `Double`, where the answer is not, is computed from
-  (1+_r_)⁻ⁿ instead.
-- `IPmt` takes the balance outstanding in a form whose terms share a sign for a loan, a savings plan and a balloon
-  alike, where counting it forward from the loan or back from the future value subtracts two amounts that nearly
-  cancel. That form's powers of (1+_r_) stay within a `Double` however many periods the annuity has.
-- `PPmt` is computed as a principal that grows by the rate each period, not as the difference between a payment and an
-  interest that is nearly all of it.
-
-
-## Against the VB Runtime
-
-RD-VBA was checked against the VB runtime's own functions as ported to .NET's `Microsoft.VisualBasic.Financial` — the
-expected values of its tests, and 30,000 generated calls compared both with it and with exact arithmetic — though not
-against MS-VBA itself.
-
-Where the specification is silent they agree: `IPmt` and `PPmt` accept a period a fraction either side of 1 through
-`NPer`, any `Due` other than `0` is the start of the period, `MIRR` with no payment is a division by zero, and `DDB`'s
-first period is negative for a salvage value above the cost.
-
-They differ where the member sections say, and in these:
-
-- `Rate` and `IRR` iterate differently, so they solve different calls, in both directions. Over generated everyday
-  loans, savings plans and investments, from the default guess, the VB runtime's `Rate` solves 1,459 of 1,781
-  annuities. RD-VBA solves all of those but five, each a single period that balances within rounding at every rate,
-  which leaves RD-VBA no rate to prefer; and RD-VBA solves 322 that it does not. The VB runtime's `IRR` solves 1,717
-  of 1,919 series of up to 40 flows; RD-VBA solves all of those, and 202 more.
-- Longer series widen the gap: the VB runtime's `IRR` does not solve the 361 flows of a 30-year mortgage from the
-  default guess, and RD-VBA does.
-- From a guess anywhere between -90 and 200 percent, the VB runtime's `Rate` solves 245 of 716 and its `IRR` 577 of
-  837. RD-VBA solves all of those but one, another such single period, and 466 and 260 more.
-- A result that overflows is an infinity there and error `6` here. One that is not a number at all is `NaN` there and
-  error `5` here — except a present value or a payment whose (1+_r_)ⁿ overflows, and the interest in a period far into
-  a long annuity, which are `NaN` there and their value here.
+So what MS-VBA finds depends on the guess, and on the shape of the equation near it. From the default guess it does
+not reach the rate of a 30-year mortgage's 361 flows, nor `Rate(10, -100, 1000)`, whose imbalance near a rate of `0` is
+noise above its tolerance; from a guess far from the rate, a loan's rate may be out of reach; and where the equation has
+two roots — a savings plan with a bonus to start it — it can find either. Each is error `5` where it finds none, and
+the root it lands on where it does: `Rate(12, -1000, 500, 800, 0, 3)` is `-1.25`, which is no rate at all, and
+`Rate(10, 0, 1000)` is `-0.906`, where `1000` grown with nothing to offset it has fallen below the tolerance on the
+way to `-1`.
 
 
 ## 6.1.2.6.1 Public Functions
@@ -181,19 +135,13 @@ They differ where the member sections say, and in these:
 
 MS-VBAL's formula, "Depreciation / Period = ((Cost - Salvage) * Factor) / Life", does not depend on the period, so it
 cannot be the one that computes it. A declining balance loses `Factor / Life` of what is left of it each period, and
-stops at the salvage value. What is left before a period is `Cost * (1 - Factor / Life)` raised to the number of
-periods already gone, which also answers a fractional period.
+stops at the salvage value: what is left before a period is `Cost` declined by (1 − `Factor / Life`) for each period
+already gone, which also answers a fractional period.
 
-"All arguments MUST be positive numbers", but an asset worth nothing at the end is an ordinary one, and a salvage
-value above the cost gives a negative first period, as the VB runtime's own function does.
-
-The VB runtime differs in three corners:
-
-- Over a life of exactly `2` it ignores the factor, and over a life of less than `2` it takes the whole depreciable
-  amount in every period. Here the factor applies, and a rate of 100 percent or more takes everything in the first
-  period and nothing after.
-- With a factor greater than the life, it returns a remainder for a later period whose (1 − `Factor / Life`) raised to
-  the number of periods before it comes out positive and leaves a balance above the salvage value. Here it is `0`.
+"All arguments MUST be positive numbers", but an asset worth nothing at the end is an ordinary one, and a salvage value
+above the cost gives a negative first period. MS-VBA takes the whole depreciable amount in every period of a life under
+`2`, and in the first period of a life of exactly `2`, whatever the factor; and a factor greater than the life declines
+the cost by a negative (1 − `Factor / Life`), whose even powers are positive: `DDB(1000, 100, 3, 3, 4)` is `11.11`.
 
 ### 6.1.2.6.1.2 FV
 
@@ -208,8 +156,8 @@ Office reference does, and every other annuity function declares its `Due` optio
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.6.1.3** IPmt](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e8e71a40-b540-4294-89fe-c64453ae83d0).
 
-The period is "in the range 1 through NPer", which a fraction of a period either side of it still is, as it is to the
-VB runtime's own function: a period greater than `0` and less than `NPer + 1` is accepted, and any other is error `5`.
+The period is "in the range 1 through NPer", which a fraction of a period either side of it still is, as it is to
+MS-VBA: a period greater than `0` and less than `NPer + 1` is accepted, and any other is error `5`.
 
 ### 6.1.2.6.1.4 IRR
 
@@ -217,9 +165,8 @@ VB runtime's own function: a period greater than `0` and less than `NPer + 1` is
 > This section describes the implementation of [**MS-VBAL §6.1.2.6.1.4** IRR](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/526c8b08-9ba0-4a24-9032-bd542062dd25).
 
 "The array MUST contain at least one negative value (a payment) and one positive value (a receipt)": without both
-there is no rate at which the flows balance, and a series without them is error `5` rather than an iteration that
-fails. The internal rate of return is the rate at which what the flows pay out is worth what they bring in, measured
-at the first flow, where their value is `0` exactly where `NPV`'s is.
+there is no rate at which the flows balance, and the iteration finds none — error `5`. The internal rate of return is
+the rate at which the flows' net present value is `0` ([Iteration](#iteration)).
 
 `ValueArray` is declared `Double()` through
 [StdLibArrayAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibArrayAttribute.html) ([**RD-VBAL §6.0.1**
@@ -242,8 +189,8 @@ The parameters keep the specification's names, underscores included: `Finance_Ra
 > This section describes the implementation of [**MS-VBAL §6.1.2.6.1.9** PPmt](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a39ac6ed-01c0-4d16-a588-64b0f2391f64).
 
 The period is accepted as it is for `IPmt` ([**RD-VBAL §6.1.2.6.1.3** IPmt](#612613-ipmt)). A loan whose interest is
-nearly the whole payment has a principal of nearly nothing: the VB runtime's own function answers `0` there, and
-RD-VBA the exact value.
+nearly the whole payment has a principal of nearly nothing, which as the payment less the interest is all rounding:
+`PPmt(0.5, 1, 100, -1000)` is `0`, as MS-VBA has it, where the exact principal is `1.2E-15`.
 
 ### 6.1.2.6.1.10 PV
 
@@ -253,55 +200,18 @@ RD-VBA the exact value.
 `PV`'s description is the one that leaves unsaid what an omitted `FV` stands for. RD-VBA takes it as its siblings'
 descriptions do: `0`.
 
+👉 MS-VBA assigns the `NaN` of `PV(0.05, 20000, -100)` to the variable it is assigned to before raising error `6`, which
+none of the other functions do; RD-VBA raises the error and assigns nothing.
+
 ### 6.1.2.6.1.11 Rate
 
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.6.1.11** Rate](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/23d51c12-c6ec-4c10-85f8-80e3cb7e573b).
 
-`Rate` iterates as `IRR` does ([Iteration](#iteration)).
-
-A savings plan with a bonus to start it — payments towards a larger future value, with a present value of the same
-sign — can have a second root. No root lies above the rate at which the payments are only the interest on the present
-value, |_pmt_| / (|_pv_| − _d_·|_pmt_|) where that is positive: the imbalance in future value is _pv_ + _fv_ there,
-and above it only grows. With payments due at the start and a bonus of no more than one payment there is no such rate,
-and only the one root.
-
-From a guess between the two roots, the ratio of what is received to what is paid mostly heads for the second. But the
-imbalance in future value, which grows with (1+_r_)ⁿ, is lowest near the second root, and falls towards the rate from
-most guesses between them. So a bracket is sought on that imbalance, compressed to its sign times ln(1 + |imbalance| /
-scale) — or on the ratio, from a guess where the compressed imbalance is falling towards `0`: below the rate, where it
-is all but flat, or just below the second root. The bracket is closed on the logarithm of what is received over what
-is paid, if that changes sign across it too: it is nearly straight around both roots, where the compressed imbalance
-is all but flat below the rate and all but a step at the second root.
-
-From a guess at or above the interest-only rate, the root found first is usually the second. A lower one is then
-looked for below it, with the tries left: from the lower end of the bracket the first root was found in, or from just
-below a guess that is itself a root, heading down until the iteration brackets or lands on a root. It is the result if
-it is found in time, and the first root if not — as it is where there is no lower root, or none that can be reached.
-
-The second root still comes back from a guess between it and the interest-only rate, or between the roots near it;
-where the two roots are less than 0.01 apart in ln(1 + _r_), from a guess below the second; and from some guesses
-above the interest-only rate, from which the iteration settles on the second root without ever bracketing it.
-
-Where a loan ends and a savings plan begins — where the future value is the larger of the two — was found by trial.
-Over savings plans with a bonus of 0.01 to 100 payments and over annuities with random amounts, it left fewer calls
-unsolved than drawing the line at 3, 10, 30 or 100 times the present value, or not at all.
-
-Against the VB runtime:
-
-- Of 8,000 savings plans with a bonus to start them, the VB runtime's `Rate` solves 6,922 from the default guess and
-  RD-VBA 7,975, every one of the VB runtime's among them.
-- Of 7,441 more, each built from a savings rate and with a bonus of 0.01 to 100 payments, RD-VBA solves all from the
-  default guess and the VB runtime 5,048, finding the rate the plan was built from in 7,155 and 4,581. Where both
-  solve one, they find different roots of 566. In 468 of those the guess is at or above the interest-only rate, and
-  RD-VBA finds the lower root where the VB runtime takes the upper; in 90 the guess is between the roots, and RD-VBA
-  takes the upper root where the VB runtime finds the lower.
-- From a guess anywhere between -90 and 200 percent, over 7,485 more plans built the same way, RD-VBA solves 7,372 and
-  the VB runtime 775, every one of them among RD-VBA's.
-- `Rate(10, 0, 1000)` answers `-0.906` there, a rate at which the equation has fallen below its tolerance without
-  balancing. Here it is error `5`: `1000` grows at any rate, with nothing to offset it.
-- `Rate` of an annuity whose true rate is `0` fails there, because its test of a result is how far the equation is
-  from balancing, which near a rate of `0` is noise above its tolerance. Here it is within `1E-07` of `0`.
+`Rate` iterates as [Iteration](#iteration) describes. A savings plan with a bonus to start it — payments towards a
+larger future value, with a present value of the same sign — can have a second root, below the rate at which the
+payments are only the interest on the present value; from a guess near it, `Rate` can find it rather than the rate of
+the savings.
 
 ---
 > ⏮️ [**RD-VBAL §6.1.2.5** FileSystem](rd-vbal.6.1.2.5.filesystem.md) | ⏭️ [**RD-VBAL §6.1.2.7**

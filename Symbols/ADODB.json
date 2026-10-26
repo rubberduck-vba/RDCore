@@ -6029,6 +6029,7 @@
       "name": "Connection",
       "progId": "ADODB.Connection",
       "isCreatable": true,
+      "defaultInterface": "_Connection",
       "members": [
         {
           "name": "Properties",
@@ -6517,6 +6518,8 @@
       "name": "Record",
       "progId": "ADODB.Record",
       "isCreatable": true,
+      "defaultInterface": "_Record",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Properties",
@@ -6797,6 +6800,8 @@
       "name": "Stream",
       "progId": "ADODB.Stream",
       "isCreatable": true,
+      "defaultInterface": "_Stream",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Size",
@@ -7050,6 +7055,7 @@
       "name": "Command",
       "progId": "ADODB.Command",
       "isCreatable": true,
+      "defaultInterface": "_Command",
       "members": [
         {
           "name": "Properties",
@@ -7294,6 +7300,8 @@
       "name": "Recordset",
       "progId": "ADODB.Recordset",
       "isCreatable": true,
+      "defaultInterface": "_Recordset",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Properties",
@@ -8438,6 +8446,8 @@
       "name": "Parameter",
       "progId": "ADODB.Parameter",
       "isCreatable": true,
+      "defaultInterface": "_Parameter",
+      "isDefaultInterfaceHidden": true,
       "members": [
         {
           "name": "Properties",
