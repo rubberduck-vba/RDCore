@@ -257,12 +257,15 @@ internal sealed class CompletionService(
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
 
+        // a list is for the name being typed: what has the letters typed so far, in their order, is all a client can still show of it as more is typed.
+        var matching = CompletionCandidates.Matching(candidates, context.Prefix);
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {count} candidate(s).", moduleName, line, character, context.Kind, context.Prefix, candidates.Count);
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {count} of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, matching.Count, candidates.Count);
         }
 
-        return new CompletionList(candidates.Select(candidate => candidate.ToCompletionItem()), isIncomplete: false);
+        return new CompletionList(matching.Select(candidate => candidate.ToCompletionItem()), isIncomplete: false);
     }
 
     public async Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token)

@@ -132,6 +132,8 @@ The interactive shell renders a run-time error from this result, as:
 
 The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
 
+What is typed of the name when the list is asked for narrows it already: an item is in the list when its label has the letters typed, in their order, in any case ([`CompletionCandidates.Matching`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.html)) - `gtc` keeps `GetCount`. Whatever a client narrows by as more is typed - the start of a label, a part of it, letters apart - an item it could show is in the list, so the list stays complete. A list asked for where nothing is typed yet (`Ctrl+Space` after a space) has every name. An item has no `insertText` and no `filterText`: both are its label, which is what a client takes without them.
+
 What the list offers depends on what is being written, and where. The language server reads two things:
 
 - **The line before the cursor** ([`CompletionSite`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionSite.html)): the name being typed, and the statement it is in, as tokens ([`CompletionStatement`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionStatement.html)). Is a statement, an operand or an operator next?

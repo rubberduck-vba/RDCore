@@ -127,6 +127,21 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
         _is64Bit = is64Bit;
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Root, bool Is64Bit), IReadOnlyList<Symbol>> _provided = new();
+
+    /// <summary>
+    /// The symbols of the library under a workspace, read once for each workspace and pointer width: what a composition of the workspace binds names among,
+    /// every time one is composed (a completion list, a signature, a rename).
+    /// </summary>
+    /// <remarks>
+    /// The library is the platform's, and does not change while it runs; its symbols are immutable records, so the same ones serve every composition. Reading
+    /// them is not free - every member of every module of the library, described - and a composition reads them twice, once for each of its passes.
+    /// </remarks>
+    /// <param name="workspaceRoot">The workspace the symbols are addressed under.</param>
+    /// <param name="is64Bit">The pointer width of the environment the symbols are for.</param>
+    public static IReadOnlyList<Symbol> SymbolsUnder(Uri workspaceRoot, bool is64Bit = true)
+        => _provided.GetOrAdd((workspaceRoot.AbsoluteUri, is64Bit), _ => [.. new StdLibSymbolProvider(workspaceRoot, is64Bit).ProvideSymbols()]);
+
     /// <inheritdoc/>
     public IEnumerable<Symbol> ProvideSymbols()
     {

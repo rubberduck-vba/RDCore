@@ -210,7 +210,7 @@ public sealed class CompletionServiceTests
         var types = await LabelsAsync("""
             Attribute VB_Name = "Main"
             Public Sub Run()
-                Dim w As Wi|
+                Dim w As |
             End Sub
             """);
         CollectionAssert.IsSubsetOf(new[] { "Widget", "Long", "Collection" }, types);
@@ -223,6 +223,21 @@ public sealed class CompletionServiceTests
             """);
         CollectionAssert.Contains(classes, "Widget");
         CollectionAssert.DoesNotContain(classes, "Long");
+    }
+
+    [TestMethod]
+    public async Task AListIsNarrowedToTheLettersTyped_InTheirOrder_WhereverTheyAreInTheName()
+    {
+        var labels = await LabelsAsync("""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                x = tc|
+            End Sub
+            """);
+
+        CollectionAssert.Contains(labels, "Twice", "letters that are not next to each other: what a client narrows to as it likes");
+        CollectionAssert.DoesNotContain(labels, "Helpers", "it has neither");
+        CollectionAssert.DoesNotContain(labels, "Chr", "it has a c, and no t before it");
     }
 
     [TestMethod]

@@ -96,7 +96,7 @@ public static class WorkspaceSymbolResolver
 
         // the standard library and the globals the environment provides itself, so a reference to one
         // resolves instead of being taken for an undeclared name (MS-VBAL 5.6.10 would then declare it).
-        symbols.AddRange(new StdLibSymbolProvider(workspaceRoot).ProvideSymbols());
+        symbols.AddRange(StdLibSymbolProvider.SymbolsUnder(workspaceRoot));
 
         // and the libraries the project references, which resolve the same way.
         symbols.AddRange(libraries ?? []);

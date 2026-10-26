@@ -27,6 +27,10 @@ public sealed record class CompletionCandidate(string Label, CompletionItemKind 
     /// <summary>
     /// The candidate as an item of an LSP completion list (<strong>LSP 3.17</strong> §Completion Request).
     /// </summary>
+    /// <remarks>
+    /// What is inserted and what is filtered by is the label, which is what a client takes when an item has no <c>insertText</c> and no <c>filterText</c>: they
+    /// are not written, since a list can have a thousand items, and each travels.
+    /// </remarks>
     public CompletionItem ToCompletionItem() => new()
     {
         Label = Label,
@@ -34,8 +38,6 @@ public sealed record class CompletionCandidate(string Label, CompletionItemKind 
         Detail = Detail,
         Documentation = Documentation is { Length: > 0 } documentation ? new StringOrMarkupContent(documentation) : null,
         SortText = $"{Rank:D2}{Label.ToLowerInvariant()}",
-        FilterText = Label,
-        InsertText = Label,
     };
 }
 
@@ -70,6 +72,39 @@ public static class CompletionCandidates
     private const int ProjectRank = 2;
     private const int GlobalRank = 3;
     private const int KeywordRank = 4;
+
+    /// <summary>
+    /// The candidates whose label has the letters of <paramref name="prefix"/>, in their order, in any case: what a client can still show for the name being
+    /// typed, however it narrows its list - by the start of the label, by a part of it, or by letters that are not next to each other (<c>gtc</c> for
+    /// <c>GetCount</c>). A list narrowed this way is complete for every word the prefix is the start of.
+    /// </summary>
+    /// <remarks>
+    /// A list is the length of what is in scope - the members of the standard library, of the libraries the project references, of every module of the
+    /// workspace - and travels to the client each time a name starts: the letters typed by then are what it is narrowed to before it does.
+    /// </remarks>
+    /// <param name="candidates">The candidates, in the order they rank.</param>
+    /// <param name="prefix">What is typed of the name; an empty prefix is every candidate.</param>
+    /// <returns>The candidates that match, in the order they were given.</returns>
+    public static IReadOnlyList<CompletionCandidate> Matching(IReadOnlyList<CompletionCandidate> candidates, string prefix)
+        => prefix.Length == 0 ? candidates : [.. candidates.Where(candidate => HasInOrder(candidate.Label, prefix))];
+
+    // whether every letter of the prefix is in the label, each after the one before it.
+    private static bool HasInOrder(string label, string prefix)
+    {
+        var at = 0;
+        foreach (var letter in prefix)
+        {
+            var found = label.AsSpan(at).IndexOf(letter.ToString(), StringComparison.OrdinalIgnoreCase);
+            if (found < 0)
+            {
+                return false;
+            }
+
+            at += found + 1;
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Where a name written at <paramref name="position"/> of a module is looked up from: the procedure the position is in, or the module itself when it is in
