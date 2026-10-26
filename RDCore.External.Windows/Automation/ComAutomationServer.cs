@@ -327,10 +327,11 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             return null;
         }
 
-        void Raise(string name, object?[] arguments) => sink.OnEvent(new AutomationEvent(name, arguments, _apartment.IsInCall, _apartment.Serve));
-        var receiver = new EventReceiver(declaring, events, Raise);
+        void Raise(string name, object?[] arguments, int? dispatchId)
+            => sink.OnEvent(new AutomationEvent(name, arguments, _apartment.IsInCall, _apartment.Serve) { DispatchId = dispatchId });
+        var receiver = new EventReceiver(declaring, events, (name, dispatchId, arguments) => Raise(name, arguments, dispatchId));
         point.Advise(receiver, out var cookie);
-        _connections[source] = new Connection(point, cookie, receiver, Raise);
+        _connections[source] = new Connection(point, cookie, receiver, (name, arguments) => Raise(name, arguments, null));
         return null;
     });
 
@@ -524,7 +525,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
     [ComVisible(true)]
     [ClassInterface(ClassInterfaceType.None)]
-    private sealed class EventReceiver(Guid declaring, IReadOnlyDictionary<int, string> events, Action<string, object?[]> raise) : IEventDispatch, ICustomQueryInterface
+    private sealed class EventReceiver(Guid declaring, IReadOnlyDictionary<int, string> events, Action<string, int, object?[]> raise) : IEventDispatch, ICustomQueryInterface
     {
         // A server asks a sink for the interface its events are declared by, not for IDispatch, and refuses one that does not have it. That interface is a dispinterface, which
         // is nothing but IDispatch with the names a type library gives it: the sink is IDispatch, and says so for that identifier.
@@ -594,7 +595,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             _handlingEvent = true;
             try
             {
-                raise(name, arguments);
+                raise(name, member, arguments);
             }
             catch (Exception failure)
             {

@@ -207,6 +207,12 @@ public sealed class AutomationEvent(string name, object?[] arguments, bool isSyn
     /// Waits up to the given time, doing the work that is asked of the thread that raised the event meanwhile.
     /// </summary>
     public Action<TimeSpan> Serve { get; } = serve;
+
+    /// <summary>
+    /// The dispatch identifier the server raised the event with, which a sink's member answers to (<c>VB_UserMemId</c>); <see langword="null"/> for an event that
+    /// is not raised through a connection point - a form's window's.
+    /// </summary>
+    public int? DispatchId { get; init; }
 }
 
 /// <summary>

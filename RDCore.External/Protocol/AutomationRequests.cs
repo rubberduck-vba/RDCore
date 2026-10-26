@@ -292,6 +292,9 @@ public sealed record class AutomationEventParams
 
     /// <summary>Whether a call that the program waits for is what raised it: <see cref="Automation.AutomationEvent.IsSynchronous"/>.</summary>
     public bool IsSynchronous { get; init; }
+
+    /// <summary>The dispatch identifier it was raised with: <see cref="Automation.AutomationEvent.DispatchId"/>.</summary>
+    public int? DispatchId { get; init; }
 }
 
 /// <summary>Response for <see cref="ExternalProtocol.AutomationEvent"/>.</summary>

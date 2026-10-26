@@ -262,7 +262,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         try
         {
             var arguments = raised.Arguments.Select(argument => ExternalValues.FromWire(argument, handle => ObjectOf(incarnation, handle))).ToArray();
-            sink.OnEvent(new AutomationEvent(raised.Name, arguments, raised.IsSynchronous, Thread.Sleep));
+            sink.OnEvent(new AutomationEvent(raised.Name, arguments, raised.IsSynchronous, Thread.Sleep) { DispatchId = raised.DispatchId });
             return new AutomationEventResult { Arguments = [.. arguments.Select(argument => ExternalValues.ToWire(argument, value => HandleIn(incarnation, value)))] };
         }
         catch (AutomationException failure)

@@ -213,6 +213,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
                 Name = raised.Name,
                 Arguments = [.. raised.Arguments.Select(argument => ExternalValues.ToWire(argument, _handles.HandleOf))],
                 IsSynchronous = raised.IsSynchronous,
+                DispatchId = raised.DispatchId,
             });
 
             waiting.Serve(reply, raised.IsSynchronous ? null : raised.Serve);
