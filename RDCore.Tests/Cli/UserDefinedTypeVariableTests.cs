@@ -145,6 +145,19 @@ public sealed class UserDefinedTypeVariableTests
             "Private Type TCrate", "Box As TBox", "End Type",
             "Public Sub Main()", "Dim c As TCrate", "c.Box.Values(1) = 5", "Debug.Print c.Box.Values(1)", "End Sub"));
 
+    // a variable of the module is defined with the module, before a later pass resolves the types of its type's fields: the record it holds is one of the
+    // resolved type, whose field that is a record is one (it was a field of a type nothing knew, and reading it failed).
+    [TestMethod]
+    [DataRow("Debug.Print Outer.Inner.Count", "0", DisplayName = "Read")]
+    [DataRow("Outer.Inner.Count = 3: Debug.Print Outer.Inner.Count", "3", DisplayName = "Written")]
+    [DataRow("Dim o As TOuter: Outer.Inner.Count = 4: o = Outer: Debug.Print o.Inner.Count", "4", DisplayName = "Copied")]
+    public async Task ARecordFieldOfARecord_OfAVariableOfTheModule_HasItsFields(string body, string printed)
+        => CollectionAssert.AreEqual(new[] { printed }, await RunAsync(
+            "Private Type TState", "Count As Long", "End Type",
+            "Private Type TOuter", "Inner As TState", "End Type",
+            "Private Outer As TOuter",
+            "Public Sub Main()", body, "End Sub"));
+
     [TestMethod]
     public async Task AFixedSizeArrayField_OfAVariableOfAClass_HasItsDimensions()
         => CollectionAssert.AreEqual(new[] { "3" }, await ModuleWorkspace.RunAsync(
