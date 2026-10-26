@@ -3,13 +3,17 @@ using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Analysis;
+using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
@@ -67,4 +71,32 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
         => LikePattern.Get(rhs.Value).IsMatch(lhs.Value, rules);
 
     protected override bool ComparisonOp<T>(T lhs, T rhs) => throw new NotSupportedException();
+
+    /// <remarks>
+    /// Only a pattern written in the code is the same pattern wherever the operation runs, so only a literal one is stated to depart from MS-VBAL
+    /// (RD-VBAL §5.6.9.6): neither departure depends on the text it is matched against.
+    /// </remarks>
+    protected override ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> Analyze(
+        ISymbolResolver resolver,
+        ConversionOperationSemanticContext coercionContext,
+        ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> builder,
+        ExpressionNode expression,
+        OperatorAnalysisContext<ComparisonOperatorSemanticFlags> analysisContext, params VBTypedValue[] operands)
+    {
+        if (expression is VBBinaryOperatorExpressionNode { Right: LiteralExpressionNode { StaticValue: VBStringValue literal } })
+        {
+            var pattern = LikePattern.Get(literal.Value);
+            if (pattern.HasEmptyCharList)
+            {
+                builder.AddFlags(ComparisonOperatorSemanticFlags.LikePatternHasEmptyCharList);
+            }
+
+            if (pattern.IsInvalid(analysisContext.Comparison))
+            {
+                builder.AddFlags(ComparisonOperatorSemanticFlags.LikePatternIsInvalid);
+            }
+        }
+
+        return base.Analyze(resolver, coercionContext, builder, expression, analysisContext, operands);
+    }
 }

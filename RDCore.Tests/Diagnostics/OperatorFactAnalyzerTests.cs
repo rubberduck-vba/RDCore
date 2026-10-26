@@ -128,4 +128,56 @@ public sealed class OperatorFactAnalyzerTests
     {
         Assert.IsEmpty(await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "", declarations, first, "b = \"4\"", "r = a < b"));
     }
+
+    [TestMethod]
+    [DataRow("a[]", DisplayName = "[]")]
+    [DataRow("[!]", DisplayName = "[!]")]
+    [DataRow("a*[z-a]", DisplayName = "a reversed range")]
+    [DataRow("[az-a]", DisplayName = "a reversed range after a match")]
+    [DataRow("x[", DisplayName = "an unterminated list")]
+    [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
+    public async Task ALikePatternMsVbaMatchesOtherwiseThanMsVbal_IsReported(string pattern)
+    {
+        var finding = (await FindAsync(new LikePatternDepartureAnalyzer(), "", "Dim r As Variant", $"r = \"a\" Like \"{pattern}\"")).Single();
+
+        Assert.AreEqual(RDCoreDiagnosticId.LikePatternDeparture, finding.Id);
+        Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
+        Assert.AreEqual(4, finding.Range.Start.Line);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
+    public async Task ALikePatternWithBothDepartures_IsReportedForEach()
+        => Assert.HasCount(2, await FindAsync(new LikePatternDepartureAnalyzer(), "", "Dim r As Variant", "r = \"a\" Like \"[]x[\""));
+
+    [TestMethod]
+    [DataRow("a*[a-z]", DisplayName = "a valid pattern")]
+    [DataRow("[-a]", DisplayName = "a - at the start")]
+    [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
+    public async Task AValidLikePattern_IsNotReported(string pattern)
+        => Assert.IsEmpty(await FindAsync(new LikePatternDepartureAnalyzer(), "", "Dim r As Variant", $"r = \"a\" Like \"{pattern}\""));
+
+    // only a pattern written in the code is the same wherever the operation runs.
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
+    public async Task ALikePatternThatIsNotLiteral_IsNotReported()
+        => Assert.IsEmpty(await FindAsync(new LikePatternDepartureAnalyzer(), "ByVal p As String", "Dim r As Variant", "p = \"a[]\"", "r = \"a\" Like p"));
+
+    // a range is folded before it is tested in text mode: [Z-a] is [z-a] there, and [a-Z] is [a-z].
+    [TestMethod]
+    [DataRow("[Z-a]", "Binary", 0)]
+    [DataRow("[Z-a]", "Text", 1)]
+    [DataRow("[a-Z]", "Binary", 1)]
+    [DataRow("[a-Z]", "Text", 0)]
+    [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
+    public async Task AReversedRange_IsTheOneOfTheComparisonMode(string pattern, string compare, int expected)
+    {
+        var uri = TestUri.TestModuleUri();
+        var source = $"Attribute VB_Name = \"Program\"\r\nOption Compare {compare}\r\nPublic Sub Main()\r\nDim r As Variant\r\n"
+            + $"r = \"a\" Like \"{pattern}\"\r\nEnd Sub\r\n";
+        var payload = await ModuleWorkspace.SemanticsAsync([], source);
+
+        Assert.HasCount(expected,
+            new LikePatternDepartureAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), payload.Modules.Single())));
+    }
 }
