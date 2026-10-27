@@ -25,15 +25,26 @@ public static class PlatformJson
     /// <summary>
     /// Serializes <paramref name="payload"/> to a <see cref="System.Text.Json"/> string.
     /// </summary>
-    public static string Serialize<T>(T payload) => JsonSerializer.Serialize(payload, _options);
+    /// <remarks>
+    /// The document of a location or a node identity is written where it changes from the one written last, and not in every node: the payload of one module
+    /// writes its path once or twice rather than three times a node. <see cref="Deserialize{T}"/> reads it back the same way; the model is the same on both ends.
+    /// </remarks>
+    public static string Serialize<T>(T payload)
+    {
+        using var documents = PayloadDocuments.Begin();
+        return JsonSerializer.Serialize(payload, _options);
+    }
 
     /// <summary>
     /// Deserializes a <see cref="System.Text.Json"/> string produced by <see cref="Serialize{T}"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException">The string deserialized to <c>null</c>.</exception>
     public static T Deserialize<T>(string json)
-        => JsonSerializer.Deserialize<T>(json, _options)
+    {
+        using var documents = PayloadDocuments.Begin();
+        return JsonSerializer.Deserialize<T>(json, _options)
             ?? throw new InvalidOperationException($"The payload deserialized to a null {typeof(T).Name}.");
+    }
 }
 
 /// <summary>

@@ -52,7 +52,7 @@ public static class SyntaxNodeJson
         // a null is what an absent property deserializes to: writing it says nothing a reader needs (measured: a parse result of a 2,400-line module was
         // 5 MB of JSON, its semantics 3.6 MB, on every keystroke).
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new SourceRangeJsonConverter() },
+        Converters = { new SourceRangeJsonConverter(), new SourceLocationJsonConverter(), new SyntaxNodeIdJsonConverter() },
 
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine, OmitRedundantLocation } },
     };
@@ -110,6 +110,145 @@ public static class SyntaxNodeJson
             writer.WriteNumberValue(value.End.Line);
             writer.WriteNumberValue(value.End.Character);
             writer.WriteEndArray();
+        }
+    }
+
+    // a location: {"Uri": ..., "Range": [...]}, the Uri written only where it is not the one written last, in a payload (PayloadDocuments).
+    private sealed class SourceLocationJsonConverter : JsonConverter<Source.SourceLocation>
+    {
+        public override Source.SourceLocation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            ExpectStart(ref reader, "location");
+            var payload = PayloadDocuments.Current;
+            var uri = payload?.Location;
+            var range = default(Source.SourceRange);
+            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+            {
+                var name = reader.GetString();
+                reader.Read();
+                if (string.Equals(name, nameof(Source.SourceLocation.Uri), StringComparison.OrdinalIgnoreCase))
+                {
+                    uri = reader.TokenType == JsonTokenType.Null ? null : new Uri(reader.GetString()!, UriKind.RelativeOrAbsolute);
+                    if (payload is not null)
+                    {
+                        payload.Location = uri;
+                    }
+                }
+                else if (string.Equals(name, nameof(Source.SourceLocation.Range), StringComparison.OrdinalIgnoreCase))
+                {
+                    range = JsonSerializer.Deserialize<Source.SourceRange>(ref reader, options);
+                }
+                else
+                {
+                    reader.Skip();
+                }
+            }
+
+            return new(uri!, range);
+        }
+
+        public override void Write(Utf8JsonWriter writer, Source.SourceLocation value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            var payload = PayloadDocuments.Current;
+            if (payload is null || value.Uri is null || !SameUri(payload.Location, value.Uri))
+            {
+                writer.WritePropertyName(nameof(Source.SourceLocation.Uri));
+                if (value.Uri is null)
+                {
+                    writer.WriteNullValue();
+                }
+                else
+                {
+                    writer.WriteStringValue(value.Uri.OriginalString);
+                }
+
+                if (payload is not null)
+                {
+                    payload.Location = value.Uri;
+                }
+            }
+
+            writer.WritePropertyName(nameof(Source.SourceLocation.Range));
+            JsonSerializer.Serialize(writer, value.Range, options);
+            writer.WriteEndObject();
+        }
+
+        // the same address, spelled the same: Uri.Equals ignores the fragment, which a location keeps.
+        private static bool SameUri(Uri? last, Uri uri) => last is not null && string.Equals(last.OriginalString, uri.OriginalString, StringComparison.Ordinal);
+    }
+
+    // a node's identity: {"DocumentUri": ..., "Lineage": [...]}, the document written only where it is not the one written last, in a payload (PayloadDocuments).
+    private sealed class SyntaxNodeIdJsonConverter : JsonConverter<SyntaxNodeId>
+    {
+        public override SyntaxNodeId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            ExpectStart(ref reader, "node identity");
+            var payload = PayloadDocuments.Current;
+            var document = payload?.Node;
+            var lineage = default(ImmutableArray<int>);
+            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+            {
+                var name = reader.GetString();
+                reader.Read();
+                if (string.Equals(name, nameof(SyntaxNodeId.DocumentUri), StringComparison.OrdinalIgnoreCase))
+                {
+                    document = reader.TokenType == JsonTokenType.Null ? null : reader.GetString();
+                    if (payload is not null)
+                    {
+                        payload.Node = document;
+                    }
+                }
+                else if (string.Equals(name, nameof(SyntaxNodeId.Lineage), StringComparison.OrdinalIgnoreCase))
+                {
+                    lineage = reader.TokenType == JsonTokenType.Null ? default : [.. JsonSerializer.Deserialize<int[]>(ref reader, options)!];
+                }
+                else
+                {
+                    reader.Skip();
+                }
+            }
+
+            return new(document!, lineage);
+        }
+
+        public override void Write(Utf8JsonWriter writer, SyntaxNodeId value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            var payload = PayloadDocuments.Current;
+            if (payload is null || value.DocumentUri is null || !string.Equals(payload.Node, value.DocumentUri, StringComparison.Ordinal))
+            {
+                writer.WriteString(nameof(SyntaxNodeId.DocumentUri), value.DocumentUri);
+                if (payload is not null)
+                {
+                    payload.Node = value.DocumentUri;
+                }
+            }
+
+            writer.WritePropertyName(nameof(SyntaxNodeId.Lineage));
+            if (value.Lineage.IsDefault)
+            {
+                writer.WriteNullValue();
+            }
+            else
+            {
+                writer.WriteStartArray();
+                foreach (var position in value.Lineage)
+                {
+                    writer.WriteNumberValue(position);
+                }
+                writer.WriteEndArray();
+            }
+
+            writer.WriteEndObject();
+        }
+    }
+
+    private static void ExpectStart(ref Utf8JsonReader reader, string what)
+    {
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            throw new JsonException($"A {what} is an object.");
         }
     }
 
@@ -207,5 +346,41 @@ public static class SyntaxNodeJson
         }
 
         return null;
+    }
+}
+
+/// <summary>
+/// The documents a platform payload has written or read so far, while one is (de)serialized (<see cref="Platform.Protocol.PlatformJson"/>): a location or a
+/// node identity writes its document only where it is not the one written last, and is read with the one read last where it has none.
+/// </summary>
+/// <remarks>
+/// A payload is written and read in the same order, start to end, in one call on one thread: a document that is written once is read once, before everything
+/// that has it. Outside a payload - anything (de)serialized with <see cref="SyntaxNodeJson.Options"/> directly - every location and identity has its document.
+/// </remarks>
+internal sealed class PayloadDocuments
+{
+    [ThreadStatic]
+    private static PayloadDocuments? _current;
+
+    /// <summary>The payload (de)serialized on this thread, if one is.</summary>
+    public static PayloadDocuments? Current => _current;
+
+    /// <summary>The document of the last location written or read.</summary>
+    public Uri? Location { get; set; }
+
+    /// <summary>The document of the last node identity written or read.</summary>
+    public string? Node { get; set; }
+
+    /// <summary>Starts a payload on this thread, until the scope is disposed.</summary>
+    public static IDisposable Begin()
+    {
+        var previous = _current;
+        _current = new PayloadDocuments();
+        return new Scope(previous);
+    }
+
+    private sealed class Scope(PayloadDocuments? previous) : IDisposable
+    {
+        public void Dispose() => _current = previous;
     }
 }
