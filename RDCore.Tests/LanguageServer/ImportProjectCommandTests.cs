@@ -2,6 +2,10 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Runtime.Libraries;
@@ -30,10 +34,19 @@ public sealed class ImportProjectCommandTests
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IWorkspaceReloadService _reload = Substitute.For<IWorkspaceReloadService>();
     private readonly IProjectFileWriter _writer = Substitute.For<IProjectFileWriter>();
+    private readonly ILanguageServerFacade _server = Substitute.For<ILanguageServerFacade>();
     private readonly Answers _context = new();
 
     public ImportProjectCommandTests()
     {
+        // a client that pulls its diagnostics, and says it is to be asked to pull them again.
+        _server.ClientSettings.Returns(new InitializeParams
+        {
+            Capabilities = new ClientCapabilities
+            {
+                Workspace = new WorkspaceClientCapabilities { Diagnostics = new DiagnosticWorkspaceClientCapabilities { RefreshSupport = true } },
+            },
+        });
         _documents.WorkspaceRoot.Returns(Root);
         _fileSystem.AddDirectory(Root);
         _fileSystem.AddDirectory(Other);
@@ -54,7 +67,7 @@ public sealed class ImportProjectCommandTests
     }
 
     private ImportProjectCommand Sut()
-        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()));
+        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()), _server);
 
     private void Write(string path, string text) => _fileSystem.AddFile(path, new MockFileData(Encoding.Latin1.GetBytes(text)));
 
@@ -122,6 +135,40 @@ public sealed class ImportProjectCommandTests
 
         await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "Battleship" && project.Configuration.Length == 0),
             Arg.Any<CancellationToken>());
+    }
+
+    // the workspace an import changed is reported as any change of the project is: a client that pulls its diagnostics on open and edit only would keep
+    // those of the modules the project no longer has (HexIDE, desk 2026-10-27).
+    [TestMethod]
+    public async Task AnImportThatChangesTheWorkspace_AsksTheClientToPullItsDiagnosticsAgain()
+    {
+        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkspaceReloadResult(Added: 1, Removed: 2, IsHostComposed: true, IsProgramRunning: false));
+
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+
+        _server.Received(1).SendRequest(DiagnosticRefresh.Method);
+    }
+
+    [TestMethod]
+    public async Task AnImportThatChangesNothing_AsksNothing()
+    {
+        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+
+        _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
+    }
+
+    [TestMethod]
+    public async Task AnImportOfAnotherFolder_LeavesTheWorkspace_AndItsDiagnostics()
+    {
+        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+
+        await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
+
+        _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
     }
 
     [TestMethod]
