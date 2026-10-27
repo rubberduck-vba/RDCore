@@ -49,7 +49,22 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
         var offered = new HashSet<Position>();
         foreach (var diagnostic in request.Context.Diagnostics)
         {
-            if (DiagnosticFixes.Of(diagnostic)?.Rename is not { } fix || workspace.Prepare(documentUri, diagnostic.Range.Start).Value is not { } target)
+            var fixes = DiagnosticFixes.Of(diagnostic);
+
+            // edits the analyzer made are the action's, as they are: they change only the document the diagnostic is in.
+            if (fixes?.Edit is { Edits.Count: > 0 } editFix)
+            {
+                actions.Add(new CodeAction
+                {
+                    Title = editFix.Title,
+                    Kind = CodeActionKind.QuickFix,
+                    Diagnostics = new Container<Diagnostic>(diagnostic),
+                    Edit = new WorkspaceEdit { Changes = new Dictionary<DocumentUri, IEnumerable<TextEdit>> { [request.TextDocument.Uri] = editFix.Edits } },
+                    IsPreferred = true,
+                });
+            }
+
+            if (fixes?.Rename is not { } fix || workspace.Prepare(documentUri, diagnostic.Range.Start).Value is not { } target)
             {
                 continue;
             }
