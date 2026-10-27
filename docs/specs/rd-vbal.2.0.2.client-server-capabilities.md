@@ -472,8 +472,8 @@ The branches of a block (`ElseIf`, `Else`, `Case`) fold with it, not apart; a si
 For a `.rdc` program, ranges are in its lines, and the procedure its lines are the body of has none.
 
 The interactive shell folds blocks only. `FOLD <line>` folds the block that starts at that line, or unfolds it; a line that starts none is the error
-`NO FOLDING EXISTS AT <line>`. `LIST` has a lane in its margin for the mark of a block (🔽 open, 🔼 folded; `-` and `+` on a console that draws no emoji),
-before the lane of a breakpoint, which is next to the line. A folded block is listed as its first line, faint as ghost text and cut with `…` to the console's
+`NO FOLDING EXISTS AT <line>`. `LIST` has two lanes in its margin: a breakpoint's mark at the edge, then the mark of a block
+(🔽 open, 🔼 folded; `-` and `+` on a console that draws no emoji), next to the line. A folded block is listed as its first line, faint as ghost text and cut with `…` to the console's
 width. A fold is on a line number, as a breakpoint is, and `NEW` and `LOAD` clear them.
 
 ### `workspace/didChangeWatchedFiles`

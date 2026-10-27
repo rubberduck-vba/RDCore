@@ -798,8 +798,8 @@ public sealed class ReplDebuggingTests
             var text = string.Concat(runs.Select(run => run.Text));
             if (text.TrimStart().StartsWith(number + " "))
             {
-                // the breakpoint's lane is the last of the margin, next to the line.
-                return (text, ((IReadOnlyList<ReplTextRun>)arguments[0]!)[^1], (ReplLineStyle)arguments[2]!);
+                // the breakpoint's lane is the first of the margin, at the edge.
+                return (text, ((IReadOnlyList<ReplTextRun>)arguments[0]!)[0], (ReplLineStyle)arguments[2]!);
             }
         }
 

@@ -10,8 +10,8 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// The argument is a BASIC line range: <c>LIST</c>, <c>LIST 100</c>, <c>LIST 100-200</c>,
 /// <c>LIST 100-</c> (from there on) or <c>LIST -200</c> (up to there).
 /// <para>
-/// The margin has two lanes. The first marks the line a block starts at - an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds; the
-/// second, next to the line, marks a breakpoint. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
+/// The margin has two lanes. The first, at the edge, marks a breakpoint; the second, next to the line, marks the line a block starts at - an <c>If</c>, a
+/// <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
 /// after it, to its <c>End</c>.
 /// </para>
 /// </remarks>
@@ -92,7 +92,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, text, foldLane + 1 + padding.Text.Length), ReplTextStyle.Ghost)]
                 : highlighted is not null && highlighted.TryGetValue(index, out var tokens) ? [padding, .. ReplHighlighter.Runs(text, tokens)]
                 : [padding, new ReplTextRun(text, ReplTextStyle.Plain)];
-            context.Console.WriteListingLine([foldMark, breakpointMark], runs, style);
+            context.Console.WriteListingLine([breakpointMark, foldMark], runs, style);
         }
 
         context.Console.WriteLine();
