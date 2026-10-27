@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.LanguageServer.Server.Handlers.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Server.Commands;
@@ -23,7 +25,8 @@ namespace RDCore.LanguageServer.Workspace;
 /// </para>
 /// <para>
 /// A folder that has a project file already is given the new one only once the user says to replace it. The project file of the folder of the workspace is
-/// written as the server writes it (<see cref="IWorkspaceReloadService.ChangeAsync"/>), and the workspace becomes what it lists; another folder's is written.
+/// written as the server writes it (<see cref="IWorkspaceReloadService.ChangeAsync"/>), and the workspace becomes what it lists - the client is then told, as
+/// of every change of the project (<see cref="WorkspaceChangeReport"/>): asked to pull its diagnostics again; another folder's is written.
 /// Either way, what the <c>.vbp</c> does not describe is kept (<see cref="VbpImport.Into"/>).
 /// The answer is the project file, and what the import could not carry over, each as the user is told it.
 /// </para>
@@ -35,7 +38,8 @@ internal sealed class ImportProjectCommand(
     IProjectFileLoader loader,
     ILibrarySource libraries,
     IFileSystem fileSystem,
-    IOptions<SdkAppOptions> options) : IServerCommand
+    IOptions<SdkAppOptions> options,
+    ILanguageServerFacade server) : IServerCommand
 {
     /// <summary>The name a client asks for the command by.</summary>
     public const string CommandName = "rdcore.importProject";
@@ -70,9 +74,14 @@ internal sealed class ImportProjectCommand(
             throw new ServerCommandRefusedException(VbpImportText.Cancelled(fileSystem.Path.GetFileName(vbp)));
         }
 
-        // the workspace's own project file is the server's to write, and the workspace becomes what it lists; another folder's is written as it is. Either
-        // way, what the .vbp does not describe is kept.
-        if (!IsWorkspaceFolder(folder) || await reload.ChangeAsync(project => import.Into(project, folder), token) is null)
+        // the workspace's own project file is the server's to write, and the workspace becomes what it lists - which the client is told, as of any change of
+        // the project: its diagnostics are to be pulled again. Another folder's is written as it is. Either way, what the .vbp does not describe is kept.
+        var reloaded = IsWorkspaceFolder(folder) ? await reload.ChangeAsync(project => import.Into(project, folder), token) : null;
+        if (reloaded is not null)
+        {
+            WorkspaceChangeReport.Send(server, reloaded);
+        }
+        else
         {
             // a project file that cannot be read is replaced whole, as the user said to replace it.
             await writer.SaveAsync(import.Into(await loader.LoadIfReadableAsync(folder, token), folder), token);
