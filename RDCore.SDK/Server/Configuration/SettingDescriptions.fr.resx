@@ -49,6 +49,9 @@
   <data name="Workspace_Language" xml:space="preserve">
     <value>Le langage dans lequel les espaces de travail sont écrits : vba, vb6 ou basic.</value>
   </data>
+  <data name="Workspace_EnableFileSystemWatchers" xml:space="preserve">
+    <value>Si le serveur de langage surveille lui-même les fichiers de l'espace de travail, pour un éditeur qui ne le fait pas. Désactivé, un fichier modifié hors de l'éditeur est lu au prochain démarrage du serveur.</value>
+  </data>
   <data name="Platform_Extensions_Allowed" xml:space="preserve">
     <value>Les extensions que charge la plateforme, par leur titre, séparées par des virgules. Une extension exécute son propre code, avec les droits de la plateforme.</value>
   </data>

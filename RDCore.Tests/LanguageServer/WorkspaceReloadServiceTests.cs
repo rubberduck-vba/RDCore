@@ -246,20 +246,95 @@ public sealed class WorkspaceReloadServiceTests
     [DataRow(FileChangeType.Changed, true, DisplayName = "the project file, changed")]
     [DataRow(FileChangeType.Created, true, DisplayName = "the project file, created")]
     [DataRow(FileChangeType.Deleted, false, DisplayName = "the project file, deleted")]
-    public async Task TheWatchHandler_ReloadsForTheWorkspacesOwnProjectFile_WrittenOnly(FileChangeType type, bool reloads)
+    public async Task TheWatchedFileChanges_ReloadForTheWorkspacesOwnProjectFile_WrittenOnly(FileChangeType type, bool reloads)
     {
         var reload = Substitute.For<IWorkspaceReloadService>();
         await LoadAsync("A.bas");
-        var handler = new ProjectFileWatchHandler(reload, _documents, Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>(),
-            NullLogger<ProjectFileWatchHandler>.Instance);
+        var changes = new WatchedFileChanges(reload, _documents, NullLogger<WatchedFileChanges>.Instance);
 
-        await handler.Handle(new DidChangeWatchedFilesParams
-        {
-            Changes = new Container<FileEvent>(
+        await changes.ChangedAsync(
+            [
                 new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, ProjectFile.FileName)), Type = type },
-                new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "elsewhere", ProjectFile.FileName)), Type = FileChangeType.Changed }),
-        }, CancellationToken.None);
+                new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "elsewhere", ProjectFile.FileName)), Type = FileChangeType.Changed },
+            ], Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>());
 
         await reload.Received(reloads ? 1 : 0).ReloadAsync(Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task TheWatchedFileChanges_ReadTheOtherFilesAgain()
+    {
+        var reload = Substitute.For<IWorkspaceReloadService>();
+        await LoadAsync("A.bas");
+        var changes = new WatchedFileChanges(reload, _documents, NullLogger<WatchedFileChanges>.Instance);
+
+        await changes.ChangedAsync([new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "A.bas")), Type = FileChangeType.Changed }],
+            Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>());
+
+        await reload.DidNotReceiveWithAnyArgs().ReloadAsync(default);
+        await reload.Received(1).ReloadFilesAsync(Arg.Is<IReadOnlyList<Uri>>(files => files.Single() == UriOf("A.bas")), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AModuleChangedOutsideTheEditor_IsReadAgain_AndTheWorkspaceIsDefinedAgain()
+    {
+        await LoadAsync("A.bas", "B.cls");
+        _files.AddFile(Path.Combine(Root, "A.bas"), new MockFileData("Attribute VB_Name = \"A\"\r\nPublic Sub Changed()\r\nEnd Sub\r\n"));
+
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("A.bas"), out var before));
+        var result = await _sut.ReloadFilesAsync([UriOf("A.bas")], CancellationToken.None);
+
+        Assert.AreEqual(1, result?.Reread);
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("A.bas"), out var document));
+        StringAssert.Contains(document.Text, "Changed");
+        // the next version: the parse of the text before is not taken for the parse of this one.
+        Assert.IsGreaterThan(before.Version, document.Version);
+        await _parsing.Received(1).ParseDocumentAsync(UriOf("A.bas"), Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    [TestMethod]
+    public async Task AFileWhoseTextIsWhatWasLoaded_ChangesNothing()
+    {
+        await LoadAsync("A.bas");
+
+        Assert.AreSame(WorkspaceReloadResult.Unchanged, await _sut.ReloadFilesAsync([UriOf("A.bas")], CancellationToken.None));
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    [TestMethod]
+    public async Task AFileTheProjectDoesNotList_IsNothingOfTheWorkspace()
+    {
+        await LoadAsync("A.bas");
+        _files.AddFile(Path.Combine(Root, "Elsewhere.bas"), new MockFileData("Attribute VB_Name = \"Elsewhere\"\r\n"));
+
+        Assert.AreSame(WorkspaceReloadResult.Unchanged, await _sut.ReloadFilesAsync([UriOf("Elsewhere.bas"), UriOf("B.cls")], CancellationToken.None));
+        Assert.IsFalse(_documents.TryGetDocument(UriOf("Elsewhere.bas"), out _));
+    }
+
+    [TestMethod]
+    public async Task ADocumentTheClientHasOpen_IsTheClients_AndIsNotReadAgain()
+    {
+        await LoadAsync("A.bas");
+        _documents.Open(UriOf("A.bas"), "Attribute VB_Name = \"A\"\r\n' the client's text\r\n", 1);
+        _files.AddFile(Path.Combine(Root, "A.bas"), new MockFileData("Attribute VB_Name = \"A\"\r\n' the disk's text\r\n"));
+
+        Assert.AreSame(WorkspaceReloadResult.Unchanged, await _sut.ReloadFilesAsync([UriOf("A.bas")], CancellationToken.None));
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("A.bas"), out var document));
+        StringAssert.Contains(document.Text, "the client's text");
+    }
+
+    [TestMethod]
+    public async Task AModuleWhoseFileIsGone_IsTakenOutOfTheHost_AndItsDocumentIsMissing()
+    {
+        await LoadAsync("A.bas", "B.cls");
+        _files.RemoveFile(Path.Combine(Root, "B.cls"));
+
+        var result = await _sut.ReloadFilesAsync([UriOf("B.cls")], CancellationToken.None);
+
+        Assert.AreEqual(1, result?.Reread);
+        Assert.IsInstanceOfType<MissingDocumentState>(_documentStates.GetCurrentState(new TextDocumentIdentifier(UriOf("B.cls"))));
+        await _symbols.Received(1).DiscardModuleAsync("B", Arg.Any<CancellationToken>(), false);
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
     }
 }
