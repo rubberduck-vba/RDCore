@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- What an import of a VB6 project could not carry over (VbpImportNote): VbpImport_ and the VbpImportNoteKind. {0} is what, as the .vbp writes it. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="VbpImport_UnresolvedReference" xml:space="preserve">
+    <value>La référence à « {0} » n'est pas reprise : la plateforme n'a pas de description de cette bibliothèque.</value>
+  </data>
+  <data name="VbpImport_ProjectReference" xml:space="preserve">
+    <value>La référence au projet « {0} » n'est pas reprise : un projet ne peut pas encore en référencer un autre.</value>
+  </data>
+  <data name="VbpImport_Control" xml:space="preserve">
+    <value>Le contrôle « {0} » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.</value>
+  </data>
+  <data name="VbpImport_OutsideProjectFolder" xml:space="preserve">
+    <value>« {0} » n'est pas repris : il est hors du dossier du projet.</value>
+  </data>
+  <data name="VbpImport_AbsolutePath" xml:space="preserve">
+    <value>« {0} » n'est pas repris : un projet liste les fichiers de son propre dossier.</value>
+  </data>
+  <data name="VbpImport_NotAModule" xml:space="preserve">
+    <value>« {0} » est un fichier du projet, et non un module : la plateforme ne le compile pas.</value>
+  </data>
+  <data name="VbpImport_Startup" xml:space="preserve">
+    <value>Le projet démarre par « {0} », ce qu'un fichier de projet ne dit pas encore.</value>
+  </data>
+  <!-- What the import asks, and why it is not made (VbpImportText). {0} is a folder or a file, {1} the .vbp. -->
+  <data name="VbpImport_Ask_Replace" xml:space="preserve">
+    <value>« {0} » a déjà un fichier de projet. Le remplacer par le projet de « {1} » ?</value>
+  </data>
+  <data name="VbpImport_Ask_Choose" xml:space="preserve">
+    <value>« {0} » a plusieurs projets VB6. Lequel faut-il importer ?</value>
+  </data>
+  <data name="VbpImport_Action_Import" xml:space="preserve">
+    <value>Importer le projet VB6 « {0} »</value>
+  </data>
+  <data name="VbpImport_Choice_Replace" xml:space="preserve">
+    <value>Remplacer</value>
+  </data>
+  <data name="VbpImport_Choice_Cancel" xml:space="preserve">
+    <value>Annuler</value>
+  </data>
+  <data name="VbpImport_Refused_Cancelled" xml:space="preserve">
+    <value>L'import de « {0} » a été annulé : rien n'a été écrit.</value>
+  </data>
+  <data name="VbpImport_Refused_NoProject" xml:space="preserve">
+    <value>« {0} » n'a pas de projet VB6 (.vbp) à importer.</value>
+  </data>
+  <data name="VbpImport_Refused_NotFound" xml:space="preserve">
+    <value>« {0} » est introuvable.</value>
+  </data>
+</root>
