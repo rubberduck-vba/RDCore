@@ -268,6 +268,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11017](rdc11017.md)|Like pattern MS-VBA matches otherwise than specified — a `[]`, a `[!]`, or an invalid list|
 |[RDC11018](rdc11018.md)|Integer arithmetic of Abs, Int or Fix that can overflow — MS-VBA types the call as its argument, where MS-VBAL declares a Variant|
 |[RDC11019](rdc11019.md)|Type character ignored on a function of the library — `Len$`, `CVar$`: MS-VBAL makes the name invalid, MS-VBA ignores the character|
+|[RDC11020](rdc11020.md)|Variant String that is no number, compared with a number — MS-VBA ranks the String above it, where MS-VBAL specifies a type mismatch|
 |[RDC11021](rdc11021.md)|Constant of a procedure valued with Len — MS-VBA accepts it there, and refuses it in a module|
 
 ---

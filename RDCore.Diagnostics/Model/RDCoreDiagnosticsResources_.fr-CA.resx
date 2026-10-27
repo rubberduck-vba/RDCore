@@ -276,6 +276,9 @@
   <data name="CaseComparedInSelectorType_Message" xml:space="preserve">
     <value>MS-VBA convertit la valeur de ce Case Is au type déclaré du sélecteur avant de les comparer, alors que MS-VBAL §5.4.2.10 en fait l'expression « sélecteur opérateur valeur » : le résultat peut différer.</value>
   </data>
+  <data name="VariantStringThatIsNoNumberRanked_Message" xml:space="preserve">
+    <value>'{0}' compare un Variant qui contient une String qui n'est pas un nombre à un nombre, une date ou un Boolean : MS-VBA classe la String au-dessus, quelles que soient les valeurs, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13).</value>
+  </data>
   <data name="UnmatchedEventHandler_Message" xml:space="preserve">
     <value>&apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus.</value>
   </data>

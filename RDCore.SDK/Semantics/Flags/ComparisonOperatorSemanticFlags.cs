@@ -99,6 +99,16 @@ public enum ComparisonOperatorSemanticFlags
     LikePatternIsInvalid = 1 << 22,
 
     /// <summary>
+    /// <c>true</c> if one operand is a <c>VBVariant</c> holding a <c>String</c> that is no value of the effective type, and the other a number, a
+    /// <c>Date</c> or a <c>Boolean</c> that is no <c>VBVariant</c>: the <c>String</c> ranks above it, whatever their values, as MS-VBA compares them.
+    /// </summary>
+    /// <remarks>
+    /// 👉 <strong>MS-VBAL §5.6.9.5</strong> makes the <c>String</c>'s conversion to the effective type a type mismatch (13); MS-VBA raises nothing, and ranks
+    /// the two as it ranks two <c>VBVariant</c> operands (<see cref="IsVariantStringNumericException"/>; RD-VBAL §5.6.9.5).
+    /// </remarks>
+    IsVariantStringThatIsNoValueRanked = 1 << 23,
+
+    /// <summary>
     /// Combines all values.
     /// </summary>
     All = IntegralNumericEffectiveType | FixedPointNumericEffectiveType
@@ -110,4 +120,5 @@ public enum ComparisonOperatorSemanticFlags
         | ErrorEffectiveType | HasStandardErrorCodes 
         | IsVariantStringNumericException | IsVariantComparedWithStringAsText
         | LikePatternHasEmptyCharList | LikePatternIsInvalid
+        | IsVariantStringThatIsNoValueRanked
 }

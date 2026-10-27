@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -110,6 +111,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText);
         }
 
+        if (operands is [var lhs, var rhs] && IsVariantStringThatIsNoValue(resolver, expression, lhs, rhs, out _))
+        {
+            builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked);
+        }
+
         return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
         {
             VBBooleanType => ComparisonOperatorSemanticFlags.BooleanEffectiveType,
@@ -177,17 +183,83 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     private static bool IsTextComparedVariant(VBTypedValue operand)
         => operand is VBVariantValue { TypedValue.TypeInfo: VBNumericType or VBDateType or VBBooleanType };
 
+    // MS-VBA compares a Variant holding a String with a number, a Date or a Boolean that is no Variant as the table says when the String is a value of the
+    // effective type - "3" < 5 is True, "1/2/1900" < a Date of 5 is True, "True" = a Boolean True is True - and, when it is not, ranks the String above it
+    // as it does for two Variants (IsVariantStringNumericException), raising nothing: "abc" > 5 is True, "" < 5 is False, from either side (Excel-measured,
+    // oracle\s48 H01-H05, I01-I04, K01-K09, L01-L04). MS-VBAL 5.6.9.5's table, and Microsoft Learn's Comparison operators, make the String's conversion a type
+    // mismatch (13): RD-VBA does what MS-VBA does, and the analysis states it (IsVariantStringThatIsNoValueRanked) for RDCore.Diagnostics to report
+    // (RDC11020). A String declared as one is no Variant, and raises 13 (L02). Only a type mismatch is a String that is no value: an overflow is raised.
+    private bool IsVariantStringThatIsNoValue(ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, out bool leftIsNumeric)
+        => IsVariantStringThatIsNoValue(resolver, expression, frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand], out leftIsNumeric);
+
+    // the String is let-coerced to the type the plan of the operation makes the effective type, without stating it (it is the question, not the operation).
+    private bool IsVariantStringThatIsNoValue(ISymbolResolver resolver, ExpressionNode expression, VBTypedValue left, VBTypedValue right, out bool leftIsNumeric)
+    {
+        leftIsNumeric = false;
+        if (!RanksVariantNumberBelowString || !ComparesValues
+            || !IsVariantStringAgainstAScalar(left, right, out var text, out leftIsNumeric)
+            || text.IsIndeterminate
+            || OperationPlanner.ForValues(Operator, left.GetTargetType(), right.GetTargetType()).EffectiveType is not { } effective
+            || effective is VBStringType)
+        {
+            return false;
+        }
+
+        var coercion = new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, text, new VBTypeDescValue(effective), ConversionSite.OperatorOperand);
+        return LetCoercionSemanticsProvider.EvaluateUnstated(resolver, expression, coercion).ErrorInfo?.ErrorId == (int)VBRuntimeErrorId.TypeMismatch;
+    }
+
+    private static bool IsVariantStringAgainstAScalar(VBTypedValue left, VBTypedValue right, out VBStringValue text, out bool leftIsNumeric)
+    {
+        (text, leftIsNumeric) = (left, right) switch
+        {
+            (VBVariantValue { TypedValue: VBStringValue held }, _) when IsDeclaredScalar(right) => (held, false),
+            (_, VBVariantValue { TypedValue: VBStringValue held }) when IsDeclaredScalar(left) => (held, true),
+            _ => (null!, false),
+        };
+
+        return text is not null;
+    }
+
+    private static bool IsDeclaredScalar(VBTypedValue operand) => operand is not VBVariantValue && operand.TypeInfo is VBNumericType or VBDateType or VBBooleanType;
+
     protected override LetCoercionResult ValidateOperand(
         ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
     {
-        if (IsVariantStringNumericException(frame, out var leftIsNumeric))
+        if (IsVariantStringNumericException(frame, out var leftIsNumeric) || IsVariantStringThatIsNoValue(resolver, expression, frame, out leftIsNumeric))
         {
             var isNumericSide = index == InputIndex.BinaryLeftOperand ? leftIsNumeric : !leftIsNumeric;
             return LetCoercionResult.Success(new VBIntegerValue(isNumericSide ? (short)0 : (short)1));
         }
 
+        if (IsTextOfADate(frame, frame[index]))
+        {
+            var date = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new()
+            {
+                NodeId = expression.Identity,
+                OperandIndex = index,
+                SourceValue = frame[index],
+                DestinationTypeDesc = new VBTypeDescValue(VBDateType.TypeInfo),
+                Site = frame.Site,
+            });
+
+            return date.Result is VBDateValue value ? date with { Result = new VBDoubleValue(value.SerialValue) } : date;
+        }
+
         return base.ValidateOperand(resolver, expression, frame, index);
     }
+
+    protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
+        ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex operandIndex)
+        => IsTextOfADate(frame, frame[operandIndex])
+            ? AnalyzeOperandCoercion(resolver, builder, expression, frame[operandIndex], operandIndex, VBDateType.TypeInfo)
+            : base.AnalyzeValidateOperand(resolver, builder, expression, frame, operandIndex);
+
+    // MS-VBAL 5.6.9.5: a String compared with a Date has the effective type Date, and is let-coerced to it - the text of a date is read as one (MS-VBA:
+    // a Variant "1/2/1900" < a Date of 5 is True, Excel-measured, oracle\s48 K04). The operands of a Date effective type are otherwise let-coerced to
+    // Double, the serial they are compared by, which the text of a date is not: it is let-coerced to Date, and compared by its serial.
+    private static bool IsTextOfADate(OperatorEvaluationFrame frame, VBTypedValue operand)
+        => frame.EffectiveType is VBDateType && operand is VBStringValue or VBVariantValue { TypedValue: VBStringValue };
 
     /// <summary>
     /// The operator: one of the <c>Tokens</c> relational operators, which is what its <see cref="OperationPlan"/> is made for.
@@ -196,14 +268,15 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
 
     /// <remarks>
     /// The effective type is the operation's plan (<see cref="OperationPlanner"/>), made once for each pair of value types and kept - but for the comparison of
-    /// two Variants that ranks a number below a <c>String</c>, which depends on more than their types (<see cref="RanksVariantNumberBelowString"/>).
+    /// two Variants that ranks a number below a <c>String</c>, and of a Variant <c>String</c> that is no value of the plan's type with a number, which depend on
+    /// more than their types (<see cref="RanksVariantNumberBelowString"/>).
     /// </remarks>
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
-        => IsVariantStringNumericException(frame, out _)
+        => IsVariantStringNumericException(frame, out _) || IsVariantStringThatIsNoValue(resolver, expression, frame, out _)
             ? DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo)
             : ComparesValues && IsComparedAsText(frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand])
                 ? DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo)

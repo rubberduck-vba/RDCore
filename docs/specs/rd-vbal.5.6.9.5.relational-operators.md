@@ -95,6 +95,45 @@ RD-VBA runs the code as MS-VBA does. The analysis states the departure as a fact
 (`ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText`), and RDCore.Diagnostics reports it as
 [`RDC11013`](../diagnostics/rdc11013.md), a warning that stands in for the type mismatch the specification raises.
 
+### A Variant String compared with a number
+
+The other way around: one operand is a `Variant` holding a `String`, and the other a number, a `Date` or a `Boolean` that
+is not a `Variant` (a variable declared with the type, a literal). RD-VBA compares them as MS-VBA does:
+
+- When the `String` Let-coerces to the effective value type the table gives, the table applies: `"3" < 5` is `True`,
+  and so are `"&H3" < 5`, `"(3)" < 0` and `"$3" < 5`. A date's text compared with a `Date` is read as a `Date`
+  ([below](#a-string-compared-with-a-date)), and `"True" = True` is `True`.
+- When the coercion is a type mismatch, nothing is raised, and the `String` ranks above the other operand, whatever its
+  value, as it does when both operands are `Variant` values ([above](#variant-stringnumeric-comparison)): `"abc" > 5` is
+  `True`, `"abc" = 5` is `False`, and `5 < "abc"` is `True`.
+- Any other error of the coercion is raised: a number's text too large for the type overflows (6).
+
+🎯 This departs from **MS-VBAL §5.6.9.5**. Its table makes the `String`'s coercion to the effective type a type mismatch
+(13), and so does Microsoft Learn's
+[Comparison operators](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators)
+page, for a `Variant` string that can't be converted to a number. These results were measured in Excel (`oracle\s48` H,
+I, K, L):
+
+|`Variant` holds|Other operand|Comparison|MS-VBA|MS-VBAL §5.6.9.5|
+|---|---|---|---|---|
+|`"abc"`|`5`|`<`, `>`, `=`|`False`, `True`, `False`|Type mismatch (13)|
+|`""`|`5`|`<`|`False`|Type mismatch (13)|
+|`"1/2/1900"`|`5`, `34`|`<`|`False`, `False` (the text of a date is no number)|Type mismatch (13)|
+|`"1/2/1900"`|a `Date` of `5`|`<`|`True`, as `1/2/1900` is day 3|`True`|
+|`"abc"`|a `Date`, a `Boolean`, a `Currency`, a `Byte`|`>`|`True`|Type mismatch (13)|
+|`"3"`|`5`, an `Integer`, a `Date`, a `Boolean`, a `Currency`|`<`|`True`|`True`|
+
+A `String` declared as one is not a `Variant`: `s < 5`, with `s` holding `"abc"`, raises the type mismatch in MS-VBA as
+the table says, and in RD-VBA. The analysis states the departure as a fact of the operation
+(`ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked`), and RDCore.Diagnostics reports it as
+[`RDC11020`](../diagnostics/rdc11020.md), a warning that stands in for the type mismatch the specification raises.
+
+### A String compared with a Date
+
+The table gives a `String` and a `Date` the effective type `Date`. The operands of a `Date` effective type are compared by
+their serial, a `Double`. A `String` operand is first Let-coerced to `Date`, which reads the text of a date as one, and is
+then compared by its serial: `"1/2/1900"` compared with a `Date` of `5` compares day 3 with day 5 (`oracle\s48` K04).
+
 ### String comparison
 
 Each of the six operators compares two `String` operands as

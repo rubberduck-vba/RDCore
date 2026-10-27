@@ -446,5 +446,7 @@
   href: rdc11018.md
 - name: RDC11019 — Type character ignored on a function of the library
   href: rdc11019.md
+- name: RDC11020 — Variant String that is no number, compared with a number
+  href: rdc11020.md
 - name: RDC11021 — Constant of a procedure valued with Len
   href: rdc11021.md
