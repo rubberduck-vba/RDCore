@@ -610,6 +610,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; a été déclaré implicitement, là où il est utilisé pour la première fois : MS-VBAL et VB6 le redimensionnent ici, alors que MS-VBA refuse ce ReDim à la compilation (ReDim incorrect). Déclarez &apos;{0}&apos; avec Dim avant de l&apos;utiliser..
+        /// </summary>
+        public static string ReDimOfAnImplicitVariant_Message {
+            get {
+                return ResourceManager.GetString("ReDimOfAnImplicitVariant_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type)..
         /// </summary>
         public static string ValueOfObjectWithNoDefaultMember_Message {

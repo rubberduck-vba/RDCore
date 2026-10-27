@@ -595,10 +595,18 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         // `Public Items() As Long` re-dimensions that array. A procedure, a module or a project is no
         // match - `ReDim Left(1)` declares an array that hides the function (MS-VBA, Excel-verified,
         // oracle\s29 R01-R11, E01-E16).
+        //
+        // where declarations are implicit, a name the procedure uses before its first ReDim was declared there, by that use (MS-VBAL §5.6.10, pass 3), and
+        // the ReDim matches that variable: it re-dimensions it as it would any Variant, as vb6.exe runs it. MS-VBA refuses it at compile time ("Invalid
+        // ReDim", Excel-verified, oracle\findings-labels R01-R10), which the author lets slip with RDC11022 (HexIDE's findings desk #9).
+        var implicitDeclarations = !directives.Explicit && withImplicitDeclarations;
+        var valueNames = implicitDeclarations ? body.SelectMany(ValueContextSimpleNames).ToArray() : [];
         foreach (var redim in body.OfType<RedimDeclarationNode>())
         {
             if (!redim.IsSimpleName || outerScopeNames.Contains(redim.Name) || declared.Contains(redim.Name)
-                || redim.Target is SimpleNameExpressionNode target && MatchesARedimTarget(target, procedureUri))
+                || redim.Target is SimpleNameExpressionNode target && MatchesARedimTarget(target, procedureUri)
+                || valueNames.Any(used => used.SourceLocation.Range.Start < redim.SourceLocation.Range.Start
+                    && string.Equals(used.IdentifierName, redim.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }

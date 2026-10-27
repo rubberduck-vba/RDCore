@@ -29,11 +29,15 @@ procedure, a function of a library, a module or a project is no match, as **MS-V
 |A fixed-size array|`ReDim Grid(3)` of `Public Grid(2) As Long`|[VBC09357](../diagnostics/vbc09357.md) _Array already dimensioned_.|
 |A variable of another type, a constant, a member of an enumeration, the function's own result|`ReDim Count(1)` of a `Long`, `ReDim vbCrLf(1)`, `ReDim Red(1)`|[VBC09307](../diagnostics/vbc09307.md) _Expected array_.|
 |Nothing that matches: no name, a procedure, a function of a library, a module|`ReDim Totals(12)`, `ReDim Left(1)`|An implicit declaration of a new array, which hides what the name otherwise is.|
-|A name with no declaration that the procedure uses before the `ReDim`: written, read, or on a line that never runs|`y = 5`, then `ReDim y(2)`|[VBC09306](../diagnostics/vbc09306.md) _Invalid ReDim_: the earlier use declared `y` implicitly, as a `Variant`.|
+|A name with no declaration that the procedure uses before its first `ReDim`: written, read, or on a line that never runs|`y = 5`, then `ReDim y(2)`|A re-dimension of the variable that earlier use declared implicitly (**MS-VBAL §5.6.10**), a `Variant`, with [RDC11022](../diagnostics/rdc11022.md) (Warning).|
 
-**MS-VBA** decides between the last two rows by the text of the procedure, not by what runs: a name used anywhere before
-the first `ReDim` of it is a variable declared implicitly there, which no `ReDim` re-dimensions; a name used only after
-it is the array the `ReDim` declared (recorded in Excel, `oracle\findings-labels` R01-R10).
+The last two rows are told apart by the text of the procedure, not by what runs, as **MS-VBA** tells them apart: a name
+used anywhere before the first `ReDim` of it is a variable declared implicitly there; a name used only after it is the
+array the `ReDim` declared (recorded in Excel, `oracle\findings-labels` R01-R10).
+
+👉 **MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
+variable a `Variant`, which a `ReDim` re-dimensions, and vb6.exe runs it so. RD-VBA does what the specification says,
+and warns that MS-VBA refuses it ([RDC11022](../diagnostics/rdc11022.md)).
 
 For an implicit `ReDim` declaration:
 

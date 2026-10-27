@@ -94,4 +94,5 @@ public enum RDCoreDiagnosticId
     IgnoredTypeCharacter = 11019, // Len$, CVar$: a type character on a reserved function of the library, which MS-VBAL makes invalid and MS-VBA ignores
     VariantStringThatIsNoNumberRanked = 11020, // a Variant String that is no number, compared with a number: ranked above it; MS-VBAL's table says 13
     ProcedureConstantLength = 11021, // Const K = Len(K0) in a procedure: MS-VBA compiles it there, and refuses it in a module
+    ReDimOfAnImplicitVariant = 11022, // y = 5 ... ReDim y(2), y undeclared: MS-VBAL and vb6.exe re-dimension the implicit variable; MS-VBA: Invalid ReDim
 }
