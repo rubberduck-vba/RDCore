@@ -274,6 +274,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11020](rdc11020.md)|Variant String that is no number, compared with a number — MS-VBA ranks the String above it, where MS-VBAL specifies a type mismatch|
 |[RDC11021](rdc11021.md)|Constant of a procedure valued with Len — MS-VBA accepts it there, and refuses it in a module|
 |[RDC11022](rdc11022.md)|ReDim of a variable declared implicitly — the specification and VB6 re-dimension it, MS-VBA refuses it (Invalid ReDim)|
+|[RDC11023](rdc11023.md)|Procedure MS-VBA refuses as too large — more than 5,000 statements, which RD-VBA runs and MS-VBA refuses (Procedure too large)|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

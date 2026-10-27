@@ -673,6 +673,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has {1} statements. MS-VBA refuses a procedure whose compiled code is larger than 64K, which is about 5,000 statements (Procedure too large); RD-VBA runs it. Split it into smaller procedures..
+        /// </summary>
+        public static string ProcedureTooLarge_Message {
+            get {
+                return ResourceManager.GetString("ProcedureTooLarge_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to An object of class &apos;{0}&apos;, which has no default member, is where a value is expected: MS-VBA raises run-time error 438 (91 when it is Nothing) when it runs, where MS-VBAL §5.5.1.1 makes it a compile error (type mismatch)..
         /// </summary>
         public static string ValueOfObjectWithNoDefaultMember_Message {

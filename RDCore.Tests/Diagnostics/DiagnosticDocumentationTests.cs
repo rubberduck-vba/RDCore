@@ -142,6 +142,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.IgnoredTypeCharacter, 11019),
         (RDCoreDiagnosticId.ProcedureConstantLength, 11021),
         (RDCoreDiagnosticId.ReDimOfAnImplicitVariant, 11022),
+        (RDCoreDiagnosticId.ProcedureTooLarge, 11023),
     ];
 
     [TestMethod]
