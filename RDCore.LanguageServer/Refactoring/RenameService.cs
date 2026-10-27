@@ -316,6 +316,15 @@ internal sealed class RenameWorkspace
             .Select(site => new DocumentHighlight { Range = module.ToTextRange(site.Range), Kind = DocumentHighlightKind.Text })];
     }
 
+    /// <summary>
+    /// What a hover over the name at a position of a document says of its symbol (<see cref="SymbolHover"/>), and where the name is written.
+    /// </summary>
+    /// <returns>The hover; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
+    public (SymbolHover Hover, LspRange Range)? Hover(Uri documentUri, Position position)
+        => ModuleOf(documentUri) is { } module && SymbolNavigation.SymbolAt(_context, module.Module, module.ToModulePosition(position)) is { } named
+            ? (SymbolHover.Of(named.Symbol), module.ToTextRange(named.Origin))
+            : null;
+
     private IReadOnlyList<LocationLink> Navigate(
         Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, SymbolNavigationTarget?> navigate)
     {

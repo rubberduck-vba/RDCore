@@ -106,6 +106,58 @@ public sealed class DefinitionWireTests
         return [.. answers];
     }
 
+    // the hover at a position of the program, from a client that reads Markdown or plain text only.
+    private static async Task<Hover?> HoverAsync(bool markdown, Position position)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var serving = OmniSharpLanguageServer.From(server => server
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            .AddHandler(new HoverHandler(Workspace())), timeout.Token);
+        var connecting = LanguageClient.From(client => client
+            .WithInput(toClient.Reader)
+            .WithOutput(toServer.Writer)
+            .WithCapability(new HoverCapability
+            {
+                ContentFormat = new Container<MarkupKind>(markdown ? [MarkupKind.Markdown, MarkupKind.PlainText] : [MarkupKind.PlainText]),
+            }), timeout.Token);
+
+        await Task.WhenAll(serving, connecting);
+        using var server = await serving;
+        using var languageClient = await connecting;
+        var document = new TextDocumentIdentifier(DocumentUri.From(Document("Main.rdc")));
+        return await languageClient.SendRequest(new HoverParams { TextDocument = document, Position = position }, timeout.Token);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AHover_IsTheDeclarationInABlockOfVBA_OverTheName()
+    {
+        var hover = await HoverAsync(markdown: true, new Position(2, 5));
+
+        Assert.IsNotNull(hover);
+        Assert.AreEqual(MarkupKind.Markdown, hover.Contents.MarkupContent!.Kind);
+        StringAssert.StartsWith(hover.Contents.MarkupContent.Value, "```vba\nPublic strTitle As String\n```");
+        Assert.AreEqual(new Range(2, 3, 2, 11), hover.Range, "the name, in the text of the program");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AHover_ForAClientThatReadsNoMarkdown_IsPlainText()
+    {
+        var hover = await HoverAsync(markdown: false, new Position(3, 3));
+
+        Assert.AreEqual(MarkupKind.PlainText, hover!.Contents.MarkupContent!.Kind);
+        StringAssert.StartsWith(hover.Contents.MarkupContent.Value, "Public Sub Show()");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task NoName_HasNoHover()
+        => Assert.IsNull(await HoverAsync(markdown: true, new Position(1, 9)));
+
     // one request of the program, to a server of the references and the highlights.
     private static async Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request)
     {

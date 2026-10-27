@@ -236,6 +236,25 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
 
+### `textDocument/hover`
+
+The language server answers `textDocument/hover` (**LSP 3.17** §Hover Request) for the documents it holds, over the name at the position, bound the way a
+rename binds it ([`SymbolHover`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHover.html)). A symbol of a library the workspace references is hovered as one
+of the workspace is.
+
+|Hovered|Declaration|Member of|
+|---|---|---|
+|A procedure, a function, a property|Its signature: `Public Function GetTotal() As Long`, `Public Property Get Value() As String`|Its module: `Helpers`, `VBA.Interaction`|
+|A variable or a constant of a module|`Public Total As Long`, `Private Const Max As Long`|Its module|
+|A local, a parameter|`Dim count As Long`, `Static p As Point`, `ByVal amount As Long`|Its procedure: `Program.Main`|
+|An `Enum`, a `Type`|`Public Enum Colour`, `Public Type Point`|Its module|
+|A member of an `Enum`, a field of a `Type`|`Red`, `X As Long`|Its `Enum` or `Type`: `Helpers.Colour`|
+|A class or a module|`Class Class1`, `Module Helpers`|Nothing|
+
+The hover is Markdown - the declaration in a block of VBA, then what declares it and the symbol's doc string - for a client that reads Markdown
+(`hover.contentFormat`), and plain text for one that does not. "Member of" is said in the language of the user interface. No name, or a name whose meaning is
+not known (a member accessed late-bound), has no hover.
+
 ### `textDocument/definition`
 
 The language server answers `textDocument/definition` (**LSP 3.17** §Goto Definition Request) for the documents it holds, a `.rdc` program included. The name at

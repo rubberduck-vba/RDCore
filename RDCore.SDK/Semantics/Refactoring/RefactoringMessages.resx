@@ -61,4 +61,8 @@
   <data name="CodeAction_RenameTo" xml:space="preserve">
     <value>Rename '{0}' to '{1}'</value>
   </data>
+  <!-- What a hover says declares a symbol (SymbolHover): {0} is its module, procedure, Enum or Type. -->
+  <data name="Hover_MemberOf" xml:space="preserve">
+    <value>Member of {0}</value>
+  </data>
 </root>

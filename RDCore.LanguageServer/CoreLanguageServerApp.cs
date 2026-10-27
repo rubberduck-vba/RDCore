@@ -114,6 +114,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<Navigation.TypeHierarchySupertypesHandler>();
         builder.WithHandler<Navigation.TypeHierarchySubtypesHandler>();
         builder.WithHandler<WorkspaceSymbolHandler>();
+        builder.WithHandler<Navigation.HoverHandler>();
         builder.WithHandler<CodeActionHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
