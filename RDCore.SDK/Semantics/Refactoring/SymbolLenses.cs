@@ -18,7 +18,9 @@ public sealed record class SymbolLens(string Name, SourceRange NameRange);
 /// <remarks>
 /// A member is a procedure (<c>Sub</c>, <c>Function</c>, and each procedure of a property), a <c>Declare</c> statement, an <c>Event</c>, a <c>Type</c> or an
 /// <c>Enum</c> (<strong>MS-VBAL §5.2.3</strong>, §5.3). A variable or a constant of the module is not one, nor is a field of a <c>Type</c> or a member of an
-/// <c>Enum</c>. The procedures of a property are one symbol, and each says the references of all of them.
+/// <c>Enum</c>. Each procedure of a property says the names that call it: its <c>Property Get</c> those that read the property, its <c>Property Let</c>
+/// and <c>Property Set</c> those that assign it - a property that nothing assigns has a <c>Property Let</c> with no reference. The result that the body of a
+/// function or a <c>Property Get</c> assigns or reads is no reference of it; a recursive call is.
 /// </remarks>
 public static class SymbolLenses
 {
