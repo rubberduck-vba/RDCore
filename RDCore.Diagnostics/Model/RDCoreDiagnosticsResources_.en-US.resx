@@ -288,4 +288,7 @@
   <data name="ArgumentTypedArithmeticOverflow_Message" xml:space="preserve">
     <value>This operation is {0} arithmetic: MS-VBA types Abs, Int and Fix of a number as that number&apos;s type, where MS-VBAL declares them Variant. It can overflow (run-time error 6) where a Variant operation would widen to a larger type.</value>
   </data>
+  <data name="IgnoredTypeCharacter_Message" xml:space="preserve">
+    <value>The type character of this function does not match its declared type ({1}): MS-VBAL makes the name invalid, and MS-VBA ignores the character. Write &apos;{0}&apos; without it.</value>
+  </data>
 </root>

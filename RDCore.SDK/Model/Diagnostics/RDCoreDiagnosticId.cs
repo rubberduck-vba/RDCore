@@ -88,4 +88,5 @@ public enum RDCoreDiagnosticId
     VariantComparedWithStringAsText = 11013, // a Variant number compared with a String as text: MS-VBAL's table says type mismatch (13)
     LikePatternDeparture = 11017, // a Like pattern MS-VBA matches otherwise than MS-VBAL says: [] or [!], or an invalid element it raises 93 for only when reached
     ArgumentTypedArithmeticOverflow = 11018, // integer arithmetic of Abs/Int/Fix of a typed number: MS-VBA types the call, MS-VBAL declares Variant, which would widen
+    IgnoredTypeCharacter = 11019, // Len$, CVar$: a type character on a reserved function of the library, which MS-VBAL makes invalid and MS-VBA ignores
 }

@@ -136,6 +136,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.HungarianNotation, 1002),
         (RDCoreDiagnosticId.SetThroughACallFails, 11012),
         (RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow, 11018),
+        (RDCoreDiagnosticId.IgnoredTypeCharacter, 11019),
     ];
 
     [TestMethod]

@@ -572,5 +572,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ArgumentTypedArithmeticOverflow_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Le caractère de type de cette fonction ne correspond pas à son type déclaré ({1}) : MS-VBAL rend ce nom invalide, et MS-VBA ignore le caractère. Écrivez &apos;{0}&apos; sans lui..
+        /// </summary>
+        public static string IgnoredTypeCharacter_Message {
+            get {
+                return ResourceManager.GetString("IgnoredTypeCharacter_Message", resourceCulture);
+            }
+        }
     }
 }

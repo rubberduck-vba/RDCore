@@ -38,7 +38,8 @@ internal static class ExpressionFactDescriber
                 var symbol = context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol;
                 return symbol is null
                     ? new(expression.Identity, expression.Location, type, ExpressionClassification.Unknown, null, 0, error)
-                    : new(expression.Identity, expression.Location, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName), error);
+                    : new(expression.Identity, expression.Location, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName)
+                        | (Expressions.SimpleNameExpressionStaticSemantics.IgnoresTypeCharacter(name, symbol) ? ValueExpressionSemanticFlags.IgnoredTypeCharacter : 0), error);
             }
 
             case NewExpressionNode:

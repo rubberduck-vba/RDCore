@@ -81,4 +81,10 @@ public enum ValueExpressionSemanticFlags
     /// <c>As Variant</c>, has a <c>Variant</c> operation widen to a larger type (<see cref="Static.ArgumentTypedFunctions"/>).
     /// </summary>
     OverflowsWhereVariantWidens = 1 << 12,
+
+    /// <summary>
+    /// It is a name of a reserved function of the library written with a type character that does not match the function's declared type (<c>Len$</c>,
+    /// <c>CVar$</c>, <c>Abs%</c>): <strong>MS-VBAL §5.6.10</strong> makes the name invalid, and <strong>MS-VBA</strong> ignores the character.
+    /// </summary>
+    IgnoredTypeCharacter = 1 << 13,
 }
