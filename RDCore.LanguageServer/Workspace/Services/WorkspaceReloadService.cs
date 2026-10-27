@@ -57,7 +57,8 @@ internal sealed class WorkspaceReloadService(
 
     public async Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token)
     {
-        if (serverStateProvider.State.Value != ServerStateValue.Running || projectFiles.Project?.ProjectInfo is null)
+        // running, whatever the trace a client asked for: a server that is traced nothing is RunningTraceless, and still running.
+        if (serverStateProvider.State is not RunningServerState || projectFiles.Project?.ProjectInfo is null)
         {
             logger.LogInformation("The project file changed before a workspace was loaded; it is read when the workspace is.");
             return null;

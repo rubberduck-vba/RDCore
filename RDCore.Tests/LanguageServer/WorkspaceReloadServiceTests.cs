@@ -152,6 +152,26 @@ public sealed class WorkspaceReloadServiceTests
     }
 
     [TestMethod]
+    [DataRow(InitializeTrace.Off, DisplayName = "traced nothing (a client that asks for no trace)")]
+    [DataRow(InitializeTrace.Messages, DisplayName = "traced messages")]
+    [DataRow(InitializeTrace.Verbose, DisplayName = "traced verbosely")]
+    public async Task AServerThatRuns_Reloads_WhateverTheTraceTheClientAskedFor(InitializeTrace trace)
+    {
+        _state.State.Returns(trace switch
+        {
+            InitializeTrace.Off => new RunningTracelessServerState(),
+            InitializeTrace.Verbose => new RunningVerboseServerState(),
+            _ => ServerState.Running,
+        });
+        await LoadAsync("A.bas");
+        WriteProject("A.bas", "B.cls");
+
+        var result = await _sut.ReloadAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, result?.Added);
+    }
+
+    [TestMethod]
     public async Task BeforeTheServerRuns_NothingIsReloaded()
     {
         _state.State.Returns(ServerState.Initializing);
