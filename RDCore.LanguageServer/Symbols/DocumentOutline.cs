@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -42,7 +43,7 @@ internal static class DocumentOutline
 
         var workspaceRoot = new Uri(document.WorkspaceRoot);
         var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(document.RelativePath);
-        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var moduleType = ParsingClientService.ModuleTypeOf(document);
         var moduleKind = moduleType == ModuleType.ClassModule ? SymbolKindExt.Class : SymbolKindExt.Module;
 

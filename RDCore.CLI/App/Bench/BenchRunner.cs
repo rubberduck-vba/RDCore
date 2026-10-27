@@ -100,7 +100,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
             var parse = new ModuleParser().Parse(new Uri(fileSystem.Path.Combine(workspace.Root, module.RelativePath)), module.Source);
             if (parse.IsSuccess && parse.SyntaxTree is not null)
             {
-                parsed.Add((module, new UriBuilder(root) { Fragment = module.Name }.Uri, parse));
+                parsed.Add((module, SymbolUri.Module(root, module.Name), parse));
             }
             else
             {

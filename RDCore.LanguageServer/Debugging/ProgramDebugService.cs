@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.LanguageServer.Debugging;
 
@@ -222,7 +223,7 @@ internal sealed class ProgramDebugService(
             return (null, DebuggerMessages.ExpressionIsOneLine);
         }
 
-        var document = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = fragment }.Uri;
+        var document = SymbolUri.Module(options.Value.Workspace.WorkspaceUri, fragment);
         var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __{fragment}()\r\n__e = {expression}\r\nEnd Sub\r\n", token);
         if (!parsed.IsSuccess || parsed.SyntaxTree is null)
         {
@@ -250,7 +251,7 @@ internal sealed class ProgramDebugService(
         var source = trimmed.StartsWith('?') ? $"Debug.Print {trimmed[1..].TrimStart()}" : trimmed;
 
         // a statement is parsed in a procedure of its own, which is where the parser has statements.
-        var document = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = "Execute" }.Uri;
+        var document = SymbolUri.Module(options.Value.Workspace.WorkspaceUri, "Execute");
         var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __Execute()\r\n{source}\r\nEnd Sub\r\n", token);
         if (!parsed.IsSuccess || parsed.SyntaxTree is null)
         {
