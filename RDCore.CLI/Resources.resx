@@ -256,6 +256,30 @@ Long Live the Cucumber (Latin)</comment>
   <data name="NewWorkspace_InvalidPath" xml:space="preserve">
     <value>The path points to an existing file, not a directory.</value>
   </data>
+  <data name="ImportProject_Summary" xml:space="preserve">
+    <value>Makes the .rdproj of a VB6 project (.vbp), in the folder of the .vbp.</value>
+  </data>
+  <data name="ImportProject_Title" xml:space="preserve">
+    <value>Import VB6 Project</value>
+  </data>
+  <data name="ImportProject_Created" xml:space="preserve">
+    <value>Project '{0}' imported to {1}</value>
+  </data>
+  <data name="ImportProject_Counts" xml:space="preserve">
+    <value>{0} module(s), {1} reference(s), {2} note(s)</value>
+  </data>
+  <data name="ImportProject_AlreadyExists" xml:space="preserve">
+    <value>A .rdproj already exists there; pass --force to overwrite it.</value>
+  </data>
+  <data name="ImportProject_NotFound" xml:space="preserve">
+    <value>'{0}' was not found.</value>
+  </data>
+  <data name="ImportProject_NoProject" xml:space="preserve">
+    <value>'{0}' has no VB6 project (.vbp) to import.</value>
+  </data>
+  <data name="ImportProject_SeveralProjects" xml:space="preserve">
+    <value>'{0}' has several VB6 projects: name the .vbp to import.</value>
+  </data>
   <data name="Repl_Ready" xml:space="preserve">
     <value>READY.</value>
   </data>
