@@ -136,6 +136,32 @@ public sealed class WorkProgressIntegrationTests
         }
     }
 
+    // work that is to end: its end is waited for, as long as a loaded machine takes to deliver it (a full suite running alongside took longer than a settle),
+    // and then whatever would follow it - a second end, which is what some tests count - is given its time too.
+    private static async Task<WorkProgressState[]> EndedAsync(Connected connected)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (DateTime.UtcNow < deadline && !HasEnded(connected))
+        {
+            await Task.Delay(25);
+        }
+
+        return await SettledAsync(connected);
+    }
+
+    private static bool HasEnded(Connected connected)
+    {
+        lock (connected.Seen)
+        {
+            if (connected.Seen.Count > 0 && connected.Seen[^1].IsDone)
+            {
+                return true;
+            }
+        }
+
+        return EndsOn(connected) > 0;
+    }
+
     [TestMethod]
     public async Task TheWorkDoneForARequest_IsReportedToItsToken_BegunReportedAndEnded()
     {
@@ -145,7 +171,7 @@ public sealed class WorkProgressIntegrationTests
         using (connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token)))
         {
             await connected.Client.SendRequest(new WorkParams { WorkDoneToken = token }, CancellationToken.None);
-            var seen = await SettledAsync(connected);
+            var seen = await EndedAsync(connected);
 
             Assert.AreEqual("Working", seen[0].Title);
             Assert.AreEqual("first", seen[0].Message, "the work begins with the last step it reported before it was worth reporting");
@@ -177,7 +203,7 @@ public sealed class WorkProgressIntegrationTests
                 // the request failed, as it was made to: what was reported of its work is what is counted
             }
 
-            await SettledAsync(connected);
+            await EndedAsync(connected);
         }
 
         Assert.AreEqual(1, EndsOn(connected), "one end for the work, as it is sent");
@@ -195,7 +221,7 @@ public sealed class WorkProgressIntegrationTests
             await Task.Delay(200);
         }
 
-        await SettledAsync(connected);
+        await EndedAsync(connected);
         Assert.AreEqual(1, EndsOn(connected), "one end for the work, as it is sent");
     }
 
@@ -222,7 +248,7 @@ public sealed class WorkProgressIntegrationTests
             await Task.Delay(100);
         }
 
-        var seen = await SettledAsync(connected);
+        var seen = await EndedAsync(connected);
         Assert.AreEqual("Parsing the workspace", seen[0].Title);
         Assert.AreEqual(WorkProgressOrigin.Server, seen[0].Origin);
         Assert.IsTrue(seen.Any(state => state.Message == "Module2 (2 of 2)"));
@@ -252,7 +278,7 @@ public sealed class WorkProgressIntegrationTests
         using var tracking = connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token));
         await Assert.ThrowsAsync<Exception>(() => connected.Client.SendRequest(new WorkParams { WorkDoneToken = token, Throws = true }, CancellationToken.None));
 
-        var seen = await SettledAsync(connected);
+        var seen = await EndedAsync(connected);
         Assert.IsTrue(seen.Length > 0 && seen[^1].IsDone, "progress completion is always reported");
     }
 
