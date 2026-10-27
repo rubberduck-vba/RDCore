@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Folding;
 
@@ -48,7 +49,23 @@ internal sealed class FoldingRangeHandler(
             return new Container<FoldingRange>();
         }
 
-        return new Container<FoldingRange>(FoldingRangeProjector.Project(module).ToArray());
+        var ranges = FoldingRangeProjector.Project(module);
+
+        // a program of the platform's BASIC is parsed as the body of a procedure it does not write: its folds are moved to its lines, and that procedure,
+        // which begins on the header, has none.
+        if (BasicProgramText.IsProgram(request.TextDocument.Uri.GetFileSystemPath()))
+        {
+            ranges = ranges
+                .Where(range => range.StartLine >= BasicProgramText.HeaderLines)
+                .Select(range => new FoldingRange
+                {
+                    StartLine = range.StartLine - BasicProgramText.HeaderLines,
+                    EndLine = range.EndLine - BasicProgramText.HeaderLines,
+                    Kind = range.Kind,
+                });
+        }
+
+        return new Container<FoldingRange>(ranges.ToArray());
     }
 
     protected override FoldingRangeRegistrationOptions CreateRegistrationOptions(

@@ -144,4 +144,19 @@ public sealed class FoldingRangeHandlerTests
 
         return [.. ranges!.Select(range => $"{range.StartLine}:{range.StartCharacter}-{range.EndLine}:{range.EndCharacter} {range.Kind}")];
     }
+
+    // a program is parsed as the body of a Main procedure it does not write, which folded the whole program from a line before its first to one after its
+    // last: that procedure has no fold.
+    [TestMethod]
+    public async Task AProgram_HasNoFold_OfTheProcedureItIsTheBodyOf()
+    {
+        var program = new WorkspaceDocument("Main.rdc", WorkspaceRoot, "10 Dim x As Long\r\n20 x = 1\r\n30 Debug.Print x\r\n", version: 1);
+        var uri = program.Id.Uri.ToUri();
+        WorkspaceContains(program);
+        _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(program)));
+
+        var ranges = await Sut().Handle(new FoldingRangeRequestParam { TextDocument = new TextDocumentIdentifier(uri) }, CancellationToken.None);
+
+        Assert.IsEmpty(ranges!);
+    }
 }
