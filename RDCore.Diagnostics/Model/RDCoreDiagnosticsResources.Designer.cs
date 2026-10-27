@@ -554,7 +554,8 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("LikePatternDeparture_InvalidPattern_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; compare un Variant qui contient une String qui n&apos;est pas un nombre à un nombre, une date ou un Boolean : MS-VBA classe la String au-dessus, quelles que soient les valeurs, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13)..
         /// </summary>
         public static string VariantStringThatIsNoNumberRanked_Message {
