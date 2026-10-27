@@ -421,6 +421,35 @@ public sealed class SymbolNavigationTests
             Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Maths"), At(context, "Maths", "Function Twice", "Twice"), includeDeclaration: false)));
     }
 
+    // MS-VBAL §5.6.2.1: a name that refers to the enclosing function evaluates to its return value; with an argument list, it calls the function again.
+    [TestMethod]
+    public void TheResultAFunctionReads_IsNoReferenceOfIt_ARecursiveCallIs()
+    {
+        var context = Compose(("Maths", Module("Maths",
+            "Option Explicit",
+            "Public Function Fact(ByVal n As Long) As Long",
+            "    If n <= 1 Then",
+            "        Fact = 1",
+            "    Else",
+            "        Fact = n * Fact(n - 1)",
+            "    End If",
+            "End Function",
+            "Public Function Counter() As Long",
+            "    Counter = Counter + 1",
+            "    Debug.Print Counter",
+            "End Function")));
+        string[] Of(string line, string name) => Referenced(context,
+            SymbolNavigation.ReferencesAt(context, ModuleUri("Maths"), At(context, "Maths", line, name), includeDeclaration: false));
+
+        CollectionAssert.AreEqual(new[] { "Maths:Fact = n * Fact(n - 1)" }, Of("Function Fact", "Fact"), "the recursive call, and not the result");
+        Assert.IsEmpty(Of("Function Counter", "Counter"), "what its body assigns and reads is its result");
+        CollectionAssert.AreEqual(new[]
+        {
+            "Maths:Public Function Counter() As Long", "Maths:Counter = Counter + 1", "Maths:Counter = Counter + 1", "Maths:Debug.Print Counter",
+        }, Referenced(context, SymbolNavigation.OccurrencesAt(context, ModuleUri("Maths"), At(context, "Maths", "Function Counter", "Counter"))),
+            "a rename renames the result too");
+    }
+
     [TestMethod]
     public void AClass_IsReferredTo_WhereATypeNamesIt()
     {

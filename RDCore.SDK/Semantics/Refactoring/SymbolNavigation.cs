@@ -103,7 +103,8 @@ public static class SymbolNavigation
     /// Each procedure of a property is referred to by the names that call it (<strong>MS-VBAL §5.3.1.7</strong>): its <c>Property Get</c> by those that read
     /// the property, its <c>Property Let</c> by the targets of Let-assignments, and its <c>Property Set</c> by the targets of Set-assignments. The procedure is
     /// the one whose name is at <paramref name="position"/>, or the one the name there calls; a rename renames all of them (<see cref="OccurrencesAt"/>). The
-    /// name of a function or a <c>Property Get</c> that its own body assigns is its result, and refers to no procedure.
+    /// name of a function or a <c>Property Get</c> that its own body assigns, or reads as a simple name, is its result, and refers to no procedure
+    /// (<strong>MS-VBAL §5.6.2.1</strong>); with an argument list, it is a recursive call, and a reference.
     /// </remarks>
     public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
         => NamesOf(context, module, position, includeDeclaration, byAccess: true);

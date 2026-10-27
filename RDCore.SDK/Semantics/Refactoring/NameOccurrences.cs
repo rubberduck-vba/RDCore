@@ -46,8 +46,8 @@ internal enum NameAccess
     Set,
 
     /// <summary>
-    /// It is the result of the function or the <c>Property Get</c> whose body assigns it - its function result variable (<strong>MS-VBAL §5.3.1</strong>): the
-    /// procedure's own name, which calls no procedure.
+    /// It is the result of the function or the <c>Property Get</c> whose body assigns it or reads it - its function result variable (<strong>MS-VBAL §5.3.1</strong>,
+    /// §5.6.2.1): the procedure's own name, which calls no procedure.
     /// </summary>
     Result,
 }
@@ -129,19 +129,39 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     }
 
     /// <summary>
-    /// The names the assignments of a module assign, by where each begins: the target of a Let-assignment or a Set-assignment, a simple name or the member
-    /// after a <c>.</c>, called with arguments or not (<c>Title(1) = x</c>). Every other name of the module is read (<see cref="NameAccess.Read"/>).
+    /// How the names of a module that are not read are used, by where each begins: the target of a Let-assignment or a Set-assignment, a simple name or the
+    /// member after a <c>.</c>, called with arguments or not (<c>Title(1) = x</c>), and the result a function or a <c>Property Get</c> is. Every other name of
+    /// the module is read (<see cref="NameAccess.Read"/>).
     /// </summary>
     /// <remarks>
-    /// The name of a function or of a <c>Property Get</c> that its own body assigns is its result (<see cref="NameAccess.Result"/>); a <c>Property Let</c> or
-    /// <c>Set</c> has none, and its name that its body assigns calls it again. An <c>LSet</c> or <c>RSet</c> assigns a variable (<strong>MS-VBAL §5.4.3.6</strong>,
-    /// §5.4.3.7), as a Let-assignment does.
+    /// <para>
+    /// The name of a function or of a <c>Property Get</c> that its own body assigns is its result (<see cref="NameAccess.Result"/>), and so is the name its body
+    /// reads as a simple name: a name that refers to the enclosing procedure evaluates to its return value (<strong>MS-VBAL §5.6.2.1</strong>). Its name with an
+    /// argument list (<c>Fact(n - 1)</c>), in a call statement, or after a <c>.</c> (<c>Me.Value</c>) calls it again, and is read. A
+    /// <c>Property Let</c> or <c>Set</c> has no result, and its name that its body assigns calls it again.
+    /// </para>
+    /// <para>
+    /// An <c>LSet</c> or <c>RSet</c> assigns a variable (<strong>MS-VBAL §5.4.3.6</strong>, §5.4.3.7), as a Let-assignment does.
+    /// </para>
     /// </remarks>
     public static IReadOnlyDictionary<SourcePosition, NameAccess> AssignedIn(RenameModule module)
     {
         var assigned = new Dictionary<SourcePosition, NameAccess>();
         foreach (var procedure in module.Syntax.Descendants().OfType<MemberDeclarationNode>().Where(member => Procedures.Contains(member.MemberKind)))
         {
+            if (procedure.MemberKind is MemberKind.Function or MemberKind.PropertyGet)
+            {
+                foreach (var (node, parent) in Walk(procedure))
+                {
+                    if (node is SimpleNameExpressionNode name
+                        && string.Equals(name.IdentifierName, procedure.Name, StringComparison.OrdinalIgnoreCase)
+                        && parent is not (IndexExpressionNode or MemberAccessExpressionNode or CallStatementNode))
+                    {
+                        assigned[name.Location.Range.Start] = NameAccess.Result;
+                    }
+                }
+            }
+
             foreach (var assignment in procedure.Descendants().OfType<AssignmentStatementNode>())
             {
                 if (AssignedName(assignment.Target) is not { } name)
