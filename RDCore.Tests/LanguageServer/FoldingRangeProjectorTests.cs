@@ -254,4 +254,78 @@ public sealed class FoldingRangeProjectorTests
         Assert.HasCount(1, ranges);
         AssertRange(ranges.Single(), 1, 2);
     }
+
+    // the ranges of the blocks: what has no kind.
+    private static List<(int Start, int End)> Blocks(List<FoldingRange> ranges)
+        => [.. ranges.Where(range => range.Kind is null).Select(range => (range.StartLine, range.EndLine))];
+
+    [TestMethod]
+    public void EveryKindOfBlock_FoldsFromItsFirstLineToItsLast_WithNoKind()
+    {
+        var ranges = Project(
+            "Attribute VB_Name = \"Mod1\"",
+            "Public Sub Alpha(ByVal items As Collection)",
+            "    If True Then",
+            "        Debug.Print 1",
+            "    End If",
+            "    Select Case 1",
+            "        Case 1",
+            "            Debug.Print 1",
+            "    End Select",
+            "    Dim i As Long",
+            "    For i = 1 To 2",
+            "    Next",
+            "    Dim item As Variant",
+            "    For Each item In items",
+            "    Next",
+            "    Do While i > 0",
+            "        i = i - 1",
+            "    Loop",
+            "    Do",
+            "    Loop Until i = 0",
+            "    While i < 1",
+            "        i = i + 1",
+            "    Wend",
+            "    With items",
+            "        .Add 1",
+            "    End With",
+            "End Sub");
+
+        AssertRange(ranges.First(range => range.Kind is not null), 1, 26);
+        CollectionAssert.AreEqual(
+            new List<(int, int)> { (2, 4), (5, 8), (10, 11), (13, 14), (15, 17), (18, 19), (20, 22), (23, 25) },
+            Blocks(ranges));
+    }
+
+    [TestMethod]
+    public void ABlockInABlock_Folds_AndTheBranchesOfOneFoldWithIt()
+    {
+        var ranges = Project(
+            "Attribute VB_Name = \"Mod1\"",
+            "Public Sub Alpha()",
+            "    If True Then",
+            "        Debug.Print 1",
+            "    ElseIf False Then",
+            "        With New Collection",
+            "            .Add 1",
+            "        End With",
+            "    Else",
+            "        Debug.Print 2",
+            "    End If",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new List<(int, int)> { (2, 10), (5, 7) }, Blocks(ranges));
+    }
+
+    [TestMethod]
+    public void ASingleLineIf_DoesNotFold()
+    {
+        var ranges = Project(
+            "Attribute VB_Name = \"Mod1\"",
+            "Public Sub Alpha()",
+            "    If True Then Debug.Print 1 Else Debug.Print 2",
+            "End Sub");
+
+        Assert.IsEmpty(Blocks(ranges));
+    }
 }

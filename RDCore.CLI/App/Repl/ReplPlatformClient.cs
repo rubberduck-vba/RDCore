@@ -56,6 +56,15 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<ReplFold>> GetBlockFoldsAsync(Uri document, CancellationToken token)
+    {
+        // a block's range has no kind; a procedure's is a region (FoldingRangeProjector).
+        var ranges = await client.SendRequestAsync<FoldingRangeRequestParam, Container<FoldingRange>?>(
+            new FoldingRangeRequestParam { TextDocument = new TextDocumentIdentifier(document) }, token);
+        return ranges is null ? [] : [.. ranges.Where(range => range.Kind is null).Select(range => new ReplFold(range.StartLine, range.EndLine))];
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token)
     {
         // the report is read as a record of its own: OmniSharp reads no RelatedDocumentDiagnosticReport (DocumentDiagnosticPullParams).

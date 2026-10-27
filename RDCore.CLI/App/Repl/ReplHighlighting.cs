@@ -40,6 +40,9 @@ public enum ReplTextStyle
     /// <summary>The mark in the margin of a line that has a breakpoint - the theme's <c>debug.breakpoint-glyph</c>.</summary>
     BreakpointGlyph,
 
+    /// <summary>Text that is there to be seen but is not the line itself, faint: the ghost text of a completion, the first line of a folded block.</summary>
+    Ghost,
+
 }
 
 /// <summary>

@@ -421,6 +421,18 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>NO BREAKPOINTS</value>
   </data>
+  <data name="Repl_Fold_Summary" xml:space="preserve">
+    <value>Folds the block that starts at a line (an If, a Select Case, a loop, a With) in a listing, or unfolds it (FOLD 40).</value>
+  </data>
+  <data name="Repl_Fold_Folded" xml:space="preserve">
+    <value>BLOCK FOLDED AT {0}</value>
+  </data>
+  <data name="Repl_Fold_Unfolded" xml:space="preserve">
+    <value>BLOCK UNFOLDED AT {0}</value>
+  </data>
+  <data name="Repl_Fold_None" xml:space="preserve">
+    <value>NO FOLDING EXISTS AT {0}</value>
+  </data>
   <data name="Repl_Suspended" xml:space="preserve">
     <value>PROGRAM STOPPED: CONT, STEP, RUN OR NEW</value>
   </data>

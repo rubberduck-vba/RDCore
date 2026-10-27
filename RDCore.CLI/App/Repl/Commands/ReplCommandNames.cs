@@ -13,6 +13,7 @@ internal static class ReplCommandNames
     public const string Ducky = "DUCKY";
     public const string Cont = "CONT";
     public const string Frame = "FRAME";
+    public const string Fold = "FOLD";
     public const string Continue = "CONTINUE"; // alias for CONT
     public const string Exit = "EXIT";
     public const string Help = "HELP";

@@ -879,6 +879,42 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Breakpoint_None", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Folds the block that starts at a line (an If, a Select Case, a loop, a With) in a listing, or unfolds it (FOLD 40)..
+        /// </summary>
+        public static string Repl_Fold_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Fold_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to BLOCK FOLDED AT {0}.
+        /// </summary>
+        public static string Repl_Fold_Folded {
+            get {
+                return ResourceManager.GetString("Repl_Fold_Folded", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to BLOCK UNFOLDED AT {0}.
+        /// </summary>
+        public static string Repl_Fold_Unfolded {
+            get {
+                return ResourceManager.GetString("Repl_Fold_Unfolded", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to NO FOLDING EXISTS AT {0}.
+        /// </summary>
+        public static string Repl_Fold_None {
+            get {
+                return ResourceManager.GetString("Repl_Fold_None", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to BREAKPOINT SET AT {0}.

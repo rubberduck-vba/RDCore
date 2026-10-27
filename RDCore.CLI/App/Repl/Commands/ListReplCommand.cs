@@ -9,6 +9,11 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// <remarks>
 /// The argument is a BASIC line range: <c>LIST</c>, <c>LIST 100</c>, <c>LIST 100-200</c>,
 /// <c>LIST 100-</c> (from there on) or <c>LIST -200</c> (up to there).
+/// <para>
+/// The margin has two lanes. The first marks the line a block starts at - an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds; the
+/// second, next to the line, marks a breakpoint. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
+/// after it, to its <c>End</c>.
+/// </para>
 /// </remarks>
 internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
 {
@@ -20,6 +25,10 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     private static readonly string disabledGlyph = "○";
     private static readonly string conditionalGlyph = "◆";
     private static readonly string disabledConditionalGlyph = "◈";
+
+    // the marks of a block, as an emoji - two cells - where the console draws one, and in ASCII where it does not.
+    private static readonly (string Open, string Folded) emojiFoldGlyphs = ("🔽", "🔼");
+    private static readonly (string Open, string Folded) asciiFoldGlyphs = ("-", "+");
 
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
@@ -37,9 +46,31 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
         var highlighted = lines.Length == 0 ? null : await TokensByLineAsync(context, token);
         var debugger = context.Debugger;
 
+        // the blocks, by the index of the line each starts at; and the lines a folded one hides, which are the ones after its first, to its last.
+        var blocks = new Dictionary<int, ReplFold>();
+        foreach (var fold in lines.Length == 0 ? [] : await BlockFoldsAsync(context, token))
+        {
+            blocks.TryAdd(fold.StartLine, fold);
+        }
+
+        var hidden = new HashSet<int>(blocks.Values
+            .Where(fold => context.Program.NumberAt(fold.StartLine) is { } start && context.Folds.IsFolded(start))
+            .SelectMany(fold => Enumerable.Range(fold.StartLine + 1, fold.EndLine - fold.StartLine)));
+        var glyphs = context.Console.DrawsUnicode ? emojiFoldGlyphs : asciiFoldGlyphs;
+        var foldLane = blocks.Count == 0 ? 0 : App.Console.ConsoleText.WidthOf(glyphs.Open);
+
         foreach (var (number, statement) in lines)
         {
+            var index = context.Program.IndexOf(number);
+            if (hidden.Contains(index))
+            {
+                continue;
+            }
+
             var text = $"{number} {statement}";
+            var folded = blocks.ContainsKey(index) && context.Folds.IsFolded(number);
+            var foldMark = !blocks.ContainsKey(index) ? new ReplTextRun(new string(' ', foldLane), ReplTextStyle.Plain)
+                : new ReplTextRun(folded ? glyphs.Folded : glyphs.Open, ReplTextStyle.Plain);
 
             // A listing has a margin of one character for the mark of a breakpoint, and a space between it and the line. The line is marked as a whole when it has
             // one the program waits at, or is the statement the program that was stopped waits before; the mark in the margin is outside that, on the shell's own
@@ -51,21 +82,46 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
                     breakpoint.Enabled ? conditionalGlyph : disabledConditionalGlyph
                 : breakpoint.Enabled ? enabledGlyph : disabledGlyph;
 
-            var margin = breakpoint != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
+            var breakpointMark = breakpoint != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
 
             var style = waitsBefore ? ReplLineStyle.CurrentStatement
                 : breakpoint != default && breakpoint.Enabled ? ReplLineStyle.Breakpoint
                 : ReplLineStyle.Plain;
 
             var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
-            ReplTextRun[] runs = highlighted is not null && highlighted.TryGetValue(context.Program.IndexOf(number), out var tokens)
-                ? [padding, .. ReplHighlighter.Runs(text, tokens)]
+            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, text, foldLane + 1 + padding.Text.Length), ReplTextStyle.Ghost)]
+                : highlighted is not null && highlighted.TryGetValue(index, out var tokens) ? [padding, .. ReplHighlighter.Runs(text, tokens)]
                 : [padding, new ReplTextRun(text, ReplTextStyle.Plain)];
-            context.Console.WriteListingLine(margin, runs, style);
+            context.Console.WriteListingLine([foldMark, breakpointMark], runs, style);
         }
 
         context.Console.WriteLine();
         return ReplCommandResult.Continue;
+    }
+
+    // the first line of a folded block, cut with an ellipsis to what is left of the console's width after the margin; as it is when the width cannot be told.
+    private static string FittedToTheConsole(IReplConsole console, string text, int before)
+        => console.Width > before ? App.Console.ConsoleText.Truncate(text, console.Width - before - 1) : text;
+
+    /// <summary>
+    /// The blocks of the program, as the language server answers <c>textDocument/foldingRange</c>; none when it cannot be asked.
+    /// </summary>
+    /// <remarks>The <c>FOLD</c> command reads them as a listing does.</remarks>
+    internal static async Task<IReadOnlyList<ReplFold>> BlockFoldsAsync(ReplCommandContext context, CancellationToken token)
+    {
+        try
+        {
+            if (!await context.Document.EnsureOpenAsync(token) || context.Document.Uri is not { } document)
+            {
+                return [];
+            }
+
+            return await context.Platform.GetBlockFoldsAsync(document, token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return [];
+        }
     }
 
     // the language server says what each token of the program is, by the line of the program it is on. A listing it cannot highlight is a listing all the same.

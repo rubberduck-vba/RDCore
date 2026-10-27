@@ -419,6 +419,18 @@
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>AUCUN POINT D'ARRÊT</value>
   </data>
+  <data name="Repl_Fold_Summary" xml:space="preserve">
+    <value>Réduit le bloc qui commence à une ligne (un If, un Select Case, une boucle, un With) dans un listage, ou le développe (FOLD 40).</value>
+  </data>
+  <data name="Repl_Fold_Folded" xml:space="preserve">
+    <value>BLOC RÉDUIT À {0}</value>
+  </data>
+  <data name="Repl_Fold_Unfolded" xml:space="preserve">
+    <value>BLOC DÉVELOPPÉ À {0}</value>
+  </data>
+  <data name="Repl_Fold_None" xml:space="preserve">
+    <value>AUCUN BLOC À RÉDUIRE À {0}</value>
+  </data>
   <data name="Repl_Suspended" xml:space="preserve">
     <value>PROGRAMME INTERROMPU : CONT, STEP, RUN OU NEW</value>
   </data>

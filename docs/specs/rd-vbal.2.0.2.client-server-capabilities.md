@@ -191,7 +191,7 @@ A verb is registered once. It is registered again only when its descriptor chang
 - the value of a setting with the values of the setting its form names (`ValueOf`), as it is written before it: `True` and `False`, or the names of a choice. Other values are offered nothing;
 - a path or text with nothing.
 
-A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line), `THEME` (`LIST`, `<theme>`) and `CONFIG` (`RESET [setting]`, `<setting> [value]`; [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)) the first time one is completed. A command it does not describe is offered nothing after its verb.
+A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line), `FOLD` (`<line>`), `THEME` (`LIST`, `<theme>`) and `CONFIG` (`RESET [setting]`, `<setting> [value]`; [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)) the first time one is completed. A command it does not describe is offered nothing after its verb.
 
 ### `textDocument/signatureHelp` and `rdcore/session/signatureHelp`
 
@@ -426,6 +426,23 @@ The language server answers `textDocument/selectionRange` (**LSP 3.17** §Select
 step: each node of the syntax tree written around the position, from a name through its expression, its statement, the block of a structured statement and
 the procedure, to everything the module declares ([`SyntaxSelection`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxSelection.html)). Each step is in the next.
 A position that no node is written around is answered with the empty range at it. For a `.rdc` program, ranges are in its lines.
+
+### `textDocument/foldingRange`
+
+The language server answers `textDocument/foldingRange` (**LSP 3.17** §Folding Range Request) with what folds in a module:
+
+|What|From, to|Kind|
+|---|---|---|
+|A member declaration that spans more than one line: a procedure, a property accessor, a `Type`, an `Enum`, a `Declare` broken over lines|its first line, to its `End` statement|`region`|
+|A block that spans more than one line, however deep: `If`, `Select Case`, `For`, `For Each`, a `Do` or `While` loop, `With`|its first line, to its `End` (`End If`, `Next`, `Loop`, ...)|none|
+
+The branches of a block (`ElseIf`, `Else`, `Case`) fold with it, not apart; a single-line `If` does not fold. A client tells a block from a member by the kind.
+For a `.rdc` program, ranges are in its lines, and the procedure its lines are the body of has none.
+
+The interactive shell folds blocks only. `FOLD <line>` folds the block that starts at that line, or unfolds it; a line that starts none is the error
+`NO FOLDING EXISTS AT <line>`. `LIST` has a lane in its margin for the mark of a block (🔽 open, 🔼 folded; `-` and `+` on a console that draws no emoji),
+before the lane of a breakpoint, which is next to the line. A folded block is listed as its first line, faint as ghost text and cut with `…` to the console's
+width. A fold is on a line number, as a breakpoint is, and `NEW` and `LOAD` clear them.
 
 ### `workspace/didChangeWatchedFiles`
 

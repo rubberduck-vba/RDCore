@@ -43,10 +43,16 @@ public interface IReplConsole
     void WriteLine(IReadOnlyList<ReplTextRun> runs);
 
     /// <summary>Writes one line of a listing: a margin, and the line itself, which a breakpoint or the statement a stopped program waits before marks as a whole.</summary>
-    /// <param name="margin">The one character of the margin, which is outside the marking.</param>
+    /// <param name="margin">The lanes of the margin - the mark of a block that folds, then the mark of a breakpoint - which are outside the marking.</param>
     /// <param name="runs">The runs of the line, in order.</param>
     /// <param name="style">How the whole line is marked, from its first character to the end of the console's width.</param>
-    void WriteListingLine(ReplTextRun margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style);
+    void WriteListingLine(IReadOnlyList<ReplTextRun> margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style);
+
+    /// <summary>How many cells wide a line of the console is; 0 when it cannot be told.</summary>
+    int Width { get; }
+
+    /// <summary>Whether the console draws Unicode symbols, emoji among them; a console that does not is written in ASCII.</summary>
+    bool DrawsUnicode { get; }
 
     /// <summary>Writes a themed platform message.</summary>
     /// <param name="kind">The message kind, which selects the icon and accent style.</param>
@@ -108,6 +114,14 @@ public interface IReplPlatformClient
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>The tokens in the order they are in the document; none when the language server has none to give.</returns>
     Task<IReadOnlyList<ReplSemanticToken>> GetSemanticTokensAsync(Uri document, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server what folds in a document (<c>textDocument/foldingRange</c>), and keeps the blocks: a listing folds a block, not a procedure.
+    /// </summary>
+    /// <param name="document">The document's URI; the language server answers for the text it has of it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The blocks, by the zero-based lines of the document they start and end at; none when the language server has none to give.</returns>
+    Task<IReadOnlyList<ReplFold>> GetBlockFoldsAsync(Uri document, CancellationToken token);
 
     /// <summary>
     /// Asks the language server what it finds in a document (<c>textDocument/diagnostic</c>): the diagnostics as an editor gets them, with what fixes them in
@@ -360,6 +374,11 @@ public sealed record class ReplCommandContext(
     /// What the shell knows of the program under a debugger: whether it is running or waits, where, and the lines that have breakpoints.
     /// </summary>
     public ReplDebugger Debugger { get; init; } = new();
+
+    /// <summary>
+    /// The blocks of the program that are folded in a listing (<c>FOLD</c>).
+    /// </summary>
+    public ReplFolds Folds { get; init; } = new();
 }
 
 /// <summary>
