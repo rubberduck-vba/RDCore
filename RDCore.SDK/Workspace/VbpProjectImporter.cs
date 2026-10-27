@@ -20,8 +20,8 @@ public enum VbpImportNoteKind
     Control,
 
     /// <summary>
-    /// A file outside of the folder of the project (<c>..\Shared\Utils.bas</c>): it belongs to another project, whose folder is a workspace folder of its own
-    /// - the platform never takes in a folder outside the workspace folders it is given. Referencing that project is not implemented yet.
+    /// A file outside of the folder of the project (<c>..\Shared\Utils.bas</c>): a module of this project, as in VB6, whose folder is a source folder the client
+    /// adds to the workspace - the platform never takes in a folder outside the workspace folders it is given. Not carried over until source folders are taken in.
     /// </summary>
     OutsideProjectFolder,
 
