@@ -43,7 +43,7 @@ public interface IReplConsole
     void WriteLine(IReadOnlyList<ReplTextRun> runs);
 
     /// <summary>Writes one line of a listing: a margin, and the line itself, which a breakpoint or the statement a stopped program waits before marks as a whole.</summary>
-    /// <param name="margin">The lanes of the margin - the mark of a block that folds, then the mark of a breakpoint - which are outside the marking.</param>
+    /// <param name="margin">The lanes of the margin - the mark of a breakpoint, at the edge, then the mark of a block that folds, next to the line - which are outside the marking.</param>
     /// <param name="runs">The runs of the line, in order.</param>
     /// <param name="style">How the whole line is marked, from its first character to the end of the console's width.</param>
     void WriteListingLine(IReadOnlyList<ReplTextRun> margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style);

@@ -11,8 +11,8 @@ namespace RDCore.Tests.Cli.Repl;
 
 /// <summary>
 /// <c>FOLD</c> and the margin of <c>LIST</c>: a block of the program - as the language server says it folds - is folded and unfolded by the line it starts at,
-/// a folded one is its first line, faint and cut to the console's width, and the margin has a lane for the mark of a block before the breakpoint's, next to
-/// the line.
+/// a folded one is its first line, faint and cut to the console's width, and the margin has a lane for a breakpoint at the edge, and one for the mark of a
+/// block next to the line.
 /// </summary>
 [TestClass]
 public sealed class ReplFoldTests
@@ -70,7 +70,7 @@ public sealed class ReplFoldTests
         var listed = await ListAsync();
         CollectionAssert.AreEqual(new[] { "10 x = 1", "20 If x > 0 Then", "50 Print \"done\"" }, listed.Select(line => TextOf(line.Runs)).ToArray());
         Assert.AreEqual(ReplTextStyle.Ghost, listed[1].Runs[^1].Style);
-        Assert.AreEqual("+", listed[1].Margin[0].Text, "the mark of a folded block, in ASCII on a console that draws no emoji");
+        Assert.AreEqual("+", listed[1].Margin[1].Text, "the mark of a folded block, in ASCII on a console that draws no emoji");
     }
 
     [TestMethod]
@@ -82,8 +82,8 @@ public sealed class ReplFoldTests
         _console.Received(1).WriteLine(string.Format(Resources.Repl_Fold_Unfolded, 20));
         var listed = await ListAsync();
         Assert.HasCount(5, listed);
-        Assert.AreEqual("-", listed[1].Margin[0].Text, "the mark of a block that is open");
-        Assert.AreEqual(" ", listed[0].Margin[0].Text, "a line that starts no block has the lane, blank");
+        Assert.AreEqual("-", listed[1].Margin[1].Text, "the mark of a block that is open");
+        Assert.AreEqual(" ", listed[0].Margin[1].Text, "a line that starts no block has the lane, blank");
         Assert.AreNotEqual(ReplTextStyle.Ghost, listed[1].Runs[^1].Style);
     }
 
@@ -117,7 +117,7 @@ public sealed class ReplFoldTests
     }
 
     [TestMethod]
-    public async Task AConsoleThatDrawsEmoji_HasTheirMarks_AndTheBreakpointKeepsTheLaneNextToTheLine()
+    public async Task AConsoleThatDrawsEmoji_HasTheirMarks_AndTheBreakpointKeepsTheLaneAtTheEdge()
     {
         _console.DrawsUnicode.Returns(true);
         _context.Debugger.ToggleBreakpoint(20);
@@ -125,9 +125,9 @@ public sealed class ReplFoldTests
         var listed = await ListAsync();
 
         Assert.HasCount(2, listed[1].Margin);
-        Assert.AreEqual("🔽", listed[1].Margin[0].Text);
-        Assert.AreEqual(ReplTextStyle.BreakpointGlyph, listed[1].Margin[1].Style, "the breakpoint's lane is the right-most one");
-        Assert.AreEqual("  ", listed[0].Margin[0].Text, "the lane is the emoji's two cells wide on every line");
+        Assert.AreEqual(ReplTextStyle.BreakpointGlyph, listed[1].Margin[0].Style, "the breakpoint's lane is the left-most one, at the edge");
+        Assert.AreEqual("🔽", listed[1].Margin[1].Text, "and the fold lane is next to the line");
+        Assert.AreEqual("  ", listed[0].Margin[1].Text, "the fold lane is the emoji's two cells wide on every line");
     }
 
     [TestMethod]
