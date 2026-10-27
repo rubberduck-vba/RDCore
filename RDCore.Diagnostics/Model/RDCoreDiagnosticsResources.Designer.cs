@@ -248,6 +248,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplicitArrayDeclaration_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The return value of &apos;{0}&apos; is used as an implicit local variable. Declare a local to work with, and assign it to &apos;{0}&apos; once, at the end..
+        /// </summary>
+        public static string ImplicitResultLocal_Message {
+            get {
+                return ResourceManager.GetString("ImplicitResultLocal_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended)..

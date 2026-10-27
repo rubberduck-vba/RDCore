@@ -38,6 +38,7 @@ public enum RDCoreDiagnosticId
     ImplicitNarrowingConversion = 112, // a value converted into a type that holds less of it, with no conversion function to say so
     ImplicitWideningConversion = 113,
     ImplicitArrayDeclaration = 114, // a ReDim whose name matches nothing declares the array it re-dimensions: a Dim before it says so
+    ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,
