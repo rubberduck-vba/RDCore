@@ -384,6 +384,8 @@
   href: rdc00112.md
 - name: RDC00114 — Implicit array declaration
   href: rdc00114.md
+- name: RDC00115 — Implicit result local
+  href: rdc00115.md
 - name: RDC00201 — Integer data type declaration
   href: rdc00201.md
 - name: RDC00202 — Module-scope Dim declaration

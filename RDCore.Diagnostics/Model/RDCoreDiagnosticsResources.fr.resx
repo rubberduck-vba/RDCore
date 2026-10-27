@@ -192,6 +192,9 @@
   <data name="ImplicitArrayDeclaration_Message" xml:space="preserve">
     <value>Ce ReDim déclare le tableau '{0}', dont le nom ne désigne rien d'autre. Déclarez-le avant, avec Dim {0}() As ..., pour qu'un nom mal orthographié ne déclare pas un nouveau tableau.</value>
   </data>
+  <data name="ImplicitResultLocal_Message" xml:space="preserve">
+    <value>La valeur de retour de '{0}' est utilisée comme une variable locale implicite. Déclarez une variable locale pour faire le travail, et assignez-la à '{0}' une seule fois, à la fin.</value>
+  </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
     <value>'{0}' retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c'est voulu).</value>
   </data>

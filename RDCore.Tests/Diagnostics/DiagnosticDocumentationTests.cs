@@ -114,6 +114,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ImplicitPublicMember, 105),
         (RDCoreDiagnosticId.ImplicitVariantDeclaration, 106),
         (RDCoreDiagnosticId.ImplicitVariantReturnType, 107),
+        (RDCoreDiagnosticId.ImplicitResultLocal, 115),
         (RDCoreDiagnosticId.IntegerDataTypeDeclaration, 201),
         (RDCoreDiagnosticId.ModuleScopeDimDeclaration, 202),
         (RDCoreDiagnosticId.MultilineParameterDeclaration, 203),
