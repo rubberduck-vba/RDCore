@@ -51,6 +51,13 @@ public sealed class CallArgumentPayloadTests
         DisplayName = "a ParamArray")]
     [DataRow("Private Sub S(Optional ByVal A As Long = 5, Optional ByVal B As Long = 6) ;; Debug.Print A * 10 + B ;; End Sub", "S ;; S B:=1 ;; S , 2", "56/51/52",
         DisplayName = "omitted, by name and by position")]
+    // an omitted argument that a ParamArray collects is an element that is missing, as an omitted Optional Variant is (MS-VBA: oracle\ismissing Q01-Q04).
+    [DataRow("Private Function T(ParamArray r() As Variant) As String ;; Dim k As Long, s As String ;; s = UBound(r) & \":\" ;; For k = 0 To UBound(r) ;; s = s & IsMissing(r(k)) & TypeName(r(k)) & \",\" ;; Next ;; T = s ;; End Function ;; "
+        + "Private Function U(ByVal a As Long, ParamArray r() As Variant) As String ;; U = a & \":\" & UBound(r) & IsMissing(r(0)) & VarType(r(0)) ;; End Function ;; "
+        + "Private Sub S(ParamArray r() As Variant) ;; Debug.Print UBound(r) & IsMissing(r(0)) ;; End Sub",
+        "Debug.Print T(1, , 3) ;; Debug.Print T(, 2) ;; Debug.Print T(, , 2) ;; Debug.Print U(1, , 3) ;; S , 2 ;; Call S(, 2)",
+        "2:FalseInteger,TrueError,FalseInteger,/1:TrueError,FalseInteger,/2:TrueError,TrueError,FalseInteger,/1:1True10/1True/1True",
+        DisplayName = "omitted, collected by a ParamArray")]
     public void AnArgument_IsGivenToItsParameter(string procedures, string body, string printed)
         => Assert.AreEqual(printed, Run(procedures, body));
 

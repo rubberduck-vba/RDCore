@@ -2279,6 +2279,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         for (var i = 0; i < count; i++)
         {
             var argumentNode = elementNodes.IsDefault ? argumentNodes[i] : elementNodes[i].Expression;
+
+            // an omitted argument is an element that is missing, as an omitted Optional Variant is (MS-VBA, recorded in Excel: oracle\ismissing Q01-Q04).
+            if (argumentNode is MissingArgumentNode)
+            {
+                array.TrySetElement(BindingKnowledge.NewCell(new VBVariantValue(VBMissingValue.Missing)), i);
+                continue;
+            }
+
             RuntimeSemanticsEvaluationResult? evaluatedInstead = null;
             if (TryReferenceVariable(session, context, argumentNode, elementNodes.IsDefault ? null : elementNodes[i], parameter, borrowed, out var variable,
                     out evaluatedInstead))
