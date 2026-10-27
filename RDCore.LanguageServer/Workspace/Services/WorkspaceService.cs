@@ -274,6 +274,11 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         // state per file and each transition is only valid from a tracked Unloaded state.
         documentStateProvider.Initialize(files);
 
+        // what the project lists as other files is loaded and tracked, and never parsed as code: a resource file, a README.
+        documentService.SetOtherFiles(ProjectInfo.OtherFiles
+            .Where(file => !ProjectInfo.Modules.Any(module => string.Equals(module.RelativeUri, file.RelativeUri, StringComparison.OrdinalIgnoreCase)))
+            .Select(file => new TextDocumentIdentifier(ioPath.Combine(workspaceRoot, file.RelativeUri))));
+
         await Task.WhenAll(files.Select(documentService.TryLoadAsync));
         if (logger.IsEnabled(LogLevel.Information))
         {

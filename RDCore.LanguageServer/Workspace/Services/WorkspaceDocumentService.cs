@@ -24,7 +24,20 @@ internal interface IWorkspaceDocumentService
     /// </remarks>
     string WorkspaceRoot { get; }
 
+    /// <summary>
+    /// Every document whose text is code: the modules of the project, and what a client opens. The files the project lists as other files
+    /// (<see cref="SetOtherFiles"/>) are documents the workspace holds, and none of its code: a resource file, a <c>README</c> or a UserControl is never parsed.
+    /// </summary>
     IEnumerable<WorkspaceDocument> GetAllDocuments();
+
+    /// <summary>
+    /// Says which documents are the files the project lists as other files (<c>OtherFiles</c> of the <c>.rdproj</c>), and no module: they are loaded and
+    /// tracked as any document is, found by <see cref="TryGetDocument"/>, and left out of <see cref="GetAllDocuments"/>. Whoever applies a project says so,
+    /// each time it does.
+    /// </summary>
+    /// <param name="ids">Every other file of the project: one said before and not now is a document of code again.</param>
+    void SetOtherFiles(IEnumerable<TextDocumentIdentifier> ids);
+
     bool TryGetDocument(Uri documentUri, out WorkspaceDocument document);
     void Initialize(string workspaceRoot);
     Task<bool> TryLoadAsync(TextDocumentIdentifier id);
@@ -121,7 +134,16 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         logger.LogInformation("✅ Initialize completed.");
     }
 
-    public IEnumerable<WorkspaceDocument> GetAllDocuments() => [.. _documents.Values];
+    // the files the project lists that are no modules: replaced whole each time a project is applied, while requests answered in parallel read it.
+    private volatile IReadOnlySet<TextDocumentIdentifier> _otherFiles = new HashSet<TextDocumentIdentifier>();
+
+    public IEnumerable<WorkspaceDocument> GetAllDocuments()
+    {
+        var others = _otherFiles;
+        return [.. _documents.Where(document => !others.Contains(document.Key)).Select(document => document.Value)];
+    }
+
+    public void SetOtherFiles(IEnumerable<TextDocumentIdentifier> ids) => _otherFiles = new HashSet<TextDocumentIdentifier>(ids);
 
     public bool TryGetDocument(Uri documentUri, out WorkspaceDocument document)
     {

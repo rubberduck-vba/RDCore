@@ -268,6 +268,9 @@ internal sealed class WorkspaceReloadService(
         var before = FilesOf(project);
         var after = FilesOf(projectFiles.Project);
 
+        // what the project now lists as other files is no code, whatever it was before.
+        documents.SetOtherFiles(after.Where(file => !file.Value).Select(file => IdOf(projectFiles.Project.Uri, file.Key)));
+
         var removed = before.Keys.Where(path => !after.ContainsKey(path)).ToList();
         var added = after.Keys.Where(path => !before.ContainsKey(path)).ToList();
 

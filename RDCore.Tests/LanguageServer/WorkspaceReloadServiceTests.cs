@@ -64,11 +64,14 @@ public sealed class WorkspaceReloadServiceTests
         => _host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(result));
 
-    private void WriteProject(params string[] modules)
+    private void WriteProject(params string[] modules) => WriteProject(modules, others: []);
+
+    private void WriteProject(string[] modules, string[] others)
         => _files.AddFile(Path.Combine(Root, ProjectFile.FileName), new MockFileData(JsonSerializer.Serialize(new ProjectFile(Root, new RDCoreProject
         {
             Name = "Reloaded",
             Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module })],
+            OtherFiles = [.. others.Select(other => new RDCoreFile { RelativeUri = other })],
         }))));
 
     // the workspace as the server loads it when it initializes: the project file read, and each file it lists loaded.
@@ -100,6 +103,34 @@ public sealed class WorkspaceReloadServiceTests
         await _parsing.Received(1).ParseDocumentAsync(UriOf("B.cls"), Arg.Any<CancellationToken>());
         await _host.Received(1).SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>());
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    // a resource file the project gained is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    [TestMethod]
+    public async Task AnOtherFileTheProjectGained_IsLoaded_AndNotParsed()
+    {
+        _files.AddFile(Path.Combine(Root, "res", "App.res"), new MockFileData([0x00, 0x00, 0x20, 0x00, 0xFF, 0xFF]));
+        await LoadAsync("A.bas");
+        WriteProject(["A.bas"], ["res/App.res"]);
+
+        await _sut.ReloadAsync(CancellationToken.None);
+
+        Assert.IsTrue(_documents.TryGetDocument(UriOf(Path.Combine("res", "App.res")), out _));
+        CollectionAssert.AreEqual(new[] { "A.bas" }, _documents.GetAllDocuments().Select(document => document.RelativePath).ToArray());
+        await _parsing.DidNotReceive().ParseDocumentAsync(UriOf(Path.Combine("res", "App.res")), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AnOtherFileTheProjectMadeAModule_IsCodeAgain()
+    {
+        await LoadAsync("A.bas");
+        WriteProject(["A.bas"], ["B.cls"]);
+        await _sut.ReloadAsync(CancellationToken.None);
+        WriteProject("A.bas", "B.cls");
+
+        await _sut.ReloadAsync(CancellationToken.None);
+
+        CollectionAssert.AreEquivalent(new[] { "A.bas", "B.cls" }, _documents.GetAllDocuments().Select(document => document.RelativePath).ToArray());
     }
 
     [TestMethod]
