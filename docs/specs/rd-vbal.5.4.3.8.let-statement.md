@@ -44,6 +44,11 @@ library's (`Now`, `Timer`) as the workspace's: what it returns is assigned throu
 |A property of a module of such a type|[`VBC09341`](../diagnostics/vbc09341.md) _Can't assign to read-only property_|`Timer = 5`|
 |One that takes an argument|[`VBC09339`](../diagnostics/vbc09339.md) _Argument not optional_|`Left = "x"`, `Strings.Left = "x"`, `Environ = "x"`|
 
+An array is assigned an array, or a `Variant` that may hold one (and a `Byte()` a `String`, **MS-VBAL §5.5.1.2.6**). A fixed-size array is assigned nothing,
+and a resizable array - declared (`Dim a() As Long`), or implicitly by a `ReDim` - no number, `String` (but a `Byte()`'s), `Boolean` or `Date`: both are
+[`VBC09360`](../diagnostics/vbc09360.md) _Can't assign to array_, as in MS-VBA (recorded in Excel), before what the value would be Let-coerced to: `a = 5` of a
+`Dim a() As Variant` is refused. A `Variant` that holds no array is error 13 when the statement runs.
+
 What passes is called when the statement runs, given the arguments written after it, if any (`G() = 6`,
 `Left("ab", 1) = "x"`): what it returns is assigned through its default member (`Err = 5` assigns `Err.Number`), and
 what returns no object is error `424` (`Command = "x"`, `Now = 5`, a `Variant` function of the workspace). A function of
