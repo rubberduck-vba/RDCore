@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Progress;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 
 namespace RDCore.LanguageServer.Diagnostics;
@@ -13,13 +14,14 @@ namespace RDCore.LanguageServer.Diagnostics;
 /// <see cref="IDocumentDiagnosticsService"/> and returns the aggregated diagnostics — already LSP
 /// <see cref="Diagnostic"/>s, projected by the provider — as a related full or unchanged report.
 /// </summary>
-internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diagnostics, IWorkProgressReporter progress) : DocumentDiagnosticHandlerBase
+internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diagnostics, IWorkProgressReporter progress, IncomingDocumentChanges incoming) : DocumentDiagnosticHandlerBase
 {
     public override async Task<RelatedDocumentDiagnosticReport> Handle(DocumentDiagnosticParams request, CancellationToken cancellationToken)
     {
         var documentUri = request.TextDocument.Uri.ToUri();
         using var work = progress.BeginFor(request, string.Format(ProgressMessages.Analyzing, Path.GetFileNameWithoutExtension(documentUri.AbsolutePath)));
-        var result = await diagnostics.GetAsync(documentUri, request.PreviousResultId, cancellationToken, work);
+        // a change to the document that arrives meanwhile ends the pull, answered ContentModified: the change, and the client's next request, don't wait for it.
+        var result = await incoming.WhileCurrentAsync(documentUri, cancellationToken, token => diagnostics.GetAsync(documentUri, request.PreviousResultId, token, work));
 
         if (result.Unchanged)
         {
