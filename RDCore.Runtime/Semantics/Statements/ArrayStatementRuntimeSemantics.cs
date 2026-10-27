@@ -96,8 +96,9 @@ public sealed record class ArrayStatementRuntimeSemantics(
             // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
             // value type is not an array" - which MS-VBA reads as a ReDim Preserve, the one that has the elements of an array to keep: a plain
             // ReDim makes the Variant an array whatever it held, a number, a String, an object or Null (recorded in Excel, oracle\findings-labels
-            // V01, V04-V06), and only a ReDim Preserve of a Variant holding a value raises 13 (V02). One that holds nothing yet is dimensioned.
-            return redim.IsPreserve && held is not (null or VBEmptyValue)
+            // V01, V04-V06), and a ReDim Preserve of a Variant that holds no array raises 13 (V02), the Empty it starts as too, and leaves what it held
+            // (oracle\s44 H01-H05, H07). A variable declared as an array that holds nothing yet is dimensioned.
+            return redim.IsPreserve && target.Declared is not VBArrayType
                 ? Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array")
                 : Store(session, context, redim, target, Redimensioned(Resized(session, bounds, stated ?? ItemTypeOf(target.Current))));
         }
