@@ -28,7 +28,8 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
         Configuration = [];
     }
 
-    // a copy is of the same project file, made by the same version: only a write stamps the version of the platform that writes it (WithCurrentVersion).
+    // a copy is of the same project file: made by the same version - only a write stamps the version of the platform that writes it (WithCurrentVersion) - and
+    // as synthesized as it was, until it is written.
     public ProjectFile(ProjectFile source)
     {
         ArgumentNullException.ThrowIfNull(source, nameof(source));
@@ -36,6 +37,8 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
         Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
         Version = source.Version;
+        IsSynthesized = source.IsSynthesized;
+        // deliberate: a copy is a new, clean value, and a change says it is dirty (the With* methods, ProjectFileService.Update).
         IsDirty = false;
         Configuration = source.Configuration;
     }

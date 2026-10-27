@@ -44,6 +44,20 @@ public sealed class ProjectFileWriterTests
         Assert.AreEqual(ProjectFile.CurrentVersion, (await new ProjectFileLoader(fileSystem).LoadAsync(Root)).Version, "stamped by the write");
     }
 
+    // a project the platform made up for a folder stays one, however it is changed, until it is written: a copy keeps what the project file is.
+    [TestMethod]
+    public async Task ASynthesizedProject_StaysSynthesized_WhenItIsChanged()
+    {
+        var fileSystem = new MockFileSystem();
+        fileSystem.AddFile(Path.Combine(Root, "Program.bas"), new MockFileData("Attribute VB_Name = \"Program\"\r\n"));
+        var synthesized = await new ProjectFileLoader(fileSystem).LoadOrSynthesizeAsync(Root, SupportedLanguages.RDVBA);
+
+        Assert.IsTrue(synthesized.IsSynthesized);
+        Assert.IsTrue(synthesized.WithUri(Root).IsSynthesized);
+        Assert.IsTrue(synthesized.WithFolder("src").IsSynthesized);
+        Assert.IsTrue((synthesized with { ProjectInfo = synthesized.ProjectInfo with { Name = "Renamed" } }).IsSynthesized);
+    }
+
     [TestMethod]
     public async Task SaveAsync_RoundTripsThroughTheLoader()
     {
