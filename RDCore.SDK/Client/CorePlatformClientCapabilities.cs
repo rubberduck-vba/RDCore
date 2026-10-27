@@ -78,6 +78,12 @@ public class EnvironmentHostCapabilities
     public SessionDiscard SessionDiscard { get; set; } = new();
 
     /// <summary>
+    /// If supported, the environment host composes its runtime session again from the project file as it is now, over <c>rdcore/host/project/reload</c>: the
+    /// modules a rewritten <c>.rdproj</c> lists, which the next definition of the workspace defines.
+    /// </summary>
+    public ProjectReload ProjectReload { get; set; } = new();
+
+    /// <summary>
     /// If supported, the environment host can run a program so that it stops and waits where a <c>Stop</c> or a break puts it, and resumes, steps or ends it
     /// over <c>rdcore/host/debug/*</c>.
     /// </summary>
@@ -190,6 +196,12 @@ public static class RDCorePlatformProtocol
     /// by a client.
     /// </summary>
     public const string HostDiscard = "rdcore/host/discard";
+
+    /// <summary>
+    /// Asks the environment host to compose its runtime session again from the project file as it is now: what the language server asks once a client said the
+    /// <c>.rdproj</c> changed (<c>workspace/didChangeWatchedFiles</c>), before it defines the workspace again. Never sent by a client.
+    /// </summary>
+    public const string HostProjectReload = "rdcore/host/project/reload";
 
     /// <summary>
     /// Tells the language server what a program printed, as it prints: a notification from the environment host, sent for a program that was run with
@@ -356,6 +368,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(ParseFullDocument))]
 [JsonDerivedType(typeof(ParseTokens))]
 [JsonDerivedType(typeof(DefineSymbols))]
+[JsonDerivedType(typeof(ProjectReload))]
 [JsonDerivedType(typeof(CliCommand))]
 [JsonDerivedType(typeof(DiagnoseDocument))]
 [JsonDerivedType(typeof(SessionStatus))]
@@ -414,6 +427,16 @@ public record class SessionExecute(bool IsSupported = false) : CorePlatformClien
 /// What a client that clears a program means by it: the variables the program made go with the program, which defining it again never takes out.
 /// </remarks>
 public record class SessionDiscard(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component composes its runtime session again from the project file as it is now, over <c>rdcore/host/project/reload</c>
+/// between the language server and the component that owns the runtime session.
+/// </summary>
+/// <remarks>
+/// A class module's symbol is composed from the project, not from the definition of its members: a class the project gained since the session was composed
+/// is not one until the session is composed again. A program that is running or waits keeps the session it runs in.
+/// </remarks>
+public record class ProjectReload(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring component can run a program under a debugger: the program waits where a <c>Stop</c> or a break puts it

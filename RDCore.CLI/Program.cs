@@ -44,6 +44,8 @@ using System.Runtime.CompilerServices;
 
 // platform capabilities provided by rdc.exe in environment-host mode:
 [assembly: ProvidesCorePlatformClientCapability<DefineSymbols>]
+// it composes its session from the project file, and does so again when the project file changes:
+[assembly: ProvidesCorePlatformClientCapability<ProjectReload>]
 // the environment host owns the runtime session, so it answers for its state:
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
@@ -545,6 +547,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<HostSessionStatusHandler>()
             .WithHandler<HostExecuteHandler>()
             .WithHandler<HostDiscardHandler>()
+            .WithHandler<HostProjectReloadHandler>()
             .WithHandler<HostDebugResumeHandler>()
             .WithHandler<HostDebugPauseHandler>()
             .WithHandler<HostDebugGotoHandler>()
@@ -564,6 +567,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
     protected override void ConfigureServices(IServiceCollection services)
         => services
             .AddSingleton(sessionProvider)
+            .AddSingleton(projectFileLoader)
             .AddSingleton(_ => ExternalServices.GetRequiredService<IVerboseMessageBuilder>());
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }

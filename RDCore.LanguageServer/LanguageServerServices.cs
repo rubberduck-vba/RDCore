@@ -72,6 +72,7 @@ internal static class LanguageServerServices
                 provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RDCore.SDK.Server.Configuration.SdkAppOptions>>().Value.Environment.Is64Bit))
             .AddSingleton<IReferencedLibraryService, ReferencedLibraryService>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
+            .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>();
@@ -103,6 +104,7 @@ internal static class LanguageServerServices
                             SessionStatus = new SessionStatus(true),
                             SessionExecute = new SessionExecute(true),
                             SessionDiscard = new SessionDiscard(true),
+                            ProjectReload = new ProjectReload(true),
                             ProgramDebugging = new ProgramDebugging(true),
                             SessionMemoryAccess = new SessionMemoryAccess(true),
                         }

@@ -28,7 +28,9 @@ internal interface ISymbolSyncService
     /// </summary>
     /// <param name="token">A token that cancels the sync.</param>
     /// <param name="progress">Where each module is reported as it is defined, and then as its code is loaded.</param>
-    Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null);
+    /// <param name="replace">Whether a module the host has already been sent is defined again, which a workspace that was loaded again asks for: a module it
+    /// gained can declare the type another one names. The first sync of a workspace defines each module once.</param>
+    Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null, bool replace = false);
 
     /// <summary>
     /// Sends the symbols of one parsed module to the environment host.
@@ -156,7 +158,7 @@ internal sealed class SymbolSyncService(
         return moduleUri;
     }
 
-    public async Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null)
+    public async Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null, bool replace = false)
     {
         try
         {
@@ -202,7 +204,7 @@ internal sealed class SymbolSyncService(
                 try
                 {
                     totalDefined += await DefineModuleSymbolsAsync(
-                        workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: false, token, declareTypesOnly: true);
+                        workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace, withCode: false, token, declareTypesOnly: true);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -216,7 +218,7 @@ internal sealed class SymbolSyncService(
                 Step(ProgressMessages.Defining, module.Name);
                 try
                 {
-                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: false, token);
+                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace, withCode: false, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
