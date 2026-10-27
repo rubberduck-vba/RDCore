@@ -1,0 +1,250 @@
+using RDCore.LanguageServer.Symbols;
+using RDCore.Parsing;
+using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Semantics.Refactoring;
+using RDCore.Symbols;
+
+namespace RDCore.Tests.Semantics.Refactoring;
+
+/// <summary>
+/// A navigation from a name leads to where its symbol is defined (<strong>LSP 3.17</strong> §Goto Definition Request): in any module of the workspace, the name
+/// bound as a rename binds it.
+/// </summary>
+[TestClass]
+public sealed class SymbolNavigationTests
+{
+    private static readonly Uri Root = new("file://rdcore-test");
+
+    private static readonly string Class1 = Lines(
+        "VERSION 1.0 CLASS",
+        "BEGIN",
+        "  MultiUse = -1  'True",
+        "END",
+        "Attribute VB_Name = \"Class1\"",
+        "Option Explicit",
+        "Private mValue As String",
+        "Public Property Get Value() As String",
+        "    Value = mValue",
+        "End Property",
+        "Public Property Let Value(ByVal v As String)",
+        "    mValue = v",
+        "End Property");
+
+    private static readonly string Helpers = Module("Helpers",
+        "Option Explicit",
+        "Public Total As Long",
+        "Public Sub Add(ByVal amount As Long)",
+        "    Total = Total + amount",
+        "End Sub");
+
+    private static readonly string Program = Module("Program",
+        "Option Explicit",
+        "Public Sub Main()",
+        "    Dim count As Long",
+        "    count = 1",
+        "    Add count",
+        "    Debug.Print Total",
+        "    Dim c As Class1",
+        "    Set c = New Class1",
+        "    c.Value = \"x\"",
+        "    Debug.Print c.Value",
+        "    Dim o As Object",
+        "    o.Value = 1",
+        "    MsgBox Total",
+        "End Sub");
+
+    private static string Lines(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
+
+    private static string Module(string name, params string[] lines) => Lines([$"Attribute VB_Name = \"{name}\"", .. lines]);
+
+    // the workspace of the modules, by name: a .cls when the source is a class's.
+    private static RenameContext Compose(params (string Name, string Source)[] modules)
+    {
+        var parsed = modules.Select(module =>
+        {
+            var isClass = module.Source.StartsWith("VERSION", StringComparison.Ordinal);
+            var parse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{module.Name}{(isClass ? ".cls" : ".bas")}"), module.Source);
+            Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+            return (Uri: ModuleUri(module.Name), Type: isClass ? ModuleType.ClassModule : ModuleType.StdModule, Parse: parse, module.Source);
+        }).ToList();
+
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [.. parsed.Select(module => (module.Uri, module.Type, module.Parse))], new IntrinsicSymbolResolver());
+        return new RenameContext(composition.Resolver, composition.ScopeTree, [.. parsed.Select(module => new RenameModule(module.Uri, module.Parse.SyntaxTree!, module.Source))]);
+    }
+
+    private static RenameContext Workspace() => Compose(("Class1", Class1), ("Helpers", Helpers), ("Program", Program));
+
+    private static Uri ModuleUri(string name) => new UriBuilder(Root) { Fragment = name }.Uri;
+
+    // the position of the `occurrence`th `text` on the first line that has `line`, in the module.
+    private static SourcePosition At(RenameContext context, string module, string line, string text, int occurrence = 1)
+    {
+        var lines = Source(context, module);
+        var index = Array.FindIndex(lines, candidate => candidate.Contains(line, StringComparison.Ordinal));
+        Assert.IsTrue(index >= 0, $"no line has '{line}'");
+        var character = -1;
+        for (var found = 0; found < occurrence; found++)
+        {
+            character = lines[index].IndexOf(text, character + 1, StringComparison.Ordinal);
+        }
+
+        Assert.IsTrue(character >= 0, $"'{line}' has no {occurrence} '{text}'");
+        return new SourcePosition(index, character + 1);
+    }
+
+    private static string[] Source(RenameContext context, string module)
+        => context.Modules.Single(candidate => candidate.Module.Fragment == "#" + module).Source.Split("\r\n");
+
+    // what the site selects, as it is written in the module that declares it.
+    private static string Selected(RenameContext context, SymbolSite site)
+    {
+        var line = Source(context, site.Module.Fragment.TrimStart('#'))[site.SelectionRange.Start.Line];
+        return line[site.SelectionRange.Start.Character..site.SelectionRange.End.Character];
+    }
+
+    private static SymbolSite SingleSite(RenameContext context, string module, string line, string text, int occurrence = 1)
+    {
+        var target = SymbolNavigation.DefinitionsAt(context, ModuleUri(module), At(context, module, line, text, occurrence));
+        Assert.IsNotNull(target, $"'{text}' on '{line}' leads nowhere");
+        return target.Sites.Single();
+    }
+
+    [TestMethod]
+    public void ALocalVariable_IsDefinedByItsDim()
+    {
+        var context = Workspace();
+        var site = SingleSite(context, "Program", "count = 1", "count");
+
+        Assert.AreEqual("#Program", site.Module.Fragment);
+        Assert.AreEqual(At(context, "Program", "Dim count", "count").Line, site.SelectionRange.Start.Line);
+        Assert.AreEqual("count", Selected(context, site));
+    }
+
+    [TestMethod]
+    public void AProcedureOfAnotherModule_IsDefinedThere_FromItsFirstLineToItsEnd()
+    {
+        var context = Workspace();
+        var site = SingleSite(context, "Program", "Add count", "Add");
+
+        Assert.AreEqual("#Helpers", site.Module.Fragment);
+        Assert.AreEqual("Add", Selected(context, site));
+        var lines = Source(context, "Helpers");
+        Assert.StartsWith("Public Sub Add", lines[site.Range.Start.Line]);
+        Assert.AreEqual("End Sub", lines[site.Range.End.Line].Trim());
+    }
+
+    [TestMethod]
+    public void AVariableOfAnotherModule_IsDefinedThere()
+    {
+        var context = Workspace();
+        var site = SingleSite(context, "Program", "Debug.Print Total", "Total");
+
+        Assert.AreEqual("#Helpers", site.Module.Fragment);
+        Assert.AreEqual("Total", Selected(context, site));
+    }
+
+    [TestMethod]
+    public void AParameter_IsDefinedInTheSignature()
+    {
+        var context = Workspace();
+        var site = SingleSite(context, "Helpers", "Total = Total + amount", "amount");
+
+        Assert.AreEqual(At(context, "Helpers", "Public Sub Add", "amount").Line, site.SelectionRange.Start.Line);
+        Assert.AreEqual("amount", Selected(context, site));
+    }
+
+    // a property is defined by each of its procedures: what an access calls is not known from the name alone.
+    [TestMethod]
+    [DataRow("c.Value = \"x\"", DisplayName = "assigned")]
+    [DataRow("Debug.Print c.Value", DisplayName = "read")]
+    public void APropertyOfAClass_IsDefinedByEachOfItsProcedures(string line)
+    {
+        var context = Workspace();
+        var target = SymbolNavigation.DefinitionsAt(context, ModuleUri("Program"), At(context, "Program", line, "Value"));
+
+        Assert.IsNotNull(target);
+        Assert.IsTrue(target.Sites.All(site => site.Module.Fragment == "#Class1"));
+        CollectionAssert.AreEqual(new[] { "Public Property Get Value() As String", "Public Property Let Value(ByVal v As String)" },
+            target.Sites.Select(site => Source(context, "Class1")[site.Range.Start.Line]).ToArray());
+        Assert.IsTrue(target.Sites.All(site => Selected(context, site) == "Value"));
+    }
+
+    [TestMethod]
+    [DataRow("Dim c As Class1", DisplayName = "a declared type")]
+    [DataRow("Set c = New Class1", DisplayName = "a New")]
+    public void AClass_IsDefinedByItsModule(string line)
+    {
+        var context = Workspace();
+        var site = SingleSite(context, "Program", line, "Class1");
+
+        Assert.AreEqual("#Class1", site.Module.Fragment);
+        Assert.AreEqual(default, site.SelectionRange.Start);
+    }
+
+    [TestMethod]
+    public void ADeclaration_IsItsOwnDefinition()
+    {
+        var context = Workspace();
+        var site = SingleSite(context, "Program", "Dim count", "count");
+
+        Assert.AreEqual(At(context, "Program", "Dim count", "count").Line, site.SelectionRange.Start.Line);
+    }
+
+    [TestMethod]
+    public void TheNavigation_StartsFromTheNameAsItIsWritten()
+    {
+        var context = Workspace();
+        var position = At(context, "Program", "Debug.Print Total", "Total");
+        var target = SymbolNavigation.DefinitionsAt(context, ModuleUri("Program"), position)!;
+
+        Assert.AreEqual(new SourceRange(position.Line, position.Character - 1, position.Line, position.Character + 4), target.Origin);
+    }
+
+    // a member accessed late-bound is not known to be any symbol's.
+    [TestMethod]
+    public void ALateBoundMember_LeadsNowhere()
+    {
+        var context = Workspace();
+
+        Assert.IsNull(SymbolNavigation.DefinitionsAt(context, ModuleUri("Program"), At(context, "Program", "o.Value = 1", "Value")));
+    }
+
+    [TestMethod]
+    public void AMemberOfTheLibrary_IsNoPlaceOfTheWorkspace()
+    {
+        var context = Workspace();
+        var target = SymbolNavigation.DefinitionsAt(context, ModuleUri("Program"), At(context, "Program", "MsgBox Total", "MsgBox"));
+
+        Assert.IsEmpty(target?.Sites ?? []);
+    }
+
+    [TestMethod]
+    public void NoName_LeadsNowhere()
+    {
+        var context = Workspace();
+
+        Assert.IsNull(SymbolNavigation.DefinitionsAt(context, ModuleUri("Program"), At(context, "Program", "count = 1", "=")));
+    }
+
+    // MS-VBAL 3.4: a name declared in each branch of an #If is defined by each branch the precompiler has not excluded.
+    [TestMethod]
+    public void ANameDeclaredInEachBranchOfAnIf_IsDefinedByEach()
+    {
+        var context = Compose(("Module1", Module("Module1",
+            "#If VBA7 Then",
+            "Private Value As LongPtr",
+            "#Else",
+            "Private Value As Long",
+            "#End If",
+            "Public Sub Main()",
+            "    Value = 1",
+            "End Sub")));
+
+        var target = SymbolNavigation.DefinitionsAt(context, ModuleUri("Module1"), At(context, "Module1", "    Value = 1", "Value"));
+
+        Assert.IsNotNull(target);
+        CollectionAssert.AreEqual(new[] { 2, 4 }, target.Sites.Select(site => site.SelectionRange.Start.Line).ToArray());
+    }
+}

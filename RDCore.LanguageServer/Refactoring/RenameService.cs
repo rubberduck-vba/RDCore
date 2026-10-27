@@ -216,6 +216,32 @@ internal sealed class RenameWorkspace
             .Select(target => (target.Name, module.ToTextRange(target.Range).Start))];
     }
 
+    /// <summary>
+    /// Where the symbol named at a position of a document is defined (<see cref="SymbolNavigation.DefinitionsAt"/>): each place, in the text of the document
+    /// that declares it, with the name the navigation starts from.
+    /// </summary>
+    /// <returns>Each place; none where no name is written, where what the name refers to is not known, or where no document of the workspace declares it.</returns>
+    public IReadOnlyList<LocationLink> Definitions(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || SymbolNavigation.DefinitionsAt(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+        {
+            return [];
+        }
+
+        var origin = module.ToTextRange(target.Origin);
+        return [.. target.Sites
+            .Select(site => (Site: site, Document: _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+            .Where(found => found.Document is not null)
+            .Select(found => new LocationLink
+            {
+                OriginSelectionRange = origin,
+                TargetUri = found.Document!.Document.Id.Uri,
+                TargetRange = found.Document.ToTextRange(found.Site.Range),
+                TargetSelectionRange = found.Document.ToTextRange(found.Site.SelectionRange),
+            })];
+    }
+
     // a document is the same document however its URI was written: a client writes the drive and its colon as it likes (c%3A, C:), as LSP lets it.
     private DocumentModule? ModuleOf(Uri documentUri)
     {

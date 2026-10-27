@@ -236,6 +236,24 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
 
+### `textDocument/definition`
+
+The language server answers `textDocument/definition` (**LSP 3.17** §Goto Definition Request) for the documents it holds, a `.rdc` program included. The name at
+the position is bound the way a rename binds it (table above), so a navigation leads to what a rename of the name would rename
+([`SymbolNavigation`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)).
+
+|Named|Defined by|
+|---|---|
+|A variable, a constant, a parameter, a procedure, an event, a `Type` or `Enum` and their members|Its declaration.|
+|A property|Each of its procedures: its `Property Get`, `Let` and `Set`.|
+|A class or a module, after `As` or `New`|Its document, at its start.|
+|A name declared in each branch of an `#If`|Each declaration in a branch that is compiled, or each declaration when none is known to be (**MS-VBAL §3.4**).|
+|A member of a library, or a member accessed late-bound - on an `Object` or a `Variant`|Nothing: the answer is empty.|
+
+A client that reads links (`definition.linkSupport`) is answered `LocationLink`s: the name the navigation starts from (`originSelectionRange`), the whole
+declaration (`targetRange`), and the name it declares (`targetSelectionRange`). Any other client is answered a `Location` per definition, at the name it
+declares. Ranges are in the text of the document: for a program of the BASIC, its lines.
+
 ### `textDocument/codeAction`
 
 The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix` and `refactor.rename`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.

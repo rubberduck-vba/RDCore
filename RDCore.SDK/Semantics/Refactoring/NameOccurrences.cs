@@ -73,6 +73,48 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     }
 
     /// <summary>
+    /// The name of the type an <c>As</c> clause declares at <paramref name="position"/> (<c>Dim c As Class1</c>), and where it is written; a type is no
+    /// expression, and <see cref="NameAt"/> does not see it.
+    /// </summary>
+    public static (string Name, SourceRange Range)? TypeNameAt(RenameModule module, SourcePosition position)
+    {
+        var lines = LinesOf(module.Source);
+        foreach (var (node, _) in Walk(module.Syntax))
+        {
+            if (node is not AsTypeExpressionNode { TypeName: { Length: > 0 } name } clause)
+            {
+                continue;
+            }
+
+            // the clause's range runs from New, or a qualifier, to the name: the name is the last of what it writes.
+            var range = clause.Location.Range;
+            if (range.Start.Line != range.End.Line || range.Start.Line < 0 || range.Start.Line >= lines.Count)
+            {
+                continue;
+            }
+
+            var line = lines[range.Start.Line];
+            var end = Math.Min(range.End.Character, line.Length);
+            var start = end > 0 ? line.LastIndexOf(name, end - 1, StringComparison.OrdinalIgnoreCase) : -1;
+            if (start < range.Start.Character)
+            {
+                continue;
+            }
+
+            var written = NameRange(new SourcePosition(range.Start.Line, start), name);
+            if (Contains(written, position))
+            {
+                return (line.Substring(start, name.Length), written);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The scope a position of a module is in.</summary>
+    public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
+
+    /// <summary>
     /// Where each name a declaration declares in <paramref name="range"/> begins, in the order they are written.
     /// </summary>
     public static IEnumerable<SourcePosition> DeclarationsIn(RenameModule module, SourceRange range)
