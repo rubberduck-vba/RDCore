@@ -527,6 +527,24 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("VariantComparedWithStringAsText_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Ce motif contient un [] ou un [!] : MS-VBAL en fait une liste d&apos;aucun caractère, qui ne correspond à rien, alors que MS-VBA fait correspondre [] à aucun caractère du tout, et [!] à un « ! »..
+        /// </summary>
+        public static string LikePatternDeparture_EmptyCharList_Message {
+            get {
+                return ResourceManager.GetString("LikePatternDeparture_EmptyCharList_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Ce motif n&apos;est pas un motif Like valide : MS-VBAL lève l&apos;erreur d&apos;exécution 93 partout où il est utilisé, alors que MS-VBA ne la lève que lorsqu&apos;une correspondance atteint l&apos;élément invalide..
+        /// </summary>
+        public static string LikePatternDeparture_InvalidPattern_Message {
+            get {
+                return ResourceManager.GetString("LikePatternDeparture_InvalidPattern_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus..
