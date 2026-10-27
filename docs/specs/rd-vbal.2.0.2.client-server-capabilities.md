@@ -69,6 +69,16 @@ A language the platform does not serve is logged and ignored.
 > The language was once two settings: BASIC's one difference, the scope of an implicit declaration, was a setting of its own, made when BASIC was not a dialect the
 > platform defined. It is now the language's, and the setting is gone.
 
+## 2.0.2.1.2 The language of the user interface
+
+What a server says - the messages of its diagnostics, why a rename is refused, the titles of its code actions, its hovers - is said in the language the
+client's user interface is in: the `locale` of the `initialize` request (**LSP 3.17**), such as `fr-CA` or `en`
+([`ClientLocale`](../api/RDCore.SDK.Server.ClientLocale.html)). Every server of the platform applies it before it builds anything from the request,
+and a language server tells the servers it starts the same `locale`, so that the diagnostics an extension finds are in the client's language too. A culture
+reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the French ones, and every other culture - `en-GB`, the invariant culture -
+the English ones. Only the language of the user interface is the client's: how numbers and dates are written and read does not depend on it. A `locale`
+the platform does not know is logged and ignored; a client that sends none is answered in the language the server's process starts in.
+
 ## 2.0.2.2 Platform components
 
 |`CoreServerComponent`|Process|Role|
