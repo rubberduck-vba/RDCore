@@ -61,7 +61,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Les deux opérandes sont des &apos;String&apos;; utiliser l&apos;opérateur de concaténation &apos;&amp;&apos; rendrait l&apos;intention plus explicite ici..
+        ///   Looks up a localized string similar to Both operands are `String` values; the `&amp;` string concatenation operator would make the intent explicit..
         /// </summary>
         public static string AmbiguousConcatenation_Message {
             get {
@@ -70,7 +70,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Le résultat de cette opération est obtenu en utilisant une arithmétique sur la représentation binaire (en bits) des opérandes. Ceci peut produire des résultats surprenants si on s&apos;attendait ici à une logique &apos;{0}&apos; conventionnelle. Si l&apos;opération binaire n&apos;est pas intentionnelle, elle pourrait cacher un bug..
+        ///   Looks up a localized string similar to The result of this operation is resolved using bitwise arithmetic. This could produce unexpected results if the expectation is conventional &apos;{0}&apos; logic here. If this isn&apos;t intentional, it could be a bug..
         /// </summary>
         public static string BitwiseOperator_Message {
             get {
@@ -79,7 +79,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bloc de code vide inutile; implémenter un corps, ou en considérer la suppression..
+        ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
         /// </summary>
         public static string EmptyCodeBlock_Message {
             get {
@@ -88,7 +88,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Bloc conditionnel vide; inverser l&apos;expression de la condition en permettrait la simplification..
+        ///   Looks up a localized string similar to Empty If block; consider reversing the conditional expression..
         /// </summary>
         public static string EmptyIfBlock_Message {
             get {
@@ -97,7 +97,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to L&apos;énumération d&apos;un tableau est inefficace et serait plus performante en utilisant plutôt une structure `For...Next` et un accès indiciel..
+        ///   Looks up a localized string similar to Array enumeration is inefficient and would perform better with a `For...Next` construct instead, with indexed (subscript) item access..
         /// </summary>
         public static string EnumerationOverArray_Message {
             get {
@@ -106,7 +106,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; commence par un préfixe qui indique son type. Le type est déclaré: le nom devrait dire ce qu&apos;est la chose, pas de quoi elle est faite..
+        ///   Looks up a localized string similar to &apos;{0}&apos; begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of..
         /// </summary>
         public static string HungarianNotation_Message {
             get {
@@ -115,7 +115,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; gère un événement, et est Public: on peut l&apos;appeler de l&apos;extérieur, ce qu&apos;un gestionnaire d&apos;événement ne devrait jamais permettre. Rendez-le Private..
+        ///   Looks up a localized string similar to &apos;{0}&apos; handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private..
         /// </summary>
         public static string ImplementationsShouldBePrivate_EventHandler_Message {
             get {
@@ -124,7 +124,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; implémente un membre d&apos;une interface, et est Public: il expose ce membre sur l&apos;interface par défaut de cette classe, où il n&apos;a pas sa place. Rendez-le Private..
+        ///   Looks up a localized string similar to &apos;{0}&apos; implements a member of an interface, and is Public: it exposes that member on the default interface of this class, where it does not belong. Make it Private..
         /// </summary>
         public static string ImplementationsShouldBePrivate_Interface_Message {
             get {
@@ -133,7 +133,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Le paramètre &apos;{0}&apos; est passé implicitement ByRef: la procédure peut modifier la variable de l&apos;appelant. Écrivez ByRef si c&apos;est voulu, et ByVal sinon..
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is implicitly passed ByRef: the procedure can change the caller&apos;s variable. Write ByRef if that is intended, and ByVal otherwise..
         /// </summary>
         public static string ImplicitByRefModifier_Message {
             get {
@@ -142,7 +142,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Conversion `DateSerial` implicite; utiliser les fonctions du module `VBA.DateTime` pour effectuer des opérations sur des dates/heures rendrait l&apos;intention plus explicite et simplifierait la lecture en élevant un peu le niveau d&apos;abstraction..
+        ///   Looks up a localized string similar to Implicit `DateSerial` conversion; using `VBA.DateTime` module functions to perform date and time operations would make the intent clearer while improving readability by raising the abstraction level a bit..
         /// </summary>
         public static string ImplicitDateSerialConversion_Message {
             get {
@@ -151,7 +151,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Option Explicit n&apos;est pas spécifiée; un nom non déclaré n&apos;est pas une erreur, et une variable est créée où il est utilisé. Un nom mal écrit passe inaperçu..
+        ///   Looks up a localized string similar to Option Explicit is not specified: a name that is not declared is not an error, and a variable is created where it is used. A misspelled name goes unnoticed..
         /// </summary>
         public static string ImplicitDeclarationsEnabled_Message {
             get {
@@ -160,7 +160,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Coercion `Let` implicite (`{toType.Name}`) de `{fromType.Name}`; invoquer explicitement les membres visés évite les appels implicites &quot;magiques&quot; qui sont difficiles à suivre et à comprendre sans tracer d&apos;obscurs attributs cachés..
+        ///   Looks up a localized string similar to Implicit `Let` coercion (`{toType.Name}`) from `{fromType.Name}`; invoking the object&apos;s default member explicitly avoids &quot;magic&quot; procedure calls that are hard to follow and to fully understand without tracing obscure hidden attributes..
         /// </summary>
         public static string ImplicitLetCoercion_message {
             get {
@@ -169,7 +169,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Une valeur de type {0} est convertie implicitement en {1}, et sa partie fractionnaire est arrondie (au nombre pair lorsqu&apos;elle est exactement à mi-chemin). Si la conversion est voulue, dites-le avec une fonction de conversion..
+        ///   Looks up a localized string similar to A value of type {0} is implicitly converted to {1}, and its fractional part is rounded (to the even number when it is exactly halfway). If the conversion is intended, say so with a conversion function..
         /// </summary>
         public static string ImplicitNarrowingConversion_Lossy_Message {
             get {
@@ -178,7 +178,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Une valeur de type {0} est convertie implicitement en {1}, et elle pourrait ne pas y tenir. Si la conversion est voulue, dites-le avec une fonction de conversion..
+        ///   Looks up a localized string similar to A value of type {0} is implicitly converted to {1}, and it may not fit. If the conversion is intended, say so with a conversion function..
         /// </summary>
         public static string ImplicitNarrowingConversion_Message {
             get {
@@ -187,7 +187,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Option Base 1 fait commencer à 1 plutôt qu&apos;à 0 tout tableau déclaré sans borne inférieure, alors que les tableaux des autres modules et des bibliothèques gardent leurs propres bornes. Indiquez plutôt les bornes de chaque tableau..
+        ///   Looks up a localized string similar to Option Base 1 makes every array declared without a lower bound start at 1 instead of 0 - except an array field of a user-defined type, which starts at 0 regardless - while the arrays of other modules and libraries keep their own bounds. State the bounds of each array instead..
         /// </summary>
         public static string ImplicitNonDefaultArrayBase_Message {
             get {
@@ -196,7 +196,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Coercion numérique implicite (`{toType.Name}`) from `{fromType.Name}`; l&apos;utilisation d&apos;une fonction de conversion explicite améliorerait la traçabilité des types impliqués..
+        ///   Looks up a localized string similar to Implicit numeric coercion (`{toType.Name}`) from `{fromType.Name}`; using an explicit type conversion function would improve the traceability of the involved data types..
         /// </summary>
         public static string ImplicitNumericCoercion_Message {
             get {
@@ -205,7 +205,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; est implicitement Public. Indiquez son accessibilité..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is implicitly Public. State its accessibility..
         /// </summary>
         public static string ImplicitPublicMember_Message {
             get {
@@ -214,7 +214,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Coercion `String` implicite depuis `{fromType.Name}`; considérez l&apos;utilisation d&apos;une fonction de conversion explicite (par exemple `CStr`) pour rendre cette opération plus intentionnelle..
+        ///   Looks up a localized string similar to Implicit `String` coercion from `{fromType.Name}`; consider using an explicit type conversion (for example `CStr`) to make this operation more intentional..
         /// </summary>
         public static string ImplicitStringCoercion_Message {
             get {
@@ -223,7 +223,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} donne un type à tout nom qu&apos;elle couvre et qui est déclaré sans type; le type d&apos;une variable n&apos;est donc plus écrit où elle est déclarée. Déclarez plutôt chacune avec une clause As..
+        ///   Looks up a localized string similar to {0} gives a type to every name it covers that is declared without one, so the type of a variable is no longer written where it is declared. Declare each with an As clause instead..
         /// </summary>
         public static string ImplicitTypeDeclarationsEnabled_Message {
             get {
@@ -232,7 +232,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; est déclaré implicitement comme Variant. Indiquez son type avec une clause As (As Variant, si c&apos;est voulu)..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is implicitly declared as a Variant. State its type with an As clause (As Variant, if that is intended)..
         /// </summary>
         public static string ImplicitVariantDeclaration_Message {
             get {
@@ -241,7 +241,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Ce ReDim déclare le tableau &apos;{0}&apos;, dont le nom ne désigne rien d&apos;autre. Déclarez-le avant, avec Dim {0}() As ..., pour qu&apos;un nom mal orthographié ne déclare pas un nouveau tableau..
+        ///   Looks up a localized string similar to This ReDim declares the array &apos;{0}&apos;, whose name matches nothing else. Declare it first, with Dim {0}() As ..., so that a misspelled name does not declare a new array..
         /// </summary>
         public static string ImplicitArrayDeclaration_Message {
             get {
@@ -250,7 +250,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c&apos;est voulu)..
+        ///   Looks up a localized string similar to &apos;{0}&apos; implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended)..
         /// </summary>
         public static string ImplicitVariantReturnType_Message {
             get {
@@ -259,7 +259,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Conversion implicite (élargissement), d&apos;un type numérique à un autre dont la capacité est supérieure; l&apos;utilisation d&apos;une fonction de conversion explicite rendrait l&apos;opération plus intentionnelle..
+        ///   Looks up a localized string similar to Implicit widening conversion from a numeric type to another with a wider range; using an explicit type conversion function here would make this operation more intentional..
         /// </summary>
         public static string ImplicitWideningConversion_Message {
             get {
@@ -268,7 +268,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Integer est un type de 16 bits qui déborde à 32 767. Utilisez un Long, sauf si une procédure ou un format de fichier attend un Integer..
+        ///   Looks up a localized string similar to Integer is a 16-bit type that overflows at 32,767. Use a Long, unless an Integer is what a procedure or a file format expects..
         /// </summary>
         public static string IntegerDataTypeDeclaration_Message {
             get {
@@ -277,7 +277,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Appel à liaison tardive (late binding): VBA ne validera pas cet appel au moment de la compilation, ce qui peut produire des erreurs qui seraient évitables en utilisant un type plus spécifique que `Variant` ou `Object`, lorsque c&apos;est possible..
+        ///   Looks up a localized string similar to Late bound member access; VBA will not resolve this call until run-time, which can lead to errors that are avoidable by using a declared type more specific than `Variant` or `Object` whenever possible..
         /// </summary>
         public static string LateBoundMemberAccess_Message {
             get {
@@ -286,7 +286,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ByRef n&apos;a aucun effet sur &apos;{0}&apos;, le paramètre de valeur d&apos;une propriété Let ou Set: il est toujours passé ByVal..
+        ///   Looks up a localized string similar to ByRef has no effect on &apos;{0}&apos;, the value parameter of a property Let or Set: it is always passed ByVal..
         /// </summary>
         public static string MisleadingByRefParameter_Message {
             get {
@@ -295,7 +295,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Dim au niveau du module déclare une variable Private. Utilisez Private pour le dire..
+        ///   Looks up a localized string similar to Dim at the module level declares a Private variable. Use Private to say so..
         /// </summary>
         public static string ModuleScopeDimDeclaration_Message {
             get {
@@ -304,7 +304,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to La déclaration du paramètre &apos;{0}&apos; est répartie sur plusieurs lignes par une continuation de ligne. Écrivez-la sur une seule ligne..
+        ///   Looks up a localized string similar to The declaration of parameter &apos;{0}&apos; is split over several lines with a line continuation. Write it on one line..
         /// </summary>
         public static string MultilineParameterDeclaration_Message {
             get {
@@ -313,7 +313,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Une seule instruction fait plusieurs déclarations, et chacune a besoin de son propre type: dans Dim a, b As Long, seule b est un Long. Déclarez chacune sur sa propre ligne..
+        ///   Looks up a localized string similar to Several declarations are made by one statement, and each needs a type of its own: in Dim a, b As Long only b is a Long. Declare each on its own line..
         /// </summary>
         public static string MultipleDeclarations_Message {
             get {
@@ -322,7 +322,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Au moins un chemin d&apos;exécution de &apos;{0}&apos; n&apos;assigne pas sa valeur de retour: sur ce chemin, l&apos;appelant reçoit la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing)..
+        ///   Looks up a localized string similar to At least one code path of &apos;{0}&apos; does not assign its return value: on that path, the caller gets the default value of the type (0, an empty string, Empty or Nothing)..
         /// </summary>
         public static string NotAllPathsReturnValue_Message {
             get {
@@ -331,7 +331,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; n&apos;assigne jamais sa valeur de retour: l&apos;appelant reçoit toujours la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing)..
+        ///   Looks up a localized string similar to &apos;{0}&apos; never assigns its return value: the caller always gets the default value of the type (0, an empty string, Empty or Nothing)..
         /// </summary>
         public static string NotAllPathsReturnValue_NeverAssigned_Message {
             get {
@@ -340,7 +340,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Le mot-clé Call est obsolète; l&apos;appel est le même sans lui..
+        ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
         /// </summary>
         public static string ObsoleteCallStatement_Message {
             get {
@@ -349,7 +349,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Le mot-clé Rem est obsolète: un commentaire commence par une apostrophe (&apos;)..
+        ///   Looks up a localized string similar to The Rem keyword is obsolete: a comment starts with an apostrophe (&apos;)..
         /// </summary>
         public static string ObsoleteCommentSyntax_Message {
             get {
@@ -358,7 +358,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to L&apos;instruction Error est obsolète: Err.Raise soulève la même erreur..
+        ///   Looks up a localized string similar to The Error statement is obsolete: Err.Raise raises the same error..
         /// </summary>
         public static string ObsoleteErrorSyntax_Message {
             get {
@@ -367,7 +367,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Global est obsolète: il fait la même chose que Public..
+        ///   Looks up a localized string similar to Global is obsolete: it does the same as Public..
         /// </summary>
         public static string ObsoleteGlobalModifier_Message {
             get {
@@ -376,7 +376,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Le mot-clé Let est obsolète: l&apos;affectation est la même sans lui..
+        ///   Looks up a localized string similar to The Let keyword is obsolete: the assignment is the same without it..
         /// </summary>
         public static string ObsoleteLetStatement_Message {
             get {
@@ -385,7 +385,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to On Local Error est obsolète: toute erreur est locale à la procédure, donc Local ne dit rien. Utilisez On Error..
+        ///   Looks up a localized string similar to On Local Error is obsolete: every error is local to the procedure, so Local says nothing. Use On Error..
         /// </summary>
         public static string ObsoleteOnLocalErrorStatement_Message {
             get {
@@ -394,7 +394,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Le paramètre est ByVal: ByVal écrit devant son argument ne change rien..
+        ///   Looks up a localized string similar to The parameter is ByVal: ByVal written before its argument changes nothing..
         /// </summary>
         public static string RedundantByValArgument_Message {
             get {
@@ -403,7 +403,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; est la classe {1}.{2}, d&apos;une bibliothèque référencée: déclarez l&apos;objet As {1}.{2} et créez-le avec New, et ses membres seront liés à la compilation..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the class {1}.{2}, of a referenced library: declare the object As {1}.{2} and create it with New, and its members are bound when the code is compiled..
         /// </summary>
         public static string EarlyBindingOpportunity_Message {
             get {
@@ -412,7 +412,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; est écrit avec un caractère de déclaration de type, ce qui est obsolète: indiquez son type avec une clause As là où il est déclaré..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is written with a type-declaration character, which is obsolete: state its type with an As clause where it is declared..
         /// </summary>
         public static string ObsoleteTypeHint_Message {
             get {
@@ -421,7 +421,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to While...Wend est obsolète: Do While...Loop est la même boucle, et celle que Exit Do peut quitter..
+        ///   Looks up a localized string similar to While...Wend is obsolete: Do While...Loop is the same loop, and the one that Exit Do can leave..
         /// </summary>
         public static string ObsoleteWhileWend_Message {
             get {
@@ -430,7 +430,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Utiliser la méthode `Err.Raise` pour soulever des erreurs à l&apos;exécution plutôt que l&apos;instruction `Error`, qui comme plusieurs autres instructions existe pour fins de rétro-compatibilité avec des itérations du langage BASIC plus anciennes encore..
+        ///   Looks up a localized string similar to Use the `Err.Raise` method instead of the legacy `Error` statement to raise run-time errors; like several others, this statement exists for backward compatibility with previous iterations of the BASIC programming language..
         /// </summary>
         public static string PreferErrRaiseOverErrorStatement_Message {
             get {
@@ -439,7 +439,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Le mode de prédiction SLL de l&apos;analyseur a échoué ici; si possible, reformuler cette instruction pourrait améliorer les performances du serveur de langage..
+        ///   Looks up a localized string similar to SLL parser prediction mode failed here; if possible, rephrasing this instruction could improve language server performance..
         /// </summary>
         public static string SllFailure_Message {
             get {
@@ -448,7 +448,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Assignation de valeur suspecte: les deux côtés de l&apos;opérateur étant des objets, on dirait vraiment ici que l&apos;intention était plutôt d&apos;effectuer une assignation de référence. Possible qu&apos;il y manque le mot-clé `Set`?.
+        ///   Looks up a localized string similar to Suspicious value assignment; since both LHS and RHS are object types, it looks like a reference assignment may have been intended. Could it be missing a `Set` keyword?.
         /// </summary>
         public static string SuspiciousValueAssignment_Message {
             get {
@@ -457,7 +457,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Cette assignation convertit l&apos;objet de droite (RHS) en une interface compatible d&apos;un autre type..
+        ///   Looks up a localized string similar to Assignment is converting the RHS object to a compatible interface type..
         /// </summary>
         public static string TypeCastConversion_Message {
             get {
@@ -466,7 +466,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Expression constante possiblement non-intentionnelle; cette opération n&apos;affecte pas la valeur..
+        ///   Looks up a localized string similar to Possibly unintended constant expression; this operation does not affect the value..
         /// </summary>
         public static string UnintendedConstantExpression_Message {
             get {
@@ -475,7 +475,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Appel à liaison tardive non résolu: il semble que cet appel pourrait soulever l&apos;erreur d&apos;exécution 438 (VBR00438)..
+        ///   Looks up a localized string similar to Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time..
         /// </summary>
         public static string UnresolvedLateBoundMemberAccess_Message {
             get {
@@ -484,7 +484,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; se termine par un chiffre, ce qui dit qu&apos;il est l&apos;un de plusieurs et non ce qui le distingue des autres. Donnez-lui un nom qui dit ce qu&apos;il est..
+        ///   Looks up a localized string similar to &apos;{0}&apos; ends with a digit, which says it is one of several and not what makes it different from the others. Give it a name that says what it is..
         /// </summary>
         public static string UseMeaningfulIdentifierNames_EndsWithDigit_Message {
             get {
@@ -493,7 +493,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; n&apos;a aucune voyelle, et n&apos;est probablement pas un mot. Donnez-lui un nom qui dit ce qu&apos;il est..
+        ///   Looks up a localized string similar to &apos;{0}&apos; has no vowel, and is unlikely to be a word. Give it a name that says what it is..
         /// </summary>
         public static string UseMeaningfulIdentifierNames_NoVowel_Message {
             get {
@@ -502,7 +502,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; est trop court pour dire ce qu&apos;il est: un nom devrait avoir au moins 3 caractères..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is too short to say what it is: a name should have at least 3 characters..
         /// </summary>
         public static string UseMeaningfulIdentifierNames_TooShort_Message {
             get {
@@ -511,7 +511,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; compare un Variant qui contient un nombre à un Variant qui contient une String: le nombre est toujours plus petit que la String, quelles que soient leurs valeurs..
+        ///   Looks up a localized string similar to &apos;{0}&apos; compares a Variant holding a number with a Variant holding a String: the number is always less than the String, whatever their values..
         /// </summary>
         public static string VariantNumberStringComparison_Message {
             get {
@@ -520,7 +520,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; compare un Variant qui contient un nombre, une date ou un Boolean à une String: MS-VBA compare leurs textes, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13) quand la String n&apos;est pas un nombre..
+        ///   Looks up a localized string similar to &apos;{0}&apos; compares a Variant holding a number, a Date or a Boolean with a String: MS-VBA compares their text, where MS-VBAL §5.6.9.5 makes it a type mismatch (13) when the String is no number..
         /// </summary>
         public static string VariantComparedWithStringAsText_Message {
             get {
@@ -529,7 +529,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to MS-VBA convertit la valeur de ce Case Is au type déclaré du sélecteur avant de les comparer, alors que MS-VBAL §5.4.2.10 en fait l&apos;expression « sélecteur opérateur valeur » : le résultat peut différer..
+        ///   Looks up a localized string similar to MS-VBA converts the value of this Case Is to the declared type of the selector before comparing the two, where MS-VBAL §5.4.2.10 states the expression &apos;selector operator value&apos;: the result can differ..
         /// </summary>
         public static string CaseComparedInSelectorType_Message {
             get {
@@ -538,7 +538,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Ce motif contient un [] ou un [!] : MS-VBAL en fait une liste d&apos;aucun caractère, qui ne correspond à rien, alors que MS-VBA fait correspondre [] à aucun caractère du tout, et [!] à un « ! »..
+        ///   Looks up a localized string similar to This pattern has a [] or a [!]: MS-VBAL makes it a list of no character, which matches nothing, where MS-VBA matches [] with no character at all, and [!] with a &apos;!&apos;..
         /// </summary>
         public static string LikePatternDeparture_EmptyCharList_Message {
             get {
@@ -547,7 +547,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Ce motif n&apos;est pas un motif Like valide : MS-VBAL lève l&apos;erreur d&apos;exécution 93 partout où il est utilisé, alors que MS-VBA ne la lève que lorsqu&apos;une correspondance atteint l&apos;élément invalide..
+        ///   Looks up a localized string similar to This pattern is not a valid Like pattern: MS-VBAL raises run-time error 93 wherever it is used, where MS-VBA raises it only when a match reaches the invalid element..
         /// </summary>
         public static string LikePatternDeparture_InvalidPattern_Message {
             get {
@@ -556,7 +556,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; compare un Variant qui contient une String qui n&apos;est pas un nombre à un nombre, une date ou un Boolean : MS-VBA classe la String au-dessus, quelles que soient les valeurs, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13)..
+        ///   Looks up a localized string similar to &apos;{0}&apos; compares a Variant holding a String that is no number with a number, a Date or a Boolean: MS-VBA ranks the String above it, whatever their values, where MS-VBAL §5.6.9.5 makes it a type mismatch (13)..
         /// </summary>
         public static string VariantStringThatIsNoNumberRanked_Message {
             get {
@@ -565,7 +565,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is named as the handler of an event of a control, and does not match the event: the event never calls it, and neither does anything else..
         /// </summary>
         public static string UnmatchedEventHandler_Message {
             get {
@@ -574,7 +574,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute..
+        ///   Looks up a localized string similar to This Set calls &apos;{0}&apos; and Sets the default member of what it returns, which has no Property Set: it raises run-time error 438 (Object doesn&apos;t support this property or method) whenever it runs..
         /// </summary>
         public static string SetThroughACallFails_NoDefaultMemberToSet_Message {
             get {
@@ -583,7 +583,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Cette opération est de type {0} : MS-VBA type Abs, Int et Fix d&apos;un nombre comme ce nombre, là où MS-VBAL les déclare Variant. Elle peut déborder (erreur d&apos;exécution 6) là où une opération de Variant s&apos;élargirait à un type plus grand..
+        ///   Looks up a localized string similar to This operation is {0} arithmetic: MS-VBA types Abs, Int and Fix of a number as that number&apos;s type, where MS-VBAL declares them Variant. It can overflow (run-time error 6) where a Variant operation would widen to a larger type..
         /// </summary>
         public static string ArgumentTypedArithmeticOverflow_Message {
             get {
@@ -592,7 +592,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Le caractère de type de cette fonction ne correspond pas à son type déclaré ({1}) : MS-VBAL rend ce nom invalide, et MS-VBA ignore le caractère. Écrivez &apos;{0}&apos; sans lui..
+        ///   Looks up a localized string similar to The type character of this function does not match its declared type ({1}): MS-VBAL makes the name invalid, and MS-VBA ignores the character. Write &apos;{0}&apos; without it..
         /// </summary>
         public static string IgnoredTypeCharacter_Message {
             get {
@@ -601,7 +601,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to La valeur de la constante &apos;{0}&apos; appelle Len : MS-VBA l&apos;accepte dans une procédure, mais la refuse dans un module (Expression constante requise), et son exécution n&apos;est pas fiable. Écrivez la longueur elle-même..
+        ///   Looks up a localized string similar to The value of constant &apos;{0}&apos; calls Len: MS-VBA accepts it in a procedure, but refuses it in a module (Constant expression required), and its run is not reliable. Write the length itself..
         /// </summary>
         public static string ProcedureConstantLength_Message {
             get {
@@ -610,7 +610,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; a été déclaré implicitement, là où il est utilisé pour la première fois : MS-VBAL et VB6 le redimensionnent ici, alors que MS-VBA refuse ce ReDim à la compilation (ReDim incorrect). Déclarez &apos;{0}&apos; avec Dim avant de l&apos;utiliser..
+        ///   Looks up a localized string similar to &apos;{0}&apos; was declared implicitly, where it is first used: MS-VBAL and VB6 re-dimension it here, where MS-VBA refuses this ReDim at compile time (Invalid ReDim). Declare &apos;{0}&apos; with Dim before using it..
         /// </summary>
         public static string ReDimOfAnImplicitVariant_Message {
             get {
@@ -619,7 +619,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type)..
+        ///   Looks up a localized string similar to An object of class &apos;{0}&apos;, which has no default member, is where a value is expected: MS-VBA raises run-time error 438 (91 when it is Nothing) when it runs, where MS-VBAL §5.5.1.1 makes it a compile error (type mismatch)..
         /// </summary>
         public static string ValueOfObjectWithNoDefaultMember_Message {
             get {
@@ -628,7 +628,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to {0} est assigné à un tableau : MS-VBAL le permet, {0} étant un Variant, mais la valeur qu&apos;il contient lève l&apos;erreur d&apos;exécution 13 (Incompatibilité de type) chaque fois que l&apos;assignation s&apos;exécute. Erase vide un tableau dynamique..
+        ///   Looks up a localized string similar to {0} is assigned to an array: MS-VBAL allows it, {0} being a Variant, but the value it holds raises run-time error 13 (Type mismatch) whenever the assignment runs. Erase empties a dynamic array..
         /// </summary>
         public static string EmptyLetToArray_Message {
             get {

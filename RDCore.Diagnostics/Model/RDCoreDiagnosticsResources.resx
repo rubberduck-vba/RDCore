@@ -118,195 +118,195 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AmbiguousConcatenation_Message" xml:space="preserve">
-    <value>Les deux opérandes sont des 'String'; utiliser l'opérateur de concaténation '&amp;' rendrait l'intention plus explicite ici.</value>
+    <value>Both operands are `String` values; the `&amp;` string concatenation operator would make the intent explicit.</value>
   </data>
   <data name="BitwiseOperator_Message" xml:space="preserve">
-    <value>Le résultat de cette opération est obtenu en utilisant une arithmétique sur la représentation binaire (en bits) des opérandes. Ceci peut produire des résultats surprenants si on s'attendait ici à une logique '{0}' conventionnelle. Si l'opération binaire n'est pas intentionnelle, elle pourrait cacher un bug.</value>
+    <value>The result of this operation is resolved using bitwise arithmetic. This could produce unexpected results if the expectation is conventional '{0}' logic here. If this isn't intentional, it could be a bug.</value>
   </data>
   <data name="EmptyCodeBlock_Message" xml:space="preserve">
-    <value>Bloc de code vide inutile; implémenter un corps, ou en considérer la suppression.</value>
+    <value>Empty code block; implement a body or consider removing it.</value>
   </data>
   <data name="EmptyIfBlock_Message" xml:space="preserve">
-    <value>Bloc conditionnel vide; inverser l'expression de la condition en permettrait la simplification.</value>
+    <value>Empty If block; consider reversing the conditional expression.</value>
   </data>
   <data name="EnumerationOverArray_Message" xml:space="preserve">
-    <value>L'énumération d'un tableau est inefficace et serait plus performante en utilisant plutôt une structure `For...Next` et un accès indiciel.</value>
+    <value>Array enumeration is inefficient and would perform better with a `For...Next` construct instead, with indexed (subscript) item access.</value>
   </data>
   <data name="ImplicitDateSerialConversion_Message" xml:space="preserve">
-    <value>Conversion `DateSerial` implicite; utiliser les fonctions du module `VBA.DateTime` pour effectuer des opérations sur des dates/heures rendrait l'intention plus explicite et simplifierait la lecture en élevant un peu le niveau d'abstraction.</value>
+    <value>Implicit `DateSerial` conversion; using `VBA.DateTime` module functions to perform date and time operations would make the intent clearer while improving readability by raising the abstraction level a bit.</value>
   </data>
   <data name="ImplicitLetCoercion_message" xml:space="preserve">
-    <value>Coercion `Let` implicite (`{toType.Name}`) de `{fromType.Name}`; invoquer explicitement les membres visés évite les appels implicites "magiques" qui sont difficiles à suivre et à comprendre sans tracer d'obscurs attributs cachés.</value>
+    <value>Implicit `Let` coercion (`{toType.Name}`) from `{fromType.Name}`; invoking the object's default member explicitly avoids "magic" procedure calls that are hard to follow and to fully understand without tracing obscure hidden attributes.</value>
   </data>
   <data name="ImplicitNumericCoercion_Message" xml:space="preserve">
-    <value>Coercion numérique implicite (`{toType.Name}`) from `{fromType.Name}`; l'utilisation d'une fonction de conversion explicite améliorerait la traçabilité des types impliqués.</value>
+    <value>Implicit numeric coercion (`{toType.Name}`) from `{fromType.Name}`; using an explicit type conversion function would improve the traceability of the involved data types.</value>
   </data>
   <data name="ImplicitStringCoercion_Message" xml:space="preserve">
-    <value>Coercion `String` implicite depuis `{fromType.Name}`; considérez l'utilisation d'une fonction de conversion explicite (par exemple `CStr`) pour rendre cette opération plus intentionnelle.</value>
+    <value>Implicit `String` coercion from `{fromType.Name}`; consider using an explicit type conversion (for example `CStr`) to make this operation more intentional.</value>
   </data>
   <data name="ImplicitWideningConversion_Message" xml:space="preserve">
-    <value>Conversion implicite (élargissement), d'un type numérique à un autre dont la capacité est supérieure; l'utilisation d'une fonction de conversion explicite rendrait l'opération plus intentionnelle.</value>
+    <value>Implicit widening conversion from a numeric type to another with a wider range; using an explicit type conversion function here would make this operation more intentional.</value>
   </data>
   <data name="LateBoundMemberAccess_Message" xml:space="preserve">
-    <value>Appel à liaison tardive (late binding): VBA ne validera pas cet appel au moment de la compilation, ce qui peut produire des erreurs qui seraient évitables en utilisant un type plus spécifique que `Variant` ou `Object`, lorsque c'est possible.</value>
+    <value>Late bound member access; VBA will not resolve this call until run-time, which can lead to errors that are avoidable by using a declared type more specific than `Variant` or `Object` whenever possible.</value>
   </data>
   <data name="PreferErrRaiseOverErrorStatement_Message" xml:space="preserve">
-    <value>Utiliser la méthode `Err.Raise` pour soulever des erreurs à l'exécution plutôt que l'instruction `Error`, qui comme plusieurs autres instructions existe pour fins de rétro-compatibilité avec des itérations du langage BASIC plus anciennes encore.</value>
+    <value>Use the `Err.Raise` method instead of the legacy `Error` statement to raise run-time errors; like several others, this statement exists for backward compatibility with previous iterations of the BASIC programming language.</value>
   </data>
   <data name="SllFailure_Message" xml:space="preserve">
-    <value>Le mode de prédiction SLL de l'analyseur a échoué ici; si possible, reformuler cette instruction pourrait améliorer les performances du serveur de langage.</value>
+    <value>SLL parser prediction mode failed here; if possible, rephrasing this instruction could improve language server performance.</value>
   </data>
   <data name="SuspiciousValueAssignment_Message" xml:space="preserve">
-    <value>Assignation de valeur suspecte: les deux côtés de l'opérateur étant des objets, on dirait vraiment ici que l'intention était plutôt d'effectuer une assignation de référence. Possible qu'il y manque le mot-clé `Set`?</value>
+    <value>Suspicious value assignment; since both LHS and RHS are object types, it looks like a reference assignment may have been intended. Could it be missing a `Set` keyword?</value>
   </data>
   <data name="TypeCastConversion_Message" xml:space="preserve">
-    <value>Cette assignation convertit l'objet de droite (RHS) en une interface compatible d'un autre type.</value>
+    <value>Assignment is converting the RHS object to a compatible interface type.</value>
   </data>
   <data name="UnintendedConstantExpression_Message" xml:space="preserve">
-    <value>Expression constante possiblement non-intentionnelle; cette opération n'affecte pas la valeur.</value>
+    <value>Possibly unintended constant expression; this operation does not affect the value.</value>
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
-    <value>Appel à liaison tardive non résolu: il semble que cet appel pourrait soulever l'erreur d'exécution 438 (VBR00438).</value>
+    <value>Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time.</value>
   </data>
   <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
-    <value>Option Explicit n'est pas spécifiée; un nom non déclaré n'est pas une erreur, et une variable est créée où il est utilisé. Un nom mal écrit passe inaperçu.</value>
+    <value>Option Explicit is not specified: a name that is not declared is not an error, and a variable is created where it is used. A misspelled name goes unnoticed.</value>
   </data>
   <data name="ObsoleteCallStatement_Message" xml:space="preserve">
-    <value>Le mot-clé Call est obsolète; l'appel est le même sans lui.</value>
+    <value>The Call keyword is obsolete: the call is the same without it.</value>
   </data>
   <data name="ImplicitNonDefaultArrayBase_Message" xml:space="preserve">
-    <value>Option Base 1 fait commencer à 1 plutôt qu'à 0 tout tableau déclaré sans borne inférieure - sauf un champ tableau d'un type défini par l'utilisateur, qui commence à 0 malgré tout -, alors que les tableaux des autres modules et des bibliothèques gardent leurs propres bornes. Indiquez plutôt les bornes de chaque tableau.</value>
+    <value>Option Base 1 makes every array declared without a lower bound start at 1 instead of 0 - except an array field of a user-defined type, which starts at 0 regardless - while the arrays of other modules and libraries keep their own bounds. State the bounds of each array instead.</value>
   </data>
   <data name="ImplicitTypeDeclarationsEnabled_Message" xml:space="preserve">
-    <value>{0} donne un type à tout nom qu'elle couvre et qui est déclaré sans type; le type d'une variable n'est donc plus écrit où elle est déclarée. Déclarez plutôt chacune avec une clause As.</value>
+    <value>{0} gives a type to every name it covers that is declared without one, so the type of a variable is no longer written where it is declared. Declare each with an As clause instead.</value>
   </data>
   <data name="ImplicitByRefModifier_Message" xml:space="preserve">
-    <value>Le paramètre '{0}' est passé implicitement ByRef: la procédure peut modifier la variable de l'appelant. Écrivez ByRef si c'est voulu, et ByVal sinon.</value>
+    <value>Parameter '{0}' is implicitly passed ByRef: the procedure can change the caller's variable. Write ByRef if that is intended, and ByVal otherwise.</value>
   </data>
   <data name="ImplicitPublicMember_Message" xml:space="preserve">
-    <value>'{0}' est implicitement Public. Indiquez son accessibilité.</value>
+    <value>'{0}' is implicitly Public. State its accessibility.</value>
   </data>
   <data name="ImplicitVariantDeclaration_Message" xml:space="preserve">
-    <value>'{0}' est déclaré implicitement comme Variant. Indiquez son type avec une clause As (As Variant, si c'est voulu).</value>
+    <value>'{0}' is implicitly declared as a Variant. State its type with an As clause (As Variant, if that is intended).</value>
   </data>
   <data name="ImplicitArrayDeclaration_Message" xml:space="preserve">
-    <value>Ce ReDim déclare le tableau '{0}', dont le nom ne désigne rien d'autre. Déclarez-le avant, avec Dim {0}() As ..., pour qu'un nom mal orthographié ne déclare pas un nouveau tableau.</value>
+    <value>This ReDim declares the array '{0}', whose name matches nothing else. Declare it first, with Dim {0}() As ..., so that a misspelled name does not declare a new array.</value>
   </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
-    <value>'{0}' retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c'est voulu).</value>
+    <value>'{0}' implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended).</value>
   </data>
   <data name="ImplicitNarrowingConversion_Message" xml:space="preserve">
-    <value>Une valeur de type {0} est convertie implicitement en {1}, et elle pourrait ne pas y tenir. Si la conversion est voulue, dites-le avec une fonction de conversion.</value>
+    <value>A value of type {0} is implicitly converted to {1}, and it may not fit. If the conversion is intended, say so with a conversion function.</value>
   </data>
   <data name="ImplicitNarrowingConversion_Lossy_Message" xml:space="preserve">
-    <value>Une valeur de type {0} est convertie implicitement en {1}, et sa partie fractionnaire est arrondie (au nombre pair lorsqu'elle est exactement à mi-chemin). Si la conversion est voulue, dites-le avec une fonction de conversion.</value>
+    <value>A value of type {0} is implicitly converted to {1}, and its fractional part is rounded (to the even number when it is exactly halfway). If the conversion is intended, say so with a conversion function.</value>
   </data>
   <data name="IntegerDataTypeDeclaration_Message" xml:space="preserve">
-    <value>Integer est un type de 16 bits qui déborde à 32 767. Utilisez un Long, sauf si une procédure ou un format de fichier attend un Integer.</value>
+    <value>Integer is a 16-bit type that overflows at 32,767. Use a Long, unless an Integer is what a procedure or a file format expects.</value>
   </data>
   <data name="ModuleScopeDimDeclaration_Message" xml:space="preserve">
-    <value>Dim au niveau du module déclare une variable Private. Utilisez Private pour le dire.</value>
+    <value>Dim at the module level declares a Private variable. Use Private to say so.</value>
   </data>
   <data name="MultilineParameterDeclaration_Message" xml:space="preserve">
-    <value>La déclaration du paramètre '{0}' est répartie sur plusieurs lignes par une continuation de ligne. Écrivez-la sur une seule ligne.</value>
+    <value>The declaration of parameter '{0}' is split over several lines with a line continuation. Write it on one line.</value>
   </data>
   <data name="MultipleDeclarations_Message" xml:space="preserve">
-    <value>Une seule instruction fait plusieurs déclarations, et chacune a besoin de son propre type: dans Dim a, b As Long, seule b est un Long. Déclarez chacune sur sa propre ligne.</value>
+    <value>Several declarations are made by one statement, and each needs a type of its own: in Dim a, b As Long only b is a Long. Declare each on its own line.</value>
   </data>
   <data name="NotAllPathsReturnValue_Message" xml:space="preserve">
-    <value>Au moins un chemin d'exécution de '{0}' n'assigne pas sa valeur de retour: sur ce chemin, l'appelant reçoit la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing).</value>
+    <value>At least one code path of '{0}' does not assign its return value: on that path, the caller gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
-    <value>'{0}' n'assigne jamais sa valeur de retour: l'appelant reçoit toujours la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing).</value>
+    <value>'{0}' never assigns its return value: the caller always gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
-    <value>Le mot-clé Rem est obsolète: un commentaire commence par une apostrophe (').</value>
+    <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>
   <data name="ObsoleteErrorSyntax_Message" xml:space="preserve">
-    <value>L'instruction Error est obsolète: Err.Raise soulève la même erreur.</value>
+    <value>The Error statement is obsolete: Err.Raise raises the same error.</value>
   </data>
   <data name="ObsoleteGlobalModifier_Message" xml:space="preserve">
-    <value>Global est obsolète: il fait la même chose que Public.</value>
+    <value>Global is obsolete: it does the same as Public.</value>
   </data>
   <data name="ObsoleteLetStatement_Message" xml:space="preserve">
-    <value>Le mot-clé Let est obsolète: l'affectation est la même sans lui.</value>
+    <value>The Let keyword is obsolete: the assignment is the same without it.</value>
   </data>
   <data name="ObsoleteTypeHint_Message" xml:space="preserve">
-    <value>'{0}' est écrit avec un caractère de déclaration de type, ce qui est obsolète: indiquez son type avec une clause As là où il est déclaré.</value>
+    <value>'{0}' is written with a type-declaration character, which is obsolete: state its type with an As clause where it is declared.</value>
   </data>
   <data name="ObsoleteWhileWend_Message" xml:space="preserve">
-    <value>While...Wend est obsolète: Do While...Loop est la même boucle, et celle que Exit Do peut quitter.</value>
+    <value>While...Wend is obsolete: Do While...Loop is the same loop, and the one that Exit Do can leave.</value>
   </data>
   <data name="ObsoleteOnLocalErrorStatement_Message" xml:space="preserve">
-    <value>On Local Error est obsolète: toute erreur est locale à la procédure, donc Local ne dit rien. Utilisez On Error.</value>
+    <value>On Local Error is obsolete: every error is local to the procedure, so Local says nothing. Use On Error.</value>
   </data>
   <data name="RedundantByValArgument_Message" xml:space="preserve">
-    <value>Le paramètre est ByVal: ByVal écrit devant son argument ne change rien.</value>
+    <value>The parameter is ByVal: ByVal written before its argument changes nothing.</value>
   </data>
   <data name="EarlyBindingOpportunity_Message" xml:space="preserve">
-    <value>'{0}' est la classe {1}.{2}, d'une bibliothèque référencée: déclarez l'objet As {1}.{2} et créez-le avec New, et ses membres seront liés à la compilation.</value>
+    <value>'{0}' is the class {1}.{2}, of a referenced library: declare the object As {1}.{2} and create it with New, and its members are bound when the code is compiled.</value>
   </data>
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
-    <value>'{0}' implémente un membre d'une interface, et est Public: il expose ce membre sur l'interface par défaut de cette classe, où il n'a pas sa place. Rendez-le Private.</value>
+    <value>'{0}' implements a member of an interface, and is Public: it exposes that member on the default interface of this class, where it does not belong. Make it Private.</value>
   </data>
   <data name="ImplementationsShouldBePrivate_EventHandler_Message" xml:space="preserve">
-    <value>'{0}' gère un événement, et est Public: on peut l'appeler de l'extérieur, ce qu'un gestionnaire d'événement ne devrait jamais permettre. Rendez-le Private.</value>
+    <value>'{0}' handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private.</value>
   </data>
   <data name="UseMeaningfulIdentifierNames_TooShort_Message" xml:space="preserve">
-    <value>'{0}' est trop court pour dire ce qu'il est: un nom devrait avoir au moins 3 caractères.</value>
+    <value>'{0}' is too short to say what it is: a name should have at least 3 characters.</value>
   </data>
   <data name="UseMeaningfulIdentifierNames_EndsWithDigit_Message" xml:space="preserve">
-    <value>'{0}' se termine par un chiffre, ce qui dit qu'il est l'un de plusieurs et non ce qui le distingue des autres. Donnez-lui un nom qui dit ce qu'il est.</value>
+    <value>'{0}' ends with a digit, which says it is one of several and not what makes it different from the others. Give it a name that says what it is.</value>
   </data>
   <data name="UseMeaningfulIdentifierNames_NoVowel_Message" xml:space="preserve">
-    <value>'{0}' n'a aucune voyelle, et n'est probablement pas un mot. Donnez-lui un nom qui dit ce qu'il est.</value>
+    <value>'{0}' has no vowel, and is unlikely to be a word. Give it a name that says what it is.</value>
   </data>
   <data name="HungarianNotation_Message" xml:space="preserve">
-    <value>'{0}' commence par un préfixe qui indique son type. Le type est déclaré: le nom devrait dire ce qu'est la chose, pas de quoi elle est faite.</value>
+    <value>'{0}' begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of.</value>
   </data>
   <data name="MisleadingByRefParameter_Message" xml:space="preserve">
-    <value>ByRef n'a aucun effet sur '{0}', le paramètre de valeur d'une propriété Let ou Set: il est toujours passé ByVal.</value>
+    <value>ByRef has no effect on '{0}', the value parameter of a property Let or Set: it is always passed ByVal.</value>
   </data>
   <data name="VariantNumberStringComparison_Message" xml:space="preserve">
-    <value>'{0}' compare un Variant qui contient un nombre à un Variant qui contient une String: le nombre est toujours plus petit que la String, quelles que soient leurs valeurs.</value>
+    <value>'{0}' compares a Variant holding a number with a Variant holding a String: the number is always less than the String, whatever their values.</value>
   </data>
   <data name="VariantComparedWithStringAsText_Message" xml:space="preserve">
-    <value>'{0}' compare un Variant qui contient un nombre, une date ou un Boolean à une String: MS-VBA compare leurs textes, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13) quand la String n'est pas un nombre.</value>
+    <value>'{0}' compares a Variant holding a number, a Date or a Boolean with a String: MS-VBA compares their text, where MS-VBAL §5.6.9.5 makes it a type mismatch (13) when the String is no number.</value>
   </data>
   <data name="CaseComparedInSelectorType_Message" xml:space="preserve">
-    <value>MS-VBA convertit la valeur de ce Case Is au type déclaré du sélecteur avant de les comparer, alors que MS-VBAL §5.4.2.10 en fait l'expression « sélecteur opérateur valeur » : le résultat peut différer.</value>
+    <value>MS-VBA converts the value of this Case Is to the declared type of the selector before comparing the two, where MS-VBAL §5.4.2.10 states the expression 'selector operator value': the result can differ.</value>
   </data>
   <data name="VariantStringThatIsNoNumberRanked_Message" xml:space="preserve">
-    <value>'{0}' compare un Variant qui contient une String qui n'est pas un nombre à un nombre, une date ou un Boolean : MS-VBA classe la String au-dessus, quelles que soient les valeurs, et MS-VBAL §5.6.9.5 en fait une incompatibilité de type (13).</value>
+    <value>'{0}' compares a Variant holding a String that is no number with a number, a Date or a Boolean: MS-VBA ranks the String above it, whatever their values, where MS-VBAL §5.6.9.5 makes it a type mismatch (13).</value>
   </data>
   <data name="UnmatchedEventHandler_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus.</value>
+    <value>&apos;{0}&apos; is named as the handler of an event of a control, and does not match the event: the event never calls it, and neither does anything else.</value>
   </data>
   <data name="SetThroughACallFails_NoDefaultMemberToSet_Message" xml:space="preserve">
-    <value>Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute.</value>
+    <value>This Set calls &apos;{0}&apos; and Sets the default member of what it returns, which has no Property Set: it raises run-time error 438 (Object doesn&apos;t support this property or method) whenever it runs.</value>
   </data>
   <data name="LikePatternDeparture_EmptyCharList_Message" xml:space="preserve">
-    <value>Ce motif contient un [] ou un [!] : MS-VBAL en fait une liste d&apos;aucun caractère, qui ne correspond à rien, alors que MS-VBA fait correspondre [] à aucun caractère du tout, et [!] à un « ! ».</value>
+    <value>This pattern has a [] or a [!]: MS-VBAL makes it a list of no character, which matches nothing, where MS-VBA matches [] with no character at all, and [!] with a &apos;!&apos;.</value>
   </data>
   <data name="LikePatternDeparture_InvalidPattern_Message" xml:space="preserve">
-    <value>Ce motif n&apos;est pas un motif Like valide : MS-VBAL lève l&apos;erreur d&apos;exécution 93 partout où il est utilisé, alors que MS-VBA ne la lève que lorsqu&apos;une correspondance atteint l&apos;élément invalide.</value>
+    <value>This pattern is not a valid Like pattern: MS-VBAL raises run-time error 93 wherever it is used, where MS-VBA raises it only when a match reaches the invalid element.</value>
   </data>
   <data name="ArgumentTypedArithmeticOverflow_Message" xml:space="preserve">
-    <value>Cette opération est de type {0} : MS-VBA type Abs, Int et Fix d&apos;un nombre comme ce nombre, là où MS-VBAL les déclare Variant. Elle peut déborder (erreur d&apos;exécution 6) là où une opération de Variant s&apos;élargirait à un type plus grand.</value>
+    <value>This operation is {0} arithmetic: MS-VBA types Abs, Int and Fix of a number as that number&apos;s type, where MS-VBAL declares them Variant. It can overflow (run-time error 6) where a Variant operation would widen to a larger type.</value>
   </data>
   <data name="IgnoredTypeCharacter_Message" xml:space="preserve">
-    <value>Le caractère de type de cette fonction ne correspond pas à son type déclaré ({1}) : MS-VBAL rend ce nom invalide, et MS-VBA ignore le caractère. Écrivez &apos;{0}&apos; sans lui.</value>
+    <value>The type character of this function does not match its declared type ({1}): MS-VBAL makes the name invalid, and MS-VBA ignores the character. Write &apos;{0}&apos; without it.</value>
   </data>
   <data name="ProcedureConstantLength_Message" xml:space="preserve">
-    <value>La valeur de la constante &apos;{0}&apos; appelle Len : MS-VBA l&apos;accepte dans une procédure, mais la refuse dans un module (Expression constante requise), et son exécution n&apos;est pas fiable. Écrivez la longueur elle-même.</value>
+    <value>The value of constant &apos;{0}&apos; calls Len: MS-VBA accepts it in a procedure, but refuses it in a module (Constant expression required), and its run is not reliable. Write the length itself.</value>
   </data>
   <data name="ReDimOfAnImplicitVariant_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; a été déclaré implicitement, là où il est utilisé pour la première fois : MS-VBAL et VB6 le redimensionnent ici, alors que MS-VBA refuse ce ReDim à la compilation (ReDim incorrect). Déclarez &apos;{0}&apos; avec Dim avant de l&apos;utiliser.</value>
+    <value>&apos;{0}&apos; was declared implicitly, where it is first used: MS-VBAL and VB6 re-dimension it here, where MS-VBA refuses this ReDim at compile time (Invalid ReDim). Declare &apos;{0}&apos; with Dim before using it.</value>
   </data>
   <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
-    <value>Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type).</value>
+    <value>An object of class &apos;{0}&apos;, which has no default member, is where a value is expected: MS-VBA raises run-time error 438 (91 when it is Nothing) when it runs, where MS-VBAL §5.5.1.1 makes it a compile error (type mismatch).</value>
   </data>
   <data name="EmptyLetToArray_Message" xml:space="preserve">
-    <value>{0} est assigné à un tableau : MS-VBAL le permet, {0} étant un Variant, mais la valeur qu&apos;il contient lève l&apos;erreur d&apos;exécution 13 (Incompatibilité de type) chaque fois que l&apos;assignation s&apos;exécute. Erase vide un tableau dynamique.</value>
+    <value>{0} is assigned to an array: MS-VBAL allows it, {0} being a Variant, but the value it holds raises run-time error 13 (Type mismatch) whenever the assignment runs. Erase empties a dynamic array.</value>
   </data>
 </root>
