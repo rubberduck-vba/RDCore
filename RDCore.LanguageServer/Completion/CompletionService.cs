@@ -139,7 +139,7 @@ internal sealed class CompletionService(
 
     public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token)
     {
-        var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
         return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token);
     }
@@ -293,7 +293,7 @@ internal sealed class CompletionService(
 
     public Task<SignatureHelp?> SignatureHelpFragmentAsync(string moduleName, string source, Position position, CancellationToken token)
     {
-        var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
         return SignatureHelpAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token);
     }
@@ -355,7 +355,7 @@ internal sealed class CompletionService(
         }
 
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
-        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
@@ -392,7 +392,7 @@ internal sealed class CompletionService(
             var name = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
             if (!string.Equals(name, moduleName, StringComparison.OrdinalIgnoreCase))
             {
-                yield return (new UriBuilder(workspaceRoot) { Fragment = name }.Uri, ParsingClientService.ModuleTypeOf(document), parse);
+                yield return (SymbolUri.Module(workspaceRoot, name), ParsingClientService.ModuleTypeOf(document), parse);
             }
         }
     }

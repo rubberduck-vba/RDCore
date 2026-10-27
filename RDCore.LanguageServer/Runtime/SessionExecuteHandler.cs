@@ -9,6 +9,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.LanguageServer.Runtime;
 
@@ -55,7 +56,7 @@ internal sealed class SessionExecuteHandler(
         // the module URI comes back from the symbol sync, which derives it from the workspace's own
         // root: the same declaration addressed two ways is the same declaration defined twice, and a
         // name that then resolves to neither.
-        var moduleUri = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = request.ModuleName }.Uri;
+        var moduleUri = SymbolUri.Module(options.Value.Workspace.WorkspaceUri, request.ModuleName);
 
         var parseResult = await parsing.ParseFragmentAsync(moduleUri, request.Source, token);
         if (!parseResult.IsSuccess || parseResult.SyntaxTree is null)

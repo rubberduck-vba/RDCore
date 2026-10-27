@@ -9,6 +9,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.LanguageServer.Debugging;
 
@@ -132,7 +133,7 @@ internal sealed class PlatformDebugWorkspace(
         await environment.WaitForReadyAsync(token);
 
         // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration.
-        var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         return await environment.SendRequestAsync<HostExecuteParams, ExecuteSessionResult>(new HostExecuteParams
         {
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),

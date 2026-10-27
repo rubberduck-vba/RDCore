@@ -43,16 +43,7 @@ public abstract record class Symbol
     /// </remarks>
     protected virtual string? UriSuffix => null;
 
-    private static Uri CreateUri(Uri parent, string name)
-    {
-        var builder = new UriBuilder(parent)
-        {
-            Fragment = string.IsNullOrEmpty(parent.Fragment)
-                ? name
-                : $"{parent.Fragment.TrimStart('#')}.{name}"
-        };
-        return builder.Uri;
-    }
+    private static Uri CreateUri(Uri parent, string name) => SymbolUri.Member(parent, name);
 
     /// <summary>
     /// A <c>Uri</c> that uniquely identifies the symbol.

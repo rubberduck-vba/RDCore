@@ -332,13 +332,6 @@ public static class SymbolDescriptorReader
         return builder.ToImmutable();
     }
 
-    // mirrors Symbol.CreateUri: the parent uri with the child name as its fragment (dotted when nested).
-    private static Uri ChildUri(Uri parent, string name)
-    {
-        var builder = new UriBuilder(parent)
-        {
-            Fragment = string.IsNullOrEmpty(parent.Fragment) ? name : $"{parent.Fragment.TrimStart('#')}.{name}",
-        };
-        return builder.Uri;
-    }
+    // the parent uri with the child name as its fragment (dotted when nested), as a symbol's own is.
+    private static Uri ChildUri(Uri parent, string name) => Model.Symbols.SymbolUri.Member(parent, name);
 }

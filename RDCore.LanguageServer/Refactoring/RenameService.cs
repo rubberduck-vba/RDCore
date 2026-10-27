@@ -16,6 +16,7 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -119,7 +120,7 @@ internal sealed class RenameService(
             }
 
             var name = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
-            modules.Add(new(document, new UriBuilder(workspaceRoot) { Fragment = name }.Uri, ParsingClientService.ModuleTypeOf(document), parse,
+            modules.Add(new(document, SymbolUri.Module(workspaceRoot, name), ParsingClientService.ModuleTypeOf(document), parse,
                 ParsingClientService.ModuleSourceOf(document)));
         }
 

@@ -12,6 +12,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Progress;
+using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -144,7 +145,7 @@ internal sealed class SymbolSyncService(
         await host.WaitForReadyAsync(token);
 
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
-        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var workspaceResolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope,
             libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
@@ -317,7 +318,7 @@ internal sealed class SymbolSyncService(
             var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
             // module kind is never a parser input — read it off the raw source, same as the parsing pass.
             var moduleKind = ParsingClientService.ModuleTypeOf(document);
-            modules.Add((new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri, moduleName, moduleKind, parseResult));
+            modules.Add((SymbolUri.Module(workspaceRoot, moduleName), moduleName, moduleKind, parseResult));
         }
 
         return (workspaceRoot, modules);
@@ -369,7 +370,7 @@ internal sealed class SymbolSyncService(
             return new DiscardSessionResult();
         }
 
-        var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
+        var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var result = await host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
             new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName, EndProgram = endProgram }, token);
 
@@ -380,7 +381,7 @@ internal sealed class SymbolSyncService(
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
-        return SendModuleCodeAsync(workspaceRoot, new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri, moduleName, parseResult, token);
+        return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, parseResult, token);
     }
 
     // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded.

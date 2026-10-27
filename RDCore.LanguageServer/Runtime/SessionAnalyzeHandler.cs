@@ -10,6 +10,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Server.Services;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.LanguageServer.Runtime;
 
@@ -41,7 +42,7 @@ internal sealed class SessionAnalyzeHandler(
                 $"The client did not advertise the '{nameof(SessionAnalyze)}' platform capability.");
         }
 
-        var moduleUri = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = request.ModuleName }.Uri;
+        var moduleUri = SymbolUri.Module(options.Value.Workspace.WorkspaceUri, request.ModuleName);
         using var work = progress.BeginFor(request, string.Format(ProgressMessages.Analyzing, request.ModuleName));
         var (found, providers) = await diagnostics.AnalyzeFragmentAsync(moduleUri, request.Source, token, work);
 
