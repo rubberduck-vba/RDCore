@@ -52,6 +52,46 @@ public sealed class VbpProjectImporterTests
     public void AProjectThatNamesItselfNothing_IsNamedForItsFile()
         => Assert.AreEqual("Battleship", Import("Module=modMain; modMain.bas").Project.Name);
 
+    // the .vbp's folder, as the language server and rdc import know it: an absolute path the CI's Linux runner has too.
+    private static readonly string MyProj = Path.Combine(Path.GetTempPath(), "src", "MyProj");
+
+    private static string[] ModulesOf(string vbp, string? folder)
+        => [.. VbpProjectImporter.Import(vbp, "MyProj.vbp", Libraries, folder).Project.Modules.Select(module => module.RelativeUri)];
+
+    // a path is resolved against the .vbp's folder before it is judged: one that climbs out and comes back in is the project's own file.
+    [TestMethod]
+    [DataRow(@"..\MyProj\Util.bas", "Util.bas", DisplayName = "out of the folder, and back in by its name")]
+    [DataRow(@"..\myproj\Sub\Util.bas", "Sub/Util.bas", DisplayName = "back in, in any case, to a sub-folder")]
+    [DataRow(@"..\..\src\MyProj\Util.bas", "Util.bas", DisplayName = "two folders out, and back in")]
+    [DataRow(@"Sub\..\Util.bas", "Util.bas", DisplayName = "a sub-folder's ..")]
+    [DataRow(@".\Util.bas", "Util.bas", DisplayName = "a .")]
+    public void APathThatComesBackIntoTheFolder_IsTheProjectsOwnFile(string path, string expected)
+    {
+        var import = VbpProjectImporter.Import($"Module=Util; {path}", "MyProj.vbp", Libraries, MyProj);
+
+        CollectionAssert.AreEqual(new[] { expected }, import.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsEmpty(import.Notes);
+    }
+
+    [TestMethod]
+    [DataRow(@"..\Shared\Util.bas", DisplayName = "a sibling folder")]
+    [DataRow(@"..\MyProjOld\Util.bas", DisplayName = "a sibling whose name starts as the folder's")]
+    [DataRow(@"Sub\..\..\Util.bas", DisplayName = "out through a sub-folder")]
+    public void APathThatLeavesTheFolder_IsNoted(string path)
+    {
+        var import = VbpProjectImporter.Import($"Module=Util; {path}", "MyProj.vbp", Libraries, MyProj);
+
+        Assert.IsEmpty(import.Project.Modules);
+        Assert.AreEqual((VbpImportNoteKind.OutsideProjectFolder, path), import.Notes.Select(note => (note.Kind, note.Subject)).Single());
+    }
+
+    [TestMethod]
+    public void APathThatClimbsOutOfAFolderThatIsNotKnown_IsNoted_ASubFoldersIsResolved()
+    {
+        Assert.IsEmpty(ModulesOf(@"Module=Util; ..\MyProj\Util.bas", folder: null), "whether it comes back in is not known");
+        CollectionAssert.AreEqual(new[] { "Util.bas" }, ModulesOf(@"Module=Util; Sub\..\Util.bas", folder: null));
+    }
+
     [TestMethod]
     public void TheModules_ClassesAndForms_AreTheProjectsModules_InTheFoldersTheyAreIn()
     {

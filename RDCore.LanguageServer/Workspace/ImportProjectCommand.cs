@@ -59,8 +59,8 @@ internal sealed class ImportProjectCommand(
             text = VbpProjectImporter.Decode(await fileSystem.File.ReadAllBytesAsync(vbp, token), AnsiEncoding());
         }
 
-        var import = VbpProjectImporter.Import(text, fileSystem.Path.GetFileName(vbp), libraries);
         var folder = fileSystem.Path.GetDirectoryName(vbp)!;
+        var import = VbpProjectImporter.Import(text, fileSystem.Path.GetFileName(vbp), libraries, fileSystem.Path.GetFullPath(folder));
         var rdproj = fileSystem.Path.Combine(folder, ProjectFile.FileName);
 
         if (fileSystem.File.Exists(rdproj) && !overwrite

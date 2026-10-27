@@ -193,7 +193,11 @@ public static class VbpProjectImporter
     /// <param name="vbp">The text of the <c>.vbp</c>.</param>
     /// <param name="fileName">The name of the <c>.vbp</c> file, which names a project that names itself nothing.</param>
     /// <param name="libraries">The descriptions of the libraries the platform ships.</param>
-    public static VbpImport Import(string vbp, string fileName, ILibrarySource libraries)
+    /// <param name="folder">
+    /// The absolute path of the <c>.vbp</c>'s folder, which a path that climbs out of it and comes back in is resolved against (<c>..\MyProj\Util.bas</c>
+    /// from <c>MyProj\MyProj.vbp</c> is <c>Util.bas</c>); <see langword="null"/> when it is not known, and such a path is outside of the folder.
+    /// </param>
+    public static VbpImport Import(string vbp, string fileName, ILibrarySource libraries, string? folder = null)
     {
         var notes = new List<VbpImportNote>();
         var modules = new List<RDCoreModule>();
@@ -282,10 +286,14 @@ public static class VbpProjectImporter
                 return null;
             }
 
-            var relative = path.Replace('\\', '/');
-            if (relative.Split('/').Contains(".."))
+            if (InFolder(path, folder) is not { } relative)
             {
                 notes.Add(new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, path));
+                return null;
+            }
+
+            if (relative.Length == 0)
+            {
                 return null;
             }
 
@@ -350,6 +358,42 @@ public static class VbpProjectImporter
                 AbsolutePath = parts.Length > 3 && parts[3].Trim().Length > 0 ? parts[3].Trim() : null,
             });
         }
+    }
+
+    // a path the .vbp writes, relative to its folder, with its . and .. resolved: the folder is climbed out of only to come back in when its own name is named
+    // again (..\MyProj\Util.bas from MyProj), and a sub-folder's .. is the folder it is in (Sub\..\Util.bas). Null when it leaves the folder - or climbs out of
+    // a folder that is not known. Names compare in any case, as VB6's file system does.
+    private static string? InFolder(string path, string? folder)
+    {
+        var folderSegments = (folder ?? string.Empty).Split('/', '\\').Where(segment => segment.Length > 0).ToList();
+        var resolved = new List<string>(folderSegments);
+        foreach (var segment in path.Split('/', '\\'))
+        {
+            switch (segment)
+            {
+                case "" or ".":
+                    continue;
+                case "..":
+                    if (resolved.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    resolved.RemoveAt(resolved.Count - 1);
+                    break;
+                default:
+                    resolved.Add(segment);
+                    break;
+            }
+        }
+
+        if (resolved.Count < folderSegments.Count
+            || !resolved.Take(folderSegments.Count).SequenceEqual(folderSegments, StringComparer.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return string.Join('/', resolved.Skip(folderSegments.Count));
     }
 
     // the Key=Value lines, up to the first [section]: what follows is the settings of add-ins, none of the project's.
