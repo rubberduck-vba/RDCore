@@ -372,13 +372,22 @@ public sealed class SyntaxTreeSymbolProviderTests
         CollectionAssert.AreEquivalent(fields, type.Members.ToArray());
     }
 
+    // LSP 3.17 DocumentSymbol: the range is the whole declaration, and the selection range the name it declares, which a client selects.
     [TestMethod]
-    public void Symbol_RangeComesFromTheDeclarationNode()
+    public void Symbol_RangeComesFromTheDeclarationNode_AndItsSelectionRangeFromItsName()
     {
         var symbol = Single<VBProcedureMemberSymbol>(Provide("Sub Foo()\r\nEnd Sub"));
 
-        Assert.AreNotEqual(SourceRange.Empty, symbol.Range);
-        Assert.AreEqual(symbol.Range, symbol.SelectionRange);
+        Assert.AreEqual(new SourceRange(0, 0, 1, 7), symbol.Range);
+        Assert.AreEqual(new SourceRange(0, 4, 0, 7), symbol.SelectionRange);
+    }
+
+    [TestMethod]
+    public void AParameter_IsSelectedByItsName()
+    {
+        var parameter = Single<VBProcedureMemberSymbol>(Provide("Sub Foo(ByVal amount As Long)\r\nEnd Sub")).Parameters.Single();
+
+        Assert.AreEqual(new SourceRange(0, 14, 0, 20), parameter.SelectionRange);
     }
 
     // --- procedure-local declarations (MS-VBAL 5.4.3.1-2) ---
