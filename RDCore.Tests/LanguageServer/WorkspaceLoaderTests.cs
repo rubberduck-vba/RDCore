@@ -151,6 +151,29 @@ public sealed class WorkspaceLoaderTests
         Assert.IsTrue(documents.TryGetDocument(new Uri(Path.Combine(Root, "res", "App.res")), out _));
     }
 
+    // a project file keeps the version that wrote it as it is read: a later version's is refused, not taken for the running platform's (copy constructor bug).
+    [TestMethod]
+    [DataRow("100.0.0", true, DisplayName = "written by a later version")]
+    [DataRow("99.0.0", false, DisplayName = "written by this version")]
+    [DataRow("1.2.3", false, DisplayName = "written by an earlier version")]
+    public async Task WorkspaceService_LoadAsync_RefusesAProjectALaterVersionWrote(string written, bool refused)
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData($$"""{ "Version": "{{written}}", "Configuration": [], "ProjectInfo": { "Name": "Later" } }"""),
+        });
+        var sut = WorkspaceService(fs);
+
+        if (refused)
+        {
+            await Assert.ThrowsExactlyAsync<NotSupportedException>(() => sut.LoadAsync(Root));
+        }
+        else
+        {
+            await sut.LoadAsync(Root);
+        }
+    }
+
     [TestMethod]
     public async Task WorkspaceDocumentService_TryGetDocument_FindsALoadedDocumentByUri_AndMissesAnUnknownOne()
     {

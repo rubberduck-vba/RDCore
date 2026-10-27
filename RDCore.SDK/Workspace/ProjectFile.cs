@@ -23,20 +23,36 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = uri;
         ProjectInfo = project;
-        Version = AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
+        Version = CurrentVersion;
         IsDirty = false;
         Configuration = [];
     }
+
+    // a copy is of the same project file: made by the same version - only a write stamps the version of the platform that writes it (WithCurrentVersion) - and
+    // as synthesized as it was, until it is written.
     public ProjectFile(ProjectFile source)
     {
         ArgumentNullException.ThrowIfNull(source, nameof(source));
 
         Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
-        Version = AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
+        Version = source.Version;
+        IsSynthesized = source.IsSynthesized;
+        // deliberate: a copy is a new, clean value, and a change says it is dirty (the With* methods, ProjectFileService.Update).
         IsDirty = false;
         Configuration = source.Configuration;
     }
+
+    /// <summary>
+    /// The version of the running platform, which a project file it writes is stamped with (<see cref="WithCurrentVersion"/>).
+    /// </summary>
+    public static string CurrentVersion => AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
+
+    /// <summary>
+    /// The project file as the running platform writes it: stamped with its version (<see cref="CurrentVersion"/>). A project file that is read, or copied,
+    /// keeps the version that wrote it, so that a platform can refuse a project a later version wrote.
+    /// </summary>
+    public ProjectFile WithCurrentVersion() => this with { Version = CurrentVersion };
 
     /// <summary>
     /// <c>true</c> if the project file has unsaved changes.
@@ -64,7 +80,8 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     [JsonIgnore]
     public string Uri { get; init; } = string.Empty;
     /// <summary>
-    /// The <c>RDCore.ServerApp</c> version that this project was created with.
+    /// The <c>RDCore.ServerApp</c> version that last wrote this project file: kept as it is read and copied, and stamped when it is written
+    /// (<see cref="WithCurrentVersion"/>).
     /// </summary>
     public string Version { get; init; }
     /// <summary>

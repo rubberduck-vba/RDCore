@@ -77,13 +77,15 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
 
         if (_projectFile.IsDirty || !ioFile.Exists(path))
         {
+            // a project file is stamped with the version of the platform that writes it.
+            var written = Project.WithCurrentVersion();
             await using (var stream = ioFile.Open(path, FileMode.Create))
             {
-                await JsonSerializer.SerializeAsync(stream, Project, SerializerOptions);
+                await JsonSerializer.SerializeAsync(stream, written, SerializerOptions);
             }
 
             // what is on disk now is the project: a synthesized one is a project file like any other.
-            _projectFile = _projectFile with { IsDirty = false, IsSynthesized = false };
+            _projectFile = written with { IsDirty = false, IsSynthesized = false };
             logger.LogInformation("✅ SaveAsync completed. Project file was saved successfully.");
         }
         else
