@@ -285,4 +285,7 @@
   <data name="LikePatternDeparture_InvalidPattern_Message" xml:space="preserve">
     <value>Ce motif n&apos;est pas un motif Like valide : MS-VBAL lève l&apos;erreur d&apos;exécution 93 partout où il est utilisé, alors que MS-VBA ne la lève que lorsqu&apos;une correspondance atteint l&apos;élément invalide.</value>
   </data>
+  <data name="ArgumentTypedArithmeticOverflow_Message" xml:space="preserve">
+    <value>Cette opération est de type {0} : MS-VBA type Abs, Int et Fix d&apos;un nombre comme ce nombre, là où MS-VBAL les déclare Variant. Elle peut déborder (erreur d&apos;exécution 6) là où une opération de Variant s&apos;élargirait à un type plus grand.</value>
+  </data>
 </root>

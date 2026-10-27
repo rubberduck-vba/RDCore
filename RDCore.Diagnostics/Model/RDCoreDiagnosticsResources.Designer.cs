@@ -563,5 +563,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("SetThroughACallFails_NoDefaultMemberToSet_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cette opération est de type {0} : MS-VBA type Abs, Int et Fix d&apos;un nombre comme ce nombre, là où MS-VBAL les déclare Variant. Elle peut déborder (erreur d&apos;exécution 6) là où une opération de Variant s&apos;élargirait à un type plus grand..
+        /// </summary>
+        public static string ArgumentTypedArithmeticOverflow_Message {
+            get {
+                return ResourceManager.GetString("ArgumentTypedArithmeticOverflow_Message", resourceCulture);
+            }
+        }
     }
 }
