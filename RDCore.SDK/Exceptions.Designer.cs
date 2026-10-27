@@ -1364,6 +1364,15 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_TrailingOmittedArgument_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Too many line continuations: a logical line joins at most 25 physical lines, with 24 line-continuations..
+        /// </summary>
+        public static string VBCompileError_TooManyLineContinuations_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_TooManyLineContinuations_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..

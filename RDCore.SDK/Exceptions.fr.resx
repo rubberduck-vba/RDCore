@@ -807,6 +807,9 @@
   <data name="VBCompileError_TrailingOmittedArgument_Verbose" xml:space="preserve">
     <value>Une liste d'arguments ne se termine pas par un argument omis : retirez la dernière virgule.</value>
   </data>
+  <data name="VBCompileError_TooManyLineContinuations_Verbose" xml:space="preserve">
+    <value>Trop de continuations de ligne : une ligne logique joint au plus 25 lignes physiques, avec 24 continuations de ligne.</value>
+  </data>
   <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
     <value>'{0}' n'est pas une variable dont la taille peut être mesurée : {1}</value>
   </data>

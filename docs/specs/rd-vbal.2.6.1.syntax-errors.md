@@ -31,6 +31,8 @@ A procedure whose blocks do not match - a `Next` with no `For`, a block `If` wit
 
 An argument list that ends with an omitted argument - `Total(1, )`, `Report 1,` - is a syntax error (`VBC00001`), at the omitted argument, for an `Optional` parameter too: **MS-VBAL §5.6.13.1** makes the last positional argument of a list a required one, and MS-VBA refuses it (recorded in Excel). The RD-VBA grammar reads the list, and the declaration pass refuses it. An omitted argument before another is valid (`Total(1, , 3)`), and so is a list of no argument at all (`Total()`).
 
+A logical line joins at most 25 physical lines: 24 line-continuations in a row, and the 25th is a syntax error (`VBC00001`), "Too many line continuations", at its underscore, once for the line. **MS-VBAL §3.2.1** leaves the length of a line to the implementation, and this is MS-VBA's limit (MS Learn, and recorded in Excel). Two logical lines of 20 line-continuations each are valid: the limit is of one line.
+
 ## Conditional Compilation
 
 A directive is a logical line (**MS-VBAL §3.2.2**, §3.4): the physical lines a line-continuation joins to a line that starts with `#` are the directive's, and are
