@@ -2,6 +2,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -197,6 +198,19 @@ public static class DeclarationStaticSemanticsEvaluator
                 errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayArgumentMustBeByRef, parameter.Location,
                     string.Format(Exceptions.VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose, parameter.Name)));
             }
+        }
+
+        // MS-VBAL §5.6.13.1: the last positional argument of a list is required (required-positional-argument), so a list does not end with an omitted one: `F(1, )`
+        // and `S 1,` are syntax errors, for an Optional parameter too, as MS-VBA has them (recorded in Excel: oracle\ismissing Q03, Q05, Q07). `F()` is a list of
+        // no argument, which the parser reads as one omitted argument alone.
+        foreach (var arguments in module.Descendants().Select(node => node switch
+        {
+            IndexExpressionNode call => call.Arguments,
+            CallStatementNode call => call.Arguments,
+            _ => default,
+        }).Where(arguments => !arguments.IsDefault && arguments is [_, _, ..] && arguments[^1] is MissingArgumentNode))
+        {
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, arguments[^1].Location, Exceptions.VBCompileError_TrailingOmittedArgument_Verbose));
         }
 
         return errors.ToImmutable();

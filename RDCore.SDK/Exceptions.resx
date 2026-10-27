@@ -804,6 +804,9 @@
   <data name="VBCompileError_ParamArrayPassingMode_Verbose" xml:space="preserve">
     <value>'{0}' is a ParamArray, which is written with neither ByVal nor ByRef.</value>
   </data>
+  <data name="VBCompileError_TrailingOmittedArgument_Verbose" xml:space="preserve">
+    <value>An argument list does not end with an omitted argument: remove the last comma.</value>
+  </data>
   <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
     <value>'{0}' is no variable whose size can be measured: {1}</value>
   </data>

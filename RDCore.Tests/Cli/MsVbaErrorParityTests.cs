@@ -155,6 +155,11 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim a(5 To 1) As Long", "Range has no values", DisplayName = "an upper bound less than the lower one")]
     [DataRow("Dim a(-1) As Long", "Range has no values", DisplayName = "a negative upper bound")]
     [DataRow("Debug.Print Len()", "Syntax error", DisplayName = "Len with no argument")]
+    // an argument list does not end with an omitted argument, for an Optional parameter too (oracle\ismissing Q03, Q05, Q07).
+    [DataRow("Debug.Print Globals.Twice(1, )", "Syntax error", DisplayName = "Q03 a call that ends with an omitted argument")]
+    [DataRow("Dim n As Long ;; Globals.TakesLong n,", "Syntax error", DisplayName = "Q05 a call statement that ends with an omitted argument")]
+    [DataRow("Dim n As Long ;; Call Globals.TakesLong(n, )", "Syntax error", DisplayName = "a Call statement that ends with an omitted argument")]
+    [DataRow("Debug.Print Globals.Twice(, )", "Syntax error", DisplayName = "two omitted arguments")]
     [DataRow("Debug.Print Len", "Syntax error", DisplayName = "Len with no argument list")]
     [DataRow("Dim x As Long ;; x = LenB", "Syntax error", DisplayName = "LenB assigned with no argument list")]
     [DataRow("Debug.Print Abs(1, 2)", "Syntax error", DisplayName = "Abs with two arguments")]
