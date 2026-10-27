@@ -291,4 +291,7 @@
   <data name="IgnoredTypeCharacter_Message" xml:space="preserve">
     <value>Le caractère de type de cette fonction ne correspond pas à son type déclaré ({1}) : MS-VBAL rend ce nom invalide, et MS-VBA ignore le caractère. Écrivez &apos;{0}&apos; sans lui.</value>
   </data>
+  <data name="ProcedureConstantLength_Message" xml:space="preserve">
+    <value>La valeur de la constante &apos;{0}&apos; appelle Len : MS-VBA l&apos;accepte dans une procédure, mais la refuse dans un module (Expression constante requise), et son exécution n&apos;est pas fiable. Écrivez la longueur elle-même.</value>
+  </data>
 </root>

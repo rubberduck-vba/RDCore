@@ -24,7 +24,11 @@ namespace RDCore.SDK.Semantics.Static;
 /// </para>
 /// <para>
 /// 👉 MS-VBAL §5.6.16.1 also admits a call of <c>Int</c>, <c>Fix</c>, <c>Abs</c>, <c>Sgn</c>, <c>Len</c>, <c>LenB</c> and the conversion functions. MS-VBA
-/// refuses every one of them in a constant (<c>Const k = Len("abc")</c>, <c>Abs(-1)</c>, <c>CLng(1.5)</c>), and RD-VBA refuses them as MS-VBA does.
+/// refuses them in a constant (<c>Const k = Len("abc")</c>, <c>Abs(-1)</c>, <c>CLng(1.5)</c>; of a module, oracle\s44 C01, C02, and <c>LenB</c> of a
+/// procedure, C05), and RD-VBA refuses them as MS-VBA does. A <c>Const</c> of a procedure valued <c>Len</c> of a constant compiles in MS-VBA, and crashes the
+/// host when it runs (C03, C04): RD-VBA compiles it, to the length MS-VBAL gives it, and warns (<c>RDC11021</c>, the author's ruling). MS-VBA admits
+/// <c>Len</c> and <c>LenB</c> of a constant expression in the bounds of an array, of a
+/// procedure and of a module (<c>Dim d(Len(K))</c>, oracle\s46 F02, oracle\s44 C06), and so does RD-VBA.
 /// </para>
 /// <para>
 /// The <c>Nothing</c> literal is a constant expression, of a type no constant can have: <see cref="VBCompileErrorId.InvalidDataTypeForConstant"/>.
@@ -64,7 +68,7 @@ public static class ConstantExpressionStaticSemantics
             foreach (var local in DeclarationStaticSemanticsEvaluator.LocalsOf(member))
             {
                 if (local is VBLocalConstantSymbol { Value: { } localValue }
-                    && (ValueError(resolver, local.ParentUri, localValue) ?? CycleError(resolver, local, localValue)) is { } localError)
+                    && (ValueErrorOf(resolver, local, localValue) ?? CycleError(resolver, local, localValue)) is { } localError)
                 {
                     yield return localError;
                 }
@@ -153,9 +157,9 @@ public static class ConstantExpressionStaticSemantics
         {
             foreach (var expression in new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>())
             {
-                if (ValueError(resolver, array.ParentUri, expression) is { VBCompileErrorId: VBCompileErrorId.ConstantExpressionRequired } error)
+                if (FirstNotConstant(resolver, array.ParentUri, expression, LengthCalls.Len | LengthCalls.LenB) is { } offending)
                 {
-                    yield return error;
+                    yield return VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, offending.Location, Describe(offending) ?? string.Empty);
                 }
             }
 
@@ -198,24 +202,53 @@ public static class ConstantExpressionStaticSemantics
     /// <param name="scope">Where the constant is declared: its module, or its procedure.</param>
     /// <param name="value">The value the constant is declared with.</param>
     /// <returns>The error, or <see langword="null"/> when the value is a constant expression.</returns>
-    public static VBCompileErrorInfo? ValueError(ISymbolResolver resolver, Uri scope, ExpressionNode value)
+    public static VBCompileErrorInfo? ValueError(ISymbolResolver resolver, Uri scope, ExpressionNode value) => ValueError(resolver, scope, value, LengthCalls.None);
+
+    /// <summary>
+    /// The compile error of the value of <paramref name="constant"/>, as <see cref="ValueError(ISymbolResolver, Uri, ExpressionNode)"/> - and of a constant
+    /// of a procedure, a call of the standard library's <c>Len</c> of a constant expression is one, which MS-VBA compiles there and refuses in a module
+    /// (recorded in Excel: oracle\s44 C01-C04).
+    /// </summary>
+    /// <param name="resolver">Resolves the names the value is written with.</param>
+    /// <param name="constant">The constant: of a module, or of a procedure.</param>
+    /// <param name="value">The value it is declared with.</param>
+    /// <returns>The error, or <see langword="null"/> when the value is a constant expression.</returns>
+    public static VBCompileErrorInfo? ValueErrorOf(ISymbolResolver resolver, Symbol constant, ExpressionNode value)
+        => ValueError(resolver, constant.ParentUri, value, constant is VBLocalConstantSymbol ? LengthCalls.Len : LengthCalls.None);
+
+    private static VBCompileErrorInfo? ValueError(ISymbolResolver resolver, Uri scope, ExpressionNode value, LengthCalls admits)
     {
         if (value is LiteralExpressionNode { StaticValue: VBNothingValue })
         {
             return VBCompileErrorInfo.For(VBCompileErrorId.InvalidDataTypeForConstant, value.Location, "Nothing");
         }
 
-        return FirstNotConstant(resolver, scope, value) is { } offending
+        return FirstNotConstant(resolver, scope, value, admits) is { } offending
             ? VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, offending.Location, Describe(offending) ?? string.Empty)
             : null;
     }
 
-    private static ExpressionNode? FirstNotConstant(ISymbolResolver resolver, Uri scope, ExpressionNode expression) => expression switch
+    // which calls of the standard library's Len and LenB are constant expressions where they are written - which MS-VBAL §5.6.16.1 says of both, anywhere a
+    // constant expression is: MS-VBA admits both in the bounds of an array (Excel-verified, oracle\s46 F02a, F02b, oracle\s44 C06: `Dim d(Len(K))`), Len alone
+    // in the value of a Const of a procedure (C03, C04, which the author lets slip with RDC11021: MS-VBA compiles it, and its run crashes the host), and
+    // neither in the value of a Const of a module (C01, C02), nor LenB in a procedure's (C05).
+    [Flags]
+    private enum LengthCalls
+    {
+        None = 0,
+        Len = 1 << 0,
+        LenB = 1 << 1,
+    }
+
+    private static ExpressionNode? FirstNotConstant(ISymbolResolver resolver, Uri scope, ExpressionNode expression, LengthCalls admits = LengthCalls.None) => expression switch
     {
         LiteralExpressionNode => null,
         // parentheses, - and Not, of a constant expression.
-        VBUnaryOperatorExpressionNode unary => FirstNotConstant(resolver, scope, unary.Operand),
-        VBBinaryOperatorExpressionNode binary => FirstNotConstant(resolver, scope, binary.Left) ?? FirstNotConstant(resolver, scope, binary.Right),
+        VBUnaryOperatorExpressionNode unary => FirstNotConstant(resolver, scope, unary.Operand, admits),
+        VBBinaryOperatorExpressionNode binary
+            => FirstNotConstant(resolver, scope, binary.Left, admits) ?? FirstNotConstant(resolver, scope, binary.Right, admits),
+        IndexExpressionNode { Arguments: [var argument] } call when admits != LengthCalls.None && IsLengthFunction(resolver, scope, call.Callee, admits)
+            => FirstNotConstant(resolver, scope, argument, admits),
         SimpleNameExpressionNode name => IsConstant(resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol) ? null : name,
         MemberAccessExpressionNode { Owner: { } owner } access => resolver.NamespaceOf(owner, scope) is { } qualifier
             ? IsConstant(resolver.ResolveMember(qualifier, access.Member, scope).Symbol) ? null : access
@@ -224,6 +257,22 @@ public static class ConstantExpressionStaticSemantics
     };
 
     private static bool IsConstant(Symbol? symbol) => symbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol;
+
+    // the standard library's Len or LenB - those admitted - by its name or through its module (`VBA.Len`): not a procedure of the workspace named the same.
+    private static bool IsLengthFunction(ISymbolResolver resolver, Uri scope, ExpressionNode callee, LengthCalls admits)
+    {
+        var symbol = callee switch
+        {
+            SimpleNameExpressionNode name => resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when resolver.NamespaceOf(owner, scope) is { } qualifier
+                => resolver.ResolveMember(qualifier, access.Member, scope).Symbol,
+            _ => null,
+        };
+
+        return symbol is VBFunctionMemberSymbol function && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(function)
+            && (admits.HasFlag(LengthCalls.Len) && string.Equals(function.Name, "Len", StringComparison.OrdinalIgnoreCase)
+                || admits.HasFlag(LengthCalls.LenB) && string.Equals(function.Name, "LenB", StringComparison.OrdinalIgnoreCase));
+    }
 
     // `Color.Red`, or `Module1.Color.Red`: a member of the enumeration the owner names.
     private static bool IsMemberOfEnumeration(ISymbolResolver resolver, Uri scope, ExpressionNode owner, string name)

@@ -127,6 +127,32 @@ public sealed class DeclaredSizeErrorTests
     [TestMethod]
     [DataRow("Dim a(2147483647) As Byte", "2147483647")]
     [DataRow("Const K = 3: Dim a(K) As Byte", "3")]
+    [DataRow("Const K = \"abcd\": Dim a(Len(K)) As Long", "4")]
+    [DataRow("Const K = \"abcd\": Dim a(LenB(K)) As Long", "8")]
     public Task ABoundInTheRangeOfALong_IsTheBound(string statement, string expected)
         => AssertPrinted(expected, [], statement, "Debug.Print UBound(a)");
+
+    // a module's array is bounded the same way (oracle\s44 C06).
+    [TestMethod]
+    public Task ABoundOfAModulesArray_CanBeTheLenOfAConstant()
+        => AssertPrinted("4", ["Const K = \"abcd\"", "Private d(Len(K)) As Long"], "Debug.Print UBound(d)");
+
+    // MS-VBA compiles a Const of a procedure valued Len of a constant (oracle\s44 C03, C04 - whose run crashes Excel), which the author lets slip with RDC11021:
+    // it is the length MS-VBAL gives it.
+    [TestMethod]
+    [DataRow("Const K2 = Len(\"abc\")", "Debug.Print K2", "3")]
+    [DataRow("Const K = \"abcd\": Const K3 = Len(K)", "Debug.Print K3", "4")]
+    public Task AConstOfAProcedure_CanBeTheLenOfAConstant(string statement, string print, string expected)
+        => AssertPrinted(expected, [], statement, print);
+
+    // ...where a module's is refused (C01, C02), and so is LenB in a procedure's (C05).
+    [TestMethod]
+    public Task AConstOfAProcedure_IsNotTheLenBOfAConstant()
+        => AssertError("Constant expression required", [], "Const K = \"abcd\": Const K4 = LenB(K)", "Debug.Print K4");
+
+    [TestMethod]
+    [DataRow("Const K2 = Len(\"abc\")")]
+    [DataRow("Const K = \"abcd\": Const K3 = Len(K)")]
+    public Task AConstOfAModule_IsNotTheLenOfAConstant(string declaration)
+        => AssertError("Constant expression required", [.. declaration.Split(": ")], "Debug.Print 1");
 }

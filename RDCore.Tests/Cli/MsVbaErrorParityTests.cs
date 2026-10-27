@@ -100,7 +100,8 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Const k As Long = 1 ;; k = 2", "Assignment to constant not permitted", DisplayName = "a Let of a constant")]
     [DataRow("Const k As Long = 1 ;; Set k = Nothing", "Assignment to constant not permitted", DisplayName = "a Set of a constant")]
     [DataRow("Dim n As Long ;; Const k As Long = n", "Constant expression required", DisplayName = "a constant of a variable")]
-    [DataRow("Const k = Len(\"abc\")", "Constant expression required", DisplayName = "a constant of a function MS-VBAL admits and MS-VBA refuses")]
+    // a procedure's Const of Len compiles, with RDC11021 (oracle\s44 C03, C04): ProcedureConstantLengthAnalyzerTests.
+    [DataRow("Const k = LenB(\"abc\")", "Constant expression required", DisplayName = "a constant of a function MS-VBAL admits and MS-VBA refuses")]
     [DataRow("Const k = Globals.Two", "Constant expression required", DisplayName = "a constant of a function of the workspace")]
     [DataRow("Const k = Nothing", "Invalid data type for constant", DisplayName = "a constant of Nothing")]
     [DataRow("Const k As Integer = 99999", "Overflow", DisplayName = "a constant too large for its type")]

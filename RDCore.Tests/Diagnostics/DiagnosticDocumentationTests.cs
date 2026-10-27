@@ -137,6 +137,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.SetThroughACallFails, 11012),
         (RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow, 11018),
         (RDCoreDiagnosticId.IgnoredTypeCharacter, 11019),
+        (RDCoreDiagnosticId.ProcedureConstantLength, 11021),
     ];
 
     [TestMethod]
