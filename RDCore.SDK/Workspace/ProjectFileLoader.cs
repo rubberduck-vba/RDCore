@@ -55,6 +55,30 @@ public interface IProjectFileLoader
     /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
     /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
     Task<ProjectFile> LoadOrSynthesizeAsync(string workspaceRoot, SupportedLanguage language, CancellationToken token = default);
+
+    /// <summary>
+    /// Loads the <c>.rdproj</c> under <paramref name="workspaceRoot"/> as <see cref="LoadAsync"/> does, when the folder has one that can be read: what is
+    /// about to replace a project file keeps what it says (<see cref="VbpImport.Into"/>).
+    /// </summary>
+    /// <param name="workspaceRoot">The absolute path of the folder.</param>
+    /// <param name="token">A token that cancels the read.</param>
+    /// <returns>The project file; <see langword="null"/> when the folder has none, or one that is not JSON or not a project file.</returns>
+    async Task<ProjectFile?> LoadIfReadableAsync(string workspaceRoot, CancellationToken token = default)
+    {
+        if (!TryLocate(workspaceRoot, out _))
+        {
+            return null;
+        }
+
+        try
+        {
+            return await LoadAsync(workspaceRoot, token);
+        }
+        catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
 }
 
 /// <inheritdoc cref="IProjectFileLoader"/>

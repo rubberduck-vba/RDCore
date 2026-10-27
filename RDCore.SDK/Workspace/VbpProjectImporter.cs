@@ -95,7 +95,56 @@ public static class VbpImportText
 /// </summary>
 /// <param name="Project">The project, as a <c>.rdproj</c> in the folder of the <c>.vbp</c> lists it.</param>
 /// <param name="Notes">What was not carried over, in the order the <c>.vbp</c> writes it.</param>
-public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImportNote> Notes);
+public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImportNote> Notes)
+{
+    /// <summary>
+    /// The project file of the <c>.vbp</c>'s folder once the import is made: what the <c>.vbp</c> describes replaces what the project file says of it, and
+    /// what the <c>.vbp</c> does not describe is kept.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <c>.vbp</c> describes the project's name, its references, its modules and other files, their folders, and its conditional compilation arguments:
+    /// those are the import's. A file the <c>.vbp</c> no longer lists is no longer the project's, and a reference it no longer makes is no longer made.
+    /// </para>
+    /// <para>
+    /// What only the platform says of the project is kept: the settings files of the project file (<see cref="ProjectFile.Configuration"/>), the document
+    /// class a module is (<see cref="RDCoreModule.Super"/>), and the type library information of a reference
+    /// (<see cref="RDCoreReference.TypeLibInfoPath"/>) - of a module by its path, of a reference by its name. A client that keeps a <c>.vbp</c> and a
+    /// <c>.rdproj</c> in step imports the <c>.vbp</c> again after each change, and loses none of it. Its <see cref="ProjectFile.Version"/> is the running
+    /// platform's, as it is of every project file the platform writes.
+    /// </para>
+    /// </remarks>
+    /// <param name="existing">The project file of the folder; <see langword="null"/> when it has none, or one that cannot be read.</param>
+    /// <param name="folder">The folder of the <c>.vbp</c>.</param>
+    public ProjectFile Into(ProjectFile? existing, string folder)
+    {
+        if (existing is null)
+        {
+            return new ProjectFile(folder, Project);
+        }
+
+        // a project file written by hand may list a module or a reference twice: the first is the one kept.
+        var modules = existing.ProjectInfo.Modules
+            .DistinctBy(module => module.RelativeUri, StringComparer.OrdinalIgnoreCase).ToDictionary(module => module.RelativeUri, StringComparer.OrdinalIgnoreCase);
+        var references = existing.ProjectInfo.References
+            .DistinctBy(reference => reference.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(reference => reference.Name, StringComparer.OrdinalIgnoreCase);
+        return existing with
+        {
+            Uri = folder,
+            ProjectInfo = existing.ProjectInfo with
+            {
+                Name = Project.Name,
+                References = [.. Project.References.Select(reference => references.TryGetValue(reference.Name, out var kept)
+                    ? reference with { TypeLibInfoPath = kept.TypeLibInfoPath }
+                    : reference)],
+                Modules = [.. Project.Modules.Select(module => modules.TryGetValue(module.RelativeUri, out var kept) ? module with { Super = kept.Super } : module)],
+                OtherFiles = Project.OtherFiles,
+                Folders = Project.Folders,
+                PrecompilerConstants = Project.PrecompilerConstants,
+            },
+        };
+    }
+}
 
 /// <summary>
 /// Makes a <c>.rdproj</c> project of a VB6 project file (<c>.vbp</c>): its name, its modules, classes and forms, the libraries it references, and its

@@ -180,6 +180,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentLifecycleService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileWriter>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileLoader>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<RDCore.SDK.Runtime.Libraries.ILibrarySource>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>());
 
