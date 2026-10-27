@@ -9,9 +9,10 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// </summary>
 /// <remarks>
 /// Matching is the two-pointer wildcard algorithm: a mismatch after a <c>*</c> resumes from that <c>*</c> one character further, so a match
-/// takes at most the length of the text times the length of the pattern, and allocates nothing - <c>String(1000, "a") Like "*a*a*a*b"</c>
-/// answers <c>False</c> at once. Every element other than <c>*</c> matches exactly one character; what an element matches never depends on
-/// how much text a <c>*</c> took, so the result is the one any matching order gives.
+/// takes at most the length of the text times the length of the pattern, and allocates nothing but the letters of a text that has a character
+/// to expand, in text mode - <c>String(1000, "a") Like "*a*a*a*b"</c>
+/// answers <c>False</c> at once. Every element other than <c>*</c> matches what is at its place, the one way it can; what an element matches
+/// never depends on how much text a <c>*</c> took, so the result is the one any matching order gives.
 /// <para>
 /// Where MS-VBA departs from MS-VBAL, this matches MS-VBA (RD-VBAL §5.6.9.6):
 /// </para>
@@ -24,6 +25,8 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// <item><c>#</c> matches <c>0</c> to <c>9</c> and no other digit; <c>?</c> and <c>*</c> match a line feed like any other character.</item>
 /// <item>In text mode a character matches its other case where the two map to each other in the regional settings (<see cref="Fold"/>),
 /// and a range is folded the same way before it is tested: <c>[A-z]</c> is <c>[a-z]</c>, and <c>[Z-a]</c> is invalid.</item>
+/// <item>In text mode a character the collation expands to two letters (<see cref="Expansion"/>) is matched as itself or as its letters, in the
+/// text and in the pattern alike: see <see cref="TextUnits"/>.</item>
 /// </list>
 /// </remarks>
 internal sealed class LikePattern
@@ -87,17 +90,18 @@ internal sealed class LikePattern
     /// <exception cref="InvalidLikePatternException">The match reached an invalid element.</exception>
     public bool IsMatch(ReadOnlySpan<char> text, StringComparisonRules rules)
     {
-        var elements = _binary;
-        var invalidFrom = _binaryInvalidFrom;
-        TextInfo? textInfo = null;
-        if (rules.IgnoresCase)
+        if (!rules.IgnoresCase)
         {
-            textInfo = rules.EffectiveCulture.TextInfo;
-            var form = TextFormFor(textInfo);
-            elements = form.Elements;
-            invalidFrom = form.InvalidFrom;
+            return IsMatch(new TextUnits(text, textInfo: null), _binary, _binaryInvalidFrom);
         }
 
+        var textInfo = rules.EffectiveCulture.TextInfo;
+        var form = TextFormFor(textInfo);
+        return IsMatch(TextUnits.Of(text, textInfo), form.Elements, form.InvalidFrom);
+    }
+
+    private static bool IsMatch(in TextUnits text, Element[] elements, bool[] invalidFrom)
+    {
         var p = 0;
         var t = 0;
         var star = -1;
@@ -116,10 +120,10 @@ internal sealed class LikePattern
                 continue;
             }
 
-            if (p < elements.Length && elements[p].Matches(textInfo is null ? text[t] : Fold(text[t], textInfo)))
+            if (p < elements.Length && elements[p].Match(text, t) is var after && after > t)
             {
                 p++;
-                t++;
+                t = after;
                 continue;
             }
 
@@ -153,19 +157,177 @@ internal sealed class LikePattern
         return lower != c && textInfo.ToUpper(lower) == c ? lower : c;
     }
 
+    /// <summary>
+    /// The two letters text mode matches a folded character as, if it is one MS-VBA's <c>Like</c> expands.
+    /// </summary>
+    /// <remarks>
+    /// These are the characters MS-VBA expands (Excel, oracle <c>like-collation</c> M03-M06): <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c>, and the
+    /// capitals that fold to them. Others that <c>=</c> compares equal to two letters in text mode - <c>ĳ</c>, the <c>ﬀ</c> to <c>ﬆ</c> ligatures,
+    /// <c>ǆ</c>, <c>ǉ</c>, <c>ǌ</c>, <c>ǳ</c>, <c>ẞ</c> - <c>Like</c> matches as themselves only.
+    /// </remarks>
+    internal static string? Expansion(char folded) => folded switch
+    {
+        'æ' => "ae",
+        'œ' => "oe",
+        'ß' => "ss",
+        'þ' => "th",
+        _ => null,
+    };
+
     private TextForm TextFormFor(TextInfo textInfo)
     {
         var form = _text;
         if (form is null || !ReferenceEquals(form.TextInfo, textInfo))
         {
-            var elements = Array.ConvertAll(_binary, element => element.Folded(textInfo));
+            var elements = Expanded(Array.ConvertAll(_binary, element => element.Folded(textInfo)));
             _text = form = new TextForm(textInfo, elements, InvalidFrom(elements));
         }
 
         return form;
     }
 
+    // a character of the pattern that text mode expands is its two letters, each matched as a character of the pattern is.
+    private static Element[] Expanded(Element[] folded)
+    {
+        if (!Array.Exists(folded, element => element.Kind == ElementKind.Literal && Expansion(element.Character) is not null))
+        {
+            return folded;
+        }
+
+        var elements = new List<Element>(folded.Length + 1);
+        foreach (var element in folded)
+        {
+            if (element.Kind == ElementKind.Literal && Expansion(element.Character) is { } letters)
+            {
+                elements.Add(element with { Character = letters[0] });
+                elements.Add(element with { Character = letters[1] });
+            }
+            else
+            {
+                elements.Add(element);
+            }
+        }
+
+        return [.. elements];
+    }
+
     private sealed record class TextForm(TextInfo TextInfo, Element[] Elements, bool[] InvalidFrom);
+
+    /// <summary>
+    /// The text a pattern is matched against, as the units its elements match: in binary mode its characters, and in text mode its characters
+    /// folded, with a character MS-VBA expands (<see cref="Expansion"/>) as its two letters.
+    /// </summary>
+    /// <remarks>
+    /// What an element takes of a character that is expanded is what MS-VBA takes of it (Excel, oracle <c>like-collation</c> L01-L08, M01-M08):
+    /// <list type="bullet">
+    /// <item>A character, or a <c>*</c>, takes one letter: <c>æ Like "a?"</c>, <c>æ Like "*e"</c> and <c>"ae" Like "æ"</c> are <c>True</c>.</item>
+    /// <item>A <c>?</c> takes the rest of the character it is at - the whole of it, at its start: <c>æ Like "??"</c> is <c>False</c>.</item>
+    /// <item>A list takes the whole character when the character is in it, and otherwise its first letter, when that is: <c>æ Like "[a-æ]"</c> and
+    /// <c>æ Like "[ae][ae]"</c> are <c>True</c>, <c>æ Like "[ae]"</c> and <c>æ Like "[æa]e"</c> are <c>False</c>. An item of a list that is expanded is
+    /// matched by its letters too: <c>"ae" Like "[æ]"</c> is <c>True</c>.</item>
+    /// <item>A negated list tests the first letter, and takes it: <c>æ Like "[!x]e"</c> is <c>True</c>, <c>æ Like "[!a]e"</c> and <c>æ Like "[!x]"</c>
+    /// are <c>False</c>.</item>
+    /// <item>A range is a range of characters, as it is in binary mode: <c>"b" Like "[æ-c]"</c> raises error 93.</item>
+    /// </list>
+    /// </remarks>
+    private readonly ref struct TextUnits
+    {
+        private readonly ReadOnlySpan<char> _text;
+        // folds each character as it is read, for a text with nothing to expand.
+        private readonly TextInfo? _textInfo;
+        // a text with something to expand: its characters folded, each expansion as its letters,
+        private readonly string? _units;
+        // and for each of those, the character it is part of, and where that character ends.
+        private readonly string? _characters;
+        private readonly int[]? _ends;
+
+        public TextUnits(ReadOnlySpan<char> text, TextInfo? textInfo)
+        {
+            _text = text;
+            _textInfo = textInfo;
+        }
+
+        private TextUnits(string units, string characters, int[] ends)
+        {
+            _units = units;
+            _characters = characters;
+            _ends = ends;
+        }
+
+        public static TextUnits Of(ReadOnlySpan<char> text, TextInfo textInfo)
+        {
+            var expands = false;
+            foreach (var c in text)
+            {
+                if (Expansion(Fold(c, textInfo)) is not null)
+                {
+                    expands = true;
+                    break;
+                }
+            }
+
+            if (!expands)
+            {
+                return new(text, textInfo);
+            }
+
+            var units = new System.Text.StringBuilder(text.Length + 4);
+            var characters = new System.Text.StringBuilder(text.Length + 4);
+            var ends = new List<int>(text.Length + 4);
+            foreach (var c in text)
+            {
+                var folded = Fold(c, textInfo);
+                var letters = Expansion(folded) ?? folded.ToString();
+                var end = units.Length + letters.Length;
+                foreach (var letter in letters)
+                {
+                    units.Append(letter);
+                    characters.Append(folded);
+                    ends.Add(end);
+                }
+            }
+
+            return new(units.ToString(), characters.ToString(), [.. ends]);
+        }
+
+        public int Length => _units?.Length ?? _text.Length;
+
+        public char this[int index] => _units is not null ? _units[index] : _textInfo is null ? _text[index] : Fold(_text[index], _textInfo);
+
+        // the index after the last unit of the character the unit at index is part of.
+        public int EndOfCharacter(int index) => _ends?[index] ?? index + 1;
+
+        // whether the unit at index is the first of a character that is expanded, and so that character.
+        public bool IsExpandedCharacter(int index, out char character)
+        {
+            character = default;
+            if (_ends is null || (index > 0 && _ends[index - 1] != index) || _ends[index] - index < 2)
+            {
+                return false;
+            }
+
+            character = _characters![index];
+            return true;
+        }
+
+        public bool StartsWith(int index, string letters)
+        {
+            if (index + letters.Length > Length)
+            {
+                return false;
+            }
+
+            for (var k = 0; k < letters.Length; k++)
+            {
+                if (this[index + k] != letters[k])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
 
     private static Element[] Parse(string pattern, out bool hasEmptyCharList)
     {
@@ -271,7 +433,8 @@ internal sealed class LikePattern
         Unterminated,
     }
 
-    private readonly record struct CharRange(char First, char Last)
+    // an item of a list: a range, or one character, which in text mode may be one that is expanded (Letters).
+    private readonly record struct CharRange(char First, char Last, string? Letters = null)
     {
         public bool IsReversed => First > Last;
 
@@ -287,22 +450,32 @@ internal sealed class LikePattern
             ElementKind.Literal => this with { Character = Fold(Character, textInfo) },
             ElementKind.List => this with
             {
-                Ranges = Array.ConvertAll(Ranges!, range => new CharRange(Fold(range.First, textInfo), Fold(range.Last, textInfo)))
+                Ranges = Array.ConvertAll(Ranges!, range => range.First == range.Last
+                    ? new CharRange(Fold(range.First, textInfo), Fold(range.First, textInfo), Expansion(Fold(range.First, textInfo)))
+                    : new CharRange(Fold(range.First, textInfo), Fold(range.Last, textInfo)))
             },
             _ => this,
         };
 
-        public bool Matches(char c)
+        // the index after what the element matches at index of the text, or -1 when it does not match there.
+        public int Match(in TextUnits text, int index)
         {
             switch (Kind)
             {
                 case ElementKind.Literal:
-                    return c == Character;
+                    return text[index] == Character ? index + 1 : -1;
                 case ElementKind.Any:
-                    return true;
+                    return text.EndOfCharacter(index);
                 case ElementKind.Digit:
-                    return c is >= '0' and <= '9';
+                    return text[index] is >= '0' and <= '9' ? index + 1 : -1;
                 case ElementKind.List:
+                    // an expanded character in the list as itself is taken whole.
+                    if (!IsNegated && text.IsExpandedCharacter(index, out var character)
+                        && Array.Exists(Ranges!, range => !range.IsReversed && range.Contains(character)))
+                    {
+                        return text.EndOfCharacter(index);
+                    }
+
                     // the items are tested in order, and the first that matches ends the test: an invalid range after it is not reached.
                     foreach (var range in Ranges!)
                     {
@@ -311,12 +484,12 @@ internal sealed class LikePattern
                             throw new InvalidLikePatternException();
                         }
 
-                        if (range.Contains(c))
+                        if (range.Letters is { } letters ? text.StartsWith(index, letters) : range.Contains(text[index]))
                         {
-                            return !IsNegated;
+                            return IsNegated ? -1 : index + (range.Letters?.Length ?? 1);
                         }
                     }
-                    return IsNegated;
+                    return IsNegated ? index + 1 : -1;
                 default:
                     throw new InvalidLikePatternException();
             }

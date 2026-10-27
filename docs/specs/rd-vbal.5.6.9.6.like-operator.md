@@ -52,10 +52,29 @@ In text mode, characters match regardless of case:
 - A range is folded to lowercase before it is tested. `"_" Like "[A-z]"` is `False` in text mode, because the range is `[a-z]`, while it is
   `True` in binary mode. `[a-Z]` is the valid range `[a-z]` in text mode, and `[Z-a]` is invalid there.
 
-> [!WARNING]
-> 🚧 Not implemented yet: in text mode, MS-VBA matches a character with its expansion in the collation, as **MS-VBAL §5.6.9.6** describes.
-> `ChrW(230) Like "ae"` (`æ`), `"ss" Like ChrW(223)` (`ß`), and `ChrW(230) Like "a?"` and `"a*"`, which match part of the character, are all `True`
-> in MS-VBA. RD-VBA folds one character to one character, so they are `False`.
+- Some characters are their expansion in the collation as well, as **MS-VBAL §5.6.9.6** describes: "some number of actual characters in
+  <expression> can match a different number of characters in the pattern". MS-VBA expands four (and their capitals), each to two letters:
+  `æ` to `ae`, `œ` to `oe`, `ß` to `ss` and `þ` to `th`. This is so in the text and in the pattern: `ChrW(230) Like "ae"`, `"ss" Like ChrW(223)`
+  and `"Straße" Like "STRASSE"` are `True`.
+- An element can match part of an expanded character:
+
+  |Element|What it takes of an expanded character|Example|
+  |---|---|---|
+  |A character, `#`|One letter.|`"æ" Like "a?"` and `"æ" Like "ae"` are `True`.|
+  |`*`|Any number of letters.|`"æ" Like "*e"` is `True`, `"æ" Like "*a"` is `False`.|
+  |`?`|The rest of the character it is at: all of it, at its start.|`"æ" Like "??"` and `"ß" Like "?s"` are `False`.|
+  |A list|The whole character if it is in the list, and otherwise its first letter, if that is. It does not try the letter once the whole character matched.|`"æ" Like "[a-æ]"` and `"æ" Like "[ae][ae]"` are `True`; `"æ" Like "[ae]"` and `"æ" Like "[æa]e"` are `False`.|
+  |A negated list|Its first letter, which the list tests.|`"æ" Like "[!x]e"` is `True`; `"æ" Like "[!a]e"` and `"æ" Like "[!x]"` are `False`.|
+
+  An expanded character in a list is matched by its letters too (`"ae" Like "[æ]"` is `True`). A range is a range of characters, as it is in
+  binary mode: `"b" Like "[æ-c]"` raises 93.
+- Nothing else is expanded, nor ignored. `ĳ`, the ligatures `ﬀ` to `ﬆ`, `ǆ`, `ǉ`, `ǌ`, `ǳ` and `ẞ` match only themselves, although `=` compares
+  each equal to its letters in text mode. A soft hyphen, a full-width letter and katakana are characters of their own: `"a" & ChrW(173) & "b"
+  Like "ab"` and `ChrW(65313) Like "A"` are `False`.
+
+> [!NOTE]
+> These are MS-VBA's answers in Excel, in English (United States) regional settings (oracle `like-collation`). One is not reproduced:
+> `ChrW(&HFB03) Like "f*"` (`ﬃ`) is `True` in MS-VBA, where every other match of `ﬃ` against its letters is `False`, and RD-VBA answers `False`.
 
 ### Invalid patterns
 
@@ -76,8 +95,8 @@ Run-time error 93 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntime
 
 `RDCore.Runtime.Semantics.Operators.Relational.LikePattern` parses a pattern once and keeps it for the next match. It matches with the
 two-pointer wildcard algorithm: a mismatch after a `*` resumes from that `*`, one character further. A match therefore takes at most the
-length of the text times the length of the pattern, and allocates nothing. `String(1000, "a") Like "*a*a*a*b"` answers `False` at once, as
-it does in MS-VBA.
+length of the text times the length of the pattern, and allocates nothing but the letters of a text that has a character to expand, in
+text mode. `String(1000, "a") Like "*a*a*a*b"` answers `False` at once, as it does in MS-VBA.
 
 ## Differences from MS-VBAL
 
@@ -98,8 +117,8 @@ Where MS-VBAL is silent or leaves a choice to the implementation, RD-VBA does wh
 - A `]` right after `[` or `[!` closes the list.
 - `#` matches the digits `0` to `9` only.
 - `?` and `*` match a line feed.
-- Text mode ignores case by the regional settings, only where the case maps both ways, and ignores no accent. MS-VBAL leaves text
-  collation to the regional settings.
+- Text mode ignores case by the regional settings, only where the case maps both ways, and ignores no accent. It expands `æ`, `œ`, `ß` and
+  `þ`. MS-VBAL leaves text collation to the regional settings.
 
 ---
 > ⏮️ [**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md) | ⏭️ [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)

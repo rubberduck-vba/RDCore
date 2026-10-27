@@ -77,12 +77,52 @@ public sealed class LikeOperatorTests
         => CollectionAssert.AreEqual(expected.Split('|'), await RunAsync(compare, expressions));
 
     // MS-VBAL 5.6.9.6: in text mode "some number of actual characters in <expression> can match a different number of characters in the
-    // pattern", by the regional collation; MS-VBA does so (oracle s47 Q01). The matcher folds one character to one character.
+    // pattern", by the regional collation. MS-VBA expands æ, œ, ß and þ (and their capitals) to two letters, in the text and in the pattern, and
+    // nothing else (oracle s47 Q01, like-collation L01-L09, M01-M08): what each element takes of one is in LikePattern.TextUnits. One row MS-VBA
+    // answers is left out, because nothing else it answers explains it: ChrW(&HFB03) Like "f*" is True, where every other row of ﬃ is False (L05).
     [TestMethod]
-    [Ignore("Like in text mode does not match a character with its expansion (æ with ae, ß with ss), nor part of one with ? or * (MS-VBAL 5.6.9.6)")]
-    public async Task LikeInTextMode_MatchesACharacterWithItsExpansion()
-        => CollectionAssert.AreEqual("True|True|True|True|True|True|True".Split('|'), await RunAsync("Text",
-            "ChrW(230) Like 'ae' ;; 'ae' Like ChrW(230) ;; ChrW(230) Like 'a?' ;; ChrW(230) Like 'a*' ;; ChrW(230) Like '[' & ChrW(230) & 'a]' ;; 'ss' Like ChrW(223) ;; ChrW(198) Like ChrW(230)"));
+    [DataRow("ChrW(230) Like 'ae' ;; 'ae' Like ChrW(230) ;; ChrW(230) Like 'a?' ;; ChrW(230) Like 'a*' ;; ChrW(230) Like '[' & ChrW(230) & 'a]' ;; 'ss' Like ChrW(223) ;; ChrW(198) Like ChrW(230)",
+        "True|True|True|True|True|True|True", DisplayName = "Q01 expansions")]
+    [DataRow("ChrW(230) Like 'a' ;; ChrW(230) Like '?' ;; ChrW(230) Like '??' ;; ChrW(230) Like '???' ;; 'ae' Like '?' ;; ChrW(230) Like '*e' ;; ChrW(230) Like '*a' ;; ChrW(230) Like 'a*' ;; ChrW(230) Like 'e*'",
+        "False|True|False|False|False|True|False|True|False", DisplayName = "L01 ? takes a character, * a letter")]
+    [DataRow("ChrW(230) Like 'a[e]' ;; ChrW(230) Like '[a]e' ;; ChrW(230) Like '[a-b]?' ;; ChrW(230) Like '[!x]e' ;; ChrW(230) Like 'a[!x]' ;; ChrW(230) Like '[ae]' ;; ChrW(230) Like '[ae][ae]' ;; ChrW(230) Like 'a#' ;; 'a' Like ChrW(230)",
+        "True|True|True|True|True|False|True|False|False", DisplayName = "L02 lists take a letter")]
+    [DataRow("'a' Like ChrW(230) & '*' ;; 'ae' Like ChrW(230) & '*' ;; 'aex' Like ChrW(230) & '?' ;; ChrW(230) & 'x' Like 'ae?' ;; ChrW(230) & 'x' Like 'a?x' ;; 'a' & ChrW(230) Like 'aae' ;; 'aae' Like 'a' & ChrW(230) ;; ChrW(230) & ChrW(230) Like 'aeae' ;; 'aeae' Like ChrW(230) & ChrW(230)",
+        "False|True|True|True|True|True|True|True|True", DisplayName = "L03 in longer text")]
+    [DataRow("ChrW(198) Like 'ae' ;; ChrW(230) Like 'AE' ;; ChrW(198) Like 'Ae' ;; ChrW(198) Like 'a?' ;; ChrW(223) Like 's?' ;; ChrW(223) Like '?s' ;; ChrW(223) Like '??' ;; ChrW(223) Like 's' ;; ChrW(223) Like 'ss' ;; 'ss' Like '?'",
+        "True|True|True|True|True|False|False|False|True|False", DisplayName = "L04 case and ss")]
+    [DataRow("ChrW(223) Like '[s]s' ;; ChrW(223) Like 's[s]' ;; 's' Like ChrW(223) ;; 'ss' Like ChrW(223) & '*' ;; ChrW(64259) Like 'f?i' ;; ChrW(64259) Like 'ff?' ;; ChrW(64259) Like '???' ;; ChrW(339) Like 'o?' ;; ChrW(307) Like 'i?'",
+        "True|True|False|True|False|False|False|True|False", DisplayName = "L05 ss, oe, and no ligatures")]
+    [DataRow("'a' Like '[' & ChrW(230) & ']' ;; 'ae' Like '[' & ChrW(230) & ']' ;; ChrW(230) Like '[' & ChrW(230) & ']' ;; ChrW(230) Like '[' & ChrW(198) & ']' ;; 'ss' Like '[' & ChrW(223) & ']' ;; ChrW(223) Like '[s]' ;; ChrW(223) Like '[' & ChrW(7838) & ']' ;; ChrW(230) Like '[a-z]' ;; ChrW(230) Like '[a-z][a-z]' ;; ChrW(230) Like '[!a-z]'",
+        "False|True|True|True|True|False|False|False|True|False", DisplayName = "L06 expanded items")]
+    [DataRow("'ab' Like 'a' & ChrW(173) & 'b' ;; 'a' & ChrW(173) & 'b' Like 'ab' ;; 'a' & ChrW(173) & 'b' Like 'a?b' ;; 'a' & ChrW(173) & 'b' Like 'a??b' ;; ChrW(65313) Like 'A' ;; ChrW(65313) Like 'a' ;; ChrW(12354) Like ChrW(12450) ;; ChrW(173) Like '' ;; '' Like ChrW(173)",
+        "False|False|True|False|False|False|False|False|False", DisplayName = "L07 no ignorables, width or kana")]
+    [DataRow("'b' Like '[' & ChrW(230) & '-c]' ;; 'af' Like '[' & ChrW(230) & '-c]' ;; ChrW(230) Like '[a-' & ChrW(230) & ']' ;; 'ad' Like '[a-' & ChrW(230) & ']' ;; ChrW(230) Like '[' & ChrW(230) & '-' & ChrW(230) & ']' ;; 'ae' Like '[!' & ChrW(230) & ']' ;; ChrW(230) Like '[!a]e'",
+        "e93|e93|True|False|True|False|False", DisplayName = "L08 ranges of characters")]
+    [DataRow("ChrW(230) Like '[' & ChrW(230) & 'a]e' ;; ChrW(230) Like '[!x]' ;; ChrW(230) Like '[!x]?' ;; ChrW(230) Like '[a-z]?' ;; ChrW(230) Like '[!a-z]?' ;; ChrW(230) Like '?e' ;; ChrW(230) Like '*' ;; ChrW(230) Like '**e' ;; ChrW(230) Like '[!x]e*' ;; ChrW(230) Like '[a]'",
+        "False|False|True|True|False|False|True|True|True|False", DisplayName = "M01 whole or letter")]
+    [DataRow("ChrW(64259) Like 'f?' ;; ChrW(64259) Like 'f??' ;; ChrW(64259) Like 'f' & ChrW(64257) ;; ChrW(64259) Like ChrW(64256) & 'i' ;; ChrW(64259) Like 'ffi' ;; 'ffi' Like ChrW(64259) ;; ChrW(64259) Like 'f*i' ;; ChrW(64259) Like '*i' ;; 'f' & ChrW(64257) Like ChrW(64259) ;; ChrW(64259) Like 'f[' & ChrW(64257) & ']'",
+        "False|False|False|False|False|False|False|False|False|False", DisplayName = "M02 ffi is itself")]
+    [DataRow("ChrW(307) Like 'i*' ;; ChrW(306) Like 'I*' ;; ChrW(64256) Like 'f?' ;; ChrW(64257) Like 'f?' ;; ChrW(64258) Like 'f?' ;; ChrW(64260) Like 'f*' ;; ChrW(64262) Like 's?' ;; ChrW(454) Like 'd?' ;; ChrW(453) Like 'd?' ;; ChrW(452) Like 'd?'",
+        "False|False|False|False|False|False|False|False|False|False", DisplayName = "M03 not expanded")]
+    [DataRow("ChrW(457) Like 'l?' ;; ChrW(460) Like 'n?' ;; ChrW(499) Like 'd?' ;; ChrW(254) Like 't?' ;; ChrW(222) Like 't?' ;; ChrW(7838) Like 's?' ;; ChrW(338) Like 'o?' ;; ChrW(339) Like 'o?' ;; ChrW(198) Like 'a?' ;; ChrW(223) Like 's?'",
+        "False|False|False|True|True|False|True|True|True|True", DisplayName = "M04 expanded")]
+    [DataRow("'ij' Like ChrW(307) ;; 'ff' Like ChrW(64256) ;; 'fi' Like ChrW(64257) ;; 'fl' Like ChrW(64258) ;; 'st' Like ChrW(64262) ;; 'd' & ChrW(382) Like ChrW(454) ;; 'lj' Like ChrW(457) ;; 'nj' Like ChrW(460) ;; 'dz' Like ChrW(499) ;; 'th' Like ChrW(254) ;; 'ss' Like ChrW(7838) ;; 'oe' Like ChrW(339)",
+        "False|False|False|False|False|False|False|False|False|True|False|True", DisplayName = "M05 letters against the character")]
+    [DataRow("ChrW(307) Like 'ij' ;; ChrW(64256) Like 'ff' ;; ChrW(64257) Like 'fi' ;; ChrW(64258) Like 'fl' ;; ChrW(64262) Like 'st' ;; ChrW(454) Like 'd' & ChrW(382) ;; ChrW(457) Like 'lj' ;; ChrW(460) Like 'nj' ;; ChrW(499) Like 'dz' ;; ChrW(254) Like 'th' ;; ChrW(7838) Like 'ss' ;; ChrW(339) Like 'oe'",
+        "False|False|False|False|False|False|False|False|False|True|False|True", DisplayName = "M06 the character against letters")]
+    [DataRow("ChrW(338) Like 'o?' ;; 'OE' Like ChrW(339) ;; ChrW(198) Like '[a]?' ;; ChrW(230) Like '[A]E' ;; 'Stra' & ChrW(223) & 'e' Like 'STRASSE' ;; 'Stra' & ChrW(223) & 'e' Like 'Stras?e' ;; 'Stra' & ChrW(223) & 'e' Like 'Stra?e' ;; 'Strasse' Like 'Stra' & ChrW(223) & 'e' ;; 'Strase' Like 'Stra' & ChrW(223) & 'e' ;; ChrW(230) & ChrW(230) Like 'a*e'",
+        "True|True|True|True|True|True|True|True|False|True", DisplayName = "M07 in words")]
+    [DataRow("'a' & ChrW(230) Like 'a' & ChrW(230) ;; ChrW(230) Like ChrW(198) ;; 'aE' Like ChrW(230) ;; ChrW(230) Like 'a[!e]' ;; ChrW(230) Like 'a[e-f]' ;; ChrW(230) Like 'a#' ;; 'a' & ChrW(230) & 'e' Like 'aae?' ;; ChrW(223) Like 's[!s]' ;; ChrW(223) & 's' Like 's*s' ;; ChrW(223) Like '*s'",
+        "True|True|True|False|True|False|True|False|True|True", DisplayName = "M08 the second letter")]
+    public async Task LikeInTextMode_MatchesACharacterWithItsExpansion(string expressions, string expected)
+        => CollectionAssert.AreEqual(expected.Split('|'), await RunAsync("Text", expressions));
+
+    [TestMethod]
+    public async Task LikeInBinaryMode_ExpandsNothing()
+        // L09: nor does binary mode ignore what text-mode comparison does.
+        => CollectionAssert.AreEqual("False|False|False|False|False".Split('|'), await RunAsync("Binary",
+            "ChrW(230) Like 'a?' ;; ChrW(230) Like 'ae' ;; ChrW(223) Like 'ss' ;; ChrW(65313) Like 'A' ;; 'a' & ChrW(173) & 'b' Like 'ab'"));
 
     [TestMethod]
     [Timeout(10_000, CooperativeCancellation = true)]
