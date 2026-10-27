@@ -94,4 +94,11 @@ public enum ValueExpressionSemanticFlags
     /// compiles it, and raises run-time error 438 (Object doesn't support this property or method) whenever it runs, or 91 when the object is <c>Nothing</c>.
     /// </summary>
     ValueOfObjectWithNoDefaultMember = 1 << 14,
+
+    /// <summary>
+    /// It is the <c>Empty</c> or the <c>Null</c> literal, Let-assigned to an array: a variable, or the result of a function, declared as one. Its declared
+    /// type is <c>Variant</c> (<strong>MS-VBAL §3.3.5.2</strong>), which is valid to Let-coerce to an array; the value it holds raises run-time error 13
+    /// (Type mismatch) whenever it runs, as <strong>MS-VBA</strong> has it.
+    /// </summary>
+    EmptyLetToArray = 1 << 15,
 }

@@ -300,4 +300,7 @@
   <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
     <value>An object of class &apos;{0}&apos;, which has no default member, is where a value is expected: MS-VBA raises run-time error 438 (91 when it is Nothing) when it runs, where MS-VBAL §5.5.1.1 makes it a compile error (type mismatch).</value>
   </data>
+  <data name="EmptyLetToArray_Message" xml:space="preserve">
+    <value>{0} is assigned to an array: MS-VBAL allows it, {0} being a Variant, but the value it holds raises run-time error 13 (Type mismatch) whenever the assignment runs. Erase empties a dynamic array.</value>
+  </data>
 </root>

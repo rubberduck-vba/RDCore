@@ -300,4 +300,7 @@
   <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
     <value>Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type).</value>
   </data>
+  <data name="EmptyLetToArray_Message" xml:space="preserve">
+    <value>{0} est assigné à un tableau : MS-VBAL le permet, {0} étant un Variant, mais la valeur qu&apos;il contient lève l&apos;erreur d&apos;exécution 13 (Incompatibilité de type) chaque fois que l&apos;assignation s&apos;exécute. Erase vide un tableau dynamique.</value>
+  </data>
 </root>

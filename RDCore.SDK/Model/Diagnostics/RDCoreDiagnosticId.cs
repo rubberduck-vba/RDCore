@@ -88,6 +88,7 @@ public enum RDCoreDiagnosticId
     VariantComparedWithStringAsText = 11013, // a Variant number compared with a String as text: MS-VBAL's table says type mismatch (13)
     CaseComparedInSelectorType = 11014, // Case Is <op> x: MS-VBA converts x to the selector's declared type; MS-VBAL states the comparison as an expression
     ValueOfObjectWithNoDefaultMember = 11015, // an object with no default member where a value is expected: MS-VBA raises 438 (91 for Nothing); MS-VBAL: compile error
+    EmptyLetToArray = 11016, // Empty or Null Let-assigned to an array (a variable, a function's result): compiles, raises 13 whenever it runs
     LikePatternDeparture = 11017, // a Like pattern MS-VBA matches otherwise than MS-VBAL says: [] or [!], or an invalid element it raises 93 for only when reached
     ArgumentTypedArithmeticOverflow = 11018, // integer arithmetic of Abs/Int/Fix of a typed number: MS-VBA types the call, MS-VBAL declares Variant, which would widen
     IgnoredTypeCharacter = 11019, // Len$, CVar$: a type character on a reserved function of the library, which MS-VBAL makes invalid and MS-VBA ignores

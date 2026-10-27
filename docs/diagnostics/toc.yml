@@ -438,6 +438,8 @@
   href: rdc11014.md
 - name: RDC11015 — Object with no default member used as a value
   href: rdc11015.md
+- name: RDC11016 — Empty or Null assigned to an array
+  href: rdc11016.md
 - name: RDC11017 — Like pattern MS-VBA matches otherwise than specified
   href: rdc11017.md
 - name: RDC11018 — Integer arithmetic of Abs, Int or Fix that can overflow
