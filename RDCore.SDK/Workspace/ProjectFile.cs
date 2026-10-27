@@ -117,7 +117,17 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 public record class RDCoreProject
 {
     public string Name { get; init; } = string.Empty;
-    public RDCoreReference[] References { get; init; } = [RDCoreReference.VBStandardLibrary];
+
+    /// <summary>
+    /// The libraries and projects the project references, in their priority order (<strong>RD-VBAL §2.2.3.2</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The standard library (<c>VBA</c>) is none of them: every project has it, in every dialect (<strong>RD-VBAL §6.0</strong>), and a project file does not
+    /// list it. A project file written before lists it - with the path of Office's <c>VBE7.DLL</c> - and is read without it
+    /// (<see cref="ProjectFileLoader"/>), so that it is written without it the next time (<see cref="RDCoreReference.IsStandardLibrary"/>).
+    /// </remarks>
+    public RDCoreReference[] References { get; init; } = [];
+
     public RDCoreModule[] Modules { get; init; } = [];
     public RDCoreFile[] OtherFiles { get; init; } = [];
     public string[] Folders { get; set; } = [];
@@ -160,15 +170,18 @@ public record class RDCoreProject
 
 public sealed record class RDCoreReference : IEquatable<RDCoreReference>
 {
-    public static RDCoreReference VBStandardLibrary { get; } = new RDCoreReference
-    {
-        Name = "VBA",
-        Guid = new Guid("000204ef-0000-0000-c000-000000000046"),
-        AbsolutePath = "C:\\Program Files\\Microsoft Office\\root\\vfs\\ProgramFilesCommonX64\\Microsoft Shared\\VBA\\VBA7.1\\VBE7.DLL",
-        Major = 4,
-        Minor = 2,
-        IsUnremovable = true,
-    };
+    /// <summary>
+    /// The identifier of the type library of <c>VBA</c>, the standard library, by which a VB6 project or a project file written before references it.
+    /// </summary>
+    public static readonly Guid StandardLibraryGuid = new("000204ef-0000-0000-c000-000000000046");
+
+    /// <summary>
+    /// Whether the reference is to the standard library (<c>VBA</c>), by its name or the identifier of its type library: the platform's own library, which
+    /// every project has and no project file lists (<see cref="RDCoreProject.References"/>).
+    /// </summary>
+    [JsonIgnore]
+    public bool IsStandardLibrary
+        => string.Equals(Name, Runtime.StdLib.StdLibSymbolProvider.LibraryName, StringComparison.OrdinalIgnoreCase) || Guid == StandardLibraryGuid;
 
     public string Name { get; init; } = string.Empty;
     public string? AbsolutePath { get; init; }

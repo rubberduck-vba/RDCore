@@ -244,7 +244,9 @@ public sealed class EnvironmentSessionProvider(
         };
     }
 
-    // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank.
+    // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank. The standard library, which every project has and no
+    // .rdproj lists, is the first of them, as it was when every .rdproj listed it first.
     private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references)
-        => [.. references.Select((reference, rank) => new ReferencePriorityInfo(reference.Name, rank))];
+        => [new ReferencePriorityInfo(StdLibSymbolProvider.LibraryName, 0),
+            .. references.Where(reference => !reference.IsStandardLibrary).Select((reference, rank) => new ReferencePriorityInfo(reference.Name, rank + 1))];
 }

@@ -22,7 +22,8 @@ public interface IProjectFileLoader
 
     /// <summary>
     /// Loads and deserializes the <c>.rdproj</c> under <paramref name="workspaceRoot"/>, stamping its
-    /// <see cref="ProjectFile.Uri"/> with the workspace root everything else is relative to.
+    /// <see cref="ProjectFile.Uri"/> with the workspace root everything else is relative to. A reference to the standard library, which a project file written
+    /// before lists, is not read: every project has it (<see cref="RDCoreProject.References"/>).
     /// </summary>
     /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
     /// <param name="token">A token that cancels the read.</param>
@@ -117,7 +118,12 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
             throw new InvalidOperationException($"The {ProjectFile.FileName} at '{path}' could not be deserialized.");
         }
 
-        return project.WithUri(workspaceRoot);
+        // the standard library is every project's own, and no reference of it: a project file written before lists it - with the path of Office's VBE7.DLL -
+        // and is read without it, which it is written without the next time.
+        var loaded = project.WithUri(workspaceRoot);
+        return loaded.ProjectInfo is { } info && info.References.Any(reference => reference.IsStandardLibrary)
+            ? loaded with { ProjectInfo = info with { References = [.. info.References.Where(reference => !reference.IsStandardLibrary)] } }
+            : loaded;
     }
 
     /// <inheritdoc/>
