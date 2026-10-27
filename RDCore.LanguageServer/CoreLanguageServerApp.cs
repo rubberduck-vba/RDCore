@@ -177,6 +177,12 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceFileOperationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentLifecycleService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileWriter>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<RDCore.SDK.Runtime.Libraries.ILibrarySource>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>());
+
+        // the commands a client asks the server to run (workspace/executeCommand).
+        services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
 
         // the documents of every language the platform serves: the client names the language its own way, so what selects a document is the file it is.
         services.AddSingleton(new TextDocumentSelector(SupportedLanguages.All
