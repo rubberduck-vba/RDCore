@@ -347,7 +347,34 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("NotAllPathsReturnValue_NeverAssigned_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to IsMissing({0}) is always False: &apos;{0}&apos; is {1}, which an omitted argument never leaves missing. Only a Variant parameter with no default value can be missing..
+        /// </summary>
+        public static string IsMissingAlwaysFalse_Message {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to not a Variant.
+        /// </summary>
+        public static string IsMissingAlwaysFalse_NotAVariant {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_NotAVariant", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to given a default value.
+        /// </summary>
+        public static string IsMissingAlwaysFalse_HasADefault {
+            get {
+                return ResourceManager.GetString("IsMissingAlwaysFalse_HasADefault", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
         /// </summary>
