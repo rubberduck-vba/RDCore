@@ -139,6 +139,20 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
+### Requests while the client edits
+
+An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](../api/RDCore.SDK.Server.ServerRequestScheduling.html)).
+
+A request that is made of what a document was would make a keystroke wait for it, and the completion a client sends after the keystroke too. So `textDocument/diagnostic` and `textDocument/semanticTokens/full` give way to a change ([`IncomingDocumentChanges`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)):
+
+- **The change is known as it arrives.** The server reads which document a change is to as the message arrives, long before its turn comes.
+- **A request about that document stops.** It is answered `ContentModified` (-32801), which **LSP 3.17** §Response Message has a server answer "if it detects a content change in its unprocessed messages". The client asks again for the document as it is now.
+  - This holds for a request that is running when the change arrives, and for one that starts before the change is applied.
+  - A change to another document changes nothing for it.
+- **A request the client cancels ends at once,** answered `RequestCancelled` (-32800), whatever the work under it is still doing.
+
+👉 HexIDE's client sent a keystroke and a completion while the diagnostics and the semantic tokens of a 2,100-line module were being found. The completion waited for both, about five seconds; with the request giving way, it waits for neither.
+
 ### `textDocument/inlayHint`
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,

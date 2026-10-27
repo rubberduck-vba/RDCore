@@ -21,6 +21,10 @@ public static class ServerRequestScheduling
     /// With this, a request runs to its end and is answered. What it answers for a document that has moved on in the meantime is its handler's to decide:
     /// the diagnostics pull drops a report of a version that is no longer the document's.
     /// </para>
+    /// <para>
+    /// The notification waits for the requests that run. A request that would make it wait long gives way to a change to its document instead, answered
+    /// <c>ContentModified</c> as the change arrives (<see cref="IncomingDocumentChanges.WhileCurrentAsync{T}"/>).
+    /// </para>
     /// </remarks>
     /// <param name="options">The server's options.</param>
     /// <returns>The same options.</returns>

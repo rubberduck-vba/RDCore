@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Server.Handlers.Document;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Server;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -19,11 +20,12 @@ public sealed class DocumentSynchronizationHandlerTests
 
     private readonly IDocumentLifecycleService _lifecycle = Substitute.For<IDocumentLifecycleService>();
     private readonly TextDocumentSelector _selector = new(new TextDocumentFilter { Pattern = "**/*.bas" });
+    private readonly IncomingDocumentChanges _incoming = new();
 
     [TestMethod]
     public async Task DidOpen_OpensTheDocumentWithTheTextAndTheVersionTheClientSent()
     {
-        await new DidOpenTextDocumentHandler(_lifecycle, _selector).Handle(
+        await new DidOpenTextDocumentHandler(_lifecycle, _selector, _incoming).Handle(
             new DidOpenTextDocumentParams { TextDocument = new TextDocumentItem { Uri = Document, Text = "Sub Foo()", Version = 3, LanguageId = "vba" } }, CancellationToken.None);
 
         _lifecycle.Received(1).Opened(Document.ToUri(), "Sub Foo()", 3);
@@ -34,7 +36,7 @@ public sealed class DocumentSynchronizationHandlerTests
     {
         var changes = new[] { new TextDocumentContentChangeEvent { Text = "x" }, new TextDocumentContentChangeEvent { Text = "y" } };
 
-        await new DidChangeTextDocumentHandler(_lifecycle, _selector).Handle(
+        await new DidChangeTextDocumentHandler(_lifecycle, _selector, _incoming).Handle(
             new DidChangeTextDocumentParams
             {
                 TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = Document, Version = 9 },
@@ -83,7 +85,7 @@ public sealed class DocumentSynchronizationHandlerTests
     [TestMethod]
     public async Task DidClose_ClosesTheDocument()
     {
-        await new DidCloseTextDocumentHandler(_lifecycle, _selector).Handle(
+        await new DidCloseTextDocumentHandler(_lifecycle, _selector, _incoming).Handle(
             new DidCloseTextDocumentParams { TextDocument = new TextDocumentIdentifier(Document) }, CancellationToken.None);
 
         await _lifecycle.Received(1).ClosedAsync(Document.ToUri());

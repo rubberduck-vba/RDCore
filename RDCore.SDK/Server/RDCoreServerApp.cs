@@ -72,6 +72,9 @@ public abstract class RDCoreServerApp(
 
     public abstract CoreServerComponent PlatformComponent { get; }
     private OmniSharpLanguageServer? Server { get; set; }
+
+    // the changes to documents the client has sent and the server has not applied yet, known as they arrive (HexIDE's findings desk #31).
+    private readonly IncomingDocumentChanges _incomingChanges = new();
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
         => await Server!.SendRequest(request, token);
 
@@ -285,7 +288,7 @@ public abstract class RDCoreServerApp(
     private void ConfigureServer(LanguageServerOptions serverOptions)
     {
         serverOptions
-            .WithInput(PipeReader.Create(_namedPipe))
+            .WithInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe)))
             .WithOutput(PipeWriter.Create(_namedPipe))
             // basic server app information:
             .WithServerInfo(GetServerInfo())
@@ -312,6 +315,7 @@ public abstract class RDCoreServerApp(
         {
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
             services.AddSingleton(new PlatformComponentContext(PlatformComponent));
+            services.AddSingleton(_incomingChanges);
 
             // the other half of the platform handshake: what the connected client expects of us.
             // A handler serving an optional, client-driven request family consults it.

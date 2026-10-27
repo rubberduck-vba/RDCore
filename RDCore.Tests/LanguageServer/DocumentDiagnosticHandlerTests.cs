@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -16,7 +17,7 @@ public sealed class DocumentDiagnosticHandlerTests
 
     private readonly IDocumentDiagnosticsService _service = Substitute.For<IDocumentDiagnosticsService>();
 
-    private DocumentDiagnosticHandler Sut() => new(_service, new WorkProgressReporter());
+    private DocumentDiagnosticHandler Sut() => new(_service, new WorkProgressReporter(), new IncomingDocumentChanges());
 
     private static DocumentDiagnosticParams Request(string? previousResultId = null) => new()
     {

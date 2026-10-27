@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.SemanticTokens;
+using RDCore.SDK.Server;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -21,7 +22,7 @@ public sealed class SemanticTokensHandlerTests
     [TestMethod]
     public void Ranges_AreNotServed_AndTheWholeDocumentIs()
     {
-        var options = OptionsOf(new SemanticTokensHandler(Substitute.For<ISemanticTokensService>()));
+        var options = OptionsOf(new SemanticTokensHandler(Substitute.For<ISemanticTokensService>(), new IncomingDocumentChanges()));
 
         Assert.IsTrue(options.Range is null || options.Range is { IsBool: true, Bool: false }, "a range request is not served");
         Assert.IsTrue(options.Full is { IsValue: true } or { IsBool: true, Bool: true }, "the whole document is served");

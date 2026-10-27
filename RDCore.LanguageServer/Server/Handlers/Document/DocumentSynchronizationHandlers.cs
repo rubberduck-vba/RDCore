@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Server;
 
 namespace RDCore.LanguageServer.Server.Handlers.Document;
 
@@ -13,11 +14,19 @@ namespace RDCore.LanguageServer.Server.Handlers.Document;
 /// <summary>
 /// <c>textDocument/didOpen</c>: the client opened a document, and from now on its text is the client's.
 /// </summary>
-internal sealed class DidOpenTextDocumentHandler(IDocumentLifecycleService lifecycle, TextDocumentSelector selector) : DidOpenTextDocumentHandlerBase
+internal sealed class DidOpenTextDocumentHandler(IDocumentLifecycleService lifecycle, TextDocumentSelector selector, IncomingDocumentChanges incoming) : DidOpenTextDocumentHandlerBase
 {
     public override Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
-        lifecycle.Opened(request.TextDocument.Uri.ToUri(), request.TextDocument.Text, request.TextDocument.Version ?? 0);
+        var document = request.TextDocument.Uri.ToUri();
+        try
+        {
+            lifecycle.Opened(document, request.TextDocument.Text, request.TextDocument.Version ?? 0);
+        }
+        finally
+        {
+            incoming.Applied(document);
+        }
         return Unit.Task;
     }
 
@@ -28,11 +37,19 @@ internal sealed class DidOpenTextDocumentHandler(IDocumentLifecycleService lifec
 /// <summary>
 /// <c>textDocument/didChange</c>: the client edited a document it has open.
 /// </summary>
-internal sealed class DidChangeTextDocumentHandler(IDocumentLifecycleService lifecycle, TextDocumentSelector selector) : DidChangeTextDocumentHandlerBase
+internal sealed class DidChangeTextDocumentHandler(IDocumentLifecycleService lifecycle, TextDocumentSelector selector, IncomingDocumentChanges incoming) : DidChangeTextDocumentHandlerBase
 {
     public override Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken cancellationToken)
     {
-        lifecycle.Changed(request.TextDocument.Uri.ToUri(), request.TextDocument.Version ?? 0, request.ContentChanges);
+        var document = request.TextDocument.Uri.ToUri();
+        try
+        {
+            lifecycle.Changed(document, request.TextDocument.Version ?? 0, request.ContentChanges);
+        }
+        finally
+        {
+            incoming.Applied(document);
+        }
         return Unit.Task;
     }
 
@@ -86,11 +103,19 @@ internal sealed class DidSaveTextDocumentHandler(IDocumentLifecycleService lifec
 /// <summary>
 /// <c>textDocument/didClose</c>: the client closed a document, and its text is no longer the client's.
 /// </summary>
-internal sealed class DidCloseTextDocumentHandler(IDocumentLifecycleService lifecycle, TextDocumentSelector selector) : DidCloseTextDocumentHandlerBase
+internal sealed class DidCloseTextDocumentHandler(IDocumentLifecycleService lifecycle, TextDocumentSelector selector, IncomingDocumentChanges incoming) : DidCloseTextDocumentHandlerBase
 {
     public override async Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken cancellationToken)
     {
-        await lifecycle.ClosedAsync(request.TextDocument.Uri.ToUri());
+        var document = request.TextDocument.Uri.ToUri();
+        try
+        {
+            await lifecycle.ClosedAsync(document);
+        }
+        finally
+        {
+            incoming.Applied(document);
+        }
         return Unit.Value;
     }
 

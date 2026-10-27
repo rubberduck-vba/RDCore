@@ -17,6 +17,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Server.Serialization;
@@ -78,7 +79,7 @@ public sealed class RefactoringWireTests
             .WithOutput(toClient.Writer)
             // as the platform's servers write a pull diagnostic report (RDCoreServerApp).
             .WithSerializer(new PullDiagnosticsLspSerializer())
-            .AddHandler(new DocumentDiagnosticHandler(diagnostics, new WorkProgressReporter()))
+            .AddHandler(new DocumentDiagnosticHandler(diagnostics, new WorkProgressReporter(), new IncomingDocumentChanges()))
             .AddHandler(new CodeActionHandler(rename, documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem()))
             .AddHandler(new RenameHandler(rename))
             .AddHandler(new PrepareRenameHandler(rename)), timeout.Token);
