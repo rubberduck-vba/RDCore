@@ -27,6 +27,7 @@ public interface IProjectFileLoader
     /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
     /// <param name="token">A token that cancels the read.</param>
     /// <exception cref="FileNotFoundException">No <c>.rdproj</c> exists under the workspace root.</exception>
+    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
     /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
     Task<ProjectFile> LoadAsync(string workspaceRoot, CancellationToken token = default);
 }
@@ -50,7 +51,18 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
         }
 
         await using var stream = fileSystem.File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var project = await JsonSerializer.DeserializeAsync<ProjectFile>(stream, cancellationToken: token);
+        ProjectFile? project;
+        try
+        {
+            project = await JsonSerializer.DeserializeAsync<ProjectFile>(stream, cancellationToken: token);
+        }
+        catch (JsonException exception)
+        {
+            // where the file stops being JSON, in the lines and columns an editor counts from 1.
+            throw new InvalidDataException(string.Format(Exceptions.ProjectFile_InvalidJson, path,
+                (exception.LineNumber ?? 0) + 1, (exception.BytePositionInLine ?? 0) + 1, exception.Message), exception);
+        }
+
         if (project is null)
         {
             throw new InvalidOperationException($"The {ProjectFile.FileName} at '{path}' could not be deserialized.");

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Completion;
 using RDCore.LanguageServer.Refactoring;
@@ -211,16 +212,17 @@ internal sealed class CoreLanguageServerApp(
     {
         // a client that pulls diagnostics is not pushed them as well: it would show each finding twice.
         publisher.Attach(server, enabled: request.Capabilities?.TextDocument?.Diagnostic is null);
-        await LoadWorkspaceAsync(request);
+        await LoadWorkspaceAsync(server, request);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
 
     /// <summary>
     /// Loads the project file and its documents. Runs here because the server is still
     /// <c>Initializing</c> — the window <see cref="IWorkspaceService.LoadAsync"/> requires. A load
-    /// failure is logged, not fatal: the server still completes the LSP handshake.
+    /// failure is not fatal: the server still completes the LSP handshake, and tells the client why
+    /// (<c>window/showMessage</c>, which LSP allows before <c>initialize</c> is answered).
     /// </summary>
-    private async Task LoadWorkspaceAsync(InitializeParams request)
+    private async Task LoadWorkspaceAsync(ILanguageServer server, InitializeParams request)
     {
         if (request.RootUri is null)
         {
@@ -236,6 +238,14 @@ internal sealed class CoreLanguageServerApp(
         catch (Exception exception)
         {
             LogIfEnabled(LogLevel.Error, $"❌ Workspace could not be loaded:\n{exception}");
+
+            // a project file that is not JSON, or is missing, otherwise only showed later, as a didOpen error that did not say what was wrong (HexIDE's
+            // findings desk #26).
+            server.Window.ShowMessage(new ShowMessageParams
+            {
+                Type = MessageType.Error,
+                Message = string.Format(DebuggerMessages.WorkspaceCouldNotBeLoaded, request.RootUri.GetFileSystemPath(), exception.Message),
+            });
         }
     }
 

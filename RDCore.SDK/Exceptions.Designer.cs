@@ -2264,5 +2264,14 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The project file &apos;{0}&apos; is not valid JSON, at line {1}, position {2}: {3}.
+        /// </summary>
+        public static string ProjectFile_InvalidJson {
+            get {
+                return ResourceManager.GetString("ProjectFile_InvalidJson", resourceCulture);
+            }
+        }
     }
 }

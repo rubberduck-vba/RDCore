@@ -852,4 +852,7 @@
   <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; est le nom d&apos;un contrôle du formulaire, qui est déjà un membre de la classe du formulaire.</value>
   </data>
+  <data name="ProjectFile_InvalidJson" xml:space="preserve">
+    <value>Le fichier de projet &apos;{0}&apos; n&apos;est pas du JSON valide, à la ligne {1}, position {2} : {3}</value>
+  </data>
 </root>

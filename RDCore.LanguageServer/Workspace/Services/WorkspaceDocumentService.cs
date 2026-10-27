@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Workspace.Forms;
+using System.Collections.Concurrent;
 using System.Text;
 using TextDocumentRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -98,7 +99,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile) : IWorkspaceDocumentService
 {
-    private readonly Dictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
+    // the workspace's documents are loaded in parallel (WorkspaceService.LoadAsync), while requests the server answers in parallel look them up: a plain
+    // dictionary written and read at once gave those requests an internal error (HexIDE's findings desk #24).
+    private readonly ConcurrentDictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
 
     public string WorkspaceRoot { get; private set; } = string.Empty;
 
@@ -202,7 +205,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 logger.LogWarning("⚠️ Workspace document has unsaved changes being discarded.");
             }
 
-            if (_documents.Remove(id))
+            if (_documents.TryRemove(id, out _))
             {
                 documentStateProvider.OnDocumentUnloaded(id);
 
@@ -334,9 +337,10 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogWarning("⚠️ Document '{uri}' was opened when it already was (v{existing}); the text the client sent is the document.", documentUri, existing.Version);
         }
 
-        // a document the client opens need not be in the workspace folder: its own path is what addresses it then.
+        // a document the client opens need not be in the workspace folder: its own path is what addresses it then - and so it is when no workspace could
+        // be loaded, which leaves no root to be relative to.
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
-        var relativePath = ioPath.GetRelativePath(WorkspaceRoot, path);
+        var relativePath = WorkspaceRoot.Length == 0 ? path : ioPath.GetRelativePath(WorkspaceRoot, path);
         var document = WithCompanion(
             new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, WorkspaceRoot, text, version),
             path);
@@ -422,7 +426,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         }
 
         // not the workspace's, not a file, or not one that can be read: there is no document without the client's text.
-        _documents.Remove(id);
+        _documents.TryRemove(id, out _);
         documentStateProvider.Forget(id);
         logger.LogInformation("📁 Document '{uri}' was closed by the client and is no longer tracked.", documentUri);
         return null;
@@ -444,7 +448,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 logger.LogTrace("Renaming file '{oldPath}' to '{newPath}'...", relativePath, newRelativePath);
             }
 
-            _documents.Remove(id);
+            _documents.TryRemove(id, out _);
             _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version) { IsDirty = document.IsDirty, Companion = document.Companion };
 
             documentStateProvider.OnDocumentUnloaded(id);

@@ -52,6 +52,20 @@ public sealed class WorkspaceDocumentLifecycleTests
         Assert.IsInstanceOfType<OpenedDocumentState>(StateOf(_state, UriOf("Mod1.bas")));
     }
 
+    // a workspace that could not be loaded (a project file that is not JSON) leaves no root: what the client opens is a document all the same, addressed by
+    // its own path, where it used to fail with "The path is empty (relativeTo)" (HexIDE's findings desk #26).
+    [TestMethod]
+    public void ADocument_OpenedWhenNoWorkspaceWasLoaded_IsOpenedAllTheSame()
+    {
+        var sut = new WorkspaceDocumentService(_state, NullLogger<WorkspaceDocumentService>.Instance, _files.Path, _files.File);
+
+        var document = sut.Open(UriOf("Mod1.bas"), "Sub Foo()\r\nEnd Sub", version: 1);
+
+        Assert.IsTrue(sut.TryGetDocument(UriOf("Mod1.bas"), out var found));
+        Assert.AreEqual("Sub Foo()\r\nEnd Sub", found.Text);
+        Assert.AreEqual(1, document.Version);
+    }
+
     [TestMethod]
     public void ADocumentThatIsNotInTheWorkspaceFolder_IsOpenedAllTheSame()
     {
