@@ -273,6 +273,26 @@ the one that declares the symbol first, as it is written. A name declared in eac
 compiled, so the answer does not change with the precompiler's constants; a property is declared by its first procedure. A symbol declared once is
 declared where it is defined.
 
+### `textDocument/documentSymbol` and `workspace/symbol`
+
+The language server answers `textDocument/documentSymbol` (**LSP 3.17** §Document Symbols Request) with the outline of a document: its module, what the
+module declares, and the members of its `Enum`s and `Type`s under them. Each symbol's range is its whole declaration, and its selection range the name it
+declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
+
+It answers `workspace/symbol` (**LSP 3.17** §Workspace Symbols Request) with the symbols of the outline of every document it holds whose name matches the
+query ([`SymbolSearch`](../api/RDCore.SDK.Semantics.Refactoring.SymbolSearch.html)), regardless of case. Each is named with what it is declared in
+(`containerName`: the module, or the module and its `Enum` or `Type`) and located at the name it declares.
+
+|The name|Comes|
+|---|---|
+|Is the query|First.|
+|Begins with the query|Second.|
+|Has each character of the query at the start of one of its words, in order (`gt` for `GetTotal`, `mi` for `max_items`)|Third.|
+|Has the query in it|Fourth.|
+|Has each character of the query, in order|Last.|
+
+Names that match alike come by name. An empty query matches every symbol. At most 500 symbols are answered: a client asks again as its user types.
+
 ### `textDocument/codeAction`
 
 The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix` and `refactor.rename`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
