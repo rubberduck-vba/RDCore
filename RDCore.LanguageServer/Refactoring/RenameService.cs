@@ -316,6 +316,39 @@ internal sealed class RenameWorkspace
             .Select(link => new Location { Uri = link.TargetUri, Range = link.TargetSelectionRange })];
 
     /// <summary>
+    /// The members a document declares whose references a client shows (<see cref="SymbolLenses.In"/>): each name, in the text of the document.
+    /// </summary>
+    /// <returns>Each member; none in a program of the platform's BASIC, whose procedure is the one its lines are the body of.</returns>
+    public IReadOnlyList<(string Name, LspRange Range)> Lenses(Uri documentUri)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
+            || _context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+        {
+            return [];
+        }
+
+        return [.. SymbolLenses.In(source).Select(lens => (lens.Name, module.ToTextRange(lens.NameRange)))];
+    }
+
+    /// <summary>
+    /// The names that refer to the member whose name is written at a position of a document (<see cref="SymbolLenses.ReferencesOf"/>), its declarations not
+    /// included: each name, in the text of its document.
+    /// </summary>
+    public IReadOnlyList<Location> LensReferences(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return [];
+        }
+
+        return [.. SymbolLenses.ReferencesOf(_context, module.Module, module.ToModulePosition(position))
+            .Select(site => (Site: site, Document: _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+            .Where(found => found.Document is not null)
+            .Select(found => new Location { Uri = found.Document!.Document.Id.Uri, Range = found.Document.ToTextRange(found.Site.SelectionRange) })];
+    }
+
+    /// <summary>
     /// The names in a document that refer to the symbol named at a position of it (<strong>LSP 3.17</strong> §Document Highlights Request): the references
     /// that are in the document, its declaration included. Each is a <see cref="DocumentHighlightKind.Text"/>: which name reads the symbol and which assigns it
     /// is not told apart yet.

@@ -61,6 +61,16 @@
   <data name="CodeAction_RenameTo" xml:space="preserve">
     <value>Renommer « {0} » en « {1} »</value>
   </data>
+  <!-- The title of the code lens that counts the references of a member (RefactoringTitles.References): {0} is the count. -->
+  <data name="CodeLens_References_None" xml:space="preserve">
+    <value>{0} référence</value>
+  </data>
+  <data name="CodeLens_References_One" xml:space="preserve">
+    <value>{0} référence</value>
+  </data>
+  <data name="CodeLens_References_Many" xml:space="preserve">
+    <value>{0} références</value>
+  </data>
   <!-- What a hover says declares a symbol (SymbolHover): {0} is its module, procedure, Enum or Type. -->
   <data name="Hover_MemberOf" xml:space="preserve">
     <value>Membre de {0}</value>
