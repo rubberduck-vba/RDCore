@@ -353,6 +353,21 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 
 The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document - in a shell attached to a workspace, a program that was neither loaded nor saved - is to be saved first, which `DUCKY` says.
 
+### `textDocument/codeLens` and `codeLens/resolve`
+
+The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares ([`SymbolLenses`](../api/RDCore.SDK.Semantics.Refactoring.SymbolLenses.html)): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
+
+A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the procedures of a property are one symbol, and the lens of each counts the references of all of them. A function's name that its body assigns the result to is a reference.
+
+|Resolved lens|Is|
+|---|---|
+|`command.title`|The count, in the language of the user interface: `0 references`, `1 reference`, `3 references` (`0 référence`, `1 référence`, `3 références`).|
+|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](../api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
+|`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
+
+> [!NOTE]
+> **Not implemented.** A lens that runs a `Sub Main` (`rdcore/session/execute`).
+
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 
 The language server answers `textDocument/typeDefinition` (**LSP 3.17** §Goto Type Definition Request) with where the type of the symbol named at the
