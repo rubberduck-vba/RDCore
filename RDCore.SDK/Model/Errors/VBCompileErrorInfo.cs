@@ -152,5 +152,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.ExpectedVariableOrProcedureNotEnumType] = Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType,
         [VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant] = Exceptions.VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant,
         [VBCompileErrorId.ForEachMayOnlyIterateOverACollectionObjectOrAnArray] = Exceptions.VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray,
+        [VBCompileErrorId.OutOfMemory] = Exceptions.VBCompileError_OutOfMemory,
     };
 }

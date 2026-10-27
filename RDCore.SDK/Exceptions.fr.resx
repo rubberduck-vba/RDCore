@@ -768,6 +768,12 @@
   <data name="VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray" xml:space="preserve">
     <value>For Each ne peut parcourir qu'un objet collection ou un tableau</value>
   </data>
+  <data name="VBCompileError_OutOfMemory" xml:space="preserve">
+    <value>Mémoire insuffisante</value>
+  </data>
+  <data name="VBCompileError_OutOfMemory_ModuleNames_Verbose" xml:space="preserve">
+    <value>Le module déclare plus de {0:N0} noms au niveau du module : variables, constantes, procédures, propriétés, instructions Declare, énumérations et types, tous ensemble. Déplacez-en une partie dans un autre module.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
   </data>

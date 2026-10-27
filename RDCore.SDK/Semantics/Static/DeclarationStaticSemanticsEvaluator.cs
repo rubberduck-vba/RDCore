@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
+using System.Globalization;
 
 namespace RDCore.SDK.Semantics.Static;
 
@@ -41,6 +42,17 @@ namespace RDCore.SDK.Semantics.Static;
 /// </remarks>
 public static class DeclarationStaticSemanticsEvaluator
 {
+    /// <summary>
+    /// The most names a module declares at module level - variables, constants, procedures, properties, <c>Declare</c> statements, enumerations and
+    /// user-defined types, all together, a property once whatever its accessors - before it is <see cref="VBCompileErrorId.OutOfMemory"/>.
+    /// </summary>
+    /// <remarks>
+    /// MS-VBAL sets no limit. MS-VBA compiles a module of 10,800 such names and not one of 11,000, whatever their kind or the length of their names, and
+    /// reports "Out of memory" (recorded in Excel). RD-VBA's cap is a round number below that, by the author's ruling: a module RD-VBA compiles is one
+    /// MS-VBA compiles.
+    /// </remarks>
+    public const int MaxModuleNames = 10_000;
+
     /// <summary>
     /// Checks everything <paramref name="module"/> declares.
     /// </summary>
@@ -158,6 +170,14 @@ public static class DeclarationStaticSemanticsEvaluator
             if (!seen.TryGetValue(key, out var declarations))
             {
                 seen.Add(key, declarations = []);
+
+                // RD-VBA compiles a module of at most MaxModuleNames names, and the one past them is "Out of memory", as MS-VBA has it of the names past its
+                // own count (recorded in Excel: between 10,800 and 11,000).
+                if (seen.Count == MaxModuleNames + 1)
+                {
+                    errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.OutOfMemory, child.SourceLocation,
+                        string.Format(CultureInfo.CurrentCulture, Exceptions.VBCompileError_OutOfMemory_ModuleNames_Verbose, MaxModuleNames)));
+                }
             }
 
             // MS-VBA names a name a module declares twice, whatever the two are - two variables, two procedures, a constant and a variable - by the
