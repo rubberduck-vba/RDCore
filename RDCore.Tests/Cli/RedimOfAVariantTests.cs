@@ -43,6 +43,18 @@ public sealed class RedimOfAVariantTests
     public async Task AVariantThatHoldsAValue(string body, string expected)
         => Assert.AreEqual(expected, (await RunAsync([], Program(body))).Last());
 
+    // an upper bound below the lower: 7 for a Variant, which is left Empty; 9 for a variable declared as an array (cases-redim4 B01, B02, B05;
+    // cases-redim3 B03, B04, N01; vb6.exe gives HexIDE's findings desk #9 probe the same 7).
+    [TestMethod]
+    [DataRow("Dim q ;; q = 5 ;; ReDim q(5 To 2) ;; Debug.Print Err.Number & \" \" & TypeName(q)", "7 Empty", DisplayName = "B01 a Variant that holds a number")]
+    [DataRow("Dim q ;; ReDim q(5 To 2) ;; Debug.Print Err.Number & \" \" & TypeName(q)", "7 Empty", DisplayName = "B02 a Variant that holds nothing yet")]
+    [DataRow("Dim q ;; q = 5 ;; ReDim Preserve q(5 To 2) ;; Debug.Print Err.Number & \" \" & TypeName(q)", "13 Integer", DisplayName = "B05 Preserve of a number")]
+    [DataRow("Dim a() As Long ;; ReDim a(5 To 2) ;; Debug.Print Err.Number", "9", DisplayName = "B03 a Long()")]
+    [DataRow("ReDim z(5 To 2) ;; Debug.Print Err.Number", "9", DisplayName = "B04 one a ReDim declares")]
+    [DataRow("x = 5 ;; ReDim x(5 To 2) ;; Debug.Print Err.Number & \" \" & TypeName(x)", "7 Empty", DisplayName = "#9 an implicit Variant")]
+    public async Task AnUpperBoundBelowTheLower(string body, string expected)
+        => Assert.AreEqual(expected, (await RunAsync([], Program(body))).Last());
+
     [TestMethod]
     [DataRow("Dim a() As Long ;; a = 5", DisplayName = "A03 a Long()")]
     [DataRow("Dim a() As Variant ;; a = 5", DisplayName = "A04 a Variant()")]

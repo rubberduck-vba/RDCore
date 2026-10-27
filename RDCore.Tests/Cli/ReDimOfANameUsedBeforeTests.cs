@@ -46,9 +46,10 @@ public sealed class ReDimOfANameUsedBeforeTests
         => CollectionAssert.AreEqual(new[] { "5" }, await ModuleWorkspace.RunAsync([],
             "Attribute VB_Name = \"Program\"\r\nPrivate Sub Other()\r\nReDim y(2)\r\nEnd Sub\r\nPublic Sub Main()\r\ny = 5\r\nDebug.Print y\r\nEnd Sub\r\n"));
 
-    // under Option Explicit no use declares anything: the ReDim declares the array for the whole procedure, and the earlier use is of that array.
+    // under Option Explicit no use declares anything, and the ReDim declares the array from where it is: a use before it is "Variable not defined", and the
+    // ReDim is valid (MS-VBA, Excel-verified, oracle\findings-labels cases-redim4 E01).
     [TestMethod]
-    public async Task UnderOptionExplicit_ReDim_OfANameUsedBefore_IsInvalidReDim()
+    public async Task UnderOptionExplicit_ANameUsedBeforeItsReDim_IsNotDefined()
         => StringAssert.Contains(Assert.ContainsSingle(await ModuleWorkspace.LoadErrorsAsync([],
-            "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\ny = 5\r\nReDim y(2)\r\nEnd Sub\r\n")), Exceptions.VBCompileError_InvalidReDim);
+            "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\ny = 5\r\nReDim y(2)\r\nEnd Sub\r\n")), Exceptions.VBCompileError_VariableNotDefined);
 }

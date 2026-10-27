@@ -37,7 +37,9 @@ array the `ReDim` declared (recorded in Excel, `oracle\findings-labels` R01-R10)
 
 👉 **MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
 variable a `Variant`, which a `ReDim` re-dimensions, and vb6.exe runs it so. RD-VBA does what the specification says,
-and warns that MS-VBA refuses it ([RDC11022](../diagnostics/rdc11022.md)).
+and warns that MS-VBA refuses it ([RDC11022](../diagnostics/rdc11022.md)). Under `Option Explicit` no use declares anything: the
+`ReDim` declares the array from where it is, and a use of the name before it is [VBC09302](../diagnostics/vbc09302.md) _Variable not defined_, in
+MS-VBA as in RD-VBA (recorded in Excel).
 
 For an implicit `ReDim` declaration:
 
@@ -102,7 +104,9 @@ reads the sentence as **MS-VBA** does (recorded in Excel): as a `ReDim Preserve`
 `Preserve` keeps nothing of what the `Variant` held, and makes it an array whatever that was.
 
 Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). An upper bound below its
-lower bound is runtime error 9, `Subscript out of range`.
+lower bound is runtime error 9, `Subscript out of range`, for a variable declared as an array. A `Variant` given such bounds raises runtime error 7,
+`Out of memory`, whatever it held, and is left `Empty`; with `Preserve`, a `Variant` that holds no array raises 13 first (recorded in Excel, as vb6.exe
+does too).
 
 Without `Preserve`, every element of the re-dimensioned array is its element type's default value.
 
