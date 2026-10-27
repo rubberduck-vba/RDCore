@@ -510,9 +510,6 @@
   <data name="VBCompileError_DefaultMemberReturnsAnObject_Verbose" xml:space="preserve">
     <value>A value of {0} is what its default member '{1}' returns, which is an object and not a value of a declared type.</value>
   </data>
-  <data name="VBCompileError_ClassHasNoDefaultMember_Verbose" xml:space="preserve">
-    <value>{0} has no default member to give it a value, which makes it statically invalid to Let-coerce to one (MS-VBAL §5.5.1.1). MS-VBA compiles it, and raises run-time error 438 (Object doesn't support this property or method) when it runs.</value>
-  </data>
   <data name="VBCompileError_LenOfAValue_Verbose" xml:space="preserve">
     <value>Len and LenB take a String expression or the name of a variable (MS-VBAL §6.1.2.11.1.22): this is a value of type {0}, which is neither. Assign it to a variable of that type to measure the variable, or convert it to a String to count its characters.</value>
   </data>

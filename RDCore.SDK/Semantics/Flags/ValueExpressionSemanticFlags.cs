@@ -87,4 +87,11 @@ public enum ValueExpressionSemanticFlags
     /// <c>CVar$</c>, <c>Abs%</c>): <strong>MS-VBAL §5.6.10</strong> makes the name invalid, and <strong>MS-VBA</strong> ignores the character.
     /// </summary>
     IgnoredTypeCharacter = 1 << 13,
+
+    /// <summary>
+    /// It is an object of a class that has no default member, where a value is expected: the value of a <c>Let</c> assignment, an operand of an operator other
+    /// than <c>Is</c>, an argument of a parameter declared with a value type. <strong>MS-VBAL §5.5.1.1</strong> makes it statically invalid; <strong>MS-VBA</strong>
+    /// compiles it, and raises run-time error 438 (Object doesn't support this property or method) whenever it runs, or 91 when the object is <c>Nothing</c>.
+    /// </summary>
+    ValueOfObjectWithNoDefaultMember = 1 << 14,
 }

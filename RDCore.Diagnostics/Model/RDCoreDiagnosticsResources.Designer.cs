@@ -599,5 +599,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ProcedureConstantLength_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type)..
+        /// </summary>
+        public static string ValueOfObjectWithNoDefaultMember_Message {
+            get {
+                return ResourceManager.GetString("ValueOfObjectWithNoDefaultMember_Message", resourceCulture);
+            }
+        }
     }
 }

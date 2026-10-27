@@ -25,10 +25,11 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             sourceType = CurrentTypes.Of(context, declaredClass);
         }
 
-        // an object of a class that has no default member has no value to give a Variant either: the error says what MS-VBA does with it instead.
-        if (sourceType is VBClassType { DefaultMember: null } noDefault && destinationType is VBVariantType)
+        // an object of a class that has no default member has no value to give a Variant either: MS-VBA compiles it, and raises 438 when it runs (RD-VBAL 5.5.1.1).
+        if (sourceType is VBClassType { DefaultMember: null } && destinationType is VBVariantType)
         {
-            return StaticSemanticsEvaluationResult.Error(ObjectValueStaticSemantics.NoDefaultMember(expression, noDefault));
+            ObjectValueStaticSemantics.MarkNoDefaultMember(context.Facts, expression);
+            return StaticSemanticsEvaluationResult.Success(destinationType);
         }
 
         // a destination of a value type expects a value of the source: an object stands for its default member's value, which it must have.

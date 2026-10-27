@@ -297,4 +297,7 @@
   <data name="ProcedureConstantLength_Message" xml:space="preserve">
     <value>The value of constant &apos;{0}&apos; calls Len: MS-VBA accepts it in a procedure, but refuses it in a module (Constant expression required), and its run is not reliable. Write the length itself.</value>
   </data>
+  <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
+    <value>An object of class &apos;{0}&apos;, which has no default member, is where a value is expected: MS-VBA raises run-time error 438 (91 when it is Nothing) when it runs, where MS-VBAL §5.5.1.1 makes it a compile error (type mismatch).</value>
+  </data>
 </root>
