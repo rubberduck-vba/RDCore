@@ -73,6 +73,62 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     }
 
     /// <summary>
+    /// The name of the type an <c>As</c> clause declares at <paramref name="position"/> (<c>Dim c As Class1</c>), and where it is written; a type is no
+    /// expression, and <see cref="NameAt"/> does not see it.
+    /// </summary>
+    public static (string Name, SourceRange Range)? TypeNameAt(RenameModule module, SourcePosition position)
+        => TypeNamesIn(module).Select(written => ((string Name, SourceRange Range)?)written).FirstOrDefault(written => Contains(written!.Value.Range, position));
+
+    /// <summary>
+    /// The name of the type each <c>As</c> clause of a module declares, and where it is written, in the order they are written.
+    /// </summary>
+    public static IEnumerable<(string Name, SourceRange Range)> TypeNamesIn(RenameModule module)
+    {
+        var lines = LinesOf(module.Source);
+        foreach (var (node, _) in Walk(module.Syntax))
+        {
+            if (node is not AsTypeExpressionNode { TypeName: { Length: > 0 } name } clause)
+            {
+                continue;
+            }
+
+            // the clause's range runs from New, or a qualifier, to the name: the name is the last of what it writes.
+            var range = clause.Location.Range;
+            if (range.Start.Line != range.End.Line || range.Start.Line < 0 || range.Start.Line >= lines.Count)
+            {
+                continue;
+            }
+
+            var line = lines[range.Start.Line];
+            var end = Math.Min(range.End.Character, line.Length);
+            var start = end > 0 ? line.LastIndexOf(name, end - 1, StringComparison.OrdinalIgnoreCase) : -1;
+            if (start >= range.Start.Character)
+            {
+                yield return (line.Substring(start, name.Length), NameRange(new SourcePosition(range.Start.Line, start), name));
+            }
+        }
+    }
+    /// <summary>The scope a position of a module is in.</summary>
+    public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
+
+    /// <summary>
+    /// Each name an expression writes in <paramref name="range"/> - a simple name, or the member after a <c>.</c> - once, whatever its case.
+    /// </summary>
+    public static IEnumerable<string> NamesIn(RenameModule module, SourceRange range)
+    {
+        var lines = LinesOf(module.Source);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (node, parent) in Walk(module.Syntax))
+        {
+            if (WrittenName(node, parent, lines) is { Kind: OccurrenceKind.Name or OccurrenceKind.Member } written
+                && Contains(range, written.Range.Start) && seen.Add(written.Name))
+            {
+                yield return written.Name;
+            }
+        }
+    }
+
+    /// <summary>
     /// Where each name a declaration declares in <paramref name="range"/> begins, in the order they are written.
     /// </summary>
     public static IEnumerable<SourcePosition> DeclarationsIn(RenameModule module, SourceRange range)
@@ -411,5 +467,16 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
                 pending.Push((child, node));
             }
         }
+    }
+
+    /// <summary>
+    /// What each expression of a module refers to, as the static pass binds it: the pass is run once, for every procedure of the module, and an expression it
+    /// did not evaluate is evaluated on its own in the scope it is written in.
+    /// </summary>
+    /// <returns>What an expression refers to; <see langword="null"/> when its meaning is not known, or when it refers to no symbol.</returns>
+    public static Func<ExpressionNode, SemanticId?> BindingsOf(RenameContext context, RenameModule module)
+    {
+        var facts = FactsOf(context, module);
+        return expression => FactOf(context, expression, facts, ScopeAt(context, module, expression.Location.Range.Start))?.Binding;
     }
 }

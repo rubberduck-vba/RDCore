@@ -5,14 +5,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
-using RDCore.SDK.Model;
-using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Directives;
-using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Workspace;
-using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Symbols;
 
@@ -43,55 +37,14 @@ internal sealed class DocumentSymbolHandler(
             return new SymbolInformationOrDocumentSymbolContainer();
         }
 
-        var parseResult = await parsing.ParseDocumentAsync(uri, cancellationToken);
-
-        if (parseResult.SyntaxTree is not { } module)
-        {
-            return new SymbolInformationOrDocumentSymbolContainer();
-        }
-
-        var workspaceRoot = new Uri(document.WorkspaceRoot);
-        var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(document.RelativePath);
-        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
-        var moduleType = ParsingClientService.ModuleTypeOf(document);
-        var moduleKind = moduleType == ModuleType.ClassModule ? SymbolKindExt.Class : SymbolKindExt.Module;
-
-        var symbols = new SyntaxTreeSymbolProvider(
-            workspaceRoot, moduleUri, moduleType, parseResult, resolver,
-            withImplicitDeclarations: true, options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope).ProvideSymbols();
-        var (moduleRange, moduleSelectionRange) = ModuleRangesOf(module);
-
-        var documentSymbol = DocumentSymbolProjector.Project(moduleUri, moduleName, moduleKind, moduleRange, moduleSelectionRange, symbols);
-
-        return new SymbolInformationOrDocumentSymbolContainer(SymbolInformationOrDocumentSymbol.Create(documentSymbol));
+        return await DocumentOutline.OfAsync(document, parsing, resolver, options.Value, cancellationToken) is { } outline
+            ? new SymbolInformationOrDocumentSymbolContainer(SymbolInformationOrDocumentSymbol.Create(outline))
+            : new SymbolInformationOrDocumentSymbolContainer();
     }
 
     protected override DocumentSymbolRegistrationOptions CreateRegistrationOptions(
         DocumentSymbolCapability capability, ClientCapabilities clientCapabilities)
         => new();
-
-    /// <summary>
-    /// The module's own declaration range and selection range. <c>ModuleNode</c> itself carries no
-    /// valid range (see <see cref="Folding.FoldingRangeProjector"/>'s remarks), so the declaration
-    /// range is the span from the module's first declared child to its last — the whole meaningful
-    /// source text — and the selection range is the module-level <c>Attribute VB_Name</c> directive
-    /// when the module declares one, falling back to a zero-width range at the start of that span.
-    /// </summary>
-    private static (SourceRange Range, SourceRange SelectionRange) ModuleRangesOf(ModuleNode module)
-    {
-        if (module.Children.IsDefaultOrEmpty)
-        {
-            return (SourceRange.Empty, SourceRange.Empty);
-        }
-
-        var range = new SourceRange(module.Children[0].SourceLocation.Range.Start, module.Children[^1].SourceLocation.Range.End);
-
-        var nameAttribute = module.Children.OfType<AttributeDirectiveNode>()
-            .FirstOrDefault(attribute => attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_Name, StringComparison.OrdinalIgnoreCase));
-        var selectionRange = nameAttribute?.SourceLocation.Range ?? new SourceRange(range.Start, range.Start);
-
-        return (range, selectionRange);
-    }
 
     private WorkspaceDocument? Resolve(Uri documentUri)
         => documents.GetAllDocuments().FirstOrDefault(document => document.Id.Uri.ToUri().Equals(documentUri));

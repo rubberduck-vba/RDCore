@@ -58,7 +58,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var range = RangeOf(node);
         var symbol = new VBProcedureMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Procedure,
-            VBVoidType.TypeInfo, range, range, node.AccessModifier);
+            VBVoidType.TypeInfo, range, node.NameRange ?? range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri, includeMe: true) };
     }
 
@@ -67,7 +67,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var range = RangeOf(node);
         var symbol = new VBFunctionMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Function,
-            VBUnknownType.TypeInfo, range, range, node.AccessModifier);
+            VBUnknownType.TypeInfo, range, node.NameRange ?? range, node.AccessModifier);
         return symbol with
         {
             ResolvedType = ReturnType(node, symbol.Uri),
@@ -79,7 +79,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     {
         var range = RangeOf(node);
         var symbol = new VBPropertyGetMemberSymbol(
-            workspaceRoot, moduleUri, memberScope, node.Name, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, memberScope, node.Name, range, node.NameRange ?? range, node.AccessModifier);
         return symbol with
         {
             ResolvedType = ReturnType(node, symbol.Uri),
@@ -92,7 +92,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var range = RangeOf(node);
         var symbol = new VBPropertyLetMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Property,
-            VBVoidType.TypeInfo, range, range, node.AccessModifier);
+            VBVoidType.TypeInfo, range, node.NameRange ?? range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri, includeMe: true) };
     }
 
@@ -101,7 +101,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var range = RangeOf(node);
         var symbol = new VBPropertySetMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Property,
-            VBVoidType.TypeInfo, range, range, node.AccessModifier);
+            VBVoidType.TypeInfo, range, node.NameRange ?? range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri, includeMe: true) };
     }
 
@@ -112,7 +112,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         {
             var function = new VBExternalFunctionMemberSymbol(
                 workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Function,
-                VBUnknownType.TypeInfo, range, range, node.AccessModifier, node.IsPtrSafe, node.Library, node.Alias);
+                VBUnknownType.TypeInfo, range, node.NameRange ?? range, node.AccessModifier, node.IsPtrSafe, node.Library, node.Alias);
             return function with
             {
                 ResolvedType = ReturnType(node, function.Uri),
@@ -122,14 +122,14 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
 
         var procedure = new VBExternalSubMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Procedure,
-            VBVoidType.TypeInfo, range, range, node.AccessModifier, node.IsPtrSafe, node.Library, node.Alias);
+            VBVoidType.TypeInfo, range, node.NameRange ?? range, node.AccessModifier, node.IsPtrSafe, node.Library, node.Alias);
         return procedure with { Parameters = BuildParameters(node, procedure.Uri) };
     }
 
     public Symbol BuildEvent(MemberDeclarationNode node)
     {
         var range = RangeOf(node);
-        var symbol = new VBEventMemberSymbol(workspaceRoot, moduleUri, node.Name, memberScope, range, range, node.AccessModifier);
+        var symbol = new VBEventMemberSymbol(workspaceRoot, moduleUri, node.Name, memberScope, range, node.NameRange ?? range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
     }
 
@@ -363,10 +363,11 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         foreach (var parameter in parameters)
         {
             var range = RangeOf(parameter);
+            var name = parameter.NameRange ?? range;
             builder.Add(parameter.IsParamArray
-                ? new ParamArrayParameterSymbol(workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind)
+                ? new ParamArrayParameterSymbol(workspaceRoot, memberUri, parameter.Name, range, name, parameter.ParameterKind)
                 : new VBParameterSymbol(
-                    workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind,
+                    workspaceRoot, memberUri, parameter.Name, range, name, parameter.ParameterKind,
                     ParameterType(parameter, memberUri), parameter.IsOptional,
                     DefaultValueOf(parameter)));
         }

@@ -10,6 +10,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -214,6 +215,153 @@ internal sealed class RenameWorkspace
         var end = module.ToModulePosition(range.End);
         return [.. SymbolRename.TargetsIn(_context, module.Module, new SourceRange(start, end))
             .Select(target => (target.Name, module.ToTextRange(target.Range).Start))];
+    }
+
+    /// <summary>
+    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="SDK.Semantics.Refactoring.ParameterHints"/>),
+    /// each where its argument begins in the text of the document.
+    /// </summary>
+    public IReadOnlyList<(string Name, Position Position)> ParameterHints(Uri documentUri, LspRange range)
+    {
+        if (ModuleOf(documentUri) is not { } module)
+        {
+            return [];
+        }
+
+        var start = module.ToModulePosition(range.Start);
+        var end = module.ToModulePosition(range.End);
+        return [.. SDK.Semantics.Refactoring.ParameterHints.In(_context, module.Module, new SourceRange(start, end))
+            .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
+    }
+
+    /// <summary>
+    /// Where the symbol named at a position of a document is defined (<see cref="SymbolNavigation.DefinitionsAt"/>): each place, in the text of the document
+    /// that declares it, with the name the navigation starts from.
+    /// </summary>
+    /// <returns>Each place; none where no name is written, where what the name refers to is not known, or where no document of the workspace declares it.</returns>
+    public IReadOnlyList<LocationLink> Definitions(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.DefinitionsAt);
+
+    /// <summary>
+    /// Where the symbol named at a position of a document is declared (<see cref="SymbolNavigation.DeclarationAt"/>): the one place, in the text of the
+    /// document that declares it, with the name the navigation starts from.
+    /// </summary>
+    /// <returns>The place; none where no name is written, where what the name refers to is not known, or where no document of the workspace declares it.</returns>
+    public IReadOnlyList<LocationLink> Declarations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.DeclarationAt);
+
+    /// <summary>
+    /// Where the type of the symbol named at a position of a document is defined (<see cref="SymbolNavigation.TypeDefinitionAt"/>).
+    /// </summary>
+    /// <returns>Each place; none for an intrinsic type or a type of a library, where no name is written, or where what the name refers to is not known.</returns>
+    public IReadOnlyList<LocationLink> TypeDefinitions(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.TypeDefinitionAt);
+
+    /// <summary>
+    /// Where the symbol named at a position of a document is implemented (<see cref="SymbolNavigation.ImplementationsAt"/>).
+    /// </summary>
+    /// <returns>Each place; none for what no class implements, where no name is written, or where what the name refers to is not known.</returns>
+    public IReadOnlyList<LocationLink> Implementations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.ImplementationsAt);
+
+    /// <summary>
+    /// The item of the call hierarchy, or of the type hierarchy, named at a position of a document (<see cref="SymbolHierarchy.PrepareCalls"/>,
+    /// <see cref="SymbolHierarchy.PrepareTypes"/>).
+    /// </summary>
+    /// <returns>The item; <see langword="null"/> where no procedure, or no class, of the workspace is named.</returns>
+    public HierarchyItem? PrepareHierarchy(Uri documentUri, Position position, bool types)
+        => ModuleOf(documentUri) is { } module
+            ? types
+                ? SymbolHierarchy.PrepareTypes(_context, module.Module, module.ToModulePosition(position))
+                : SymbolHierarchy.PrepareCalls(_context, module.Module, module.ToModulePosition(position))
+            : null;
+
+    /// <summary>
+    /// The item of a hierarchy whose symbol has the identity a client sent back (<see cref="SymbolHierarchy.ItemOf(RenameContext, SemanticId)"/>).
+    /// </summary>
+    public HierarchyItem? HierarchyItemOf(Uri symbol) => SymbolHierarchy.ItemOf(_context, new SemanticId(symbol));
+
+    /// <summary>The procedures that call an item (<see cref="SymbolHierarchy.IncomingCalls"/>).</summary>
+    public IReadOnlyList<HierarchyCall> IncomingCalls(HierarchyItem item) => SymbolHierarchy.IncomingCalls(_context, item);
+
+    /// <summary>What an item calls (<see cref="SymbolHierarchy.OutgoingCalls"/>).</summary>
+    public IReadOnlyList<HierarchyCall> OutgoingCalls(HierarchyItem item) => SymbolHierarchy.OutgoingCalls(_context, item);
+
+    /// <summary>The classes an item's class implements (<see cref="SymbolHierarchy.Supertypes"/>).</summary>
+    public IReadOnlyList<HierarchyItem> Supertypes(HierarchyItem item) => SymbolHierarchy.Supertypes(_context, item);
+
+    /// <summary>The classes that implement an item's class (<see cref="SymbolHierarchy.Subtypes"/>).</summary>
+    public IReadOnlyList<HierarchyItem> Subtypes(HierarchyItem item) => SymbolHierarchy.Subtypes(_context, item);
+
+    /// <summary>
+    /// Where an item of a hierarchy is declared, in the text of its document: the document, the whole declaration, and the name.
+    /// </summary>
+    /// <returns><see langword="null"/> for an item of no document the server holds.</returns>
+    public (DocumentUri Uri, LspRange Range, LspRange SelectionRange)? Locate(HierarchyItem item)
+        => _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+            ? (document.Document.Id.Uri, document.ToTextRange(item.Range), document.ToTextRange(item.SelectionRange))
+            : null;
+
+    /// <summary>A range of the module of an item, in the text of its document.</summary>
+    public LspRange InTextOf(HierarchyItem item, SourceRange range)
+        => _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+            ? document.ToTextRange(range)
+            : new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
+
+    /// <summary>
+    /// Where the symbol named at a position of a document is referred to (<see cref="SymbolNavigation.ReferencesAt"/>): each name, in the text of its document.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">A position in the name, in the text of the document.</param>
+    /// <param name="includeDeclaration">Whether the names its declarations declare are references too.</param>
+    /// <returns>Each place; none where no name is written, or where what the name refers to is not known.</returns>
+    public IReadOnlyList<Location> References(Uri documentUri, Position position, bool includeDeclaration)
+        => [.. Navigate(documentUri, position, (context, module, at) => SymbolNavigation.ReferencesAt(context, module, at, includeDeclaration))
+            .Select(link => new Location { Uri = link.TargetUri, Range = link.TargetSelectionRange })];
+
+    /// <summary>
+    /// The names in a document that refer to the symbol named at a position of it (<strong>LSP 3.17</strong> §Document Highlights Request): the references
+    /// that are in the document, its declaration included. Each is a <see cref="DocumentHighlightKind.Text"/>: which name reads the symbol and which assigns it
+    /// is not told apart yet.
+    /// </summary>
+    public IReadOnlyList<DocumentHighlight> Highlights(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || SymbolNavigation.ReferencesAt(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+        {
+            return [];
+        }
+
+        return [.. target.Sites
+            .Where(site => site.Module.AbsoluteUri == module.Module.AbsoluteUri)
+            .Select(site => new DocumentHighlight { Range = module.ToTextRange(site.Range), Kind = DocumentHighlightKind.Text })];
+    }
+
+    /// <summary>
+    /// What a hover over the name at a position of a document says of its symbol (<see cref="SymbolHover"/>), and where the name is written.
+    /// </summary>
+    /// <returns>The hover; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
+    public (SymbolHover Hover, LspRange Range)? Hover(Uri documentUri, Position position)
+        => ModuleOf(documentUri) is { } module && SymbolNavigation.SymbolAt(_context, module.Module, module.ToModulePosition(position)) is { } named
+            ? (SymbolHover.Of(named.Symbol), module.ToTextRange(named.Origin))
+            : null;
+
+    private IReadOnlyList<LocationLink> Navigate(
+        Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, SymbolNavigationTarget?> navigate)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || navigate(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+        {
+            return [];
+        }
+
+        var origin = module.ToTextRange(target.Origin);
+        return [.. target.Sites
+            .Select(site => (Site: site, Document: _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+            .Where(found => found.Document is not null)
+            .Select(found => new LocationLink
+            {
+                OriginSelectionRange = origin,
+                TargetUri = found.Document!.Document.Id.Uri,
+                TargetRange = found.Document.ToTextRange(found.Site.Range),
+                TargetSelectionRange = found.Document.ToTextRange(found.Site.SelectionRange),
+            })];
     }
 
     // a document is the same document however its URI was written: a client writes the drive and its colon as it likes (c%3A, C:), as LSP lets it.

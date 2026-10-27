@@ -128,6 +128,15 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
+### `textDocument/inlayHint`
+
+The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
+the name of the parameter it is given to: `MsgBox Prompt: "Hello", Buttons: vbOKOnly`
+([`ParameterHints`](../api/RDCore.SDK.Semantics.Refactoring.ParameterHints.html)). A call is an argument list after a name the static pass binds to a
+procedure, a function or a property - of the workspace or of a library it references; the subscripts of an array have no hint. A named argument, and every
+argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
+of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
+
 ### `textDocument/completion` and `rdcore/session/completion`
 
 The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
@@ -236,6 +245,82 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 
 A position is said the way the document says it: its file and line, and for a program of the BASIC, the number of its line.
 
+### `textDocument/hover`
+
+The language server answers `textDocument/hover` (**LSP 3.17** §Hover Request) for the documents it holds, over the name at the position, bound the way a
+rename binds it ([`SymbolHover`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHover.html)). A symbol of a library the workspace references is hovered as one
+of the workspace is.
+
+|Hovered|Declaration|Member of|
+|---|---|---|
+|A procedure, a function, a property|Its signature: `Public Function GetTotal() As Long`, `Public Property Get Value() As String`|Its module: `Helpers`, `VBA.Interaction`|
+|A variable or a constant of a module|`Public Total As Long`, `Private Const Max As Long`|Its module|
+|A local, a parameter|`Dim count As Long`, `Static p As Point`, `ByVal amount As Long`|Its procedure: `Program.Main`|
+|An `Enum`, a `Type`|`Public Enum Colour`, `Public Type Point`|Its module|
+|A member of an `Enum`, a field of a `Type`|`Red`, `X As Long`|Its `Enum` or `Type`: `Helpers.Colour`|
+|A class or a module|`Class Class1`, `Module Helpers`|Nothing|
+
+The hover is Markdown - the declaration in a block of VBA, then what declares it and the symbol's doc string - for a client that reads Markdown
+(`hover.contentFormat`), and plain text for one that does not. "Member of" is said in the language of the user interface. No name, or a name whose meaning is
+not known (a member accessed late-bound), has no hover.
+
+### `textDocument/definition`
+
+The language server answers `textDocument/definition` (**LSP 3.17** §Goto Definition Request) for the documents it holds, a `.rdc` program included. The name at
+the position is bound the way a rename binds it (table above), so a navigation leads to what a rename of the name would rename
+([`SymbolNavigation`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)).
+
+|Named|Defined by|
+|---|---|
+|A variable, a constant, a parameter, a procedure, an event, a `Type` or `Enum` and their members|Its declaration.|
+|A property|Each of its procedures: its `Property Get`, `Let` and `Set`.|
+|A class or a module, after `As` or `New`|Its document, at its start.|
+|A name declared in each branch of an `#If`|Each declaration in a branch that is compiled, or each declaration when none is known to be (**MS-VBAL §3.4**).|
+|A member of a library, or a member accessed late-bound - on an `Object` or a `Variant`|Nothing: the answer is empty.|
+
+A client that reads links (`definition.linkSupport`) is answered `LocationLink`s: the name the navigation starts from (`originSelectionRange`), the whole
+declaration (`targetRange`), and the name it declares (`targetSelectionRange`). Any other client is answered a `Location` per definition, at the name it
+declares. Ranges are in the text of the document: for a program of the BASIC, its lines.
+
+### `textDocument/references` and `textDocument/documentHighlight`
+
+The language server answers `textDocument/references` (**LSP 3.17** §Find References Request) with each name, in every document it holds, that refers to the
+symbol named at the position ([`SymbolNavigation.ReferencesAt`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)): the names a rename of the
+symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
+declarations declare are references when the client asks for them (`context.includeDeclaration`). The procedures of a property are one symbol: a reference
+to its `Property Get` is a reference to its `Property Let`. A member accessed late-bound - on an `Object` or a `Variant` - is not known to refer to it, and is
+not a reference.
+
+`textDocument/documentHighlight` (**LSP 3.17** §Document Highlights Request) answers the references that are in the document, its declaration included,
+each of kind `Text`: which reads the symbol and which assigns it is not told apart yet.
+
+### `textDocument/declaration`
+
+The language server answers `textDocument/declaration` (**LSP 3.17** §Goto Declaration Request) the way it answers `textDocument/definition`, with one place:
+the one that declares the symbol first, as it is written. A name declared in each branch of an `#If` is declared by the first branch, whichever branch is
+compiled, so the answer does not change with the precompiler's constants; a property is declared by its first procedure. A symbol declared once is
+declared where it is defined.
+
+### `textDocument/documentSymbol` and `workspace/symbol`
+
+The language server answers `textDocument/documentSymbol` (**LSP 3.17** §Document Symbols Request) with the outline of a document: its module, what the
+module declares, and the members of its `Enum`s and `Type`s under them. Each symbol's range is its whole declaration, and its selection range the name it
+declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
+
+It answers `workspace/symbol` (**LSP 3.17** §Workspace Symbols Request) with the symbols of the outline of every document it holds whose name matches the
+query ([`SymbolSearch`](../api/RDCore.SDK.Semantics.Refactoring.SymbolSearch.html)), regardless of case. Each is named with what it is declared in
+(`containerName`: the module, or the module and its `Enum` or `Type`) and located at the name it declares.
+
+|The name|Comes|
+|---|---|
+|Is the query|First.|
+|Begins with the query|Second.|
+|Has each character of the query at the start of one of its words, in order (`gt` for `GetTotal`, `mi` for `max_items`)|Third.|
+|Has the query in it|Fourth.|
+|Has each character of the query, in order|Last.|
+
+Names that match alike come by name. An empty query matches every symbol. At most 500 symbols are answered: a client asks again as its user types.
+
 ### `textDocument/codeAction`
 
 The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix` and `refactor.rename`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
@@ -256,6 +341,17 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 |[RDC01002](../diagnostics/rdc01002.md) - Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
 
 The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document - in a shell attached to a workspace, a program that was neither loaded nor saved - is to be saved first, which `DUCKY` says.
+
+### `textDocument/typeDefinition` and `textDocument/implementation`
+
+The language server answers `textDocument/typeDefinition` (**LSP 3.17** §Goto Type Definition Request) with where the type of the symbol named at the
+position is defined: the class, `Type` or `Enum` a variable, a constant, a parameter or a function is declared as - of an array, its items' type. A name that
+names a type leads to the type. An intrinsic type, or a type of a library, has no place in the workspace, and the answer is empty.
+
+It answers `textDocument/implementation` (§Goto Implementation Request) with what implements the symbol (**MS-VBAL §5.2.4.2**): for a class, each class of
+the workspace that implements it, at its `Implements` directive; for a member of a class, the procedure of each of those classes that implements it -
+`IShape_Area` for `Area` of `IShape`, each accessor of a property. A class that no class implements, or a symbol that is neither a class nor a member of one,
+has no implementation. Both are answered as `textDocument/definition` is: links, or locations for a client that does not read them.
 
 ### `workspace/configuration` and `workspace/didChangeConfiguration`
 
@@ -293,6 +389,23 @@ A client tracks what it is reported with [`WorkProgressTracker`](../api/RDCore.S
 - while a command runs, the work for that command, on the line its output starts on, cleared before the output is written.
 
 The work the server begins of its own is not drawn among a command's output.
+
+### Call hierarchy and type hierarchy
+
+The language server answers `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls` and `callHierarchy/outgoingCalls` (**LSP 3.17** §Call
+Hierarchy) ([`SymbolHierarchy`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHierarchy.html)):
+
+- An item is a procedure, a function, or a procedure of a property, that the workspace declares; a member of a library is none. Its `data` is the identity of
+  its symbol, which is all the server needs to find it again when the client sends it back.
+- The incoming calls of an item are the procedures that refer to it, each with where in it the names are written; a name written outside of every procedure
+  is a call from the module. A call is a name bound the way a rename binds it, whatever writes it.
+- The outgoing calls of an item are the procedures of the workspace whose names its body writes.
+- A function's own name in its body is how it is given its result, as often as it is a call: a procedure is never its own caller, so a recursive call is not
+  shown.
+
+It answers `textDocument/prepareTypeHierarchy`, `typeHierarchy/supertypes` and `typeHierarchy/subtypes` (§Type Hierarchy) for the class modules of the
+workspace: the supertypes of a class are the classes of the workspace it implements, and its subtypes the classes that implement it
+(**MS-VBAL §5.2.4.2**).
 
 ### `rdcore/session/interaction`
 
