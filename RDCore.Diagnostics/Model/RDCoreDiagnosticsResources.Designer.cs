@@ -529,6 +529,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to MS-VBA convertit la valeur de ce Case Is au type déclaré du sélecteur avant de les comparer, alors que MS-VBAL §5.4.2.10 en fait l&apos;expression « sélecteur opérateur valeur » : le résultat peut différer..
+        /// </summary>
+        public static string CaseComparedInSelectorType_Message {
+            get {
+                return ResourceManager.GetString("CaseComparedInSelectorType_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Ce motif contient un [] ou un [!] : MS-VBAL en fait une liste d&apos;aucun caractère, qui ne correspond à rien, alors que MS-VBA fait correspondre [] à aucun caractère du tout, et [!] à un « ! »..
         /// </summary>
         public static string LikePatternDeparture_EmptyCharList_Message {
