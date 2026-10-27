@@ -265,15 +265,17 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("Le contrôle « MSCOMCTL.OCX » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.", note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")));
     }
 
-    // a ..\ folder is a project of its own, a workspace folder: the platform never takes in a folder outside the ones it is given (author, 2026-10-27).
+    // a ..\ file is a module of this project, as in VB6, in a source folder the client adds to the workspace; not carried over until the platform takes such
+    // folders in (author, 2026-10-27, reversing the morning's "a project of its own"; HexIDE's desk #30 and #31).
     [TestMethod]
-    public void AFileOutsideTheProjectsFolder_IsSaidToBelongToAnotherProject()
+    public void AFileOutsideTheProjectsFolder_IsSaidToBeAModuleOfThisProjectInASourceFolder()
     {
         var note = new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, @"..\Shared\Utils.bas");
 
-        Assert.AreEqual(@"'..\Shared\Utils.bas' is not carried over: it belongs to another project, in a folder outside this one. Open that folder as a workspace folder of its own; this project cannot reference it yet.",
+        Assert.AreEqual(@"'..\Shared\Utils.bas' is not carried over yet: it is in a folder outside the project's. It will be a module of this project once its folder is part of the workspace, as a source folder; the platform does not take in such a folder yet.",
             note.ToMessage(CultureInfo.InvariantCulture));
-        StringAssert.Contains(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), "appartient à un autre projet");
+        StringAssert.Contains(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), "un module de ce projet");
+        StringAssert.DoesNotMatch(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), new System.Text.RegularExpressions.Regex("autre projet"));
     }
 
     // VB6 writes its project files in the ANSI code page of the machine.

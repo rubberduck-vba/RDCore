@@ -183,7 +183,7 @@ A path is resolved against the `.vbp`'s folder first: `..\MyProj\Util.bas`, from
 |A reference to a library the platform has no description of|It cannot be resolved.|
 |A reference to another project (`*\A`)|A project cannot reference another one yet.|
 |A control (`Object`)|The platform hosts no ActiveX controls.|
-|A file outside the project's folder (`..\Shared\Utils.bas`)|It belongs to another project: its folder is a workspace folder of its own, as a shared library loaded from a sibling folder is. The platform never takes in a folder outside the workspace folders it is given, and a project cannot reference another one yet.|
+|A file outside the project's folder (`..\Shared\Utils.bas`)|It is a module of this project, as in VB6: qualified by the project's name, and a copy of its own in each project that lists it. Its folder is a _source folder_ the client adds to the workspace, not a project, and a `.rdproj` in it is ignored. The platform never takes in a folder outside the workspace folders it is given. Not carried over yet: the import notes it until the platform takes in source folders.|
 |A file at an absolute path|A project lists the files of its own folder.|
 |The startup object (`Startup`)|A project file does not say it yet.|
 |The project's type (`Type=Exe`, `OleDll`, `OleExe`, `Control`)|A project file does not say it yet: whether the project is run, or used by being referenced.|
