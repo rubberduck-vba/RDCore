@@ -91,6 +91,7 @@ This catalogue is intended to document every platform capability the SDK defines
 |---|---|---|---|
 |[`ParseFullDocument`](../api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result for a source fragment it supplies directly. The parser never reads source from the filesystem. A request may optionally be anchored at a position within a larger document, so that the locations reported for a sub-range fragment are in that document's coordinates.|
 |[`DefineSymbols`](../api/RDCore.SDK.Client.DefineSymbols.html)|`rdcore/host/symbols/define`|`EnvironmentHost`|Lets the language server send a module's member symbol descriptors to the environment host for definition in its runtime session (see [below](#rdcorehostsymbolsdefine)).|
+|[`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)|`rdcore/host/project/reload`|`EnvironmentHost`|Lets the language server ask the environment host to compose its runtime session again from the project file as it is now, once a client said the `.rdproj` changed (see [below](#workspacedidchangewatchedfiles)).|
 |[`CliCommand`](../api/RDCore.SDK.Client.CliCommand.html)|_(none: in-process CLI dispatch)_|`ClientApp`, `Extension`|Advertises that the declaring component contributes `rdc.exe` command-mode verbs. The CLI (`rdc.exe`) declares it for its native verbs. An extension declares it so that `rdc.exe describe-ext` records the capability in the extension's manifest (see [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)).|
 |[`DiagnoseDocument`](../api/RDCore.SDK.Client.DiagnoseDocument.html)|`rdcore/diagnostics/document`|`Extension`|Advertised by a _diagnostics provider_: a platform extension whose manifest advertises this capability. A provider declares it with `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` (see [below](#rdcorediagnosticsdocument)).|
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
@@ -375,6 +376,27 @@ The language server answers `textDocument/selectionRange` (**LSP 3.17** §Select
 step: each node of the syntax tree written around the position, from a name through its expression, its statement, the block of a structured statement and
 the procedure, to everything the module declares ([`SyntaxSelection`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxSelection.html)). Each step is in the next.
 A position that no node is written around is answered with the empty range at it. For a `.rdc` program, ranges are in its lines.
+
+### `workspace/didChangeWatchedFiles`
+
+The language server reads the project file (`.rdproj`) when it initializes. A client that rewrites it while the platform runs says so as **LSP 3.17** has it
+(§DidChangeWatchedFiles Notification): the client owns the file system, and the server watches nothing itself.
+
+|Message|Direction|Does|
+|---|---|---|
+|`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed. A client that does not is not asked.|
+|`workspace/didChangeWatchedFiles`|Client to server|Says the workspace's `.rdproj` was created or changed. The server serves it whether or not it asked for it: a client that registers nothing sends it after it writes the project file. A change to another folder's `.rdproj`, and a deletion, are left alone.|
+|`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
+|`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the workspace is defined again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`window/showMessage`|Server to client|Says why the workspace is as it was (the project file could not be read), or that a running program keeps its modules.|
+
+On the notification, the language server (`WorkspaceReloadService`):
+
+1. reads the project file again; one that cannot be read leaves the workspace as it was;
+2. loads and parses each file it lists that was not loaded, and takes out each one it no longer lists (a document the client has open stays: its text is the client's);
+3. asks the environment host to compose its session again;
+4. defines the whole workspace again in its three phases - its types declared, its declarations bound, its code loaded - each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
+5. asks the client to pull its diagnostics again.
 
 ### `window/workDoneProgress`
 

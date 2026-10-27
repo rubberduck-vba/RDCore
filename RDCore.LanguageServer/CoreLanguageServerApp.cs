@@ -16,6 +16,7 @@ using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.SemanticTokens;
 using RDCore.LanguageServer.Server.Handlers.Document;
+using RDCore.LanguageServer.Server.Handlers.Workspace;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Workspace;
@@ -144,6 +145,9 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<WillSaveWaitUntilTextDocumentHandler>();
         builder.WithHandler<DidSaveTextDocumentHandler>();
         builder.WithHandler<DidCloseTextDocumentHandler>();
+
+        // and the project file, which the client says it rewrote: the workspace is made what it lists now.
+        builder.WithHandler<ProjectFileWatchHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -162,6 +166,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolSyncService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceReloadService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentLifecycleService>());
 

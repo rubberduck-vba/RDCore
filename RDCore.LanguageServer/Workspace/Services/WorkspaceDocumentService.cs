@@ -30,6 +30,12 @@ internal interface IWorkspaceDocumentService
     Task<bool> TryLoadAsync(TextDocumentIdentifier id);
     Task<bool> TrySaveAsync(TextDocumentIdentifier id);
     bool Unload(TextDocumentIdentifier id);
+    /// <summary>
+    /// Takes a document out of the workspace, whatever was made of it - loaded, missing, or unreadable - and stops tracking it: the project file no longer
+    /// lists it. A document the client has open is the client's, and stays.
+    /// </summary>
+    /// <returns><see langword="false"/> when the document is open, or was not in the workspace.</returns>
+    bool Remove(TextDocumentIdentifier id);
     void Edit(TextDocumentIdentifier id, string text);
     void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text);
     void Rename(TextDocumentIdentifier id, string newName);
@@ -216,6 +222,18 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
         logger.LogDebug("🐛 Workspace document could not be unloaded.");
         return false;
+    }
+
+    public bool Remove(TextDocumentIdentifier id)
+    {
+        if (documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState)
+        {
+            logger.LogInformation("📌 Workspace document is open in the client, and stays.");
+            return false;
+        }
+
+        documentStateProvider.Forget(id);
+        return _documents.TryRemove(id, out _);
     }
 
     public void Edit(TextDocumentIdentifier id, string text)

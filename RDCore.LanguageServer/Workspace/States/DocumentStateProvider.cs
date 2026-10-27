@@ -68,6 +68,11 @@ public interface IDocumentStateProvider
     /// Stops tracking the document: it has no state any more.
     /// </summary>
     void Forget(TextDocumentIdentifier id);
+    /// <summary>
+    /// Starts tracking a document the workspace has gained since it was initialized (<see cref="Initialize"/>), as <c>Unloaded</c>; a document already tracked
+    /// keeps its state.
+    /// </summary>
+    void Track(TextDocumentIdentifier id);
 }
 
 public class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDocumentStateProvider
@@ -114,6 +119,14 @@ public class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDoc
         lock (_gate)
         {
             _state.Remove(id);
+        }
+    }
+
+    public void Track(TextDocumentIdentifier id)
+    {
+        lock (_gate)
+        {
+            _state.TryAdd(id, DocumentState.Unloaded);
         }
     }
 
