@@ -321,6 +321,9 @@
   <data name="ReDimOfAnImplicitVariant_Message" xml:space="preserve">
     <value>&apos;{0}&apos; a été déclaré implicitement, là où il est utilisé pour la première fois : MS-VBAL et VB6 le redimensionnent ici, alors que MS-VBA refuse ce ReDim à la compilation (ReDim incorrect). Déclarez &apos;{0}&apos; avec Dim avant de l&apos;utiliser.</value>
   </data>
+  <data name="ProcedureTooLarge_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; compte {1} instructions. MS-VBA refuse une procédure dont le code compilé dépasse 64K, soit environ 5 000 instructions (Procédure trop grande); RD-VBA l&apos;exécute. Divisez-la en procédures plus petites.</value>
+  </data>
   <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
     <value>Un objet de la classe &apos;{0}&apos;, qui n&apos;a pas de membre par défaut, est là où une valeur est attendue : MS-VBA lève l&apos;erreur d&apos;exécution 438 (91 quand il vaut Nothing) quand il s&apos;exécute, alors que MS-VBAL §5.5.1.1 en fait une erreur de compilation (incompatibilité de type).</value>
   </data>

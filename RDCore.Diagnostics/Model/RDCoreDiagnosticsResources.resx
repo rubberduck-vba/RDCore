@@ -321,6 +321,9 @@
   <data name="ReDimOfAnImplicitVariant_Message" xml:space="preserve">
     <value>&apos;{0}&apos; was declared implicitly, where it is first used: MS-VBAL and VB6 re-dimension it here, where MS-VBA refuses this ReDim at compile time (Invalid ReDim). Declare &apos;{0}&apos; with Dim before using it.</value>
   </data>
+  <data name="ProcedureTooLarge_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; has {1} statements. MS-VBA refuses a procedure whose compiled code is larger than 64K, which is about 5,000 statements (Procedure too large); RD-VBA runs it. Split it into smaller procedures.</value>
+  </data>
   <data name="ValueOfObjectWithNoDefaultMember_Message" xml:space="preserve">
     <value>An object of class &apos;{0}&apos;, which has no default member, is where a value is expected: MS-VBA raises run-time error 438 (91 when it is Nothing) when it runs, where MS-VBAL §5.5.1.1 makes it a compile error (type mismatch).</value>
   </data>

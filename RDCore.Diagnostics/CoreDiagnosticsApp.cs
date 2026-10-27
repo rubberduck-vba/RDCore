@@ -98,6 +98,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, IgnoredTypeCharacterAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureConstantLengthAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ReDimOfAnImplicitVariantAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ProcedureTooLargeAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ValueOfObjectWithNoDefaultMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyLetToArrayAnalyzer>();
 

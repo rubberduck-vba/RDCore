@@ -460,3 +460,5 @@
   href: rdc11021.md
 - name: RDC11022 — ReDim of a variable declared implicitly
   href: rdc11022.md
+- name: RDC11023 — Procedure MS-VBA refuses as too large
+  href: rdc11023.md
