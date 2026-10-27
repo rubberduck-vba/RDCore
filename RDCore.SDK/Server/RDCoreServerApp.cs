@@ -295,6 +295,8 @@ public abstract class RDCoreServerApp(
             .OnInitialized(HandleLanguageServerInitializedAsync)
             // what OmniSharp would otherwise swallow - a handler that throws as the server answers initialize leaves it unanswered, and says nothing - is logged.
             .WithUnhandledExceptionHandler(exception => LogIfEnabled(LogLevel.Error, $"❌ Unhandled exception in the language server: {exception}"))
+            // a request is answered, whatever notifications come in while it runs (HexIDE's findings desk #31):
+            .WithEveryRequestAnswered()
             // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change:
             .WithConfigurationSection(LiveSettingsProtocol.Section)
             // core SDK handlers:
