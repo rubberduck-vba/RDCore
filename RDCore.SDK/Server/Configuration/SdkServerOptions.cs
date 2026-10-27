@@ -463,6 +463,19 @@ public record class SdkWorkspaceOptions
     public string Language { get; set; } = Workspace.SupportedLanguages.RDVBA.Id;
 
     /// <summary>
+    /// Whether the language server watches the workspace's files itself, for a client that does not: when <see langword="false"/>, it never does.
+    /// </summary>
+    /// <remarks>
+    /// The client owns the file system. A client that says it watches files (<c>workspace.didChangeWatchedFiles</c>, <strong>LSP 3.17</strong>) tells the
+    /// server what changed outside the editor, and the server watches nothing. Only for a client that does not say so does the server watch the workspace's
+    /// source files and its <c>.rdproj</c>, and make the workspace what they are when one changes outside the editor. This setting turns that off - a client
+    /// that keeps the file system to itself, a share where watching is costly - and a file changed outside the editor is then read when the server next starts.
+    /// The setting is read when the workspace is loaded.
+    /// </remarks>
+    [Setting(SettingReach.NextStart)]
+    public bool EnableFileSystemWatchers { get; set; } = true;
+
+    /// <summary>
     /// The language <see cref="Language"/> names.
     /// </summary>
     /// <exception cref="InvalidOperationException"><see cref="Language"/> is not the identifier of a language the platform serves.</exception>

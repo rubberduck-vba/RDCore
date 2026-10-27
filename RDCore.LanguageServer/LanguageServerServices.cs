@@ -74,6 +74,8 @@ internal static class LanguageServerServices
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
             .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()
+            .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWatchedFileChanges, RDCore.LanguageServer.Server.Handlers.Workspace.WatchedFileChanges>()
+            .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFileSystemWatcher, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFileSystemWatcher>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>();

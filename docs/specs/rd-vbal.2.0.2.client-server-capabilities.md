@@ -391,13 +391,13 @@ A position that no node is written around is answered with the empty range at it
 
 The language server reads the project file (`.rdproj`) when it initializes. The server is the project file's only writer: a client tells it which files it created,
 renamed or deleted (see [`workspace/didCreateFiles`, `didRenameFiles` and `didDeleteFiles`](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles)), and does
-not write the project file itself. A project file changed outside the editor (a `git checkout`, a hand edit) is what a client says changed, as **LSP 3.17** has it
-(§DidChangeWatchedFiles Notification): the client owns the file system, and the server watches nothing itself.
+not write the project file itself. A project file or a source file changed outside the editor (a `git checkout`, a module exported from the VBE, a hand edit)
+is what a client says changed, as **LSP 3.17** has it (§DidChangeWatchedFiles Notification): the client owns the file system.
 
 |Message|Direction|Does|
 |---|---|---|
-|`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed. A client that does not is not asked.|
-|`workspace/didChangeWatchedFiles`|Client to server|Says the workspace's `.rdproj` was created or changed. The server serves it whether or not it asked for it: a client that registers nothing sends it all the same. A change to another folder's `.rdproj`, and a deletion, are left alone; so is a project file that lists what the workspace is, as the one the server wrote does when a client that watches it says it changed.|
+|`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed, and the source files of every language the platform serves (`**/*.{bas,cls,frm,doccls,rdc}`), created, changed or deleted. A client that does not is not asked.|
+|`workspace/didChangeWatchedFiles`|Client to server|Says files of the workspace changed. The server serves it whether or not it asked for it: a client that registers nothing sends it all the same. The workspace's `.rdproj`, created or changed, is read again (below); another folder's `.rdproj`, and a deletion, are left alone, and so is a project file that lists what the workspace is, as the one the server wrote does when a client that watches it says it changed. A file the project lists is read again ([below](#a-file-changed-outside-the-editor)); one it does not list is nothing of the workspace.|
 |`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
 |`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the workspace is defined again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
 |`window/showMessage`|Server to client|Says why the workspace is as it was (the project file could not be read), or that a running program keeps its modules.|
@@ -409,6 +409,23 @@ On the notification, the language server (`WorkspaceReloadService`):
 3. asks the environment host to compose its session again;
 4. defines the whole workspace again in its three phases - its types declared, its declarations bound, its code loaded - each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
 5. asks the client to pull its diagnostics again.
+
+#### A file changed outside the editor
+
+For a file the project lists that changed, was created or was deleted, the language server (`WorkspaceReloadService.ReloadFilesAsync`) reads it again: a module
+is parsed again, a module whose file is gone is discarded from the environment host and its document is missing, and the whole workspace is defined again in its
+three phases, since another module may refer to what changed. A document the client has open is the client's, and is not read; a file whose text is what was
+loaded changes nothing, as when the server wrote it. The client is then asked to pull its diagnostics again.
+
+#### The server's own watch
+
+The client owns the file system. Only for a client that does not say it watches files - no `workspace.didChangeWatchedFiles` capability at all, with or without
+dynamic registration - does the language server watch the workspace's files itself (`WorkspaceFileSystemWatcher`): its `.rdproj`, and the source files under its
+root, except what a folder whose name starts with a dot holds (`.git`, `.vscode`). What it sees is served as if the client had said it. The events of a moment (a
+save is several, a `git checkout` many) are gathered and served together, once none came for 300 ms.
+
+The setting `Workspace.EnableFileSystemWatchers` (default `true`, read when the workspace loads) turns the server's watch off altogether: a file changed outside
+the editor is then read when the server next starts.
 
 ### `workspace/didCreateFiles`, `didRenameFiles` and `didDeleteFiles`
 

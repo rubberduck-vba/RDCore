@@ -129,6 +129,13 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return document is not null;
     }
 
+    // a version only goes up: a document read again from disk - changed outside the editor - is the next version when its text is other than it was, and what
+    // was made of the version before (its parse) is not taken for what is made of this one.
+    private int NextVersion(TextDocumentIdentifier id, string content)
+        => _documents.TryGetValue(id, out var earlier)
+            ? earlier.Version + (string.Equals(earlier.Text, content, StringComparison.Ordinal) ? 0 : 1)
+            : 1;
+
     public async Task<bool> TryLoadAsync(TextDocumentIdentifier id)
     {
         var path = id.Uri.GetFileSystemPath();
@@ -145,6 +152,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
                 var content = await ioFile.ReadAllTextAsync(path);
                 var document = WithCompanion(new WorkspaceDocument(relativeUri, WorkspaceRoot, content), path);
+                document = document with { Version = NextVersion(document.Id, content) };
                 _documents[document.Id] = document;
 
                 documentStateProvider.OnDocumentLoaded(document.Id);
@@ -155,6 +163,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             else
             {
                 var document = new WorkspaceDocument(relativeUri, WorkspaceRoot);
+                document = document with { Version = NextVersion(document.Id, string.Empty) };
                 _documents[document.Id] = document;
 
                 logger.LogWarning("⚠ Workspace document at '{uri}' is missing.", relativeUri);
