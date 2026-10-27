@@ -768,6 +768,12 @@
   <data name="VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray" xml:space="preserve">
     <value>For Each may only iterate over a collection object or an array</value>
   </data>
+  <data name="VBCompileError_OutOfMemory" xml:space="preserve">
+    <value>Out of memory</value>
+  </data>
+  <data name="VBCompileError_OutOfMemory_ModuleNames_Verbose" xml:space="preserve">
+    <value>The module declares more than {0:N0} names at module level: variables, constants, procedures, properties, Declare statements, enumerations and types, all together. Move some of them to another module.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>

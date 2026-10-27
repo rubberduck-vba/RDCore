@@ -186,6 +186,8 @@
   href: vbc09378.md
 - name: VBC09379 — For Each may only iterate over a collection object or an array
   href: vbc09379.md
+- name: VBC09380 — Out of memory
+  href: vbc09380.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

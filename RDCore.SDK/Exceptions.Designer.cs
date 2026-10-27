@@ -1249,6 +1249,24 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Out of memory.
+        /// </summary>
+        public static string VBCompileError_OutOfMemory {
+            get {
+                return ResourceManager.GetString("VBCompileError_OutOfMemory", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The module declares more than {0:N0} names at module level: variables, constants, procedures, properties, Declare statements, enumerations and types, all together. Move some of them to another module..
+        /// </summary>
+        public static string VBCompileError_OutOfMemory_ModuleNames_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_OutOfMemory_ModuleNames_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
         public static string VBCompileError_NameIsAProject_Verbose {

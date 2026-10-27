@@ -620,6 +620,11 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.4.2.4</strong> For Each Statement.
     /// </summary>
     ForEachMayOnlyIterateOverACollectionObjectOrAnArray = 9379,
+    /// <summary>
+    /// A module declares more than 10,000 names at module level: RD-VBA's cap, below the count MS-VBA compiles, with MS-VBA's message.<br/>
+    /// <strong>MS-VBAL §5.2</strong> Module Declarations, which sets no limit.
+    /// </summary>
+    OutOfMemory = 9380,
 
 
     /***********************************************************************************************
