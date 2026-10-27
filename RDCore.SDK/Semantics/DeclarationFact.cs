@@ -126,4 +126,17 @@ public sealed record class DeclarationFact(
     /// (<strong>MS-VBAL §5.4.3.3</strong>), or a reference to a name that matched nothing (§5.6.10). <see langword="null"/> for any other declaration.
     /// </summary>
     public LocalDeclarationKind? DeclaredBy { get; init; }
+
+    /// <summary>
+    /// What a local or a parameter hides: what its name means in the rest of the module, which in its procedure it does not (<strong>MS-VBAL §5.6.10</strong>,
+    /// a name is first matched in the procedure). <see langword="null"/> when the name means nothing else there, and for any other declaration.
+    /// </summary>
+    public HiddenDeclaration? Hides { get; init; }
 }
+
+/// <summary>
+/// A declaration a local or a parameter hides (<see cref="DeclarationFact.Hides"/>).
+/// </summary>
+/// <param name="Symbol">The identity of the declaration hidden.</param>
+/// <param name="QualifiedName">Its name, after the module or the library that declares it: <c>Module1.Count</c>, <c>VBA.Strings.Left</c>.</param>
+public sealed record class HiddenDeclaration(Uri Symbol, string QualifiedName);

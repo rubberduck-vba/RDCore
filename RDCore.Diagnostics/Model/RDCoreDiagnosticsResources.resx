@@ -219,6 +219,9 @@
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
     <value>'{0}' never assigns its return value: the caller always gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
+  <data name="ShadowedDeclaration_Message" xml:space="preserve">
+    <value>'{0}' hides '{1}': in this procedure, the name means '{0}', and '{1}' everywhere else. Give '{0}' a name of its own.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>

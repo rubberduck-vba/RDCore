@@ -46,6 +46,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00204`](../diagnostics/rdc00204.md)|Multiple declarations|Information|the syntax tree: the declarations one statement makes|
 |[`RDC00205`](../diagnostics/rdc00205.md)|Misleading ByRef parameter|Information|the syntax tree: `ParameterDeclarationNode.IsByRefIgnored`|
 |[`RDC00206`](../diagnostics/rdc00206.md)|Not all code paths return a value|Warning|`ProcedureSemanticModel.ReturnValue`, from the [`ControlFlowGraph`](../api/RDCore.SDK.Semantics.Flow.ControlFlowGraph.html) of the procedure|
+|[`RDC00208`](../diagnostics/rdc00208.md)|Shadowed declaration|Information|`DeclarationFact.Hides`, from the resolver: what the name of a local or a parameter means as seen from the module|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|
 |[`RDC00303`](../diagnostics/rdc00303.md)|Obsolete comment syntax|Information|`ModuleSemanticModel.Language` (`SupportedLanguage.UsesClassicBasicSyntax`), and the comments of the syntax tree|
 |[`RDC00304`](../diagnostics/rdc00304.md)|Obsolete error syntax|Information|`ModuleSemanticModel.Language`, and the syntax tree: an `Error` statement|
