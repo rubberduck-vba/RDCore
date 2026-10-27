@@ -65,10 +65,17 @@ public partial class ModuleParser(
                 return ModuleParseResult.Success(EmptyModule(uri, anchorOffset));
             }
 
-            precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
+            // a module with no directive has nothing for the directive pass to find, which reads the whole module (a third of a parse, measured on a
+            // 2,400-line module): it is not run, and the main pass reads the module as it is.
+            var hasDirectives = PrecompilerNodePattern().IsMatch(content);
+            if (hasDirectives)
+            {
+                precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
+            }
+
             var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
 
-            var sanitized = PrecompilerNodePattern().Replace(content, match => Blanked(match.Value));
+            var sanitized = hasDirectives ? PrecompilerNodePattern().Replace(content, match => Blanked(match.Value)) : content;
             var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
             var ast = listener.BuildModuleNode();
 

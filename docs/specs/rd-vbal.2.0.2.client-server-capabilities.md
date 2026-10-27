@@ -127,6 +127,24 @@ Diagnostics use the LSP 3.17 pull model (`textDocument/diagnostic`). The languag
 
 The request carries the parse result as a [`PlatformJson`](../api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic. See [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 
+### `PlatformJson` payloads
+
+A payload the platform's components exchange as a `PlatformJson` string - a parse result, a semantic model, symbols - is the model it carries, written so that
+what every node repeats is written once. The model each end has is the same: a reader gets every location and identity back with its document.
+
+|What|How it is written|
+|---|---|
+|A range|Four numbers: `[startLine, startCharacter, endLine, endCharacter]`.|
+|A location|`{"Uri": …, "Range": […]}`, where the `Uri` is written only when it is not the one written last in the payload; a location with none has the last one read.|
+|A node's identity|`{"DocumentUri": …, "Lineage": […]}`, where the `DocumentUri` is written only when it is not the one written last in the payload, the same way.|
+|A node's `SourceLocation`|Not written where it is the node's own `Location`, which it is read back from.|
+|A `null`|Not written: a property that is not there reads back as `null`, or as its declared default.|
+
+A payload is written and read start to end in one call, so the document a location or an identity is read with is the one written before it. The payload of
+one module writes its path once or twice, rather than three times a node: for a module of 2,400 lines, the parse result is 1.4 MB of JSON rather than 5 MB,
+and its semantic model 1.5 MB rather than 3.6 MB. Anything serialized with the same options outside a payload
+([`SyntaxNodeJson.Options`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly) writes every document.
+
 ### `rdcore/session/execute`
 
 The `rdcore/session/execute` result ([`ExecuteSessionResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteSessionResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
