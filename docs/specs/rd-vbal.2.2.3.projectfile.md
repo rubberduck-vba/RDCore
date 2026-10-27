@@ -186,6 +186,7 @@ A path is resolved against the `.vbp`'s folder first: `..\MyProj\Util.bas`, from
 |A file outside the project's folder (`..\Shared\Utils.bas`)|It belongs to another project: its folder is a workspace folder of its own, as a shared library loaded from a sibling folder is. The platform never takes in a folder outside the workspace folders it is given, and a project cannot reference another one yet.|
 |A file at an absolute path|A project lists the files of its own folder.|
 |The startup object (`Startup`)|A project file does not say it yet.|
+|The project's type (`Type=Exe`, `OleDll`, `OleExe`, `Control`)|A project file does not say it yet: whether the project is run, or used by being referenced.|
 |Conditional compilation arguments VB6 refuses|VB6 refuses the whole line.|
 
 A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([`VbpImport.Into`](../api/RDCore.SDK.Workspace.VbpImport.html)). The `.vbp` describes the project's name, references, modules and other files, their folders, and its conditional compilation arguments, which replace what the `.rdproj` says of them: a file the `.vbp` no longer lists is no longer the project's. The project file's settings files (`Configuration`), the document class of a module (`Super`, by its path), and the type library information of a reference (`TypeLibInfoPath`, by its name) are kept, so a client that keeps a `.vbp` and a `.rdproj` in step can import the `.vbp` again after each change. A `.rdproj` that cannot be read is replaced whole.

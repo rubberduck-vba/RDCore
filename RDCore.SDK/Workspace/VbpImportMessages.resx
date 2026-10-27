@@ -37,6 +37,9 @@
   <data name="VbpImport_InvalidConditionalCompilation" xml:space="preserve">
     <value>The conditional compilation arguments '{0}' are not carried over: VB6 refuses them too. Each is a name and a whole number from -32768 to 32767, separated by colons (DEBUG = 1 : TRACE = -1).</value>
   </data>
+  <data name="VbpImport_ProjectType" xml:space="preserve">
+    <value>The project is of type '{0}', which a project file does not say yet.</value>
+  </data>
   <!-- What the import asks, and why it is not made (VbpImportText). {0} is a folder or a file, {1} the .vbp. -->
   <data name="VbpImport_Ask_Replace" xml:space="preserve">
     <value>'{0}' already has a project file. Replace it with the project of '{1}'?</value>

@@ -39,6 +39,12 @@ public enum VbpImportNoteKind
     /// (<c>DEBUG = 1 : TRACE = -1</c>), and none of them is carried over.
     /// </summary>
     InvalidConditionalCompilation,
+
+    /// <summary>
+    /// The type of the project (<c>Type=Exe</c>, <c>OleDll</c>, <c>OleExe</c>, <c>Control</c>), which a <c>.rdproj</c> does not say yet: whether the project is
+    /// run, or used by being referenced.
+    /// </summary>
+    ProjectType,
 }
 
 /// <summary>
@@ -246,6 +252,12 @@ public static class VbpProjectImporter
                     foreach (var (constant, number) in arguments)
                     {
                         constants[constant] = number;
+                    }
+                    break;
+                case "TYPE":
+                    if (Unquoted(value) is { Length: > 0 } type)
+                    {
+                        notes.Add(new VbpImportNote(VbpImportNoteKind.ProjectType, type));
                     }
                     break;
                 case "STARTUP":

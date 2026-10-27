@@ -233,6 +233,7 @@ public sealed class VbpProjectImporterTests
 
         CollectionAssert.AreEqual(new[]
         {
+            (VbpImportNoteKind.ProjectType, "Exe"),
             (VbpImportNoteKind.UnresolvedReference, "Custom Library"),
             (VbpImportNoteKind.ProjectReference, @"..\Shared\Shared.vbp"),
             (VbpImportNoteKind.Control, "MSCOMCTL.OCX"),
