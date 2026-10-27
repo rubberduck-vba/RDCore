@@ -49,8 +49,69 @@ public static class SyntaxNodeJson
         // nested `If`s failed to serialize, 18 still fit).
         MaxDepth = MaxNodeDepth,
 
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine } },
+        // a null is what an absent property deserializes to: writing it says nothing a reader needs (measured: a parse result of a 2,400-line module was
+        // 5 MB of JSON, its semantics 3.6 MB, on every keystroke).
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new SourceRangeJsonConverter() },
+
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine, OmitRedundantLocation } },
     };
+
+    // an expression node has its location twice: its own Location, and the SourceLocation of the node it is, which it is constructed with. The second is
+    // written only where it differs, and is constructed from the first when it is read.
+    private static void OmitRedundantLocation(JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Kind != JsonTypeInfoKind.Object || !typeof(SyntaxNode).IsAssignableFrom(typeInfo.Type))
+        {
+            return;
+        }
+
+        var location = typeInfo.Properties.FirstOrDefault(property => property.Name == "Location" && property.PropertyType == typeof(Source.SourceLocation));
+        var sourceLocation = typeInfo.Properties.FirstOrDefault(property => property.Name == nameof(SyntaxNode.SourceLocation));
+        if (location?.Get is not { } read || sourceLocation is null)
+        {
+            return;
+        }
+
+        sourceLocation.ShouldSerialize = (instance, value) => !Equals(value, read(instance));
+    }
+
+    // a range is four numbers: [start line, start character, end line, end character].
+    private sealed class SourceRangeJsonConverter : JsonConverter<Source.SourceRange>
+    {
+        public override Source.SourceRange Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            Span<int> numbers = stackalloc int[4];
+            if (reader.TokenType != JsonTokenType.StartArray)
+            {
+                throw new JsonException("A range is an array of four numbers.");
+            }
+
+            for (var i = 0; i < 4; i++)
+            {
+                reader.Read();
+                numbers[i] = reader.GetInt32();
+            }
+
+            reader.Read();
+            if (reader.TokenType != JsonTokenType.EndArray)
+            {
+                throw new JsonException("A range is an array of four numbers.");
+            }
+
+            return new(new(numbers[0], numbers[1]), new(numbers[2], numbers[3]));
+        }
+
+        public override void Write(Utf8JsonWriter writer, Source.SourceRange value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            writer.WriteNumberValue(value.Start.Line);
+            writer.WriteNumberValue(value.Start.Character);
+            writer.WriteNumberValue(value.End.Line);
+            writer.WriteNumberValue(value.End.Character);
+            writer.WriteEndArray();
+        }
+    }
 
     /// <summary>
     /// The maximum nesting depth an AST payload may reach, in JSON levels.
