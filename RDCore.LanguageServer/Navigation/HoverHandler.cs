@@ -37,10 +37,11 @@ internal sealed class HoverHandler(IRenameService workspace) : HoverHandlerBase
         };
     }
 
-    // a client that says which formats it reads, and does not say Markdown, is answered in plain text.
+    // a client that says which formats it reads, and does not say Markdown, is answered in plain text; one that says nothing of hovers is given no
+    // capability at all, and a throw here would leave initialize unanswered.
     protected override HoverRegistrationOptions CreateRegistrationOptions(HoverCapability capability, ClientCapabilities clientCapabilities)
     {
-        _markdown = capability.ContentFormat is not { } formats || !formats.Any() || formats.Contains(MarkupKind.Markdown);
+        _markdown = capability?.ContentFormat is not { } formats || !formats.Any() || formats.Contains(MarkupKind.Markdown);
         return new HoverRegistrationOptions();
     }
 }

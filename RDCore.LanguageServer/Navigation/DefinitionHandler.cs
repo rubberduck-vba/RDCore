@@ -33,7 +33,8 @@ internal sealed class DefinitionHandler(IRenameService workspace) : DefinitionHa
 
     protected override DefinitionRegistrationOptions CreateRegistrationOptions(DefinitionCapability capability, ClientCapabilities clientCapabilities)
     {
-        _linkSupport = capability.LinkSupport;
+        // a client that says nothing of it is given no capability at all: a throw here would leave initialize unanswered.
+        _linkSupport = capability?.LinkSupport ?? false;
         return new DefinitionRegistrationOptions();
     }
 }

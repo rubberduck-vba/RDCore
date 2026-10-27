@@ -15,6 +15,7 @@ using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.SemanticTokens;
+using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Server.Handlers.Document;
 using RDCore.LanguageServer.Server.Handlers.Workspace;
 using RDCore.LanguageServer.Symbols;
@@ -183,58 +184,7 @@ internal sealed class CoreLanguageServerApp(
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
-    {
-        clientCapabilities.TextDocument = new()
-        {
-            //CallHierarchy = new(true),
-            //CodeAction = new(true),
-            //CodeLens = new(true),
-            //ColorProvider = new(true),
-            //Completion = new(true),
-            Declaration = new(true),
-            Definition = new(true),
-            Diagnostic = new(true),
-            //DocumentHighlight = new(true),
-            //DocumentLink = new(true),
-            DocumentSymbol = new(true),
-            FoldingRange = new(true),
-            //Formatting = new(true),
-            //Hover = new(true),
-            //Implementation = new(true),
-            //InlayHint = new(true),
-            //InlineValue = new(true),
-            //LinkedEditingRange = new(true),
-            //Moniker = new(true),
-            //OnTypeFormatting = new(true),
-            //RangeFormatting = new(true),
-            //References = new(true),
-            //Rename = new(true),
-            SemanticTokens = new(true),
-            //SignatureHelp = new(true),
-            //SelectionRange = new(true),
-            Synchronization = new(true),
-            PublishDiagnostics = new(true),
-            //TypeDefinition = new(true),
-            //TypeHierarchy = new(true),
-        };
-        clientCapabilities.Window = new()
-        {
-            //ShowDocument = new(true),
-            ShowMessage = new(true),
-            WorkDoneProgress = new(true),
-        };
-        clientCapabilities.Workspace = new()
-        {
-            //ApplyEdit = new(true),
-            // what the client said of its diagnostics is kept: whether it is asked to pull them again (refreshSupport) is read when the workspace changes.
-            Diagnostics = clientCapabilities.Workspace?.Diagnostics is { IsSupported: true } diagnostics ? diagnostics : new(true),
-            //FileOperations = new(true),
-            //SemanticTokens = new(true),
-            Symbol = new(true),
-            //WorkspaceEdit = new(true),
-            //WorkspaceFolders = new(true),
-        };
-    }
+        => ClientCapabilityDefaults.Complete(clientCapabilities);
 
     protected override async Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
     {

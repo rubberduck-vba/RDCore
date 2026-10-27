@@ -21,7 +21,8 @@ internal sealed class TypeDefinitionHandler(IRenameService workspace) : TypeDefi
 
     protected override TypeDefinitionRegistrationOptions CreateRegistrationOptions(TypeDefinitionCapability capability, ClientCapabilities clientCapabilities)
     {
-        _linkSupport = capability.LinkSupport;
+        // a client that says nothing of it is given no capability at all: a throw here would leave initialize unanswered.
+        _linkSupport = capability?.LinkSupport ?? false;
         return new TypeDefinitionRegistrationOptions();
     }
 }
@@ -41,7 +42,7 @@ internal sealed class ImplementationHandler(IRenameService workspace) : Implemen
 
     protected override ImplementationRegistrationOptions CreateRegistrationOptions(ImplementationCapability capability, ClientCapabilities clientCapabilities)
     {
-        _linkSupport = capability.LinkSupport;
+        _linkSupport = capability?.LinkSupport ?? false;
         return new ImplementationRegistrationOptions();
     }
 }
