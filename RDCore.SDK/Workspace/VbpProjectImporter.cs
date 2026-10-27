@@ -119,8 +119,8 @@ public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImp
     /// What only the platform says of the project is kept: the settings files of the project file (<see cref="ProjectFile.Configuration"/>), the document
     /// class a module is (<see cref="RDCoreModule.Super"/>), and the type library information of a reference
     /// (<see cref="RDCoreReference.TypeLibInfoPath"/>) - of a module by its path, of a reference by its name. A client that keeps a <c>.vbp</c> and a
-    /// <c>.rdproj</c> in step imports the <c>.vbp</c> again after each change, and loses none of it. Its <see cref="ProjectFile.Version"/> is the running
-    /// platform's, as it is of every project file the platform writes.
+    /// <c>.rdproj</c> in step imports the <c>.vbp</c> again after each change, and loses none of it. Its <see cref="ProjectFile.Version"/> is the one that
+    /// wrote it, until the platform writes it (<see cref="ProjectFile.WithCurrentVersion"/>).
     /// </para>
     /// </remarks>
     /// <param name="existing">The project file of the folder; <see langword="null"/> when it has none, or one that cannot be read.</param>

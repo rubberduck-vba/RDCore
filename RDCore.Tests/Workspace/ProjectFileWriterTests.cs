@@ -28,6 +28,22 @@ public sealed class ProjectFileWriterTests
         StringAssert.Contains(json, "\"Probe\"");
     }
 
+    // a project file keeps the version that wrote it as it is read and copied; a write stamps the version of the platform that writes it.
+    [TestMethod]
+    public async Task AProjectFile_KeepsTheVersionThatWroteIt_UntilItIsWritten()
+    {
+        var fileSystem = new MockFileSystem();
+        fileSystem.AddDirectory(Root);
+        fileSystem.AddFile(ProjectFilePath, new MockFileData("""{ "Version": "0.0.9", "Configuration": [], "ProjectInfo": { "Name": "Old" } }"""));
+
+        var loaded = await new ProjectFileLoader(fileSystem).LoadAsync(Root);
+        Assert.AreEqual("0.0.9", loaded.Version, "read as it was written");
+        Assert.AreEqual("0.0.9", (loaded with { IsDirty = true }).Version, "copied as it is");
+
+        await new ProjectFileWriter(fileSystem).SaveAsync(loaded);
+        Assert.AreEqual(ProjectFile.CurrentVersion, (await new ProjectFileLoader(fileSystem).LoadAsync(Root)).Version, "stamped by the write");
+    }
+
     [TestMethod]
     public async Task SaveAsync_RoundTripsThroughTheLoader()
     {

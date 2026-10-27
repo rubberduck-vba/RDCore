@@ -202,7 +202,7 @@ public sealed class VbpProjectImporterTests
         var project = Import().Into(existing, @"C:\ws");
 
         Assert.AreEqual(@"C:\ws", project.Uri);
-        Assert.AreEqual(new ProjectFile(@"C:\ws").Version, project.Version, "the running platform's, as of every project file it writes");
+        Assert.AreEqual("0.0.9", project.Version, "the version that wrote it, until the platform writes it");
         CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration, "the platform's own settings");
 
         var info = project.ProjectInfo;
