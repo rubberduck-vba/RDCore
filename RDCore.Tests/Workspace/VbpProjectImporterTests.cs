@@ -52,6 +52,46 @@ public sealed class VbpProjectImporterTests
     public void AProjectThatNamesItselfNothing_IsNamedForItsFile()
         => Assert.AreEqual("Battleship", Import("Module=modMain; modMain.bas").Project.Name);
 
+    // the .vbp's folder, as the language server and rdc import know it: an absolute path the CI's Linux runner has too.
+    private static readonly string MyProj = Path.Combine(Path.GetTempPath(), "src", "MyProj");
+
+    private static string[] ModulesOf(string vbp, string? folder)
+        => [.. VbpProjectImporter.Import(vbp, "MyProj.vbp", Libraries, folder).Project.Modules.Select(module => module.RelativeUri)];
+
+    // a path is resolved against the .vbp's folder before it is judged: one that climbs out and comes back in is the project's own file.
+    [TestMethod]
+    [DataRow(@"..\MyProj\Util.bas", "Util.bas", DisplayName = "out of the folder, and back in by its name")]
+    [DataRow(@"..\myproj\Sub\Util.bas", "Sub/Util.bas", DisplayName = "back in, in any case, to a sub-folder")]
+    [DataRow(@"..\..\src\MyProj\Util.bas", "Util.bas", DisplayName = "two folders out, and back in")]
+    [DataRow(@"Sub\..\Util.bas", "Util.bas", DisplayName = "a sub-folder's ..")]
+    [DataRow(@".\Util.bas", "Util.bas", DisplayName = "a .")]
+    public void APathThatComesBackIntoTheFolder_IsTheProjectsOwnFile(string path, string expected)
+    {
+        var import = VbpProjectImporter.Import($"Module=Util; {path}", "MyProj.vbp", Libraries, MyProj);
+
+        CollectionAssert.AreEqual(new[] { expected }, import.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsEmpty(import.Notes);
+    }
+
+    [TestMethod]
+    [DataRow(@"..\Shared\Util.bas", DisplayName = "a sibling folder")]
+    [DataRow(@"..\MyProjOld\Util.bas", DisplayName = "a sibling whose name starts as the folder's")]
+    [DataRow(@"Sub\..\..\Util.bas", DisplayName = "out through a sub-folder")]
+    public void APathThatLeavesTheFolder_IsNoted(string path)
+    {
+        var import = VbpProjectImporter.Import($"Module=Util; {path}", "MyProj.vbp", Libraries, MyProj);
+
+        Assert.IsEmpty(import.Project.Modules);
+        Assert.AreEqual((VbpImportNoteKind.OutsideProjectFolder, path), import.Notes.Select(note => (note.Kind, note.Subject)).Single());
+    }
+
+    [TestMethod]
+    public void APathThatClimbsOutOfAFolderThatIsNotKnown_IsNoted_ASubFoldersIsResolved()
+    {
+        Assert.IsEmpty(ModulesOf(@"Module=Util; ..\MyProj\Util.bas", folder: null), "whether it comes back in is not known");
+        CollectionAssert.AreEqual(new[] { "Util.bas" }, ModulesOf(@"Module=Util; Sub\..\Util.bas", folder: null));
+    }
+
     [TestMethod]
     public void TheModules_ClassesAndForms_AreTheProjectsModules_InTheFoldersTheyAreIn()
     {
@@ -96,6 +136,96 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("-1", constants["TRACE"]);
     }
 
+    // as vb6.exe reads CondComp, measured with /make (HexIDE, 2026-10-27): name = n, colon-separated, spaces optional, n a whole number -32768..32767.
+    [TestMethod]
+    [DataRow("A=1:B=-2", "A=1;B=-2")]
+    [DataRow("debug = +5 : Trace=0", "debug=5;Trace=0")]
+    [DataRow("Low = -32768 : High = 32767", "Low=-32768;High=32767")]
+    [DataRow("", "")]
+    public void ConditionalCompilationArguments_ThatVB6Reads_AreTheProjectsConstants(string condComp, string expected)
+    {
+        var import = Import($"CondComp=\"{condComp}\"");
+
+        Assert.AreEqual(expected, string.Join(";", import.Project.PrecompilerConstants.Select(constant => $"{constant.Key}={constant.Value}")));
+        Assert.IsEmpty(import.Notes);
+    }
+
+    [TestMethod]
+    [DataRow("A = \"text\"", DisplayName = "a string")]
+    [DataRow("A = &H10", DisplayName = "a hexadecimal number")]
+    [DataRow("A = True", DisplayName = "True")]
+    [DataRow("A = 1.5", DisplayName = "a fraction")]
+    [DataRow("A = 32768", DisplayName = "a number too large")]
+    [DataRow("A = --1", DisplayName = "two signs")]
+    [DataRow("A", DisplayName = "a name without a value")]
+    [DataRow("A =", DisplayName = "an empty value")]
+    [DataRow("A = 1 :", DisplayName = "a colon at the end")]
+    [DataRow("1A = 1", DisplayName = "a name that is no identifier")]
+    public void ConditionalCompilationArguments_ThatVB6Refuses_AreRefusedWhole_AndNoted(string condComp)
+    {
+        var import = Import($"CondComp=\"B = 2 : {condComp}\"");
+
+        Assert.IsEmpty(import.Project.PrecompilerConstants, "vb6.exe refuses the whole line, B = 2 with it");
+        Assert.AreEqual((VbpImportNoteKind.InvalidConditionalCompilation, $"B = 2 : {condComp}"), import.Notes.Select(note => (note.Kind, note.Subject)).Single());
+    }
+
+    [TestMethod]
+    public void AVbpThatStartsWithAByteOrderMark_IsReadInItsEncoding()
+    {
+        var ansi = CodePagesEncodingProvider.Instance.GetEncoding(1252)!;
+
+        Assert.AreEqual("Name=\"Café\"", VbpProjectImporter.Decode([.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes("Name=\"Café\"")], ansi));
+    }
+
+    // a client that keeps a .vbp and a .rdproj in step imports the .vbp again after each change: the platform's own settings survive it.
+    [TestMethod]
+    public void AnImportOverAProjectFile_ReplacesWhatTheVbpDescribes_AndKeepsTheRest()
+    {
+        var existing = new ProjectFile(@"C:\old", new RDCoreProject
+        {
+            Name = "Old",
+            References =
+            [
+                RDCoreReference.VBStandardLibrary,
+                new RDCoreReference { Name = "Scripting", TypeLibInfoPath = "scrrun.json" },
+                new RDCoreReference { Name = "ADODB" },
+            ],
+            Modules = [new RDCoreModule { RelativeUri = "MODMAIN.BAS", Super = DocClassType.ExcelWorkbook }, new RDCoreModule { RelativeUri = "gone.bas" }],
+            OtherFiles = [new RDCoreFile { RelativeUri = "old.txt" }],
+            PrecompilerConstants = new() { ["OLD"] = "1" },
+        }) with
+        {
+            Version = "0.0.9",
+            Configuration = ["rdcore.settings.json"],
+        };
+
+        var project = Import().Into(existing, @"C:\ws");
+
+        Assert.AreEqual(@"C:\ws", project.Uri);
+        Assert.AreEqual(new ProjectFile(@"C:\ws").Version, project.Version, "the running platform's, as of every project file it writes");
+        CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration, "the platform's own settings");
+
+        var info = project.ProjectInfo;
+        Assert.AreEqual("Battleship", info.Name);
+        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, info.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.AreEqual(DocClassType.ExcelWorkbook, info.Modules.Single(module => module.RelativeUri == "modMain.bas").Super, "kept by its path, in any case");
+        CollectionAssert.AreEqual(new[] { "VBA", "stdole", "Scripting" }, info.References.Select(reference => reference.Name).ToArray(), "ADODB is no longer referenced");
+        Assert.AreEqual("scrrun.json", info.References.Single(reference => reference.Name == "Scripting").TypeLibInfoPath);
+        Assert.AreEqual(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), info.References.Single(reference => reference.Name == "Scripting").Guid, "the .vbp's");
+        CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "Battleship.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "DEBUG", "TRACE" }, info.PrecompilerConstants.Keys.ToArray());
+    }
+
+    [TestMethod]
+    public void AnImportIntoAFolderWithNoProjectFile_IsANewOne()
+    {
+        var project = Import().Into(null, @"C:\ws");
+
+        Assert.AreEqual(@"C:\ws", project.Uri);
+        Assert.AreEqual("Battleship", project.ProjectInfo.Name);
+        Assert.IsEmpty(project.Configuration);
+    }
+
     [TestMethod]
     public void WhatAProjectFileCannotSay_IsNoted_AndNotCarriedOver()
     {
@@ -126,6 +256,17 @@ public sealed class VbpProjectImporterTests
 
         Assert.AreEqual("The control 'MSCOMCTL.OCX' is not carried over: the platform does not host ActiveX controls.", note.ToMessage(CultureInfo.InvariantCulture));
         Assert.AreEqual("Le contrôle « MSCOMCTL.OCX » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.", note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")));
+    }
+
+    // a ..\ folder is a project of its own, a workspace folder: the platform never takes in a folder outside the ones it is given (author, 2026-10-27).
+    [TestMethod]
+    public void AFileOutsideTheProjectsFolder_IsSaidToBelongToAnotherProject()
+    {
+        var note = new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, @"..\Shared\Utils.bas");
+
+        Assert.AreEqual(@"'..\Shared\Utils.bas' is not carried over: it belongs to another project, in a folder outside this one. Open that folder as a workspace folder of its own; this project cannot reference it yet.",
+            note.ToMessage(CultureInfo.InvariantCulture));
+        StringAssert.Contains(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), "appartient à un autre projet");
     }
 
     // VB6 writes its project files in the ANSI code page of the machine.

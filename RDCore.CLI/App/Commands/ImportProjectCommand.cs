@@ -30,6 +30,7 @@ internal sealed class ImportProjectCommand(
     IConsoleMessageWriter writer,
     IFileSystem fileSystem,
     IProjectFileWriter projectWriter,
+    IProjectFileLoader projectLoader,
     IPlatformEnvironment environment) : ICliCommand
 {
     public string Name => CommandNames.ImportProjectCommand.Name;
@@ -83,9 +84,10 @@ internal sealed class ImportProjectCommand(
         var ansi = CodePagesEncodingProvider.Instance.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage) ?? Encoding.Latin1;
         var libraries = new DirectoryLibrarySource(fileSystem, environment.Resolve(PlatformEnvironment.SymbolsDirectory));
         var import = VbpProjectImporter.Import(VbpProjectImporter.Decode(await fileSystem.File.ReadAllBytesAsync(path, token), ansi),
-            fileSystem.Path.GetFileName(path), libraries);
+            fileSystem.Path.GetFileName(path), libraries, folder);
 
-        await projectWriter.SaveAsync(new ProjectFile(folder, import.Project), token);
+        // what the .vbp does not describe is kept; a project file that cannot be read is replaced whole, as --force says.
+        await projectWriter.SaveAsync(import.Into(await projectLoader.LoadIfReadableAsync(folder, token), folder), token);
 
         foreach (var note in import.Notes)
         {

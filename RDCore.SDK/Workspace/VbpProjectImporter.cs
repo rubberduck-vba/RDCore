@@ -19,7 +19,10 @@ public enum VbpImportNoteKind
     /// <summary>An ActiveX control the project's forms use (<c>Object=</c>), which the platform does not host.</summary>
     Control,
 
-    /// <summary>A file outside of the folder of the project (<c>..\</c>): a <c>.rdproj</c> lists the files under its own folder.</summary>
+    /// <summary>
+    /// A file outside of the folder of the project (<c>..\Shared\Utils.bas</c>): it belongs to another project, whose folder is a workspace folder of its own
+    /// - the platform never takes in a folder outside the workspace folders it is given. Referencing that project is not implemented yet.
+    /// </summary>
     OutsideProjectFolder,
 
     /// <summary>A file named by an absolute path: a <c>.rdproj</c> lists the files under its own folder.</summary>
@@ -30,6 +33,12 @@ public enum VbpImportNoteKind
 
     /// <summary>The <c>Startup</c> of the project, which a <c>.rdproj</c> does not say yet.</summary>
     Startup,
+
+    /// <summary>
+    /// Conditional compilation arguments (<c>CondComp=</c>) that VB6 refuses as a whole: each is a name and a whole number from -32768 to 32767
+    /// (<c>DEBUG = 1 : TRACE = -1</c>), and none of them is carried over.
+    /// </summary>
+    InvalidConditionalCompilation,
 }
 
 /// <summary>
@@ -95,7 +104,56 @@ public static class VbpImportText
 /// </summary>
 /// <param name="Project">The project, as a <c>.rdproj</c> in the folder of the <c>.vbp</c> lists it.</param>
 /// <param name="Notes">What was not carried over, in the order the <c>.vbp</c> writes it.</param>
-public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImportNote> Notes);
+public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImportNote> Notes)
+{
+    /// <summary>
+    /// The project file of the <c>.vbp</c>'s folder once the import is made: what the <c>.vbp</c> describes replaces what the project file says of it, and
+    /// what the <c>.vbp</c> does not describe is kept.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <c>.vbp</c> describes the project's name, its references, its modules and other files, their folders, and its conditional compilation arguments:
+    /// those are the import's. A file the <c>.vbp</c> no longer lists is no longer the project's, and a reference it no longer makes is no longer made.
+    /// </para>
+    /// <para>
+    /// What only the platform says of the project is kept: the settings files of the project file (<see cref="ProjectFile.Configuration"/>), the document
+    /// class a module is (<see cref="RDCoreModule.Super"/>), and the type library information of a reference
+    /// (<see cref="RDCoreReference.TypeLibInfoPath"/>) - of a module by its path, of a reference by its name. A client that keeps a <c>.vbp</c> and a
+    /// <c>.rdproj</c> in step imports the <c>.vbp</c> again after each change, and loses none of it. Its <see cref="ProjectFile.Version"/> is the running
+    /// platform's, as it is of every project file the platform writes.
+    /// </para>
+    /// </remarks>
+    /// <param name="existing">The project file of the folder; <see langword="null"/> when it has none, or one that cannot be read.</param>
+    /// <param name="folder">The folder of the <c>.vbp</c>.</param>
+    public ProjectFile Into(ProjectFile? existing, string folder)
+    {
+        if (existing is null)
+        {
+            return new ProjectFile(folder, Project);
+        }
+
+        // a project file written by hand may list a module or a reference twice: the first is the one kept.
+        var modules = existing.ProjectInfo.Modules
+            .DistinctBy(module => module.RelativeUri, StringComparer.OrdinalIgnoreCase).ToDictionary(module => module.RelativeUri, StringComparer.OrdinalIgnoreCase);
+        var references = existing.ProjectInfo.References
+            .DistinctBy(reference => reference.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(reference => reference.Name, StringComparer.OrdinalIgnoreCase);
+        return existing with
+        {
+            Uri = folder,
+            ProjectInfo = existing.ProjectInfo with
+            {
+                Name = Project.Name,
+                References = [.. Project.References.Select(reference => references.TryGetValue(reference.Name, out var kept)
+                    ? reference with { TypeLibInfoPath = kept.TypeLibInfoPath }
+                    : reference)],
+                Modules = [.. Project.Modules.Select(module => modules.TryGetValue(module.RelativeUri, out var kept) ? module with { Super = kept.Super } : module)],
+                OtherFiles = Project.OtherFiles,
+                Folders = Project.Folders,
+                PrecompilerConstants = Project.PrecompilerConstants,
+            },
+        };
+    }
+}
 
 /// <summary>
 /// Makes a <c>.rdproj</c> project of a VB6 project file (<c>.vbp</c>): its name, its modules, classes and forms, the libraries it references, and its
@@ -135,7 +193,11 @@ public static class VbpProjectImporter
     /// <param name="vbp">The text of the <c>.vbp</c>.</param>
     /// <param name="fileName">The name of the <c>.vbp</c> file, which names a project that names itself nothing.</param>
     /// <param name="libraries">The descriptions of the libraries the platform ships.</param>
-    public static VbpImport Import(string vbp, string fileName, ILibrarySource libraries)
+    /// <param name="folder">
+    /// The absolute path of the <c>.vbp</c>'s folder, which a path that climbs out of it and comes back in is resolved against (<c>..\MyProj\Util.bas</c>
+    /// from <c>MyProj\MyProj.vbp</c> is <c>Util.bas</c>); <see langword="null"/> when it is not known, and such a path is outside of the folder.
+    /// </param>
+    public static VbpImport Import(string vbp, string fileName, ILibrarySource libraries, string? folder = null)
     {
         var notes = new List<VbpImportNote>();
         var modules = new List<RDCoreModule>();
@@ -175,9 +237,15 @@ public static class VbpProjectImporter
                     notes.Add(new VbpImportNote(VbpImportNoteKind.Control, value[(value.IndexOf(';') + 1)..].Trim()));
                     break;
                 case "CONDCOMP":
-                    foreach (var (constant, expression) in Constants(Unquoted(value)))
+                    if (Constants(Unquoted(value)) is not { } arguments)
                     {
-                        constants[constant] = expression;
+                        notes.Add(new VbpImportNote(VbpImportNoteKind.InvalidConditionalCompilation, Unquoted(value)));
+                        break;
+                    }
+
+                    foreach (var (constant, number) in arguments)
+                    {
+                        constants[constant] = number;
                     }
                     break;
                 case "STARTUP":
@@ -218,10 +286,14 @@ public static class VbpProjectImporter
                 return null;
             }
 
-            var relative = path.Replace('\\', '/');
-            if (relative.Split('/').Contains(".."))
+            if (InFolder(path, folder) is not { } relative)
             {
                 notes.Add(new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, path));
+                return null;
+            }
+
+            if (relative.Length == 0)
+            {
                 return null;
             }
 
@@ -288,6 +360,42 @@ public static class VbpProjectImporter
         }
     }
 
+    // a path the .vbp writes, relative to its folder, with its . and .. resolved: the folder is climbed out of only to come back in when its own name is named
+    // again (..\MyProj\Util.bas from MyProj), and a sub-folder's .. is the folder it is in (Sub\..\Util.bas). Null when it leaves the folder - or climbs out of
+    // a folder that is not known. Names compare in any case, as VB6's file system does.
+    private static string? InFolder(string path, string? folder)
+    {
+        var folderSegments = (folder ?? string.Empty).Split('/', '\\').Where(segment => segment.Length > 0).ToList();
+        var resolved = new List<string>(folderSegments);
+        foreach (var segment in path.Split('/', '\\'))
+        {
+            switch (segment)
+            {
+                case "" or ".":
+                    continue;
+                case "..":
+                    if (resolved.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    resolved.RemoveAt(resolved.Count - 1);
+                    break;
+                default:
+                    resolved.Add(segment);
+                    break;
+            }
+        }
+
+        if (resolved.Count < folderSegments.Count
+            || !resolved.Take(folderSegments.Count).SequenceEqual(folderSegments, StringComparer.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return string.Join('/', resolved.Skip(folderSegments.Count));
+    }
+
     // the Key=Value lines, up to the first [section]: what follows is the settings of add-ins, none of the project's.
     private static IEnumerable<(string Key, string Value)> Entries(string vbp)
     {
@@ -307,17 +415,44 @@ public static class VbpProjectImporter
         }
     }
 
-    // CondComp="DEBUG = 1 : TRACE = -1": each argument is a name and the literal it is.
-    private static IEnumerable<(string Name, string Expression)> Constants(string arguments)
+    // CondComp="DEBUG = 1 : TRACE = -1": name = n, separated by colons, spaces optional, n a whole number -32768..32767 with an optional sign - as vb6.exe
+    // reads it, measured with /make (HexIDE, 2026-10-27). Anything else - a string, &H10, True, 1.5, a name without a value, a colon at the end - and vb6.exe
+    // refuses the whole line: null.
+    private static List<(string Name, string Number)>? Constants(string arguments)
     {
+        var constants = new List<(string Name, string Number)>();
+        if (arguments.Trim().Length == 0)
+        {
+            return constants;
+        }
+
         foreach (var argument in arguments.Split(':'))
         {
             var equals = argument.IndexOf('=');
-            if (equals > 0 && argument[..equals].Trim() is { Length: > 0 } name)
+            if (equals < 0)
             {
-                yield return (name, argument[(equals + 1)..].Trim());
+                return null;
             }
+
+            var name = argument[..equals].Trim();
+            var number = argument[(equals + 1)..].Trim();
+            if (!IsIdentifier(name)
+                || number.Length == 0
+                || !number.TrimStart('+', '-').All(char.IsAsciiDigit)
+                || number.Count(c => c is '+' or '-') > 1
+                || !short.TryParse(number, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value))
+            {
+                return null;
+            }
+
+            constants.Add((name, value.ToString(CultureInfo.InvariantCulture)));
         }
+
+        return constants;
+
+        // a letter, then letters, digits and underscores (MS-VBAL §3.3.5).
+        static bool IsIdentifier(string name)
+            => name.Length is > 0 and <= 255 && char.IsLetter(name[0]) && name.All(c => char.IsLetterOrDigit(c) || c == '_');
     }
 
     // a type library's version, as the .vbp writes it: major.minor, in hexadecimal.

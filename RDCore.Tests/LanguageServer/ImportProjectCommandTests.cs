@@ -54,7 +54,7 @@ public sealed class ImportProjectCommandTests
     }
 
     private ImportProjectCommand Sut()
-        => new(_documents, _reload, _writer, new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()));
+        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()));
 
     private void Write(string path, string text) => _fileSystem.AddFile(path, new MockFileData(Encoding.Latin1.GetBytes(text)));
 
@@ -82,6 +82,46 @@ public sealed class ImportProjectCommandTests
         Assert.AreEqual("MSCOMCTL.OCX", note.Value<string>("subject"));
         Assert.IsFalse(string.IsNullOrEmpty(note.Value<string>("message")));
         Assert.IsEmpty(_context.Asked, "nothing to replace, nothing to choose");
+    }
+
+    // a client that keeps a .vbp and a .rdproj in step imports the .vbp again after each change, asks its user nothing, and loses none of the platform's
+    // own settings.
+    [TestMethod]
+    public async Task AReimportThatOverwrites_AsksNothing_AndKeepsWhatTheVbpDoesNotDescribe()
+    {
+        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        await new ProjectFileWriter(_fileSystem).SaveAsync(new ProjectFile(Other, new RDCoreProject { Name = "Old" }) with { Configuration = ["rdcore.settings.json"] });
+
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+
+        Assert.IsEmpty(_context.Asked, "no window/showMessageRequest");
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "Battleship"
+            && project.Configuration.SequenceEqual(new[] { "rdcore.settings.json" })), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AReimportOfTheWorkspacesFolder_KeepsWhatTheVbpDoesNotDescribe()
+    {
+        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+
+        var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
+        var project = change(new ProjectFile(Root, new RDCoreProject { Name = "Old" }) with { Configuration = ["rdcore.settings.json"] });
+        Assert.AreEqual("Battleship", project.ProjectInfo.Name);
+        CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration);
+    }
+
+    [TestMethod]
+    public async Task AProjectFileThatCannotBeRead_IsReplacedWhole()
+    {
+        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
+        Write(Path.Combine(Other, ProjectFile.FileName), "this is no JSON");
+
+        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Other, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
+
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.ProjectInfo.Name == "Battleship" && project.Configuration.Length == 0),
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
