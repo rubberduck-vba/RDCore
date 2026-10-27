@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
+using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Workspace;
@@ -72,11 +73,7 @@ internal sealed class ProjectFileWatchHandler(
                 server.Window.ShowMessage(new ShowMessageParams { Type = MessageType.Info, Message = WorkspaceMessages.ProjectReloadedProgramRunning });
             }
 
-            if (server.ClientSettings.Capabilities?.Workspace?.Diagnostics.IsSupported == true
-                && server.ClientSettings.Capabilities.Workspace.Diagnostics.Value.RefreshSupport)
-            {
-                server.Workspace.SendDiagnosticRefresh(new DiagnosticRefreshParams());
-            }
+            DiagnosticRefresh.SendIfSupported(server);
         }
         catch (InvalidDataException exception)
         {

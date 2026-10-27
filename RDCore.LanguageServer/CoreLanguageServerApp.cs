@@ -220,7 +220,8 @@ internal sealed class CoreLanguageServerApp(
         clientCapabilities.Workspace = new()
         {
             //ApplyEdit = new(true),
-            Diagnostics = new(true),
+            // what the client said of its diagnostics is kept: whether it is asked to pull them again (refreshSupport) is read when the workspace changes.
+            Diagnostics = clientCapabilities.Workspace?.Diagnostics is { IsSupported: true } diagnostics ? diagnostics : new(true),
             //FileOperations = new(true),
             //SemanticTokens = new(true),
             Symbol = new(true),
@@ -429,11 +430,7 @@ internal sealed class CoreLanguageServerApp(
             }
         }
 
-        if (server.ClientSettings.Capabilities?.Workspace?.Diagnostics.IsSupported == true
-            && server.ClientSettings.Capabilities.Workspace.Diagnostics.Value.RefreshSupport)
-        {
-            server.Workspace.SendDiagnosticRefresh(new DiagnosticRefreshParams());
-        }
+        DiagnosticRefresh.SendIfSupported(server);
     }
 
     protected override async Task OnServerStoppingAsync()
