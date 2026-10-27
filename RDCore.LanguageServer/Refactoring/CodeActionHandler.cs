@@ -3,8 +3,11 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Workspace;
+using System.IO.Abstractions;
 
 namespace RDCore.LanguageServer.Refactoring;
 
@@ -19,13 +22,20 @@ namespace RDCore.LanguageServer.Refactoring;
 /// the range declares, or the name at the position of an empty range, is offered as a refactoring that renames it, the same command.
 /// </para>
 /// <para>
+/// A workspace whose folder has a VB6 project and no project file of its own is offered, in every document, a source action that imports each VB6 project
+/// (<c>rdcore.importProject</c>, <see cref="Workspace.ImportProjectCommand"/>).
+/// </para>
+/// <para>
 /// Every action is complete as it is answered: nothing is left to resolve (<c>resolveProvider = false</c>).
 /// </para>
 /// </remarks>
-internal sealed class CodeActionHandler(IRenameService rename) : CodeActionHandlerBase
+internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem) : CodeActionHandlerBase
 {
     /// <summary>The kind of the action that renames a symbol: a refactoring (<c>refactor.rename</c>).</summary>
     public static readonly CodeActionKind RefactorRename = new("refactor.rename");
+
+    /// <summary>The kind of the action that imports a VB6 project: a source action of the whole workspace (<c>source.rdcore.importProject</c>).</summary>
+    public static readonly CodeActionKind SourceImportProject = new("source.rdcore.importProject");
 
     public override async Task<CommandOrCodeActionContainer?> Handle(CodeActionParams request, CancellationToken cancellationToken)
     {
@@ -68,6 +78,8 @@ internal sealed class CodeActionHandler(IRenameService rename) : CodeActionHandl
             actions.Add(RenameCommand(documentUri, name, position, RefactorRename, diagnostic: null));
         }
 
+        actions.AddRange(ImportProjectActions());
+
         // a client that asks for some kinds of actions only is answered those: a kind is asked for with the kinds under it.
         var only = request.Context.Only?.Select(kind => kind.ToString()).ToList();
         var answered = only is { Count: > 0 }
@@ -94,11 +106,37 @@ internal sealed class CodeActionHandler(IRenameService rename) : CodeActionHandl
         };
     }
 
+    // a workspace whose folder has no project file of its own is offered to import each VB6 project in it.
+    private IEnumerable<CodeAction> ImportProjectActions()
+    {
+        var root = documents.WorkspaceRoot;
+        if (string.IsNullOrEmpty(root) || !fileSystem.Directory.Exists(root) || fileSystem.File.Exists(fileSystem.Path.Combine(root, ProjectFile.FileName)))
+        {
+            return [];
+        }
+
+        return fileSystem.Directory.EnumerateFiles(root, "*.vbp").Order(StringComparer.OrdinalIgnoreCase).Select(vbp =>
+        {
+            var title = VbpImportText.ImportTitle(fileSystem.Path.GetFileName(vbp));
+            return new CodeAction
+            {
+                Title = title,
+                Kind = SourceImportProject,
+                Command = new Command
+                {
+                    Name = Workspace.ImportProjectCommand.CommandName,
+                    Title = title,
+                    Arguments = new JArray(DocumentUri.FromFileSystemPath(vbp).ToString()),
+                },
+            };
+        });
+    }
+
     public override Task<CodeAction> Handle(CodeAction request, CancellationToken cancellationToken) => Task.FromResult(request);
 
     protected override CodeActionRegistrationOptions CreateRegistrationOptions(CodeActionCapability capability, ClientCapabilities clientCapabilities) => new()
     {
-        CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename),
+        CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, SourceImportProject),
         ResolveProvider = false,
     };
 }

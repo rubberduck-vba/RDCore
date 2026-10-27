@@ -590,6 +590,78 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("NewWorkspace_Title", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Makes the .rdproj of a VB6 project (.vbp), in the folder of the .vbp..
+        /// </summary>
+        public static string ImportProject_Summary {
+            get {
+                return ResourceManager.GetString("ImportProject_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Import VB6 Project.
+        /// </summary>
+        public static string ImportProject_Title {
+            get {
+                return ResourceManager.GetString("ImportProject_Title", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Project &apos;{0}&apos; imported to {1}.
+        /// </summary>
+        public static string ImportProject_Created {
+            get {
+                return ResourceManager.GetString("ImportProject_Created", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} module(s), {1} reference(s), {2} note(s).
+        /// </summary>
+        public static string ImportProject_Counts {
+            get {
+                return ResourceManager.GetString("ImportProject_Counts", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A .rdproj already exists there; pass --force to overwrite it..
+        /// </summary>
+        public static string ImportProject_AlreadyExists {
+            get {
+                return ResourceManager.GetString("ImportProject_AlreadyExists", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; was not found..
+        /// </summary>
+        public static string ImportProject_NotFound {
+            get {
+                return ResourceManager.GetString("ImportProject_NotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has no VB6 project (.vbp) to import..
+        /// </summary>
+        public static string ImportProject_NoProject {
+            get {
+                return ResourceManager.GetString("ImportProject_NoProject", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has several VB6 projects: name the .vbp to import..
+        /// </summary>
+        public static string ImportProject_SeveralProjects {
+            get {
+                return ResourceManager.GetString("ImportProject_SeveralProjects", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to READY..

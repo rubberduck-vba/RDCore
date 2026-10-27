@@ -162,5 +162,35 @@ Workspace source code that is directly dependent on a _host document_ necessaril
 |---|---|
 |`Name`|The _identifier name_ (token) used in workspace source code to reference this module.|
 
+## 2.2.3.5 Importing a VB6 Project
+
+A VB6 project (`.vbp`) is imported as the `RDCoreProject` of its folder ([`VbpProjectImporter`](../api/RDCore.SDK.Workspace.VbpProjectImporter.html)): the `.rdproj` is written next to the `.vbp`, which is read and left as it is. A `.vbp` is read in the ANSI code page of the environment, unless it starts with a byte-order mark; its keys are read up to its first `[section]`.
+
+|`.vbp` key|Becomes|
+|---|---|
+|`Name`|The project's `Name`.|
+|`Module`, `Class`|A module: the file after the `;`.|
+|`Form`|A module.|
+|`UserControl`, `PropertyPage`, `UserDocument`, `Designer`|A file of the project (`OtherFiles`), which is not compiled; the import says so.|
+|`RelatedDoc`, `ResFile32`|A file of the project.|
+|`Reference` (`*\G{GUID}#version#lcid#path#description`)|A reference to the library the platform ships with that GUID, at the version (written in hexadecimal: `2.a` is 2.10). The reference to `VBA` is implicit, and skipped.|
+|`CondComp`|The project's `PrecompilerConstants` (`"DEBUG = 1 : TRACE = 0"`).|
+
+The project's folders are those of the files it lists. What cannot be carried over is skipped, and the import says what and why, in the language of the user interface:
+
+|Skipped|Why|
+|---|---|
+|A reference to a library the platform has no description of|It cannot be resolved.|
+|A reference to another project (`*\A`)|A project cannot reference another one yet.|
+|A control (`Object`)|The platform hosts no ActiveX controls.|
+|A file outside the project's folder (`..\Shared\Utils.bas`)|A project lists the files of its own folder.|
+|A file at an absolute path|Same.|
+|The startup object (`Startup`)|A project file does not say it yet.|
+
+`rdcore.importProject` imports a VB6 project in a client of the platform ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#workspaceexecutecommand)). `rdc import <path>` does in command mode, without starting the platform: `<path>` is the `.vbp`, or a folder with one. It writes what was skipped as warnings. A folder that has a `.rdproj` already keeps it, unless `--force` is given. It exits with `1` when `<path>` is not found, or is a folder with no `.vbp` or several.
+
+> [!NOTE]
+> **Not implemented.** A VB6 project group (`.vbg`) is to be imported as a workspace file ([**RD-VBAL §2.2.2**](rd-vbal.2.2.2.workspacefile.md)).
+
 ---
 > ⏮️ [**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md) | ⏭️ [**RD-VBAL §2.3** Application Host](rd-vbal.2.3.application-host.md)

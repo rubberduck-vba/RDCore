@@ -16,6 +16,32 @@ public interface ILibrarySource
     /// <returns><see langword="false"/> when the source has no library of the name.</returns>
     /// <exception cref="InvalidDataException">The source has one, and it cannot be read.</exception>
     bool TryGet(string name, [NotNullWhen(true)] out LibraryDescription? description);
+
+    /// <summary>
+    /// The names of the libraries the source has descriptions of; none for a source that cannot say.
+    /// </summary>
+    IEnumerable<string> Names => [];
+
+    /// <summary>
+    /// Gets the description of the library a type library's identifier names: the library a <c>.vbp</c> references by its <c>{GUID}</c>.
+    /// </summary>
+    /// <param name="guid">The identifier the machine gave the library (<see cref="LibraryOrigin.Guid"/>).</param>
+    /// <param name="description">The description.</param>
+    /// <returns><see langword="false"/> when no description of the source was made from a library of that identifier.</returns>
+    bool TryGetByGuid(Guid guid, [NotNullWhen(true)] out LibraryDescription? description)
+    {
+        foreach (var name in Names)
+        {
+            if (TryGet(name, out var candidate) && System.Guid.TryParse(candidate.Origin?.Guid, out var origin) && origin == guid)
+            {
+                description = candidate;
+                return true;
+            }
+        }
+
+        description = null;
+        return false;
+    }
 }
 
 /// <summary>
@@ -33,6 +59,11 @@ public sealed class DirectoryLibrarySource(IFileSystem fileSystem, string direct
     /// The extension of a description file.
     /// </summary>
     public const string Extension = ".json";
+
+    /// <inheritdoc/>
+    public IEnumerable<string> Names => fileSystem.Directory.Exists(directory)
+        ? fileSystem.Directory.EnumerateFiles(directory, "*" + Extension).Select(path => fileSystem.Path.GetFileNameWithoutExtension(path))
+        : [];
 
     /// <inheritdoc/>
     public bool TryGet(string name, [NotNullWhen(true)] out LibraryDescription? description)
