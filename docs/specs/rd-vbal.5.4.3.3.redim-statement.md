@@ -86,7 +86,7 @@ dial rather than something the statement wrote.
 |A resizable array|Re-dimensioned.|
 |A `Variant` holding an array|Re-dimensioned. The variable keeps storing a `Variant`.|
 |A `Variant` holding anything else|Becomes an array: a number, a `String`, an object or `Null`, and the `Empty` a `Variant` starts as.|
-|A `Variant` holding anything but an array or `Empty`, with `Preserve`|Runtime error 13, `Type mismatch`.|
+|A `Variant` holding anything but an array, with `Preserve`|Runtime error 13, `Type mismatch`, the `Empty` a `Variant` starts as included. The `Variant` keeps what it held.|
 
 **MS-VBAL §5.4.3.3** says "Runtime Error 13 is raised if the declared type of a redimensioned variable is `Variant` and its value type is not an array". RD-VBA
 reads the sentence as **MS-VBA** does (recorded in Excel): as a `ReDim Preserve`'s, the one that has the elements of an array to keep. A `ReDim` without
