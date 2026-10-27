@@ -213,7 +213,7 @@ internal static class ModuleWorkspace
         {
             Name = "Project1",
             Modules = [.. allModules.Select(module => new RDCoreModule { RelativeUri = $"{module.Name}.{module.Extension}" })],
-            References = [RDCoreReference.VBStandardLibrary, .. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
+            References = [.. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
         });
         var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };
         foreach (var module in allModules)

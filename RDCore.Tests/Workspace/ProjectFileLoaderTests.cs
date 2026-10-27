@@ -43,6 +43,64 @@ public sealed class ProjectFileLoaderTests
         Assert.AreEqual("1", loaded.ProjectInfo.PrecompilerConstants["RDDEBUG"]);
     }
 
+    // a project file as the platform wrote them before the standard library was implicit (author, 2026-10-27): VBA first, with the path of Office's VBE7.DLL.
+    private const string WrittenBefore = """
+        {
+          "Version": "0.1.0",
+          "Configuration": [],
+          "ProjectInfo": {
+            "Name": "Battleship",
+            "References": [
+              {
+                "Name": "VBA",
+                "AbsolutePath": "C:\\Program Files\\Microsoft Office\\root\\vfs\\ProgramFilesCommonX64\\Microsoft Shared\\VBA\\VBA7.1\\VBE7.DLL",
+                "Guid": "000204ef-0000-0000-c000-000000000046",
+                "Major": 4,
+                "Minor": 2,
+                "TypeLibInfoPath": null,
+                "IsUnremovable": true
+              },
+              { "Name": "Scripting", "Guid": "420b2830-e718-11cf-893d-00a0c9054228", "Major": 1, "Minor": 0 }
+            ],
+            "Modules": [ { "RelativeUri": "modMain.bas" } ]
+          }
+        }
+        """;
+
+    [TestMethod]
+    public async Task LoadAsync_AProjectFileWrittenBefore_IsReadWithoutTheStandardLibrary_AndWrittenWithoutIt()
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData> { [ProjectFilePath] = new MockFileData(WrittenBefore) });
+
+        var loaded = await new ProjectFileLoader(fs).LoadAsync(Root);
+
+        CollectionAssert.AreEqual(new[] { "Scripting" }, loaded.ProjectInfo.References.Select(reference => reference.Name).ToArray(), "every project has the standard library");
+        Assert.AreEqual("modMain.bas", loaded.ProjectInfo.Modules.Single().RelativeUri);
+
+        await new ProjectFileWriter(fs).SaveAsync(loaded);
+        var written = fs.File.ReadAllText(ProjectFilePath);
+        StringAssert.DoesNotMatch(written, new System.Text.RegularExpressions.Regex("VBE7|\"VBA\"|000204ef"), "dropped the next time it is written");
+        StringAssert.Contains(written, "Scripting");
+    }
+
+    [TestMethod]
+    public async Task ANewProject_AndOneTheFolderMakesUp_ListNoStandardLibrary()
+    {
+        Assert.IsEmpty(new RDCoreProject().References);
+        StringAssert.DoesNotMatch(JsonSerializer.Serialize(new ProjectFile(Root)), new System.Text.RegularExpressions.Regex("VBE7|\"VBA\""));
+
+        var synthesized = await new ProjectFileLoader(FolderWith(("Program.bas", Named("Program")))).LoadOrSynthesizeAsync(Root, SupportedLanguages.RDVBA);
+        Assert.IsEmpty(synthesized.ProjectInfo.References);
+    }
+
+    [TestMethod]
+    public void AReference_IsToTheStandardLibrary_ByItsNameOrItsTypeLibrary()
+    {
+        Assert.IsTrue(new RDCoreReference { Name = "vba" }.IsStandardLibrary);
+        Assert.IsTrue(new RDCoreReference { Name = "Visual Basic For Applications", Guid = RDCoreReference.StandardLibraryGuid }.IsStandardLibrary);
+        Assert.IsFalse(new RDCoreReference { Name = "Scripting" }.IsStandardLibrary);
+    }
+
     [TestMethod]
     public async Task LoadAsync_NoProjectFile_ThrowsFileNotFound()
         => await Assert.ThrowsExactlyAsync<FileNotFoundException>(

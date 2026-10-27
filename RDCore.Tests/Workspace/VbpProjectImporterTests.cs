@@ -110,12 +110,17 @@ public sealed class VbpProjectImporterTests
     {
         var references = Import().Project.References;
 
-        CollectionAssert.AreEqual(new[] { "VBA", "stdole", "Scripting" }, references.Select(reference => reference.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "stdole", "Scripting" }, references.Select(reference => reference.Name).ToArray());
         var scripting = references.Single(reference => reference.Name == "Scripting");
         Assert.AreEqual(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), scripting.Guid);
         Assert.AreEqual((1, 0), (scripting.Major, scripting.Minor));
         Assert.AreEqual(@"C:\Windows\System32\scrrun.dll", scripting.AbsolutePath);
     }
+
+    // the standard library is every project's own (author, 2026-10-27): no project file lists it, and a .vbp line that references VBA's type library adds none.
+    [TestMethod]
+    public void TheStandardLibrary_IsNoReference_EvenOfAVbpThatReferencesIt()
+        => Assert.IsEmpty(Import(@"Reference=*\G{000204EF-0000-0000-C000-000000000046}#4.2#0#C:\Program Files\Microsoft Office\VBE7.DLL#Visual Basic For Applications").Project.References);
 
     // a .vbp writes a type library's version in hexadecimal.
     [TestMethod]
@@ -186,7 +191,7 @@ public sealed class VbpProjectImporterTests
             Name = "Old",
             References =
             [
-                RDCoreReference.VBStandardLibrary,
+                new RDCoreReference { Name = "VBA", Guid = RDCoreReference.StandardLibraryGuid, Major = 4, Minor = 2 },
                 new RDCoreReference { Name = "Scripting", TypeLibInfoPath = "scrrun.json" },
                 new RDCoreReference { Name = "ADODB" },
             ],
@@ -209,7 +214,8 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("Battleship", info.Name);
         CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, info.Modules.Select(module => module.RelativeUri).ToArray());
         Assert.AreEqual(DocClassType.ExcelWorkbook, info.Modules.Single(module => module.RelativeUri == "modMain.bas").Super, "kept by its path, in any case");
-        CollectionAssert.AreEqual(new[] { "VBA", "stdole", "Scripting" }, info.References.Select(reference => reference.Name).ToArray(), "ADODB is no longer referenced");
+        CollectionAssert.AreEqual(new[] { "stdole", "Scripting" }, info.References.Select(reference => reference.Name).ToArray(),
+            "ADODB is no longer referenced, and VBA is no reference: every project has it");
         Assert.AreEqual("scrrun.json", info.References.Single(reference => reference.Name == "Scripting").TypeLibInfoPath);
         Assert.AreEqual(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), info.References.Single(reference => reference.Name == "Scripting").Guid, "the .vbp's");
         CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "Battleship.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());

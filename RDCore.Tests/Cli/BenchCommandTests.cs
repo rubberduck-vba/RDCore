@@ -85,7 +85,7 @@ public sealed class BenchCommandTests
         CollectionAssert.AreEqual(new[] { "Cases", "Tally" }, workspace.Modules.Select(module => module.Name).ToArray());
         CollectionAssert.AreEqual(new[] { ModuleType.StdModule, ModuleType.ClassModule }, workspace.Modules.Select(module => module.Type).ToArray());
         CollectionAssert.AreEqual(new[] { "Cases.bas", Path.Combine("Model", "Tally.cls") }, workspace.Project.Modules.Select(module => module.RelativeUri).ToArray());
-        Assert.AreEqual(RDCoreReference.VBStandardLibrary.Name, workspace.Project.References[0].Name);
+        Assert.IsEmpty(workspace.Project.References, "the standard library is every project's own, and no reference of it");
     }
 
     [TestMethod]

@@ -100,16 +100,19 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreSame(second, sut.Session);
     }
 
+    // the standard library is every project's own: first of the session's references, whether or not the project lists it (as a project file written before
+    // does, with the path of Office's VBE7.DLL).
     [TestMethod]
-    public void Compose_ExposesReferences_InTheOrderTheProjectDeclaresThem()
+    [DataRow(false, DisplayName = "a project that lists no standard library")]
+    [DataRow(true, DisplayName = "a project written before, that lists it first")]
+    public void Compose_ExposesTheStandardLibrary_ThenTheReferences_InTheOrderTheProjectDeclaresThem(bool listsTheStandardLibrary)
     {
+        var excel = new RDCoreReference { Name = "Excel", Major = 1, Minor = 9 };
         var project = new RDCoreProject
         {
-            References =
-            [
-                RDCoreReference.VBStandardLibrary,
-                new RDCoreReference { Name = "Excel", Major = 1, Minor = 9 },
-            ],
+            References = listsTheStandardLibrary
+                ? [new RDCoreReference { Name = "VBA", Guid = RDCoreReference.StandardLibraryGuid, AbsolutePath = @"C:\Program Files\Microsoft Office\VBE7.DLL", Major = 4, Minor = 2 }, excel]
+                : [excel],
         };
 
         var session = NewProvider().Compose(project, WorkspaceRoot);

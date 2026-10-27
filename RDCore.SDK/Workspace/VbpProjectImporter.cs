@@ -173,8 +173,8 @@ public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImp
 /// </remarks>
 public static class VbpProjectImporter
 {
-    // the type library of VBA itself, which VB6 writes in no .vbp and an exported project may: every project references it.
-    private static readonly Guid VBA = RDCoreReference.VBStandardLibrary.Guid!.Value;
+    // the type library of VBA itself, which VB6 writes in no .vbp and an exported project may: the standard library, which every project has, unlisted.
+    private static readonly Guid VBA = RDCoreReference.StandardLibraryGuid;
 
     /// <summary>
     /// The text of a <c>.vbp</c>, as VB6 writes it: in the ANSI code page of the machine, unless it starts with a byte order mark.
@@ -202,7 +202,7 @@ public static class VbpProjectImporter
         var notes = new List<VbpImportNote>();
         var modules = new List<RDCoreModule>();
         var others = new List<RDCoreFile>();
-        var references = new List<RDCoreReference> { RDCoreReference.VBStandardLibrary };
+        var references = new List<RDCoreReference>();
         var constants = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var name = Path.GetFileNameWithoutExtension(fileName);
 

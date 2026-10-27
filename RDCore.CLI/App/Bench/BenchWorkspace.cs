@@ -75,15 +75,12 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             return new BenchModule(ModuleName.Resolve(source, relative), type, relative, source);
         }).ToArray();
 
-        var references = project.References.Any(reference => reference.Name == RDCoreReference.VBStandardLibrary.Name)
-            ? project.References
-            : [RDCoreReference.VBStandardLibrary, .. project.References];
-
+        // the standard library is every project's own, and no reference of it.
         return new BenchWorkspace(root, project with
         {
             Name = project.Name is { Length: > 0 } ? project.Name : "Bench",
             Modules = [.. relativePaths.Select(relative => new RDCoreModule { RelativeUri = relative })],
-            References = references,
+            References = [.. project.References.Where(reference => !reference.IsStandardLibrary)],
         }, modules);
     }
 }
