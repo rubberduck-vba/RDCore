@@ -43,8 +43,9 @@ RDCore est en développement actif **pré-alpha**. La **spécification** et la *
 | **RDCore.LanguageServer** | Coordonnateur de la plateforme | [![RDCore.LanguageServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.LanguageServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.Diagnostics** | Extension d'inspection de base | [![RDCore.Diagnostics](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Diagnostics.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 
-✅ Le parser et la résolution de symboles sont fonctionnels, mais le **language server** est encore en développement.  
-👉 Les fonctionnalités LSP sont **[UP FOR GRABS!](https://github.com/rubberduck-vba/RDCore/issues?q=is%3Aissue%20state%3Aopen%20label%3Ardcore-language-server)**
+✅ Le parser, la résolution de symboles et le **language server** sont fonctionnels. Le serveur répond aux requêtes _diagnostics_ (pull et push),
+_completion_, _signature help_, _hover_, _inlay hints_, _semantic tokens_, _document_ et _workspace symbols_, _folding_ et _selection ranges_, _definition_,
+_declaration_, _type definition_ et _implementation_, _references_ et _highlights_, _call_ et _type hierarchy_, _rename_ et _code actions_.
 
 
 ---
