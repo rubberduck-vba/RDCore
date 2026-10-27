@@ -68,7 +68,7 @@ public partial class ModuleParser(
             precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
             var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
 
-            var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
+            var sanitized = PrecompilerNodePattern().Replace(content, match => Blanked(match.Value));
             var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
             var ast = listener.BuildModuleNode();
 
@@ -148,9 +148,13 @@ public partial class ModuleParser(
     {
         // ignore everything that is NOT a precompiler node,
         // because grammar matches everything as a ccBlock otherwise.
-        var sanitized = NoPrecompilerNodePattern().Replace(source, match => new string(' ', match.Length));
+        var sanitized = Blanked(source).ToCharArray();
+        foreach (Match directive in PrecompilerNodePattern().Matches(source))
+        {
+            source.CopyTo(directive.Index, sanitized, directive.Index, directive.Length);
+        }
 
-        var stream = new AntlrInputStream(sanitized);
+        var stream = new AntlrInputStream(new string(sanitized));
         var lexer = new VBALexer(stream);
         var tokens = new CommonTokenStream(lexer);
         var parser = new VBAConditionalCompilationParser(tokens);
@@ -246,11 +250,20 @@ public partial class ModuleParser(
         ParseTreeWalker.Default.Walk(new AnchorOffsetListener(anchorOffset), tree);
     }
 
-    [GeneratedRegex(@"^[ \t]*#.*$", RegexOptions.Multiline)]
-    private static partial Regex PrecompilerNodePattern();
+    // the text with every character but the line breaks a space, so that what is left of it is where it was.
+    private static string Blanked(string text)
+        => string.Create(text.Length, text, (blanked, source) =>
+        {
+            for (var i = 0; i < source.Length; i++)
+            {
+                blanked[i] = source[i] == '\n' ? '\n' : ' ';
+            }
+        });
 
-    [GeneratedRegex(@"^(?![ \t]*#.*).*$", RegexOptions.Multiline)]
-    private static partial Regex NoPrecompilerNodePattern();
+    // a directive is a logical line that starts with '#': the physical lines a line-continuation joins to it are its own (MS-VBAL 3.2.2, 3.4), and a '#' that
+    // starts the continuation of another line is not one (`d = _` / `#1/2/2000#`).
+    [GeneratedRegex(@"(?<![ \t]_[ \t]*\n)^[ \t]*#(?:[^\n]*[ \t]_[ \t]*\n)*[^\n]*", RegexOptions.Multiline)]
+    private static partial Regex PrecompilerNodePattern();
 
     // a #If directive, whose branches are both in the source the grammar reads.
     [GeneratedRegex(@"^[ \t]*#If\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)]

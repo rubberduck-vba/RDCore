@@ -25,6 +25,36 @@ public sealed class ConditionalCompilationTests
     public async Task AModulesConst_ChoosesTheBranch(string directive, string expected)
         => CollectionAssert.AreEqual(new[] { expected }, await ModuleWorkspace.RunAsync([], Chosen(directive)));
 
+    // MS-VBAL 3.2.2: a line-continuation joins physical lines into one logical line, which is what a directive is (3.4). Each row is what MS-VBA printed for the
+    // same module in Excel (oracle\cc-continued C01-C14, D01-D06): the module's own lines, the body of Main, and what it printed.
+    [TestMethod]
+    [DataRow("#Const LC = _ ;;     1", "#If LC = 1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If ;; Debug.Print \"compiled\"", "true|compiled", DisplayName = "C01 #Const continued before its value")]
+    [DataRow("#Const LC = 1 + _ ;;     1", "#If LC = 2 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "C02 #Const continued in its expression")]
+    [DataRow("#Const LC _ ;;     = 1", "#If LC = 1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "C03 #Const continued before =")]
+    [DataRow("#Const _ ;;     LC = 1", "#If LC = 1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "C04 #Const continued before its name")]
+    [DataRow("#Const LC = _ ;;     1 ;; #Const LD = 2", "#If LC + LD = 3 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "C05 a #Const after a continued one")]
+    [DataRow("#Const LC = 1", "#If LC = _ ;;     1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If ;; Debug.Print \"compiled\"", "true|compiled", DisplayName = "C06 #If continued in its condition")]
+    [DataRow("", "#If 1 = 1 _ ;;     Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "C07 #If continued before Then")]
+    [DataRow("", "#If 0 Then ;; Debug.Print \"a\" ;; #ElseIf 1 = _ ;;     1 Then ;; Debug.Print \"b\" ;; #Else ;; Debug.Print \"c\" ;; #End If", "b", DisplayName = "C08 #ElseIf continued")]
+    [DataRow("", "#If 0 Then ;; Debug.Print \"a\" ;; #Else ' note _ ;;     Debug.Print \"x\" ;; Debug.Print \"b\" ;; #End If", "b", DisplayName = "C09 #Else's comment continued")]
+    [DataRow("", "#If 1 Then ;; Debug.Print \"a\" ;; #End If ' note _ ;;     Debug.Print \"x\" ;; Debug.Print \"b\"", "a|b", DisplayName = "C10 #End If's comment continued")]
+    [DataRow("", "Dim d As Date ;; d = _ ;;     #1/2/2000# ;; Debug.Print Month(d)", "1", DisplayName = "C11 a continued line that starts with # is no directive")]
+    [DataRow("#Const LC = 1 ' note _ ;;     Debug.Print \"x\"", "Debug.Print \"b\"", "b", DisplayName = "C12 #Const's comment continued")]
+    [DataRow("", "# _ ;; If 1 Then ;; Debug.Print \"a\" ;; #End If", "a", DisplayName = "C13 # continued before If")]
+    [DataRow("", "#If 0 Then ;; Debug.Print \"a\" & _ ;;     \"b\" ;; #End If ;; Debug.Print \"c\"", "c", DisplayName = "C14 a continued line in an excluded block")]
+    [DataRow("", "#  If 1 Then ;; Debug.Print \"a\" ;; #End If ;; Debug.Print \"c\"", "a|c", DisplayName = "D01 spaces before If")]
+    [DataRow("# _ ;; Const LC = 1", "#If LC = 1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "D02 # continued before Const")]
+    [DataRow("#  Const LC = 1", "#If LC = 1 Then ;; Debug.Print \"true\" ;; #Else ;; Debug.Print \"false\" ;; #End If", "true", DisplayName = "D03 spaces before Const")]
+    [DataRow("", "#If 1 Then ;; Debug.Print \"a\" ;; #End _ ;; If ;; Debug.Print \"c\"", "a|c", DisplayName = "D04 #End continued before If")]
+    [DataRow("", "#If 0 Then ;; Debug.Print \"a\" ;; # _ ;; Else ;; Debug.Print \"b\" ;; # _ ;; End If", "b", DisplayName = "D05 # continued before Else and End If")]
+    [DataRow("", "#If 0 Then ;; Debug.Print \"a\" ;; # _ ;; ElseIf 1 Then ;; Debug.Print \"b\" ;; #End If", "b", DisplayName = "D06 # continued before ElseIf")]
+    public async Task AContinuedDirective_IsOneLogicalLine(string module, string body, string expected)
+    {
+        var source = Module([.. module.Split(" ;; ", StringSplitOptions.RemoveEmptyEntries), "Public Sub Main()", .. body.Split(" ;; "), "End Sub"]);
+
+        CollectionAssert.AreEqual(expected.Split('|'), await ModuleWorkspace.RunAsync([], source));
+    }
+
     [TestMethod]
     public async Task AnUndefinedConstant_IsZero_NotAnError()
         => CollectionAssert.AreEqual(new[] { "no" }, await ModuleWorkspace.RunAsync([], Chosen()));

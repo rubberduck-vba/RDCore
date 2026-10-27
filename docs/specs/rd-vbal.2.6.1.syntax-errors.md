@@ -31,6 +31,11 @@ A procedure whose blocks do not match - a `Next` with no `For`, a block `If` wit
 
 ## Conditional Compilation
 
+A directive is a logical line (**MS-VBAL §3.2.2**, §3.4): the physical lines a line-continuation joins to a line that starts with `#` are the directive's, and are
+no code of the module. `#Const Debugging = _` followed by `    1` is one `#Const`, and so is a `#If` or a `#ElseIf`, or a comment after a directive, that
+continues over lines, and the `#` of a directive may stand apart from its keyword (`#  If`, `# _` followed by `If 1 Then`). A line that starts with `#` and
+continues another line is not a directive: `d = _` followed by `    #1/2/2000#` assigns a date literal. **MS-VBA** reads them so (recorded in Excel).
+
 > [!NOTE]
 > **Not implemented.** A `#If` that splits a single statement across conditional-compilation branches (`#If` / `#Else` / `#End If`) is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range.
 
