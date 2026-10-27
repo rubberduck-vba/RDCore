@@ -110,6 +110,33 @@ public sealed class CodeActionHandlerTests
     }
 
     [TestMethod]
+    public async Task ADiagnosticFixedByEdits_IsOfferedTheEdits_AsTheAnalyzerMadeThem()
+    {
+        var edits = new[]
+        {
+            new TextEdit { Range = new Range(1, 0, 1, 0), NewText = "    Dim result As Long\r\n" },
+            new TextEdit { Range = new Range(2, 4, 2, 9), NewText = "result" },
+        };
+        var diagnostic = new Diagnostic
+        {
+            Range = new Range(2, 4, 2, 9),
+            Code = "RDC00115",
+            Source = "RDCore",
+            Message = "Implicit result local",
+            Data = new DiagnosticFixes { Edit = new EditFix { Title = "Declare a local for the return value of 'Total'", Edits = edits } }.ToData(),
+        };
+
+        var action = Assert.ContainsSingle(await ActionsAsync(new Range(2, 4, 2, 9), [CodeActionKind.QuickFix], diagnostic));
+
+        Assert.AreEqual("Declare a local for the return value of 'Total'", action.Title);
+        Assert.IsTrue(action.IsPreferred);
+        Assert.AreEqual(diagnostic, action.Diagnostics!.Single());
+        var (document, changes) = action.Edit!.Changes!.Single();
+        Assert.AreEqual(Document, document);
+        CollectionAssert.AreEqual(edits.Select(edit => (edit.Range, edit.NewText)).ToArray(), changes.Select(edit => (edit.Range, edit.NewText)).ToArray());
+    }
+
+    [TestMethod]
     public async Task ASuggestionThatCannotBeMade_IsNotOffered()
     {
         var actions = await ActionsAsync(new Range(0, 7, 0, 14), [CodeActionKind.QuickFix], Finding(new Range(0, 7, 0, 14), "x"));

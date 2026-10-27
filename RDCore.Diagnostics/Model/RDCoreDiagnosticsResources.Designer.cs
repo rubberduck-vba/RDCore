@@ -257,6 +257,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplicitResultLocal_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare a local for the return value of &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitResultLocal_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitResultLocal_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended)..

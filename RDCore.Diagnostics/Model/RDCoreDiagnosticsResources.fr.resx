@@ -195,6 +195,9 @@
   <data name="ImplicitResultLocal_Message" xml:space="preserve">
     <value>La valeur de retour de '{0}' est utilisée comme une variable locale implicite. Déclarez une variable locale pour faire le travail, et assignez-la à '{0}' une seule fois, à la fin.</value>
   </data>
+  <data name="ImplicitResultLocal_Fix" xml:space="preserve">
+    <value>Déclarer une variable locale pour la valeur de retour de '{0}'</value>
+  </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
     <value>'{0}' retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c'est voulu).</value>
   </data>
