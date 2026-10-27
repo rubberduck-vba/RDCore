@@ -637,6 +637,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is used before this ReDim with no declaration, which declares it there as a variable of its own: declare the array with Dim before its first use, then re-dimension it..
+        /// </summary>
+        public static string VBCompileError_ReDimOfANameUsedBefore_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ReDimOfANameUsedBefore_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is public, and is declared with &apos;{1}&apos;, which is private to its module..
         /// </summary>
         public static string VBCompileError_PrivateTypeInPublicMember_Verbose {
