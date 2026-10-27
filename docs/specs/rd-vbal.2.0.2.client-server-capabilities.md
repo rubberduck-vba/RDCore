@@ -369,6 +369,13 @@ Every client of the platform says it answers `workspace/configuration` (`workspa
 settings; the language server, as the client of its components, with what its own client said. Every server asks, and sets what it is told on its settings
 ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#live-settings)). The language server says each change to the components it is the client of.
 
+### `textDocument/selectionRange`
+
+The language server answers `textDocument/selectionRange` (**LSP 3.17** §Selection Range Request) with what a selection at each position grows to, step by
+step: each node of the syntax tree written around the position, from a name through its expression, its statement, the block of a structured statement and
+the procedure, to everything the module declares ([`SyntaxSelection`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxSelection.html)). Each step is in the next.
+A position that no node is written around is answered with the empty range at it. For a `.rdc` program, ranges are in its lines.
+
 ### `window/workDoneProgress`
 
 The language server reports the progress of its work to a client that shows it (`window.workDoneProgress`; **LSP 3.17** §Work Done Progress):

@@ -96,6 +96,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<DocumentDiagnosticHandler>();
         builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
+        builder.WithHandler<SelectionRangeHandler>();
         builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<CompletionHandler>();
         builder.WithHandler<SignatureHelpHandler>();
