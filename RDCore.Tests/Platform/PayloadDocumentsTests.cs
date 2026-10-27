@@ -51,16 +51,19 @@ public sealed class PayloadDocumentsTests
     public void TheDocument_IsWrittenOncePerForm_InAPayload_AndInEveryNode_Outside()
     {
         var parsed = new ModuleParser().Parse(Uri, Program());
-        var path = Uri.OriginalString;
         static int Count(string text, string sought) => (text.Length - text.Replace(sought, string.Empty).Length) / sought.Length;
+        static string Written(string document) => $"\"{JsonEncodedText.Encode(document)}\"";
 
         var payload = PlatformJson.Serialize(parsed);
         var outside = FullForm(parsed);
 
-        // a location writes the path as its Uri has it, once in the payload; outside it, every location does. Counted as a whole JSON string: on Linux the path
-        // (/tmp/.../Program.bas) is also inside the file:// URI a node's identity writes its document as, which is the other form.
-        var written = $"\"{JsonEncodedText.Encode(path)}\"";
-        Assert.AreEqual(1, Count(payload, written));
-        Assert.IsGreaterThan(100, Count(outside, written));
+        // a location writes the path as its Uri has it, and a node's identity as the Uri's absolute path: each once in the payload; outside it, every node does.
+        // On Linux the two forms are the same text (/tmp/.../Program.bas), written once each; on Windows they differ (C:\... and /C:/...).
+        var location = Written(Uri.OriginalString);
+        var identity = Written(Uri.AbsolutePath);
+        var perForm = location == identity ? 2 : 1;
+        Assert.AreEqual(perForm, Count(payload, location), "the location's form");
+        Assert.AreEqual(perForm, Count(payload, identity), "the identity's form");
+        Assert.IsGreaterThan(100, Count(outside, location));
     }
 }
