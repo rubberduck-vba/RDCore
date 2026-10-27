@@ -116,6 +116,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<WorkspaceSymbolHandler>();
         builder.WithHandler<Navigation.HoverHandler>();
         builder.WithHandler<CodeActionHandler>();
+        builder.WithHandler<InlayHintHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionDiscardHandler>();

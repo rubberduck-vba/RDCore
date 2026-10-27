@@ -468,4 +468,15 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             }
         }
     }
+
+    /// <summary>
+    /// What each expression of a module refers to, as the static pass binds it: the pass is run once, for every procedure of the module, and an expression it
+    /// did not evaluate is evaluated on its own in the scope it is written in.
+    /// </summary>
+    /// <returns>What an expression refers to; <see langword="null"/> when its meaning is not known, or when it refers to no symbol.</returns>
+    public static Func<ExpressionNode, SemanticId?> BindingsOf(RenameContext context, RenameModule module)
+    {
+        var facts = FactsOf(context, module);
+        return expression => FactOf(context, expression, facts, ScopeAt(context, module, expression.Location.Range.Start))?.Binding;
+    }
 }

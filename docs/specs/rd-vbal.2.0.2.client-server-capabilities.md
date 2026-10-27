@@ -128,6 +128,15 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
+### `textDocument/inlayHint`
+
+The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
+the name of the parameter it is given to: `MsgBox Prompt: "Hello", Buttons: vbOKOnly`
+([`ParameterHints`](../api/RDCore.SDK.Semantics.Refactoring.ParameterHints.html)). A call is an argument list after a name the static pass binds to a
+procedure, a function or a property - of the workspace or of a library it references; the subscripts of an array have no hint. A named argument, and every
+argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
+of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
+
 ### `textDocument/completion` and `rdcore/session/completion`
 
 The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
