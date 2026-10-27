@@ -489,9 +489,6 @@
   <data name="VBCompileError_ReDimOfAMemberOfAnObject_Verbose" xml:space="preserve">
     <value>'{0}' est un membre d'un objet, qu'un ReDim ne redimensionne pas : redimensionnez le tableau dans sa classe, ou une variable du code lui-même.</value>
   </data>
-  <data name="VBCompileError_ReDimOfANameUsedBefore_Verbose" xml:space="preserve">
-    <value>'{0}' est utilisé avant ce ReDim sans être déclaré, ce qui le déclare là comme une variable à part entière : déclarez le tableau avec Dim avant sa première utilisation, puis redimensionnez-le.</value>
-  </data>
   <data name="VBCompileError_PrivateTypeInPublicMember_Verbose" xml:space="preserve">
     <value>'{0}' est public et est déclaré avec '{1}', qui est privé à son module.</value>
   </data>

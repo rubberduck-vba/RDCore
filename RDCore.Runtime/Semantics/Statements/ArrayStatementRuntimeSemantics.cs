@@ -80,8 +80,22 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return Failed(redim, VBRuntimeErrorId.ThisArrayIsFixedOrTemporarilyLocked, $"{redim.Name} is fixed");
         }
 
-        if (!TryEvaluateBounds(session, context, redim, out var bounds, out var boundsKnown, out var failure))
+        if (!TryEvaluateBounds(session, context, redim, out var bounds, out var boundsKnown, out var inverted, out var failure))
         {
+            // a Variant given bounds whose upper is below its lower raises 7 rather than 9, whatever it held, and is left Empty (MS-VBA, recorded in Excel:
+            // oracle\findings-labels cases-redim3 N01, cases-redim4 B01, B02; vb6.exe too, HexIDE's findings desk #9). A ReDim Preserve of a Variant that
+            // holds no array raises 13 first (cases-redim4 B05), and a variable declared as an array raises 9 (cases-redim3 B03, B04).
+            if (inverted && redim.IsPreserve && target.Declared is not VBArrayType && Unwrapped(target.Current) is not VBArrayValue)
+            {
+                return Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
+            }
+
+            if (inverted && !redim.IsPreserve && target.Declared is VBVariantType && !IsAMemberOfAnObject(session, context, target.Expression))
+            {
+                var emptied = StoreValue(session, context, redim, target, new VBVariantValue(VBEmptyValue.Empty));
+                return emptied == RuntimeExecutionOutcome.Next ? Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: an upper bound below its lower bound") : emptied;
+            }
+
             return failure;
         }
 
@@ -400,8 +414,13 @@ public sealed record class ArrayStatementRuntimeSemantics(
         // the value back, and VBVariantType can only read a Variant. Storing the bare array would make the
         // very next read of the variable throw.
         var variant = target.Declared is VBVariantType || target.Current is VBVariantValue;
-        var stored = variant ? new VBVariantValue(array) : (VBTypedValue)array;
+        return StoreValue(session, context, statement, target, variant ? new VBVariantValue(array) : array);
+    }
 
+    // what the variable is given: the array a ReDim made, or the Empty a Variant is left as.
+    private RuntimeExecutionOutcome StoreValue(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, Target target, VBTypedValue stored)
+    {
         // a member of an object is read as a value of its own, and what is made of it is not written back (MS-VBA, recorded in Excel: `ReDim v.Loose(3)`
         // with an object in v leaves the member as it was).
         if (IsAMemberOfAnObject(session, context, target.Expression))
@@ -441,10 +460,11 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
     private bool TryEvaluateBounds(
         IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim,
-        out (int LBound, int UBound)[] bounds, out bool isKnown, out RuntimeExecutionOutcome failure)
+        out (int LBound, int UBound)[] bounds, out bool isKnown, out bool inverted, out RuntimeExecutionOutcome failure)
     {
         bounds = [];
         isKnown = true;
+        inverted = false;
         failure = RuntimeExecutionOutcome.Next;
 
         if (redim.Bounds is not { Dimensions.IsDefaultOrEmpty: false } declared)
@@ -489,6 +509,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
                 // the one element its lower bound gives it, which nothing read from it relies on.
                 if (dimensionKnown)
                 {
+                    inverted = true;
                     failure = Failed(redim, VBRuntimeErrorId.SubscriptOutOfRange, $"{lower} To {upper}");
                     return false;
                 }

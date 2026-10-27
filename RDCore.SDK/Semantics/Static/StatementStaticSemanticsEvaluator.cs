@@ -283,8 +283,8 @@ public static class StatementStaticSemanticsEvaluator
 
             CollectError(valueResult, walk);
 
-            // a name assigned before the ReDim that would declare it is a Variant MS-VBA declared implicitly here: anything is assigned to it, and the ReDim
-            // is what is wrong ("Invalid ReDim", reported there).
+            // a name assigned before the ReDim that declares it is no variable yet: that is what is wrong ("Variable not defined", reported at the name), and
+            // not what it is assigned.
             if (assignment.Target is SimpleNameExpressionNode implicitVariable
                 && walk.NamesUsedBeforeTheirReDim.TryGetValue(implicitVariable.IdentifierName, out var redimAt) && assignment.SourceLocation.Range.Start < redimAt)
             {
@@ -413,16 +413,6 @@ public static class StatementStaticSemanticsEvaluator
                     MarkWritten(context, midStatement.Target);
                     break;
                 case RedimDeclarationNode redim:
-                    if (redim.Target is SimpleNameExpressionNode usedBefore
-                        && walk.NamesUsedBeforeTheirReDim.TryGetValue(usedBefore.IdentifierName, out var declaringReDim) && declaringReDim == redim.Location.Range.Start)
-                    {
-                        // the name is a variable the procedure declared implicitly where it was first used, and not the array this ReDim would declare.
-                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidReDim, redim.Target.Location,
-                            string.Format(Exceptions.VBCompileError_ReDimOfANameUsedBefore_Verbose, usedBefore.IdentifierName)));
-                        MarkWritten(context, redim.Target);
-                        break;
-                    }
-
                     // the target is the array, which is not one of the statement's operands: it is evaluated here.
                     var redimensioned = ExpressionStaticSemanticsEvaluator.Evaluate(context, redim.Target);
                     CollectError(redimensioned, walk);
@@ -1034,11 +1024,11 @@ public static class StatementStaticSemanticsEvaluator
         _ => null,
     };
 
-    // whether the array a ReDim re-dimensions is the local it declares (MS-VBAL §5.4.3.3: "If the name has no matches").
-    // MS-VBAL §5.4.3.3: a ReDim of a name that matches nothing declares its array. MS-VBA decides that by the text of the procedure: a name used before the
-    // first ReDim of it - written, read, on a line that never runs - is a variable declared implicitly there, which no ReDim re-dimensions ("Invalid
-    // ReDim"); a name used only after it is the array (Excel-verified, oracle\findings-labels R01-R10). The symbols declare the ReDim's array for the whole
-    // procedure, so the names used before are found here, by where they are written, for the walk to tell.
+    // MS-VBAL §5.4.3.3: a ReDim of a name that matches nothing declares its array. Where declarations are implicit, a name used before its first ReDim was
+    // declared by that use, and the ReDim re-dimensions it (the symbol pass, RDC11022). Under Option Explicit no use declares anything, and the ReDim
+    // declares the array from where it is: a name used before it - written, read, on a line that never runs - is "Variable not defined" there, and the
+    // ReDim is valid (MS-VBA, Excel-verified, oracle\findings-labels cases-redim4 E01). The symbols declare the ReDim's array for the whole procedure, so the
+    // names used before are found here, by where they are written.
     private static void FindNamesUsedBeforeTheirReDim(StaticEvaluationContext context, StatementBlock block, Walk walk)
     {
         var nodes = block.Children.SelectMany(child => child.Descendants().Prepend(child)).ToList();
@@ -1052,10 +1042,13 @@ public static class StatementStaticSemanticsEvaluator
             }
 
             var at = redim.Location.Range.Start;
-            if (nodes.OfType<SimpleNameExpressionNode>().Any(used => used.Location.Range.Start < at
-                && string.Equals(used.IdentifierName, name.IdentifierName, StringComparison.OrdinalIgnoreCase)))
+            var usedBefore = nodes.OfType<SimpleNameExpressionNode>()
+                .Where(used => used.Location.Range.Start < at && string.Equals(used.IdentifierName, name.IdentifierName, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (usedBefore.Length > 0)
             {
                 walk.NamesUsedBeforeTheirReDim[name.IdentifierName] = at;
+                walk.Errors.AddRange(usedBefore.Select(used => VBCompileErrorInfo.For(VBCompileErrorId.VariableNotDefined, used.Location, used.WrittenName)));
             }
         }
     }
