@@ -96,4 +96,48 @@ public sealed class TypeNavigationWireTests
         Assert.AreEqual(Document("Square.cls"), implementation.Uri);
         Assert.AreEqual(new Range(6, 17, 6, 28), implementation.Range, "IShape_Area, in Private Function IShape_Area() As Double");
     }
+
+    // an item goes to the client and comes back: what the client sends back is enough to find it again.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheCallHierarchy_AndTheTypeHierarchy_AreAnsweredOverTheWire()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var serving = OmniSharpLanguageServer.From(server => server
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            .AddHandler(new CallHierarchyPrepareHandler(Workspace()))
+            .AddHandler(new CallHierarchyIncomingHandler(Workspace()))
+            .AddHandler(new CallHierarchyOutgoingHandler(Workspace()))
+            .AddHandler(new TypeHierarchyPrepareHandler(Workspace()))
+            .AddHandler(new TypeHierarchySupertypesHandler(Workspace()))
+            .AddHandler(new TypeHierarchySubtypesHandler(Workspace())), timeout.Token);
+        var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);
+
+        await Task.WhenAll(serving, connecting);
+        using var server = await serving;
+        using var languageClient = await connecting;
+        var main = new TextDocumentIdentifier(Document("Main.bas"));
+
+        // Area, in Debug.Print s.Area: a function of IShape, which Run calls.
+        var area = (await languageClient.SendRequest(new CallHierarchyPrepareParams { TextDocument = main, Position = new Position(3, 19) }, timeout.Token))!.Single();
+        Assert.AreEqual("Area", area.Name);
+        Assert.AreEqual(Document("IShape.cls"), area.Uri);
+
+        var incoming = (await languageClient.SendRequest(new CallHierarchyIncomingCallsParams { Item = area }, timeout.Token))!.Single();
+        Assert.AreEqual("Run", incoming.From.Name);
+        Assert.AreEqual(new Range(3, 18, 3, 22), incoming.FromRanges.Single());
+
+        var outgoing = (await languageClient.SendRequest(new CallHierarchyOutgoingCallsParams { Item = incoming.From }, timeout.Token))!.Single();
+        Assert.AreEqual("Area", outgoing.To.Name);
+
+        // IShape, in Dim s As IShape.
+        var shape = (await languageClient.SendRequest(new TypeHierarchyPrepareParams { TextDocument = main, Position = new Position(2, 16) }, timeout.Token))!.Single();
+        var subtypes = (await languageClient.SendRequest(new TypeHierarchySubtypesParams { Item = shape }, timeout.Token))!.ToArray();
+        CollectionAssert.AreEqual(new[] { "Square" }, subtypes.Select(type => type.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "IShape" },
+            (await languageClient.SendRequest(new TypeHierarchySupertypesParams { Item = subtypes[0] }, timeout.Token))!.Select(type => type.Name).ToArray());
+    }
 }

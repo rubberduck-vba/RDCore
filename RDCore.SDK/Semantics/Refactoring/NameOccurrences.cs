@@ -112,6 +112,23 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
 
     /// <summary>
+    /// Each name an expression writes in <paramref name="range"/> - a simple name, or the member after a <c>.</c> - once, whatever its case.
+    /// </summary>
+    public static IEnumerable<string> NamesIn(RenameModule module, SourceRange range)
+    {
+        var lines = LinesOf(module.Source);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (node, parent) in Walk(module.Syntax))
+        {
+            if (WrittenName(node, parent, lines) is { Kind: OccurrenceKind.Name or OccurrenceKind.Member } written
+                && Contains(range, written.Range.Start) && seen.Add(written.Name))
+            {
+                yield return written.Name;
+            }
+        }
+    }
+
+    /// <summary>
     /// Where each name a declaration declares in <paramref name="range"/> begins, in the order they are written.
     /// </summary>
     public static IEnumerable<SourcePosition> DeclarationsIn(RenameModule module, SourceRange range)

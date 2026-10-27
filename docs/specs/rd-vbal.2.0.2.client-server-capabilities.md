@@ -342,6 +342,23 @@ A client tracks what it is reported with [`WorkProgressTracker`](../api/RDCore.S
 
 The work the server begins of its own is not drawn among a command's output.
 
+### Call hierarchy and type hierarchy
+
+The language server answers `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls` and `callHierarchy/outgoingCalls` (**LSP 3.17** §Call
+Hierarchy) ([`SymbolHierarchy`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHierarchy.html)):
+
+- An item is a procedure, a function, or a procedure of a property, that the workspace declares; a member of a library is none. Its `data` is the identity of
+  its symbol, which is all the server needs to find it again when the client sends it back.
+- The incoming calls of an item are the procedures that refer to it, each with where in it the names are written; a name written outside of every procedure
+  is a call from the module. A call is a name bound the way a rename binds it, whatever writes it.
+- The outgoing calls of an item are the procedures of the workspace whose names its body writes.
+- A function's own name in its body is how it is given its result, as often as it is a call: a procedure is never its own caller, so a recursive call is not
+  shown.
+
+It answers `textDocument/prepareTypeHierarchy`, `typeHierarchy/supertypes` and `typeHierarchy/subtypes` (§Type Hierarchy) for the class modules of the
+workspace: the supertypes of a class are the classes of the workspace it implements, and its subtypes the classes that implement it
+(**MS-VBAL §5.2.4.2**).
+
 ### `rdcore/session/interaction`
 
 A program runs in the environment host; the person it asks is at a client. A `MsgBox` or an `InputBox` travels in two hops, and the program waits for the answer as it waits for a dialog:

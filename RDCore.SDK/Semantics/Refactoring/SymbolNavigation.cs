@@ -232,7 +232,7 @@ public static class SymbolNavigation
     }
 
     // the classes of the workspace that implement a class as an interface.
-    private static IEnumerable<VBClassModuleSymbol> ImplementersOf(RenameContext context, VBClassModuleSymbol implemented)
+    internal static IEnumerable<VBClassModuleSymbol> ImplementersOf(RenameContext context, VBClassModuleSymbol implemented)
         => context.Modules
             .Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module)))
             .OfType<VBClassModuleSymbol>()
@@ -279,9 +279,15 @@ public static class SymbolNavigation
         return accessors.Count > 0 ? accessors : [symbol];
     }
 
-    // the name at the position, and the symbol it refers to there: a value, or the type a name that means no value names - a class that is created, a Type a
-    // variable is declared as.
-    private static (SourceRange Origin, Symbol Symbol)? SymbolAt(RenameContext context, Uri module, SourcePosition position)
+    /// <summary>
+    /// The symbol named at <paramref name="position"/> of <paramref name="module"/>, bound as a rename binds it: a value, or the type a name that means no
+    /// value names - a class that is created, a <c>Type</c> a variable is declared as.
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="position">A position in the name, or at its end.</param>
+    /// <returns>Where the name is written, and its symbol; <see langword="null"/> where no name is written, or where what it refers to is not known.</returns>
+    public static (SourceRange Origin, Symbol Symbol)? SymbolAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
         {

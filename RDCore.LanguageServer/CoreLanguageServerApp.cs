@@ -107,6 +107,12 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<Navigation.DocumentHighlightHandler>();
         builder.WithHandler<Navigation.TypeDefinitionHandler>();
         builder.WithHandler<Navigation.ImplementationHandler>();
+        builder.WithHandler<Navigation.CallHierarchyPrepareHandler>();
+        builder.WithHandler<Navigation.CallHierarchyIncomingHandler>();
+        builder.WithHandler<Navigation.CallHierarchyOutgoingHandler>();
+        builder.WithHandler<Navigation.TypeHierarchyPrepareHandler>();
+        builder.WithHandler<Navigation.TypeHierarchySupertypesHandler>();
+        builder.WithHandler<Navigation.TypeHierarchySubtypesHandler>();
         builder.WithHandler<CodeActionHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();

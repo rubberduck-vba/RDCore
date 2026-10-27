@@ -10,6 +10,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -241,6 +242,50 @@ internal sealed class RenameWorkspace
     /// </summary>
     /// <returns>Each place; none for what no class implements, where no name is written, or where what the name refers to is not known.</returns>
     public IReadOnlyList<LocationLink> Implementations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.ImplementationsAt);
+
+    /// <summary>
+    /// The item of the call hierarchy, or of the type hierarchy, named at a position of a document (<see cref="SymbolHierarchy.PrepareCalls"/>,
+    /// <see cref="SymbolHierarchy.PrepareTypes"/>).
+    /// </summary>
+    /// <returns>The item; <see langword="null"/> where no procedure, or no class, of the workspace is named.</returns>
+    public HierarchyItem? PrepareHierarchy(Uri documentUri, Position position, bool types)
+        => ModuleOf(documentUri) is { } module
+            ? types
+                ? SymbolHierarchy.PrepareTypes(_context, module.Module, module.ToModulePosition(position))
+                : SymbolHierarchy.PrepareCalls(_context, module.Module, module.ToModulePosition(position))
+            : null;
+
+    /// <summary>
+    /// The item of a hierarchy whose symbol has the identity a client sent back (<see cref="SymbolHierarchy.ItemOf(RenameContext, SemanticId)"/>).
+    /// </summary>
+    public HierarchyItem? HierarchyItemOf(Uri symbol) => SymbolHierarchy.ItemOf(_context, new SemanticId(symbol));
+
+    /// <summary>The procedures that call an item (<see cref="SymbolHierarchy.IncomingCalls"/>).</summary>
+    public IReadOnlyList<HierarchyCall> IncomingCalls(HierarchyItem item) => SymbolHierarchy.IncomingCalls(_context, item);
+
+    /// <summary>What an item calls (<see cref="SymbolHierarchy.OutgoingCalls"/>).</summary>
+    public IReadOnlyList<HierarchyCall> OutgoingCalls(HierarchyItem item) => SymbolHierarchy.OutgoingCalls(_context, item);
+
+    /// <summary>The classes an item's class implements (<see cref="SymbolHierarchy.Supertypes"/>).</summary>
+    public IReadOnlyList<HierarchyItem> Supertypes(HierarchyItem item) => SymbolHierarchy.Supertypes(_context, item);
+
+    /// <summary>The classes that implement an item's class (<see cref="SymbolHierarchy.Subtypes"/>).</summary>
+    public IReadOnlyList<HierarchyItem> Subtypes(HierarchyItem item) => SymbolHierarchy.Subtypes(_context, item);
+
+    /// <summary>
+    /// Where an item of a hierarchy is declared, in the text of its document: the document, the whole declaration, and the name.
+    /// </summary>
+    /// <returns><see langword="null"/> for an item of no document the server holds.</returns>
+    public (DocumentUri Uri, LspRange Range, LspRange SelectionRange)? Locate(HierarchyItem item)
+        => _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+            ? (document.Document.Id.Uri, document.ToTextRange(item.Range), document.ToTextRange(item.SelectionRange))
+            : null;
+
+    /// <summary>A range of the module of an item, in the text of its document.</summary>
+    public LspRange InTextOf(HierarchyItem item, SourceRange range)
+        => _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+            ? document.ToTextRange(range)
+            : new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 
     /// <summary>
     /// Where the symbol named at a position of a document is referred to (<see cref="SymbolNavigation.ReferencesAt"/>): each name, in the text of its document.
