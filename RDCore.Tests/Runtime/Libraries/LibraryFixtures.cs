@@ -107,6 +107,8 @@ internal sealed class InMemoryLibrarySource(params LibraryDescription[] descript
     /// <summary>The names of libraries that are there and cannot be read.</summary>
     public HashSet<string> Unreadable { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    public IEnumerable<string> Names => _byName.Keys;
+
     public bool TryGet(string name, [NotNullWhen(true)] out LibraryDescription? description)
     {
         Asked.Add(name);
