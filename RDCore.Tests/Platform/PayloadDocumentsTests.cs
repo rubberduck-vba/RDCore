@@ -57,8 +57,9 @@ public sealed class PayloadDocumentsTests
         var payload = PlatformJson.Serialize(parsed);
         var outside = FullForm(parsed);
 
-        // a location writes the path as its Uri has it, once in the payload; outside it, every location does.
-        var written = JsonEncodedText.Encode(path).ToString();
+        // a location writes the path as its Uri has it, once in the payload; outside it, every location does. Counted as a whole JSON string: on Linux the path
+        // (/tmp/.../Program.bas) is also inside the file:// URI a node's identity writes its document as, which is the other form.
+        var written = $"\"{JsonEncodedText.Encode(path)}\"";
         Assert.AreEqual(1, Count(payload, written));
         Assert.IsGreaterThan(100, Count(outside, written));
     }
