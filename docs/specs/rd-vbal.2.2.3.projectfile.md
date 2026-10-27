@@ -58,7 +58,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 The rule is worded "should not" because whether a _source project_ can reference a _different project_ that has the same name is explicitly specified as _host-dependent_ behavior. An RD-VBA _host environment_ **should** explicitly deny the addition of any such ambiguous project reference.
 
-The _standard library_ symbols are present in a project whether or not its `.rdproj` mentions the library at all (see [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)).
+The _standard library_ symbols are present in a project whether or not its `.rdproj` mentions the library at all (see [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)). It is RDCore's own, in every dialect, and is no reference: RDCore writes none to it in a `.rdproj` - a new project, one a folder makes up, or one imported from a VB6 project. A `.rdproj` written before lists it first, with the path of Office's `VBE7.DLL`: it is read without it, and written without it the next time RDCore writes the file.
 
 ## 2.2.3.2 RDCoreReference
 
@@ -173,7 +173,7 @@ A VB6 project (`.vbp`) is imported as the `RDCoreProject` of its folder ([`VbpPr
 |`Form`|A module.|
 |`UserControl`, `PropertyPage`, `UserDocument`, `Designer`|A file of the project (`OtherFiles`), which is not compiled; the import says so.|
 |`RelatedDoc`, `ResFile32`|A file of the project.|
-|`Reference` (`*\G{GUID}#version#lcid#path#description`)|A reference to the library the platform ships with that GUID, at the version (written in hexadecimal: `2.a` is 2.10). The reference to `VBA` is implicit, and skipped.|
+|`Reference` (`*\G{GUID}#version#lcid#path#description`)|A reference to the library the platform ships with that GUID, at the version (written in hexadecimal: `2.a` is 2.10). `VBA`, the standard library, is no reference ([§2.2.3.1](#2231-rdcoreproject)): a `.vbp` line that references VBA's type library adds none.|
 |`CondComp`|The project's `PrecompilerConstants` (`"DEBUG = 1 : TRACE = 0"`): `name = n` arguments separated by colons, spaces optional, each a name and a whole number from -32768 to 32767 with an optional sign. As vb6.exe does, a line with any other argument - a string, `&H10`, `True`, `1.5`, a name without a value, a colon at the end - is refused whole, and the import says so.|
 
 A path is resolved against the `.vbp`'s folder first: `..\MyProj\Util.bas`, from `MyProj\MyProj.vbp`, is the project's own `Util.bas`, and `Sub\..\Util.bas` is too. The project's folders are those of the files it lists. What cannot be carried over is skipped, and the import says what and why, in the language of the user interface:
