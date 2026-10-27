@@ -19,7 +19,10 @@ public enum VbpImportNoteKind
     /// <summary>An ActiveX control the project's forms use (<c>Object=</c>), which the platform does not host.</summary>
     Control,
 
-    /// <summary>A file outside of the folder of the project (<c>..\</c>): a <c>.rdproj</c> lists the files under its own folder.</summary>
+    /// <summary>
+    /// A file outside of the folder of the project (<c>..\Shared\Utils.bas</c>): it belongs to another project, whose folder is a workspace folder of its own
+    /// - the platform never takes in a folder outside the workspace folders it is given. Referencing that project is not implemented yet.
+    /// </summary>
     OutsideProjectFolder,
 
     /// <summary>A file named by an absolute path: a <c>.rdproj</c> lists the files under its own folder.</summary>

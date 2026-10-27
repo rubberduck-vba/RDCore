@@ -23,7 +23,7 @@
     <value>Le contrôle « {0} » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.</value>
   </data>
   <data name="VbpImport_OutsideProjectFolder" xml:space="preserve">
-    <value>« {0} » n'est pas repris : il est hors du dossier du projet.</value>
+    <value>« {0} » n'est pas repris : il appartient à un autre projet, dans un dossier hors de celui-ci. Ouvrez ce dossier comme un dossier d'espace de travail à part entière; ce projet ne peut pas encore y faire référence.</value>
   </data>
   <data name="VbpImport_AbsolutePath" xml:space="preserve">
     <value>« {0} » n'est pas repris : un projet liste les fichiers de son propre dossier.</value>

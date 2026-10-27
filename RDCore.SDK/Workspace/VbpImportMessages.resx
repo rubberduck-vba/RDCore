@@ -23,7 +23,7 @@
     <value>The control '{0}' is not carried over: the platform does not host ActiveX controls.</value>
   </data>
   <data name="VbpImport_OutsideProjectFolder" xml:space="preserve">
-    <value>'{0}' is not carried over: it is outside of the project's folder.</value>
+    <value>'{0}' is not carried over: it belongs to another project, in a folder outside this one. Open that folder as a workspace folder of its own; this project cannot reference it yet.</value>
   </data>
   <data name="VbpImport_AbsolutePath" xml:space="preserve">
     <value>'{0}' is not carried over: a project lists the files under its own folder.</value>

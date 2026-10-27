@@ -218,6 +218,17 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("Le contrôle « MSCOMCTL.OCX » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.", note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")));
     }
 
+    // a ..\ folder is a project of its own, a workspace folder: the platform never takes in a folder outside the ones it is given (author, 2026-10-27).
+    [TestMethod]
+    public void AFileOutsideTheProjectsFolder_IsSaidToBelongToAnotherProject()
+    {
+        var note = new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, @"..\Shared\Utils.bas");
+
+        Assert.AreEqual(@"'..\Shared\Utils.bas' is not carried over: it belongs to another project, in a folder outside this one. Open that folder as a workspace folder of its own; this project cannot reference it yet.",
+            note.ToMessage(CultureInfo.InvariantCulture));
+        StringAssert.Contains(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), "appartient à un autre projet");
+    }
+
     // VB6 writes its project files in the ANSI code page of the machine.
     [TestMethod]
     public void TheVbp_IsReadInTheAnsiCodePage()
