@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RDCore.CLI.Host;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -17,6 +19,7 @@ namespace RDCore.CLI.Host.Handlers;
 internal sealed class HostProjectReloadHandler(
     IEnvironmentSessionProvider sessionProvider,
     IProjectFileLoader projectFileLoader,
+    IOptions<SdkAppOptions> options,
     ILogger<HostProjectReloadHandler> logger) : RDCoreRequestHandler<HostProjectReloadParams, HostProjectReloadResult>
 {
     protected override async Task<HostProjectReloadResult> HandleAsync(HostProjectReloadParams request, CancellationToken token)
@@ -37,7 +40,7 @@ internal sealed class HostProjectReloadHandler(
         }
 
         var root = request.WorkspaceRoot.IsFile ? request.WorkspaceRoot.LocalPath : request.WorkspaceRoot.OriginalString;
-        var project = await projectFileLoader.LoadAsync(root);
+        var project = await projectFileLoader.LoadOrSynthesizeAsync(root, options.Value.Workspace.SupportedLanguage);
         sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
 
         if (logger.IsEnabled(LogLevel.Information))

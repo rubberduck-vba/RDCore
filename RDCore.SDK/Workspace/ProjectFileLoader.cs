@@ -30,6 +30,31 @@ public interface IProjectFileLoader
     /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
     /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
     Task<ProjectFile> LoadAsync(string workspaceRoot, CancellationToken token = default);
+
+    /// <summary>
+    /// Loads the <c>.rdproj</c> under <paramref name="workspaceRoot"/> as <see cref="LoadAsync"/> does, or, when the folder has none, makes up the project
+    /// the folder holds (<see cref="ProjectFile.IsSynthesized"/>): every source file of <paramref name="language"/> under it is a module, and nothing is
+    /// written.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A client that opens a folder - rather than a project - is given the project the folder is. The folder is searched to every depth, except the folders
+    /// whose name starts with a dot (<c>.git</c>, <c>.vscode</c>) and links to other folders. Each folder that holds a module, at any depth, is a folder of the
+    /// project. Paths are relative to the workspace root, separated by <c>/</c>, and in ordinal order, so the language server and the environment host, which
+    /// each synthesize the project, make up the same one.
+    /// </para>
+    /// <para>
+    /// A module name is unique in a project (<strong>RD-VBAL §2.2.3.3</strong>): of two files that declare the same <c>VB_Name</c>, the first in that order
+    /// is the module, and the other is not in the project. The project is named after the folder when its name is an identifier, and <c>VBAProject</c>
+    /// otherwise, as the VBE names a new one.
+    /// </para>
+    /// </remarks>
+    /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
+    /// <param name="language">The language the workspace is written in, whose <see cref="SupportedLanguage.FileTypes"/> are its source files.</param>
+    /// <param name="token">A token that cancels the read.</param>
+    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
+    /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
+    Task<ProjectFile> LoadOrSynthesizeAsync(string workspaceRoot, SupportedLanguage language, CancellationToken token = default);
 }
 
 /// <inheritdoc cref="IProjectFileLoader"/>
@@ -70,4 +95,101 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
 
         return project.WithUri(workspaceRoot);
     }
+
+    /// <inheritdoc/>
+    public async Task<ProjectFile> LoadOrSynthesizeAsync(string workspaceRoot, SupportedLanguage language, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(language);
+        if (TryLocate(workspaceRoot, out _))
+        {
+            return await LoadAsync(workspaceRoot, token);
+        }
+
+        var modules = new List<RDCoreModule>();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var folders = new List<string>();
+        await ScanAsync(workspaceRoot, workspaceRoot, language, modules, names, folders, token);
+
+        var project = new RDCoreProject
+        {
+            Name = ProjectNameOf(fileSystem.Path.GetFileName(fileSystem.Path.TrimEndingDirectorySeparator(workspaceRoot))),
+            Modules = [.. modules],
+            Folders = [.. folders.Order(StringComparer.Ordinal)],
+        };
+
+        return new ProjectFile(workspaceRoot, project) { IsSynthesized = true };
+    }
+
+    private async Task ScanAsync(string root, string directory, SupportedLanguage language,
+        List<RDCoreModule> modules, HashSet<string> names, List<string> folders, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        string[] files, directories;
+        try
+        {
+            files = [.. fileSystem.Directory.EnumerateFiles(directory).Order(StringComparer.Ordinal)];
+            directories = [.. fileSystem.Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal)];
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            // a folder that cannot be read holds nothing of the project.
+            return;
+        }
+
+        foreach (var file in files.Where(file => IsSourceFile(file, language)))
+        {
+            var relativeUri = RelativeUriOf(root, file);
+            var name = ModuleName.Resolve(await ReadSourceAsync(file, token), relativeUri);
+            if (names.Add(name))
+            {
+                modules.Add(new RDCoreModule { RelativeUri = relativeUri });
+            }
+        }
+
+        foreach (var subdirectory in directories)
+        {
+            if (fileSystem.Path.GetFileName(subdirectory).StartsWith('.')
+                || fileSystem.File.GetAttributes(subdirectory).HasFlag(FileAttributes.ReparsePoint))
+            {
+                continue;
+            }
+
+            var count = modules.Count;
+            await ScanAsync(root, subdirectory, language, modules, names, folders, token);
+            if (modules.Count > count)
+            {
+                folders.Add(RelativeUriOf(root, subdirectory));
+            }
+        }
+    }
+
+    private bool IsSourceFile(string path, SupportedLanguage language)
+    {
+        var extension = fileSystem.Path.GetExtension(path);
+        return language.FileTypes.Any(fileType => string.Equals(fileType.TrimStart('*'), extension, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<string?> ReadSourceAsync(string path, CancellationToken token)
+    {
+        try
+        {
+            return await fileSystem.File.ReadAllTextAsync(path, token);
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            // the file name names a module whose source cannot be read.
+            return null;
+        }
+    }
+
+    private string RelativeUriOf(string root, string path) => fileSystem.Path.GetRelativePath(root, path).Replace('\\', '/');
+
+    // an identifier (MS-VBAL §3.3.5): a letter, then letters, digits and underscores; not VBA, which names the standard library.
+    private static string ProjectNameOf(string? folderName)
+        => folderName is { Length: > 0 and <= 255 } name
+            && char.IsAsciiLetter(name[0])
+            && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
+            && !string.Equals(name, "VBA", StringComparison.OrdinalIgnoreCase)
+            ? name
+            : "VBAProject";
 }

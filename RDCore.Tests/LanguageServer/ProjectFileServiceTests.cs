@@ -32,7 +32,7 @@ public sealed class ProjectFileServiceTests
 
         var fs = new MockFileSystem(entries);
         var sut = new ProjectFileService(
-            NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs));
+            NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs), () => SupportedLanguages.RDVBA);
         await sut.LoadAsync(Root);
         return sut;
     }

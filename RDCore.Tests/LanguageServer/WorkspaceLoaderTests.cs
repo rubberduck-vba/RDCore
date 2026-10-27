@@ -36,7 +36,7 @@ public sealed class WorkspaceLoaderTests
     }
 
     private static ProjectFileService ProjectService(MockFileSystem fs)
-        => new(NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs));
+        => new(NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs), () => SupportedLanguages.RDVBA);
 
     private static IServerStateProvider InitializingState()
     {
@@ -87,11 +87,17 @@ public sealed class WorkspaceLoaderTests
     }
 
     [TestMethod]
-    public async Task ProjectFileService_LoadAsync_NoProjectFile_Throws()
+    public async Task ProjectFileService_LoadAsync_NoProjectFile_IsTheProjectTheFolderHolds_AndWritesNothing()
     {
-        var sut = ProjectService(new MockFileSystem());
+        var fs = new MockFileSystem();
+        fs.AddFile(Path.Combine(Root, "Module1.bas"), new MockFileData("Attribute VB_Name = \"Module1\"\r\n"));
+        var sut = ProjectService(fs);
 
-        await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => sut.LoadAsync(Root));
+        await sut.LoadAsync(Root);
+
+        Assert.IsTrue(sut.Project.IsSynthesized);
+        Assert.AreEqual("Module1.bas", sut.Project.ProjectInfo.Modules.Single().RelativeUri);
+        Assert.IsFalse(fs.FileExists(ProjectFilePath));
     }
 
     [TestMethod]

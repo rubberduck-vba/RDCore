@@ -39,7 +39,8 @@ public sealed class HostProjectReloadHandlerTests
         _files.AddFile(Path.Combine(Root, "Program.bas"), new MockFileData(Program));
         _files.AddFile(Path.Combine(Root, "Disc.cls"), new MockFileData(Disc));
         _session = new EnvironmentSessionProvider(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), _files, NullLogger<EnvironmentSessionProvider>.Instance);
-        _sut = new HostProjectReloadHandler(_session, new ProjectFileLoader(_files), NullLogger<HostProjectReloadHandler>.Instance);
+        _sut = new HostProjectReloadHandler(_session, new ProjectFileLoader(_files), Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions()),
+            NullLogger<HostProjectReloadHandler>.Instance);
     }
 
     private void WriteProject(params string[] modules)

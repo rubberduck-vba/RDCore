@@ -61,6 +61,24 @@ namespace RDCore.LanguageServer.Workspace {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not in the project: the project has a module named {1} already, and a module name is unique in a project..
+        /// </summary>
+        internal static string FileNotAddedModuleNameTaken {
+            get {
+                return ResourceManager.GetString("FileNotAddedModuleNameTaken", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The files changed, and the project file could not be written: {0} The project is as it was..
+        /// </summary>
+        internal static string ProjectFileNotWritten {
+            get {
+                return ResourceManager.GetString("ProjectFileNotWritten", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The project file changed, and could not be read: {0} The workspace is as it was..
         /// </summary>
         internal static string ProjectFileNotReloaded {
