@@ -231,6 +231,18 @@ internal sealed class RenameWorkspace
     public IReadOnlyList<LocationLink> Declarations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.DeclarationAt);
 
     /// <summary>
+    /// Where the type of the symbol named at a position of a document is defined (<see cref="SymbolNavigation.TypeDefinitionAt"/>).
+    /// </summary>
+    /// <returns>Each place; none for an intrinsic type or a type of a library, where no name is written, or where what the name refers to is not known.</returns>
+    public IReadOnlyList<LocationLink> TypeDefinitions(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.TypeDefinitionAt);
+
+    /// <summary>
+    /// Where the symbol named at a position of a document is implemented (<see cref="SymbolNavigation.ImplementationsAt"/>).
+    /// </summary>
+    /// <returns>Each place; none for what no class implements, where no name is written, or where what the name refers to is not known.</returns>
+    public IReadOnlyList<LocationLink> Implementations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.ImplementationsAt);
+
+    /// <summary>
     /// Where the symbol named at a position of a document is referred to (<see cref="SymbolNavigation.ReferencesAt"/>): each name, in the text of its document.
     /// </summary>
     /// <param name="documentUri">The document.</param>

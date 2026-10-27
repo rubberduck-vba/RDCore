@@ -3,6 +3,8 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 
 namespace RDCore.SDK.Semantics.Refactoring;
 
@@ -151,6 +153,116 @@ public static class SymbolNavigation
     // whether the type a name names where it is written is the symbol.
     private static bool IsTheType(RenameContext context, Symbol type, Uri scope)
         => context.Resolver.ResolveType(type.Name, ScopeKind.Local, scope).Symbol is { } resolved && resolved.SemanticId == type.SemanticId;
+
+    /// <summary>
+    /// Where the type of the symbol named at <paramref name="position"/> of <paramref name="module"/> is defined (<strong>LSP 3.17</strong> §Goto Type
+    /// Definition Request): the class, <c>Type</c> or <c>Enum</c> a variable, a constant, a parameter or a function is declared as - of an array, its items'.
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="position">A position in the name, or at its end.</param>
+    /// <returns>
+    /// The name and the places that define the type, the type itself for a name that names one; no place for an intrinsic type, or a type of a library.
+    /// <see langword="null"/> where no name is written, or where what the name refers to is not known.
+    /// </returns>
+    public static SymbolNavigationTarget? TypeDefinitionAt(RenameContext context, Uri module, SourcePosition position)
+    {
+        if (SymbolAt(context, module, position) is not { } named)
+        {
+            return null;
+        }
+
+        var (origin, symbol) = named;
+        var type = symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol ? symbol : TypeSymbolOf(symbol);
+        IReadOnlyList<SymbolSite> sites = type is not null && NameOccurrences.IsDeclaredBy(context, type) ? Definitions(type) : [];
+        return new SymbolNavigationTarget(origin, symbol, sites);
+    }
+
+    /// <summary>
+    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is implemented (<strong>LSP 3.17</strong> §Goto Implementation
+    /// Request): for a class, each class of the workspace that implements it, at its <c>Implements</c> directive; for a member of a class, the procedure of
+    /// each of those classes that implements it - <c>IShape_Area</c> for <c>Area</c> of <c>IShape</c> (<strong>MS-VBAL §5.2.4.2</strong>).
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="position">A position in the name, or at its end.</param>
+    /// <returns>
+    /// The name and each place that implements its symbol; no place for a class that no class implements, or a symbol that is no class or member of one.
+    /// <see langword="null"/> where no name is written, or where what the name refers to is not known.
+    /// </returns>
+    public static SymbolNavigationTarget? ImplementationsAt(RenameContext context, Uri module, SourcePosition position)
+    {
+        if (SymbolAt(context, module, position) is not { } named)
+        {
+            return null;
+        }
+
+        var (origin, symbol) = named;
+        var sites = new List<SymbolSite>();
+        if (symbol is VBClassModuleSymbol implemented)
+        {
+            foreach (var implementer in ImplementersOf(context, implemented))
+            {
+                // the ranges are of the directives, one for each name written; the interfaces also have the one every class implements implicitly.
+                var index = implementer.ImplementedInterfaceNames.ToList()
+                    .FindIndex(name => string.Equals(name, implemented.Name, StringComparison.OrdinalIgnoreCase));
+                var range = index >= 0 && index < implementer.ImplementedInterfaceRanges.Length ? implementer.ImplementedInterfaceRanges[index] : default;
+                sites.Add(new SymbolSite(NameOccurrences.ModuleOf(implementer.Uri), range, range));
+            }
+        }
+        else if (symbol is VBTypeMemberSymbol
+            && NameOccurrences.SymbolOf(context, new SemanticId(NameOccurrences.ModuleOf(symbol.Uri))) is VBClassModuleSymbol owner)
+        {
+            foreach (var implementer in ImplementersOf(context, owner))
+            {
+                foreach (var member in DefinedTogether(context, symbol).OfType<VBTypeMemberSymbol>())
+                {
+                    if (implementer.FindImplementation(owner, member, AccessOf(member)) is { } implementation)
+                    {
+                        sites.AddRange(Definitions(implementation));
+                    }
+                }
+            }
+        }
+
+        return new SymbolNavigationTarget(origin, symbol, [.. sites
+            .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
+            .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
+            .ThenBy(site => site.Range.Start)]);
+    }
+
+    // the classes of the workspace that implement a class as an interface.
+    private static IEnumerable<VBClassModuleSymbol> ImplementersOf(RenameContext context, VBClassModuleSymbol implemented)
+        => context.Modules
+            .Select(candidate => NameOccurrences.SymbolOf(context, new SemanticId(candidate.Module)))
+            .OfType<VBClassModuleSymbol>()
+            .Where(candidate => candidate.ImplementedInterfaces.Any(implementedBy => implementedBy.SemanticId == implemented.SemanticId));
+
+    // which procedure of an implementation implements an accessor of a property: the one of its kind.
+    private static ImplementationAccess AccessOf(VBTypeMemberSymbol member) => member switch
+    {
+        VBPropertyLetMemberSymbol => ImplementationAccess.Let,
+        VBPropertySetMemberSymbol => ImplementationAccess.Set,
+        _ => ImplementationAccess.Get,
+    };
+
+    // the class, Type or Enum a value is declared as - an array's items' - as the type knows it.
+    private static Symbol? TypeSymbolOf(Symbol symbol)
+    {
+        var type = symbol is ITypedSymbol typed ? typed.ResolvedType : null;
+        while (type is VBArrayType array)
+        {
+            type = array.ItemType;
+        }
+
+        return type switch
+        {
+            VBClassType @class => @class.Symbol,
+            VBUserDefinedType udt => udt.Symbol,
+            VBEnumType @enum => @enum.Symbol,
+            _ => null,
+        };
+    }
 
     // a property is defined by each of its procedures - its Property Get, Let and Set: what an access calls is not known from the name alone.
     private static IEnumerable<Symbol> DefinedTogether(RenameContext context, Symbol symbol)
