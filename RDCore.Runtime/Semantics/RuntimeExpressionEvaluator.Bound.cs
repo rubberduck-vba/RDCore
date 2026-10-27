@@ -451,6 +451,7 @@ public sealed partial class RuntimeExpressionEvaluator
         => evaluated is { IsSuccess: true, Result: { } value } && value is not (VBVariantValue or VBObjectValue or VBArrayValue or VBUserDefinedTypeValue or SDK.Model.Values.VBVoidValue)
             ? RuntimeSemanticsEvaluationResult.Success(value.IsIndeterminate ? new VBVariantValue(value).AsIndeterminate() : new VBVariantValue(value))
             : evaluated;
+
     // a call of a declared type its procedure does not declare - Abs, Int, Fix of a number (ArgumentTypedFunctions) - returns a value of it: the Variant the
     // procedure returns holds one, which is what an operation of the call operates on, as MS-VBA has it (oracle\s46 F10: `Fix(n) * 7000` overflows).
     private static RuntimeSemanticsEvaluationResult OfResultType(BoundCall call, RuntimeSemanticsEvaluationResult returned)
