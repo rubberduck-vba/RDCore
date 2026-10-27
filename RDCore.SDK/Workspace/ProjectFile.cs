@@ -23,6 +23,8 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = uri;
         ProjectInfo = project;
+        // numeric AssemblyName.Version, not the informational one: WorkspaceService.LoadAsync parses it with
+        // new Version(...), which would throw on "0.1.0+<sha>".
         Version = AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
         IsDirty = false;
         Configuration = [];
@@ -33,6 +35,10 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
+        // re-stamped (numeric, as above), not copied: ProjectFileLoader.LoadAsync returns WithUri(...), a `with` that
+        // runs this constructor, so the WorkspaceService.LoadAsync version guard only ever compares the running
+        // version with itself. ⚠️ Keeping source.Version here would make it reject every .rdproj that pre-0.1.0
+        // builds stamped "1.0.0".
         Version = AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
         IsDirty = false;
         Configuration = source.Configuration;

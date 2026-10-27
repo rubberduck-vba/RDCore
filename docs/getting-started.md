@@ -22,6 +22,29 @@
 
 
 ---
+## 📦 Installing a preview build
+
+Preview builds of the platform are published as _prereleases_ on the [GitHub Releases page](https://github.com/rubberduck-vba/RDCore/releases). A preview build is a zip of the whole platform tree: it is not an installer, and it is not a certified build.
+
+1. Download `rdcore-<version>-win-x64.zip` and `SHA256SUMS` from the release;
+1. Verify the download: in Git Bash, `sha256sum -c --ignore-missing SHA256SUMS`; in PowerShell, `(Get-FileHash .\rdcore-<version>-win-x64.zip).Hash` must match the zip's line in `SHA256SUMS` (case aside). With the GitHub CLI, `gh attestation verify rdcore-<version>-win-x64.zip -R rubberduck-vba/RDCore --signer-workflow rubberduck-vba/RDCore/.github/workflows/release.yml --source-ref refs/tags/v<version>` also checks that the zip was built by this repository's release workflow, from the `v<version>` tag;
+1. Extract the zip to a user-writable folder of its own, one per version, such as `%LOCALAPPDATA%\RDCore\<version>`: the platform writes its `Logs/` inside that folder;
+1. Install the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) if `dotnet --list-runtimes` doesn't list `Microsoft.NETCore.App 10.x`: preview builds are _framework-dependent_.
+
+To run it:
+
+- Keep the extracted tree whole: the language server finds its platform (`rdcore.json`, the parse server, the extensions) from the parent of its own folder.
+- A client launches `RDCore.LanguageServer\RDCore.LanguageServer.exe` with `RDCore.LanguageServer\` as its working directory (`appsettings.json` is read from the working directory) and `--client-process-id <pid> --pipe-name <name> --workspace <uri>`, `<pid>` being the client's own process ID, without which the server and its child processes cannot exit if the client dies; `release.json` describes the same launch under `launch.languageServer`.
+- Don't set `RDCORE_PLATFORM_ROOT` in your user or system environment: it overrides the platform root of every RDCore process (and of the processes they start).
+- With no arguments, `RDCore.CLI\rdc.exe` is the interactive RD-VBA shell; it also reads `appsettings.json` from its working directory, so start it from `RDCore.CLI\`.
+
+> [!WARNING]
+> Preview builds are not signed: SmartScreen may warn about them, and Windows 11 _Smart App Control_ may block them.
+
+> 👉 To assemble the same tree from a clone, run `PlatformPublish.ps1` (it needs `git` on the `PATH`, to record the commit it builds): with no arguments it publishes a Debug tree to `artifacts\rdcore-dev` after asking for confirmation; `-Configuration Release -RuntimeIdentifier win-x64` matches the preview builds, `-VersionSuffix <suffix>` adds a prerelease suffix (e.g. `rc.1`), `-PlatformRoot <path>` picks the output folder (relative to the repository root) and `-Silent` skips the confirmation. The release workflow then adds `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json`; maintainers will find the whole procedure in [RELEASING.md](https://github.com/rubberduck-vba/RDCore/blob/main/RELEASING.md).
+
+
+---
 ## 🧩 Building a RDCore extension
 
 It only takes a few lines in your entry point to make your application a RDCore app:
