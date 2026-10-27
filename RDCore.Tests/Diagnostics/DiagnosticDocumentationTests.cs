@@ -122,6 +122,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.MisleadingByRefParameter, 205),
         (RDCoreDiagnosticId.NotAllPathsReturnValue, 206),
         (RDCoreDiagnosticId.IsMissingAlwaysFalse, 207),
+        (RDCoreDiagnosticId.ShadowedDeclaration, 208),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
         (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),
         (RDCoreDiagnosticId.ObsoleteErrorSyntax, 304),

@@ -376,6 +376,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; hides &apos;{1}&apos;: in this procedure, the name means &apos;{0}&apos;, and &apos;{1}&apos; everywhere else. Give &apos;{0}&apos; a name of its own..
+        /// </summary>
+        public static string ShadowedDeclaration_Message {
+            get {
+                return ResourceManager.GetString("ShadowedDeclaration_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
         /// </summary>
         public static string ObsoleteCallStatement_Message {

@@ -324,9 +324,10 @@ public record class ProcedureSemanticsDto(
 /// <param name="References">Every reference to it, when they are known; <see langword="null"/> says they are not.</param>
 /// <param name="Role">What it is there for, when it implements an interface member or handles an event.</param>
 /// <param name="DeclaredBy">How a local variable came to be declared; <see langword="null"/> for any other declaration.</param>
+/// <param name="Hides">What a local or a parameter hides; <see langword="null"/> when it hides nothing, and for any other declaration.</param>
 public record class DeclarationFactDto(
     Uri Symbol, string Name, DeclarationKind Kind, AccessModifier Access, bool IsImplicit, SourceLocation Location, DeclarationReferences? References,
-    DeclarationRole Role = DeclarationRole.None, LocalDeclarationKind? DeclaredBy = null);
+    DeclarationRole Role = DeclarationRole.None, LocalDeclarationKind? DeclaredBy = null, HiddenDeclaration? Hides = null);
 
 /// <summary>
 /// A <see cref="ModuleSemanticModel"/>, as it travels.
@@ -365,7 +366,7 @@ public record class ModuleSemanticsDto(
             procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime)))],
         [.. model.Declarations.Select(declaration => new DeclarationFactDto(
             declaration.Symbol.Uri, declaration.Name, declaration.Kind, declaration.Access, declaration.IsImplicit, declaration.Location, declaration.References, declaration.Role,
-            declaration.DeclaredBy))],
+            declaration.DeclaredBy, declaration.Hides))],
         model.Language,
         model.Class);
 

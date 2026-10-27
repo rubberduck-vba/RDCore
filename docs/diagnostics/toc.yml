@@ -400,6 +400,8 @@
   href: rdc00206.md
 - name: RDC00207 — IsMissing that is always False
   href: rdc00207.md
+- name: RDC00208 — Shadowed declaration
+  href: rdc00208.md
 - name: RDC00302 — Obsolete Call statement
   href: rdc00302.md
 - name: RDC00303 — Obsolete comment syntax

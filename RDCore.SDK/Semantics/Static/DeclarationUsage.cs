@@ -36,9 +36,11 @@ public static class DeclarationUsage
     /// </param>
     /// <param name="procedures">The models of the procedures of the module.</param>
     /// <param name="roles">What the members of a class module are there for (<see cref="MemberRoles"/>), or <see langword="null"/> when the module is not a class module.</param>
+    /// <param name="hides">What a declaration hides (<see cref="DeclarationShadowing"/>), or <see langword="null"/> when that is not stated.</param>
     /// <returns>A fact for each declaration, in the order they are given.</returns>
     public static ImmutableArray<DeclarationFact> Of(
-        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null)
+        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
+        Func<Symbol, HiddenDeclaration?>? hides = null)
     {
         var models = procedures.ToList();
         var references = new Dictionary<SemanticId, DeclarationReferences>();
@@ -86,6 +88,7 @@ public static class DeclarationUsage
                 Role = role,
                 // a parameter is a local of its procedure that no statement declares.
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
+                Hides = hides?.Invoke(symbol),
             });
         }
 

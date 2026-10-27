@@ -231,6 +231,9 @@
   <data name="IsMissingAlwaysFalse_HasADefault" xml:space="preserve">
     <value>doté d'une valeur par défaut</value>
   </data>
+  <data name="ShadowedDeclaration_Message" xml:space="preserve">
+    <value>'{0}' masque '{1}': dans cette procédure, le nom désigne '{0}', et '{1}' partout ailleurs. Donnez à '{0}' un nom bien à lui.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète: un commentaire commence par une apostrophe (').</value>
   </data>
