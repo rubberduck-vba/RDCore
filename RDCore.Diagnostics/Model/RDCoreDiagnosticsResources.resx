@@ -219,6 +219,15 @@
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
     <value>'{0}' never assigns its return value: the caller always gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
+  <data name="IsMissingAlwaysFalse_Message" xml:space="preserve">
+    <value>IsMissing({0}) is always False: '{0}' is {1}, which an omitted argument never leaves missing. Only a Variant parameter with no default value can be missing.</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_NotAVariant" xml:space="preserve">
+    <value>not a Variant</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_HasADefault" xml:space="preserve">
+    <value>given a default value</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>

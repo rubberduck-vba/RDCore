@@ -1,6 +1,8 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Abstract.StdLib;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -67,7 +69,10 @@ internal static class ExpressionFactDescriber
 
         if (ExpressionStaticSemanticsEvaluator.ProcedureNamedBy(context, index.Callee) is { } procedure)
         {
-            return Fact(procedure, ValueExpressionSemanticFlags.ProcedureCall) with { Creates = ObjectCreationFacts.Of(context, index, procedure) };
+            return Fact(procedure, ValueExpressionSemanticFlags.ProcedureCall | IsMissingFlags(context, index, procedure)) with
+            {
+                Creates = ObjectCreationFacts.Of(context, index, procedure),
+            };
         }
 
         // an object that is indexed is a call of its default member, and an object of no particular class has one that is found out when it runs.
@@ -86,6 +91,19 @@ internal static class ExpressionFactDescriber
 
         return Fact(null, 0);
     }
+
+    private static readonly string IsMissingTarget = StdLibSymbolReader.ExternalTargetOf(
+        typeof(IStdInformationModule), typeof(IStdInformationModule).GetMethod(nameof(IStdInformationModule.IsMissing))!);
+
+    // IsMissing of a parameter of the procedure that can never be missing: one that is not a Variant, or an Optional Variant with a default value. A ParamArray
+    // with no elements is missing (recorded in Excel: oracle\ismissing I01-I09).
+    private static ValueExpressionSemanticFlags IsMissingFlags(StaticEvaluationContext context, IndexExpressionNode call, Symbol procedure)
+        => procedure.GetProperty(SymbolProperties.ExternalTarget) == IsMissingTarget
+            && call.Arguments is [SimpleNameExpressionNode argument]
+            && context.Resolver.ResolveValue(argument, ScopeKind.Local, context.Scope.Uri).Symbol is VBParameterSymbol parameter and not ParamArrayParameterSymbol
+            && (parameter.ResolvedType is not VBVariantType || parameter.DefaultValue is not null)
+                ? ValueExpressionSemanticFlags.IsMissingAlwaysFalse
+                : 0;
 
     private static ExpressionFact DescribeMember(
         StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode? owner, string memberName, VBType? type,

@@ -396,6 +396,8 @@
   href: rdc00205.md
 - name: RDC00206 — Not all code paths return a value
   href: rdc00206.md
+- name: RDC00207 — IsMissing that is always False
+  href: rdc00207.md
 - name: RDC00302 — Obsolete Call statement
   href: rdc00302.md
 - name: RDC00303 — Obsolete comment syntax
