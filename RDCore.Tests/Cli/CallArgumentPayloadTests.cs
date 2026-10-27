@@ -49,6 +49,10 @@ public sealed class CallArgumentPayloadTests
         DisplayName = "ByRef: a variable, then values")]
     [DataRow("Private Sub S(ByVal A As Long, ParamArray R() As Variant) ;; Debug.Print A & \":\" & UBound(R) ;; End Sub", "S 1 ;; S 1, 2, 3", "1:-1/1:1",
         DisplayName = "a ParamArray")]
+    // empty parentheses pass a ParamArray that comes first no element, as no parentheses do (MS-VBA: oracle\ismissing I05).
+    [DataRow("Private Function F(ParamArray R() As Variant) As String ;; F = TypeName(R) & UBound(R) & IsMissing(R) ;; End Function ;; Private Sub S(ParamArray R() As Variant) ;; Debug.Print UBound(R) ;; End Sub",
+        "Debug.Print F() ;; Debug.Print F ;; Call S() ;; S ;; Debug.Print F(1)", "Variant()-1True/Variant()-1True/-1/-1/Variant()0False",
+        DisplayName = "a ParamArray, called with empty parentheses")]
     [DataRow("Private Sub S(Optional ByVal A As Long = 5, Optional ByVal B As Long = 6) ;; Debug.Print A * 10 + B ;; End Sub", "S ;; S B:=1 ;; S , 2", "56/51/52",
         DisplayName = "omitted, by name and by position")]
     public void AnArgument_IsGivenToItsParameter(string procedures, string body, string printed)
