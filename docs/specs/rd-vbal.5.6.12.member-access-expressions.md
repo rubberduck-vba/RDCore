@@ -22,6 +22,11 @@ For a predeclared class `Widget`, `Widget.Size` is a member access on a variable
 
 ## Runtime Semantics
 
+A member of an object reached through an expression declared `Object` or `Variant` is late-bound, and what it returns is a `Variant`, whatever the
+member declares. An `Integer` property read through a `Variant` is a `Variant` holding the `Integer`: `vo.P * 7000` is a `Variant` product, which widens to
+the `Long` 35000 where an `Integer` product would overflow, as **MS-VBA** has it (recorded in Excel). Early-bound, through a variable declared as the class,
+the same product overflows (error 6). An object, an array and a record a late-bound member returns are what they are.
+
 A UDT field is reachable from source code in both directions, read and write:
 
 |Direction|Source|Effect|

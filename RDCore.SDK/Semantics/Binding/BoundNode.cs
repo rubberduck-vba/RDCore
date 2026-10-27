@@ -149,7 +149,15 @@ public sealed record class BoundPrecompilerName(PrecompilerNameExpressionNode Na
 /// <see langword="null"/> for a member that is not resolved, or whose parameters the arguments do not map to.</param>
 public sealed record class BoundMember(
     ExpressionNode Expression, MemberAccessExpressionNode Access, BoundNode? Owner, VBClassModuleSymbol? DeclaredClass, VBTypeMemberSymbol? Member,
-    IndexExpressionNode? Arguments, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Expression);
+    IndexExpressionNode? Arguments, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Expression)
+{
+    /// <summary>
+    /// Whether the owner is declared <c>Object</c> or <c>Variant</c>: what a member reached late-bound returns is a <c>Variant</c>, whatever the member declares
+    /// (<strong>MS-VBAL §5.6.12</strong>). An <c>Integer</c> property read through a <c>Variant</c> is a <c>Variant</c> holding the <c>Integer</c>, whose
+    /// arithmetic widens where an <c>Integer</c>'s overflows (MS-VBA, recorded in Excel: oracle\s46 F11).
+    /// </summary>
+    public bool IsLateBound { get; init; }
+}
 
 /// <summary>
 /// A <c>New</c> expression (<strong>MS-VBAL §5.6.10</strong>'s <c>New</c> keyword, <strong>§5.2.3.1.4</strong>), and the class it creates an object of.

@@ -232,7 +232,7 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundBinary binary => EvaluateBoundBinary(session, binary, context),
         BoundUnary unary => EvaluateBoundUnary(session, unary, context),
         BoundCall call => EvaluateBoundCall(session, call, context),
-        BoundMember member => EvaluateBoundMember(session, member, context),
+        BoundMember member => member.IsLateBound ? AsVariant(EvaluateBoundMember(session, member, context)) : EvaluateBoundMember(session, member, context),
         BoundNew created => CreateObject(session, created.New, created.Class),
         BoundTypeOf typeOf => EvaluateBoundTypeOf(session, typeOf, context),
         BoundIndex index => IndexValue(session, context, index.Index, index.Index,
@@ -444,6 +444,13 @@ public sealed partial class RuntimeExpressionEvaluator
             : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
                 ? InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)
                 : EvaluateLate(session, call.Expression, context);
+
+    // what a member reached late-bound returns is a Variant (BoundMember.IsLateBound): a scalar it returns is held by one. An object, an array, a record,
+    // and a Variant already, are what they are.
+    private static RuntimeSemanticsEvaluationResult AsVariant(RuntimeSemanticsEvaluationResult evaluated)
+        => evaluated is { IsSuccess: true, Result: { } value } && value is not (VBVariantValue or VBObjectValue or VBArrayValue or VBUserDefinedTypeValue or SDK.Model.Values.VBVoidValue)
+            ? RuntimeSemanticsEvaluationResult.Success(value.IsIndeterminate ? new VBVariantValue(value).AsIndeterminate() : new VBVariantValue(value))
+            : evaluated;
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundUnary(IRuntimeSession session, BoundUnary unary, RuntimeEvaluationContext context)
     {
