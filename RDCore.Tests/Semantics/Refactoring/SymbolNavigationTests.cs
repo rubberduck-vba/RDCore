@@ -335,16 +335,90 @@ public sealed class SymbolNavigationTests
         => CollectionAssert.AreEqual(new[] { "Program:Dim count As Long", "Program:count = 1", "Program:Add count" },
             Referenced(Workspace(), SymbolNavigation.ReferencesAt(Workspace(), ModuleUri("Program"), At(Workspace(), "Program", "count = 1", "count"))));
 
-    // a property is one symbol whose procedures are referred to together; a member accessed late-bound is not known to be it.
+    // each procedure of a property is referred to by the names that call it; a member accessed late-bound is not known to be it.
     [TestMethod]
-    public void AProperty_IsReferredTo_ByEachAccess_AndNotByALateBoundOne()
+    public void AnAssignmentOfAProperty_RefersToItsLet_AndNotByALateBoundOne()
     {
         var context = Workspace();
-        var references = Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), At(context, "Program", "c.Value = \"x\"", "Value")));
 
-        CollectionAssert.IsSubsetOf(new[] { "Class1:Public Property Get Value() As String", "Class1:Public Property Let Value(ByVal v As String)",
-            "Program:c.Value = \"x\"", "Program:Debug.Print c.Value" }, references);
-        CollectionAssert.DoesNotContain(references, "Program:o.Value = 1");
+        CollectionAssert.AreEqual(new[] { "Class1:Public Property Let Value(ByVal v As String)", "Program:c.Value = \"x\"" },
+            Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), At(context, "Program", "c.Value = \"x\"", "Value"))));
+    }
+
+    [TestMethod]
+    public void AReadOfAProperty_RefersToItsGet_AndNotTheResultItsGetAssigns()
+    {
+        var context = Workspace();
+
+        CollectionAssert.AreEqual(new[] { "Class1:Public Property Get Value() As String", "Program:Debug.Print c.Value" },
+            Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), At(context, "Program", "Debug.Print c.Value", "Value"))));
+        CollectionAssert.AreEqual(new[] { "Program:Debug.Print c.Value" },
+            Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Class1"), At(context, "Class1", "Property Get Value", "Value"), includeDeclaration: false)),
+            "from the name the Get declares");
+    }
+
+    [TestMethod]
+    public void EveryNameOfAProperty_IsWhatARenameRenames_WhicheverProcedureItCalls()
+    {
+        var context = Workspace();
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Class1:Public Property Get Value() As String", "Class1:Value = mValue", "Class1:Public Property Let Value(ByVal v As String)",
+            "Program:c.Value = \"x\"", "Program:Debug.Print c.Value",
+        }, Referenced(context, SymbolNavigation.OccurrencesAt(context, ModuleUri("Program"), At(context, "Program", "c.Value = \"x\"", "Value"))));
+    }
+
+    [TestMethod]
+    public void ASetAssignmentOfAProperty_RefersToItsSet_ALetAssignmentToItsLet()
+    {
+        var bag = Lines(
+            "VERSION 1.0 CLASS",
+            "BEGIN",
+            "  MultiUse = -1  'True",
+            "END",
+            "Attribute VB_Name = \"Bag\"",
+            "Option Explicit",
+            "Private mItem As Variant",
+            "Public Property Get Item() As Variant",
+            "    Item = mItem",
+            "End Property",
+            "Public Property Let Item(ByVal v As Variant)",
+            "    mItem = v",
+            "End Property",
+            "Public Property Set Item(ByVal v As Object)",
+            "    Set mItem = v",
+            "End Property");
+        var user = Module("User",
+            "Option Explicit",
+            "Public Sub Use(ByVal b As Bag)",
+            "    b.Item = 1",
+            "    Set b.Item = Nothing",
+            "    Set b.Item = b",
+            "    Debug.Print b.Item",
+            "End Sub");
+        var context = Compose(("Bag", bag), ("User", user));
+        string[] Of(string line) => Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Bag"), At(context, "Bag", line, "Item"), includeDeclaration: false));
+
+        CollectionAssert.AreEqual(new[] { "User:Debug.Print b.Item" }, Of("Property Get Item"));
+        CollectionAssert.AreEqual(new[] { "User:b.Item = 1" }, Of("Property Let Item"));
+        CollectionAssert.AreEqual(new[] { "User:Set b.Item = Nothing", "User:Set b.Item = b" }, Of("Property Set Item"));
+    }
+
+    [TestMethod]
+    public void TheResultAFunctionAssigns_IsNoReferenceOfIt_ACallOfItIs()
+    {
+        var context = Compose(("Maths", Module("Maths",
+            "Option Explicit",
+            "Public Function Twice(ByVal n As Long) As Long",
+            "    Twice = n * 2",
+            "End Function",
+            "Public Sub Use()",
+            "    Debug.Print Twice(2)",
+            "End Sub")));
+
+        CollectionAssert.AreEqual(new[] { "Maths:Debug.Print Twice(2)" },
+            Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Maths"), At(context, "Maths", "Function Twice", "Twice"), includeDeclaration: false)));
     }
 
     [TestMethod]

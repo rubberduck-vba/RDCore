@@ -89,18 +89,37 @@ public static class SymbolNavigation
 
     /// <summary>
     /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is referred to, in every module of the workspace
-    /// (<strong>LSP 3.17</strong> §Find References Request): each name that a rename of the symbol would rename, and each type name that names it.
+    /// (<strong>LSP 3.17</strong> §Find References Request): each name that calls it or reads it, each name that assigns it, and each type name that names it.
     /// </summary>
     /// <param name="context">The workspace.</param>
     /// <param name="module">The module.</param>
     /// <param name="position">A position in the name, or at its end.</param>
-    /// <param name="includeDeclaration">Whether the names its declarations declare are references too.</param>
+    /// <param name="includeDeclaration">Whether the names its declarations declare are references too, and the attributes of a member.</param>
     /// <returns>
-    /// The name and each place that refers to its symbol, as a site whose range is the name, by module and then in the order written: the procedures of a
-    /// property are one symbol. <see langword="null"/> where no name is written, or where what the name refers to is not known; a name whose meaning is not
-    /// known where it is written is not a reference.
+    /// The name and each place that refers to its symbol, as a site whose range is the name, by module and then in the order written. <see langword="null"/>
+    /// where no name is written, or where what the name refers to is not known; a name whose meaning is not known where it is written is not a reference.
     /// </returns>
+    /// <remarks>
+    /// Each procedure of a property is referred to by the names that call it (<strong>MS-VBAL §5.3.1.7</strong>): its <c>Property Get</c> by those that read
+    /// the property, its <c>Property Let</c> by the targets of Let-assignments, and its <c>Property Set</c> by the targets of Set-assignments. The procedure is
+    /// the one whose name is at <paramref name="position"/>, or the one the name there calls; a rename renames all of them (<see cref="OccurrencesAt"/>). The
+    /// name of a function or a <c>Property Get</c> that its own body assigns is its result, and refers to no procedure.
+    /// </remarks>
     public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
+        => NamesOf(context, module, position, includeDeclaration, byAccess: true);
+
+    /// <summary>
+    /// Every name that refers to the symbol named at <paramref name="position"/> of <paramref name="module"/>, in every module of the workspace, its
+    /// declarations included: what a rename of it renames, and each type name that names it - whichever procedure of a property it calls.
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="position">A position in the name, or at its end.</param>
+    /// <returns>As <see cref="ReferencesAt"/> answers; the procedures of a property are one symbol.</returns>
+    public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position)
+        => NamesOf(context, module, position, includeDeclaration: true, byAccess: false);
+
+    private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess)
     {
         if (SymbolAt(context, module, position) is not { } named)
         {
@@ -108,13 +127,43 @@ public static class SymbolNavigation
         }
 
         var (origin, symbol) = named;
-        var symbols = DefinedTogether(context, symbol).Select(together => together.SemanticId).ToHashSet();
+        var together = DefinedTogether(context, symbol).ToList();
+        var symbols = together.Select(defined => defined.SemanticId).ToHashSet();
         var isType = symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
+        var occurrences = NameOccurrences.Find(context, symbol.Name, context.Modules).Occurrences;
+
+        // how each module's names are used, found once per module.
+        var assigned = new Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>>(StringComparer.Ordinal);
+        NameAccess AccessOf(Uri at, SourcePosition start)
+        {
+            if (!assigned.TryGetValue(at.AbsoluteUri, out var names))
+            {
+                names = context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == at.AbsoluteUri) is { } source
+                    ? NameOccurrences.AssignedIn(source)
+                    : new Dictionary<SourcePosition, NameAccess>();
+                assigned[at.AbsoluteUri] = names;
+            }
+
+            return names.TryGetValue(start, out var access) ? access : NameAccess.Read;
+        }
+
+        // the procedure of a property that is referred to: the one whose name is declared there, or the one the name there calls - its Get, for the result
+        // its Get assigns; a property that has no such procedure is referred to by no use.
+        NameAccess? called = null;
+        SemanticId? accessor = null;
+        if (byAccess && AccessorOf(symbol) is { } declared)
+        {
+            var declares = occurrences.Any(occurrence => occurrence.Kind == OccurrenceKind.Declaration
+                && occurrence.Module.AbsoluteUri == module.AbsoluteUri && occurrence.Range == origin);
+            called = declares ? declared : AccessOf(module, origin.Start) is var used && used != NameAccess.Result ? used : NameAccess.Read;
+            accessor = together.FirstOrDefault(defined => AccessorOf(defined) == called)?.SemanticId;
+        }
 
         var sites = new List<SymbolSite>();
-        foreach (var occurrence in NameOccurrences.Find(context, symbol.Name, context.Modules).Occurrences)
+        foreach (var occurrence in occurrences)
         {
-            if (occurrence.Kind == OccurrenceKind.Declaration && !includeDeclaration)
+            var declaration = occurrence.Kind is OccurrenceKind.Declaration || (byAccess && occurrence.Kind is OccurrenceKind.Attribute);
+            if (declaration && !includeDeclaration)
             {
                 continue;
             }
@@ -123,6 +172,17 @@ public static class SymbolNavigation
             var refers = occurrence.Binding is { } binding
                 ? symbols.Contains(binding)
                 : isType && occurrence.Scope is { } scope && IsTheType(context, symbol, scope.Uri);
+            if (refers && byAccess)
+            {
+                refers = occurrence.Kind switch
+                {
+                    OccurrenceKind.Declaration => called is null || occurrence.Binding == accessor,
+                    OccurrenceKind.Attribute => true,
+                    _ => AccessOf(occurrence.Module, occurrence.Range.Start) is var access && access != NameAccess.Result
+                        && (called is null || (accessor is not null && access == called)),
+                };
+            }
+
             if (refers)
             {
                 sites.Add(new SymbolSite(occurrence.Module, occurrence.Range, occurrence.Range));
@@ -149,6 +209,15 @@ public static class SymbolNavigation
             .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(site => site.Range.Start)]);
     }
+
+    // what calls a procedure of a property: a read calls its Get, a Let-assignment its Let, a Set-assignment its Set; null for anything else.
+    private static NameAccess? AccessorOf(Symbol symbol) => symbol switch
+    {
+        VBPropertyGetMemberSymbol => NameAccess.Read,
+        VBPropertyLetMemberSymbol => NameAccess.Let,
+        VBPropertySetMemberSymbol => NameAccess.Set,
+        _ => null,
+    };
 
     // whether the type a name names where it is written is the symbol.
     private static bool IsTheType(RenameContext context, Symbol type, Uri scope)

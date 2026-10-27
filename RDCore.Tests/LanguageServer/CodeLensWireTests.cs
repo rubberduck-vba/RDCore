@@ -53,10 +53,12 @@ public sealed class CodeLensWireTests
             Debug.Print Title
         End Sub
         Private Function Unused() As Long
+            Unused = 1
         End Function
         """;
 
-    private const string Program = "10 Show\r\n20 Show\r\n30 Title = \"a\"\r\n40 Dim p As Point\r\n";
+    // reads Title, and never assigns it.
+    private const string Program = "10 Show\r\n20 Show\r\n30 Debug.Print Title\r\n40 Dim p As Point\r\n";
 
     private static DocumentUri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName));
 
@@ -127,11 +129,12 @@ public sealed class CodeLensWireTests
 
         CollectionAssert.AreEqual(new[] { "Main.rdc 3" }, ReferencesOf(resolved[0]), "Point: the Dim of the program, in its text");
         Assert.IsEmpty(ReferencesOf(resolved[1]), "Kind");
-        CollectionAssert.AreEquivalent(new[] { "Helpers.bas 9", "Helpers.bas 15", "Main.rdc 2" }, ReferencesOf(resolved[2]),
-            "Title: what its Get assigns, what Show prints, and what the program assigns");
-        CollectionAssert.AreEquivalent(ReferencesOf(resolved[2]), ReferencesOf(resolved[3]), "the procedures of a property are one symbol");
+        CollectionAssert.AreEquivalent(new[] { "Helpers.bas 15", "Main.rdc 2" }, ReferencesOf(resolved[2]),
+            "the Get of Title: what Show prints and what the program prints - not the result its body assigns");
+        Assert.IsEmpty(ReferencesOf(resolved[3]), "the Let of Title: nothing assigns the property");
+        Assert.AreEqual(RefactoringTitles.References(0), resolved[3].Command!.Title);
         CollectionAssert.AreEqual(new[] { "Main.rdc 0", "Main.rdc 1" }, ReferencesOf(resolved[4]), "Show");
-        Assert.IsEmpty(ReferencesOf(resolved[5]), "Unused");
+        Assert.IsEmpty(ReferencesOf(resolved[5]), "Unused: the result its body assigns is no reference");
 
         Assert.IsTrue(resolved.All(lens => lens.Command!.Name == RefactoringCommands.ShowReferences));
         Assert.AreEqual(RefactoringTitles.References(2), resolved[4].Command!.Title);

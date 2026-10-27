@@ -33,6 +33,25 @@ internal enum OccurrenceKind
     Attribute,
 }
 
+/// <summary>How a name is used where it is written: what tells the procedures of a property apart (<strong>MS-VBAL §5.3.1.7</strong>).</summary>
+internal enum NameAccess
+{
+    /// <summary>Its value is read, or it is called: what a <c>Property Get</c> is called for.</summary>
+    Read,
+
+    /// <summary>It is the target of a Let-assignment (<strong>MS-VBAL §5.4.3.8</strong>): what a <c>Property Let</c> is called for.</summary>
+    Let,
+
+    /// <summary>It is the target of a Set-assignment (<strong>MS-VBAL §5.4.3.9</strong>): what a <c>Property Set</c> is called for.</summary>
+    Set,
+
+    /// <summary>
+    /// It is the result of the function or the <c>Property Get</c> whose body assigns it - its function result variable (<strong>MS-VBAL §5.3.1</strong>): the
+    /// procedure's own name, which calls no procedure.
+    /// </summary>
+    Result,
+}
+
 /// <summary>
 /// One place a name is written, and what it refers to there.
 /// </summary>
@@ -108,6 +127,47 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             }
         }
     }
+
+    /// <summary>
+    /// The names the assignments of a module assign, by where each begins: the target of a Let-assignment or a Set-assignment, a simple name or the member
+    /// after a <c>.</c>, called with arguments or not (<c>Title(1) = x</c>). Every other name of the module is read (<see cref="NameAccess.Read"/>).
+    /// </summary>
+    /// <remarks>
+    /// The name of a function or of a <c>Property Get</c> that its own body assigns is its result (<see cref="NameAccess.Result"/>); a <c>Property Let</c> or
+    /// <c>Set</c> has none, and its name that its body assigns calls it again. An <c>LSet</c> or <c>RSet</c> assigns a variable (<strong>MS-VBAL §5.4.3.6</strong>,
+    /// §5.4.3.7), as a Let-assignment does.
+    /// </remarks>
+    public static IReadOnlyDictionary<SourcePosition, NameAccess> AssignedIn(RenameModule module)
+    {
+        var assigned = new Dictionary<SourcePosition, NameAccess>();
+        foreach (var procedure in module.Syntax.Descendants().OfType<MemberDeclarationNode>().Where(member => Procedures.Contains(member.MemberKind)))
+        {
+            foreach (var assignment in procedure.Descendants().OfType<AssignmentStatementNode>())
+            {
+                if (AssignedName(assignment.Target) is not { } name)
+                {
+                    continue;
+                }
+
+                var isResult = procedure.MemberKind is MemberKind.Function or MemberKind.PropertyGet
+                    && assignment.Target is SimpleNameExpressionNode
+                    && string.Equals(name.IdentifierName, procedure.Name, StringComparison.OrdinalIgnoreCase);
+                assigned[name.Location.Range.Start] = isResult ? NameAccess.Result : assignment.Kind == AssignmentKind.Set ? NameAccess.Set : NameAccess.Let;
+            }
+        }
+
+        return assigned;
+    }
+
+    // the name an assignment's target assigns: the name, or the member after a dot, of what is called with arguments or not.
+    private static SimpleNameExpressionNode? AssignedName(ExpressionNode target) => target switch
+    {
+        SimpleNameExpressionNode name => name,
+        MemberAccessExpressionNode access => access.Member,
+        IndexExpressionNode index => AssignedName(index.Callee),
+        _ => null,
+    };
+
     /// <summary>The scope a position of a module is in.</summary>
     public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
 
