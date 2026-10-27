@@ -42,6 +42,7 @@ public sealed class FewCapabilitiesInitializeTests
             .AddHandler(new CallHierarchyPrepareHandler(workspace))
             .AddHandler(new TypeHierarchyPrepareHandler(workspace))
             .AddHandler(new InlayHintHandler(workspace))
+            .AddHandler(new CodeLensHandler(workspace))
             .AddHandler(new SelectionRangeHandler(documents, parsing))
             .AddHandler(new WorkspaceSymbolHandler(documents, parsing, new IntrinsicSymbolResolver(), options));
     }
@@ -84,6 +85,7 @@ public sealed class FewCapabilitiesInitializeTests
         Assert.IsNotNull(advertised.CallHierarchyProvider, "callHierarchy");
         Assert.IsNotNull(advertised.TypeHierarchyProvider, "typeHierarchy");
         Assert.IsNotNull(advertised.InlayHintProvider, "inlayHint");
+        Assert.IsNotNull(advertised.CodeLensProvider, "codeLens");
         Assert.IsNotNull(advertised.SelectionRangeProvider, "selectionRange");
         Assert.IsNotNull(advertised.WorkspaceSymbolProvider, "workspace/symbol");
     }
