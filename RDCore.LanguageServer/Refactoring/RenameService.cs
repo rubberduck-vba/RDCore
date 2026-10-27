@@ -230,6 +230,35 @@ internal sealed class RenameWorkspace
     /// <returns>The place; none where no name is written, where what the name refers to is not known, or where no document of the workspace declares it.</returns>
     public IReadOnlyList<LocationLink> Declarations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.DeclarationAt);
 
+    /// <summary>
+    /// Where the symbol named at a position of a document is referred to (<see cref="SymbolNavigation.ReferencesAt"/>): each name, in the text of its document.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="position">A position in the name, in the text of the document.</param>
+    /// <param name="includeDeclaration">Whether the names its declarations declare are references too.</param>
+    /// <returns>Each place; none where no name is written, or where what the name refers to is not known.</returns>
+    public IReadOnlyList<Location> References(Uri documentUri, Position position, bool includeDeclaration)
+        => [.. Navigate(documentUri, position, (context, module, at) => SymbolNavigation.ReferencesAt(context, module, at, includeDeclaration))
+            .Select(link => new Location { Uri = link.TargetUri, Range = link.TargetSelectionRange })];
+
+    /// <summary>
+    /// The names in a document that refer to the symbol named at a position of it (<strong>LSP 3.17</strong> §Document Highlights Request): the references
+    /// that are in the document, its declaration included. Each is a <see cref="DocumentHighlightKind.Text"/>: which name reads the symbol and which assigns it
+    /// is not told apart yet.
+    /// </summary>
+    public IReadOnlyList<DocumentHighlight> Highlights(Uri documentUri, Position position)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || SymbolNavigation.ReferencesAt(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+        {
+            return [];
+        }
+
+        return [.. target.Sites
+            .Where(site => site.Module.AbsoluteUri == module.Module.AbsoluteUri)
+            .Select(site => new DocumentHighlight { Range = module.ToTextRange(site.Range), Kind = DocumentHighlightKind.Text })];
+    }
+
     private IReadOnlyList<LocationLink> Navigate(
         Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, SymbolNavigationTarget?> navigate)
     {

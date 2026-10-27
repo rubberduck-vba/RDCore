@@ -85,6 +85,73 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
+    /// <summary>
+    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is referred to, in every module of the workspace
+    /// (<strong>LSP 3.17</strong> §Find References Request): each name that a rename of the symbol would rename, and each type name that names it.
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="position">A position in the name, or at its end.</param>
+    /// <param name="includeDeclaration">Whether the names its declarations declare are references too.</param>
+    /// <returns>
+    /// The name and each place that refers to its symbol, as a site whose range is the name, by module and then in the order written: the procedures of a
+    /// property are one symbol. <see langword="null"/> where no name is written, or where what the name refers to is not known; a name whose meaning is not
+    /// known where it is written is not a reference.
+    /// </returns>
+    public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
+    {
+        if (SymbolAt(context, module, position) is not { } named)
+        {
+            return null;
+        }
+
+        var (origin, symbol) = named;
+        var symbols = DefinedTogether(context, symbol).Select(together => together.SemanticId).ToHashSet();
+        var isType = symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
+
+        var sites = new List<SymbolSite>();
+        foreach (var occurrence in NameOccurrences.Find(context, symbol.Name, context.Modules).Occurrences)
+        {
+            if (occurrence.Kind == OccurrenceKind.Declaration && !includeDeclaration)
+            {
+                continue;
+            }
+
+            // a name that means no value where it is written is the type it names: a class that is created with New.
+            var refers = occurrence.Binding is { } binding
+                ? symbols.Contains(binding)
+                : isType && occurrence.Scope is { } scope && IsTheType(context, symbol, scope.Uri);
+            if (refers)
+            {
+                sites.Add(new SymbolSite(occurrence.Module, occurrence.Range, occurrence.Range));
+            }
+        }
+
+        if (isType)
+        {
+            foreach (var source in context.Modules.Where(candidate => candidate.Source.Contains(symbol.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                foreach (var (name, range) in NameOccurrences.TypeNamesIn(source))
+                {
+                    if (string.Equals(name, symbol.Name, StringComparison.OrdinalIgnoreCase)
+                        && IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
+                    {
+                        sites.Add(new SymbolSite(source.Module, range, range));
+                    }
+                }
+            }
+        }
+
+        return new SymbolNavigationTarget(origin, symbol, [.. sites
+            .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
+            .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
+            .ThenBy(site => site.Range.Start)]);
+    }
+
+    // whether the type a name names where it is written is the symbol.
+    private static bool IsTheType(RenameContext context, Symbol type, Uri scope)
+        => context.Resolver.ResolveType(type.Name, ScopeKind.Local, scope).Symbol is { } resolved && resolved.SemanticId == type.SemanticId;
+
     // a property is defined by each of its procedures - its Property Get, Let and Set: what an access calls is not known from the name alone.
     private static IEnumerable<Symbol> DefinedTogether(RenameContext context, Symbol symbol)
     {

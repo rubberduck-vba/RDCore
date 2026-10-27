@@ -106,6 +106,56 @@ public sealed class DefinitionWireTests
         return [.. answers];
     }
 
+    // one request of the program, to a server of the references and the highlights.
+    private static async Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var serving = OmniSharpLanguageServer.From(server => server
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            .AddHandler(new ReferencesHandler(Workspace()))
+            .AddHandler(new DocumentHighlightHandler(Workspace())), timeout.Token);
+        var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);
+
+        await Task.WhenAll(serving, connecting);
+        using var server = await serving;
+        using var languageClient = await connecting;
+        return await languageClient.SendRequest(request, timeout.Token);
+    }
+
+    private static TextDocumentIdentifier MainProgram() => new(DocumentUri.From(Document("Main.rdc")));
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheReferencesOfAName_AreInEveryDocument_InTheirText()
+    {
+        var references = (await SendAsync(new ReferenceParams
+        {
+            TextDocument = MainProgram(),
+            Position = new Position(2, 5),
+            Context = new ReferenceContext { IncludeDeclaration = true },
+        }))!.ToArray();
+
+        var helpers = DocumentUri.From(Document("Helpers.bas"));
+        var main = DocumentUri.From(Document("Main.rdc"));
+        CollectionAssert.AreEquivalent(new[]
+        {
+            (helpers, new Range(1, 7, 1, 15)), (helpers, new Range(4, 16, 4, 24)), (main, new Range(2, 3, 2, 11)), (main, new Range(4, 10, 4, 18)),
+        }, references.Select(reference => (reference.Uri, reference.Range)).ToArray());
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheHighlightsOfAName_AreItsReferences_InTheDocument()
+    {
+        var highlights = (await SendAsync(new DocumentHighlightParams { TextDocument = MainProgram(), Position = new Position(1, 4) }))!.ToArray();
+
+        CollectionAssert.AreEqual(new[] { new Range(0, 6, 0, 11), new Range(1, 3, 1, 8) }, highlights.Select(highlight => highlight.Range).ToArray(),
+            "count: its Dim, and the line that assigns it");
+    }
+
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AClientThatReadsLinks_IsAnsweredWithTheName_TheDeclaration_AndTheNameItDeclares()

@@ -304,4 +304,59 @@ public sealed class SymbolNavigationTests
         Assert.IsEmpty(SymbolNavigation.DeclarationAt(context, ModuleUri("Program"), At(context, "Program", "MsgBox Total", "MsgBox"))?.Sites ?? []);
         Assert.IsNull(SymbolNavigation.DeclarationAt(context, ModuleUri("Program"), At(context, "Program", "o.Value = 1", "Value")));
     }
+
+    // --- textDocument/references: every name that refers to the symbol, in every module ---
+
+    // each site of a reference, as module:line, in the order answered.
+    private static string[] Referenced(RenameContext context, SymbolNavigationTarget? target)
+    {
+        Assert.IsNotNull(target);
+        Assert.IsTrue(target.Sites.All(site => site.Range == site.SelectionRange && Selected(context, site).Length > 0), "a reference is the name");
+        return [.. target.Sites.Select(site => $"{site.Module.Fragment.TrimStart('#')}:{Source(context, site.Module.Fragment.TrimStart('#'))[site.Range.Start.Line].Trim()}")];
+    }
+
+    [TestMethod]
+    public void AVariableOfAModule_IsReferredTo_InEveryModule()
+    {
+        var context = Workspace();
+        var position = At(context, "Program", "Debug.Print Total", "Total");
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Helpers:Public Total As Long", "Helpers:Total = Total + amount", "Helpers:Total = Total + amount",
+            "Program:Debug.Print Total", "Program:MsgBox Total",
+        }, Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), position)));
+
+        Assert.HasCount(4, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), position, includeDeclaration: false)!.Sites);
+    }
+
+    [TestMethod]
+    public void ALocal_IsReferredTo_InItsProcedure()
+        => CollectionAssert.AreEqual(new[] { "Program:Dim count As Long", "Program:count = 1", "Program:Add count" },
+            Referenced(Workspace(), SymbolNavigation.ReferencesAt(Workspace(), ModuleUri("Program"), At(Workspace(), "Program", "count = 1", "count"))));
+
+    // a property is one symbol whose procedures are referred to together; a member accessed late-bound is not known to be it.
+    [TestMethod]
+    public void AProperty_IsReferredTo_ByEachAccess_AndNotByALateBoundOne()
+    {
+        var context = Workspace();
+        var references = Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), At(context, "Program", "c.Value = \"x\"", "Value")));
+
+        CollectionAssert.IsSubsetOf(new[] { "Class1:Public Property Get Value() As String", "Class1:Public Property Let Value(ByVal v As String)",
+            "Program:c.Value = \"x\"", "Program:Debug.Print c.Value" }, references);
+        CollectionAssert.DoesNotContain(references, "Program:o.Value = 1");
+    }
+
+    [TestMethod]
+    public void AClass_IsReferredTo_WhereATypeNamesIt()
+    {
+        var context = Workspace();
+
+        CollectionAssert.AreEqual(new[] { "Program:Dim c As Class1", "Program:Set c = New Class1" },
+            Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), At(context, "Program", "Dim c As Class1", "Class1"))));
+    }
+
+    [TestMethod]
+    public void ALateBoundMember_HasNoReferences()
+        => Assert.IsNull(SymbolNavigation.ReferencesAt(Workspace(), ModuleUri("Program"), At(Workspace(), "Program", "o.Value = 1", "Value")));
 }

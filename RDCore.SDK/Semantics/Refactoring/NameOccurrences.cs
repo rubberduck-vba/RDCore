@@ -77,6 +77,12 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     /// expression, and <see cref="NameAt"/> does not see it.
     /// </summary>
     public static (string Name, SourceRange Range)? TypeNameAt(RenameModule module, SourcePosition position)
+        => TypeNamesIn(module).Select(written => ((string Name, SourceRange Range)?)written).FirstOrDefault(written => Contains(written!.Value.Range, position));
+
+    /// <summary>
+    /// The name of the type each <c>As</c> clause of a module declares, and where it is written, in the order they are written.
+    /// </summary>
+    public static IEnumerable<(string Name, SourceRange Range)> TypeNamesIn(RenameModule module)
     {
         var lines = LinesOf(module.Source);
         foreach (var (node, _) in Walk(module.Syntax))
@@ -96,21 +102,12 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             var line = lines[range.Start.Line];
             var end = Math.Min(range.End.Character, line.Length);
             var start = end > 0 ? line.LastIndexOf(name, end - 1, StringComparison.OrdinalIgnoreCase) : -1;
-            if (start < range.Start.Character)
+            if (start >= range.Start.Character)
             {
-                continue;
-            }
-
-            var written = NameRange(new SourcePosition(range.Start.Line, start), name);
-            if (Contains(written, position))
-            {
-                return (line.Substring(start, name.Length), written);
+                yield return (line.Substring(start, name.Length), NameRange(new SourcePosition(range.Start.Line, start), name));
             }
         }
-
-        return null;
     }
-
     /// <summary>The scope a position of a module is in.</summary>
     public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
 

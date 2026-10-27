@@ -103,6 +103,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<PrepareRenameHandler>();
         builder.WithHandler<Navigation.DefinitionHandler>();
         builder.WithHandler<Navigation.DeclarationHandler>();
+        builder.WithHandler<Navigation.ReferencesHandler>();
+        builder.WithHandler<Navigation.DocumentHighlightHandler>();
         builder.WithHandler<CodeActionHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();

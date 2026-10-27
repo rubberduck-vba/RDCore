@@ -254,6 +254,18 @@ A client that reads links (`definition.linkSupport`) is answered `LocationLink`s
 declaration (`targetRange`), and the name it declares (`targetSelectionRange`). Any other client is answered a `Location` per definition, at the name it
 declares. Ranges are in the text of the document: for a program of the BASIC, its lines.
 
+### `textDocument/references` and `textDocument/documentHighlight`
+
+The language server answers `textDocument/references` (**LSP 3.17** §Find References Request) with each name, in every document it holds, that refers to the
+symbol named at the position ([`SymbolNavigation.ReferencesAt`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)): the names a rename of the
+symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
+declarations declare are references when the client asks for them (`context.includeDeclaration`). The procedures of a property are one symbol: a reference
+to its `Property Get` is a reference to its `Property Let`. A member accessed late-bound - on an `Object` or a `Variant` - is not known to refer to it, and is
+not a reference.
+
+`textDocument/documentHighlight` (**LSP 3.17** §Document Highlights Request) answers the references that are in the document, its declaration included,
+each of kind `Text`: which reads the symbol and which assigns it is not told apart yet.
+
 ### `textDocument/declaration`
 
 The language server answers `textDocument/declaration` (**LSP 3.17** §Goto Declaration Request) the way it answers `textDocument/definition`, with one place:
