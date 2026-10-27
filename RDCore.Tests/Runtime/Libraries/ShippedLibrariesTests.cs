@@ -56,6 +56,17 @@ public sealed class ShippedLibrariesTests
     }
 
     [TestMethod]
+    public void ALibraryThatShips_IsFoundByItsTypeLibrarysGuid_AsAVbpReferencesIt()
+    {
+        ILibrarySource source = Source;
+        CollectionAssert.AreEquivalent(Shipped, source.Names.ToArray());
+
+        Assert.IsTrue(source.TryGetByGuid(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), out var scripting));
+        Assert.AreEqual("Scripting", scripting.Name);
+        Assert.IsFalse(source.TryGetByGuid(Guid.NewGuid(), out _));
+    }
+
+    [TestMethod]
     public void TheLibrariesThatShip_AreLoadedTogether_EachWithEveryLibraryItDependsOn_AndNoneDependsOnItself()
     {
         var libraries = ReferencedLibraries.Load(Source, Shipped, ["VBA"]);
