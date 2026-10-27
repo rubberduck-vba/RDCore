@@ -34,6 +34,9 @@
   <data name="VbpImport_Startup" xml:space="preserve">
     <value>Le projet démarre par « {0} », ce qu'un fichier de projet ne dit pas encore.</value>
   </data>
+  <data name="VbpImport_InvalidConditionalCompilation" xml:space="preserve">
+    <value>Les arguments de compilation conditionnelle « {0} » ne sont pas repris : VB6 les refuse aussi. Chacun est un nom et un nombre entier de -32768 à 32767, séparés par des deux-points (DEBUG = 1 : TRACE = -1).</value>
+  </data>
   <!-- What the import asks, and why it is not made (VbpImportText). {0} is a folder or a file, {1} the .vbp. -->
   <data name="VbpImport_Ask_Replace" xml:space="preserve">
     <value>« {0} » a déjà un fichier de projet. Le remplacer par le projet de « {1} » ?</value>

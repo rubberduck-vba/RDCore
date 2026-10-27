@@ -30,6 +30,12 @@ public enum VbpImportNoteKind
 
     /// <summary>The <c>Startup</c> of the project, which a <c>.rdproj</c> does not say yet.</summary>
     Startup,
+
+    /// <summary>
+    /// Conditional compilation arguments (<c>CondComp=</c>) that VB6 refuses as a whole: each is a name and a whole number from -32768 to 32767
+    /// (<c>DEBUG = 1 : TRACE = -1</c>), and none of them is carried over.
+    /// </summary>
+    InvalidConditionalCompilation,
 }
 
 /// <summary>
@@ -224,9 +230,15 @@ public static class VbpProjectImporter
                     notes.Add(new VbpImportNote(VbpImportNoteKind.Control, value[(value.IndexOf(';') + 1)..].Trim()));
                     break;
                 case "CONDCOMP":
-                    foreach (var (constant, expression) in Constants(Unquoted(value)))
+                    if (Constants(Unquoted(value)) is not { } arguments)
                     {
-                        constants[constant] = expression;
+                        notes.Add(new VbpImportNote(VbpImportNoteKind.InvalidConditionalCompilation, Unquoted(value)));
+                        break;
+                    }
+
+                    foreach (var (constant, number) in arguments)
+                    {
+                        constants[constant] = number;
                     }
                     break;
                 case "STARTUP":
@@ -356,17 +368,44 @@ public static class VbpProjectImporter
         }
     }
 
-    // CondComp="DEBUG = 1 : TRACE = -1": each argument is a name and the literal it is.
-    private static IEnumerable<(string Name, string Expression)> Constants(string arguments)
+    // CondComp="DEBUG = 1 : TRACE = -1": name = n, separated by colons, spaces optional, n a whole number -32768..32767 with an optional sign - as vb6.exe
+    // reads it, measured with /make (HexIDE, 2026-10-27). Anything else - a string, &H10, True, 1.5, a name without a value, a colon at the end - and vb6.exe
+    // refuses the whole line: null.
+    private static List<(string Name, string Number)>? Constants(string arguments)
     {
+        var constants = new List<(string Name, string Number)>();
+        if (arguments.Trim().Length == 0)
+        {
+            return constants;
+        }
+
         foreach (var argument in arguments.Split(':'))
         {
             var equals = argument.IndexOf('=');
-            if (equals > 0 && argument[..equals].Trim() is { Length: > 0 } name)
+            if (equals < 0)
             {
-                yield return (name, argument[(equals + 1)..].Trim());
+                return null;
             }
+
+            var name = argument[..equals].Trim();
+            var number = argument[(equals + 1)..].Trim();
+            if (!IsIdentifier(name)
+                || number.Length == 0
+                || !number.TrimStart('+', '-').All(char.IsAsciiDigit)
+                || number.Count(c => c is '+' or '-') > 1
+                || !short.TryParse(number, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value))
+            {
+                return null;
+            }
+
+            constants.Add((name, value.ToString(CultureInfo.InvariantCulture)));
         }
+
+        return constants;
+
+        // a letter, then letters, digits and underscores (MS-VBAL §3.3.5).
+        static bool IsIdentifier(string name)
+            => name.Length is > 0 and <= 255 && char.IsLetter(name[0]) && name.All(c => char.IsLetterOrDigit(c) || c == '_');
     }
 
     // a type library's version, as the .vbp writes it: major.minor, in hexadecimal.

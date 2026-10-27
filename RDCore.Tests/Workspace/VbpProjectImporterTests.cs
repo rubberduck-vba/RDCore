@@ -96,6 +96,96 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("-1", constants["TRACE"]);
     }
 
+    // as vb6.exe reads CondComp, measured with /make (HexIDE, 2026-10-27): name = n, colon-separated, spaces optional, n a whole number -32768..32767.
+    [TestMethod]
+    [DataRow("A=1:B=-2", "A=1;B=-2")]
+    [DataRow("debug = +5 : Trace=0", "debug=5;Trace=0")]
+    [DataRow("Low = -32768 : High = 32767", "Low=-32768;High=32767")]
+    [DataRow("", "")]
+    public void ConditionalCompilationArguments_ThatVB6Reads_AreTheProjectsConstants(string condComp, string expected)
+    {
+        var import = Import($"CondComp=\"{condComp}\"");
+
+        Assert.AreEqual(expected, string.Join(";", import.Project.PrecompilerConstants.Select(constant => $"{constant.Key}={constant.Value}")));
+        Assert.IsEmpty(import.Notes);
+    }
+
+    [TestMethod]
+    [DataRow("A = \"text\"", DisplayName = "a string")]
+    [DataRow("A = &H10", DisplayName = "a hexadecimal number")]
+    [DataRow("A = True", DisplayName = "True")]
+    [DataRow("A = 1.5", DisplayName = "a fraction")]
+    [DataRow("A = 32768", DisplayName = "a number too large")]
+    [DataRow("A = --1", DisplayName = "two signs")]
+    [DataRow("A", DisplayName = "a name without a value")]
+    [DataRow("A =", DisplayName = "an empty value")]
+    [DataRow("A = 1 :", DisplayName = "a colon at the end")]
+    [DataRow("1A = 1", DisplayName = "a name that is no identifier")]
+    public void ConditionalCompilationArguments_ThatVB6Refuses_AreRefusedWhole_AndNoted(string condComp)
+    {
+        var import = Import($"CondComp=\"B = 2 : {condComp}\"");
+
+        Assert.IsEmpty(import.Project.PrecompilerConstants, "vb6.exe refuses the whole line, B = 2 with it");
+        Assert.AreEqual((VbpImportNoteKind.InvalidConditionalCompilation, $"B = 2 : {condComp}"), import.Notes.Select(note => (note.Kind, note.Subject)).Single());
+    }
+
+    [TestMethod]
+    public void AVbpThatStartsWithAByteOrderMark_IsReadInItsEncoding()
+    {
+        var ansi = CodePagesEncodingProvider.Instance.GetEncoding(1252)!;
+
+        Assert.AreEqual("Name=\"Café\"", VbpProjectImporter.Decode([.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes("Name=\"Café\"")], ansi));
+    }
+
+    // a client that keeps a .vbp and a .rdproj in step imports the .vbp again after each change: the platform's own settings survive it.
+    [TestMethod]
+    public void AnImportOverAProjectFile_ReplacesWhatTheVbpDescribes_AndKeepsTheRest()
+    {
+        var existing = new ProjectFile(@"C:\old", new RDCoreProject
+        {
+            Name = "Old",
+            References =
+            [
+                RDCoreReference.VBStandardLibrary,
+                new RDCoreReference { Name = "Scripting", TypeLibInfoPath = "scrrun.json" },
+                new RDCoreReference { Name = "ADODB" },
+            ],
+            Modules = [new RDCoreModule { RelativeUri = "MODMAIN.BAS", Super = DocClassType.ExcelWorkbook }, new RDCoreModule { RelativeUri = "gone.bas" }],
+            OtherFiles = [new RDCoreFile { RelativeUri = "old.txt" }],
+            PrecompilerConstants = new() { ["OLD"] = "1" },
+        }) with
+        {
+            Version = "0.0.9",
+            Configuration = ["rdcore.settings.json"],
+        };
+
+        var project = Import().Into(existing, @"C:\ws");
+
+        Assert.AreEqual(@"C:\ws", project.Uri);
+        Assert.AreEqual(new ProjectFile(@"C:\ws").Version, project.Version, "the running platform's, as of every project file it writes");
+        CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration, "the platform's own settings");
+
+        var info = project.ProjectInfo;
+        Assert.AreEqual("Battleship", info.Name);
+        CollectionAssert.AreEqual(new[] { "frmMain.frm", "modMain.bas", "Classes/clsThing.cls" }, info.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.AreEqual(DocClassType.ExcelWorkbook, info.Modules.Single(module => module.RelativeUri == "modMain.bas").Super, "kept by its path, in any case");
+        CollectionAssert.AreEqual(new[] { "VBA", "stdole", "Scripting" }, info.References.Select(reference => reference.Name).ToArray(), "ADODB is no longer referenced");
+        Assert.AreEqual("scrrun.json", info.References.Single(reference => reference.Name == "Scripting").TypeLibInfoPath);
+        Assert.AreEqual(new Guid("420B2830-E718-11CF-893D-00A0C9054228"), info.References.Single(reference => reference.Name == "Scripting").Guid, "the .vbp's");
+        CollectionAssert.AreEqual(new[] { "ctlGauge.ctl", "README.txt", "Battleship.RES" }, info.OtherFiles.Select(file => file.RelativeUri).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "DEBUG", "TRACE" }, info.PrecompilerConstants.Keys.ToArray());
+    }
+
+    [TestMethod]
+    public void AnImportIntoAFolderWithNoProjectFile_IsANewOne()
+    {
+        var project = Import().Into(null, @"C:\ws");
+
+        Assert.AreEqual(@"C:\ws", project.Uri);
+        Assert.AreEqual("Battleship", project.ProjectInfo.Name);
+        Assert.IsEmpty(project.Configuration);
+    }
+
     [TestMethod]
     public void WhatAProjectFileCannotSay_IsNoted_AndNotCarriedOver()
     {
