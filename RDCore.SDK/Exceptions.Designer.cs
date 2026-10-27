@@ -1355,6 +1355,15 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_ParamArrayPassingMode_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An argument list does not end with an omitted argument: remove the last comma..
+        /// </summary>
+        public static string VBCompileError_TrailingOmittedArgument_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_TrailingOmittedArgument_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..
