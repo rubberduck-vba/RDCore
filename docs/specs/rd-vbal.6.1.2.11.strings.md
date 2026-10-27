@@ -89,13 +89,23 @@ A member reads `Compare` as it is given, and never consults `Option Compare` its
 `vbBinaryCompare` (`0`) or `vbTextCompare` (`1`); anything else (`2`, `-1`, a locale identifier) is error `5`.
 `VbCompareMethod` has no `vbDatabaseCompare`.
 
+> [!WARNING]
+> 🚧 MS-VBA takes a `Compare` that is a locale identifier - `3`, `4`, `100`, `1031`, `1033`, not `5000`, `32767` or `65535` - as a text comparison, `Replace`
+> takes `2` as one where `InStr` and `StrComp` raise `5`, and Danish and Norwegian do not expand `æ` (recorded in Excel). RD-VBA raises `5`, as above.
+
 In text mode two `String`s are equal as `=` finds them under `Option Compare Text`
-([**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md#string-comparison)). MS-VBAL says
-nothing of how a text-mode search matches, so a search finds a run of the searched `String` that is as long as the
-pattern and that `=` calls equal to it: where `InStr(s, p, , vbTextCompare)` is _k_, `Mid(s, k, Len(p)) = p` is `True`
-under `Option Compare Text`. A match that would need a run of another length is not found: `"ab"` is not found in `"a"`,
-a soft hyphen and `"b"`, though the comparison calls the two equal. A pattern made only of characters the comparison
-ignores, such as `vbNullChar`, is searched for as it is, so `Split(buffer, vbNullChar)` splits at the null characters.
+([**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md#string-comparison)). A text-mode search does not use that
+comparison. MS-VBAL says nothing of how a text-mode search matches, and RD-VBA searches as MS-VBA does (recorded in Excel), the way `Like` matches
+([**RD-VBAL §5.6.9.6**](rd-vbal.5.6.9.6.like-operator.md)): it searches the letters of both `String`s, each character folded to one case, and `æ`, `œ`, `ß` and
+`þ` (and their capitals) expanded to the two letters they are. Nothing is ignored: a soft hyphen, `vbNullChar`, a full-width letter or katakana is a character
+of its own, so `Split(buffer, vbNullChar)` splits at the null characters, and `"ab"` is not found in `"a"`, a soft hyphen and `"b"`. Accents are not case, and
+`ĳ`, the ligatures `ﬀ` to `ﬆ` and `ǆ` are not expanded.
+
+|Search|What it finds|Example|
+|---|---|---|
+|`InStr`, `InStrRev`, `Filter`|The letters of the pattern anywhere in the letters of the `String`, part of an expanded character too, found at the character the match starts in.|`InStr(1, "xæx", "ex", vbTextCompare)` is `2`; `InStr(1, "xaex", "æ", vbTextCompare)` is `2`.|
+|`Replace`, `Split`|The same, where the match starts and ends with a character: part of an expanded character is not replaced, nor split at.|`Replace("xæx", "a", "-", , , vbTextCompare)` is `"xæx"`; `Replace("xaex", "æ", "-", , , vbTextCompare)` is `"x-x"`.|
+
 In binary mode a search matches the same code units.
 
 `Replace` and `Split` take their matches from left to right, each search resuming after the run it found, so their
