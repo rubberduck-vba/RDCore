@@ -27,11 +27,12 @@ ccEndIf : whiteSpace* hashEndIf ccEol;
 ccEol : whiteSpace* comment? (NEWLINE | EOF);
 // We use parser rules instead of tokens (such as HASHCONST) because
 // marked file numbers have a similar format and cause conflicts.
-hashConst : HASH CONST;
-hashIf : HASH IF;
-hashElseIf : HASH ELSEIF;
-hashElse : HASH ELSE;
-hashEndIf : HASH END_IF;
+// MS-VBA has the '#' and the keyword apart too, with spaces or a line-continuation between them (oracle\cc-continued C13, D01-D06).
+hashConst : HASH whiteSpace* CONST;
+hashIf : HASH whiteSpace* IF;
+hashElseIf : HASH whiteSpace* ELSEIF;
+hashElse : HASH whiteSpace* ELSE;
+hashEndIf : HASH whiteSpace* END_IF;
 
 physicalLine : ~(NEWLINE | EOF)* (NEWLINE | EOF);
 
