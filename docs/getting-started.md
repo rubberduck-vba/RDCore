@@ -37,6 +37,7 @@ To run it:
 - A client launches `RDCore.LanguageServer\RDCore.LanguageServer.exe` with `RDCore.LanguageServer\` as its working directory (`appsettings.json` is read from the working directory) and `--client-process-id <pid> --pipe-name <name> --workspace <uri>`, `<pid>` being the client's own process ID, without which the server and its child processes cannot exit if the client dies; `release.json` describes the same launch under `launch.languageServer`.
 - Don't set `RDCORE_PLATFORM_ROOT` in your user or system environment: it overrides the platform root of every RDCore process (and of the processes they start).
 - With no arguments, `RDCore.CLI\rdc.exe` is the interactive RD-VBA shell; it also reads `appsettings.json` from its working directory, so start it from `RDCore.CLI\`.
+- RDCore runs as a 64-bit process: UserForms need 64-bit Office (the 64-bit Microsoft Forms 2.0), a `Declare` statement's library must be a 64-bit DLL, and Office automation (`CreateObject("Excel.Application")`) needs the Office application installed.
 
 > [!WARNING]
 > Preview builds are not signed: SmartScreen may warn about them, and Windows 11 _Smart App Control_ may block them.

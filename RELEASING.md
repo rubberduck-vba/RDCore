@@ -59,6 +59,7 @@ Only people on the bypass list can then create, move or delete a release tag, an
 
 ## Cutting a release
 
+1. **Dry run the commit you will tag** ([Dry run](#dry-run)), and check its zip. Some breakage only shows up on the release path: a package bump that the notices' exact-version overrides don't know yet, or a reworded log line the language-server smoke test waits for. A pull request only runs this workflow when it touches the paths it watches.
 1. **Check the version.** `<VersionPrefix>` in `Directory.Build.props` is the single source of the version (e.g. `0.1.0`). If it needs to change, change it in a normal pull request first.
 1. **Pick the tag.** It must be `v<VersionPrefix>` (e.g. `v0.1.0`) or `v<VersionPrefix>-<suffix>` for a candidate (e.g. `v0.1.0-rc.1`). The suffix becomes the SemVer prerelease part of the version.
 1. **Tag a commit that is already on `main`**, ideally one whose _Build and Test_ run is green. With `origin` pointing at `rubberduck-vba/RDCore`:
@@ -72,20 +73,20 @@ Only people on the bypass list can then create, move or delete a release tag, an
 
 1. **Let the build job run.** Open the run under **Actions → Release**. The build job runs the tests, publishes the platform tree (`PlatformPublish.ps1`, Release, `win-x64`), writes `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and zips it (`New-ReleaseArchive.ps1`). There is nothing to approve until it has finished.
 1. **Review, then approve.** Once the build job is green, the run pauses on the `release` environment. Before approving, open the build job: **Resolve version** must print `Version <version> (tag run: True)` with the version you meant, and **Write the release notes** prints the notes the release will carry. Then **Review deployments** → tick `release` → **Approve and deploy**, within 30 days (the build job's assets are kept that long on a tag run).
-   - **Tagged the wrong commit?** **Reject** the waiting deployment (**Review deployments** → **Reject**) before you delete or move the tag: runs for the same tag go one at a time, so the run the new tag starts waits behind this one. Should this run be approved after the tag has moved, its publish job stops without publishing.
-1. **Let the publish job run.** It checks that the tag still points at the commit the build job built and that the tag has no release or draft yet, attests the build provenance of the zip and `release.json`, then creates a **draft** prerelease, uploads the three assets and publishes it.
+   - **Tagged the wrong commit?** **Reject** the waiting deployment (**Review deployments** → **Reject**) before you delete or move the tag: runs for the same tag go one at a time, so the run the new tag starts waits behind this one. Should this run be approved after the tag has moved, its publish job stops without creating a draft.
+1. **Let the publish job run.** It checks that the tag still points at the commit the build job built and that the tag has no release or draft yet, attests the build provenance of the zip and `release.json`, then creates a **draft** prerelease and uploads the three assets. It does not publish it.
 1. **If the publish job fails**, what to do depends on the step that stopped it. A re-run (**Re-run failed jobs**) waits for approval again.
    - **At or after *Create the draft prerelease*, or at *Check the tag has no release yet* reporting drafts**: a draft may be left behind, even when the *Create* step itself failed, and a re-run won't clean it up; it stops at **Check the tag has no release yet** instead. Delete the **drafts** (not the tag): `gh release delete <tag> -R rubberduck-vba/RDCore --yes` (without `--cleanup-tag`) deletes one draft per call, so repeat it until `gh release list -R rubberduck-vba/RDCore` shows none for the tag. Then re-run.
    - **At *Check the tag has no release yet*, saying the tag is already published**: there is nothing to re-run. Check the release's assets.
    - **At *Check the tag still points at the built commit***: the tag was moved after the build. Don't re-run this run: the run the moved tag started builds and publishes it.
    - **Any other step**: re-run.
-1. **Check the result.** The release is marked **Pre-release** and carries the three assets. Download them and [verify](#verifying-a-release) them.
+1. **Check the draft, then publish it.** Under **Releases**, the draft is marked **Pre-release** and carries the three assets. Download them, [verify](#verifying-a-release) them, and try the zip on a clean Windows x64 machine. Then edit the draft (its notes too, if needed) and **Publish release**, or `gh release edit <tag> -R rubberduck-vba/RDCore --draft=false`.
 
 ## Dry run
 
 **Actions → Release → Run workflow** (on `main`) → **Run workflow**. It builds, tests and packages like a release, then uploads the zip and its metadata as a short-lived workflow artifact. No tag, no release.
 
-A dry run doesn't exercise the release itself (draft, upload, publish): only a pushed tag does.
+A dry run doesn't exercise the release itself (the draft and its upload): only a pushed tag does.
 
 ---
 
@@ -180,6 +181,9 @@ There is no `Logs/` and no `Config/` folder: `Logs/` is created on first run.
 
 - **Unsigned.** SmartScreen may warn about the executables, and Windows 11 _Smart App Control_ may block them.
 - **Framework-dependent.** The .NET 10 x64 runtime (`Microsoft.NETCore.App`) must be installed; `release.json` records the minimum version.
-- **`win-x64` only.**
+- **`win-x64` only**, and a 64-bit process: what it loads must be 64-bit too.
+  - **UserForms** host Microsoft Forms 2.0, which needs **64-bit Office** (the 64-bit `FM20.DLL`); with 32-bit Office, a form fails to load.
+  - A **`Declare`** statement's library must be a 64-bit DLL.
+  - **Office automation** (`CreateObject("Excel.Application")` and the like) needs the Office application installed.
 - **Logs are written inside the extracted tree** (`<platform root>/Logs/<Component>-<yyyyMMdd>.log`), so the tree must be extracted to a user-writable folder (not under `Program Files`).
 - **Verbose logging.** The shipped `appsettings.json` files set `"TraceLevel": "Trace"` and `"Verbose": true`: logs grow quickly, and verbose messages may contain relatively sensitive information such as document locations, symbol names and execution stack traces.

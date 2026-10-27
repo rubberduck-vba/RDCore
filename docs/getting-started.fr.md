@@ -37,6 +37,7 @@ Pour l'exécuter :
 - Un client démarre `RDCore.LanguageServer\RDCore.LanguageServer.exe` avec `RDCore.LanguageServer\` comme répertoire de travail (`appsettings.json` est lu à partir du répertoire de travail) et les arguments `--client-process-id <pid> --pipe-name <nom> --workspace <uri>`, où `<pid>` est l'identifiant du processus client, sans lequel le serveur et ses processus enfants ne peuvent pas se terminer si le client meurt; `release.json` décrit ce même lancement sous `launch.languageServer`.
 - Ne définissez pas `RDCORE_PLATFORM_ROOT` dans votre environnement utilisateur ou système : cette variable remplace la racine de la plateforme pour tout processus RDCore (et pour les processus qu'il démarre).
 - Sans arguments, `RDCore.CLI\rdc.exe` est le _shell_ RD-VBA interactif; il lit lui aussi `appsettings.json` à partir de son répertoire de travail, alors démarrez-le à partir de `RDCore.CLI\`.
+- RDCore s'exécute comme un processus 64 bits : les _UserForms_ requièrent Office 64 bits (Microsoft Forms 2.0 en 64 bits), la bibliothèque d'une instruction `Declare` doit être une DLL 64 bits, et l'automatisation d'Office (`CreateObject("Excel.Application")`) requiert que l'application Office soit installée.
 
 > [!WARNING]
 > Les préversions ne sont pas signées : SmartScreen peut afficher un avertissement, et le _Smart App Control_ (contrôle intelligent des applications) de Windows 11 peut les bloquer.

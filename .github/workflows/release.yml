@@ -1,7 +1,7 @@
 # Rubberduck Core — Release
 #
-# Builds the RDCore platform on windows-latest, tests it and packages it. A pushed `v*` tag then publishes it as a
-# GitHub PRERELEASE: a preview for evaluation, not a certified build.
+# Builds the RDCore platform on windows-latest, tests it and packages it. A pushed `v*` tag then attaches it to a DRAFT
+# GitHub PRERELEASE, which a maintainer checks and publishes by hand: a preview for evaluation, not a certified build.
 #   1. Resolves the version: <VersionPrefix> from Directory.Build.props, plus a suffix taken from the tag
 #      (v0.1.0-rc.1 -> rc.1), the pull request (pr.<number>) or the run (ci.<run_number>).
 #   2. Tests, publishes the platform tree (PlatformPublish.ps1: Release, win-x64, framework-dependent), writes
@@ -9,7 +9,7 @@
 #      smoke-launches the language server, and zips it with release.json and SHA256SUMS alongside.
 #   3. Tag runs only, once a required reviewer approves the `release` environment: checks the tag still points at the
 #      built commit and has no release (or draft) yet, attests the build provenance of the zip and release.json,
-#      creates a draft prerelease, uploads the assets, then publishes it.
+#      creates a draft prerelease and uploads the assets. The draft stays a draft: a maintainer publishes it.
 # A manual run (workflow_dispatch) is a dry run: everything up to the zip, uploaded as a short-lived workflow
 # artifact, and no release. A pull request that touches the release plumbing builds and packages too, but uploads
 # only the metadata: never the zip or the binaries.
@@ -40,6 +40,11 @@ on:
       - 'tools/release/**'
       - 'Directory.Build.props'
       - 'NOTICE.md'
+      # a package bump changes the notices (exact-version overrides), and the smoke test waits for these files' log lines
+      - '**/*.csproj'
+      - 'RDCore.LanguageServer/CoreLanguageServerApp.cs'
+      - 'RDCore.SDK/Extensibility/ExtensionsClient.cs'
+      - 'RDCore.SDK/Exceptions.resx'
 
 permissions:
   contents: read
@@ -269,7 +274,7 @@ jobs:
 
           ### Requirements
 
-          - Windows x64.
+          - Windows x64. RDCore runs as a 64-bit process, so UserForms need 64-bit Office (the 64-bit Microsoft Forms 2.0), a `Declare` statement's library must be a 64-bit DLL, and Office automation needs the Office application installed.
           - The .NET 10 runtime, x64 (`Microsoft.NETCore.App`). The zip is framework-dependent and does not include it; `release.json` records the minimum version.
 
           ### Installing
@@ -396,7 +401,7 @@ jobs:
             assets/*.zip
             assets/release.json
 
-      # draft first, published last: the assets are all in place before anyone can see the release
+      # a draft, which only maintainers see: the assets are all in place, and checked by a person, before anyone else can see the release
       - name: Create the draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -409,9 +414,3 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release upload "$TAG" assets/* --repo "$GITHUB_REPOSITORY"
-
-      - name: Publish the prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
