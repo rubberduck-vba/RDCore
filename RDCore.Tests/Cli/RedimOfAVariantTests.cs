@@ -41,6 +41,15 @@ public sealed class RedimOfAVariantTests
     [DataRow("Dim a() As Variant ;; a = 5", DisplayName = "A04 a Variant()")]
     [DataRow("ReDim y(2) As Long ;; y = 5", DisplayName = "A06 one a ReDim declares As Long")]
     [DataRow("ReDim y(2) ;; y = 5", DisplayName = "R02 one a ReDim declares")]
+    [DataRow("Dim a() As Long ;; a = \"abc\"", DisplayName = "G01 a String to a Long()")]
+    [DataRow("Dim a() As Variant ;; a = \"abc\"", DisplayName = "G02 a String to a Variant()")]
+    [DataRow("Dim a() As String ;; a = \"abc\"", DisplayName = "G03 a String to a String()")]
+    [DataRow("Dim a() As Long ;; Dim s As String ;; s = \"1\" ;; a = s", DisplayName = "G04 a String variable")]
+    [DataRow("Dim a() As Long ;; a = #1/1/2000#", DisplayName = "G05 a Date")]
+    [DataRow("Dim a() As Variant ;; Dim d As Date ;; a = d", DisplayName = "G06 a Date variable to a Variant()")]
+    [DataRow("Dim a() As Long ;; a = True", DisplayName = "G07 a Boolean")]
+    [DataRow("Dim a() As Boolean ;; Dim b As Boolean ;; a = b", DisplayName = "G08 a Boolean to a Boolean()")]
+    [DataRow("Dim a() As Long ;; Dim c As Currency ;; a = c", DisplayName = "G10 a Currency")]
     public async Task AValueAssignedToAResizableArray_IsACompileError(string body)
     {
         var errors = await LoadErrorsAsync([], Program(body));
@@ -52,6 +61,8 @@ public sealed class RedimOfAVariantTests
     [TestMethod]
     [DataRow("ReDim y(2) ;; y = Array(1, 2) ;; Debug.Print TypeName(y)", "Variant()", DisplayName = "A01 an array")]
     [DataRow("Dim a() As Variant ;; a = Array(1, 2) ;; Debug.Print UBound(a)", "1", DisplayName = "A05 an array to a Variant()")]
+    [DataRow("Dim a() As Byte ;; a = \"AB\" ;; Debug.Print Err.Number & \" \" & UBound(a)", "0 3", DisplayName = "G09 a String to a Byte()")]
+    [DataRow("Dim a() As Long ;; Dim v As Variant ;; v = 5 ;; a = v ;; Debug.Print Err.Number", "13", DisplayName = "G12 a Variant that holds a number")]
     public async Task AnArrayOrAVariantAssignedToAResizableArray_IsAssigned(string body, string expected)
         => Assert.AreEqual(expected, (await RunAsync([], Program(body))).Last());
 }
