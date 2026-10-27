@@ -221,10 +221,20 @@ internal sealed class RenameWorkspace
     /// that declares it, with the name the navigation starts from.
     /// </summary>
     /// <returns>Each place; none where no name is written, where what the name refers to is not known, or where no document of the workspace declares it.</returns>
-    public IReadOnlyList<LocationLink> Definitions(Uri documentUri, Position position)
+    public IReadOnlyList<LocationLink> Definitions(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.DefinitionsAt);
+
+    /// <summary>
+    /// Where the symbol named at a position of a document is declared (<see cref="SymbolNavigation.DeclarationAt"/>): the one place, in the text of the
+    /// document that declares it, with the name the navigation starts from.
+    /// </summary>
+    /// <returns>The place; none where no name is written, where what the name refers to is not known, or where no document of the workspace declares it.</returns>
+    public IReadOnlyList<LocationLink> Declarations(Uri documentUri, Position position) => Navigate(documentUri, position, SymbolNavigation.DeclarationAt);
+
+    private IReadOnlyList<LocationLink> Navigate(
+        Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, SymbolNavigationTarget?> navigate)
     {
         if (ModuleOf(documentUri) is not { } module
-            || SymbolNavigation.DefinitionsAt(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+            || navigate(_context, module.Module, module.ToModulePosition(position)) is not { } target)
         {
             return [];
         }

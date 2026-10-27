@@ -247,4 +247,61 @@ public sealed class SymbolNavigationTests
         Assert.IsNotNull(target);
         CollectionAssert.AreEqual(new[] { 2, 4 }, target.Sites.Select(site => site.SelectionRange.Start.Line).ToArray());
     }
+
+    // --- textDocument/declaration: the one place that declares the symbol, the same whichever branch is compiled ---
+
+    [TestMethod]
+    public void ANameDeclaredInEachBranchOfAnIf_IsDeclaredByTheFirst()
+    {
+        var context = Compose(("Module1", Module("Module1",
+            "#If VBA7 Then",
+            "Private Value As LongPtr",
+            "#Else",
+            "Private Value As Long",
+            "#End If",
+            "Public Sub Main()",
+            "    Value = 1",
+            "End Sub")));
+
+        var target = SymbolNavigation.DeclarationAt(context, ModuleUri("Module1"), At(context, "Module1", "    Value = 1", "Value"));
+
+        Assert.IsNotNull(target);
+        Assert.AreEqual(2, target.Sites.Single().SelectionRange.Start.Line);
+    }
+
+    [TestMethod]
+    public void AProperty_IsDeclaredByItsFirstProcedure()
+    {
+        var context = Workspace();
+        var site = SymbolNavigation.DeclarationAt(context, ModuleUri("Program"), At(context, "Program", "c.Value = \"x\"", "Value"))!.Sites.Single();
+
+        Assert.AreEqual("#Class1", site.Module.Fragment);
+        Assert.AreEqual("Public Property Get Value() As String", Source(context, "Class1")[site.Range.Start.Line]);
+        Assert.AreEqual("Value", Selected(context, site));
+    }
+
+    [TestMethod]
+    [DataRow("count = 1", "count", "Program", DisplayName = "a local")]
+    [DataRow("Add count", "Add", "Helpers", DisplayName = "a procedure")]
+    [DataRow("Dim c As Class1", "Class1", "Class1", DisplayName = "a class")]
+    public void ASymbolDeclaredOnce_IsDeclaredWhereItIsDefined(string line, string text, string module)
+    {
+        var context = Workspace();
+        var position = At(context, "Program", line, text);
+        var declaration = SymbolNavigation.DeclarationAt(context, ModuleUri("Program"), position)!;
+        var definition = SymbolNavigation.DefinitionsAt(context, ModuleUri("Program"), position)!;
+
+        Assert.AreEqual("#" + module, declaration.Sites.Single().Module.Fragment);
+        Assert.AreEqual(definition.Sites.Single(), declaration.Sites.Single());
+        Assert.AreEqual(definition.Origin, declaration.Origin);
+    }
+
+    [TestMethod]
+    public void AMemberOfTheLibrary_IsDeclaredNowhereInTheWorkspace()
+    {
+        var context = Workspace();
+
+        Assert.IsEmpty(SymbolNavigation.DeclarationAt(context, ModuleUri("Program"), At(context, "Program", "MsgBox Total", "MsgBox"))?.Sites ?? []);
+        Assert.IsNull(SymbolNavigation.DeclarationAt(context, ModuleUri("Program"), At(context, "Program", "o.Value = 1", "Value")));
+    }
 }

@@ -254,6 +254,13 @@ A client that reads links (`definition.linkSupport`) is answered `LocationLink`s
 declaration (`targetRange`), and the name it declares (`targetSelectionRange`). Any other client is answered a `Location` per definition, at the name it
 declares. Ranges are in the text of the document: for a program of the BASIC, its lines.
 
+### `textDocument/declaration`
+
+The language server answers `textDocument/declaration` (**LSP 3.17** §Goto Declaration Request) the way it answers `textDocument/definition`, with one place:
+the one that declares the symbol first, as it is written. A name declared in each branch of an `#If` is declared by the first branch, whichever branch is
+compiled, so the answer does not change with the precompiler's constants; a property is declared by its first procedure. A symbol declared once is
+declared where it is defined.
+
 ### `textDocument/codeAction`
 
 The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix` and `refactor.rename`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.

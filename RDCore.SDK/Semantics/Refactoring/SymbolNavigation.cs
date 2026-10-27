@@ -23,8 +23,8 @@ public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange
 public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites);
 
 /// <summary>
-/// Navigates from a name to what it refers to (<strong>LSP 3.17</strong> §Goto Definition Request): the name is bound the way a rename binds it
-/// (<see cref="SymbolRename"/>), so that what a navigation finds is what a rename of the name would rename.
+/// Navigates from a name to what it refers to (<strong>LSP 3.17</strong> §Goto Definition Request, §Goto Declaration Request): the name is bound the way a
+/// rename binds it (<see cref="SymbolRename"/>), so that what a navigation finds is what a rename of the name would rename.
 /// </summary>
 /// <remarks>
 /// A name declared in more than one branch of an <c>#If</c> is defined by each branch that is compiled
@@ -54,6 +54,33 @@ public static class SymbolNavigation
         var (origin, symbol) = named;
         IReadOnlyList<SymbolSite> sites = NameOccurrences.IsDeclaredBy(context, symbol)
             ? [.. DefinedTogether(context, symbol).SelectMany(Definitions).OrderBy(site => site.Range.Start)]
+            : [];
+        return new SymbolNavigationTarget(origin, symbol, sites);
+    }
+
+    /// <summary>
+    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is declared (<strong>LSP 3.17</strong> §Goto Declaration Request):
+    /// the one place that declares it first, whichever of its definitions are compiled.
+    /// </summary>
+    /// <param name="context">The workspace.</param>
+    /// <param name="module">The module.</param>
+    /// <param name="position">A position in the name, or at its end.</param>
+    /// <returns>
+    /// The name and the place that declares its symbol, as the one site of <see cref="SymbolNavigationTarget.Sites"/>: the first written, of every branch of
+    /// an <c>#If</c> and every procedure of a property, so that it is the same whatever branch the precompiler compiles. <see langword="null"/> where no name
+    /// is written, or where what the name refers to is not known.
+    /// </returns>
+    public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position)
+    {
+        if (SymbolAt(context, module, position) is not { } named)
+        {
+            return null;
+        }
+
+        var (origin, symbol) = named;
+        IReadOnlyList<SymbolSite> sites = NameOccurrences.IsDeclaredBy(context, symbol)
+            && DefinedTogether(context, symbol).SelectMany(Sites).OrderBy(site => site.Site.Range.Start).FirstOrDefault() is { Site: { } first }
+            ? [first]
             : [];
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
@@ -110,15 +137,23 @@ public static class SymbolNavigation
     // the sites of a symbol that are compiled, or every site where none is; a module is defined by its whole document.
     private static IReadOnlyList<SymbolSite> Definitions(Symbol symbol)
     {
+        var sites = Sites(symbol);
+        var compiled = sites.Where(site => site.State != DefinitionState.Dead).ToList();
+        return [.. (compiled.Count > 0 ? compiled : sites).Select(site => site.Site)];
+    }
+
+    // every site of a symbol, compiled or not, in the order written; a module's is its document.
+    private static IReadOnlyList<(SymbolSite Site, DefinitionState State)> Sites(Symbol symbol)
+    {
         var declaring = NameOccurrences.ModuleOf(symbol.Uri);
         if (symbol is not WorkspaceSymbol declared)
         {
-            return symbol is VBModuleSymbol ? [new SymbolSite(declaring, default, default)] : [];
+            return symbol is VBModuleSymbol ? [(new SymbolSite(declaring, default, default), DefinitionState.Live)] : [];
         }
 
-        var definitions = declared.AllDefinitions.ToList();
-        var compiled = definitions.Where(definition => definition.State != DefinitionState.Dead).ToList();
-        return [.. (compiled.Count > 0 ? compiled : definitions).Select(definition => new SymbolSite(declaring, definition.Range, definition.SelectionRange))];
+        return [.. declared.AllDefinitions
+            .Select(definition => (new SymbolSite(declaring, definition.Range, definition.SelectionRange), definition.State))
+            .OrderBy(site => site.Item1.Range.Start)];
     }
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;

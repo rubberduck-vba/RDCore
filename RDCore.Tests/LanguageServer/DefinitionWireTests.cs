@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -26,7 +27,7 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// <c>textDocument/definition</c> over the wire, as a client asks it: links for a client that reads them, locations for one that does not, each in the text
+/// <c>textDocument/definition</c> and <c>textDocument/declaration</c> over the wire, as a client asks them: links for a client that reads them, locations for one that does not, each in the text
 /// of the document - a program of the platform's BASIC is its lines.
 /// </summary>
 [TestClass]
@@ -70,7 +71,11 @@ public sealed class DefinitionWireTests
     }
 
     // the answers to each position of the program, from a client that does or does not read links.
-    private static async Task<LocationOrLocationLinks?[]> AskAsync(bool linkSupport, params Position[] positions)
+    private static Task<LocationOrLocationLinks?[]> AskAsync(bool linkSupport, params Position[] positions)
+        => AskAsync(linkSupport, (document, position) => new DefinitionParams { TextDocument = document, Position = position }, positions);
+
+    private static async Task<LocationOrLocationLinks?[]> AskAsync(
+        bool linkSupport, Func<TextDocumentIdentifier, Position, IRequest<LocationOrLocationLinks>> request, params Position[] positions)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -79,11 +84,13 @@ public sealed class DefinitionWireTests
         var serving = OmniSharpLanguageServer.From(server => server
             .WithInput(toServer.Reader)
             .WithOutput(toClient.Writer)
-            .AddHandler(new DefinitionHandler(Workspace())), timeout.Token);
+            .AddHandler(new DefinitionHandler(Workspace()))
+            .AddHandler(new DeclarationHandler(Workspace())), timeout.Token);
         var connecting = LanguageClient.From(client => client
             .WithInput(toClient.Reader)
             .WithOutput(toServer.Writer)
-            .WithCapability(new DefinitionCapability { LinkSupport = linkSupport }), timeout.Token);
+            .WithCapability(new DefinitionCapability { LinkSupport = linkSupport })
+            .WithCapability(new DeclarationCapability { LinkSupport = linkSupport }), timeout.Token);
 
         await Task.WhenAll(serving, connecting);
         using var server = await serving;
@@ -93,7 +100,7 @@ public sealed class DefinitionWireTests
         var answers = new List<LocationOrLocationLinks?>();
         foreach (var position in positions)
         {
-            answers.Add(await languageClient.SendRequest(new DefinitionParams { TextDocument = document, Position = position }, timeout.Token));
+            answers.Add(await languageClient.SendRequest(request(document, position), timeout.Token));
         }
 
         return [.. answers];
@@ -124,6 +131,19 @@ public sealed class DefinitionWireTests
         var location = answers[0]!.Single().Location!;
         Assert.AreEqual(DocumentUri.From(Document("Helpers.bas")), location.Uri);
         Assert.AreEqual(new Range(3, 11, 3, 15), location.Range, "Show, in Public Sub Show()");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ADeclaration_IsAnsweredWithTheOnePlaceThatDeclaresTheSymbol()
+    {
+        var answers = await AskAsync(linkSupport: true, (document, position) => new DeclarationParams { TextDocument = document, Position = position },
+            new Position(2, 5), new Position(4, 4));
+
+        var declaration = answers[0]!.Single().LocationLink!;
+        Assert.AreEqual(DocumentUri.From(Document("Helpers.bas")), declaration.TargetUri);
+        Assert.AreEqual(new Range(1, 7, 1, 15), declaration.TargetSelectionRange);
+        Assert.IsEmpty(answers[1] ?? new LocationOrLocationLinks(), "MsgBox: no document of the workspace declares it");
     }
 
     [TestMethod]
