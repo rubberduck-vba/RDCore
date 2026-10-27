@@ -897,9 +897,10 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <c>InStr(4, "abc", "")</c> is 4; a start below 1 is error 5, as it is to the <c>Mid</c> statement (<strong>MS-VBAL §5.4.3.5</strong>).
     /// </para>
     /// <para>
-    /// A text comparison finds a run as long as the pattern that <c>=</c> calls equal to it (<see cref="StringComparisonRules.TryFind"/>),
-    /// so <c>Mid</c> reads back what was found. 👉 An explicit Compare is <c>vbBinaryCompare</c> or <c>vbTextCompare</c>, and anything
-    /// else, the LCID the table mentions included, is error 5.
+    /// A text comparison searches the letters of both, folded to one case and with <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c> expanded, as MS-VBA does
+    /// (<see cref="StringComparisonRules.TryFind"/>): a match may be part of an expanded character, and is found at the character it starts in. 👉 An explicit
+    /// Compare is <c>vbBinaryCompare</c> or <c>vbTextCompare</c>, and anything else, the LCID the table mentions included, is error 5; MS-VBA takes a locale
+    /// identifier as a text comparison, which is not modelled yet.
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> InStr(VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)

@@ -141,38 +141,11 @@ internal sealed class LikePattern
         return p == elements.Length || (p == elements.Length - 1 && elements[p].Kind == ElementKind.Star);
     }
 
-    /// <summary>
-    /// The character a character matches in text mode: its lowercase in the regional settings, where the uppercase of that lowercase is
-    /// the character again.
-    /// </summary>
-    /// <remarks>
-    /// A case mapping that does not go both ways is not a difference in case: the Kelvin sign (U+212A) lowercases to <c>k</c>, which
-    /// uppercases to <c>K</c>, so <c>ChrW(&amp;H212A) Like "k"</c> is <c>False</c> as it is in MS-VBA. Accents are not case: MS-VBA does
-    /// not match <c>é</c> with <c>e</c>, nor <c>ß</c> with a range of <c>[a-z]</c>, in text mode. The regional settings decide what the
-    /// case of a letter is: in Turkish, <c>İ</c> is the capital of <c>i</c>.
-    /// </remarks>
-    internal static char Fold(char c, TextInfo textInfo)
-    {
-        var lower = textInfo.ToLower(c);
-        return lower != c && textInfo.ToUpper(lower) == c ? lower : c;
-    }
+    // what a character matches in text mode, and the letters it expands to: MS-VBA's searches match the same characters (TextModeCharacters, oracle
+    // like-collation M03-M06), so ChrW(&H212A) Like "k" is False, and ĳ, the ﬀ to ﬆ ligatures, ǆ, ǉ, ǌ, ǳ and ẞ are matched as themselves only.
+    internal static char Fold(char c, TextInfo textInfo) => TextModeCharacters.Fold(c, textInfo);
 
-    /// <summary>
-    /// The two letters text mode matches a folded character as, if it is one MS-VBA's <c>Like</c> expands.
-    /// </summary>
-    /// <remarks>
-    /// These are the characters MS-VBA expands (Excel, oracle <c>like-collation</c> M03-M06): <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c>, and the
-    /// capitals that fold to them. Others that <c>=</c> compares equal to two letters in text mode - <c>ĳ</c>, the <c>ﬀ</c> to <c>ﬆ</c> ligatures,
-    /// <c>ǆ</c>, <c>ǉ</c>, <c>ǌ</c>, <c>ǳ</c>, <c>ẞ</c> - <c>Like</c> matches as themselves only.
-    /// </remarks>
-    internal static string? Expansion(char folded) => folded switch
-    {
-        'æ' => "ae",
-        'œ' => "oe",
-        'ß' => "ss",
-        'þ' => "th",
-        _ => null,
-    };
+    internal static string? Expansion(char folded) => TextModeCharacters.Expansion(folded);
 
     private TextForm TextFormFor(TextInfo textInfo)
     {
