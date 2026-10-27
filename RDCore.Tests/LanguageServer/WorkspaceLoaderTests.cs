@@ -121,6 +121,36 @@ public sealed class WorkspaceLoaderTests
         Assert.IsInstanceOfType<LoadedDocumentState>(documentStates.GetCurrentState(loaded[0].Id));
     }
 
+    // a resource file or a README the project lists is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
+    [TestMethod]
+    public async Task WorkspaceService_LoadAsync_LoadsTheOtherFiles_AndGivesThemToNoneThatReadsCode()
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData(JsonSerializer.Serialize(new ProjectFile(Root, new RDCoreProject
+            {
+                Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }],
+                OtherFiles = [new RDCoreFile { RelativeUri = "res/App.res" }, new RDCoreFile { RelativeUri = "README.md" }],
+            }))),
+            [Path.Combine(Root, "src", "Mod1.bas")] = new MockFileData("Public Sub Foo()\r\nEnd Sub"),
+            [Path.Combine(Root, "res", "App.res")] = new MockFileData([0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
+            [Path.Combine(Root, "README.md")] = new MockFileData("# Battleship"),
+        });
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+        var sut = new WorkspaceService(
+            new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
+            fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
+            () => ProtocolSupportedLanguage.VBA);
+
+        await sut.LoadAsync(Root);
+
+        CollectionAssert.AreEqual(new[] { "Mod1.bas" }, documents.GetAllDocuments().Select(document => Path.GetFileName(document.RelativePath)).ToArray());
+        Assert.IsTrue(documents.TryGetDocument(new Uri(Path.Combine(Root, "README.md")), out var readme), "a document of the workspace all the same");
+        Assert.IsInstanceOfType<LoadedDocumentState>(documentStates.GetCurrentState(readme.Id));
+        Assert.IsTrue(documents.TryGetDocument(new Uri(Path.Combine(Root, "res", "App.res")), out _));
+    }
+
     [TestMethod]
     public async Task WorkspaceDocumentService_TryGetDocument_FindsALoadedDocumentByUri_AndMissesAnUnknownOne()
     {
