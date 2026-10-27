@@ -568,6 +568,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
         => services
             .AddSingleton(sessionProvider)
             .AddSingleton(projectFileLoader)
+            .AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>())
             .AddSingleton(_ => ExternalServices.GetRequiredService<IVerboseMessageBuilder>());
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }
@@ -599,7 +600,9 @@ internal class RDCoreConsoleEnvironmentHostApp(
 
         try
         {
-            var project = await projectFileLoader.LoadAsync(request.RootUri.GetFileSystemPath());
+            // a folder with no project file is the project it holds, as the language server makes it up.
+            var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
+            var project = await projectFileLoader.LoadOrSynthesizeAsync(request.RootUri.GetFileSystemPath(), language);
             sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }

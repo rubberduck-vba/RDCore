@@ -11,6 +11,11 @@ internal interface IProjectFileService
     Task SaveAsync();
     Task LoadAsync(string Uri);
 
+    /// <summary>
+    /// Makes <paramref name="project"/> the project, as a change to it: what <see cref="SaveAsync"/> writes next.
+    /// </summary>
+    void Update(ProjectFile project);
+
     void AddReference(RDCoreReference reference);
     void RemoveReference(RDCoreReference reference);
 
@@ -29,8 +34,11 @@ internal interface IProjectFileService
 internal class ProjectFileService(ILogger<ProjectFileService> logger,
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile,
-    IProjectFileLoader projectFileLoader) : IProjectFileService
+    IProjectFileLoader projectFileLoader,
+    Func<SupportedLanguage> language) : IProjectFileService
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+
     private ProjectFile _projectFile = default!;
     public ProjectFile Project => _projectFile;
 
@@ -41,9 +49,22 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
             logger.LogTrace("Loading project file under: {uri}", Uri);
         }
 
-        // the SDK loader is the single deserialization path, shared with the environment host.
-        _projectFile = await projectFileLoader.LoadAsync(Uri);
+        // the SDK loader is the single deserialization path, shared with the environment host; a folder with no project file is the project it holds, which
+        // is written when it is first changed, and not before.
+        _projectFile = await projectFileLoader.LoadOrSynthesizeAsync(Uri, language());
+        if (_projectFile.IsSynthesized)
+        {
+            logger.LogInformation("✅ LoadAsync completed. There is no project file: the project is the folder's {modules} source file(s).", _projectFile.ProjectInfo.Modules.Length);
+            return;
+        }
+
         logger.LogInformation("✅ LoadAsync completed. Project file was loaded successfully.");
+    }
+
+    public void Update(ProjectFile project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        _projectFile = project with { IsDirty = true };
     }
 
     public async Task SaveAsync()
@@ -56,9 +77,13 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
 
         if (_projectFile.IsDirty || !ioFile.Exists(path))
         {
-            using var stream = ioFile.Open(path, FileMode.Create);
-            await JsonSerializer.SerializeAsync(stream, Project);
+            await using (var stream = ioFile.Open(path, FileMode.Create))
+            {
+                await JsonSerializer.SerializeAsync(stream, Project, SerializerOptions);
+            }
 
+            // what is on disk now is the project: a synthesized one is a project file like any other.
+            _projectFile = _projectFile with { IsDirty = false, IsSynthesized = false };
             logger.LogInformation("✅ SaveAsync completed. Project file was saved successfully.");
         }
         else

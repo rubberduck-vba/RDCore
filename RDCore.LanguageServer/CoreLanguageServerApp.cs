@@ -148,6 +148,11 @@ internal sealed class CoreLanguageServerApp(
 
         // and the project file, which the client says it rewrote: the workspace is made what it lists now.
         builder.WithHandler<ProjectFileWatchHandler>();
+
+        // and the files it created, renamed or deleted: the server writes the project file, of which it is the only writer.
+        builder.WithHandler<DidCreateWorkspaceFilesHandler>();
+        builder.WithHandler<DidRenameWorkspaceFilesHandler>();
+        builder.WithHandler<DidDeleteWorkspaceFilesHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -167,6 +172,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolSyncService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceReloadService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceFileOperationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentLifecycleService>());
 
@@ -274,6 +280,11 @@ internal sealed class CoreLanguageServerApp(
     protected async override Task OnLanguageServerInitializedAsync(ILanguageServer server, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)
     {
         LogIfEnabled(LogLevel.Information, "🤝 LSP initialization handshake completed");
+
+        // workspace/didRenameFiles is read by a handler of the platform's own, which OmniSharp does not state the server has.
+        response.Capabilities.Workspace ??= new();
+        response.Capabilities.Workspace.FileOperations ??= new();
+        response.Capabilities.Workspace.FileOperations.DidRename = WorkspaceFileOperationFilters.DidRename;
         await base.OnLanguageServerInitializedAsync(server, request, response, cancellationToken);
     }
 

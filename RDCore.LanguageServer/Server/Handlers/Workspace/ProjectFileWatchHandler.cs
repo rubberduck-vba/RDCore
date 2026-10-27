@@ -63,17 +63,11 @@ internal sealed class ProjectFileWatchHandler(
     {
         try
         {
-            if (await reload.ReloadAsync(CancellationToken.None) is not { } result)
+            // the server's own write of the project file, which a client that watches it says changed, lists what the workspace is: nothing is done.
+            if (await reload.ReloadAsync(CancellationToken.None) is { } result)
             {
-                return;
+                WorkspaceChangeReport.Send(server, result);
             }
-
-            if (result.IsProgramRunning)
-            {
-                server.Window.ShowMessage(new ShowMessageParams { Type = MessageType.Info, Message = WorkspaceMessages.ProjectReloadedProgramRunning });
-            }
-
-            DiagnosticRefresh.SendIfSupported(server);
         }
         catch (InvalidDataException exception)
         {

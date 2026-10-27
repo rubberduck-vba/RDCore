@@ -50,7 +50,8 @@ public sealed class WorkspaceReloadServiceTests
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(_host);
 
-        _projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, _files.Path, _files.File, new ProjectFileLoader(_files));
+        _projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, _files.Path, _files.File, new ProjectFileLoader(_files),
+            () => SupportedLanguages.RDVBA);
         _documents = new WorkspaceDocumentService(_documentStates, NullLogger<WorkspaceDocumentService>.Instance, _files.Path, _files.File);
         _sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path,
             NullLogger<WorkspaceReloadService>.Instance);
@@ -169,6 +170,65 @@ public sealed class WorkspaceReloadServiceTests
         var result = await _sut.ReloadAsync(CancellationToken.None);
 
         Assert.AreEqual(1, result?.Added);
+    }
+
+    [TestMethod]
+    public async Task AProjectFileThatListsWhatTheWorkspaceIs_ChangesNothing()
+    {
+        await LoadAsync("A.bas");
+        WriteProject("A.bas");
+
+        var result = await _sut.ReloadAsync(CancellationToken.None);
+
+        Assert.AreSame(WorkspaceReloadResult.Unchanged, result);
+        await _host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(default!, default);
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    [TestMethod]
+    public async Task AChange_IsWrittenToTheProjectFile_AndTheWorkspaceIsWhatItLists_AndReadingItBackChangesNothing()
+    {
+        await LoadAsync("A.bas");
+
+        var result = await _sut.ChangeAsync(project => project.WithModule(new RDCoreModule { RelativeUri = "B.cls" }), CancellationToken.None);
+
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), result);
+        var written = JsonSerializer.Deserialize<ProjectFile>(_files.File.ReadAllText(Path.Combine(Root, ProjectFile.FileName)))!;
+        CollectionAssert.AreEqual(new[] { "A.bas", "B.cls" }, written.ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out _));
+
+        // the client that watches the project file says it changed: it is the server's own write.
+        Assert.AreSame(WorkspaceReloadResult.Unchanged, await _sut.ReloadAsync(CancellationToken.None));
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    [TestMethod]
+    public async Task AChangeThatLeavesTheProjectAsItWas_WritesNothing()
+    {
+        await LoadAsync("A.bas");
+        var before = _files.File.ReadAllText(Path.Combine(Root, ProjectFile.FileName));
+
+        var result = await _sut.ChangeAsync(project => project, CancellationToken.None);
+
+        Assert.AreSame(WorkspaceReloadResult.Unchanged, result);
+        Assert.AreEqual(before, _files.File.ReadAllText(Path.Combine(Root, ProjectFile.FileName)));
+    }
+
+    [TestMethod]
+    public async Task AFolderWithNoProjectFile_IsLoadedAsTheProjectItHolds_AndWrittenOnItsFirstChange()
+    {
+        await _projectFiles.LoadAsync(Root);
+        _documents.Initialize(Root);
+
+        Assert.IsTrue(_projectFiles.Project.IsSynthesized);
+        CollectionAssert.AreEqual(new[] { "A.bas", "B.cls" }, _projectFiles.Project.ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsFalse(_files.FileExists(Path.Combine(Root, ProjectFile.FileName)));
+
+        await _sut.ChangeAsync(project => project.WithoutModule(project.ProjectInfo.Modules[1]), CancellationToken.None);
+
+        Assert.IsFalse(_projectFiles.Project.IsSynthesized);
+        var written = JsonSerializer.Deserialize<ProjectFile>(_files.File.ReadAllText(Path.Combine(Root, ProjectFile.FileName)))!;
+        CollectionAssert.AreEqual(new[] { "A.bas" }, written.ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
     }
 
     [TestMethod]

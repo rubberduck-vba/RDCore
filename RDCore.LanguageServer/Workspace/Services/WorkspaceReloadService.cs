@@ -9,6 +9,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
+using System.Text.Json;
 
 namespace RDCore.LanguageServer.Workspace.Services;
 
@@ -19,6 +20,10 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// <remarks>
 /// The project file is read when the server initializes (<see cref="IWorkspaceService.LoadAsync"/>); a client that rewrites it while the server runs says so with
 /// <c>workspace/didChangeWatchedFiles</c>, and this is what is done about it. The client owns the file system: the server is told, it does not watch.
+/// <para>
+/// The server writes the project file itself when the client creates, renames or deletes a file of the workspace (<see cref="ChangeAsync"/>): it is the
+/// project file's only writer. A client that watches the project file then says it changed, and reading it again changes nothing.
+/// </para>
 /// </remarks>
 internal interface IWorkspaceReloadService
 {
@@ -26,9 +31,27 @@ internal interface IWorkspaceReloadService
     /// Reads the project file again, and makes the workspace what it lists.
     /// </summary>
     /// <param name="token">A token that cancels the reload.</param>
-    /// <returns>What the reload changed, or <see langword="null"/> when the server is not running a workspace it could reload.</returns>
+    /// <returns>
+    /// What the reload changed - <see cref="WorkspaceReloadResult.Unchanged"/> when the project file lists what the workspace is, as when the server wrote it -
+    /// or <see langword="null"/> when the server is not running a workspace it could reload.
+    /// </returns>
     /// <exception cref="InvalidDataException">The project file is not valid; the workspace is left as it was.</exception>
     Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token);
+
+    /// <summary>
+    /// Changes the project, writes the project file, and makes the workspace what it lists.
+    /// </summary>
+    /// <remarks>
+    /// A project the server made up for a folder with no project file (<see cref="ProjectFile.IsSynthesized"/>) is written on its first change, and is a
+    /// project file from then on.
+    /// </remarks>
+    /// <param name="change">What the project is to be, from what it is.</param>
+    /// <param name="token">A token that cancels the change.</param>
+    /// <returns>
+    /// What the change made of the workspace - <see cref="WorkspaceReloadResult.Unchanged"/>, and nothing written, when the project is what it was - or
+    /// <see langword="null"/> when the server is not running a workspace it could change.
+    /// </returns>
+    Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
 }
 
 /// <summary>
@@ -38,7 +61,14 @@ internal interface IWorkspaceReloadService
 /// <param name="Removed">The files it no longer lists.</param>
 /// <param name="IsHostComposed">Whether the environment host composed its runtime session again from the project file (<see cref="ProjectReload"/>).</param>
 /// <param name="IsProgramRunning">Whether the host kept its session, a program running or waiting in it.</param>
-internal sealed record class WorkspaceReloadResult(int Added, int Removed, bool IsHostComposed, bool IsProgramRunning);
+internal sealed record class WorkspaceReloadResult(int Added, int Removed, bool IsHostComposed, bool IsProgramRunning)
+{
+    /// <summary>The project is what it was: nothing was loaded, taken out, or defined again.</summary>
+    public static WorkspaceReloadResult Unchanged { get; } = new(0, 0, false, false) { IsUnchanged = true };
+
+    /// <summary>Whether the project is what it was, and nothing was done.</summary>
+    public bool IsUnchanged { get; private init; }
+}
 
 internal sealed class WorkspaceReloadService(
     IServerStateProvider serverStateProvider,
@@ -57,8 +87,7 @@ internal sealed class WorkspaceReloadService(
 
     public async Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token)
     {
-        // running, whatever the trace a client asked for: a server that is traced nothing is RunningTraceless, and still running.
-        if (serverStateProvider.State is not RunningServerState || projectFiles.Project?.ProjectInfo is null)
+        if (!IsRunningAWorkspace())
         {
             logger.LogInformation("The project file changed before a workspace was loaded; it is read when the workspace is.");
             return null;
@@ -67,7 +96,17 @@ internal sealed class WorkspaceReloadService(
         await _reloading.WaitAsync(token);
         try
         {
-            return await ReloadProjectAsync(token);
+            var project = projectFiles.Project;
+
+            // a project file that is not valid leaves the workspace as it was: the loader throws, and nothing was changed yet.
+            await projectFiles.LoadAsync(project.Uri);
+            if (IsTheSame(project, projectFiles.Project))
+            {
+                logger.LogTrace("The project file lists what the workspace is; nothing is done.");
+                return WorkspaceReloadResult.Unchanged;
+            }
+
+            return await ApplyAsync(project, token);
         }
         finally
         {
@@ -75,13 +114,48 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
-    private async Task<WorkspaceReloadResult> ReloadProjectAsync(CancellationToken token)
+    public async Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
     {
-        var root = projectFiles.Project.Uri;
-        var before = FilesOf(projectFiles.Project);
+        ArgumentNullException.ThrowIfNull(change);
+        if (!IsRunningAWorkspace())
+        {
+            logger.LogInformation("The workspace changed before it was loaded; what the project lists is read when it is.");
+            return null;
+        }
 
-        // a project file that is not valid leaves the workspace as it was: the loader throws, and nothing was changed yet.
-        await projectFiles.LoadAsync(root);
+        await _reloading.WaitAsync(token);
+        try
+        {
+            var project = projectFiles.Project;
+            var changed = change(project);
+            if (IsTheSame(project, changed))
+            {
+                return WorkspaceReloadResult.Unchanged;
+            }
+
+            // the environment host reads the project file to compose its session, so it is written first.
+            projectFiles.Update(changed);
+            await projectFiles.SaveAsync();
+            return await ApplyAsync(project, token);
+        }
+        finally
+        {
+            _reloading.Release();
+        }
+    }
+
+    // running, whatever the trace a client asked for: a server that is traced nothing is RunningTraceless, and still running.
+    private bool IsRunningAWorkspace() => serverStateProvider.State is RunningServerState && projectFiles.Project?.ProjectInfo is not null;
+
+    // what a project file would hold: the same text is the same project.
+    private static bool IsTheSame(ProjectFile project, ProjectFile other)
+        => string.Equals(JsonSerializer.Serialize(project), JsonSerializer.Serialize(other), StringComparison.Ordinal);
+
+    // the workspace was what the project was; it is made what the project is now.
+    private async Task<WorkspaceReloadResult> ApplyAsync(ProjectFile project, CancellationToken token)
+    {
+        var root = project.Uri;
+        var before = FilesOf(project);
         var after = FilesOf(projectFiles.Project);
 
         var removed = before.Keys.Where(path => !after.ContainsKey(path)).ToList();
@@ -105,6 +179,13 @@ internal sealed class WorkspaceReloadService(
             token.ThrowIfCancellationRequested();
             var id = IdOf(root, path);
             documentStates.Track(id);
+
+            // a document the client has open is the client's, and was parsed when it was opened: what is on disk is not its text.
+            if (documentStates.GetCurrentState(id) is OpenedDocumentState)
+            {
+                continue;
+            }
+
             if (await documents.TryLoadAsync(id) && after[path])
             {
                 await parsing.ParseDocumentAsync(id.Uri.ToUri(), token);

@@ -73,6 +73,7 @@ internal static class LanguageServerServices
             .AddSingleton<IReferencedLibraryService, ReferencedLibraryService>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>()
             .AddSingleton<IWorkspaceReloadService, WorkspaceReloadService>()
+            .AddSingleton<IWorkspaceFileOperationService, WorkspaceFileOperationService>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>();

@@ -389,24 +389,50 @@ A position that no node is written around is answered with the empty range at it
 
 ### `workspace/didChangeWatchedFiles`
 
-The language server reads the project file (`.rdproj`) when it initializes. A client that rewrites it while the platform runs says so as **LSP 3.17** has it
+The language server reads the project file (`.rdproj`) when it initializes. The server is the project file's only writer: a client tells it which files it created,
+renamed or deleted (see [`workspace/didCreateFiles`, `didRenameFiles` and `didDeleteFiles`](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles)), and does
+not write the project file itself. A project file changed outside the editor (a `git checkout`, a hand edit) is what a client says changed, as **LSP 3.17** has it
 (§DidChangeWatchedFiles Notification): the client owns the file system, and the server watches nothing itself.
 
 |Message|Direction|Does|
 |---|---|---|
 |`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed. A client that does not is not asked.|
-|`workspace/didChangeWatchedFiles`|Client to server|Says the workspace's `.rdproj` was created or changed. The server serves it whether or not it asked for it: a client that registers nothing sends it after it writes the project file. A change to another folder's `.rdproj`, and a deletion, are left alone.|
+|`workspace/didChangeWatchedFiles`|Client to server|Says the workspace's `.rdproj` was created or changed. The server serves it whether or not it asked for it: a client that registers nothing sends it all the same. A change to another folder's `.rdproj`, and a deletion, are left alone; so is a project file that lists what the workspace is, as the one the server wrote does when a client that watches it says it changed.|
 |`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
 |`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the workspace is defined again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
 |`window/showMessage`|Server to client|Says why the workspace is as it was (the project file could not be read), or that a running program keeps its modules.|
 
 On the notification, the language server (`WorkspaceReloadService`):
 
-1. reads the project file again; one that cannot be read leaves the workspace as it was;
+1. reads the project file again; one that cannot be read leaves the workspace as it was, and one that lists what the workspace is changes nothing;
 2. loads and parses each file it lists that was not loaded, and takes out each one it no longer lists (a document the client has open stays: its text is the client's);
 3. asks the environment host to compose its session again;
 4. defines the whole workspace again in its three phases - its types declared, its declarations bound, its code loaded - each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
 5. asks the client to pull its diagnostics again.
+
+### `workspace/didCreateFiles`, `didRenameFiles` and `didDeleteFiles`
+
+A client that creates, renames or deletes files of the workspace says so as **LSP 3.17** has it (§Workspace, DidCreateFiles, DidRenameFiles and DidDeleteFiles
+Notifications), and the server makes the project what the folder holds now: it writes the `.rdproj`, of which it is the only writer, and the workspace is made what the
+project lists, as on [`workspace/didChangeWatchedFiles`](#workspacedidchangewatchedfiles) (steps 2 to 5). The server says it handles the three in its `initialize`
+result (`workspace.fileOperations`), with filters for the source files of every language the platform serves (`**/*.bas`, `**/*.cls`, `**/*.frm`, `**/*.doccls`,
+`**/*.rdc`) and for folders.
+
+|Notification|The project|
+|---|---|
+|`workspace/didCreateFiles`|A source file of the workspace's language (**RD-VBAL §2.0.2.1.1**) is a module of the project, and each folder it is in a folder of the project. A created folder is added with the source files it holds. Another file is nothing of the project.|
+|`workspace/didRenameFiles`|What the project lists is listed under its new path, a folder with what it holds; a document module keeps its document class. A module renamed to what is not a source file is no longer a module; a file renamed to a source file is one.|
+|`workspace/didDeleteFiles`|What the project listed is no longer listed, a folder with what it held.|
+
+What is outside the workspace root, and what a folder whose name starts with a dot holds (`.git`, `.vscode`), is nothing of the project. A module name is unique in a
+project (**RD-VBAL §2.2.3.3**): a file created with the `VB_Name` of a module the project has is not added, and `window/showMessage` says so. The operations are made
+in the order the client sent them.
+
+> [!NOTE]
+> OmniSharp 0.19.9 reads `workspace/didRenameFiles` with a `FileRename` that has only a `uri`, and neither the `oldUri` nor the `newUri` a client sends. RDCore reads it
+> with a type of its own ([`DidRenameWorkspaceFilesParams`](../api/RDCore.SDK.Platform.Protocol.DidRenameWorkspaceFilesParams.html)), as the protocol states it.
+
+A folder with no `.rdproj` is the project it holds (**RD-VBAL §2.2.3**): the first file operation writes it, and opening the folder does not.
 
 ### `window/workDoneProgress`
 

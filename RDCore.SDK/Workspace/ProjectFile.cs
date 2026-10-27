@@ -45,6 +45,17 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     public bool IsDirty { get; init; }
 
     /// <summary>
+    /// <c>true</c> for a project the platform made up for a folder that has no <c>.rdproj</c>, from the source files under it
+    /// (<see cref="IProjectFileLoader.LoadOrSynthesizeAsync"/>), and that was not written yet.
+    /// </summary>
+    /// <remarks>
+    /// Opening a folder never writes a project file into it: a synthesized project lives in memory until the first change made to it - a file the client
+    /// created, renamed or deleted - is saved, and it is then a <c>.rdproj</c> like any other (<strong>RD-VBAL §2.2.3</strong>).
+    /// </remarks>
+    [JsonIgnore]
+    public bool IsSynthesized { get; init; }
+
+    /// <summary>
     /// The location of the project file on disk.
     /// </summary>
     /// <remarks>

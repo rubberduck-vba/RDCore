@@ -12,6 +12,12 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="FileNotAddedModuleNameTaken" xml:space="preserve">
+    <value>'{0}' is not in the project: the project has a module named {1} already, and a module name is unique in a project.</value>
+  </data>
+  <data name="ProjectFileNotWritten" xml:space="preserve">
+    <value>The files changed, and the project file could not be written: {0} The project is as it was.</value>
+  </data>
   <data name="ProjectFileNotReloaded" xml:space="preserve">
     <value>The project file changed, and could not be read: {0} The workspace is as it was.</value>
   </data>
