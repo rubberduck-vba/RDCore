@@ -30,7 +30,7 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
     public void WriteLine(IReadOnlyList<ReplTextRun> runs) => console.MarkupLine(Markup(runs));
 
     /// <inheritdoc/>
-    public void WriteListingLine(ReplTextRun margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style)
+    public void WriteListingLine(IReadOnlyList<ReplTextRun> margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style)
     {
         var debug = themes.Theme.Debug;
         var marking = style switch
@@ -42,16 +42,23 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
 
         if (marking is null)
         {
-            console.MarkupLine(Markup([margin, .. runs]));
+            console.MarkupLine(Markup([.. margin, .. runs]));
             return;
         }
 
         // the marking is a background, and runs to the end of the line: the line is filled with spaces up to the width of the console, and what the runs are
-        // coloured in goes over the marking's own foreground and leaves its background be.
-        var width = runs.Sum(run => run.Text.Length);
-        var fill = new string(' ', Math.Max(0, console.Profile.Width - margin.Text.Length - width - 1));
-        console.MarkupLine($"{Markup([margin])}[{marking}]{Markup(runs)}{fill}[/]");
+        // coloured in goes over the marking's own foreground and leaves its background be. The widths are in cells: the mark of a fold is an emoji's two.
+        var width = runs.Sum(run => App.Console.ConsoleText.WidthOf(run.Text));
+        var marginWidth = margin.Sum(run => App.Console.ConsoleText.WidthOf(run.Text));
+        var fill = new string(' ', Math.Max(0, console.Profile.Width - marginWidth - width - 1));
+        console.MarkupLine($"{Markup(margin)}[{marking}]{Markup(runs)}{fill}[/]");
     }
+
+    /// <inheritdoc/>
+    public int Width => console.Profile.Width;
+
+    /// <inheritdoc/>
+    public bool DrawsUnicode => console.Profile.Capabilities.Unicode;
 
     private string Markup(IReadOnlyList<ReplTextRun> runs)
     {
@@ -81,6 +88,8 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
         ReplTextStyle.SplashLogo => splash.Logo,
         ReplTextStyle.SplashTitle => splash.Title,
         ReplTextStyle.BreakpointGlyph => debug.BreakpointGlyph,
+        // faint, as the prompt draws the ghost text of a completion.
+        ReplTextStyle.Ghost => "dim",
         _ => null,
     };
 }

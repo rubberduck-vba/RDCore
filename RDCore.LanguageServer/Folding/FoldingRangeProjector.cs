@@ -1,11 +1,13 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Statements;
 
 namespace RDCore.LanguageServer.Folding;
 
 /// <summary>
-/// Projects a parsed module's member declarations into LSP <see cref="FoldingRange"/> values.
+/// Projects a parsed module's member declarations, and the blocks of their structured statements, into LSP <see cref="FoldingRange"/> values.
 /// </summary>
 /// <remarks>
 /// Kept apart from the handler and free of protocol plumbing so the projection can be tested against a
@@ -14,7 +16,7 @@ namespace RDCore.LanguageServer.Folding;
 internal static class FoldingRangeProjector
 {
     /// <summary>
-    /// One folding range per member declaration that spans more than one line.
+    /// One folding range per member declaration that spans more than one line, and one per structured statement of its body that does.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -32,6 +34,12 @@ internal static class FoldingRangeProjector
     /// <para>
     /// The fold covers the whole declaration including its <c>End</c> statement, so a collapsed procedure
     /// shows only its signature.
+    /// </para>
+    /// <para>
+    /// A block - <c>If</c>, <c>Select Case</c>, a <c>For</c>, <c>For Each</c>, <c>Do</c> or <c>While</c> loop, <c>With</c> - folds from its first line to its
+    /// last, however deep it is in another; its branches (<c>ElseIf</c>, <c>Else</c>, <c>Case</c>) fold with it, not apart. A member's range is a
+    /// <see cref="FoldingRangeKind.Region"/>, and a block's has no kind: a client tells one from the other by it, as the interactive shell does, which folds
+    /// blocks only.
     /// </para>
     /// <para>
     /// The module itself gets no range: <c>ModuleNode</c> is constructed with an empty source range, so
@@ -55,6 +63,28 @@ internal static class FoldingRangeProjector
                 EndLine = range.End.Line,
                 Kind = FoldingRangeKind.Region,
             };
+
+            foreach (var block in member.Descendants().Where(IsBlock))
+            {
+                var blockRange = block.SourceLocation.Range;
+                if (blockRange.End.Line > blockRange.Start.Line)
+                {
+                    yield return new FoldingRange { StartLine = blockRange.Start.Line, EndLine = blockRange.End.Line };
+                }
+            }
         }
     }
+
+    // a structured statement, with the blocks of statements it guards; not one of its branches, which fold with it, and not a single-line If.
+    private static bool IsBlock(SyntaxNode node) => node is IfBlockStatementNode
+        or SelectCaseStatementNode
+        or ForStatementNode
+        or ForEachStatementNode
+        or DoLoopStatementNode
+        or DoWhileLoopStatementNode
+        or DoUntilLoopStatementNode
+        or DoLoopWhileStatementNode
+        or DoLoopUntilStatementNode
+        or WhileWendStatementNode
+        or WithStatementNode;
 }

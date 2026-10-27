@@ -798,7 +798,8 @@ public sealed class ReplDebuggingTests
             var text = string.Concat(runs.Select(run => run.Text));
             if (text.TrimStart().StartsWith(number + " "))
             {
-                return (text, (ReplTextRun)arguments[0]!, (ReplLineStyle)arguments[2]!);
+                // the breakpoint's lane is the last of the margin, next to the line.
+                return (text, ((IReadOnlyList<ReplTextRun>)arguments[0]!)[^1], (ReplLineStyle)arguments[2]!);
             }
         }
 
@@ -909,7 +910,7 @@ public sealed class ReplDebuggingTests
     public void ALineWithABreakpoint_IsWhiteOnRed_ToTheEndOfTheLine_AndTheMarkIsOutsideIt()
     {
         var output = Render(Dark(), console => console.WriteListingLine(
-            new ReplTextRun("●", ReplTextStyle.BreakpointGlyph), [new ReplTextRun(" 20 STOP", ReplTextStyle.Plain)], ReplLineStyle.Breakpoint));
+            [new ReplTextRun("●", ReplTextStyle.BreakpointGlyph)], [new ReplTextRun(" 20 STOP", ReplTextStyle.Plain)], ReplLineStyle.Breakpoint));
 
         StringAssert.Contains(output, "●");
         StringAssert.Contains(output, "48;2;181;26;23", "the background of the breakpoint line");
@@ -921,7 +922,7 @@ public sealed class ReplDebuggingTests
     public void ALineThatIsPlain_HasNoBackground()
     {
         var output = Render(Dark(), console => console.WriteListingLine(
-            new ReplTextRun(" ", ReplTextStyle.Plain), [new ReplTextRun(" 10 X = 1", ReplTextStyle.Plain)], ReplLineStyle.Plain));
+            [new ReplTextRun(" ", ReplTextStyle.Plain)], [new ReplTextRun(" 10 X = 1", ReplTextStyle.Plain)], ReplLineStyle.Plain));
 
         StringAssert.Contains(output, "10 X = 1");
         Assert.DoesNotContain("48;2;", output);
@@ -931,7 +932,7 @@ public sealed class ReplDebuggingTests
     public void TheColoursOfAMarkedLine_KeepTheBackgroundOfTheMarking()
     {
         var output = Render(Dark(), console => console.WriteListingLine(
-            new ReplTextRun(" ", ReplTextStyle.Plain),
+            [new ReplTextRun(" ", ReplTextStyle.Plain)],
             [new ReplTextRun(" 20 ", ReplTextStyle.Plain), new ReplTextRun("STOP", ReplTextStyle.Keyword)], ReplLineStyle.CurrentStatement));
 
         // #d8b064 is the background of the current statement, and the keyword is blue on it.

@@ -77,6 +77,14 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// The number of the line at a position in the program, which is the line of <see cref="ToSourceText"/> it is: what <see cref="IndexOf"/> is the inverse of.
+    /// </summary>
+    /// <param name="index">The zero-based position of the line among the lines.</param>
+    /// <returns>The line number, or <see langword="null"/> if the program has no line there.</returns>
+    public int? NumberAt(int index)
+        => index >= 0 && index < _lines.Count ? _lines.Keys.ElementAt(index) : null;
+
+    /// <summary>
     /// Where the line numbered <paramref name="number"/> is in the module the program is run as (<see cref="ToModuleSource"/>), which has the procedure's header
     /// above the lines: the line of the source a breakpoint on it is on.
     /// </summary>
