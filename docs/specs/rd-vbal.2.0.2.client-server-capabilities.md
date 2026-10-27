@@ -334,7 +334,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 ### `textDocument/codeAction`
 
-The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix` and `refactor.rename`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
+The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename` and `source.rdcore.importProject`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
 
 An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCore.SDK.Model.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
@@ -343,6 +343,7 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 |A rename that fixes a diagnostic, to each name its analyzer suggests|`quickfix`, preferred|Its `edit` is the rename's `WorkspaceEdit`. Offered only when the rename can be made.|
 |A rename that fixes a diagnostic, to a name the user chooses|`quickfix`|Its `command` is `rdcore.rename`.|
 |A rename of each name the range declares, or of the name at the position of an empty range|`refactor.rename`|Its `command` is `rdcore.rename`.|
+|An import of each VB6 project (`.vbp`) of the workspace's folder, when it has no `.rdproj`|`source.rdcore.importProject`|Its `command` is `rdcore.importProject`, with the URI of the `.vbp`. Offered in every document.|
 
 `rdcore.rename` ([`RefactoringCommands.Rename`](../api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
 
@@ -352,6 +353,18 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 |[RDC01002](../diagnostics/rdc01002.md) - Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
 
 The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document - in a shell attached to a workspace, a program that was neither loaded nor saved - is to be saved first, which `DUCKY` says.
+
+### `workspace/executeCommand`
+
+The language server runs the commands it advertises (`executeCommandProvider.commands`) when a client sends `workspace/executeCommand` (**LSP 3.17** §Execute a command) ([`IServerCommand`](../api/RDCore.SDK.Server.Commands.IServerCommand.html)). A command a client runs itself, such as `rdcore.rename`, is not advertised. A command that is refused is answered with an error (`RequestFailed`, `-32803`) whose message says why, in the language of the user interface, for the client to show its user. What a command asks its user is asked with `window/showMessageRequest`, its choices as the request's actions.
+
+|Command|Arguments|Does|
+|---|---|---|
+|`rdcore.importProject`|None, a URI, or `{ "uri", "text", "overwrite" }`|Imports a VB6 project ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)).|
+
+`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it, and is refused unless the user chooses to; `overwrite: true` replaces it without asking. The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it; a project of another folder is written there.
+
+It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project's `name`, its number of `modules`, and what was skipped (`notes`), each with its `kind`, its `subject` as the `.vbp` writes it, and a `message`.
 
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 
