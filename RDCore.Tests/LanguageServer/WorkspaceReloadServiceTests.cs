@@ -441,6 +441,7 @@ public sealed class WorkspaceReloadServiceTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => first.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
         await Assert.ThrowsAsync<OperationCanceledException>(() => second.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.DidNotReceive().Changed();
     }
 
     [TestMethod]
@@ -576,6 +577,30 @@ public sealed class WorkspaceReloadServiceTests
         }
 
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.Received(1).Changed();
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ABatchWhoseHostWasLost_StillChangedTheWorkspace_SoTheClientIsToldOnce()
+    {
+        await LoadAsync("A.bas");
+        _files.AddFile(Path.Combine(Root, "C.bas"), new MockFileData("Attribute VB_Name = \"C\"\r\n"));
+        var gate = HostGate();
+        _host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new IOException("the connection to the host was lost"));
+
+        var first = (await Adding(_sut, "B.cls", []))!;
+        await _hostWaitedFor.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        var second = (await Adding(_sut, "C.bas", []))!;
+        gate.SetResult();
+
+        await Assert.ThrowsAsync<IOException>(() => first.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        await Assert.ThrowsAsync<IOException>(() => second.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+
+        // the documents are made, and the generation moved on once for the batch: a pull is not answered unchanged.
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out _));
+        _refresh.Received(1).Changed();
     }
 
     [TestMethod]
