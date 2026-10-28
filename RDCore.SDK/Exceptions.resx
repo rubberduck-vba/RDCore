@@ -684,6 +684,39 @@
   <data name="VBCompileError_OnlyCommentsAfterEndProcedure" xml:space="preserve">
     <value>Only comments may appear after End Sub, End Function, or End Property</value>
   </data>
+  <data name="VBCompileError_DirectiveWithoutIf" xml:space="preserve">
+    <value>An #ElseIf, #Else, or #EndIf must be preceded by an #If clause</value>
+  </data>
+  <data name="VBCompileError_DirectiveWithoutIf_Verbose" xml:space="preserve">
+    <value>This #End If ends no #If block: there is none before it, or the #If before it is not a directive (it needs an expression and Then, and nothing after Then but a comment).</value>
+  </data>
+  <data name="VBCompileError_HashElseWithoutIf" xml:space="preserve">
+    <value>An #Else clause must be preceded by an #If</value>
+  </data>
+  <data name="VBCompileError_HashElseWithoutIf_Verbose" xml:space="preserve">
+    <value>This #Else belongs to no #If block, or is the second #Else of its block.</value>
+  </data>
+  <data name="VBCompileError_ElseIfWithoutIf" xml:space="preserve">
+    <value>An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf</value>
+  </data>
+  <data name="VBCompileError_ElseIfWithoutIf_Verbose" xml:space="preserve">
+    <value>This #ElseIf belongs to no #If block, or comes after the #Else of its block.</value>
+  </data>
+  <data name="VBCompileError_HashIfWithoutEndIf" xml:space="preserve">
+    <value>You must terminate the #If block with an #EndIf</value>
+  </data>
+  <data name="VBCompileError_HashIfWithoutEndIf_Verbose" xml:space="preserve">
+    <value>This #If block is not ended: the module ends before its #End If.</value>
+  </data>
+  <data name="VBCompileError_ConstDirectiveExpectedEquals_Verbose" xml:space="preserve">
+    <value>Expected: =. A #Const directive is written #Const name = expression.</value>
+  </data>
+  <data name="VBCompileError_ConstDirectiveExpectedName_Verbose" xml:space="preserve">
+    <value>Expected: identifier. A #Const directive is written #Const name = expression.</value>
+  </data>
+  <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
+    <value>Expected: expression. The value of a #Const directive is a constant expression of literals, conditional-compilation constants and operators.</value>
+  </data>
   <data name="VBCompileError_ReservedNameArguments_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses.</value>
   </data>

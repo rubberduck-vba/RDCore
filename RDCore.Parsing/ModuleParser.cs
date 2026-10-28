@@ -71,6 +71,13 @@ public partial class ModuleParser(
             if (hasDirectives)
             {
                 precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
+
+                // the directive pass reads a directive it cannot place as text: what is wrong with the directives is found on their own lines.
+                foreach (var finding in DirectiveStructureScanner.Scan(content, PrecompilerNodePattern().Matches(content).Select(match => (match.Index, match.Length))))
+                {
+                    var range = new SourceRange(finding.Range.Start.AnchoredAt(anchorOffset), finding.Range.End.AnchoredAt(anchorOffset));
+                    errorListener.Report(new SourceLocation(uri, range), finding.ErrorId, finding.Verbose);
+                }
             }
 
             var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);

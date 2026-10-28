@@ -62,6 +62,19 @@ continues another line is not a directive: `d = _` followed by `    #1/2/2000#` 
 |[`VBC00053`](../diagnostics/vbc00053.md)|Expected End With|a `With` block is not ended before its procedure is|
 |[`VBC00054`](../diagnostics/vbc00054.md)|Invalid outside procedure|a statement that runs is written in the declarations section of a module|
 |[`VBC00055`](../diagnostics/vbc00055.md)|Only comments may appear after End Sub, End Function, or End Property|a declaration or a statement is written after the first procedure of a module|
+|[`VBC00056`](../diagnostics/vbc00056.md)|An #ElseIf, #Else, or #EndIf must be preceded by an #If clause|a `#End If` ends no `#If` block|
+|[`VBC00057`](../diagnostics/vbc00057.md)|An #Else clause must be preceded by an #If|a `#Else` belongs to no block, or is the second of its block|
+|[`VBC00058`](../diagnostics/vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf|a `#ElseIf` belongs to no block, or comes after its `#Else`|
+|[`VBC00059`](../diagnostics/vbc00059.md)|You must terminate the #If block with an #EndIf|a `#If` block is not ended|
+
+## Directives That Are Wrong
+
+A directive is checked on its own logical line against the rule of the RD-VBA grammar for it. One that is not well formed is no directive, as in
+**MS-VBA** (recorded in Excel): an `#If` with no `Then`, one whose expression is no expression, one with code after its `Then`, an unknown keyword (`#Iff`),
+and an `#End If` with text after it. An `#End If` after such an `#If` ends no block, and so is `VBC00056`. `#EndIf`, written as one word, is an `#End If`.
+
+A `#Const` with no `=` is "Expected: =", one with no name "Expected: identifier", and one with no value "Expected: expression", each the syntax error
+`VBC00001`, as in **MS-VBA**.
 
 ---
 > ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)
