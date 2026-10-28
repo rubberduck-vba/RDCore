@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -19,7 +20,7 @@ namespace RDCore.Runtime.Compiled;
 /// <remarks>
 /// A body is compiled for the scopes the session binds its names in: a module defined again binds them anew, and the body is compiled again on its next
 /// call. A procedure that is not compiled - <see cref="ProcedureAnalysis"/> says why - runs in the interpreter, and so does one whose compiled code the
-/// runtime refuses to run.
+/// runtime refuses to run, and every one where values are held boxed (<see cref="IneligibilityKind.BoxedEvaluation"/>).
 /// </remarks>
 internal sealed class ProcedureCompiler
 {
@@ -36,6 +37,9 @@ internal sealed class ProcedureCompiler
     private long _elapsedTicks;
 
     private sealed record class Entry(ScopeTree Scopes, CompilationResult Result);
+
+    // what every procedure is where values are held boxed, which is so for the whole process.
+    private static readonly CompilationResult Boxed = new(null, [new Ineligibility(IneligibilityKind.BoxedEvaluation, "RDCORE_UNBOXED=0")], TimeSpan.Zero);
 
     /// <summary>How long compiling the procedures took, all told.</summary>
     public TimeSpan Elapsed => TimeSpan.FromTicks(Interlocked.Read(ref _elapsedTicks));
@@ -65,6 +69,14 @@ internal sealed class ProcedureCompiler
             if (_bodies.TryGetValue(list, out known) && ReferenceEquals(known.Scopes, scopes))
             {
                 return known.Result;
+            }
+
+            // compiled code works on payloads: where the process holds its values boxed, no procedure is compiled, and each says why, once for its body.
+            if (!UnboxedEvaluation.IsEnabled)
+            {
+                _bodies.AddOrUpdate(list, new Entry(scopes, Boxed));
+                _results[procedure.SemanticId] = (procedure, Boxed);
+                return Boxed;
             }
 
             var stopwatch = Stopwatch.StartNew();
