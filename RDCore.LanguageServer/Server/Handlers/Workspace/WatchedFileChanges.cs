@@ -36,7 +36,7 @@ internal sealed class WatchedFileChanges(
     IWorkspaceDocumentService documents,
     ILogger<WatchedFileChanges> logger) : IWatchedFileChanges
 {
-    private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static StringComparison PathComparison => WorkspacePaths.Comparison;
 
     public async Task ChangedAsync(IReadOnlyList<FileEvent> changes, ILanguageServerFacade server)
     {

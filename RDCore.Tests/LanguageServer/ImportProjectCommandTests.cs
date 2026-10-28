@@ -172,7 +172,8 @@ public sealed class ImportProjectCommandTests
         _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
     }
 
-    // a file the .vbp lists outside its folder is a module of its project when the client gave the folder that holds it (author, 2026-10-27, desk #30).
+    // a file the .vbp lists outside its folder is a module of its project when the client gave the folder that holds it; the project is an import of the .vbp,
+    // and stays one when it is imported again.
     [TestMethod]
     public async Task AFileInAnotherWorkspaceFolder_IsAModuleOfTheProject_AndOneInNoneIsNoted()
     {
@@ -184,8 +185,10 @@ public sealed class ImportProjectCommandTests
         var answer = (JObject)(await Sut(projects).ExecuteAsync(Argument(Uri(Path.Combine(Root, "Battleship.vbp"))), _context, CancellationToken.None))!;
 
         var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
-        CollectionAssert.AreEqual(new[] { $"../{Path.GetFileName(Other)}/Util.bas" },
-            change(new ProjectFile(Root)).ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+        var imported = change(new ProjectFile(Root)).ProjectInfo;
+        CollectionAssert.AreEqual(new[] { $"../{Path.GetFileName(Other)}/Util.bas" }, imported.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.AreEqual("Battleship.vbp", imported.SourceProject);
+        Assert.AreEqual("Battleship.vbp", change(new ProjectFile(Root, imported)).ProjectInfo.SourceProject);
         var note = (JObject)answer["notes"]!.Single();
         Assert.AreEqual(nameof(VbpImportNoteKind.OutsideProjectFolder), note.Value<string>("kind"));
         Assert.AreEqual(@"..\rdcore-import-elsewhere\Gone.bas", note.Value<string>("subject"));
@@ -199,7 +202,8 @@ public sealed class ImportProjectCommandTests
         await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
 
         // the folder is the one of the .vbp's URI, whose drive a file URI spells in lowercase.
-        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => string.Equals(project.Uri, Other, StringComparison.OrdinalIgnoreCase) && project.ProjectInfo.Name == "Battleship"),
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => string.Equals(project.Uri, Other, StringComparison.OrdinalIgnoreCase) && project.ProjectInfo.Name == "Battleship"
+            && project.ProjectInfo.SourceProject == "Battleship.vbp"),
             Arg.Any<CancellationToken>());
         await _reload.DidNotReceive().ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>());
     }

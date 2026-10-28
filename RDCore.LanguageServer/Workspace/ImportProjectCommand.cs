@@ -90,9 +90,6 @@ internal sealed class ImportProjectCommand(
             await writer.SaveAsync(import.Into(await loader.LoadIfReadableAsync(folder, token), folder), token);
         }
 
-        // a client that imports the projects it serves says which of the folders it gave are projects' (WorkspaceFolderRoles).
-        workspaceProjects?.Imported(folder);
-
         return new JObject
         {
             ["projectFile"] = DocumentUri.FromFileSystemPath(rdproj).ToString(),

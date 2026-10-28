@@ -18,8 +18,6 @@ namespace RDCore.SDK.Workspace;
 /// </remarks>
 public sealed class WorkspaceFolders
 {
-    private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-
     // each root with a separator at its end, so that C:\Work\App holds C:\Work\App\X.bas and not C:\Work\Application\X.bas; the closest first.
     private readonly (string Root, string Prefix)[] _byDepth;
 
@@ -30,8 +28,7 @@ public sealed class WorkspaceFolders
     public WorkspaceFolders(IEnumerable<string> roots)
     {
         ArgumentNullException.ThrowIfNull(roots);
-        var comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-        Roots = [.. roots.Select(Normalized).Distinct(comparer)];
+        Roots = [.. roots.Select(WorkspacePaths.Normalized).Distinct(WorkspacePaths.Comparer)];
         _byDepth = [.. Roots.Select(root => (root, Prefixed(root))).OrderByDescending(folder => folder.Item2.Length)];
     }
 
@@ -46,10 +43,10 @@ public sealed class WorkspaceFolders
     public string? RootOf(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        var full = Prefixed(Normalized(path));
+        var full = Prefixed(WorkspacePaths.Normalized(path));
         foreach (var (root, prefix) in _byDepth)
         {
-            if (full.StartsWith(prefix, PathComparison))
+            if (full.StartsWith(prefix, WorkspacePaths.Comparison))
             {
                 return root;
             }
@@ -71,10 +68,8 @@ public sealed class WorkspaceFolders
     {
         ArgumentException.ThrowIfNullOrEmpty(root);
         ArgumentException.ThrowIfNullOrEmpty(path);
-        return Prefixed(Normalized(path)).StartsWith(Prefixed(Normalized(root)), PathComparison);
+        return Prefixed(WorkspacePaths.Normalized(path)).StartsWith(Prefixed(WorkspacePaths.Normalized(root)), WorkspacePaths.Comparison);
     }
-
-    private static string Normalized(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
     private static string Prefixed(string path) => path.EndsWith(Path.DirectorySeparatorChar) ? path : path + Path.DirectorySeparatorChar;
 }

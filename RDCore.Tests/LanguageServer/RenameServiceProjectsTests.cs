@@ -19,7 +19,7 @@ using RDCore.Tests.Runtime.Libraries;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// The workspace of a client that opened several folders is composed one project at a time (#252): a module name is unique within its project, so two projects
+/// The workspace of a client that opened several folders is composed one project at a time: a module name is unique within its project, so two projects
 /// can each have a <c>Module1</c>, and a file that two projects list is a module of each.
 /// </summary>
 [TestClass]
@@ -49,7 +49,7 @@ public sealed class RenameServiceProjectsTests
         var primary = Substitute.For<IProjectFileService>();
         primary.Project.Returns(new ProjectFile(RootA, new RDCoreProject { Name = "A" }));
         _projects = new WorkspaceProjects(primary);
-        _projects.Initialize(RootA, [RootA, RootB, Shared]);
+        _projects.Initialize(RootA, [RootA, RootB, Shared], []);
         _projects.Add(new WorkspaceProject(RootB, new ProjectFile(RootB, new RDCoreProject { Name = "B" })));
 
         _documents.WorkspaceRoot.Returns(RootA);
@@ -114,6 +114,8 @@ public sealed class RenameServiceProjectsTests
 
         var workspace = await sut.ComposeAsync(CancellationToken.None);
 
-        Assert.IsNotNull(workspace);
+        // the modules of the project the documents say, and only those: A's Module1 is renamable, B's is no module of it.
+        Assert.AreEqual("Run", workspace!.Prepare(UriOf(_moduleA), new Position(1, 12)).Value!.Placeholder);
+        Assert.IsNull(workspace.Prepare(UriOf(_moduleB), new Position(1, 12)).Value);
     }
 }

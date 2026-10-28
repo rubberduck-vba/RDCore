@@ -82,8 +82,8 @@ internal sealed class RenameService(
     IReferencedLibraryService referencedLibraries,
     IOptions<SdkAppOptions> options,
     ILogger<RenameService> logger,
-    WorkspaceCompositionCache? compositions = null,
-    IWorkspaceProjects? workspaceProjects = null) : IRenameService
+    IWorkspaceProjects workspaceProjects,
+    WorkspaceCompositionCache? compositions = null) : IRenameService
 {
     // the workspace as it was composed last, for as long as no document changed: a prepared rename, the rename and the code actions of a line are of one.
     private readonly WorkspaceCompositionCache _compositions = compositions ?? new();
@@ -112,7 +112,7 @@ internal sealed class RenameService(
 
         // the project the server runs, then the others: each is composed of its own modules, so that a name resolves in the project of the module that writes it.
         List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, name: null, token)];
-        foreach (var other in workspaceProjects?.Projects.Skip(1) ?? [])
+        foreach (var other in workspaceProjects.Projects.Skip(1))
         {
             parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
         }

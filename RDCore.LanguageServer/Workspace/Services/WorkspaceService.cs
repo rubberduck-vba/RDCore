@@ -74,11 +74,10 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     IWorkspaceDocumentService documentService,
     States.IDocumentStateProvider documentStateProvider,
     Func<SupportedLanguage> language,
-    IWorkspaceProjects? workspaceProjects = null,
-    RDCore.SDK.Workspace.IProjectFileLoader? projectFileLoader = null) : IWorkspaceService
+    IWorkspaceProjects projects,
+    RDCore.SDK.Workspace.IProjectFileLoader projectFileLoader) : IWorkspaceService
 {
-    // a workspace of one folder needs neither: the registry of its one project, and a loader for the others there are not.
-    private readonly IWorkspaceProjects _projects = workspaceProjects ?? new WorkspaceProjects(projectFileService);
+    private readonly IWorkspaceProjects _projects = projects;
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
 
     // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then.
@@ -272,25 +271,24 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         }
 
         documentService.Initialize(workspaceRoot);
-        _projects.Initialize(workspaceRoot, folders);
+        // the root is a folder of the workspace whether or not the client lists it among its folders.
+        string[] all = [workspaceRoot, .. folders];
+        _projects.Initialize(workspaceRoot, folders, all.Where(HoldsAProject));
         await LoadOtherProjectsAsync();
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
     }
 
+    private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));
+
     // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
     private async Task LoadOtherProjectsAsync()
     {
-        if (projectFileLoader is null)
-        {
-            return;
-        }
-
         var primary = _projects.Projects[0].Root;
-        foreach (var root in _projects.Folders.Roots.Where(root => !Same(primary, root)))
+        foreach (var root in _projects.Folders.Roots.Where(root => !WorkspacePaths.Same(primary, root)))
         {
-            if (_projects.Roles().First(entry => Same(entry.Root, root)).Role != WorkspaceFolderRole.Project)
+            if (_projects.Roles().First(entry => WorkspacePaths.Same(entry.Root, root)).Role != WorkspaceFolderRole.Project)
             {
                 logger.LogInformation("📁 '{folder}' holds sources a project lists, and is no project.", root);
                 continue;
@@ -302,8 +300,6 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         }
     }
 
-    private static bool Same(string left, string right) => WorkspaceFolders.Holds(left, right) && WorkspaceFolders.Holds(right, left);
-
     private async Task LoadWorkspaceFilesAsync()
     {
         // each project's files: a path that climbs out of its folder (..\Shared\Util.bas) or is absolute is one only if a folder of the workspace holds it.
@@ -312,10 +308,10 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         {
             var info = project.Project.ProjectInfo;
             foreach (var (file, isOther) in info.Modules.Select(module => ((RDCoreFile)module, false))
-                .Concat(info.OtherFiles.Select(other => (other, !info.Modules.Any(module => string.Equals(module.RelativeUri, other.RelativeUri, StringComparison.OrdinalIgnoreCase))))))
+                .Concat(info.OtherFiles.Select(other => (other, !info.Modules.Any(module => string.Equals(module.RelativeUri, other.RelativeUri, WorkspacePaths.Comparison))))))
             {
                 var path = ioPath.Combine(project.Root, file.RelativeUri);
-                if (ioPath.IsPathRooted(file.RelativeUri) || file.RelativeUri.Split('/', '\\').Contains(".."))
+                if (ioPath.IsPathRooted(file.RelativeUri) || WorkspacePaths.Climbs(file.RelativeUri))
                 {
                     path = ioPath.GetFullPath(path);
                     if (!_projects.Folders.Contains(path))

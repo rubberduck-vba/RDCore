@@ -233,6 +233,41 @@ public sealed class VbpProjectImporterTests
     }
 
     [TestMethod]
+    public void TheImport_RecordsItsVbp_ByARelativePath_AndAnotherWriteOfTheProjectFileKeepsIt()
+    {
+        var imported = Import().Into(null, @"C:\ws");
+
+        Assert.AreEqual("Battleship.vbp", imported.ProjectInfo.SourceProject, "the .vbp is in the folder of the .rdproj: its path relative to it is its name");
+        Assert.IsTrue(imported.ProjectInfo.IsImported);
+        Assert.IsFalse(Path.IsPathRooted(imported.ProjectInfo.SourceProject!));
+
+        var edited = imported with { ProjectInfo = imported.ProjectInfo.WithModule(new RDCoreModule { RelativeUri = "Extra.bas" }).WithName("Renamed") };
+        Assert.AreEqual("Battleship.vbp", edited.ProjectInfo.SourceProject, "nothing but an import changes it");
+    }
+
+    [TestMethod]
+    public void AnotherImportIntoTheProjectFile_KeepsTheField_AndAProjectFileWithoutOneGetsIt()
+    {
+        var imported = Import().Into(null, @"C:\ws");
+        var again = Import().Into(imported, @"C:\ws");
+        var native = new ProjectFile(@"C:\ws", new RDCoreProject { Name = "Native" });
+
+        Assert.AreEqual("Battleship.vbp", again.ProjectInfo.SourceProject);
+        Assert.IsFalse(native.ProjectInfo.IsImported, "a project file that was written by hand, or by the platform, is no import");
+        Assert.AreEqual("Battleship.vbp", Import().Into(native, @"C:\ws").ProjectInfo.SourceProject, "until a .vbp is imported into it");
+    }
+
+    [TestMethod]
+    public void TheFieldIsWrittenToTheProjectFile_OnlyForAnImport()
+    {
+        var imported = System.Text.Json.JsonSerializer.Serialize(Import().Into(null, @"C:\ws"));
+        var native = System.Text.Json.JsonSerializer.Serialize(new ProjectFile(@"C:\ws", new RDCoreProject { Name = "Native" }));
+
+        StringAssert.Contains(imported, "\"SourceProject\":\"Battleship.vbp\"");
+        Assert.DoesNotContain("SourceProject", native);
+    }
+
+    [TestMethod]
     public void WhatAProjectFileCannotSay_IsNoted_AndNotCarriedOver()
     {
         var import = Import();
@@ -265,7 +300,7 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("Le contrôle « MSCOMCTL.OCX » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.", note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")));
     }
 
-    // a ..\ file is a module of this project, as in VB6, when a folder of the workspace holds it; one that none holds is said so (author, 2026-10-27, desk #30).
+    // a ..\ file is a module of this project, as in VB6, when a folder of the workspace holds it; one that none holds is said so.
     [TestMethod]
     public void AFileOutsideEveryWorkspaceFolder_IsSaidToBeSo()
     {

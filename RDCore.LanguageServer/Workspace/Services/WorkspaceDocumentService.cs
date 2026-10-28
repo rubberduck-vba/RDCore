@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.States;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Concurrent;
 using System.Text;
@@ -57,9 +58,25 @@ internal interface IWorkspaceDocumentService
     /// </summary>
     /// <returns><see langword="false"/> when the document is open, or was not in the workspace.</returns>
     bool Remove(TextDocumentIdentifier id);
+
+    /// <summary>
+    /// Moves a document to another path, as the client renamed its file: the document keeps its text, its version, whether it is open, and the projects it is a module
+    /// of - nothing is read from disk, so that the text a client has open and has not saved is not lost. A document the client has open at the new path is kept instead - its text, version and open state - and gains the projects of the old one; one that was only read from disk is replaced.
+    /// </summary>
+    /// <param name="id">The document at the path it had.</param>
+    /// <param name="newId">The path it has now.</param>
+    /// <returns><see langword="false"/> when there is no such document.</returns>
+    bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId);
+
+    /// <summary>
+    /// Says a project no longer lists a document: it is a module of one project less. The document is taken out of the workspace when it was the last project's and the
+    /// client does not have it open; one the client has open stays, a module of no project.
+    /// </summary>
+    /// <param name="id">The document.</param>
+    /// <param name="projectRoot">The folder of the project that no longer lists it.</param>
+    void Leave(TextDocumentIdentifier id, string projectRoot);
     void Edit(TextDocumentIdentifier id, string text);
     void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text);
-    void Rename(TextDocumentIdentifier id, string newName);
     void Create(string relativePath);
 
     /// <summary>
@@ -173,7 +190,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var path = id.Uri.GetFileSystemPath();
 
         // a file another project listed is the same document: it has the text, the version and the state it has, and is a module of this project too.
-        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => WorkspaceDocumentServiceExtensions.SameFolder(root, projectRoot)))
+        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => WorkspacePaths.Same(root, projectRoot)))
         {
             _documents[id] = shared with { Projects = [.. shared.Projects, projectRoot] };
             return true;
@@ -286,6 +303,80 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
         documentStateProvider.Forget(id);
         return _documents.TryRemove(id, out _);
+    }
+
+    public void Leave(TextDocumentIdentifier id, string projectRoot)
+    {
+        // read, change and written back as one step: a change of the text that lands between is not overwritten with the text that was read.
+        while (_documents.TryGetValue(id, out var document))
+        {
+            var remaining = document.Projects.Where(root => !WorkspacePaths.Same(root, projectRoot)).ToList();
+            if (remaining.Count == 0 && !IsOpen(id))
+            {
+                if (_documents.TryRemove(new KeyValuePair<TextDocumentIdentifier, WorkspaceDocument>(id, document)))
+                {
+                    documentStateProvider.Forget(id);
+                    return;
+                }
+            }
+            else if (_documents.TryUpdate(id, document with { Projects = remaining }, document))
+            {
+                // another project still lists it, or the client has it open: it is the document of the projects that are left, and of none at all when the client keeps it open.
+                return;
+            }
+        }
+    }
+
+    private bool IsOpen(TextDocumentIdentifier id) => documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState;
+
+    public bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId)
+    {
+        // the document is taken out of its path first, whatever happens to it next: it is the one the client last changed.
+        if (!_documents.TryRemove(id, out var document))
+        {
+            return false;
+        }
+
+        var wasOpen = IsOpen(id);
+        documentStateProvider.Forget(id);
+
+        // the document is addressed from the root of the project that loaded it first; a path that climbs out of it is the file it names.
+        var root = document.WorkspaceRoot;
+        var moved = new WorkspaceDocument(ioPath.GetRelativePath(root, newId.Uri.GetFileSystemPath()), root, document.Text, document.Version)
+        {
+            IsDirty = document.IsDirty,
+            Companion = document.Companion,
+            Projects = document.Projects,
+        };
+
+        // a client closes the old path and opens the new one before it says the file was renamed: a document the client has open at the new path is the client's - its text,
+        // its version, and that it is open - and is a module of the projects the old one was. One that is not open was only read from disk, and the document that was moved
+        // is the document.
+        var keptTheOneThere = false;
+        _documents.AddOrUpdate(
+            moved.Id,
+            _ => moved,
+            (_, there) =>
+            {
+                var projects = (IReadOnlyList<string>)[.. there.Projects.Union(document.Projects, WorkspacePaths.Comparer)];
+                keptTheOneThere = IsOpen(moved.Id);
+                return keptTheOneThere
+                    ? there with { Projects = projects, Companion = there.Companion.IsEmpty ? document.Companion : there.Companion }
+                    : moved with { Projects = projects };
+            });
+
+        if (!keptTheOneThere)
+        {
+            documentStateProvider.Forget(moved.Id);
+            documentStateProvider.Track(moved.Id);
+            documentStateProvider.OnDocumentLoaded(moved.Id);
+            if (wasOpen)
+            {
+                documentStateProvider.OnDocumentOpened(moved.Id);
+            }
+        }
+
+        return true;
     }
 
     public void Edit(TextDocumentIdentifier id, string text)
@@ -507,43 +598,4 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return null;
     }
 
-    public void Rename(TextDocumentIdentifier id, string newName)
-    {
-        var currentState = documentStateProvider.GetCurrentState(id);
-
-        if (currentState is LoadedDocumentState or OpenedDocumentState
-            && _documents.TryGetValue(id, out var d) && d is WorkspaceDocument document)
-        {
-            var relativePath = ioPath.GetRelativePath(WorkspaceRoot, document.Id.Uri.GetFileSystemPath());
-            var newRelativePath = ioPath.Combine(ioPath.GetDirectoryName(relativePath)!, newName);
-            var newId = new TextDocumentIdentifier(new Uri(ioPath.Combine(WorkspaceRoot, newRelativePath)));
-
-            if (logger.IsEnabled(LogLevel.Trace))
-            {
-                logger.LogTrace("Renaming file '{oldPath}' to '{newPath}'...", relativePath, newRelativePath);
-            }
-
-            _documents.TryRemove(id, out _);
-            _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version)
-            {
-                IsDirty = document.IsDirty,
-                Companion = document.Companion,
-                Projects = document.Projects,
-            };
-
-            documentStateProvider.OnDocumentUnloaded(id);
-            documentStateProvider.OnDocumentLoaded(newId);
-            if (currentState is OpenedDocumentState)
-            {
-                documentStateProvider.OnDocumentOpened(id);
-            }
-
-            logger.LogInformation("✅ Workspace file rename operation completed successfully.");
-        }
-        else
-        {
-            logger.LogWarning("🐛 Workspace document could not be renamed because it is not in a valid state ({state}).", currentState.Value);
-            throw new InvalidDocumentStateException();
-        }
-    }
 }

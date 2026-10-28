@@ -133,6 +133,18 @@ public record class RDCoreProject
     public string[] Folders { get; set; } = [];
 
     /// <summary>
+    /// The Visual Basic 6 project (<c>.vbp</c>) the project was imported from, by its path relative to the folder of the <c>.rdproj</c>: the import writes it
+    /// (<see cref="VbpImport.Into"/>), a second import of the same <c>.vbp</c> keeps it, and nothing else changes it. <see langword="null"/> for a project that was not imported - a
+    /// <c>.vbp</c> next to a <c>.rdproj</c> does not make it one.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceProject { get; init; }
+
+    /// <summary>Whether the project was imported from a Visual Basic 6 project (<see cref="SourceProject"/>).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsImported => SourceProject is not null;
+
+    /// <summary>
     /// Project-level precompiler constants (<c>#Const</c>), keyed by name. The value is the literal
     /// source text of the constant expression (e.g. <c>"1"</c>, <c>"-1"</c>, <c>"\"debug\""</c>).
     /// CLI <c>--define</c> arguments override these.
