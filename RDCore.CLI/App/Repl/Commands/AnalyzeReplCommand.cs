@@ -1,5 +1,6 @@
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.App.Repl.Commands;
@@ -9,10 +10,14 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// without running anything.
 /// </summary>
 /// <remarks>
+/// A finding is two lines: its glyph, where it is, its code and the page that explains it (a link where the console draws links), in the title style of its
+/// severity; and what it says under it, in the verbose style.
+/// <para>
 /// The findings come from the platform's own diagnostics providers — the same ones an editor's
 /// diagnostics pull fans out to. So the answer grows as analyzers do: today it reports whatever the
 /// providers the platform was assembled with have to say, and "nothing to report" names how many
 /// answered, because no providers and no findings are not the same thing.
+/// </para>
 /// </remarks>
 internal sealed class AnalyzeReplCommand : IReplCommand
 {
@@ -44,8 +49,8 @@ internal sealed class AnalyzeReplCommand : IReplCommand
 
         foreach (var diagnostic in result.Diagnostics)
         {
-            context.Console.WriteMessage(SeverityOf(diagnostic.Severity),
-                $"{Locate(context.Program, diagnostic)} {diagnostic.Code} {diagnostic.Message}".TrimStart());
+            context.Console.WriteFinding(SeverityOf(diagnostic.Severity),
+                $"{Locate(context.Program, diagnostic)} {diagnostic.Code}".Trim(), HelpUrlOf(diagnostic), diagnostic.Message);
         }
 
         context.Console.WriteLine(string.Format(Resources.Repl_Analyze_Count, result.Diagnostics.Count));
@@ -67,6 +72,13 @@ internal sealed class AnalyzeReplCommand : IReplCommand
             ? $"{lines[index].Number}:{diagnostic.Column}"
             : string.Empty;
     }
+
+    /// <summary>
+    /// The page that explains a finding, which is where an editor's diagnostic points its code at (<c>codeDescription</c>).
+    /// </summary>
+    /// <returns>The address; <see langword="null"/> for a finding that has no code.</returns>
+    internal static Uri? HelpUrlOf(SessionDiagnostic diagnostic)
+        => diagnostic.Code.Length == 0 ? null : new Uri($"{RDCoreUrl.RDCoreDiagnosticCodeDescriptionBaseWebUrl}/{diagnostic.Code.ToLowerInvariant()}.html");
 
     private static MessageKind SeverityOf(SessionDiagnosticSeverity severity) => severity switch
     {
