@@ -146,6 +146,8 @@
           href: rd-vbal.3.5.4.execution.md
         - name: "3.5.5 Placement and Licensing"
           href: rd-vbal.3.5.5.placement-and-licensing.md
+        - name: "3.5.6 Compiled Execution"
+          href: rd-vbal.3.5.6.compiled-execution.md
 - name: "4.0 Program Structure and Organization"
   href: rd-vbal.4.0.program-structure.md
   items:

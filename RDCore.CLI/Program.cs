@@ -395,6 +395,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, ImportProjectCommand>()
             .AddSingleton<ICliCommand, ExportLibraryCommand>()
             .AddSingleton<ICliCommand, BenchCommand>()
+            .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton<ConfigCommand>()
             .AddSingleton<ICliCommand, ConfigCliCommand>()

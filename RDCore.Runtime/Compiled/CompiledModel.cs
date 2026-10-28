@@ -5,7 +5,7 @@ namespace RDCore.Runtime.Compiled;
 /// <summary>
 /// Why a procedure is not compiled: what in it compiled code does not do yet, and stays the interpreter's.
 /// </summary>
-internal enum IneligibilityKind
+public enum IneligibilityKind
 {
     /// <summary>A member of a class, which is called on an object (stage 2, S2.5).</summary>
     MemberOfAClass,
@@ -22,17 +22,44 @@ internal enum IneligibilityKind
     /// <summary>An instruction compiled code does not do: an error handler, a <c>GoSub</c>, a <c>With</c>, a <c>Select Case</c>, a <c>For Each</c>.</summary>
     Instruction,
 
-    /// <summary>A statement compiled code does not do: a call, a <c>Set</c>, a file statement.</summary>
+    /// <summary>A statement compiled code does not do: a call, a <c>Set</c>, a file statement. Its detail is the statement's node.</summary>
     Statement,
 
-    /// <summary>An expression compiled code does not do: a call, a member, an element, a <c>String</c>, a <c>Variant</c>, a name bound late.</summary>
-    Expression,
+    /// <summary>A <c>Let</c> of anything but a variable of the procedure or its function result: a member, an element, a field.</summary>
+    AssignmentTarget,
 
-    /// <summary>An operator compiled code does not do: <c>^</c>, <c>&amp;</c>, <c>Like</c>, <c>Is</c>.</summary>
+    /// <summary>A <c>For</c> loop that counts with what is not a variable of the procedure, or with a <c>Boolean</c>.</summary>
+    ForCounter,
+
+    /// <summary>A call (S2.3).</summary>
+    Call,
+
+    /// <summary>A member of an object (S2.5).</summary>
+    Member,
+
+    /// <summary>An element of an array, or a call of a default member (S2.6).</summary>
+    Element,
+
+    /// <summary>A name bound late, which is resolved when it is evaluated.</summary>
+    LateBound,
+
+    /// <summary>An operand of a <c>Variant</c> or an object, whose operation is planned for its value (S2.5).</summary>
+    VariantOperand,
+
+    /// <summary>A variable that is not the procedure's: a field of the module, a <c>Static</c>, another procedure's (S2.6).</summary>
+    ForeignVariable,
+
+    /// <summary>A literal that is no scalar: a <c>String</c>, <c>Nothing</c>, <c>Null</c>, <c>Empty</c> (S2.5).</summary>
+    Literal,
+
+    /// <summary>An operator compiled code does not do: <c>^</c>, <c>&amp;</c>, <c>Like</c>, <c>Is</c>; or an operation of no scalar type. Its detail is the operator.</summary>
     Operator,
 
     /// <summary>A <c>GoTo</c>, a line that is jumped to (S2.4).</summary>
     GoTo,
+
+    /// <summary>Compiled code the runtime refuses to run, which is a defect of the compiler. Its detail is what the runtime said.</summary>
+    Refused,
 }
 
 /// <summary>
@@ -41,7 +68,36 @@ internal enum IneligibilityKind
 /// <param name="Kind">What it is.</param>
 /// <param name="Detail">What of it: the name of the parameter, the instruction, the expression.</param>
 /// <param name="Location">Where it is written, when it is written somewhere.</param>
-internal sealed record class Ineligibility(IneligibilityKind Kind, string Detail, SourceLocation? Location = null);
+public sealed record class Ineligibility(IneligibilityKind Kind, string Detail, SourceLocation? Location = null);
+
+/// <summary>
+/// Whether a procedure runs compiled (IR lowering §9.2), and what keeps it in the interpreter when it does not: what <c>rdc compilation</c> reports.
+/// </summary>
+/// <param name="Procedure">The procedure.</param>
+/// <param name="IsCompiled">Whether it is compiled.</param>
+/// <param name="Reasons">What keeps it in the interpreter; empty when it is compiled.</param>
+public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, bool IsCompiled, IReadOnlyList<Ineligibility> Reasons)
+{
+    /// <summary>
+    /// Compiles <paramref name="procedure"/> as its first call in <paramref name="image"/> would, and says what came of it.
+    /// </summary>
+    /// <param name="image">The program image the procedure's body is loaded in.</param>
+    /// <param name="session">The session the image is the code of.</param>
+    /// <param name="executor">The interpreter of the session's pipeline, whose evaluator binds the body's expressions.</param>
+    /// <param name="procedure">The procedure.</param>
+    /// <returns><see langword="null"/> for a procedure that has no body in the image.</returns>
+    public static ProcedureCompilation? Of(Execution.ProgramImage image, SDK.Runtime.Abstract.Execution.IRuntimeSession session, Execution.ProcedureExecutor executor,
+        SDK.Model.Symbols.Abstract.VBTypeMemberSymbol procedure)
+    {
+        if (!image.TryGetValue(procedure.SemanticId, out var body))
+        {
+            return null;
+        }
+
+        var result = image.Compiler.Compile(session, executor.Expressions, procedure, body);
+        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons);
+    }
+}
 
 /// <summary>
 /// A procedure compiled, or why it is not.

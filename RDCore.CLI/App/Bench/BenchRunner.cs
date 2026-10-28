@@ -3,6 +3,7 @@ using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.External;
 using RDCore.Parsing;
+using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
@@ -94,9 +95,68 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
     /// <param name="token">Stops the benchmark between two runs, and the run that is going on.</param>
     public async Task<BenchReport> RunAsync(BenchWorkspace workspace, BenchOptions options, Action<string>? progress = null, CancellationToken token = default)
     {
+        var profile = options.Engine is { } engine && environment is SDK.Runtime.RuntimeEnvironmentProfile configured ? configured with { ExecutionEngine = engine } : environment;
+        var load = await LoadAsync(workspace, profile, token);
+        var provider = load.Provider;
+
+        var cases = new List<BenchCase>();
+        foreach (var (name, entryPoint) in Cases(provider.Session, load.Loaded).Where(found => Selected(found.Name, options.Filter)))
+        {
+            if (options.ListOnly)
+            {
+                cases.Add(new BenchCase(name, []));
+                continue;
+            }
+
+            progress?.Invoke(name);
+            cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
+        }
+
+        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems);
+    }
+
+    /// <summary>
+    /// Loads <paramref name="workspace"/>, and compiles each procedure of each module that loaded, as its first call would: whether it runs compiled, and
+    /// what keeps it in the interpreter when it does not (IR lowering §9.2).
+    /// </summary>
+    /// <param name="workspace">The workspace.</param>
+    /// <param name="token">Stops the load.</param>
+    /// <returns>Each procedure, by module and in the order the module declares them; and what kept a module from being parsed or loaded.</returns>
+    public async Task<(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems)> CompileAsync(
+        BenchWorkspace workspace, CancellationToken token = default)
+    {
+        var load = await LoadAsync(workspace, environment, token);
+        var session = load.Provider.Session;
+        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
+        var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
+        foreach (var (module, _) in load.Loaded)
+        {
+            if (!session.Symbols.TryGetModule(module.Name, out var symbol))
+            {
+                continue;
+            }
+
+            foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
+            {
+                if (ProcedureCompilation.Of(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
+                {
+                    procedures.Add((module.Name, compilation));
+                }
+            }
+        }
+
+        return (procedures, load.Problems);
+    }
+
+    private sealed record class LoadedWorkspace(
+        EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
+        IReadOnlyList<string> Problems);
+
+    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile.
+    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token)
+    {
         var problems = new List<string>();
         var root = new Uri(workspace.Root);
-        var profile = options.Engine is { } engine && environment is SDK.Runtime.RuntimeEnvironmentProfile configured ? configured with { ExecutionEngine = engine } : environment;
         var provider = new EnvironmentSessionProvider(
             profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), new DirectoryLibrarySource(fileSystem, string.Empty), ExternalWorld.None);
         provider.Compose(workspace.Project, root);
@@ -184,20 +244,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
         await provider.Image.Semantics.WhenAllEvaluatedAsync(token);
         var sweepTime = stopwatch.Elapsed;
 
-        var cases = new List<BenchCase>();
-        foreach (var (name, entryPoint) in Cases(provider.Session, loaded).Where(found => Selected(found.Name, options.Filter)))
-        {
-            if (options.ListOnly)
-            {
-                cases.Add(new BenchCase(name, []));
-                continue;
-            }
-
-            progress?.Invoke(name);
-            cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
-        }
-
-        return new BenchReport(workspace, parseTime, symbolsTime, loadTime, sweepTime, provider.Image.CompilationTime, cases, problems);
+        return new LoadedWorkspace(provider, loaded, parseTime, symbolsTime, loadTime, sweepTime, problems);
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);

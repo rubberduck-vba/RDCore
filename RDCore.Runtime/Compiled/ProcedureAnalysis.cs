@@ -109,19 +109,24 @@ internal sealed class ProcedureAnalysis
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));
 
+    // where a declaration is, which is what a reason it gives is reported at.
+    private static SourceLocation LocationOf(BoundTypedSymbol declared) => new(declared.Uri, declared.Range);
+
+    private static SourceLocation LocationOf(VBTypeMemberSymbol declared) => new(declared.Uri, declared.Range);
+
     // the procedure itself: a Sub, a Function or a Property Get of a standard module, whose parameters are scalars by value and whose variables scalars.
     private bool AnalyzeSignature()
     {
         if (_procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
         {
-            Refuse(IneligibilityKind.MemberOfAClass, _procedure.Name);
+            Refuse(IneligibilityKind.MemberOfAClass, _procedure.Name, LocationOf(_procedure));
             return false;
         }
 
         var parameters = RuntimeProcedureInvoker.GetParameters(_procedure);
         if (parameters is [{ Name: "Me" }, ..])
         {
-            Refuse(IneligibilityKind.MemberOfAClass, _procedure.Name);
+            Refuse(IneligibilityKind.MemberOfAClass, _procedure.Name, LocationOf(_procedure));
             return false;
         }
 
@@ -130,13 +135,13 @@ internal sealed class ProcedureAnalysis
             var parameter = parameters[i];
             if (parameter is ParamArrayParameterSymbol || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
             {
-                Refuse(IneligibilityKind.ParameterByReference, parameter.Name);
+                Refuse(IneligibilityKind.ParameterByReference, parameter.Name, LocationOf(parameter));
                 continue;
             }
 
             if (ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
             {
-                Refuse(IneligibilityKind.NotAScalar, $"{parameter.Name} As {parameter.ResolvedType.Name}");
+                Refuse(IneligibilityKind.NotAScalar, $"{parameter.Name} As {parameter.ResolvedType.Name}", LocationOf(parameter));
                 continue;
             }
 
@@ -152,13 +157,13 @@ internal sealed class ProcedureAnalysis
                 case VBLocalConstantSymbol:
                     continue;
                 case VBLocalVariableSymbol { IsStatic: true } variable:
-                    Refuse(IneligibilityKind.StaticVariable, variable.Name);
+                    Refuse(IneligibilityKind.StaticVariable, variable.Name, LocationOf(variable));
                     continue;
                 case VBLocalVariableSymbol variable when ScalarKinds.Of(variable.ResolvedType) is { } kind && _layout.LocalSlots[i] >= 0:
                     _slots[_layout.LocalSlots[i]] = kind;
                     continue;
                 default:
-                    Refuse(IneligibilityKind.NotAScalar, $"{locals[i].Name} As {locals[i].ResolvedType.Name}");
+                    Refuse(IneligibilityKind.NotAScalar, $"{locals[i].Name} As {locals[i].ResolvedType.Name}", LocationOf(locals[i]));
                     continue;
             }
         }
@@ -167,7 +172,7 @@ internal sealed class ProcedureAnalysis
         {
             if (ScalarKinds.Of(returning.ResolvedType) is not { } result)
             {
-                Refuse(IneligibilityKind.NotAScalar, $"{_procedure.Name} As {returning.ResolvedType.Name}");
+                Refuse(IneligibilityKind.NotAScalar, $"{_procedure.Name} As {returning.ResolvedType.Name}", LocationOf(_procedure));
             }
             else
             {
@@ -186,8 +191,12 @@ internal sealed class ProcedureAnalysis
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment:
                 return AnalyzeLet(instruction.Offset, assignment);
 
+            case InstructionKind.Simple when instruction.Node is CallStatementNode call:
+                Refuse(IneligibilityKind.Call, (call.Callee as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty, location);
+                return null;
+
             case InstructionKind.Simple:
-                Refuse(IneligibilityKind.Statement, instruction.Node?.GetType().Name ?? "statement", location);
+                Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
                 return null;
 
             case InstructionKind.ConditionalBranch when instruction.Matching is null && instruction.Else is { } otherwise:
@@ -221,6 +230,21 @@ internal sealed class ProcedureAnalysis
         }
     }
 
+    // what a statement is called: its node's type, less what every node's type ends with - DebugPrint, Assignment, Open.
+    private static string StatementNameOf(StatementNode? node)
+    {
+        var name = node?.GetType().Name ?? nameof(InstructionKind.Simple);
+        foreach (var suffix in new[] { "StatementNode", "Node" })
+        {
+            if (name.EndsWith(suffix, StringComparison.Ordinal) && name.Length > suffix.Length)
+            {
+                return name[..^suffix.Length];
+            }
+        }
+
+        return name;
+    }
+
     private CompiledStep? Refused(Instruction instruction)
     {
         if (_reasons.Count == 0)
@@ -237,7 +261,7 @@ internal sealed class ProcedureAnalysis
     {
         if (assignment.Target is not SimpleNameExpressionNode)
         {
-            Refuse(IneligibilityKind.Statement, "an assignment of a member or an element", assignment.SourceLocation);
+            Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
             return null;
         }
 
@@ -248,7 +272,7 @@ internal sealed class ProcedureAnalysis
             case BoundVariable variable when SlotOf(variable) is { } slot:
                 return PayloadAs(Bind(assignment.Value), _slots[slot]) is { } value ? new LetStep(offset, slot, value) : null;
             default:
-                Refuse(IneligibilityKind.Statement, "an assignment of a variable that is not the procedure's", assignment.SourceLocation);
+                Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
         }
     }
@@ -261,14 +285,14 @@ internal sealed class ProcedureAnalysis
         if (forStatement.ControlExpression is not SimpleNameExpressionNode || Bind(forStatement.ControlExpression) is not BoundVariable counter
             || SlotOf(counter) is not { } slot)
         {
-            Refuse(IneligibilityKind.Statement, "a For loop whose counter is not a variable of the procedure", forStatement.SourceLocation);
+            Refuse(IneligibilityKind.ForCounter, (forStatement.ControlExpression as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty, forStatement.SourceLocation);
             return null;
         }
 
         var kind = _slots[slot];
         if (kind is ScalarKind.Boolean)
         {
-            Refuse(IneligibilityKind.Statement, "a For loop that counts with a Boolean", forStatement.SourceLocation);
+            Refuse(IneligibilityKind.ForCounter, counter.Variable.Name, forStatement.SourceLocation);
             return null;
         }
 
@@ -361,8 +385,8 @@ internal sealed class ProcedureAnalysis
             case BoundBinary or BoundUnary when IsExtended(node):
                 return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
 
-            case BoundBinary binary when (IsExtended(binary.Left) || IsExtended(binary.Right)) && PlanOf(binary) is { } plan:
-                return OperateWithExtended(binary, plan);
+            case BoundBinary binary when IsExtended(binary.Left) || IsExtended(binary.Right):
+                return PlanOf(binary) is { } extendedPlan ? OperateWithExtended(binary, extendedPlan) : null;
 
             case BoundUnary { Plan: { IsDeferred: false, OperandDestination: { } destination } plan } unary when IsExtended(unary.Operand):
                 return ScalarKinds.Of(destination) is { } to && PayloadAs(unary.Operand, to) is { } converted ? OperateUnary(plan, converted, unary) : Unsupported(unary);
@@ -392,8 +416,10 @@ internal sealed class ProcedureAnalysis
             case BoundUnary { Plan: { IsDeferred: false } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
                 return Payload(operand) is { } value ? OperateUnary(plan, value, unary) : null;
 
-            case BoundBinary binary when PlanOf(binary) is { } plan:
-                return Payload(binary.Left) is { } left && Payload(binary.Right) is { } right ? Operate(plan, left, right, binary) : null;
+            case BoundBinary binary:
+                return PlanOf(binary) is { } binaryPlan && Payload(binary.Left) is { } left && Payload(binary.Right) is { } right
+                    ? Operate(binaryPlan, left, right, binary)
+                    : null;
 
             default:
                 return Unsupported(node);
@@ -418,23 +444,26 @@ internal sealed class ProcedureAnalysis
             return plan;
         }
 
-        Refuse(IneligibilityKind.Expression, binary.Plan is null ? "an operand bound late" : "a Variant or an object operand", binary.Expression.Location);
+        Refuse(binary.Plan is null ? IneligibilityKind.LateBound : IneligibilityKind.VariantOperand, binary.Operation.Token, binary.Expression.Location);
         return null;
     }
 
     private PayloadNode? Unsupported(BoundNode node)
     {
-        Refuse(IneligibilityKind.Expression, node switch
+        var (kind, detail) = node switch
         {
-            BoundCall => "a call",
-            BoundMember => "a member",
-            BoundIndex => "an element, or a call",
-            BoundLate or BoundError => "a name bound late",
-            BoundLiteral => "a literal that is no number",
-            BoundVariable => "a variable that is not the procedure's",
-            BoundBinary { Plan: { } plan } => $"the {plan.Operator} operator",
-            _ => node.GetType().Name,
-        }, node.Expression.Location);
+            BoundCall call => (IneligibilityKind.Call, call.Procedure.Name),
+            BoundMember member => (IneligibilityKind.Member, member.Access.Member.IdentifierName),
+            BoundIndex => (IneligibilityKind.Element, string.Empty),
+            BoundLate or BoundError => (IneligibilityKind.LateBound, (node.Expression as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty),
+            BoundLiteral literal => (IneligibilityKind.Literal, literal.Literal.StaticValue.TypeInfo.Name),
+            BoundVariable variable => (IneligibilityKind.ForeignVariable, variable.Variable.Name),
+            BoundBinary { Plan: { } plan } => (IneligibilityKind.Operator, plan.Operator),
+            BoundUnary { Plan: { } plan } => (IneligibilityKind.Operator, plan.Operator),
+            _ => (IneligibilityKind.LateBound, node.GetType().Name),
+        };
+
+        Refuse(kind, detail, node.Expression.Location);
         return null;
     }
 

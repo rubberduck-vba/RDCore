@@ -249,9 +249,44 @@ public sealed class BenchCommandTests
             "Strings.BenchStringAssignment", "Strings.BenchStringConcatenation", "Arrays.BenchArrayFillAndSum",
             "Calls.BenchProcedureCalls", "Calls.BenchClassMemberCalls", "Calls.BenchStandardLibraryCalls",
             "Calls.BenchFactoryCalls", "Calls.BenchDefaultInstanceCalls", "Calls.BenchSiblingCalls",
+            "Calls.BenchRecursion", "Strings.BenchStringBuilding", "Statements.BenchOnErrorResumeNext", "Numeric.BenchVariantTypedMix",
         })
         {
             StringAssert.Contains(text, expected);
+        }
+    }
+
+    // ---- rdc compilation ----
+
+    [TestMethod]
+    public async Task TheCompilationReport_SaysOfEachProcedureWhetherItIsCompiled_AndWhatKeepsItInTheInterpreter()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var output = new StringWriter();
+        var command = new CompilationCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem), Runner(fileSystem), output);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root], CancellationToken.None), output.ToString());
+
+        var lines = output.ToString().Split(Environment.NewLine);
+        StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
+        var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
+        StringAssert.StartsWith(objectCall, "interpreted");
+        StringAssert.Contains(objectCall, "line ");
+        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "interpreted");
+        StringAssert.Contains(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "a member of a class");
+        StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
+    }
+
+    [TestMethod]
+    public void EveryReasonAProcedureIsNotCompiled_IsWordedInEnglishAndInFrench()
+    {
+        foreach (var kind in Enum.GetValues<RDCore.Runtime.Compiled.IneligibilityKind>())
+        {
+            foreach (var culture in new[] { "en", "fr" })
+            {
+                var wording = RDCore.CLI.Resources.ResourceManager.GetString($"Compilation_Reason_{kind}", System.Globalization.CultureInfo.GetCultureInfo(culture));
+                Assert.IsFalse(string.IsNullOrWhiteSpace(wording), $"{kind} ({culture})");
+            }
         }
     }
 }

@@ -86,7 +86,52 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Bench_RunsMustBePositive", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Says, for each procedure of a workspace or of the built-in corpus, whether it runs compiled, and what keeps it in the interpreter..
+        /// </summary>
+        public static string Compilation_Summary {
+            get {
+                return ResourceManager.GetString("Compilation_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to compiled.
+        /// </summary>
+        public static string Compilation_Compiled {
+            get {
+                return ResourceManager.GetString("Compilation_Compiled", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to interpreted.
+        /// </summary>
+        public static string Compilation_Interpreted {
+            get {
+                return ResourceManager.GetString("Compilation_Interpreted", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} of {1} procedures compiled..
+        /// </summary>
+        public static string Compilation_Count {
+            get {
+                return ResourceManager.GetString("Compilation_Count", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to line {0}.
+        /// </summary>
+        public static string Compilation_Line {
+            get {
+                return ResourceManager.GetString("Compilation_Line", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Times the interpreter on a workspace, or on the built-in corpus: parse, load, sweep, then each Bench* case..
         /// </summary>

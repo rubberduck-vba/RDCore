@@ -24,6 +24,9 @@ public sealed class CompiledExecutionTests
     {
         ExecuteSessionResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
+
+        // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two.
+        using var running = CompiledExecution.Running(engine);
         await ModuleWorkspace.InspectAsync(NoClasses, program, (provider, run, _) =>
         {
             result = run;

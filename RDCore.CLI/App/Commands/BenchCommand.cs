@@ -99,8 +99,13 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         }
     }
 
-    // the corpus is compiled into rdc, and written to a folder of its own for the session to read, as any workspace is.
-    private string ExtractCorpus()
+    private string ExtractCorpus() => ExtractCorpus(fileSystem);
+
+    /// <summary>
+    /// Writes the corpus built into <c>rdc</c> to a folder of its own for a session to read, as any workspace is.
+    /// </summary>
+    /// <returns>The folder, which the caller deletes.</returns>
+    internal static string ExtractCorpus(IFileSystem fileSystem)
     {
         var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         fileSystem.Directory.CreateDirectory(folder);

@@ -96,7 +96,7 @@ internal sealed class ProcedureCompiler
         }
         catch (InvalidProgramException exception)
         {
-            refusal = new Ineligibility(IneligibilityKind.Instruction, $"the runtime refuses the compiled code: {exception.Message}");
+            refusal = new Ineligibility(IneligibilityKind.Refused, exception.Message);
             return null;
         }
 
@@ -110,9 +110,27 @@ internal sealed class ProcedureCompiler
 /// </summary>
 internal static class CompiledExecution
 {
-    /// <summary>The engine every session runs its procedures with; <see langword="null"/> for the one its environment says.</summary>
-    public static VBExecutionEngine? Engine { get; set; } = Environment.GetEnvironmentVariable("RDCORE_ENGINE") is { } engine
-        && Enum.TryParse<VBExecutionEngine>(engine, ignoreCase: true, out var parsed) ? parsed : null;
+    /// <summary>
+    /// The engine every session runs its procedures with; <see langword="null"/> for the one its environment says. The test assembly sets it from the
+    /// <c>RDCORE_ENGINE</c> environment variable; nothing else does.
+    /// </summary>
+    public static VBExecutionEngine? Engine { get; set; }
+
+    private static readonly AsyncLocal<VBExecutionEngine?> _scoped = new();
+
+    /// <summary>
+    /// The engine a session whose environment says <paramref name="configured"/> runs its procedures with: the one a scope says (<see cref="Running"/>), then
+    /// the one every session is told (<see cref="Engine"/>), then its own.
+    /// </summary>
+    public static VBExecutionEngine EngineFor(VBExecutionEngine configured) => _scoped.Value ?? Engine ?? configured;
+
+    /// <summary>Runs what follows, in this asynchronous flow, with <paramref name="engine"/>, until the scope is disposed of: a test that compares the two.</summary>
+    public static IDisposable Running(VBExecutionEngine engine)
+    {
+        var previous = _scoped.Value;
+        _scoped.Value = engine;
+        return new Scope(() => _scoped.Value = previous);
+    }
 
     private static readonly AsyncLocal<bool> _strict = new();
 

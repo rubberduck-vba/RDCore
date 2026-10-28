@@ -233,7 +233,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // analysis, a debugger attached and an error a Class_Terminate left unhandled are the interpreter's, and so is everything when payloads are not used.
     private RuntimeExecutionOutcome Run(VBTypeMemberSymbol procedure, CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context)
     {
-        if ((CompiledExecution.Engine ?? Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled || !UnboxedEvaluation.IsEnabled
+        if (CompiledExecution.EngineFor(Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled || !UnboxedEvaluation.IsEnabled
             || Executor.Observation is not null || Session.Halt.Gate is not null || Session.Errors.Untrappable is not null || Bodies is not ProgramImage image)
         {
             return Executor.Run(Session, frame, body, context);
