@@ -9,7 +9,7 @@
 [StdLibEnum]
 public enum VBMsgBoxResult
 {
-    VBOk = 1,
+    VBOK = 1,
     VBCancel = 2,
     VBAbort = 3,
     VBRetry = 4,
