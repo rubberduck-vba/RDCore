@@ -137,6 +137,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionCompletionHandler>();
         builder.WithHandler<SessionSignatureHelpHandler>();
+        builder.WithHandler<SessionSemanticTokensHandler>();
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();

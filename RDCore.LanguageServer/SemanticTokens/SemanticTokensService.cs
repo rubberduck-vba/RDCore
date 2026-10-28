@@ -1,8 +1,10 @@
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.LanguageServer.SemanticTokens;
 
@@ -28,6 +30,17 @@ internal interface ISemanticTokensService
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>The tokens of the text the document has now; none for a document the server does not hold.</returns>
     Task<IReadOnlyList<SemanticToken>> GetAsync(Uri documentUri, CancellationToken token);
+
+    /// <summary>
+    /// The semantic tokens of code fragments a client supplies - the condition of a breakpoint, say - which are in no document, with the names in them told apart
+    /// by what a module declares.
+    /// </summary>
+    /// <param name="moduleName">The module's programmatic name: the module of the workspace by that name is the one the source stands for.</param>
+    /// <param name="source">The complete source of the module, which the names are resolved against.</param>
+    /// <param name="fragments">The fragments of code, each as it is written.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The tokens of each fragment, in the order they were asked, positioned in the fragment.</returns>
+    Task<IReadOnlyList<IReadOnlyList<SemanticToken>>> GetFragmentsAsync(string moduleName, string source, IReadOnlyList<string> fragments, CancellationToken token);
 }
 
 /// <summary>
@@ -49,8 +62,29 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
 
         var text = document.Text;
         var tokens = await parsing.TokenizeAsync(documentUri, text, token);
-        var names = await DeclaredNamesAsync(documentUri, token);
+        var parse = await parsing.ParseDocumentAsync(documentUri, token);
+        return Classified(text, tokens, DeclaredNames(parse));
+    }
 
+    public async Task<IReadOnlyList<IReadOnlyList<SemanticToken>>> GetFragmentsAsync(string moduleName, string source, IReadOnlyList<string> fragments, CancellationToken token)
+    {
+        // the fragments are code of the module, whose address they are tokenized and its declarations read at.
+        var address = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
+        var names = DeclaredNames(await parsing.ParseFragmentAsync(address, source, token));
+
+        var result = new List<IReadOnlyList<SemanticToken>>(fragments.Count);
+        foreach (var fragment in fragments)
+        {
+            token.ThrowIfCancellationRequested();
+            result.Add(fragment.Length == 0 ? [] : Classified(fragment, await parsing.TokenizeAsync(address, fragment, token), names));
+        }
+
+        return result;
+    }
+
+    // the tokens of a text, with the names in them told apart by what is declared.
+    private static List<SemanticToken> Classified(string text, IReadOnlyList<SyntaxToken> tokens, (HashSet<string> Constants, HashSet<string> Types) names)
+    {
         var lines = text.Split('\n');
         var result = new List<SemanticToken>(tokens.Count);
         foreach (var syntaxToken in tokens)
@@ -80,7 +114,7 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         return result;
     }
 
-    private async Task<(HashSet<string> Constants, HashSet<string> Types)> DeclaredNamesAsync(Uri documentUri, CancellationToken token)
+    private (HashSet<string> Constants, HashSet<string> Types) DeclaredNames(ModuleParseResult parse)
     {
         var constants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -95,7 +129,6 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
             }
         }
 
-        var parse = await parsing.ParseDocumentAsync(documentUri, token);
         if (parse.SyntaxTree is { } module)
         {
             Collect(module, constants, types);

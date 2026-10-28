@@ -330,6 +330,8 @@ internal class RDCoreConsoleClientApp(
             SessionCompletion = new SessionCompletion(true),
             // and what the call being typed at it takes is shown under it.
             SessionSignatureHelp = new SessionSignatureHelp(true),
+            // the code it lists - the condition of a breakpoint - is highlighted the way the language server tells the tokens of it.
+            SessionSemanticTokens = new SessionSemanticTokens(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
             // the shell answers the dialogs a program opens, at its console.
             SessionInteraction = new SessionInteraction(true),

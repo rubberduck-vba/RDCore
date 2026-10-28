@@ -111,6 +111,46 @@ public sealed class SemanticTokensServiceTests
         Assert.AreEqual(TypeIndex("class"), (await TokenAtAsync(0, 9)).Type);
     }
 
+    private void ParsingFragments()
+        => _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], (string)call[1])));
+
+    [TestMethod]
+    public async Task TheFragmentsOfAModule_HaveTheirNamesToldApartByWhatThatSourceDeclares_EachPositionedInItself()
+    {
+        ParsingFragments();
+
+        var fragments = await _sut.GetFragmentsAsync("Mod1", Source, ["x > Max", "Max + 1", string.Empty], CancellationToken.None);
+
+        Assert.HasCount(3, fragments);
+        var max = fragments[0].Single(token => token.Character == 4);
+        Assert.AreEqual(SemanticTokenLegend.ReadOnly, max.Modifiers, "Max is a constant of the source");
+        Assert.AreEqual(0, max.Line);
+        Assert.AreEqual(0, fragments[1].Single(token => token.Character == 0).Line, "the positions are in the fragment, not in the source");
+        Assert.AreEqual(SemanticTokenLegend.ReadOnly, fragments[1].Single(token => token.Character == 0).Modifiers);
+        Assert.IsEmpty(fragments[2]);
+    }
+
+    [TestMethod]
+    public async Task AFragment_NamingATypeTheSourceDeclares_ColoursItAsAClass()
+    {
+        ParsingFragments();
+
+        var fragments = await _sut.GetFragmentsAsync("Mod1", Source, ["TypeOf x Is Color"], CancellationToken.None);
+
+        Assert.AreEqual(TypeIndex("class"), fragments[0].Single(token => token.Character == 12).Type);
+    }
+
+    [TestMethod]
+    public async Task AFragment_NamingAMemberOfSomething_IsNeverAConstant()
+    {
+        ParsingFragments();
+
+        var fragments = await _sut.GetFragmentsAsync("Mod1", Source, ["y.Max"], CancellationToken.None);
+
+        Assert.AreEqual(0, fragments[0].Single(token => token.Character == 2).Modifiers);
+    }
+
     [TestMethod]
     public void TheLegend_HasATypeForEveryKindOfToken()
     {
