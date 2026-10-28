@@ -22,6 +22,9 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// <c>workspace/didChangeWatchedFiles</c>, and this is what is done about it. The client owns the file system: the server is told, and watches only for a client
 /// that does not say it watches (<see cref="Server.Handlers.Workspace.IWorkspaceFileSystemWatcher"/>).
 /// <para>
+/// The client is told of a workspace that is not what it was (<see cref="IWorkspaceRefresh"/>): what it shows of each document may be of what changed.
+/// </para>
+/// <para>
 /// The server writes the project file itself when the client creates, renames or deletes a file of the workspace (<see cref="ChangeAsync"/>): it is the
 /// project file's only writer. A client that watches the project file then says it changed, and reading it again changes nothing.
 /// </para>
@@ -40,6 +43,15 @@ internal interface IWorkspaceReloadService
     Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token);
 
     /// <summary>
+    /// Reads the project file again as <see cref="ReloadAsync"/> does, and returns once the workspace's documents are what it lists: the environment host and the symbols
+    /// follow, as for <see cref="BeginChangeAsync"/>.
+    /// </summary>
+    /// <param name="token">A token that cancels the reload before the documents are made.</param>
+    /// <returns>The reload, and when it is done; <see langword="null"/> when the server is not running a workspace it could reload.</returns>
+    /// <exception cref="InvalidDataException">The project file is not valid; the workspace is left as it was.</exception>
+    Task<WorkspaceReloadStep?> BeginReloadAsync(CancellationToken token);
+
+    /// <summary>
     /// Changes the project, writes the project file, and makes the workspace what it lists.
     /// </summary>
     /// <remarks>
@@ -52,7 +64,28 @@ internal interface IWorkspaceReloadService
     /// What the change made of the workspace - <see cref="WorkspaceReloadResult.Unchanged"/>, and nothing written, when the project is what it was - or
     /// <see langword="null"/> when the server is not running a workspace it could change.
     /// </returns>
+    /// <exception cref="ProjectFileNotWrittenException">The file system would not let the project file be written; the project is what it was.</exception>
+    /// <exception cref="IOException">The project file was written, and a file it lists could not be read.</exception>
     Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
+
+    /// <summary>
+    /// Changes the project as <see cref="ChangeAsync"/> does (and, as it does, throws <see cref="ProjectFileNotWrittenException"/> when the file system would not let the
+    /// project file be written), and returns once the project file is written and the workspace's documents are what it lists: the
+    /// environment host and the symbols follow, in the order the changes were made, with no one waiting for them.
+    /// </summary>
+    /// <remarks>
+    /// A host that is not up, or is starting, does not hold up the next change, nor a client's notifications that are read one after another: they are not waiting
+    /// for it. What is left to do is cancelled by <see cref="Stop"/>.
+    /// </remarks>
+    /// <param name="change">What the project is to be, from what it is.</param>
+    /// <param name="token">A token that cancels the change before the project file is written.</param>
+    /// <returns>The change, and when it is done; <see langword="null"/> when the server is not running a workspace it could change.</returns>
+    Task<WorkspaceReloadStep?> BeginChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
+
+    /// <summary>
+    /// Cancels what is left to do of the changes made so far, and of those that are made from now on: the server is going away.
+    /// </summary>
+    void Stop();
 
     /// <summary>
     /// Reads again the files of the project that changed outside the editor - a <c>git checkout</c>, a module exported from the VBE - and defines the workspace
@@ -70,7 +103,29 @@ internal interface IWorkspaceReloadService
     /// running a workspace.
     /// </returns>
     Task<WorkspaceReloadResult?> ReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
+
+    /// <summary>
+    /// Reads the files again as <see cref="ReloadFilesAsync"/> does, and returns once their documents are read: the environment host and the symbols follow, as for
+    /// <see cref="BeginChangeAsync"/>.
+    /// </summary>
+    /// <param name="files">The files that changed, created or were deleted.</param>
+    /// <param name="token">A token that cancels the reload before the documents are read.</param>
+    /// <returns>The reload, and when it is done; <see langword="null"/> when the server is not running a workspace.</returns>
+    Task<WorkspaceReloadStep?> BeginReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
 }
+
+/// <summary>
+/// A change of the project that was made: the documents are what the project lists, and the host and the symbols follow.
+/// </summary>
+/// <param name="Started">What the change made of the documents: <see cref="WorkspaceReloadResult.IsHostComposed"/> is not known yet.</param>
+/// <param name="Completed">Completes with what the change made of the workspace once the host composed its session and the symbols were defined; it is cancelled with the server.</param>
+internal sealed record class WorkspaceReloadStep(WorkspaceReloadResult Started, Task<WorkspaceReloadResult> Completed);
+
+/// <summary>
+/// The file system would not let the project file be written (<see cref="IWorkspaceReloadService.ChangeAsync"/>): what it threw is the inner exception. Told
+/// apart from a failure to read the files the project lists once it is written, which is another refusal.
+/// </summary>
+internal sealed class ProjectFileNotWrittenException(Exception cause) : IOException(cause.Message, cause);
 
 /// <summary>
 /// What reloading the project file changed.
@@ -98,13 +153,35 @@ internal sealed class WorkspaceReloadService(
     ISymbolSyncService symbols,
     IPlatformOrchestrationService orchestration,
     System.IO.Abstractions.IPath ioPath,
+    IWorkspaceRefresh refresh,
     ILogger<WorkspaceReloadService> logger) : IWorkspaceReloadService
 {
     // one reload at a time: a client that writes the project file twice in a row is told about it twice, and the second reload reads what the second write
     // left.
     private readonly SemaphoreSlim _reloading = new(1, 1);
 
+    // The environment host and the symbols follow the documents, in the order the changes were made, and not under the lock of the changes: the host may be down or
+    // starting, and a change that is waiting for it is no reason for the next to wait before it has the documents it lists. What is left to do of the changes that wait
+    // is done once for all of them: each ends in a full definition of the workspace, which the one after it would only do again.
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly object _queue = new();
+    private readonly List<Pending> _waiting = [];
+    private bool _draining;
+
+    /// <inheritdoc/>
+    public void Stop()
+    {
+        // under the lock of the queue, with the last check of a batch and the completing of its changes: a change is done before the server stopped, or not at all.
+        lock (_queue)
+        {
+            _lifetime.Cancel();
+        }
+    }
+
     public async Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token)
+        => await BeginReloadAsync(token) is { } step ? await step.Completed.WaitAsync(token) : null;
+
+    public async Task<WorkspaceReloadStep?> BeginReloadAsync(CancellationToken token)
     {
         if (!IsRunningAWorkspace())
         {
@@ -122,10 +199,11 @@ internal sealed class WorkspaceReloadService(
             if (IsTheSame(project, projectFiles.Project))
             {
                 logger.LogTrace("The project file lists what the workspace is; nothing is done.");
-                return WorkspaceReloadResult.Unchanged;
+                return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
             }
 
-            return await ApplyAsync(project, token);
+            // queued before the next change takes the lock: what is left to do is done in the order the changes were made.
+            return Queued(await ApplyDocumentsAsync(project, token));
         }
         finally
         {
@@ -133,7 +211,21 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
+    // the client is told of a workspace that is not what it was.
+    private WorkspaceReloadResult Told(WorkspaceReloadResult result)
+    {
+        if (!result.IsUnchanged)
+        {
+            refresh.Changed();
+        }
+
+        return result;
+    }
+
     public async Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
+        => await BeginChangeAsync(change, token) is { } step ? await step.Completed.WaitAsync(token) : null;
+
+    public async Task<WorkspaceReloadStep?> BeginChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(change);
         if (!IsRunningAWorkspace())
@@ -149,13 +241,28 @@ internal sealed class WorkspaceReloadService(
             var changed = change(project);
             if (IsTheSame(project, changed))
             {
-                return WorkspaceReloadResult.Unchanged;
+                return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
             }
 
-            // the environment host reads the project file to compose its session, so it is written first.
+            // the environment host reads the project file to compose its session, so it is written first. A project file that cannot be written leaves the
+            // project what it was - what is on disk, and what the workspace is - rather than one that is neither.
             projectFiles.Update(changed);
-            await projectFiles.SaveAsync();
-            return await ApplyAsync(project, token);
+            try
+            {
+                await projectFiles.SaveAsync();
+            }
+            catch (Exception exception)
+            {
+                projectFiles.Update(project);
+                if (exception is UnauthorizedAccessException or IOException)
+                {
+                    throw new ProjectFileNotWrittenException(exception);
+                }
+
+                throw;
+            }
+
+            return Queued(await ApplyDocumentsAsync(project, token));
         }
         finally
         {
@@ -163,8 +270,11 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
-    // running, whatever the trace a client asked for: a server that is traced nothing is RunningTraceless, and still running.
     public async Task<WorkspaceReloadResult?> ReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
+        => await BeginReloadFilesAsync(files, token) is { } step ? await step.Completed.WaitAsync(token) : null;
+
+    // running, whatever the trace a client asked for: a server that is traced nothing is RunningTraceless, and still running.
+    public async Task<WorkspaceReloadStep?> BeginReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
     {
         if (!IsRunningAWorkspace())
         {
@@ -175,7 +285,7 @@ internal sealed class WorkspaceReloadService(
         await _reloading.WaitAsync(token);
         try
         {
-            return await ReloadListedFilesAsync(files, token);
+            return Queued(await ReloadListedFilesAsync(files, token));
         }
         finally
         {
@@ -183,13 +293,171 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
-    private async Task<WorkspaceReloadResult> ReloadListedFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
+    // What is left to do is queued by whoever made the change, before the lock of the changes is released: the order of the queue is the order of the changes.
+    private WorkspaceReloadStep Queued(Applied applied)
+    {
+        if (applied.Work is null)
+        {
+            return new WorkspaceReloadStep(applied.Started, Task.FromResult(applied.Started));
+        }
+
+        var pending = new Pending(applied.Work);
+
+        // whoever stops waiting for it, a fault of the work is observed all the same.
+        _ = pending.Done.Task.ContinueWith(done => done.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        lock (_queue)
+        {
+            if (_lifetime.IsCancellationRequested)
+            {
+                pending.Done.TrySetCanceled(_lifetime.Token);
+            }
+            else
+            {
+                _waiting.Add(pending);
+                if (!_draining)
+                {
+                    _draining = true;
+                    _ = Task.Run(DrainAsync);
+                }
+            }
+        }
+
+        return new WorkspaceReloadStep(applied.Started, pending.Done.Task);
+    }
+
+    // One batch at a time: what came while the last was waiting for the host is done with it, and what came while it was working is the next.
+    private async Task DrainAsync()
+    {
+        while (true)
+        {
+            List<Pending> batch;
+            lock (_queue)
+            {
+                if (_waiting.Count == 0)
+                {
+                    _draining = false;
+                    return;
+                }
+
+                batch = [.. _waiting];
+                _waiting.Clear();
+            }
+
+            try
+            {
+                await FinishAsync(batch, _lifetime.Token);
+            }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            {
+                // only the server stopping cancels what the changes left to do.
+                foreach (var pending in batch)
+                {
+                    pending.Done.TrySetCanceled(_lifetime.Token);
+                }
+            }
+            catch (Exception exception)
+            {
+                // a request that was cancelled for another reason - the connection to the host was lost - is a failure like any other.
+                logger.LogError(exception, "❌ The environment host and the symbols could not be made what the project lists.");
+                foreach (var pending in batch)
+                {
+                    pending.Done.TrySetException(exception);
+                }
+            }
+        }
+    }
+
+    // The batch is done when the server is not stopping: once it is, nothing is reported, whatever was left to do.
+    private async Task FinishAsync(List<Pending> batch, CancellationToken stopping)
+    {
+        stopping.ThrowIfCancellationRequested();
+        if (batch.Any(pending => pending.Work.ComposeHost) && orchestration.RuntimeEnvironment is { } host)
+        {
+            await host.WaitForReadyAsync(stopping);
+        }
+
+        // what was made while the host was not ready is done with this batch.
+        lock (_queue)
+        {
+            batch.AddRange(_waiting);
+            _waiting.Clear();
+        }
+
+        stopping.ThrowIfCancellationRequested();
+        var work = batch.Select(pending => pending.Work).ToList();
+
+        // a module that cannot be parsed is left out and is the failure of the change that gained it: the others are made all the same, and the workspace is defined.
+        var failed = new Dictionary<TextDocumentIdentifier, Exception>();
+        foreach (var id in work.SelectMany(each => each.ToParse).Distinct())
+        {
+            stopping.ThrowIfCancellationRequested();
+            if (!documents.TryGetDocument(id.Uri.ToUri(), out _))
+            {
+                continue;
+            }
+
+            try
+            {
+                await parsing.ParseDocumentAsync(id.Uri.ToUri(), stopping);
+            }
+            catch (Exception exception) when (!stopping.IsCancellationRequested)
+            {
+                logger.LogWarning(exception, "⚠️ '{uri}' could not be parsed; it is left out, and the workspace is defined without it.", id.Uri);
+                failed[id] = exception;
+            }
+        }
+
+        var (composed, programRunning) = work.Any(each => each.ComposeHost) ? await ComposeHostAsync(stopping) : (false, false);
+
+        foreach (var module in work.SelectMany(each => each.ToDiscard).Distinct())
+        {
+            await symbols.DiscardModuleAsync(module, stopping);
+        }
+
+        // a session composed again holds nothing of what was defined in it; one that was kept still holds what the removed modules declared.
+        if (!composed)
+        {
+            foreach (var module in work.SelectMany(each => each.RemovedModules).Distinct())
+            {
+                await symbols.DiscardModuleAsync(module, stopping);
+            }
+        }
+
+        // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
+        await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
+
+        // the definition of the symbols ends quietly when the server stops: it is not a definition that was made. The last check and the completing are one step with
+        // Stop, so that nothing is reported after the server stopped.
+        lock (_queue)
+        {
+            stopping.ThrowIfCancellationRequested();
+            foreach (var pending in batch)
+            {
+                var failure = pending.Work.ToParse.Select(id => failed.GetValueOrDefault(id)).FirstOrDefault(exception => exception is not null);
+                if (failure is not null)
+                {
+                    pending.Done.TrySetException(failure);
+                }
+                else
+                {
+                    pending.Done.TrySetResult(pending.Work.Result(composed, programRunning));
+                }
+            }
+        }
+
+        // the client is told of a workspace that is not what it was once it is: the host and the symbols are what the documents are, once for all the changes of the batch.
+        refresh.Changed();
+    }
+
+    private async Task<Applied> ReloadListedFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
     {
         var root = projectFiles.Project.Uri;
         var listed = FilesOf(projectFiles.Project)
             .ToDictionary(file => file.Key.Replace('\\', '/'), file => file.Value, StringComparer.OrdinalIgnoreCase);
 
         var reread = 0;
+        var toParse = new List<TextDocumentIdentifier>();
+        var toDiscard = new List<string>();
         foreach (var file in files.Where(file => file.IsFile).Distinct())
         {
             token.ThrowIfCancellationRequested();
@@ -210,11 +478,19 @@ internal sealed class WorkspaceReloadService(
                 ? name
                 : before?.Name;
 
-            // a document is loaded from an Unloaded state only: whatever it was - loaded, missing, unreadable - it is read anew.
+            // a document is loaded from an Unloaded state only: whatever it was - loaded, missing, unreadable - it is read anew, unless the client opened it meanwhile.
             var wasLoaded = documentStates.IsTracked(id) && documentStates.GetCurrentState(id) is LoadedDocumentState;
-            documentStates.Forget(id);
-            documentStates.Track(id);
+            if (!documents.Reset(id))
+            {
+                continue;
+            }
+
             var loaded = await documents.TryLoadAsync(id);
+            if (documentStates.IsTracked(id) && documentStates.GetCurrentState(id) is OpenedDocumentState)
+            {
+                continue;
+            }
+
             var after = documents.TryGetDocument(id.Uri.ToUri(), out document) ? document : null;
             if (loaded == wasLoaded && string.Equals(before?.Text, after?.Text, StringComparison.Ordinal))
             {
@@ -227,7 +503,7 @@ internal sealed class WorkspaceReloadService(
                 // the module's file is gone: what the host holds of it goes with it.
                 if (isModule && moduleName is not null)
                 {
-                    await symbols.DiscardModuleAsync(moduleName, token);
+                    toDiscard.Add(moduleName);
                 }
 
                 continue;
@@ -235,24 +511,26 @@ internal sealed class WorkspaceReloadService(
 
             if (isModule)
             {
-                await parsing.ParseDocumentAsync(id.Uri.ToUri(), token);
+                toParse.Add(id);
             }
         }
 
         if (reread == 0)
         {
             logger.LogTrace("The files that changed are what was loaded; nothing is done.");
-            return WorkspaceReloadResult.Unchanged;
+            return new Applied(WorkspaceReloadResult.Unchanged, null);
         }
 
-        // every module is defined again: what another module refers to in the one that changed is bound again too.
-        await symbols.SyncWorkspaceAsync(token, progress: null, replace: true);
-        if (logger.IsEnabled(LogLevel.Information))
+        var started = new WorkspaceReloadResult(0, 0, false, false, reread);
+        return new Applied(started, new FinishWork(toParse, toDiscard, [], ComposeHost: false, (_, _) =>
         {
-            logger.LogInformation("🔄 {reread} file(s) of the project changed outside the editor, and were read again.", reread);
-        }
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("🔄 {reread} file(s) of the project changed outside the editor, and were read again.", reread);
+            }
 
-        return new WorkspaceReloadResult(0, 0, false, false, reread);
+            return started;
+        }));
     }
 
     private bool IsRunningAWorkspace() => serverStateProvider.State is RunningServerState && projectFiles.Project?.ProjectInfo is not null;
@@ -261,8 +539,9 @@ internal sealed class WorkspaceReloadService(
     private static bool IsTheSame(ProjectFile project, ProjectFile other)
         => string.Equals(JsonSerializer.Serialize(project), JsonSerializer.Serialize(other), StringComparison.Ordinal);
 
-    // the workspace was what the project was; it is made what the project is now.
-    private async Task<WorkspaceReloadResult> ApplyAsync(ProjectFile project, CancellationToken token)
+    // The documents are made what the project lists: the files it gained are read, those it lost are taken out. What is left to do is the host's and the symbols' - the
+    // environment host composes its session, and every module is defined again.
+    private async Task<Applied> ApplyDocumentsAsync(ProjectFile project, CancellationToken token)
     {
         var root = project.Uri;
         var before = FilesOf(project);
@@ -287,6 +566,7 @@ internal sealed class WorkspaceReloadService(
             documents.Remove(id);
         }
 
+        var toParse = new List<TextDocumentIdentifier>();
         foreach (var path in added)
         {
             token.ThrowIfCancellationRequested();
@@ -301,36 +581,44 @@ internal sealed class WorkspaceReloadService(
 
             if (await documents.TryLoadAsync(id) && after[path])
             {
-                await parsing.ParseDocumentAsync(id.Uri.ToUri(), token);
+                toParse.Add(id);
             }
         }
 
-        var (composed, programRunning) = await ComposeHostAsync(root, token);
-
-        // a session composed again holds nothing of what was defined in it; one that was kept still holds what the removed modules declared.
-        if (!composed)
+        var started = new WorkspaceReloadResult(added.Count, removed.Count, false, false);
+        return new Applied(started, new FinishWork(toParse, [], removedModules, ComposeHost: true, (composed, programRunning) =>
         {
-            foreach (var module in removedModules)
+            if (logger.IsEnabled(LogLevel.Information))
             {
-                await symbols.DiscardModuleAsync(module, token);
+                logger.LogInformation("🔄 Project file reloaded: {added} file(s) added, {removed} removed; the environment host {host}.",
+                    added.Count, removed.Count, composed ? "composed its session again" : programRunning ? "kept its session, a program runs" : "was not asked to compose");
             }
-        }
 
-        // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
-        await symbols.SyncWorkspaceAsync(token, progress: null, replace: true);
+            return new WorkspaceReloadResult(added.Count, removed.Count, composed, programRunning);
+        }));
+    }
 
-        if (logger.IsEnabled(LogLevel.Information))
-        {
-            logger.LogInformation("🔄 Project file reloaded: {added} file(s) added, {removed} removed; the environment host {host}.",
-                added.Count, removed.Count, composed ? "composed its session again" : programRunning ? "kept its session, a program runs" : "was not asked to compose");
-        }
+    // What is left to do once the documents are what the project lists: the documents to parse, the modules the host forgets, whether the host composes its session
+    // again, and what the change made of the workspace once that is done.
+    private sealed record class FinishWork(
+        IReadOnlyList<TextDocumentIdentifier> ToParse,
+        IReadOnlyList<string> ToDiscard,
+        IReadOnlyList<string> RemovedModules,
+        bool ComposeHost,
+        Func<bool, bool, WorkspaceReloadResult> Result);
 
-        return new WorkspaceReloadResult(added.Count, removed.Count, composed, programRunning);
+    private sealed record class Applied(WorkspaceReloadResult Started, FinishWork? Work);
+
+    private sealed class Pending(FinishWork work)
+    {
+        public FinishWork Work { get; } = work;
+
+        public TaskCompletionSource<WorkspaceReloadResult> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     // the environment host composes its session from the project file, and a class module's symbol is the project's: it composes it again, unless a program
     // runs in it.
-    private async Task<(bool Composed, bool ProgramRunning)> ComposeHostAsync(string root, CancellationToken token)
+    private async Task<(bool Composed, bool ProgramRunning)> ComposeHostAsync(CancellationToken token)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host is null)

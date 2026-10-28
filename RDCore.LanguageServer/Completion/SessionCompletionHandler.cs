@@ -27,6 +27,6 @@ internal sealed class SessionCompletionHandler(ICompletionService completion, IP
 
         return request.Command is { } command
             ? completion.CompleteCommandAsync(request.ModuleName, request.Source, command, token)
-            : completion.CompleteFragmentAsync(request.ModuleName, request.Source, new Position(request.Line, request.Character), token);
+            : completion.CompleteFragmentAsync(request.ModuleName, request.Source, new Position(request.Line, request.Character), token, request.TriggerCharacter);
     }
 }

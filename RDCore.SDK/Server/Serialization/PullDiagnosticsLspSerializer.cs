@@ -76,6 +76,11 @@ public sealed class PullDiagnosticsLspSerializer(ClientVersion clientVersion)
         {
             Settings.Converters.Add(new RelatedDocumentDiagnosticReportConverter());
         }
+
+        if (!Settings.Converters.OfType<WorkspaceDocumentDiagnosticReportConverter>().Any())
+        {
+            Settings.Converters.Add(new WorkspaceDocumentDiagnosticReportConverter());
+        }
     }
 
     /// <summary>
@@ -105,7 +110,73 @@ public sealed class PullDiagnosticsLspSerializer(ClientVersion clientVersion)
         /// </remarks>
         private static bool IsReport(Type type) =>
             typeof(DocumentDiagnosticReportPartialResult).IsAssignableFrom(type)
-            || typeof(DocumentDiagnosticReport).IsAssignableFrom(type);
+            || typeof(DocumentDiagnosticReport).IsAssignableFrom(type)
+            || typeof(WorkspaceDocumentDiagnosticReport).IsAssignableFrom(type);
+    }
+
+    /// <summary>
+    /// Writes a document's report of a <c>workspace/diagnostic</c> pull in the shape LSP 3.17 specifies: a full or an unchanged report, with the document it
+    /// is of and its version - <c>null</c> for a document the client does not have open.
+    /// </summary>
+    /// <remarks>
+    /// OmniSharp 0.19.9's own converter of the type is the same stub as the document report's. Write only, as that one is.
+    /// </remarks>
+    private sealed class WorkspaceDocumentDiagnosticReportConverter : JsonConverter<WorkspaceDocumentDiagnosticReport>
+    {
+        public override bool CanRead => false;
+
+        public override void WriteJson(JsonWriter writer, WorkspaceDocumentDiagnosticReport? value, JsonSerializer serializer)
+        {
+            if (value is null)
+            {
+                writer.WriteNull();
+                return;
+            }
+
+            writer.WriteStartObject();
+
+            writer.WritePropertyName("kind");
+            writer.WriteValue(value.Kind.ToString());
+
+            switch (value)
+            {
+                case WorkspaceFullDocumentDiagnosticReport full:
+                    if (full.ResultId is not null)
+                    {
+                        writer.WritePropertyName("resultId");
+                        writer.WriteValue(full.ResultId);
+                    }
+
+                    writer.WritePropertyName("items");
+                    serializer.Serialize(writer, full.Items ?? new Container<Diagnostic>());
+                    break;
+
+                case WorkspaceUnchangedDocumentDiagnosticReport unchanged:
+                    writer.WritePropertyName("resultId");
+                    writer.WriteValue(unchanged.ResultId);
+                    break;
+            }
+
+            writer.WritePropertyName("uri");
+            serializer.Serialize(writer, value.Uri);
+
+            // required, and null for a document that is not open (LSP 3.17 §Workspace Diagnostics).
+            writer.WritePropertyName("version");
+            if (value.Version is { } version)
+            {
+                writer.WriteValue(version);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            writer.WriteEndObject();
+        }
+
+        public override WorkspaceDocumentDiagnosticReport ReadJson(
+            JsonReader reader, Type objectType, WorkspaceDocumentDiagnosticReport? existingValue, bool hasExistingValue, JsonSerializer serializer) =>
+            throw new NotSupportedException("Reading a workspace diagnostic report is not needed on the server side.");
     }
 
     /// <summary>

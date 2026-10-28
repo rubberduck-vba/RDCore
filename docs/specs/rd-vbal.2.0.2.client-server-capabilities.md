@@ -107,6 +107,7 @@ This catalogue is intended to document every platform capability the SDK defines
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
 |[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
 |[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
+|[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
 
 > [!NOTE]
 > The handshake for every capability listed is _informational_ (see [**RD-VBAL §2.0.2.1** The `rdcore/platform/initialize` handshake](#2021-the-rdcoreplatforminitialize-handshake)).
@@ -157,6 +158,19 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
+### Documents and their addresses
+
+A document is addressed by the URI the client gives it (**LSP 3.17** §URI), of any scheme. The language server answers for it at that address, and publishes what it finds of it there.
+
+|A document|Is|
+|---|---|
+|A file of the workspace's folder (`file:`)|A module of the workspace's project, as its project file lists it.|
+|A file outside the workspace's folder|A module of the workspace's project too, while the client has it open: a program a shell loads is one.|
+|A document that is no file (`untitled:Untitled-1`, or any other scheme)|The client's alone: a project of its own, addressed under its own URI ([`SymbolUri.RootOf`](../api/RDCore.SDK.Model.Symbols.SymbolUri.html)). It is parsed and gets its syntax diagnostics, its outline, its folding ranges and its completions, which offer nothing of the workspace's modules; it is no module of the workspace, and the environment host has no module of it. It is gone once the client closes it.|
+|Any document of a server started on no folder (`rootUri` of `null`)|A project of its own, as a document that is no file is.|
+
+A URI is the document's however the client spells it: `file:///c%3A/Work/Module1.bas` is the document `file:///C:/Work/Module1.bas` is, and a root of a project given as a URI is the root its path is ([`SymbolUri.Root`](../api/RDCore.SDK.Model.Symbols.SymbolUri.html)). A relative path is no URI, and addresses no root.
+
 ### Requests while the client edits
 
 An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](../api/RDCore.SDK.Server.ServerRequestScheduling.html)).
@@ -171,6 +185,49 @@ A request that is made of what a document was would make a keystroke wait for it
 
 👉 HexIDE's client sent a keystroke and a completion while the diagnostics and the semantic tokens of a 2,100-line module were being found. The completion waited for both, about five seconds; with the request giving way, it waits for neither.
 
+### `workspace/diagnostic`
+
+The language server answers `workspace/diagnostic` (**LSP 3.17** §Workspace Diagnostics) with a report for every module of the workspace, whether the client has it open or not: the modules a client never opened are analyzed as they are on disk (`diagnosticProvider.workspaceDiagnostics = true`). The files a project lists as other files are none of them ([**RD-VBAL §2.2.3.4**](rd-vbal.2.2.3.projectfile.md#2234-rdcorefile)).
+
+|Each module's report|Is|
+|---|---|
+|`kind`|`full`, with every finding there is for the module - what `textDocument/diagnostic` answers for it - or `unchanged`, when the client sends the module's result id (`previousResultIds`) and the module has not changed since.|
+|`resultId`|The module's, as `textDocument/diagnostic` gives it ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)): a client can mix the two pulls.|
+|`uri`|The module's document.|
+|`version`|The version the client gave the module, for a module it has open; `null` for one it has not.|
+
+A pull analyzes every module, so:
+
+- **A client that gives a `partialResultToken` is sent each module's report as it is made,** as a partial result (`$/progress`), and an empty answer. A client that does not is answered every report at once.
+- **The work is reported to the `workDoneToken`,** module by module.
+- **A change to any document gives the pull up,** answered `ContentModified` (-32801) as the change arrives: the keystroke, and the client's next request, don't wait for the whole workspace ([`IncomingDocumentChanges.WhileWorkspaceCurrentAsync`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)). The client pulls again, sending the result ids it has, and is answered `unchanged` for every module that did not change.
+
+### Refreshing what the client shows
+
+What a client shows of a module - its diagnostics, its semantic tokens, its inlay hints, its code lenses - is of the module, and of what the other modules declare and how they use it. A procedure that another module calls, removed, makes the call an error there; a call added to it is one more reference in its code lens. A client pulls these for a document it changes; for the others, the server asks it to pull them again:
+
+|Message|Direction|Does|
+|---|---|---|
+|`workspace/diagnostic/refresh`|Server to client|Asks a client to pull the diagnostics of every document again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`workspace/semanticTokens/refresh`|Server to client|The same, for semantic tokens (`workspace.semanticTokens.refreshSupport`).|
+|`workspace/inlayHint/refresh`|Server to client|The same, for inlay hints (`workspace.inlayHint.refreshSupport`).|
+|`workspace/codeLens/refresh`|Server to client|The same, for code lenses (`workspace.codeLens.refreshSupport`).|
+
+Each is a request, which the client answers; a client that sent none of a capability is not asked. The server asks after:
+
+- **A change of a module that the others can tell,** once the environment host has it: the module's options and attributes, its module-level declarations, the signature of a procedure, a value written in any of them, and the names a procedure's body uses and what it declares ([`ModuleSurface`](../api/RDCore.SDK.Model.AST.ModuleSurface.html)). The workspace is defined again in its three phases first, so that what the host has of the other modules - what their declarations are bound to, what their code calls - is of what the module declares now. A change that no other module can tell - a literal, an operator or a comment in a procedure's body, a statement that uses the same names, whitespace - asks nothing.
+- **A module that is gone,** closed with no file under it.
+- **A reload of the project** that changed the workspace ([`workspace/didChangeWatchedFiles`](#workspacedidchangewatchedfiles), [file operations](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles), `rdcore.importProject`).
+- **A change of the live settings** ([`workspace/configuration`](#workspaceconfiguration-and-workspacedidchangeconfiguration)).
+
+The client is asked once for a burst of changes - each keystroke of a name is one - when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
+
+👉 OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
+
+### Requests that fail
+
+A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line - never its stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log ([`ServerErrorAnswers.WithOneLineErrors`](../api/RDCore.SDK.Server.ServerErrorAnswers.html)).
+
 ### `textDocument/inlayHint`
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
@@ -182,7 +239,7 @@ of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a 
 
 ### `textDocument/completion` and `rdcore/session/completion`
 
-The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
+The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`, and `(`, `,` and a space, which ask for the list of an argument as a value of it starts: that list is answered only for an argument whose parameter is an `Enum`, and only where a value starts - after the `(`, a comma, a `:=` or the name of a call statement, or after an operator that combines flags (`+`, `Or`, `And`, `Xor`, `Not`: `MsgBox "a", vbYesNo + `). Nothing is answered anywhere else, a space after an operand included, so that a client is not given a whole list at every comma, and the workspace is not composed for nothing. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
 
 What is typed of the name when the list is asked for narrows it already: an item is in the list when its label has the letters typed, in their order, in any case ([`CompletionCandidates.Matching`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.html)) - `gtc` keeps `GetCount`. Whatever a client narrows by as more is typed - the start of a label, a part of it, letters apart - an item it could show is in the list, so the list stays complete. A list asked for where nothing is typed yet (`Ctrl+Space` after a space) has every name. An item has no `insertText` and no `filterText`: both are its label, which is what a client takes without them.
 
@@ -196,6 +253,7 @@ What the list offers depends on what is being written, and where. The language s
 |A declaration, in the declarations section|What can be declared there. `Option` anywhere in it, with only the options the module does not state yet: each is stated once at most. `Event`, `Implements`, `Friend` and `WithEvents` in a class module only. No statement and no name.|
 |A statement, in a procedure|The names visible from the procedure, nearest first (its locals and parameters, the module's members, the project's, the libraries', the standard library's). The statement keywords. The statements of the blocks the line is in (`Next` and `Exit For` in a `For`, `Loop` and `Exit Do` in a `Do`, `Case` and `End Select` in a `Select Case`, `Else` and `End If` in a block `If`). `Exit` and `End` for the kind of procedure. `Me` and `RaiseEvent` in a class module only.|
 |An operand|The names, and the keywords an expression starts with (`Not`, `New`, `Nothing`, `True`). `AddressOf` only in an argument.|
+|An argument whose parameter is an `Enum` (`MsgBox "Hello", `, `Paint Colour:=`)|The `Enum`'s constants first, by name, the first of them preselected (`VbMsgBoxStyle`'s for `MsgBox`'s `Buttons`), then what an operand is offered: the parameter is found as the signature help finds it, whether the call has parentheses, is qualified, or names the argument; an `Optional` one too. The interactive shell opens the list on the space after a `,` in a call's arguments, and asks for it as that trigger character does.|
 |After a complete operand|The operators (`And`, `Mod`, `Like`, `Is`), and the keyword the statement goes on with (`Then`, `To`, `Step`, `In`). No name.|
 |A name being declared (`Dim `, `Sub `, `Const `)|Nothing: it is a new name. After it, `As`. In a parameter list, `ByVal`, `ByRef`, `Optional` and `ParamArray`.|
 |A statement's own words|`Exit ` the blocks and the procedure it can exit; `End ` what it can end; `GoTo `, `GoSub `, `Resume ` and `On Error GoTo ` the procedure's labels and line numbers; `RaiseEvent ` the class's events; `Implements ` and `TypeOf x Is ` the classes; `Option `, `Property `, `Declare `, `Open … For ` their keywords.|
@@ -253,6 +311,14 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/R
 > **Not implemented.** The standard library's doc strings cover the `Strings`, `Interaction`, `Conversion`, `Math`, `Information` and `DateTime` modules, and the parameters of the members of `Strings`, `Interaction` and `DateTime` that take several, and of `Round` and `RGB`. The other modules' members have a signature and no doc string; a parameter with none shows none.
 
 `rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
+
+### `textDocument/semanticTokens/full` and `rdcore/session/semanticTokens`
+
+The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](../api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares - a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class` - unless it follows a `.` or a `!`, which makes it a member of something.
+
+`rdcore/session/semanticTokens` ([`SessionSemanticTokensParams`](../api/RDCore.SDK.Platform.Protocol.SessionSemanticTokensParams.html)) answers the same for code fragments the client supplies, which are in no document: the condition of a breakpoint, say. The request has the complete source of a module and its name, which the names of the fragments are resolved against, and the fragments. The answer has the tokens of each fragment, in the order they were asked, encoded as `textDocument/semanticTokens/full` encodes them, with the first line of a fragment as line 0. Many fragments are asked in one request, so that coloring a list of them costs one round trip, not one each.
+
+The interactive shell asks it once for the conditions of all the breakpoints `BREAK` lists, and draws each condition as `LIST` draws the same code. A server without the capability, or one that does not answer, leaves the conditions plain.
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 
@@ -406,7 +472,9 @@ The language server runs the commands it advertises (`executeCommandProvider.com
 |---|---|---|
 |`rdcore.importProject`|None, a URI, or `{ "uri", "text", "overwrite" }`|Imports a VB6 project ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)).|
 
-`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything - what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, a client that refreshes its pulled diagnostics is asked to pull them again (`workspace/diagnostic/refresh`), as for any change of the project. A project of another folder is written there, and the workspace is left as it is.
+`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything - what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, the client is asked to refresh what it shows of every document, as for any change of the project ([Refreshing what the client shows](#refreshing-what-the-client-shows)). A project of another folder is written there, and the workspace is left as it is.
+
+What the file system refuses is a refusal (`RequestFailed`): a `.vbp` that cannot be read, or a `.rdproj` that cannot be written - read-only, or in a folder that cannot be written to - is said on one line ("Couldn't write '…\.rdproj': access to the file is denied."), and the project is left as it was.
 
 It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project's `name`, its number of `modules`, and what was skipped (`notes`), each with its `kind`, its `subject` as the `.vbp` writes it, and a `message`.
 
@@ -445,7 +513,7 @@ owns its user's settings, and a server asks for them.
 |---|---|---|
 |`workspace/configuration`|Server to client|Asks for the section `rdcore`: the live settings, keyed as the platform's configuration is (`rdcore.Server.Verbose`). A server asks when it is initialized, and whenever its client says they changed.|
 |`workspace/didChangeConfiguration`|Client to server|Says the live settings changed. Its `settings` are not read: the server asks for the section.|
-|`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the settings changed. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`workspace/diagnostic/refresh`, and the other refreshes|Server to client|Asks a client to pull again what it shows of every document, once the settings changed ([Refreshing what the client shows](#refreshing-what-the-client-shows)).|
 
 Every client of the platform says it answers `workspace/configuration` (`workspace.configuration`), and answers with what its component hands down
 ([`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)): the interactive shell, with the live settings of its user's
@@ -488,7 +556,7 @@ is what a client says changed, as **LSP 3.17** has it (§DidChangeWatchedFiles N
 |`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed, and the source files of every language the platform serves (`**/*.{bas,cls,frm,doccls,rdc}`), created, changed or deleted. A client that does not is not asked.|
 |`workspace/didChangeWatchedFiles`|Client to server|Says files of the workspace changed. The server serves it whether or not it asked for it: a client that registers nothing sends it all the same. The workspace's `.rdproj`, created or changed, is read again (below); another folder's `.rdproj`, and a deletion, are left alone, and so is a project file that lists what the workspace is, as the one the server wrote does when a client that watches it says it changed. A file the project lists is read again ([below](#a-file-changed-outside-the-editor)); one it does not list is nothing of the workspace.|
 |`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
-|`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the workspace is defined again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`workspace/diagnostic/refresh`, and the other refreshes|Server to client|Asks a client to pull again what it shows of every document, once the workspace is defined again ([Refreshing what the client shows](#refreshing-what-the-client-shows)).|
 |`window/showMessage`|Server to client|Says why the workspace is as it was (the project file could not be read), or that a running program keeps its modules.|
 
 On the notification, the language server (`WorkspaceReloadService`):
@@ -497,7 +565,7 @@ On the notification, the language server (`WorkspaceReloadService`):
 2. loads and parses each file it lists that was not loaded, and takes out each one it no longer lists (a document the client has open stays: its text is the client's);
 3. asks the environment host to compose its session again;
 4. defines the whole workspace again in its three phases - its types declared, its declarations bound, its code loaded - each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
-5. asks the client to pull its diagnostics again.
+5. asks the client to refresh what it shows of every document.
 
 #### A file changed outside the editor
 
@@ -532,7 +600,10 @@ result (`workspace.fileOperations`), with filters for the source files of every 
 
 What is outside the workspace root, and what a folder whose name starts with a dot holds (`.git`, `.vscode`), is nothing of the project. A module name is unique in a
 project (**RD-VBAL §2.2.3.3**): a file created with the `VB_Name` of a module the project has is not added, and `window/showMessage` says so. The operations are made
-in the order the client sent them.
+in the order the client sent them: the notification returns once the project file is written and the workspace's documents are what it lists, so that what the
+client sends next (`textDocument/didOpen` of the new path, `didChange`) is read after it. The environment host composing its session again and the symbols being defined
+again follow, in the order the changes were made, and nothing the client sends waits for them: a host that is starting, or down, holds up none of it. The client's
+diagnostics are asked to be pulled again once they are done.
 
 > [!NOTE]
 > OmniSharp 0.19.9 reads `workspace/didRenameFiles` with a `FileRename` that has only a `uri`, and neither the `oldUri` nor the `newUri` a client sends. RDCore reads it

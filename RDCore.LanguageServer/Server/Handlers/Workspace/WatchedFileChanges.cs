@@ -42,23 +42,25 @@ internal sealed class WatchedFileChanges(
     {
         if (changes.Any(IsTheProjectFileWritten))
         {
-            await RunAsync(() => reload.ReloadAsync(CancellationToken.None), server, projectFile: true);
+            await RunAsync(() => reload.BeginReloadAsync(CancellationToken.None), server, projectFile: true);
         }
 
         var files = changes.Where(change => !IsTheProjectFile(change)).Select(change => change.Uri.ToUri()).ToList();
         if (files.Count > 0)
         {
-            await RunAsync(() => reload.ReloadFilesAsync(files, CancellationToken.None), server, projectFile: false);
+            await RunAsync(() => reload.BeginReloadFilesAsync(files, CancellationToken.None), server, projectFile: false);
         }
     }
 
-    private async Task RunAsync(Func<Task<WorkspaceReloadResult?>> reloading, ILanguageServerFacade server, bool projectFile)
+    // The documents are what the files are when the reload returns; the environment host and the symbols follow, and the client is told then. The files that changed
+    // with the project file are read without waiting for the host.
+    private async Task RunAsync(Func<Task<WorkspaceReloadStep?>> reloading, ILanguageServerFacade server, bool projectFile)
     {
         try
         {
-            if (await reloading() is { } result)
+            if (await reloading() is { } step)
             {
-                WorkspaceChangeReport.Send(server, result);
+                _ = WorkspaceFileOperationFilters.ReportCompletedAsync(step.Completed, server, logger);
             }
         }
         catch (InvalidDataException exception) when (projectFile)

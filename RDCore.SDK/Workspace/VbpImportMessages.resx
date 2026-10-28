@@ -65,4 +65,20 @@
   <data name="VbpImport_Refused_NotFound" xml:space="preserve">
     <value>'{0}' was not found.</value>
   </data>
+  <!-- A file the import reads or writes, that the file system refused: {0} is the file, {1} what the system says, on one line. -->
+  <data name="VbpImport_Refused_ReadDenied" xml:space="preserve">
+    <value>Couldn't read '{0}': access to the file is denied.</value>
+  </data>
+  <data name="VbpImport_Refused_ReadFailed" xml:space="preserve">
+    <value>Couldn't read '{0}': {1}</value>
+  </data>
+  <data name="VbpImport_Refused_WriteDenied" xml:space="preserve">
+    <value>Couldn't write '{0}': access to the file is denied.</value>
+  </data>
+  <data name="VbpImport_Refused_WriteFailed" xml:space="preserve">
+    <value>Couldn't write '{0}': {1}</value>
+  </data>
+  <data name="VbpImport_Refused_ReloadFailed" xml:space="preserve">
+    <value>'{0}' was written, but the workspace couldn't be made what it lists: {1}</value>
+  </data>
 </root>
