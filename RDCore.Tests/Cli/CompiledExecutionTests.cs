@@ -267,17 +267,26 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public async Task ADoubleStoredInALong_ThatDoesNotFit_IsAnOverflow_AsTheInterpreterRaisesIt()
     {
-        var run = await AssertAlikeWalkingBackAsync(Program(
+        // compiled code runs the statements before the store, and hands the activation over at the store, whose error the interpreter raises.
+        string[] lines =
+        [
             "Public Sub Main()",
             "    Debug.Print Stored(3000000000#)",
             "End Sub",
             "Private Function Stored(ByVal D As Double) As Long",
-            "    Dim L As Long",
+            "    Dim L As Long, I As Long",
+            "    For I = 1 To 3",
+            "        L = L + I",
+            "    Next",
             "    L = D * 1",
             "    Stored = L",
-            "End Function"), "Stored");
+            "End Function",
+        ];
+        var run = await AssertAlikeWalkingBackAsync(Program(lines), "Stored");
 
         Assert.AreEqual(6, run.Result.ErrorNumber);
+        Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
+        Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
     }
 
     [TestMethod]
@@ -300,6 +309,31 @@ public sealed class CompiledExecutionTests
         Assert.AreEqual(IneligibilityKind.Refused, reason.Kind);
         Assert.IsNotNull(reported);
         Assert.StartsWith(reported.GetType().Name, reason.Detail);
+    }
+
+    [TestMethod]
+    public void AHandlerOfAFailureThatFails_FailsNoCall_AndTheRefusalStands()
+    {
+        var root = new Uri("file://rdcore-test");
+        var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
+            SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
+        var list = SDK.Semantics.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
+            SDK.Semantics.Instructions.InstructionLoweringOptions.Default, SDK.Model.AST.Declarations.MemberKind.Procedure).InstructionList;
+        var compiler = new ProcedureCompiler();
+        var told = 0;
+        compiler.Refused += (_, _) =>
+        {
+            told++;
+            throw new InvalidOperationException("the handler fails");
+        };
+        var session = NSubstitute.Substitute.For<IRuntimeSession>();
+
+        var first = compiler.Compile(session, null!, procedure, list);
+        var again = compiler.Compile(session, null!, procedure, list);
+
+        Assert.IsNull(first.Body);
+        Assert.AreSame(first, again, "the refusal is the procedure's result, compiled once");
+        Assert.AreEqual(1, told);
     }
 
     [TestMethod]

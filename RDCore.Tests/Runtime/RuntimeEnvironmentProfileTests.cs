@@ -114,11 +114,12 @@ public sealed class RuntimeEnvironmentProfileTests
     [TestMethod]
     public void AProfileOfAnotherKind_IsCopiedWithEveryOneOfItsProperties()
     {
-        // every property of the interface, each not its default, behind something that is no RuntimeEnvironmentProfile: one added to the interface and not to
-        // Of would differ here.
+        // every property of the interface, each a value a profile does not have unless it is given it, behind something that is no RuntimeEnvironmentProfile:
+        // a property added to the interface and not to Of differs here, and one added without a value here fails the first assertion.
         var source = new RuntimeEnvironmentProfile(false, 1036, 1250, true, OptionCompare.Binary, VBErlLineNumbering.DocumentLine + 1, false,
             SDK.Workspace.SupportedLanguages.BASIC, false, true, RegionalSettings.Default with { DecimalSymbol = "," }, VBExecutionEngine.Compiled,
             VBBuildConfiguration.Release, true);
+        var baseline = new RuntimeEnvironmentProfile(true, 0, 1252, false);
         var other = System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
         ((Forwarding)(object)other).Target = source;
 
@@ -127,6 +128,7 @@ public sealed class RuntimeEnvironmentProfileTests
         Assert.AreNotSame(source, copy);
         foreach (var property in typeof(IRuntimeEnvironmentProfile).GetProperties())
         {
+            Assert.AreNotEqual(property.GetValue(baseline), property.GetValue(source), $"{property.Name}: give it a value no profile has unless it is given it");
             Assert.AreEqual(property.GetValue(source), property.GetValue(copy), property.Name);
         }
     }

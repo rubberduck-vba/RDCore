@@ -58,6 +58,8 @@ internal sealed class ProcedureCompiler
             return known.Result;
         }
 
+        CompilationResult result;
+        Exception? failure = null;
         lock (_compiling)
         {
             if (_bodies.TryGetValue(list, out known) && ReferenceEquals(known.Scopes, scopes))
@@ -74,22 +76,41 @@ internal sealed class ProcedureCompiler
                 body = analysis.Reasons.Count == 0 ? Emit(analysis, procedure) : null;
                 reasons = analysis.Reasons;
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+            catch (Exception exception)
             {
-                // a failure to compile a procedure is the compiler's defect, never the program's: the procedure runs in the interpreter, as one that is not
-                // compiled does, and the failure is reported.
+                // a failure to compile a procedure is the compiler's defect, never the program's - a cancellation too, as compiling is told of none: the
+                // procedure runs in the interpreter, as one that is not compiled does, and the failure is reported.
                 body = null;
                 reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
-                Refused?.Invoke(procedure, exception);
+                failure = exception;
             }
 
             stopwatch.Stop();
 
-            var result = new CompilationResult(body, reasons, stopwatch.Elapsed);
+            result = new CompilationResult(body, reasons, stopwatch.Elapsed);
             _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
             _bodies.AddOrUpdate(list, new Entry(scopes, result));
             _results[procedure.SemanticId] = (procedure, result);
-            return result;
+        }
+
+        if (failure is not null)
+        {
+            Report(procedure, failure);
+        }
+
+        return result;
+    }
+
+    // what is told of a failure is told once it is the procedure's result, and what is told of it cannot fail the call.
+    private void Report(VBTypeMemberSymbol procedure, Exception failure)
+    {
+        try
+        {
+            Refused?.Invoke(procedure, failure);
+        }
+        catch (Exception)
+        {
+            // a handler that fails has no one to tell: the procedure runs in the interpreter all the same.
         }
     }
 

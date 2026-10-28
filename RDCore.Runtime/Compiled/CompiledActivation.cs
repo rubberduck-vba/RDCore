@@ -141,7 +141,7 @@ public sealed class CompiledActivation
     public RuntimeExecutionOutcome Interpret(int pc)
     {
         _frame.Pc = pc;
-        _body.WalkedBack();
+        _body.WalkedBack(pc < _list.Items.Length ? _list.Items[pc].Node?.SourceLocation : null);
         return _executor.Run(_session, _frame, _list, _context);
     }
 
@@ -162,7 +162,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// <summary>How many times an activation of the body was handed to the interpreter.</summary>
     public long WalkBacks => Interlocked.Read(ref _walkedBack);
 
-    internal void WalkedBack() => Interlocked.Increment(ref _walkedBack);
+    /// <summary>
+    /// Where the statement is that an activation of the body was last handed to the interpreter at: the one that failed or declined, or a back edge where the
+    /// program was to stop, or the first when a parameter's cell held no payload. <see langword="null"/> before any was.
+    /// </summary>
+    public SDK.Model.Source.SourceLocation? LastWalkedBackAt { get; private set; }
+
+    internal void WalkedBack(SDK.Model.Source.SourceLocation? at)
+    {
+        LastWalkedBackAt = at;
+        _ = Interlocked.Increment(ref _walkedBack);
+    }
 }
 
 /// <summary>
