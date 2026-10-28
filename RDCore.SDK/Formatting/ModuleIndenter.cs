@@ -62,13 +62,24 @@ public static partial class ModuleIndenter
         var firstBlocks = FirstBlocksAtColumn1(parse, module, options);
         var edits = new List<IndentationEdit>();
         var shift = 0;
+        var isDeclaration = false;
         for (var line = 0; line < lines.Length; line++)
         {
-            var level = firstBlocks[line] || IsForcedToColumn1(lines[line], options) ? 0 : levels[line];
-            var edit = module.IsContinuation(line) ? Continued(module, line, shift) : Started(module, line, level, options, out shift);
-            if (edit is { } changed && line >= firstLine && line <= lastLine)
+            string wanted;
+            if (module.IsContinuation(line))
             {
-                edits.Add(changed);
+                wanted = ContinuedText(module, line, shift, isDeclaration, options);
+            }
+            else
+            {
+                isDeclaration = IsDeclaration(lines[line]);
+                var level = firstBlocks[line] || IsForcedToColumn1(lines[line], options) ? 0 : levels[line];
+                wanted = StartedText(module, line, level, isDeclaration, options, out shift);
+            }
+
+            if (line >= firstLine && line <= lastLine)
+            {
+                edits.AddRange(WhitespaceEdits(line, lines[line], wanted));
             }
         }
 
@@ -79,19 +90,70 @@ public static partial class ModuleIndenter
     /// The text of a module with indentation edits made to it (<see cref="Indent"/>).
     /// </summary>
     /// <param name="text">The text.</param>
-    /// <param name="edits">The edits, at most one for each line.</param>
+    /// <param name="edits">The edits; those of a line do not overlap.</param>
     public static string Apply(string text, IReadOnlyList<IndentationEdit> edits)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(edits);
         var lines = text.Split('\n');
-        foreach (var edit in edits)
+
+        // the edits of a line, from its last to its first: each is where the text before it puts it.
+        foreach (var edit in edits.OrderByDescending(edit => edit.Line).ThenByDescending(edit => edit.Character))
         {
             var line = lines[edit.Line];
             lines[edit.Line] = line[..edit.Character] + edit.NewText + line[(edit.Character + edit.Length)..];
         }
 
         return string.Join('\n', lines);
+    }
+
+    // the edits that make a line the text it is to have: one for each run of whitespace that is not what it is to be. What is to change otherwise is the whole
+    // line replaced, which the engine never asks for but does not fail on.
+    private static IEnumerable<IndentationEdit> WhitespaceEdits(int line, string text, string wanted)
+    {
+        if (text == wanted)
+        {
+            return [];
+        }
+
+        var edits = new List<IndentationEdit>();
+        var (at, to) = (0, 0);
+        while (at < text.Length || to < wanted.Length)
+        {
+            if (at < text.Length && to < wanted.Length && !char.IsWhiteSpace(text[at]) && !char.IsWhiteSpace(wanted[to]))
+            {
+                if (text[at] != wanted[to])
+                {
+                    return [new IndentationEdit(line, 0, text.Length, wanted)];
+                }
+
+                (at, to) = (at + 1, to + 1);
+                continue;
+            }
+
+            var (from, into) = (at, to);
+            while (at < text.Length && char.IsWhiteSpace(text[at]))
+            {
+                at++;
+            }
+
+            while (to < wanted.Length && char.IsWhiteSpace(wanted[to]))
+            {
+                to++;
+            }
+
+            if (at == from && to == into)
+            {
+                return [new IndentationEdit(line, 0, text.Length, wanted)];
+            }
+
+            if (text[from..at] != wanted[into..to])
+            {
+                edits.Add(new IndentationEdit(line, from, at - from, wanted[into..to]));
+            }
+        }
+
+        return edits;
     }
 
     // the lines of the text, without what ends them.
@@ -170,8 +232,9 @@ public static partial class ModuleIndenter
         return atColumn1;
     }
 
-    // the first line of a statement: indented to its level, a line number kept at the start of it. How far it moved is what its continuations move.
-    private static IndentationEdit? Started(ModuleLines module, int line, int level, CodeFormattingOptions options, out int shift)
+    // the first line of a statement: indented to its level, a line number kept at the start of it, its declaration and its end-of-line comment aligned. How far
+    // its code moved is what its continuations move.
+    private static string StartedText(ModuleLines module, int line, int level, bool isDeclaration, CodeFormattingOptions options, out int shift)
     {
         shift = 0;
         var text = module.Lines[line];
@@ -179,51 +242,133 @@ public static partial class ModuleIndenter
         if (string.IsNullOrWhiteSpace(text))
         {
             // an empty line is left as it is, emptied, or indented to its level, as the setting says.
-            var wanted = options.EmptyLineHandlingMethod switch
+            return options.EmptyLineHandlingMethod switch
             {
                 EmptyLineHandlingMethod.Remove => string.Empty,
                 EmptyLineHandlingMethod.Indent => new string(' ', indentation),
                 _ => text,
             };
-            return wanted == text ? null : new IndentationEdit(line, 0, text.Length, wanted);
         }
 
         // a comment alone on its line that is not aligned with the code is where it is written.
         if (!options.AlignCommentsWithCode && IsComment(text))
         {
-            return null;
+            return text;
         }
 
-        var leading = text.Length - text.TrimStart().Length;
+        string head;
+        int codeAt;
         if (LineNumber().Match(text) is { Success: true } number)
         {
             // the number where it is written, and the code where the level has it: one space after the number at least.
-            var code = number.Length;
             var prefix = number.Groups["number"].Value;
-            var column = Math.Max(indentation, prefix.Length + 1);
-            var wanted = prefix + new string(' ', column - prefix.Length);
-            shift = column - code;
-            return text[..code] == wanted ? null : new IndentationEdit(line, 0, code, wanted);
+            head = prefix + new string(' ', Math.Max(indentation, prefix.Length + 1) - prefix.Length);
+            codeAt = number.Length;
+        }
+        else
+        {
+            head = new string(' ', indentation);
+            codeAt = text.Length - text.TrimStart().Length;
         }
 
-        shift = indentation - leading;
-        return leading == indentation && text[..leading].All(character => character == ' ')
-            ? null
-            : new IndentationEdit(line, 0, leading, new string(' ', indentation));
+        shift = head.Length - codeAt;
+        return Aligned(text, head, text[codeAt..], isDeclaration, options);
     }
 
     // a line continued from the one before: as far as the first line of its statement moved.
-    private static IndentationEdit? Continued(ModuleLines module, int line, int shift)
+    private static string ContinuedText(ModuleLines module, int line, int shift, bool isDeclaration, CodeFormattingOptions options)
     {
         var text = module.Lines[line];
-        if (shift == 0 || string.IsNullOrWhiteSpace(text))
+        if (string.IsNullOrWhiteSpace(text))
         {
-            return null;
+            return text;
         }
 
         var leading = text.Length - text.TrimStart().Length;
-        var indentation = Math.Max(0, leading + shift);
-        return new IndentationEdit(line, 0, leading, new string(' ', indentation));
+        return Aligned(text, new string(' ', Math.Max(0, leading + shift)), text[leading..], isDeclaration, options);
+    }
+
+    // a line as it is to be: its head - its indentation, or its line number and what follows it - then its code, with the As of a declaration and an end-of-line
+    // comment where the settings have them.
+    private static string Aligned(string text, string head, string code, bool isDeclaration, CodeFormattingOptions options)
+    {
+        if (options.AlignDims && isDeclaration)
+        {
+            code = WithDimAligned(head.Length, code, options);
+        }
+
+        return WithCommentAligned(text, head + code, options);
+    }
+
+    // the first As of a declaration's line, where the column of the setting has it: a space before it at least.
+    private static string WithDimAligned(int column, string code, CodeFormattingOptions options)
+    {
+        if (CodeWithoutComment(code) is not { } plain || DimAs().Match(plain) is not { Success: true } match)
+        {
+            return code;
+        }
+
+        var name = match.Groups["name"].Value;
+        var gap = Math.Max(options.AlignDimColumn - 1 - column - name.Length, 1);
+        return name + new string(' ', gap) + code[(match.Groups["as"].Index)..];
+    }
+
+    // an end-of-line comment where the style of the setting has it: at the column it was at, after the gap it had, after a standard gap, or in a column. A
+    // space after the code at least.
+    private static string WithCommentAligned(string text, string line, CodeFormattingOptions options)
+    {
+        if (CommentAt(text) is not { } written || CommentAt(line) is not { } now)
+        {
+            return line;
+        }
+
+        var gap = options.EndOfLineCommentStyle switch
+        {
+            EndOfLineCommentStyle.Absolute => written.Comment - now.CodeEnd,
+            EndOfLineCommentStyle.SameGap => written.Comment - written.CodeEnd,
+            EndOfLineCommentStyle.StandardGap => 2 * options.IndentSpaces,
+            _ => options.EndOfLineCommentColumnSpaceAlignment - 1 - now.CodeEnd,
+        };
+
+        return line[..now.CodeEnd] + new string(' ', Math.Max(gap, 1)) + line[now.Comment..];
+    }
+
+    // where the code of a line ends and its end-of-line comment starts: none for a line with no code before its comment, or no comment. An apostrophe in a string
+    // literal, or in a bracketed name, starts none.
+    private static (int CodeEnd, int Comment)? CommentAt(string line)
+    {
+        var inString = false;
+        var inBracket = false;
+        for (var index = 0; index < line.Length; index++)
+        {
+            switch (line[index])
+            {
+                case '"' when !inBracket:
+                    inString = !inString;
+                    break;
+                case '[' when !inString:
+                    inBracket = true;
+                    break;
+                case ']' when !inString:
+                    inBracket = false;
+                    break;
+                case '\'' when !inString && !inBracket:
+                    var codeEnd = line[..index].TrimEnd().Length;
+                    return line[..codeEnd].Trim().Length == 0 ? null : (codeEnd, index);
+            }
+        }
+
+        return null;
+    }
+
+    // the code of a line without its end-of-line comment.
+    private static string? CodeWithoutComment(string code) => CommentAt(code) is { } at ? code[..at.CodeEnd] : code;
+
+    // a line that starts a declaration: Dim, Const, Static, or an access modifier that is not a procedure's, a Declare's, an Enum's, a Type's or an Event's.
+    private static bool IsDeclaration(string line)
+    {
+        var code = Keyworded(line);
+        return Declaration().IsMatch(code) && !ProcedureKeyword().IsMatch(code) && !NotAVariable().IsMatch(code);
     }
 
     private static int[] LevelsOf(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options)
@@ -473,6 +618,13 @@ public static partial class ModuleIndenter
 
     [GeneratedRegex(@"^(Dim|Const|Static|Public|Private)\s", RegexOptions.IgnoreCase)]
     private static partial Regex Declaration();
+
+    [GeneratedRegex(@"^((Public|Private|Friend)\s+)?(Declare|Enum|Type|Event|Implements)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex NotAVariable();
+
+    // what a declaration's line names before its first As, and that As.
+    [GeneratedRegex(@"^(?<name>.*?\S)\s+(?<as>As\s)", RegexOptions.IgnoreCase)]
+    private static partial Regex DimAs();
 
     [GeneratedRegex(@"^#If\s.+\sThen\b", RegexOptions.IgnoreCase)]
     private static partial Regex DirectiveIf();

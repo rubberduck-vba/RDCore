@@ -99,6 +99,18 @@ public sealed class ModuleIndenterTests
         Assert.AreEqual(Lines("Sub A()", "If x Then", "        y = 1", "End If", "End Sub"), Indented(text, first: 2, last: 2));
     }
 
+    // only whitespace changes, and an edit is the run of it that changes: the indentation, and the gap before an end-of-line comment, apart.
+    [TestMethod]
+    public void AnEditOfALine_IsARunOfWhitespace_ThatIsNotWhatItIsToBe()
+    {
+        var text = Lines("Sub A()", "x = 1 ' one", "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default with { EndOfLineCommentStyle = EndOfLineCommentStyle.StandardGap });
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(1, 0, 0, "    "), new IndentationEdit(1, 5, 1, "        ") }, edits.ToArray());
+    }
+
     [TestMethod]
     public void AModuleIndentedAlready_IsGivenNoEdit()
     {

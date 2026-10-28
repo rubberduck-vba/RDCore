@@ -33,12 +33,7 @@ public sealed class RubberduckIndenterCaseTests
     // the cases of what the engine does not do yet: each is left out, and said so, until it does.
     private static readonly Dictionary<string, string> Waiting = new(StringComparer.Ordinal)
     {
-        ["EndOfLineCommentTests#AbsolutePositionWorks"] = "end-of-line comments are not aligned yet",
-        ["EndOfLineCommentTests#StandardGapWorks"] = "end-of-line comments are not aligned yet",
-        ["EndOfLineCommentTests#AlignInColumnWorks"] = "end-of-line comments are not aligned yet",
-        ["EndOfLineCommentTests#AbsoluteFallsBackToOneSpace"] = "end-of-line comments are not aligned yet",
-        ["EndOfLineCommentTests#WorksOutsideOfProcedures"] = "end-of-line comments are not aligned yet",
-        ["EndOfLineCommentTests#WorksInsideEnums"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#WorksOutsideOfProcedures"] = "the lines between procedures are not spaced yet",
         ["LineContinuationTests#DeclarationLineAlignsCorrectly"] = "continuation lines are not aligned yet",
         ["LineContinuationTests#DeclarationPtrSafeLineAlignsCorrectly"] = "continuation lines are not aligned yet",
         ["LineContinuationTests#FunctionParametersAlignCorrectly"] = "continuation lines are not aligned yet",
@@ -64,14 +59,8 @@ public sealed class RubberduckIndenterCaseTests
         ["LineContinuationTests#SplitNamedParameterAlignsCorrectly"] = "continuation lines are not aligned yet",
         ["LineContinuationTests#MultipleSplitNamedParametersAlignCorrectly"] = "continuation lines are not aligned yet",
         ["MiscAndCornerCaseTests#HexLineNumbersWork"] = "a line is not listed from its compiled form yet, which lists a hex line number in decimal",
-        ["MiscAndCornerCaseTests#MultiLineDimWithCommasAlignDimsWorks"] = "declarations are not aligned yet",
-        ["MiscAndCornerCaseTests#SingleQuoteInEndOfLineCommentWorks"] = "end-of-line comments are not aligned yet",
-        ["MiscAndCornerCaseTests#BracketsInEndOfLineCommentsWork"] = "end-of-line comments are not aligned yet",
         ["MiscAndCornerCaseTests#AlignmentAnchorsInStringLiteralsAreIgnored"] = "continuation lines are not aligned yet",
         ["MiscAndCornerCaseTests#LineNumbersInsideContinuationsWork"] = "continuation lines are not aligned yet",
-        ["SpecificSettingTests#AlignDimsOnWorks"] = "declarations are not aligned yet",
-        ["SpecificSettingTests#AlignDimsFallsBackToOneSpace"] = "declarations are not aligned yet",
-        ["SpecificSettingTests#AlignDimColumnWorksVariedSpacing"] = "declarations are not aligned yet",
         ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorks"] = "the lines between procedures are not spaced yet",
         ["VerticalSpacingTests#VerticalSpacing_RemoveExtraLinesWorks"] = "the lines between procedures are not spaced yet",
         ["VerticalSpacingTests#VerticalSpacing_RemoveAllExtraLinesWorks"] = "the lines between procedures are not spaced yet",
