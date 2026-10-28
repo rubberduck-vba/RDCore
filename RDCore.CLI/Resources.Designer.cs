@@ -1412,6 +1412,24 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Imports settings from another tool.
+        /// </summary>
+        public static string Config_Import_Detail {
+            get {
+                return ResourceManager.GetString("Config_Import_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Sets the formatting settings to the indenter settings you had in Rubberduck (Windows only).
+        /// </summary>
+        public static string Config_Import_Rubberduck_Detail {
+            get {
+                return ResourceManager.GetString("Config_Import_Rubberduck_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Every setting is as the platform was deployed..
         /// </summary>
         public static string Config_NothingSet {
