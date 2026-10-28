@@ -82,4 +82,70 @@ public sealed class ModuleSurfaceTests
     [TestMethod]
     public void IsNull_ForAModuleWithNoSyntaxTree()
         => Assert.IsNull(ModuleSurface.Of(new ModuleParseResult()));
+
+    // the surface tells a node's values of the types it knows, and no other: a node that comes to hold a value of another type - a record that holds a location -
+    // is told without it until the surface is taught what of it is told.
+    private static readonly Type[] Told =
+    [
+        typeof(string), typeof(bool), typeof(char), typeof(Enum), typeof(IFormattable), typeof(SDK.Model.Values.Abstract.VBTypedValue), typeof(IEnumerable<string>),
+    ];
+
+    private static readonly Type[] WhereNotWhat =
+    [
+        typeof(SDK.Model.AST.Abstract.SyntaxNode), typeof(SDK.Model.Source.SourceRange), typeof(SDK.Model.Source.SourceLocation), typeof(SDK.Model.AST.Abstract.SyntaxNodeId),
+    ];
+
+    private static readonly HashSet<string> Placement = ["Identity", "SourceLocation", "Location", "NameRange", "Children", "EqualityContract"];
+
+    // what of a type the surface cannot tell: none, for a type it tells, a node, or where something is; for a record of the tree's own, what of its values it cannot.
+    private static IEnumerable<string> Untold(Type owner, HashSet<Type> seen)
+    {
+        foreach (var property in owner.GetProperties().Where(property => property.GetIndexParameters().Length == 0 && !Placement.Contains(property.Name)))
+        {
+            var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            var element = type.IsArray ? type.GetElementType()!
+                : type != typeof(string) && type.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(type) ? type.GetGenericArguments()[0]
+                : type;
+            if (Told.Concat(WhereNotWhat).Any(known => known.IsAssignableFrom(element)))
+            {
+                continue;
+            }
+
+            if (element.Namespace?.StartsWith("RDCore.SDK.Model.AST", StringComparison.Ordinal) == true)
+            {
+                foreach (var untold in seen.Add(element) ? Untold(element, seen) : [])
+                {
+                    yield return untold;
+                }
+
+                continue;
+            }
+
+            yield return $"{owner.Name}.{property.Name}: {element.Name}";
+        }
+    }
+
+    [TestMethod]
+    public void EveryValueANodeHolds_IsOfATypeTheSurfaceTells_OrANodeOrWhereItIs()
+    {
+        var seen = new HashSet<Type>();
+        var untold = typeof(SDK.Model.AST.Abstract.SyntaxNode).Assembly.GetTypes()
+            .Where(type => typeof(SDK.Model.AST.Abstract.SyntaxNode).IsAssignableFrom(type) && !type.IsAbstract)
+            .SelectMany(node => Untold(node, seen))
+            .ToList();
+
+        Assert.IsEmpty(untold, string.Join("; ", untold));
+    }
+
+    [TestMethod]
+    [DataRow("DefInt A-Z", "DefLng A-Z", DisplayName = "a DefType's type")]
+    [DataRow("DefInt A-Z", "DefInt A-M", DisplayName = "a DefType's letters")]
+    [DataRow("Public Values(1 To 10) As Long", "Public Values(1 To 11) As Long", DisplayName = "an array's bounds")]
+    public void Changes_WithWhatAValueOfTheTreeSays(string written, string edited)
+    {
+        var module = $"Option Explicit\r\n{written}\r\nPublic Sub Foo()\r\nEnd Sub\r\n";
+
+        Assert.AreNotEqual(SurfaceOf(module), SurfaceOf(module.Replace(written, edited)));
+        Assert.AreEqual(SurfaceOf(module), SurfaceOf("\r\n" + module), "and not with where it is");
+    }
 }

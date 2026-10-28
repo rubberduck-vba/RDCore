@@ -106,40 +106,55 @@ public static class ModuleSurface
         }
     }
 
+    // the nodes a value holds: itself, those of a collection, and those of a record of the syntax tree's own (an array's bounds hold their expressions).
     private static IEnumerable<SyntaxNode> HeldBy(object? value) => value switch
     {
         SyntaxNode node => [node],
-        IEnumerable values and not string => values.OfType<SyntaxNode>(),
+        string => [],
+        IEnumerable values => values.Cast<object?>().SelectMany(HeldBy),
+        _ when IsOfTheTree(value) => PropertiesOf(value!.GetType()).SelectMany(property => HeldBy(property.GetValue(value))),
         _ => [],
     };
+
+    // a record or a struct of the syntax tree's own that is no node: what it holds is a node's, as a DefType's letters or an array's bounds are.
+    private static bool IsOfTheTree(object? value)
+        => value is not (null or SyntaxNode or SourceRange or SourceLocation or SyntaxNodeId)
+            && value.GetType().Namespace?.StartsWith(typeof(ModuleSurface).Namespace!, StringComparison.Ordinal) == true;
 
     // what the node is, and what it says that is not a node of its own.
     private static void Describe(StringBuilder surface, SyntaxNode node)
     {
-        surface.Append(node.GetType().Name);
-        foreach (var property in PropertiesOf(node.GetType()))
-        {
-            var value = property.GetValue(node);
-            var text = value switch
-            {
-                null => null,
-                SyntaxNode or SourceRange or SourceLocation or SyntaxNodeId => null,
-                string or bool or char or Enum => value.ToString(),
-                IFormattable number => number.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
-                VBTypedValue typed => JsonSerializer.Serialize(typed, SyntaxNodeJson.Options),
-                IEnumerable<string> names => string.Join(",", names),
-                IEnumerable => null,
-                _ => value.ToString(),
-            };
+        surface.Append(node.GetType().Name).Append(Told(node)).Append('\n');
+    }
 
-            if (text is not null)
+    // what a value of the tree says, its nodes and where it is written left out: " Name=value" for each of what it says.
+    private static string Told(object value)
+    {
+        var told = new StringBuilder();
+        foreach (var property in PropertiesOf(value.GetType()))
+        {
+            if (TextOf(property.GetValue(value)) is { } text)
             {
-                surface.Append(' ').Append(property.Name).Append('=').Append(text);
+                told.Append(' ').Append(property.Name).Append('=').Append(text);
             }
         }
 
-        surface.Append('\n');
+        return told.ToString();
     }
+
+    private static string? TextOf(object? value) => value switch
+    {
+        null => null,
+        SyntaxNode or SourceRange or SourceLocation or SyntaxNodeId => null,
+        string or bool or char or Enum => value.ToString(),
+        IFormattable number => number.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        VBTypedValue typed => JsonSerializer.Serialize(typed, SyntaxNodeJson.Options),
+        IEnumerable values => string.Join(",", values.Cast<object?>().Select(TextOf).Where(text => text is not null)),
+        _ when IsOfTheTree(value) => "{" + Told(value) + " }",
+
+        // a value of any other type is not told, lest where it is written - a record that holds a location - be told with it.
+        _ => null,
+    };
 
     private static PropertyInfo[] PropertiesOf(Type type)
         => Properties.GetOrAdd(type, static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
