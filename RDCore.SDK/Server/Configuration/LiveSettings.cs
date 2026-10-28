@@ -129,6 +129,16 @@ public interface ILiveSettings
     void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted);
 
     /// <summary>
+    /// Takes what the client said as the overload above does, if <paramref name="isCurrent"/> says it is still what is to be taken. The check and the setting are one step; <see cref="Changed"/> is
+    /// raised after it, with no lock held.
+    /// </summary>
+    /// <param name="said">What the client said.</param>
+    /// <param name="adopted">What the component takes besides.</param>
+    /// <param name="isCurrent">Asked once the settings are about to be set, with nothing else setting them; it must not wait for anything that waits for these settings.</param>
+    /// <returns>Whether the settings were set.</returns>
+    bool Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent);
+
+    /// <summary>
     /// Sets the live settings on the settings objects as the user's settings say them now: what a component that is no other's server does when its user changes
     /// a setting.
     /// </summary>
@@ -146,8 +156,10 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
 {
     private readonly IReadOnlyList<LiveSettingsTarget> _targets = [.. targets];
     private readonly object _applying = new();
-    private IReadOnlyDictionary<string, string>? _received;
-    private IReadOnlyDictionary<string, string>? _said;
+    private sealed record Snapshot(IReadOnlyDictionary<string, string> Said, IReadOnlyDictionary<string, string> Received);
+
+    // what the client said and what is handed down are published together: a reader never sees one of a newer change and the other of an older one.
+    private volatile Snapshot? _snapshot;
 
     /// <summary>
     /// The live settings of the user's settings of a platform: its settings objects, and its user's file.
@@ -164,34 +176,42 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     public event EventHandler? Changed;
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, string> Current => _received ?? UserLiveSettings();
+    public IReadOnlyDictionary<string, string> Current => _snapshot?.Received ?? UserLiveSettings();
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, string> Said => _said ?? UserLiveSettings();
+    public IReadOnlyDictionary<string, string> Said => _snapshot?.Said ?? UserLiveSettings();
 
     /// <inheritdoc/>
-    public bool HasReceived => _received is not null;
+    public bool HasReceived => _snapshot is not null;
 
     /// <inheritdoc/>
     public void Apply(IReadOnlyDictionary<string, string> settings) => Apply(settings, new Dictionary<string, string>());
 
     /// <inheritdoc/>
-    public void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted)
+    public void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted) => Apply(said, adopted, () => true);
+
+    /// <inheritdoc/>
+    public bool Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent)
     {
         lock (_applying)
         {
-            _said = new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase);
+            if (!isCurrent())
+            {
+                return false;
+            }
+
             var received = new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase);
             foreach (var (key, value) in adopted)
             {
                 received[key] = value;
             }
 
-            _received = received;
-            Set(_received);
+            _snapshot = new Snapshot(new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase), received);
+            Set(received);
         }
 
         Changed?.Invoke(this, EventArgs.Empty);
+        return true;
     }
 
     /// <inheritdoc/>
@@ -199,7 +219,7 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     {
         lock (_applying)
         {
-            Set(_received ?? UserLiveSettings());
+            Set(_snapshot?.Received ?? UserLiveSettings());
         }
 
         Changed?.Invoke(this, EventArgs.Empty);

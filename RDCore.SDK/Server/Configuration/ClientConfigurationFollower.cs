@@ -29,7 +29,6 @@ public sealed class ClientConfigurationFollower : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _subscription;
     private readonly object _gate = new();
-    private readonly object _applying = new();
     private int _version;
     private int _disposed;
 
@@ -92,19 +91,18 @@ public sealed class ClientConfigurationFollower : IDisposable
             var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(_server, token);
             var adopted = FormattingTabSize.AdoptedFrom(said, tabSize);
 
-            // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed - decided under a lock that is
-            // held for no longer than that: a listener of the change, which runs while the settings are set, can wait for another thread to follow or to dispose.
-            lock (_applying)
+            // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed: the live settings ask just before
+            // they set, in the step that sets them. The state lock is held for that question only, and a listener of the change runs after both locks are released: it can wait
+            // for another thread that follows or disposes.
+            if (!_liveSettings.Apply(said, adopted, () =>
             {
                 lock (_gate)
                 {
-                    if (version != _version || _disposed == 1)
-                    {
-                        return false;
-                    }
+                    return version == _version && _disposed == 0;
                 }
-
-                _liveSettings.Apply(said, adopted);
+            }))
+            {
+                return false;
             }
 
             lock (_gate)
