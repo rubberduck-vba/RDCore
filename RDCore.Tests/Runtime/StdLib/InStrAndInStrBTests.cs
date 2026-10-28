@@ -145,15 +145,24 @@ public sealed class InStrAndInStrBTests
         => Assert.AreEqual(2, LongOf(Module().InStr(null, V("abc"), V("b"), Binary)));
 
     [TestMethod]
-    [DataRow(2)]
     [DataRow(-1)]
-    [DataRow(7)]
-    [DataRow(1033)]
-    public void InStr_WithACompareOtherThanZeroOrOne_IsError5(int compare)
+    [DataRow(240)]
+    [DataRow(5000)]
+    public void InStr_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
     {
         Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(1), V("abc"), V("b"), (VBCompareMethod)compare)));
         Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStrB(V(1), V("abc"), V("b"), (VBCompareMethod)compare)));
     }
+
+    [TestMethod]
+    public void InStr_WithVbDatabaseCompare_IsError5()
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(1), V("abc"), V("b"), (VBCompareMethod)2)));
+
+    [TestMethod]
+    [DataRow(7)]
+    [DataRow(1033)]
+    public void InStr_WithACompareThatIsALocale_SearchesTheText(int compare)
+        => Assert.AreEqual(2, LongOf(Module().InStr(V(1), V("abc"), V("B"), (VBCompareMethod)compare)));
 
     [TestMethod]
     public void InStr_ComparesAsItsCompareSays()

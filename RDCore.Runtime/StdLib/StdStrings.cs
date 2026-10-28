@@ -204,18 +204,36 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         return true;
     }
 
-    // an explicit Compare is vbBinaryCompare or vbTextCompare, and nothing else; an omitted one has already been filled in as one
-    // of the two, Option Compare Database resolved, so this never sees a caller's omission.
-    private bool TryRulesFor(VBCompareMethod compare, string member, out StringComparisonRules rules, [NotNullWhen(false)] out IVBRaisableError? error)
+    // an explicit Compare is vbBinaryCompare, vbTextCompare, vbDatabaseCompare where the member takes it, or the identifier of a locale, whose text comparison
+    // it is (StringComparisonRules.TryForLocale); an omitted one has already been filled in as one of the first two, Option Compare Database resolved, so this
+    // never sees a caller's omission. MS-VBA's Split, InStrRev and Replace take vbDatabaseCompare, as the module's Option Compare Database compares; its
+    // InStr, StrComp and Filter refuse it (recorded in Excel).
+    // MS-VBA's vbDatabaseCompare, which MS-VBAL's VbCompareMethod (§6.1.1.5) does not name.
+    private const VBCompareMethod DatabaseCompare = (VBCompareMethod)2;
+
+    private bool TryRulesFor(VBCompareMethod compare, string member, out StringComparisonRules rules, [NotNullWhen(false)] out IVBRaisableError? error,
+        bool takesDatabaseCompare = false)
     {
-        (rules, error) = compare switch
+        error = null;
+        switch (compare)
         {
-            VBCompareMethod.VBBinaryCompare => (session.StringComparisonIn(OptionCompare.Binary), null),
-            VBCompareMethod.VBTextCompare => (session.StringComparisonIn(OptionCompare.Text), null),
-            _ => (default(StringComparisonRules), Failure(VBRuntimeErrorId.InvalidProcedureCallOrArgument, member,
-                $"Compare is vbBinaryCompare (0) or vbTextCompare (1), not {(int)compare}")),
-        };
-        return error is null;
+            case VBCompareMethod.VBBinaryCompare:
+                rules = session.StringComparisonIn(OptionCompare.Binary);
+                return true;
+            case VBCompareMethod.VBTextCompare:
+                rules = session.StringComparisonIn(OptionCompare.Text);
+                return true;
+            case DatabaseCompare when takesDatabaseCompare:
+                rules = session.StringComparisonIn(OptionCompare.Database);
+                return true;
+            case not DatabaseCompare when StringComparisonRules.TryForLocale((int)compare, session.Environment.Culture, out rules):
+                return true;
+            default:
+                rules = default;
+                error = Failure(VBRuntimeErrorId.InvalidProcedureCallOrArgument, member,
+                    $"Compare is vbBinaryCompare (0), vbTextCompare (1) or the identifier of a locale, not {(int)compare}");
+                return false;
+        }
     }
 
     // every $ function: "functionally identical to the Left function, with the exception that the return type of the function is
@@ -899,8 +917,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <para>
     /// A text comparison searches the letters of both, folded to one case and with <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c> expanded, as MS-VBA does
     /// (<see cref="StringComparisonRules.TryFind"/>): a match may be part of an expanded character, and is found at the character it starts in. 👉 An explicit
-    /// Compare is <c>vbBinaryCompare</c> or <c>vbTextCompare</c>, and anything else, the LCID the table mentions included, is error 5; MS-VBA takes a locale
-    /// identifier as a text comparison, which is not modelled yet.
+    /// Compare is <c>vbBinaryCompare</c>, <c>vbTextCompare</c>, or the identifier of a locale, which is that locale's text comparison
+    /// (<see cref="StringComparisonRules.TryForLocale"/>), as MS-VBA takes it and the table mentions; anything else, <c>vbDatabaseCompare</c> included, is
+    /// error 5.
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> InStr(VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -1007,7 +1026,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// 👉 Start left out is the declared -1, the end of StringCheck, which the table calls "the data value 1"; a Start of 0 or below -1
     /// is error 5, as a Start below 1 is to the <c>Mid</c> statement (<strong>MS-VBAL §5.4.3.5</strong>). Compare left out is the
     /// calling module's <c>Option Compare</c>, as its runtime semantics say and its table does not, and an explicit one is
-    /// <c>vbBinaryCompare</c> or <c>vbTextCompare</c>, else error 5.
+    /// <c>vbBinaryCompare</c>, <c>vbTextCompare</c>, <c>vbDatabaseCompare</c> (2, which compares as <c>Option Compare Database</c> does) or the identifier
+    /// of a locale (<see cref="StringComparisonRules.TryForLocale"/>), else error 5 (MS-VBA, recorded in Excel).
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBLongValue> InStrRev(VBStringValue stringCheck, VBStringValue stringMatch, VBLongValue? start = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -1018,7 +1038,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBLongValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, nameof(InStrRev), $"Start is -1 or at least 1, not {from}");
         }
 
-        if (!TryRulesFor(compare, nameof(InStrRev), out var rules, out var error))
+        if (!TryRulesFor(compare, nameof(InStrRev), out var rules, out var error, takesDatabaseCompare: true))
         {
             return Fail<VBLongValue>(error);
         }
@@ -1330,7 +1350,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBStringValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, nameof(Replace), $"Count is -1 (every match) or more, not {most}");
         }
 
-        if (!TryRulesFor(compare, nameof(Replace), out var rules, out var error))
+        if (!TryRulesFor(compare, nameof(Replace), out var rules, out var error, takesDatabaseCompare: true))
         {
             return Fail<VBStringValue>(error);
         }
@@ -1420,7 +1440,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, nameof(Split), $"Limit is -1 (every substring) or more, not {most}");
         }
 
-        if (!TryRulesFor(compare, nameof(Split), out var rules, out error))
+        if (!TryRulesFor(compare, nameof(Split), out var rules, out error, takesDatabaseCompare: true))
         {
             return Fail<VBVariantValue>(error);
         }
@@ -1550,8 +1570,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// -1, 0 or 1 as String1 "is less than", equal to or "greater than" String2, as an Integer; "String1 or String2 is Null" is Null,
     /// whatever Compare is. Each argument is Let-coerced as a <c>String</c> parameter would be, and the two are compared the way the
     /// relational operators compare them (<strong>MS-VBAL §5.6.9.5</strong>), a trailing byte included, so <c>StrComp(a, b)</c> is 0
-    /// exactly when <c>a = b</c> under the <c>Option Compare</c> that Compare names. An explicit Compare is <c>vbBinaryCompare</c> or
-    /// <c>vbTextCompare</c>, else error 5.
+    /// exactly when <c>a = b</c> under the <c>Option Compare</c> that Compare names. An explicit Compare is <c>vbBinaryCompare</c>,
+    /// <c>vbTextCompare</c> or the identifier of a locale, which orders the strings by that locale's collation
+    /// (<see cref="StringComparisonRules.TryForLocale"/>); anything else, <c>vbDatabaseCompare</c> included, is error 5 (MS-VBA, recorded in Excel).
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> StrComp(VBVariantValue string1, VBVariantValue string2, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
     {

@@ -45,10 +45,15 @@ public sealed class StrCompTests
     [TestMethod]
     [DataRow(2)]
     [DataRow(-1)]
+    [DataRow(240)]
+    public void StrComp_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().StrComp(V("a"), V("A"), (VBCompareMethod)compare)));
+
+    [TestMethod]
     [DataRow(7)]
     [DataRow(1033)]
-    public void StrComp_WithACompareOtherThanZeroOrOne_IsError5(int compare)
-        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().StrComp(V("a"), V("A"), (VBCompareMethod)compare)));
+    public void StrComp_WithACompareThatIsALocale_ComparesTheText(int compare)
+        => Assert.AreEqual(0, IntegerOf(Module().StrComp(V("a"), V("A"), (VBCompareMethod)compare)));
 
     [TestMethod]
     public void StrComp_TakesEachValuesString()

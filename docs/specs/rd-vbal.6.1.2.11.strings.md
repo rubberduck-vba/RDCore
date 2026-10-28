@@ -85,13 +85,40 @@ otherwise ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argume
   member and `=` agree on what the calling module's mode is.
 - A caller with no calling module, such as a host that calls the library directly, gets the declared `vbBinaryCompare`.
 
-A member reads `Compare` as it is given, and never consults `Option Compare` itself. An explicit `Compare` is
-`vbBinaryCompare` (`0`) or `vbTextCompare` (`1`); anything else (`2`, `-1`, a locale identifier) is error `5`.
-`VbCompareMethod` has no `vbDatabaseCompare`.
+A member reads `Compare` as it is given, and never consults `Option Compare` itself. An explicit `Compare` is let-coerced to a `Long` (`4294968329` is
+error `6`, and `1.5` rounds to `2`), and then it is one of the following:
 
-> [!WARNING]
-> 🚧 MS-VBA takes a `Compare` that is a locale identifier - `3`, `4`, `100`, `1031`, `1033`, not `5000`, `32767` or `65535` - as a text comparison, `Replace`
-> takes `2` as one where `InStr` and `StrComp` raise `5`, and Danish and Norwegian do not expand `æ` (recorded in Excel). RD-VBA raises `5`, as above.
+|`Compare`|What it compares by|
+|---|---|
+|`vbBinaryCompare` (`0`)|The data of the strings.|
+|`vbTextCompare` (`1`)|The text of the strings, in the environment's regional settings.|
+|`2` (MS-VBA's `vbDatabaseCompare`, which MS-VBAL's `VbCompareMethod` does not name)|`Split`, `InStrRev` and `Replace`: as `Option Compare Database` does. `InStr`, `InStrB`, `StrComp` and `Filter`: error `5`.|
+|The identifier of a locale (LCID)|The text of the strings, in that locale (below).|
+|Any other value|Error `5`.|
+
+MS-VBA reads any other `Compare` as a Windows locale identifier, and **MS-VBAL** names only the three modes (recorded in Excel). These are locales:
+
+- a neutral language (`3`, Catalan; `100`, Filipino);
+- a locale (`1033`, English (US));
+- a locale with a sort order (`66567`, German phone book);
+- the invariant locale (`127`);
+- the identifiers of the user's, the system's and the custom default locales (`1024`, `2048`, `3072`, `4096`, `5120`), which are the environment's
+  regional settings here.
+
+An identifier of no locale is error `5`: `240`, `5000`, `9999`, `65535`, `65536`, and a negative number.
+
+A locale's comparison is that locale's collation, regardless of case:
+
+- **Case** is folded the same way in every locale: in a Turkish comparison `I` and `i` are one letter, and `İ` and `ı` are letters of their own.
+- **A search** (`InStr`, `InStrRev`, `Replace`, `Split`, `Filter`) matches the letters it does in text mode (below), except where the locale's alphabet has
+  `æ` and `þ` as letters of their own: Danish, Norwegian (Bokmål and Nynorsk), Icelandic, Faroese, Greenlandic, Northern Sami in Norway, and Swedish in
+  Finland. `œ` and `ß` are expanded in every locale. Width, kana and accents are never folded.
+- **`StrComp`** orders the strings by the locale's collation: `ä` comes after `z` in Swedish, `æ` after `z` in Danish, `ch` after `h` in Slovak.
+
+> [!NOTE]
+> **Not implemented.** Under a Turkish locale, `StrComp` orders the dotless `ı` and the dotted `İ` by the collation RD-VBA uses (ICU), where MS-VBA's
+> differs: `StrComp("I", "ı", 1055)` is `-1` in MS-VBA and `1` in RD-VBA. A locale that was not measured is read as the default one when it comes to `æ`
+> and `þ`.
 
 In text mode two `String`s are equal as `=` finds them under `Option Compare Text`
 ([**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md#string-comparison)). A text-mode search does not use that
