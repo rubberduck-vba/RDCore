@@ -117,7 +117,7 @@ public sealed class ReplFoldTests
     }
 
     [TestMethod]
-    public async Task AConsoleThatDrawsEmoji_HasTheirMarks_AndTheBreakpointKeepsTheLaneAtTheEdge()
+    public async Task AConsoleThatDrawsUnicode_HasTheTriangles_AndTheBreakpointKeepsTheLaneAtTheEdge()
     {
         _console.DrawsUnicode.Returns(true);
         _context.Debugger.ToggleBreakpoint(20);
@@ -126,8 +126,8 @@ public sealed class ReplFoldTests
 
         Assert.HasCount(2, listed[1].Margin);
         Assert.AreEqual(ReplTextStyle.BreakpointGlyph, listed[1].Margin[0].Style, "the breakpoint's lane is the left-most one, at the edge");
-        Assert.AreEqual("🔽", listed[1].Margin[1].Text, "and the fold lane is next to the line");
-        Assert.AreEqual("  ", listed[0].Margin[1].Text, "the fold lane is the emoji's two cells wide on every line");
+        Assert.AreEqual("▽", listed[1].Margin[1].Text, "and the fold lane is next to the line");
+        Assert.AreEqual(" ", listed[0].Margin[1].Text, "the fold lane is the triangle's one cell wide on every line");
     }
 
     [TestMethod]

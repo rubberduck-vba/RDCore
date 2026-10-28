@@ -26,8 +26,8 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     private static readonly string conditionalGlyph = "◆";
     private static readonly string disabledConditionalGlyph = "◈";
 
-    // the marks of a block, as an emoji - two cells - where the console draws one, and in ASCII where it does not.
-    private static readonly (string Open, string Folded) emojiFoldGlyphs = ("🔽", "🔼");
+    // the marks of a block, plain triangles where the console draws Unicode (an emoji looked wrong next to the code, the author found), ASCII where it does not.
+    private static readonly (string Open, string Folded) unicodeFoldGlyphs = ("▽", "▲");
     private static readonly (string Open, string Folded) asciiFoldGlyphs = ("-", "+");
 
 
@@ -56,7 +56,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
         var hidden = new HashSet<int>(blocks.Values
             .Where(fold => context.Program.NumberAt(fold.StartLine) is { } start && context.Folds.IsFolded(start))
             .SelectMany(fold => Enumerable.Range(fold.StartLine + 1, fold.EndLine - fold.StartLine)));
-        var glyphs = context.Console.DrawsUnicode ? emojiFoldGlyphs : asciiFoldGlyphs;
+        var glyphs = context.Console.DrawsUnicode ? unicodeFoldGlyphs : asciiFoldGlyphs;
         var foldLane = blocks.Count == 0 ? 0 : App.Console.ConsoleText.WidthOf(glyphs.Open);
 
         foreach (var (number, statement) in lines)
