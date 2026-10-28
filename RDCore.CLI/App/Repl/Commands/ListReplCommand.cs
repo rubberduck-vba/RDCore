@@ -10,8 +10,8 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// The argument is a BASIC line range: <c>LIST</c>, <c>LIST 100</c>, <c>LIST 100-200</c>,
 /// <c>LIST 100-</c> (from there on) or <c>LIST -200</c> (up to there).
 /// <para>
-/// The margin has two lanes. The first, at the edge, marks a breakpoint; the second, next to the line, marks the line a block starts at - an <c>If</c>, a
-/// <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
+/// The margin has two lanes. The first, at the edge, marks a breakpoint, or a line that has a fix (💡: <c>DUCKY</c> proposes it) when it has no breakpoint; the
+/// second, next to the line, marks the line a block starts at - an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
 /// after it, to its <c>End</c>.
 /// </para>
 /// </remarks>
@@ -30,6 +30,9 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     private static readonly (string Open, string Folded) unicodeFoldGlyphs = ("▽", "▲");
     private static readonly (string Open, string Folded) asciiFoldGlyphs = ("-", "+");
 
+    // the mark of a line that has a fix: a light bulb, two cells wide, where the console draws Unicode; one cell, in ASCII, where it does not.
+    private const string UnicodeFixGlyph = "💡";
+    private const string AsciiFixGlyph = "*";
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
@@ -58,6 +61,14 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             .SelectMany(fold => Enumerable.Range(fold.StartLine + 1, fold.EndLine - fold.StartLine)));
         var glyphs = context.Console.DrawsUnicode ? unicodeFoldGlyphs : asciiFoldGlyphs;
         var foldLane = blocks.Count == 0 ? 0 : App.Console.ConsoleText.WidthOf(glyphs.Open);
+
+        // the lines a diagnostic with a fix is on, and the lane they are marked in: the cells of the light bulb on every line when any line has one, so that the
+        // lane is as wide on a line with a breakpoint, or with none, as on a line with a bulb.
+        var fixes = lines.Length == 0 ? new HashSet<int>() : await LinesWithAFixAsync(context, token);
+        var fixGlyph = context.Console.DrawsUnicode ? UnicodeFixGlyph : AsciiFixGlyph;
+        var breakpointLane = lines.Any(line => fixes.Contains(context.Program.IndexOf(line.Number)) && !hidden.Contains(context.Program.IndexOf(line.Number)))
+            ? Math.Max(1, App.Console.ConsoleText.WidthOf(fixGlyph))
+            : 1;
 
         foreach (var (number, statement) in lines)
         {
@@ -92,7 +103,11 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
                     marked.Enabled ? conditionalGlyph : disabledConditionalGlyph
                 : marked.Enabled ? enabledGlyph : disabledGlyph;
 
-            var breakpointMark = marked != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
+            // a breakpoint's mark takes the lane before the mark of a fix, and both are padded to the width of the lane.
+            var hasAFix = fixes.Contains(index) || (folded && Enumerable.Range(blocks[index].StartLine + 1, hiddenLines).Any(fixes.Contains));
+            var breakpointMark = marked != default ? new ReplTextRun(Padded(glyph, breakpointLane), ReplTextStyle.BreakpointGlyph)
+                : hasAFix ? new ReplTextRun(Padded(fixGlyph, breakpointLane), ReplTextStyle.Plain)
+                : new ReplTextRun(new string(' ', breakpointLane), ReplTextStyle.Plain);
 
             var style = waitsBefore ? ReplLineStyle.CurrentStatement
                 : breakpoint != default && breakpoint.Enabled ? ReplLineStyle.Breakpoint
@@ -100,7 +115,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
 
             var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
             var foldedText = $"{number} {(hiddenLines == 1 ? Resources.Repl_Fold_HiddenLine : string.Format(Resources.Repl_Fold_HiddenLines, hiddenLines))} {statement}";
-            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, foldedText, foldLane + 1 + padding.Text.Length), ReplTextStyle.Ghost)]
+            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, foldedText, foldLane + breakpointLane + padding.Text.Length), ReplTextStyle.Ghost)]
                 : highlighted is not null && highlighted.TryGetValue(index, out var tokens) ? [padding, .. ReplHighlighter.Runs(text, tokens)]
                 : [padding, new ReplTextRun(text, ReplTextStyle.Plain)];
             context.Console.WriteListingLine([breakpointMark, foldMark], runs, style);
@@ -108,6 +123,15 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
 
         context.Console.WriteLine();
         return ReplCommandResult.Continue;
+    }
+
+    private static string Padded(string mark, int lane) => mark + new string(' ', Math.Max(0, lane - App.Console.ConsoleText.WidthOf(mark)));
+
+    // the lines of the program a diagnostic with a fix is on, by their position in the program; none when the server cannot be asked.
+    private static async Task<IReadOnlySet<int>> LinesWithAFixAsync(ReplCommandContext context, CancellationToken token)
+    {
+        await context.Diagnostics.RefreshAsync(context, token);
+        return context.Diagnostics.LinesWithAFix();
     }
 
     // the first line of a folded block, cut with an ellipsis to what is left of the console's width after the margin; as it is when the width cannot be told.

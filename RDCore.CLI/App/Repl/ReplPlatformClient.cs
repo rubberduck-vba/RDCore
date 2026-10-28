@@ -74,6 +74,14 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     /// <inheritdoc/>
+    public async Task<ReplDiagnosticReport?> PullDiagnosticReportAsync(Uri document, string? previousResultId, CancellationToken token)
+    {
+        var report = await AskAgainIfModifiedAsync(() => client.SendRequestAsync<DocumentDiagnosticPullParams, DocumentDiagnosticPullReport?>(
+            new DocumentDiagnosticPullParams { TextDocument = new TextDocumentIdentifier(document), PreviousResultId = previousResultId }, token));
+        return report is null ? null : new ReplDiagnosticReport(report.ResultId, string.Equals(report.Kind, "unchanged", StringComparison.Ordinal), report.Items);
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<CodeAction>> GetCodeActionsAsync(Uri document, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range,
         IReadOnlyList<Diagnostic> diagnostics, CancellationToken token)
     {
