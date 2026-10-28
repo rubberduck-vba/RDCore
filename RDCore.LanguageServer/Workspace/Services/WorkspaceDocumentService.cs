@@ -31,13 +31,6 @@ internal interface IWorkspaceDocumentService
     IEnumerable<WorkspaceDocument> GetAllDocuments();
 
     /// <summary>
-    /// The documents that are modules of one project, as <see cref="GetAllDocuments"/> has them: the files the project lists, and what a client opened that is
-    /// in the project's own folder. A file that several projects list is in each.
-    /// </summary>
-    /// <param name="projectRoot">The folder of the project.</param>
-    IEnumerable<WorkspaceDocument> GetProjectDocuments(string projectRoot);
-
-    /// <summary>
     /// Loads a file a project lists, as <see cref="TryLoadAsync(TextDocumentIdentifier)"/> does for the primary project's: addressed relative to that project's
     /// folder. A file another project listed before is the same document, and this project is one more it is a module of.
     /// </summary>
@@ -173,13 +166,6 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             ? earlier.Version + (string.Equals(earlier.Text, content, StringComparison.Ordinal) ? 0 : 1)
             : 1;
 
-    public IEnumerable<WorkspaceDocument> GetProjectDocuments(string projectRoot)
-        => GetAllDocuments().Where(document => document.Projects.Any(root => SameFolder(root, projectRoot)));
-
-    private static bool SameFolder(string left, string right)
-        => string.Equals(Path.TrimEndingDirectorySeparator(left), Path.TrimEndingDirectorySeparator(right),
-            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
     public Task<bool> TryLoadAsync(TextDocumentIdentifier id) => TryLoadAsync(id, WorkspaceRoot);
 
     public async Task<bool> TryLoadAsync(TextDocumentIdentifier id, string projectRoot)
@@ -187,7 +173,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var path = id.Uri.GetFileSystemPath();
 
         // a file another project listed is the same document: it has the text, the version and the state it has, and is a module of this project too.
-        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => SameFolder(root, projectRoot)))
+        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => WorkspaceDocumentServiceExtensions.SameFolder(root, projectRoot)))
         {
             _documents[id] = shared with { Projects = [.. shared.Projects, projectRoot] };
             return true;

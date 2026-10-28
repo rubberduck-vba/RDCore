@@ -39,7 +39,8 @@ internal sealed class ImportProjectCommand(
     ILibrarySource libraries,
     IFileSystem fileSystem,
     IOptions<SdkAppOptions> options,
-    ILanguageServerFacade server) : IServerCommand
+    ILanguageServerFacade server,
+    IWorkspaceProjects? workspaceProjects = null) : IServerCommand
 {
     /// <summary>The name a client asks for the command by.</summary>
     public const string CommandName = "rdcore.importProject";
@@ -86,6 +87,9 @@ internal sealed class ImportProjectCommand(
             // a project file that cannot be read is replaced whole, as the user said to replace it.
             await writer.SaveAsync(import.Into(await loader.LoadIfReadableAsync(folder, token), folder), token);
         }
+
+        // a client that imports the projects it serves says which of the folders it gave are projects' (WorkspaceFolderRoles).
+        workspaceProjects?.Imported(folder);
 
         return new JObject
         {
