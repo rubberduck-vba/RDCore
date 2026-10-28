@@ -577,6 +577,12 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Config_Reset_Detail" xml:space="preserve">
     <value>Puts a setting, a section, or every setting back as the platform was deployed</value>
   </data>
+  <data name="Config_Import_Detail" xml:space="preserve">
+    <value>Imports settings from another tool</value>
+  </data>
+  <data name="Config_Import_Rubberduck_Detail" xml:space="preserve">
+    <value>Sets the formatting settings to the indenter settings you had in Rubberduck (Windows only)</value>
+  </data>
   <data name="Config_NothingSet" xml:space="preserve">
     <value>Every setting is as the platform was deployed.</value>
   </data>

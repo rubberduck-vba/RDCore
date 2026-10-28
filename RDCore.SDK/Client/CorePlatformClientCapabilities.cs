@@ -160,6 +160,12 @@ public class LanguageServerCapabilities
     /// the platform's own.
     /// </summary>
     public SessionInteraction SessionInteraction { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the language server asks the client for the indenter settings its user had in Rubberduck, over <c>rdcore/rubberduck-indenter-settings</c>, and
+    /// asks it to take the <c>Formatting</c> settings it mapped from them as its own, over <c>rdcore/rubberduck-indenter-settings/apply</c>.
+    /// </summary>
+    public RubberduckIndenterSettings RubberduckIndenterSettings { get; set; } = new();
 }
 
 public static class RDCorePlatformProtocol
@@ -309,6 +315,16 @@ public static class RDCorePlatformProtocol
     public const string SessionCompletion = "rdcore/session/completion";
 
     /// <summary>
+    /// Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them. A request the language server sends.
+    /// </summary>
+    public const string RubberduckIndenterSettings = "rdcore/rubberduck-indenter-settings";
+
+    /// <summary>
+    /// Asks the client to take the <c>Formatting</c> settings the language server mapped from Rubberduck's indenter settings as its own. A request the language server sends.
+    /// </summary>
+    public const string RubberduckIndenterSettingsApply = "rdcore/rubberduck-indenter-settings/apply";
+
+    /// <summary>
     /// Asks the language server what the call being written at a position of a module the client supplies takes.
     /// </summary>
     public const string SessionSignatureHelp = "rdcore/session/signatureHelp";
@@ -381,6 +397,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(SemanticAnalysis))]
 [JsonDerivedType(typeof(SessionMemoryAccess))]
 [JsonDerivedType(typeof(SessionInteraction))]
+[JsonDerivedType(typeof(RubberduckIndenterSettings))]
 [JsonPolymorphic]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
 
@@ -477,6 +494,16 @@ public record class SessionMemoryAccess(bool IsSupported = false) : CorePlatform
 /// asked, and the language server answers that nobody was, so that the host shows the dialog of the platform it runs on.
 /// </remarks>
 public record class SessionInteraction(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the language server asks the client for the indenter settings its user had in Rubberduck - <c>rdcore/rubberduck-indenter-settings</c> - and asks it to
+/// take the <c>Formatting</c> settings mapped from them as its own - <c>rdcore/rubberduck-indenter-settings/apply</c>; a client that expects it answers both.
+/// </summary>
+/// <remarks>
+/// A client owns its configuration and the platform writes none of it: only a client that expects this is asked, and it stores what it applies as a change of its own.
+/// A client on a platform that has no Rubberduck settings answers that it found none.
+/// </remarks>
+public record class RubberduckIndenterSettings(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring component runs the semantic analysis pass over the code it holds and answers with its model - <c>rdcore/host/semantics</c>,

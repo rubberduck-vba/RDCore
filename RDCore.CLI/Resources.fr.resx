@@ -575,6 +575,12 @@
   <data name="Config_Reset_Detail" xml:space="preserve">
     <value>Remet un paramètre, une section ou chaque paramètre tel que la plateforme a été déployée</value>
   </data>
+  <data name="Config_Import_Detail" xml:space="preserve">
+    <value>Importe des paramètres d'un autre outil</value>
+  </data>
+  <data name="Config_Import_Rubberduck_Detail" xml:space="preserve">
+    <value>Règle le formatage d'après les paramètres d'indentation que vous aviez dans Rubberduck (Windows seulement)</value>
+  </data>
   <data name="Config_NothingSet" xml:space="preserve">
     <value>Chaque paramètre est tel que la plateforme a été déployée.</value>
   </data>

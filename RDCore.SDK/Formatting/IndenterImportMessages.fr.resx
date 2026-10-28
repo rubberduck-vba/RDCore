@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Ce que dit l'importation des paramètres d'indentation de Rubberduck à l'utilisateur (IndenterSettingsImportText). -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="IndenterImport_Source_RubberduckConfig" xml:space="preserve">
+    <value>la configuration de Rubberduck</value>
+  </data>
+  <data name="IndenterImport_Source_SmartIndenterRegistry" xml:space="preserve">
+    <value>les paramètres du Smart Indenter dans le registre</value>
+  </data>
+  <data name="IndenterImport_Offer" xml:space="preserve">
+    <value>Les paramètres d'indentation que vous aviez dans Rubberduck ont été trouvés : {0}. Les utiliser pour formater votre code ?</value>
+  </data>
+  <data name="IndenterImport_Choice_Import" xml:space="preserve">
+    <value>Importer</value>
+  </data>
+  <data name="IndenterImport_Choice_NotNow" xml:space="preserve">
+    <value>Non merci</value>
+  </data>
+  <data name="IndenterImport_Imported" xml:space="preserve">
+    <value>{0} paramètre(s) de formatage ont été importés de {1}.</value>
+  </data>
+  <data name="IndenterImport_Refused" xml:space="preserve">
+    <value>{0} paramètre(s) n'ont pas pu être définis.</value>
+  </data>
+  <data name="IndenterImport_Nothing" xml:space="preserve">
+    <value>Il n'y a aucun paramètre d'indentation de Rubberduck à importer. On ne les trouve que sous Windows.</value>
+  </data>
+  <data name="IndenterImport_Declined" xml:space="preserve">
+    <value>Le client n'a pas pris les paramètres.</value>
+  </data>
+  <data name="IndenterImport_Unsupported" xml:space="preserve">
+    <value>Le client ne lit pas les paramètres d'indentation de Rubberduck.</value>
+  </data>
+  <data name="IndenterImport_UnknownSource" xml:space="preserve">
+    <value>'{0}' n'est pas une source de paramètres à importer ; Rubberduck en est une.</value>
+  </data>
+</root>

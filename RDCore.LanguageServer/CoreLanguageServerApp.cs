@@ -23,6 +23,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
@@ -186,6 +187,7 @@ internal sealed class CoreLanguageServerApp(
 
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
+        services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportIndenterSettingsCommand>();
 
         // the documents of every language the platform serves: the client names the language its own way, so what selects a document is the file it is.
         services.AddSingleton(new TextDocumentSelector(SupportedLanguages.All
@@ -266,6 +268,9 @@ internal sealed class CoreLanguageServerApp(
         // and the progress of the work the server does is reported to it, if it shows it.
         progress.Attach(server.WorkDoneManager);
 
+        // the indenter settings the user had in Rubberduck are offered once, to a client that can ask the question.
+        _ = OfferIndenterSettingsAsync(server);
+
         // Bring up the core child components once the client<->LS connection is live. Each runs as a
         // supervised background task (not awaited): a child that is slow or fails to attach must not
         // block or fault the language server.
@@ -281,6 +286,76 @@ internal sealed class CoreLanguageServerApp(
         foreach (var extension in orchestration.Extensions)
         {
             _coreComponentBringUps.Add(BringUpExtensionAsync(extension, _componentsCts.Token));
+        }
+    }
+
+    /// <summary>
+    /// Offers, once, to import the indenter settings the user had in Rubberduck, when the client reads them and the user never set a <c>Formatting</c> setting
+    /// (<see cref="IndenterSettingsOffer"/>). A client says what it expects, and what the user set, when it starts: the offer waits for both.
+    /// </summary>
+    private async Task OfferIndenterSettingsAsync(ILanguageServer server)
+    {
+        try
+        {
+            var capabilities = server.Services.GetRequiredService<IPlatformClientCapabilitiesService>();
+            var offer = ExternalServices.GetRequiredService<IndenterSettingsOffer>();
+            var liveSettings = ExternalServices.GetRequiredService<ILiveSettings>();
+            var token = _componentsCts.Token;
+
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (!capabilities.IsHandshakeCompleted && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(100, token);
+            }
+
+            var client = new Workspace.RubberduckIndenterSettingsClient(server, capabilities);
+            if (!client.ClientExpects || offer.WasMade)
+            {
+                return;
+            }
+
+            // what the client says its user set arrives with the first pull of its configuration.
+            if (server.ClientSettings.Capabilities?.Workspace?.Configuration.IsSupported == true)
+            {
+                var said = new TaskCompletionSource();
+                void Said(object? sender, EventArgs e) => said.TrySetResult();
+                liveSettings.Changed += Said;
+                try
+                {
+                    await said.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+                }
+                catch (TimeoutException)
+                {
+                    LogIfEnabled(LogLevel.Information, "The client did not say its settings: the indenter settings of Rubberduck are not offered this time.");
+                    return;
+                }
+                finally
+                {
+                    liveSettings.Changed -= Said;
+                }
+            }
+
+            var outcome = await offer.OfferAsync(
+                liveSettings.Current.Keys.Any(key => key.StartsWith("Formatting:", StringComparison.OrdinalIgnoreCase)),
+                client.ReadAsync,
+                async (message, choices, askToken) => (await server.Window.ShowMessageRequest(new ShowMessageRequestParams
+                {
+                    Type = MessageType.Info,
+                    Message = message,
+                    Actions = new Container<MessageActionItem>(choices.Select(choice => new MessageActionItem { Title = choice })),
+                }, askToken))?.Title,
+                client.ApplyAsync,
+                token);
+
+            if (outcome is not null)
+            {
+                LogIfEnabled(LogLevel.Information, $"⚙️ {outcome.Message}");
+                server.Window.ShowInfo(outcome.Message);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogIfEnabled(LogLevel.Warning, $"The indenter settings of Rubberduck could not be offered: {exception.Message}");
         }
     }
 

@@ -16,6 +16,8 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // it relays the dialogs of the program that runs in the environment host to a client that answers them:
 [assembly: ProvidesCorePlatformClientCapability<SessionInteraction>]
+// and asks a client that reads them for the indenter settings its user had in Rubberduck, and to take the ones it maps:
+[assembly: ProvidesCorePlatformClientCapability<RubberduckIndenterSettings>]
 namespace RDCore.LanguageServer;
 
 public class Program
