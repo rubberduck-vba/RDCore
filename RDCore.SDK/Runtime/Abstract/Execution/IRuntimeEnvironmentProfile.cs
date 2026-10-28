@@ -121,6 +121,15 @@ public interface IRuntimeEnvironmentProfile
     VBBuildConfiguration Configuration { get; }
 
     /// <summary>
+    /// 🎯 Whether a release build leaves out every <c>Debug.Print</c> and <c>Debug.Assert</c>, their arguments unevaluated. <see langword="false"/> unless said
+    /// otherwise: a release build keeps them, and they run as in a debug build.
+    /// </summary>
+    /// <remarks>
+    /// A debug build keeps them whatever this says, and a release build's <c>Stop</c> ends the program as <c>End</c> does either way.
+    /// </remarks>
+    bool ReleaseDropsDebugStatements { get; }
+
+    /// <summary>
     /// 🎯 Whether the legacy settings members (<c>SaveSetting</c>, <c>GetSetting</c>, <c>GetAllSettings</c>, <c>DeleteSetting</c>) use the <em>Windows Registry</em>, as
     /// MS-VBA does. <c>false</c> unless the workspace asks for it: they use the <em>workspace application settings</em>.
     /// </summary>

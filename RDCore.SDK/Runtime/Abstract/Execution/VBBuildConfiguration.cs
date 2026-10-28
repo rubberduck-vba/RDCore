@@ -19,8 +19,8 @@ public enum VBBuildConfiguration
     Debug = 0,
 
     /// <summary>
-    /// <c>DEBUG</c> is <c>False</c>; a <c>Stop</c> statement ends the program as <c>End</c> does, and every <c>Debug.*</c> call is left out of the program,
-    /// its arguments unevaluated.
+    /// <c>DEBUG</c> is <c>False</c>; a <c>Stop</c> statement ends the program as <c>End</c> does. The <c>Debug.*</c> calls run, unless the environment
+    /// drops them (<see cref="IRuntimeEnvironmentProfile.ReleaseDropsDebugStatements"/>).
     /// </summary>
     Release = 1,
 }

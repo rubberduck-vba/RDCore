@@ -273,9 +273,15 @@ public record class SdkEnvironmentOptions
 
     /// <summary>
     /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, in which a <c>Stop</c> statement ends the
-    /// program as <c>End</c> does and every <c>Debug.*</c> call is left out. It is the default of the built-in <c>DEBUG</c> constant, which a project <c>#Const</c> still overrides.
+    /// program as <c>End</c> does. It is the default of the built-in <c>DEBUG</c> constant, which a project <c>#Const</c> still overrides.
     /// </summary>
     public Runtime.Abstract.Execution.VBBuildConfiguration Configuration { get; set; }
+
+    /// <summary>
+    /// 🎯 Whether a release build leaves out every <c>Debug.Print</c> and <c>Debug.Assert</c>, their arguments unevaluated: <c>false</c> (the default) keeps
+    /// them, and they run as in a debug build. A debug build keeps them either way.
+    /// </summary>
+    public bool ReleaseDropsDebugStatements { get; set; }
 }
 
 /// <summary>

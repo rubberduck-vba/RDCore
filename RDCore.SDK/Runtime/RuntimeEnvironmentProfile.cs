@@ -20,6 +20,7 @@ namespace RDCore.SDK.Runtime;
 /// <param name="RegionalSettings">The regional settings a number or a date is written by as a string, and a string read by as one; en-US (<see cref="Runtime.RegionalSettings.Default"/>) unless said otherwise.</param>
 /// <param name="ExecutionEngine">What runs the code of a program; the interpreter unless said otherwise.</param>
 /// <param name="Configuration">Whether a program is built to be debugged or to be run; a debug build unless said otherwise.</param>
+/// <param name="ReleaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; <c>false</c> unless said otherwise.</param>
 public sealed record class RuntimeEnvironmentProfile(
     bool Is64Bit,
     int Lcid,
@@ -33,7 +34,8 @@ public sealed record class RuntimeEnvironmentProfile(
     bool LegacyRegistrySettings = false,
     RegionalSettings? RegionalSettings = null,
     VBExecutionEngine ExecutionEngine = VBExecutionEngine.Interpreter,
-    VBBuildConfiguration Configuration = VBBuildConfiguration.Debug) : IRuntimeEnvironmentProfile
+    VBBuildConfiguration Configuration = VBBuildConfiguration.Debug,
+    bool ReleaseDropsDebugStatements = false) : IRuntimeEnvironmentProfile
 {
     /// <inheritdoc/>
     public RegionalSettings Regional => RegionalSettings ?? Runtime.RegionalSettings.Default;
@@ -55,7 +57,8 @@ public sealed record class RuntimeEnvironmentProfile(
     public static RuntimeEnvironmentProfile From(Server.Configuration.SdkEnvironmentOptions options, Workspace.SupportedLanguage? language = null)
         => new(options.Is64Bit, options.Lcid, options.AnsiCodePage, options.SupportsOptionCompareDatabase, options.DatabaseCompare,
             options.ErlLineNumbering, options.AllowDllImports, language, options.AllowAutomation,
-            options.LegacyRegistrySettings, options.Regional.ToSettings(), options.ExecutionEngine, options.Configuration);
+            options.LegacyRegistrySettings, options.Regional.ToSettings(), options.ExecutionEngine, options.Configuration,
+            options.ReleaseDropsDebugStatements);
 
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);

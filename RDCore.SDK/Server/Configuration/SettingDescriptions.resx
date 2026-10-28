@@ -86,7 +86,10 @@
     <value>What runs a program: the interpreter (Interpreter), or code compiled where every statement of a procedure can be (Compiled).</value>
   </data>
   <data name="Environment_Configuration" xml:space="preserve">
-    <value>Whether a program is built to be debugged (Debug) or to be run (Release). In a release build a Stop ends the program as End does, every Debug.Print and Debug.Assert is left out, and DEBUG is False.</value>
+    <value>Whether a program is built to be debugged (Debug) or to be run (Release). In a release build a Stop ends the program as End does, and DEBUG is False.</value>
+  </data>
+  <data name="Environment_ReleaseDropsDebugStatements" xml:space="preserve">
+    <value>Whether a release build leaves out every Debug.Print and Debug.Assert, their arguments unevaluated. Off by default: a release build keeps them, and they run as in a debug build.</value>
   </data>
   <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
     <value>What separates the whole part of a number from its fraction.</value>
