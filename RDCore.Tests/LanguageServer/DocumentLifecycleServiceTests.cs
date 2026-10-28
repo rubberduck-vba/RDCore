@@ -320,6 +320,19 @@ public sealed class DocumentLifecycleServiceTests
         _refresh.DidNotReceive().Changed();
     }
 
+    // LSP 3.17 §URI: a document need not be a file; what is found of it is published at the address the client gave it.
+    [TestMethod]
+    public async Task ADocumentThatIsNoFile_HasItsDiagnosticsPublished_AtTheAddressOfTheClient()
+    {
+        var untitled = new Uri("untitled:Untitled-1");
+
+        _sut.Opened(untitled, "Public Sub Foo()\r\nEnd Sub", 1);
+        await _sut.WhenRefreshedAsync(untitled);
+
+        await _parsing.Received(1).ParseDocumentAsync(untitled, Arg.Any<CancellationToken>());
+        _publisher.Received(1).Publish(untitled, 1, Arg.Any<IReadOnlyList<Diagnostic>>());
+    }
+
     // ---- didSave ----
 
     [TestMethod]

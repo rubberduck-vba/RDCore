@@ -376,10 +376,13 @@ internal sealed class CompletionService(
             parse = WithDesigner(parse, designer);
         }
 
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        // a document of no project's - one that is no file, or of a server with no workspace - is a project of its own: no module of the workspace is composed
+        // with it. A fragment the shell completes is of the workspace.
+        var isOwnProject = !address.IsFile || documents.WorkspaceRoot.Length == 0;
+        var workspaceRoot = SymbolUri.RootOf(address, documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var composition = _compositions.GetOrCompose(
-            workspaceRoot, [.. OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
+            workspaceRoot, [.. isOwnProject ? [] : OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 

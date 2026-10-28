@@ -267,6 +267,25 @@ public sealed class DocumentDiagnosticsServiceTests
             Arg.Is<HostSemanticsParams>(request => request.ModuleName.Contains("Mod1")), Arg.Any<CancellationToken>());
     }
 
+    // a document that is no file is no module of the host's: a module of the workspace by its name is another module, and what the host found of that one is
+    // nothing of this one. Its syntax is what is analyzed.
+    [TestMethod]
+    public async Task ADocumentThatIsNoFile_IsAnalyzedForItsSyntax_AndTheHostIsNotAskedOfIt()
+    {
+        var untitled = new WorkspaceDocument(new Uri("untitled:Untitled-1"), Root, "Public Sub Foo()\r\nEnd Sub");
+        WorkspaceHas(untitled);
+        ParseYields();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([])));
+        var provider = Provider("RDCore.Diagnostics", 1, Diag(1));
+        ProvidersAre(provider);
+
+        var result = await Sut().GetAsync(untitled.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(1, result.Diagnostics.Count);
+        Assert.IsNull(PayloadSentTo(provider).Semantics);
+        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
+    }
+
     [TestMethod]
     public async Task APhaseThatIsAskedFor_IsAskedOfTheHostAndOfTheProvider_AndOfNoOther()
     {

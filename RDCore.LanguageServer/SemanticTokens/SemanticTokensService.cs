@@ -1,4 +1,5 @@
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST;
@@ -63,14 +64,14 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         var text = document.Text;
         var tokens = await parsing.TokenizeAsync(documentUri, text, token);
         var parse = await parsing.ParseDocumentAsync(documentUri, token);
-        return Classified(text, tokens, DeclaredNames(parse));
+        return Classified(text, tokens, DeclaredNames(documentUri, parse));
     }
 
     public async Task<IReadOnlyList<IReadOnlyList<SemanticToken>>> GetFragmentsAsync(string moduleName, string source, IReadOnlyList<string> fragments, CancellationToken token)
     {
         // the fragments are code of the module, whose address they are tokenized and its declarations read at.
         var address = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        var names = DeclaredNames(await parsing.ParseFragmentAsync(address, source, token));
+        var names = DeclaredNames(address, await parsing.ParseFragmentAsync(address, source, token));
 
         var result = new List<IReadOnlyList<SemanticToken>>(fragments.Count);
         foreach (var fragment in fragments)
@@ -114,13 +115,18 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         return result;
     }
 
-    private (HashSet<string> Constants, HashSet<string> Types) DeclaredNames(ModuleParseResult parse)
+    private (HashSet<string> Constants, HashSet<string> Types) DeclaredNames(Uri documentUri, ModuleParseResult parse)
     {
         var constants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // the class modules of the workspace are types, whatever module is being highlighted.
-        foreach (var other in documents.GetAllDocuments())
+        // the class modules of the workspace are types, whatever module of it is being highlighted. A document that is no file, or of a server with no workspace,
+        // is a project of its own (SymbolUri.RootOf), as completion composes it: its own module is the only one there is.
+        var isOwnProject = !documentUri.IsFile || documents.WorkspaceRoot.Length == 0;
+        IEnumerable<WorkspaceDocument> modules = !isOwnProject ? documents.GetAllDocuments()
+            : documents.TryGetModule(documentUri, out var own) ? [own]
+            : [];
+        foreach (var other in modules)
         {
             var path = other.Id.Uri.GetFileSystemPath();
             if (string.Equals(Path.GetExtension(path), ".cls", StringComparison.OrdinalIgnoreCase))

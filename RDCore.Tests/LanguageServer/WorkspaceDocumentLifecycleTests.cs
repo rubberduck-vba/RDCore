@@ -79,6 +79,52 @@ public sealed class WorkspaceDocumentLifecycleTests
         Assert.AreEqual("PRINT 1", found.Text);
     }
 
+    // LSP 3.17 §URI: a document's URI need not be a file's. One that is not is the client's, addressed by the URI it gives, and no module of the workspace.
+    private static readonly Uri Untitled = new("untitled:Untitled-1");
+
+    [TestMethod]
+    public void ADocumentThatIsNoFile_IsTheURIOfTheClient()
+    {
+        var sut = Sut();
+
+        sut.Open(Untitled, "Sub Foo()\r\nEnd Sub", version: 1);
+
+        Assert.IsTrue(sut.TryGetDocument(Untitled, out var found));
+        Assert.AreEqual(Untitled, found.Id.Uri.ToUri(), "what is published for it is published at the address the client knows it by");
+        Assert.IsFalse(found.IsFile);
+        Assert.AreEqual(Untitled, found.ProjectRoot, "a project of its own");
+        Assert.IsTrue(sut.TryGetModule(Untitled, out _), "its text is code");
+        Assert.IsEmpty(sut.GetAllDocuments(), "no module of the workspace");
+    }
+
+    [TestMethod]
+    public async Task ADocumentThatIsNoFile_IsGoneOnceClosed_AndNothingIsReadFromDisk()
+    {
+        _files.AddFile("Untitled-1", new MockFileData("not the client's"));
+        var sut = Sut();
+        sut.Open(Untitled, "Sub Foo()\r\nEnd Sub", version: 1);
+
+        Assert.IsNull(await sut.CloseAsync(Untitled));
+        Assert.IsFalse(sut.TryGetDocument(Untitled, out _));
+    }
+
+    // VS Code writes a drive's colon escaped (file:///c%3A/...): the address is the document's, however it is spelled.
+    [TestMethod]
+    public void ADocument_IsFound_HoweverItsAddressIsSpelled()
+    {
+        var sut = Sut();
+        var plain = UriOf("Mod(1).bas");
+        var escaped = new Uri(plain.AbsoluteUri.Replace("Mod(1)", "Mod%281%29", StringComparison.Ordinal));
+        Assert.AreNotEqual(plain, escaped, "a Uri compares the spelling");
+
+        sut.Open(escaped, "Sub Foo()\r\nEnd Sub", version: 1);
+
+        Assert.IsTrue(sut.TryGetDocument(plain, out var found));
+        Assert.IsTrue(sut.TryGetDocument(escaped, out _));
+        Assert.AreEqual("Mod(1)", found.Name);
+        Assert.AreEqual("Mod(1).bas", found.RelativePath);
+    }
+
     [TestMethod]
     public async Task ADocumentThatWasMissing_IsOpenedWithTheTextOfTheClient()
     {

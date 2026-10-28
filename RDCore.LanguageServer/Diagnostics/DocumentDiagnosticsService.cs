@@ -172,9 +172,10 @@ internal sealed class DocumentDiagnosticsService(
         progress?.Report(new WorkProgressStep(ProgressMessages.Parsing, 0));
         var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
         // the module is named the way the workspace sync names it when it defines it in the host. The host answers a request for the static phase at once, and one
-        // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not.
+        // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not. A document
+        // that is no file is no module the host has - one of the workspace may have its name - and is analyzed for its syntax alone.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
-        var semantics = await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token);
+        var semantics = document.IsFile ? await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token) : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
 
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);

@@ -158,6 +158,19 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
+### Documents and their addresses
+
+A document is addressed by the URI the client gives it (**LSP 3.17** §URI), of any scheme. The language server answers for it at that address, and publishes what it finds of it there.
+
+|A document|Is|
+|---|---|
+|A file of the workspace's folder (`file:`)|A module of the workspace's project, as its project file lists it.|
+|A file outside the workspace's folder|A module of the workspace's project too, while the client has it open: a program a shell loads is one.|
+|A document that is no file (`untitled:Untitled-1`, or any other scheme)|The client's alone: a project of its own, addressed under its own URI ([`SymbolUri.RootOf`](../api/RDCore.SDK.Model.Symbols.SymbolUri.html)). It is parsed and gets its syntax diagnostics, its outline, its folding ranges and its completions, which offer nothing of the workspace's modules; it is no module of the workspace, and the environment host has no module of it. It is gone once the client closes it.|
+|Any document of a server started on no folder (`rootUri` of `null`)|A project of its own, as a document that is no file is.|
+
+A URI is the document's however the client spells it: `file:///c%3A/Work/Module1.bas` is the document `file:///C:/Work/Module1.bas` is, and a root of a project given as a URI is the root its path is ([`SymbolUri.Root`](../api/RDCore.SDK.Model.Symbols.SymbolUri.html)). A relative path is no URI, and addresses no root.
+
 ### Requests while the client edits
 
 An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](../api/RDCore.SDK.Server.ServerRequestScheduling.html)).

@@ -137,6 +137,39 @@ public sealed class CompletionServiceTests
         return [.. list.Items.Select(item => item.Label)];
     }
 
+    // the module of a document the client holds; what it completes at the caret.
+    private async Task<string[]> DocumentLabelsAsync(WorkspaceDocument document, Position position)
+    {
+        var uri = document.Id.Uri.ToUri();
+        _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
+        var list = await Sut().CompleteDocumentAsync(uri, position, CancellationToken.None);
+        return [.. list.Items.Select(item => item.Label)];
+    }
+
+    private const string Untitled = "Public Sub Run()\r\n    Dim w As \r\nEnd Sub\r\n";
+
+    // LSP 3.17 §URI: a document need not be a file. One that is not is a project of its own: the workspace's classes are no types of it.
+    [TestMethod]
+    public async Task ADocumentThatIsNoFile_IsCompleted_AsAProjectOfItsOwn()
+    {
+        var labels = await DocumentLabelsAsync(new WorkspaceDocument(new Uri("untitled:Untitled-1"), Root, Untitled), new Position(1, 13));
+
+        CollectionAssert.Contains(labels, "Long");
+        CollectionAssert.DoesNotContain(labels, "Widget");
+    }
+
+    // a client may start a server on no folder (rootUri null): a document it opens is completed all the same, where it was an internal error.
+    [TestMethod]
+    public async Task ADocumentOfAServerWithNoWorkspace_IsCompleted()
+    {
+        _documents.WorkspaceRoot.Returns(string.Empty);
+        var alone = new WorkspaceDocument(Path.Combine(Path.GetTempPath(), "rdcore-alone", "Module1.bas"), string.Empty, Untitled);
+
+        var labels = await DocumentLabelsAsync(alone, new Position(1, 13));
+
+        CollectionAssert.Contains(labels, "Long");
+    }
+
     [TestMethod]
     public async Task TheMembersOfAVariable_AreTheMembersOfItsDeclaredType_ThoughTheLineDoesNotParse()
     {
