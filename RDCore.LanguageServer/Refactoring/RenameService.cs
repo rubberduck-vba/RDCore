@@ -272,7 +272,7 @@ internal sealed class RenameWorkspace
     public IReadOnlyList<(string TypeName, Position Position)> ImplicitTypeHints(Uri documentUri, LspRange range)
     {
         if (ModuleOf(documentUri) is not { } module
-            || _context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+            || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
         {
             return [];
         }
