@@ -60,6 +60,17 @@ public sealed record class RuntimeEnvironmentProfile(
             options.LegacyRegistrySettings, options.Regional.ToSettings(), options.ExecutionEngine, options.Configuration,
             options.ReleaseDropsDebugStatements);
 
+    /// <summary>
+    /// The profile <paramref name="environment"/> is, as a <see cref="RuntimeEnvironmentProfile"/>: itself when it is one, and otherwise one with each of its
+    /// properties, which a <c>with</c> expression can then change one of.
+    /// </summary>
+    /// <param name="environment">Any profile.</param>
+    public static RuntimeEnvironmentProfile Of(IRuntimeEnvironmentProfile environment)
+        => environment as RuntimeEnvironmentProfile ?? new(
+            environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
+            environment.ErlLineNumbering, environment.AllowDllImports, environment.Language, environment.AllowAutomation, environment.LegacyRegistrySettings,
+            environment.Regional, environment.ExecutionEngine, environment.Configuration, environment.ReleaseDropsDebugStatements);
+
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);
 

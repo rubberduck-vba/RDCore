@@ -188,14 +188,21 @@ internal static class ModuleWorkspace
     /// began to be composed. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
+    /// <param name="engine">What runs the program; the interpreter when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null, bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
-        bool releaseDropsDebugStatements = false)
+        VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelAfter: cancelAfter, debug: debug, libraries: libraries,
-            configuration: configuration, releaseDropsDebugStatements: releaseDropsDebugStatements);
+            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
+    /// </summary>
+    public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, VBExecutionEngine engine)
+        => RunCoreAsync(classes, program, errorsOnly: false, engine: engine);
 
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
@@ -203,7 +210,8 @@ internal static class ModuleWorkspace
         Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
-        VBBuildConfiguration configuration = VBBuildConfiguration.Debug, bool releaseDropsDebugStatements = false)
+        VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
+        bool releaseDropsDebugStatements = false)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] others =
@@ -230,7 +238,7 @@ internal static class ModuleWorkspace
         var sessionProvider = new EnvironmentSessionProvider(
             new RuntimeEnvironmentProfile(
                 Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
-                ReleaseDropsDebugStatements: releaseDropsDebugStatements),
+                ExecutionEngine: engine, ReleaseDropsDebugStatements: releaseDropsDebugStatements),
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
             libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));

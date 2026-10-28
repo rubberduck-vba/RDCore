@@ -24,6 +24,9 @@ internal sealed class BenchCommandOptions
 
     [Option('l', "list", HelpText = "Load and sweep the workspace, and list its cases without running them.")]
     public bool List { get; set; }
+
+    [Option('e', "engine", HelpText = "What runs the cases: Interpreter or Compiled. The configured engine when omitted.")]
+    public RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine? Engine { get; set; }
 }
 
 /// <summary>
@@ -81,9 +84,9 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
                 return 1;
             }
 
-            WriteHeader(workspace, corpus is not null);
+            WriteHeader(workspace, corpus is not null, options.Engine ?? runner.Environment.ExecutionEngine);
             var report = await runner.RunAsync(
-                workspace, new BenchOptions(options.Runs, options.Filter, options.List), name => Output.WriteLine($"  running {name}"), token);
+                workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine), name => Output.WriteLine($"  running {name}"), token);
             WriteReport(report, options.List);
             return report.Problems.Count > 0 || report.Cases.Any(benchCase => benchCase.Error is not null) ? 1 : 0;
         }
@@ -96,8 +99,13 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         }
     }
 
-    // the corpus is compiled into rdc, and written to a folder of its own for the session to read, as any workspace is.
-    private string ExtractCorpus()
+    private string ExtractCorpus() => ExtractCorpus(fileSystem);
+
+    /// <summary>
+    /// Writes the corpus built into <c>rdc</c> to a folder of its own for a session to read, as any workspace is.
+    /// </summary>
+    /// <returns>The folder, which the caller deletes.</returns>
+    internal static string ExtractCorpus(IFileSystem fileSystem)
     {
         var folder = fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
         fileSystem.Directory.CreateDirectory(folder);
@@ -113,12 +121,12 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         return folder;
     }
 
-    private void WriteHeader(BenchWorkspace workspace, bool builtIn)
+    private void WriteHeader(BenchWorkspace workspace, bool builtIn, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine engine)
     {
         var runtime = typeof(Runtime.Execution.RuntimeExecutionPipeline).Assembly;
         var configuration = runtime.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled == true ? "Debug" : "Release";
         Output.WriteLine($"rdc bench · {configuration} · {RuntimeInformation.FrameworkDescription} · {RuntimeInformation.OSDescription} {RuntimeInformation.ProcessArchitecture} · {Environment.ProcessorCount} cores");
-        Output.WriteLine($"engine     {runner.Environment.ExecutionEngine} · {runner.Environment.Configuration}");
+        Output.WriteLine($"engine     {engine} · {runner.Environment.Configuration}");
         Output.WriteLine($"workspace  {(builtIn ? Resources.Bench_BuiltInCorpus : workspace.Root)} ({workspace.Modules.Count} modules)");
     }
 

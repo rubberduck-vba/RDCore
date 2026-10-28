@@ -541,6 +541,75 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Bench_NoCases" xml:space="preserve">
     <value>No cases: a case is a Public Sub Bench*() of a standard module.</value>
   </data>
+  <data name="Compilation_Summary" xml:space="preserve">
+    <value>Says, for each procedure of a workspace or of the built-in corpus, whether it runs compiled, and what keeps it in the interpreter.</value>
+  </data>
+  <data name="Compilation_Compiled" xml:space="preserve">
+    <value>compiled</value>
+  </data>
+  <data name="Compilation_Interpreted" xml:space="preserve">
+    <value>interpreted</value>
+  </data>
+  <data name="Compilation_Count" xml:space="preserve">
+    <value>{0} of {1} procedures compiled.</value>
+  </data>
+  <data name="Compilation_Line" xml:space="preserve">
+    <value>line {0}</value>
+  </data>
+  <data name="Compilation_Reason_MemberOfAClass" xml:space="preserve">
+    <value>a member of a class</value>
+  </data>
+  <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
+    <value>a parameter passed by reference: {0}</value>
+  </data>
+  <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
+    <value>not a number, a Boolean or a Date: {0}</value>
+  </data>
+  <data name="Compilation_Reason_StaticVariable" xml:space="preserve">
+    <value>a Static variable: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Instruction" xml:space="preserve">
+    <value>an instruction compiled code does not run: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Statement" xml:space="preserve">
+    <value>a statement compiled code does not run: {0}</value>
+  </data>
+  <data name="Compilation_Reason_AssignmentTarget" xml:space="preserve">
+    <value>an assignment of what is not a variable of the procedure: {0}</value>
+  </data>
+  <data name="Compilation_Reason_ForCounter" xml:space="preserve">
+    <value>a For loop whose counter is not a numeric variable of the procedure: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Call" xml:space="preserve">
+    <value>a call: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Member" xml:space="preserve">
+    <value>a member of an object: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Element" xml:space="preserve">
+    <value>an element of an array, or a call of a default member</value>
+  </data>
+  <data name="Compilation_Reason_LateBound" xml:space="preserve">
+    <value>a name resolved when it is evaluated: {0}</value>
+  </data>
+  <data name="Compilation_Reason_VariantOperand" xml:space="preserve">
+    <value>an operand of a Variant or an object: {0}</value>
+  </data>
+  <data name="Compilation_Reason_ForeignVariable" xml:space="preserve">
+    <value>a variable that is not the procedure's: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Literal" xml:space="preserve">
+    <value>a literal that is not a number, a Boolean or a Date: {0}</value>
+  </data>
+  <data name="Compilation_Reason_Operator" xml:space="preserve">
+    <value>an operator compiled code does not evaluate: {0}</value>
+  </data>
+  <data name="Compilation_Reason_GoTo" xml:space="preserve">
+    <value>a GoTo</value>
+  </data>
+  <data name="Compilation_Reason_Refused" xml:space="preserve">
+    <value>compiled code the runtime refuses to run (a defect of the compiler): {0}</value>
+  </data>
   <data name="Repl_Breakpoint_Enabled" xml:space="preserve">
     <value>BREAKPOINT ENABLED AT {0}</value>
   </data>
