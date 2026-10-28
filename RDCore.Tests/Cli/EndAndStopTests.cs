@@ -195,6 +195,51 @@ public sealed class EndAndStopTests
     }
 
     [TestMethod]
+    [DataRow(false, ExecutionOutcome.Suspended, DisplayName = "kept: it breaks, as in a debug build")]
+    [DataRow(true, ExecutionOutcome.Completed, DisplayName = "dropped: nothing is asserted")]
+    public async Task AnAssertionThatFails_InAReleaseBuild(bool drops, ExecutionOutcome expected)
+    {
+        ExecuteSessionResult? result = null;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Sub Main()",
+            "    Debug.Assert False",
+            "End Sub"), (_, run, _) =>
+            {
+                result = run;
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release, releaseDropsDebugStatements: drops);
+
+        Assert.AreEqual(expected, result!.Outcome, $"{result.Outcome}: {result.ErrorMessage}");
+    }
+
+    [TestMethod]
+    [DataRow(false, 1L, DisplayName = "kept: the function is called, and what it returns printed")]
+    [DataRow(true, 0L, DisplayName = "dropped: the function is not called")]
+    public async Task ADebugPrintOfACall_InAReleaseBuild(bool drops, long calls)
+    {
+        ExecuteSessionResult? result = null;
+        long total = -1;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print Touched()",
+            "End Sub",
+            "Private Function Touched() As Long",
+            "    Total = Total + 1",
+            "    Touched = Total",
+            "End Function"), (provider, run, _) =>
+            {
+                result = run;
+                total = Total(provider);
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release, releaseDropsDebugStatements: drops);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result!.Outcome, result.ErrorMessage);
+        Assert.AreEqual(calls, total);
+        CollectionAssert.AreEqual(drops ? Array.Empty<string>() : ["1"], result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
     public async Task Stop_InAReleaseBuildThatDropsTheDebugStatements_EndsTheProgram_AndEveryDebugCallIsLeftOut()
     {
         // nothing is printed and nothing is asserted: the arguments are not evaluated.
