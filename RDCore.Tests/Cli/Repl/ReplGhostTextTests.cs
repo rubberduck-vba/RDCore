@@ -29,6 +29,19 @@ public sealed class ReplGhostTextTests
         => Assert.AreEqual(expected, Ghost().For(typed));
 
     [TestMethod]
+    [DataRow("20", " Y = 1")]
+    [DataRow("20 Y", " = 1")]
+    public void TheGhost_OfAnIndentedLine_IsTheLineAsItIsTyped(string typed, string expected)
+    {
+        // the program stores the statement indented by the block it is in; what is typed after the number is the statement, and storing it indents it again.
+        var program = new ReplProgram(statements => [.. statements.Select((statement, index) => index == 1 ? "    " + statement.TrimStart() : statement.TrimStart())]);
+        program.Store(10, "If X Then");
+        program.Store(20, "Y = 1");
+
+        Assert.AreEqual(expected, new ReplGhostText(program).For(typed));
+    }
+
+    [TestMethod]
     [DataRow("1")]
     [DataRow("20")]
     [DataRow("10 Pr1")]

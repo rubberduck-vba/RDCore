@@ -14,6 +14,11 @@ namespace RDCore.CLI.App.Repl;
 /// sorted by number rather than kept in entry order: the number is the line's identity, exactly as it
 /// is in the BASIC this shell is modelled on. Re-typing a number replaces that line; typing a number
 /// with nothing after it deletes it.
+/// <para>
+/// The statements are stored indented by the blocks they are in, when the shell indents them (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>): every edit
+/// indents them all again, as the lines after a block's opener or closer may be at another level, and <c>LIST</c>, <c>SAVE</c> and the document the language
+/// server holds have them as they are stored.
+/// </para>
 /// </remarks>
 public sealed class ReplProgram
 {
@@ -29,7 +34,31 @@ public sealed class ReplProgram
     // VBA source is CRLF, and the parser's own line/column positions are reported against it.
     private const string NewLine = "\r\n";
 
+    /// <summary>The address the module is parsed under when the shell indents its statements: a module of no workspace, which no one else holds.</summary>
+    public static Uri IndentedModuleUri { get; } = new($"untitled:{ModuleName}{RDCore.SDK.Workspace.BasicProgramText.Extension}");
+
     private readonly SortedDictionary<int, string> _lines = [];
+
+    // the statements as they are to be stored, from the statements as they are: nothing, for a buffer that stores what is typed as it is.
+    private readonly Func<IReadOnlyList<string>, IReadOnlyList<string>>? _indent;
+
+    // set, from any thread, when what the statements are indented by changed; the buffer is indented again on the shell's own thread (IndentIfChanged).
+    private int _indentationChanged;
+
+    /// <summary>A buffer that stores the statements as they are typed.</summary>
+    public ReplProgram()
+    {
+    }
+
+    /// <summary>A buffer that stores the statements indented by the blocks they are in.</summary>
+    /// <param name="indent">
+    /// The statements of the program as they are to be stored, from the statements as they are, in the order of their numbers: as many, in the same order
+    /// (<see cref="RDCore.SDK.Formatting.ProgramIndenter.Indent"/>).
+    /// </param>
+    public ReplProgram(Func<IReadOnlyList<string>, IReadOnlyList<string>> indent)
+    {
+        _indent = indent;
+    }
 
     /// <summary>The number of lines currently in the buffer.</summary>
     public int Count => _lines.Count;
@@ -52,7 +81,57 @@ public sealed class ReplProgram
     public void Store(int number, string statement)
     {
         _lines[number] = statement;
+        Indent();
         Version++;
+    }
+
+    /// <summary>
+    /// Says what the statements are indented by changed - the indentation settings: they are indented again by <see cref="IndentIfChanged"/>. It may be
+    /// called from any thread.
+    /// </summary>
+    public void IndentationChanged() => Interlocked.Exchange(ref _indentationChanged, 1);
+
+    /// <summary>
+    /// Indents the statements again, if what they are indented by changed since they were (<see cref="IndentationChanged"/>).
+    /// </summary>
+    /// <returns>Whether a statement is other than it was: the buffer is then one version later.</returns>
+    public bool IndentIfChanged()
+    {
+        if (Interlocked.Exchange(ref _indentationChanged, 0) == 0 || !Indent())
+        {
+            return false;
+        }
+
+        Version++;
+        return true;
+    }
+
+    // every statement, as it is to be stored; whether one is other than it was. A buffer that cannot be indented as the lines it has is left as it is.
+    private bool Indent()
+    {
+        if (_indent is null || _lines.Count == 0)
+        {
+            return false;
+        }
+
+        var numbers = _lines.Keys.ToArray();
+        var indented = _indent([.. _lines.Values]);
+        if (indented.Count != numbers.Length)
+        {
+            return false;
+        }
+
+        var changed = false;
+        for (var index = 0; index < numbers.Length; index++)
+        {
+            if (!string.Equals(_lines[numbers[index]], indented[index], StringComparison.Ordinal))
+            {
+                _lines[numbers[index]] = indented[index];
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     /// <summary>
@@ -103,6 +182,8 @@ public sealed class ReplProgram
             return false;
         }
 
+        // the lines after a block's opener or closer that is gone are at another level.
+        Indent();
         Version++;
         return true;
     }
@@ -178,6 +259,7 @@ public sealed class ReplProgram
             _lines.Add(line.Key, line.Value);
         }
 
+        Indent();
         Version++;
         return [];
     }

@@ -1,4 +1,6 @@
 using RDCore.CLI.App.Repl;
+using RDCore.Parsing;
+using RDCore.SDK.Formatting;
 
 namespace RDCore.Tests.Cli.Repl;
 
@@ -114,6 +116,75 @@ public sealed class ReplProgramTests
         Assert.AreEqual(20, sut.LineNumberAt(2));
         Assert.IsNull(sut.LineNumberAt(3), "End Sub, and anything an immediate-mode statement appends after it");
         Assert.IsNull(sut.LineNumberAt(-1), "a frame that carries no position at all");
+    }
+
+    // a buffer that stores its statements indented, by as many spaces a level as the test says.
+    private static ReplProgram Indenting(Func<int> spaces)
+        => new(statements => ProgramIndenter.Indent(statements, text => new ModuleParser().Parse(ReplProgram.IndentedModuleUri, text),
+            new CodeFormattingOptions { IndentSpaces = spaces() }));
+
+    [TestMethod]
+    public void AStoredLine_IsStoredIndented_AndTheLinesItOpensABlockForAreIndentedAgain()
+    {
+        var sut = Indenting(() => 4);
+        sut.Store(10, "If X Then");
+        sut.Store(30, "End If");
+        sut.Store(20, "Y = 1");
+
+        CollectionAssert.AreEqual(new[] { "If X Then", "    Y = 1", "End If" }, sut.Lines().Select(line => line.Statement).ToArray());
+        Assert.AreEqual("10 If X Then\r\n20     Y = 1\r\n30 End If\r\n", sut.ToSourceText(), "what is saved, and what the language server holds");
+        Assert.AreEqual(3, sut.Version, "a version for each line stored, however many lines were indented again");
+    }
+
+    [TestMethod]
+    public void ADeletedLine_IndentsTheLinesAgain()
+    {
+        var sut = Indenting(() => 4);
+        sut.Store(10, "For I = 1 To 3");
+        sut.Store(20, "X = I");
+        sut.Store(30, "Next");
+
+        Assert.IsTrue(sut.Delete(10));
+
+        Assert.AreEqual("X = I", sut.Lines().First().Statement, "the line is in no block any more");
+    }
+
+    [TestMethod]
+    public void ALoadedProgram_IsIndented()
+    {
+        var sut = Indenting(() => 2);
+
+        Assert.IsEmpty(sut.Load("10 WHILE X\r\n20 X = X - 1\r\n30 WEND\r\n"));
+
+        Assert.AreEqual("  X = X - 1", sut.Lines().ElementAt(1).Statement);
+    }
+
+    [TestMethod]
+    public void WhenTheIndentationSettingsChange_TheProgramIsIndentedAgain_Once()
+    {
+        var spaces = 4;
+        var sut = Indenting(() => spaces);
+        sut.Store(10, "If X Then");
+        sut.Store(20, "Y = 1");
+        sut.Store(30, "End If");
+        var version = sut.Version;
+
+        spaces = 2;
+        Assert.IsFalse(sut.IndentIfChanged(), "nothing said the settings changed");
+        sut.IndentationChanged();
+
+        Assert.IsTrue(sut.IndentIfChanged());
+        Assert.AreEqual("  Y = 1", sut.Lines().ElementAt(1).Statement);
+        Assert.AreEqual(version + 1, sut.Version, "the language server is told of the program as it is now");
+        Assert.IsFalse(sut.IndentIfChanged(), "and it is indented once");
+    }
+
+    [TestMethod]
+    public void ABufferThatDoesNotIndent_StoresWhatIsTyped()
+    {
+        var sut = WithLines((10, "If X Then"), (20, "   Y = 1"));
+
+        Assert.AreEqual("   Y = 1", sut.Lines().ElementAt(1).Statement);
     }
 
     [TestMethod]

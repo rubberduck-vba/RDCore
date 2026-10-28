@@ -82,6 +82,12 @@ internal sealed class ReplShell(
 
     private async Task<ReplCommandResult> HandleAsync(ReplCommandContext context, string line, CancellationToken token)
     {
+        // the indentation settings changed since the last line: the program is indented as they say before anything lists it, runs it or edits it.
+        if (program.IndentIfChanged())
+        {
+            await SynchronizeDocumentAsync(token);
+        }
+
         var input = ReplInputParser.Parse(line, dispatcher.IsCommandName);
         switch (input.Kind)
         {

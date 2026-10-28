@@ -30,7 +30,8 @@ internal sealed class ReplGhostText(ReplProgram program)
             return null;
         }
 
-        var statement = program.Lines(number, number).Single().Statement;
+        // the statement as it is typed: its indentation is the program's, which storing it gives it again.
+        var statement = program.Lines(number, number).Single().Statement.TrimStart();
         var rest = typed[digits..];
         if (rest.Length == 0)
         {

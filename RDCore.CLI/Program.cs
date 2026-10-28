@@ -148,7 +148,20 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<ShowSplashReplCommand>()
             .AddSingleton<ShowMemoryReplCommand>()
             // the interactive shell and everything it acts on:
-            .AddSingleton<ReplProgram>()
+            // the program's statements are stored indented by the settings as they are, and indented again when they change.
+            .AddSingleton(provider =>
+            {
+                var options = provider.GetRequiredService<IOptions<SdkAppOptions>>();
+                var parser = new RDCore.Parsing.ModuleParser();
+                var program = new ReplProgram(statements => RDCore.SDK.Formatting.ProgramIndenter.Indent(
+                    statements, text => parser.Parse(ReplProgram.IndentedModuleUri, text), options.Value.Formatting.ToOptions()));
+                if (provider.GetService<ILiveSettings>() is { } liveSettings)
+                {
+                    liveSettings.Changed += (_, _) => program.IndentationChanged();
+                }
+
+                return program;
+            })
             .AddSingleton<ReplDocument>()
             .AddSingleton<IReplConsole, ReplConsole>()
             // the dialogs a program opens are asked at the shell's console.
