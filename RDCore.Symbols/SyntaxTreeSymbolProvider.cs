@@ -165,10 +165,18 @@ public sealed class SyntaxTreeSymbolProvider(
                     yield return builder.BuildExternal(external);
                     break;
 
+                // a procedure whose header is written once in each branch of a #If block is declared by each of its headers, in its own branch: alternatives,
+                // which fuse into one symbol below as any declaration written once per branch does.
+                // The locals are the body's, which every header shares: an alternative of the same name declares the procedure, and not them again.
                 case MemberDeclarationNode member:
-                    foreach (var symbol in FromMember(builder, member, moduleScopeNames, directives, withImplicitDeclarations, implicitScope))
+                    foreach (var declared in member.WithEachHeader())
                     {
-                        yield return symbol;
+                        var symbols = FromMember(builder, declared, moduleScopeNames, directives, withImplicitDeclarations, implicitScope);
+                        var isRepeat = !ReferenceEquals(declared, member) && string.Equals(declared.Name, member.Name, StringComparison.OrdinalIgnoreCase);
+                        foreach (var symbol in isRepeat ? symbols.Take(1) : symbols)
+                        {
+                            yield return symbol;
+                        }
                     }
                     break;
 

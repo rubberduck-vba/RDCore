@@ -40,8 +40,35 @@ no code of the module. `#Const Debugging = _` followed by `    1` is one `#Const
 continues over lines, and the `#` of a directive may stand apart from its keyword (`#  If`, `# _` followed by `If 1 Then`). A line that starts with `#` and
 continues another line is not a directive: `d = _` followed by `    #1/2/2000#` assigns a date literal. **MS-VBA** reads them so (recorded in Excel).
 
+A procedure's header written once in each branch of a `#If` block, around one body and one `End`, is one procedure, which **MS-VBA** compiles with the
+header of the live branch (recorded in Excel, `oracle\cc-split`). The common case is the `PtrSafe` pattern:
+
+```vba
+#If VBA7 Then
+Private Function Address(ByVal p As LongPtr) As LongPtr
+#Else
+Private Function Address(ByVal p As Long) As Long
+#End If
+    Address = p
+End Function
+```
+
+How RD-VBA reads it:
+
+- **One branch's header.** The parse is of every branch, whatever the constants are. It reads the branch whose header is of the kind of the statement
+  that closes the procedure, or the first branch when none is.
+- **The alternatives.** Each other branch is read on its own, and its header is an alternative of the procedure
+  ([MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.HeaderAlternatives`).
+- **The body.** What a branch writes after its header belongs to the body, in source order.
+- **Which compiles.** It is decided where the constants are known; until it is, the procedure is declared as its first header in the source declares it.
+- **In MS-VBA:**
+  - The live branch's header is the one compiled, and the live branch's statements are the ones run.
+  - A live `Sub` header closed by `End Function` is "Expected End Sub".
+  - A header written only in a dead branch leaves its body "Invalid outside procedure".
+
 > [!NOTE]
-> **Not implemented.** A `#If` that splits a single statement across conditional-compilation branches (`#If` / `#Else` / `#End If`) is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range.
+> **Not implemented.** A `#If` that splits a block statement's header inside a body (an `If`, a `Select Case`, a loop or a `With` written once per branch)
+> is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range.
 
 ## Published Codes
 
