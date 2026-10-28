@@ -66,10 +66,23 @@ internal sealed class ProcedureCompiler
             }
 
             var stopwatch = Stopwatch.StartNew();
-            var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
-            Ineligibility? refusal = null;
-            var body = analysis.Reasons.Count == 0 ? Emit(analysis, procedure, out refusal) : null;
-            IReadOnlyList<Ineligibility> reasons = analysis.Reasons.Count > 0 ? analysis.Reasons : body is null ? [refusal!] : [];
+            CompiledBody? body;
+            IReadOnlyList<Ineligibility> reasons;
+            try
+            {
+                var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
+                body = analysis.Reasons.Count == 0 ? Emit(analysis, procedure) : null;
+                reasons = analysis.Reasons;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // a failure to compile a procedure is the compiler's defect, never the program's: the procedure runs in the interpreter, as one that is not
+                // compiled does, and the failure is reported.
+                body = null;
+                reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
+                Refused?.Invoke(procedure, exception);
+            }
+
             stopwatch.Stop();
 
             var result = new CompilationResult(body, reasons, stopwatch.Elapsed);
@@ -80,28 +93,23 @@ internal sealed class ProcedureCompiler
         }
     }
 
-    // a type of its own for each procedure, created as soon as its one method is written: what is created is what can be called.
-    private CompiledBody? Emit(ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, out Ineligibility? refusal)
-    {
-        refusal = null;
-        try
-        {
-            var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
-            var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
-            ProcedureEmitter.Emit(analysis, method);
+    /// <summary>
+    /// Raised when a procedure could not be compiled because the compiler failed - its analysis, its IL, its type, or the runtime's compilation of the IL:
+    /// the procedure runs in the interpreter, and its reason is <see cref="IneligibilityKind.Refused"/>. Whoever hosts the session logs it.
+    /// </summary>
+    public event Action<VBTypeMemberSymbol, Exception>? Refused;
 
-            // the IL is compiled now, rather than at the first call: code the runtime refuses is the interpreter's, and the call made as if nothing was
-            // compiled. So is an instruction the analysis let through and the emitter has no IL for, and a type that cannot be created.
-            var run = type.CreateType().GetMethod("Run")!;
-            RuntimeHelpers.PrepareMethod(run.MethodHandle);
-            return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops);
-        }
-        catch (Exception exception) when (exception is InvalidProgramException or InvalidOperationException or NotSupportedException or TypeLoadException
-            or BadImageFormatException)
-        {
-            refusal = new Ineligibility(IneligibilityKind.Refused, exception.Message);
-            return null;
-        }
+    // a type of its own for each procedure, created as soon as its one method is written: what is created is what can be called. The IL is compiled now,
+    // rather than at the first call, so that code the runtime refuses is refused here.
+    private CompiledBody Emit(ProcedureAnalysis analysis, VBTypeMemberSymbol procedure)
+    {
+        var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
+        var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
+        ProcedureEmitter.Emit(analysis, method);
+
+        var run = type.CreateType().GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
+        RuntimeHelpers.PrepareMethod(run.MethodHandle);
+        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops);
     }
 }
 

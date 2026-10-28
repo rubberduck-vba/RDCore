@@ -39,6 +39,16 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     /// </summary>
     internal Compiled.ProcedureCompiler Compiler { get; } = new();
 
+    /// <summary>
+    /// Raised when a procedure of the image could not be compiled because the compiler failed: the procedure runs in the interpreter, and whoever hosts the
+    /// session logs the failure.
+    /// </summary>
+    public event Action<VBTypeMemberSymbol, Exception>? CompilationRefused
+    {
+        add => Compiler.Refused += value;
+        remove => Compiler.Refused -= value;
+    }
+
     /// <summary>How long compiling the procedures of the image to IL took, all told: each was compiled the first time it was called.</summary>
     public TimeSpan CompilationTime => Compiler.Elapsed;
 

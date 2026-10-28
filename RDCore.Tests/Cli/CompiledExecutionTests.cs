@@ -265,6 +265,44 @@ public sealed class CompiledExecutionTests
     }
 
     [TestMethod]
+    public async Task ADoubleStoredInALong_ThatDoesNotFit_IsAnOverflow_AsTheInterpreterRaisesIt()
+    {
+        var run = await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Stored(3000000000#)",
+            "End Sub",
+            "Private Function Stored(ByVal D As Double) As Long",
+            "    Dim L As Long",
+            "    L = D * 1",
+            "    Stored = L",
+            "End Function"), "Stored");
+
+        Assert.AreEqual(6, run.Result.ErrorNumber);
+    }
+
+    [TestMethod]
+    public void AFailureOfTheCompiler_IsAReasonTheProcedureRunsInTheInterpreter_AndIsReported()
+    {
+        // a procedure whose parameters were never set is no procedure a session defines, and makes the analysis fail.
+        var root = new Uri("file://rdcore-test");
+        var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
+            SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
+        var list = SDK.Semantics.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
+            SDK.Semantics.Instructions.InstructionLoweringOptions.Default, SDK.Model.AST.Declarations.MemberKind.Procedure).InstructionList;
+        var compiler = new ProcedureCompiler();
+        Exception? reported = null;
+        compiler.Refused += (_, exception) => reported = exception;
+
+        var result = compiler.Compile(NSubstitute.Substitute.For<IRuntimeSession>(), null!, procedure, list);
+
+        Assert.IsNull(result.Body);
+        var reason = Assert.ContainsSingle(result.Reasons);
+        Assert.AreEqual(IneligibilityKind.Refused, reason.Kind);
+        Assert.IsNotNull(reported);
+        Assert.StartsWith(reported.GetType().Name, reason.Detail);
+    }
+
+    [TestMethod]
     public async Task ACompiledLoopThatNeverEnds_IsStoppedAsTheInterpreterStopsIt()
     {
         var program = Program(

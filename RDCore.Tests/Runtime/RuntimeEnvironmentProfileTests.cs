@@ -110,4 +110,32 @@ public sealed class RuntimeEnvironmentProfileTests
 
         Assert.AreEqual(OptionCompare.Binary, RuntimeEnvironmentProfile.From(options).DatabaseCompare);
     }
+
+    [TestMethod]
+    public void AProfileOfAnotherKind_IsCopiedWithEveryOneOfItsProperties()
+    {
+        // every property of the interface, each not its default, behind something that is no RuntimeEnvironmentProfile: one added to the interface and not to
+        // Of would differ here.
+        var source = new RuntimeEnvironmentProfile(false, 1036, 1250, true, OptionCompare.Binary, VBErlLineNumbering.DocumentLine + 1, false,
+            SDK.Workspace.SupportedLanguages.BASIC, false, true, RegionalSettings.Default with { DecimalSymbol = "," }, VBExecutionEngine.Compiled,
+            VBBuildConfiguration.Release, true);
+        var other = System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
+        ((Forwarding)(object)other).Target = source;
+
+        var copy = RuntimeEnvironmentProfile.Of(other);
+
+        Assert.AreNotSame(source, copy);
+        foreach (var property in typeof(IRuntimeEnvironmentProfile).GetProperties())
+        {
+            Assert.AreEqual(property.GetValue(source), property.GetValue(copy), property.Name);
+        }
+    }
+
+    // a profile that is no RuntimeEnvironmentProfile, and answers as the one it is given does.
+    public class Forwarding : System.Reflection.DispatchProxy
+    {
+        public IRuntimeEnvironmentProfile Target { get; set; } = RuntimeEnvironmentProfile.Default;
+
+        protected override object? Invoke(System.Reflection.MethodInfo? targetMethod, object?[]? args) => targetMethod!.Invoke(Target, args);
+    }
 }
