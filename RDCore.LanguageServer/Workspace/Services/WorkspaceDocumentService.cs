@@ -60,6 +60,14 @@ internal interface IWorkspaceDocumentService
     bool Remove(TextDocumentIdentifier id);
 
     /// <summary>
+    /// Makes a document one that is to be read from disk again: it is tracked as <c>Unloaded</c>, whatever state it was in. A document the client has open is the client's,
+    /// and is left as it is.
+    /// </summary>
+    /// <param name="id">The document.</param>
+    /// <returns><see langword="false"/> when the client has the document open.</returns>
+    bool Reset(TextDocumentIdentifier id);
+
+    /// <summary>
     /// Moves a document to another path, as the client renamed its file: the document keeps its text, its version, whether it is open, and the projects it is a module
     /// of - nothing is read from disk, so that the text a client has open and has not saved is not lost. A document the client has open at the new path is kept instead - its text, version and open state - and gains the projects of the old one; one that was only read from disk is replaced.
     /// </summary>
@@ -203,13 +211,11 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
         }
 
-        _documents.TryGetValue(id, out var shared);
-
-        // the first project to load a document is the one it is addressed from; a project that lists it later does not move it.
-        var owner = shared?.WorkspaceRoot ?? projectRoot;
-        var projects = shared?.Projects ?? [projectRoot];
-        var relativeUri = ioPath.GetRelativePath(owner, path);
-
+        // the file is read before the document is written, and the lock is for the step that writes it: what the document is then - whose it is, whether the client
+        // opened it while the file was read - is looked at when it is written, not when the reading began.
+        string? content = null;
+        ReadOnlyMemory<byte> companion = default;
+        Exception? failure = null;
         try
         {
             if (ioFile.Exists(path))
@@ -219,8 +225,44 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                     logger.LogTrace("Loading workspace document from '{path}'...", path);
                 }
 
-                var content = await ioFile.ReadAllTextAsync(path);
-                var document = WithCompanion(new WorkspaceDocument(relativeUri, owner, content) { Projects = projects }, path);
+                content = await ioFile.ReadAllTextAsync(path);
+                companion = ReadCompanion(content, path);
+            }
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+
+        lock (_sync)
+        {
+            _documents.TryGetValue(id, out var shared);
+
+            // a document the client has open is the client's: what is on disk is not its text, and it is not Unloaded to be loaded.
+            if (IsOpen(id))
+            {
+                logger.LogInformation("📌 Workspace document is open in the client, and what is on disk is not read over it.");
+                return shared is not null && failure is null && content is not null;
+            }
+
+            // the first project to load a document is the one it is addressed from; a project that lists it later does not move it.
+            var owner = shared?.WorkspaceRoot ?? projectRoot;
+            var projects = shared?.Projects ?? [projectRoot];
+            var relativeUri = ioPath.GetRelativePath(owner, path);
+
+            if (failure is not null)
+            {
+                var broken = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
+                _documents[broken.Id] = broken;
+
+                logger.LogWarning(failure, "❌ Workspace document '{uri}' could not be loaded.", relativeUri);
+                documentStateProvider.OnDocumentLoadError(broken.Id);
+                return false;
+            }
+
+            if (content is not null)
+            {
+                var document = new WorkspaceDocument(relativeUri, owner, content) { Projects = projects, Companion = companion };
                 document = document with { Version = NextVersion(document.Id, content) };
                 _documents[document.Id] = document;
 
@@ -229,26 +271,30 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
                 return true;
             }
-            else
-            {
-                var document = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
-                document = document with { Version = NextVersion(document.Id, string.Empty) };
-                _documents[document.Id] = document;
 
-                logger.LogWarning("⚠ Workspace document at '{uri}' is missing.", relativeUri);
-                documentStateProvider.OnDocumentMissing(document.Id);
-            }
+            var missing = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
+            missing = missing with { Version = NextVersion(missing.Id, string.Empty) };
+            _documents[missing.Id] = missing;
+
+            logger.LogWarning("⚠ Workspace document at '{uri}' is missing.", relativeUri);
+            documentStateProvider.OnDocumentMissing(missing.Id);
+            return false;
         }
-        catch (Exception exception)
+    }
+
+    public bool Reset(TextDocumentIdentifier id)
+    {
+        lock (_sync)
         {
-            var document = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
-            _documents[document.Id] = document;
+            if (IsOpen(id))
+            {
+                return false;
+            }
 
-            logger.LogWarning(exception, "❌ Workspace document '{uri}' could not be loaded.", relativeUri);
-            documentStateProvider.OnDocumentLoadError(document.Id);
+            documentStateProvider.Forget(id);
+            documentStateProvider.Track(id);
+            return true;
         }
-
-        return false;
     }
 
     public void Create(string relativePath)
@@ -498,15 +544,16 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     // a form module keeps its controls in a companion file next to it (a UserForm's .frx, which its text names), read with the text: it is the document's
     // too, and no client has it to send. A companion that cannot be read leaves the form without controls, and the parse of its designer says so.
-    private WorkspaceDocument WithCompanion(WorkspaceDocument document, string path)
+    // It is read before the document is written, and with no lock held: it is file I/O.
+    private ReadOnlyMemory<byte> ReadCompanion(string text, string path)
     {
         try
         {
-            if (FormDesigner.CompanionOf(document.Text) is { } reference
+            if (FormDesigner.CompanionOf(text) is { } reference
                 && ioPath.Combine(ioPath.GetDirectoryName(path) ?? string.Empty, reference.FileName) is var companionPath
                 && ioFile.Exists(companionPath))
             {
-                return document with { Companion = ioFile.ReadAllBytes(companionPath) };
+                return ioFile.ReadAllBytes(companionPath);
             }
         }
         catch (FormDesignerFormatException exception)
@@ -518,13 +565,14 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogWarning(exception, "⚠️ The companion file of '{path}' could not be read.", path);
         }
 
-        return document;
+        return default;
     }
 
     public WorkspaceDocument Open(Uri documentUri, string text, int version)
     {
         var id = new TextDocumentIdentifier(documentUri);
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
+        var companion = ReadCompanion(text, path);
 
         // the document is the client's from the moment it is open, with the projects it was a module of at that moment: a move to this path, or out of it, is made before it or after it.
         lock (_sync)
@@ -539,12 +587,11 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             // a document that is a module of projects stays one when the client opens it, and is addressed from the project that loaded it.
             var owner = existing?.WorkspaceRoot ?? WorkspaceRoot;
             var relativePath = owner.Length == 0 ? path : ioPath.GetRelativePath(owner, path);
-            var document = WithCompanion(
-                new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
-                {
-                    Projects = existing?.Projects ?? [owner],
-                },
-                path);
+            var document = new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
+            {
+                Projects = existing?.Projects ?? [owner],
+                Companion = companion,
+            };
 
             _documents[id] = document;
             documentStateProvider.OnDocumentOpenedByClient(id);
@@ -606,9 +653,22 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     public async Task<WorkspaceDocument?> CloseAsync(Uri documentUri)
     {
         var id = new TextDocumentIdentifier(documentUri);
-        if (!_documents.TryGetValue(id, out var document))
+        WorkspaceDocument document;
+        lock (_sync)
         {
-            return null;
+            if (!_documents.TryGetValue(id, out var found))
+            {
+                return null;
+            }
+
+            document = found;
+
+            // the client does not have it open from here on: a document that is open again by the time the file is read is a reopen, and the text the client sent is not
+            // replaced by what is on disk.
+            if (IsOpen(id))
+            {
+                documentStateProvider.OnDocumentClosed(id);
+            }
         }
 
         // a document the client opened from outside the workspace is addressed by its own path, and the workspace has no claim on it: it is the client's, and
@@ -621,6 +681,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
                 var content = await ioFile.ReadAllTextAsync(path);
+                var companion = ReadCompanion(content, path);
 
                 // the document is what it is when this is written, not what it was before the file was read: it may have moved on, or a project may have taken it.
                 lock (_sync)
@@ -630,10 +691,19 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                         return null;
                     }
 
-                    var reloaded = WithCompanion(new WorkspaceDocument(current.RelativePath, current.WorkspaceRoot, content, current.Version + 1) { Projects = current.Projects }, path);
+                    if (IsOpen(id))
+                    {
+                        logger.LogInformation("📂 Document '{uri}' was opened again while the client's close was made; the text the client sent stays.", documentUri);
+                        return current;
+                    }
+
+                    var reloaded = new WorkspaceDocument(current.RelativePath, current.WorkspaceRoot, content, current.Version + 1) { Projects = current.Projects, Companion = companion };
                     _documents[id] = reloaded;
-                    documentStateProvider.OnDocumentOpenedByClient(id);
-                    documentStateProvider.OnDocumentClosed(id);
+                    if (!documentStateProvider.IsTracked(id) || documentStateProvider.GetCurrentState(id) is not LoadedDocumentState)
+                    {
+                        documentStateProvider.OnDocumentOpenedByClient(id);
+                        documentStateProvider.OnDocumentClosed(id);
+                    }
 
                     logger.LogInformation("📁 Document '{uri}' was closed by the client; what is on disk is the document again (v{version}).", documentUri, reloaded.Version);
                     return reloaded;
@@ -645,9 +715,19 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogWarning(exception, "❌ Document '{uri}' could not be read from disk once the client closed it.", documentUri);
         }
 
-        // not the workspace's, not a file, or not one that can be read: there is no document without the client's text.
-        _documents.TryRemove(id, out _);
-        documentStateProvider.Forget(id);
+        // not the workspace's, not a file, or not one that can be read: there is no document without the client's text - unless the client opened it again.
+        lock (_sync)
+        {
+            if (IsOpen(id) && _documents.TryGetValue(id, out var reopened))
+            {
+                logger.LogInformation("📂 Document '{uri}' was opened again while the client's close was made; the text the client sent stays.", documentUri);
+                return reopened;
+            }
+
+            _documents.TryRemove(id, out _);
+            documentStateProvider.Forget(id);
+        }
+
         logger.LogInformation("📁 Document '{uri}' was closed by the client and is no longer tracked.", documentUri);
         return null;
     }

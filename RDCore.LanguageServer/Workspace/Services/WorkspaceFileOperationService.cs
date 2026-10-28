@@ -41,9 +41,22 @@ internal interface IWorkspaceFileOperationService
 /// <summary>
 /// What the client's file operations made of the workspace.
 /// </summary>
-/// <param name="Reload">What the change of the project made of the workspace.</param>
+/// <param name="Reload">What the change of the project made of the documents of the workspace; the environment host and the symbols follow (<see cref="Completed"/>).</param>
 /// <param name="NotAdded">The source files that are not in the project, and the module name the project has already, by their path relative to the workspace root.</param>
-internal sealed record class WorkspaceFileOperationResult(WorkspaceReloadResult Reload, IReadOnlyList<(string RelativeUri, string ModuleName)> NotAdded);
+internal sealed record class WorkspaceFileOperationResult(WorkspaceReloadResult Reload, IReadOnlyList<(string RelativeUri, string ModuleName)> NotAdded)
+{
+    private Task<WorkspaceReloadResult>? _completed;
+
+    /// <summary>
+    /// Completes with what the change made of the workspace once the environment host composed its session and the symbols were defined; it does not complete while
+    /// the host is not up, and is cancelled when the server stops.
+    /// </summary>
+    public Task<WorkspaceReloadResult> Completed
+    {
+        get => _completed ?? Task.FromResult(Reload);
+        init => _completed = value;
+    }
+}
 
 internal sealed class WorkspaceFileOperationService(
     IWorkspaceReloadService reload,
@@ -245,17 +258,19 @@ internal sealed class WorkspaceFileOperationService(
     private async Task<WorkspaceFileOperationResult?> ChangeInOrderAsync(Func<ProjectFile, List<(string, string)>, ProjectFile> change, CancellationToken token)
     {
         var notAdded = new List<(string, string)>();
-        if (await reload.ChangeAsync(project => change(project, notAdded), token) is not { } result)
+        // the project is written and its documents are made what it lists; the host and the symbols follow without this operation, or those the client sent after it, waiting for them.
+        if (await reload.BeginChangeAsync(project => change(project, notAdded), token) is not { } step)
         {
             return null;
         }
 
+        var result = step.Started;
         if (logger.IsEnabled(LogLevel.Information) && !result.IsUnchanged)
         {
             logger.LogInformation("🗂️ The client's file operations changed the project: {added} file(s) added, {removed} removed.", result.Added, result.Removed);
         }
 
-        return new WorkspaceFileOperationResult(result, notAdded);
+        return new WorkspaceFileOperationResult(result, notAdded) { Completed = step.Completed };
     }
 
     // a file is a module when it is a source file, and nothing of the project otherwise; a folder is added with what it holds.

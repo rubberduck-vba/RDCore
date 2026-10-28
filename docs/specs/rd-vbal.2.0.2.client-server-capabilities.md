@@ -532,7 +532,10 @@ result (`workspace.fileOperations`), with filters for the source files of every 
 
 What is outside the workspace root, and what a folder whose name starts with a dot holds (`.git`, `.vscode`), is nothing of the project. A module name is unique in a
 project (**RD-VBAL §2.2.3.3**): a file created with the `VB_Name` of a module the project has is not added, and `window/showMessage` says so. The operations are made
-in the order the client sent them.
+in the order the client sent them: the notification returns once the project file is written and the workspace's documents are what it lists, so that what the
+client sends next (`textDocument/didOpen` of the new path, `didChange`) is read after it. The environment host composing its session again and the symbols being defined
+again follow, in the order the changes were made, and nothing the client sends waits for them: a host that is starting, or down, holds up none of it. The client's
+diagnostics are asked to be pulled again once they are done.
 
 > [!NOTE]
 > OmniSharp 0.19.9 reads `workspace/didRenameFiles` with a `FileRename` that has only a `uri`, and neither the `oldUri` nor the `newUri` a client sends. RDCore reads it

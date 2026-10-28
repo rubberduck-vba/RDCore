@@ -11,8 +11,10 @@ namespace RDCore.SDK.Platform.Protocol;
 /// OmniSharp 0.19.9 reads the notification as <c>DidRenameFileParams</c>, whose <c>FileRename</c> has only a <c>uri</c>: the <c>oldUri</c> and <c>newUri</c> a
 /// client sends are not read, and every rename is one from nowhere to nowhere. This is the same notification, read as the protocol states it. A server that handles
 /// it says so in its <c>initialize</c> result itself (<c>workspace.fileOperations.didRename</c>), since no OmniSharp handler registers it. The notification is
-/// serial, as <c>textDocument/didOpen</c>, <c>didChange</c> and <c>didClose</c> are: the client sends them in the order things happened to its documents, and a
-/// server that reads them in parallel sees a document open at a path before it has moved there.
+/// serial: OmniSharp reads a serial message after every message before it is done, and the ones after it once it is. A client sends <c>textDocument/didClose</c> for
+/// the old path and <c>didOpen</c> for the new one before it says the files were renamed, and a server that reads the rename beside them sees a document open at a path
+/// before it has moved there. The group of parallel messages before a serial one is done before it is read, so the rename is made after the close and before the
+/// notifications that follow it.
 /// </remarks>
 [Serial, Method("workspace/didRenameFiles", Direction.ClientToServer)]
 public sealed record class DidRenameWorkspaceFilesParams : IRequest
