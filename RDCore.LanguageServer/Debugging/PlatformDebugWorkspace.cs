@@ -9,6 +9,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.LanguageServer.Debugging;
@@ -33,7 +34,7 @@ internal sealed class PlatformDebugWorkspace(
     private readonly Dictionary<string, string> _byModule = new(StringComparer.OrdinalIgnoreCase);
 
     // the paths of the files of a Windows workspace are not case-sensitive, and a client is no more careful than the file system is about which case it uses.
-    private static StringComparer PathComparer => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static StringComparer PathComparer => WorkspacePaths.Comparer;
 
     public Task<string> Lost => _lost.Task;
 

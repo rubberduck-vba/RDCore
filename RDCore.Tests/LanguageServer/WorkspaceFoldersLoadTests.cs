@@ -154,6 +154,21 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
+    public async Task AFolderThatHoldsAnImportedVbp_IsAProject_AndEveryOtherLaterFolderIsASourceFolder()
+    {
+        var other = Path.Combine(Base, "Other");
+        var files = Files();
+        files.AddFile(Path.Combine(Lib, "Lib.vbp"), new MockFileData("Type=Exe\r\n"));
+        files.AddDirectory(other);
+
+        var loaded = await new Loaded(files).LoadAsync(App, App, Lib, other);
+
+        CollectionAssert.AreEqual(new[] { App, Lib }, loaded.Projects.Projects.Select(project => project.Root).ToArray(), "Other holds no .vbp, which an import would have left");
+        CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
+    }
+
+    [TestMethod]
     public async Task TheFirstFolder_IsAlwaysAProject()
     {
         var loaded = await new Loaded(Files()).LoadAsync(App, App, Shared, Lib);

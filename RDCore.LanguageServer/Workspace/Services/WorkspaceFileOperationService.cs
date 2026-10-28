@@ -52,7 +52,7 @@ internal sealed class WorkspaceFileOperationService(
     Func<SupportedLanguage> language,
     ILogger<WorkspaceFileOperationService> logger) : IWorkspaceFileOperationService
 {
-    private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static StringComparison PathComparison => WorkspacePaths.Comparison;
 
     public Task<WorkspaceFileOperationResult?> CreatedAsync(IEnumerable<Uri> uris, CancellationToken token)
     {
