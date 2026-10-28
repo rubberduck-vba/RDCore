@@ -91,6 +91,7 @@ internal sealed class ReplShell(
             case ReplInputKind.StoreLine:
                 program.Store(input.LineNumber, input.Text);
                 await SynchronizeDocumentAsync(token);
+                context.Diagnostics.RefreshWhenIdle(context);
                 return ReplCommandResult.Continue;
 
             case ReplInputKind.DeleteLine:
@@ -99,6 +100,7 @@ internal sealed class ReplShell(
                     console.WriteMessage(MessageKind.Error, Resources.Repl_UndefinedLine, input.LineNumber.ToString());
                 }
                 await SynchronizeDocumentAsync(token);
+                context.Diagnostics.RefreshWhenIdle(context);
                 return ReplCommandResult.Continue;
 
             case ReplInputKind.Command:

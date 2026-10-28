@@ -133,6 +133,16 @@ public interface IReplPlatformClient
     Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server what it finds in a document as <see cref="PullDiagnosticsAsync"/> does, naming the report the shell has: a program that did not
+    /// change since is answered with an <c>unchanged</c> report, which costs no findings.
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="previousResultId">The identifier of the report the shell has; <see langword="null"/> for none.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The report; <see langword="null"/> when the server has none to give.</returns>
+    Task<ReplDiagnosticReport?> PullDiagnosticReportAsync(Uri document, string? previousResultId, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server what can be done in a range of a document (<c>textDocument/codeAction</c>), about the diagnostics of the range and otherwise.
     /// </summary>
     /// <param name="document">The document's URI.</param>
@@ -379,6 +389,11 @@ public sealed record class ReplCommandContext(
     /// The blocks of the program that are folded in a listing (<c>FOLD</c>).
     /// </summary>
     public ReplFolds Folds { get; init; } = new();
+
+    /// <summary>
+    /// What the language server found in the program the last time the shell asked, which a listing marks the lines with a fix by.
+    /// </summary>
+    public ReplDiagnostics Diagnostics { get; init; } = new();
 }
 
 /// <summary>

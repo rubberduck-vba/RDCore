@@ -43,6 +43,7 @@ internal sealed class LoadReplCommand(IFileSystem fileSystem) : IReplCommand
         await ReplExecution.DiscardProgramAsync(context, token);
         context.Debugger.ClearBreakpoints();
         context.Folds.Clear();
+        context.Diagnostics.Clear();
         await context.Document.OpenAsync(path, token);
         return ReplCommandResult.Continue;
     }
