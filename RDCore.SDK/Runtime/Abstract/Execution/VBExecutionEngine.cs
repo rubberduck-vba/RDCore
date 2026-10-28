@@ -21,7 +21,7 @@ public enum VBExecutionEngine
     /// procedure walks back into the interpreter when a debugger needs it to.
     /// </summary>
     /// <remarks>
-    /// 🚧 Nothing is compiled yet: every procedure still runs in the interpreter. TODO.
+    /// No instruction can be compiled yet, so every procedure runs in the interpreter.
     /// </remarks>
     Compiled = 1,
 }

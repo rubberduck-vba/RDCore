@@ -67,7 +67,7 @@ public static class InstructionListLowering
     /// </param>
     public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null)
     {
-        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.Language, procedure);
+        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.IsReleaseBuild, options.Language, procedure);
         LowerBlock(body, state, default);
 
         // Every label in the procedure is now known, however deeply nested its definition was, so every
@@ -131,7 +131,7 @@ public static class InstructionListLowering
         {
             // MS-VBAL has no Debug object; RDCore's own build configuration decides whether these exist
             // at run time. Leaving them out means exactly that - no instruction, not a no-op one - so a
-            // release build pays nothing at all for a Debug.Print left in the source.
+            // release build that drops them pays nothing at all for a Debug.Print left in the source.
             case DebugStatementNode when !state.IncludeDebugStatements:
                 break;
 
@@ -197,8 +197,9 @@ public static class InstructionListLowering
                 Emit(state, scope, statement, InstructionKind.Halt);
                 break;
 
-            // as in a compiled VB6 executable, a release build leaves Stop out, the same way it leaves out the Debug statements.
-            case KeywordStatementNode { Token: Tokens.Stop } when !state.IncludeDebugStatements:
+            // a release build has no debugger to break into: Stop ends the program there, as End does, as it does in a compiled VB6 executable.
+            case KeywordStatementNode { Token: Tokens.Stop } when state.IsReleaseBuild:
+                Emit(state, scope, statement, InstructionKind.Halt);
                 break;
 
             case KeywordStatementNode { Token: Tokens.Stop }:
@@ -504,8 +505,9 @@ public static class InstructionListLowering
         => LabelOperands.TryGetLabelName(operand, out var name) && labels.TryGetValue(name, out var target) ? target : null;
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
-    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, SupportedLanguage? language, MemberKind? procedure)
+    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, bool isReleaseBuild, SupportedLanguage? language, MemberKind? procedure)
     {
+        public bool IsReleaseBuild { get; } = isReleaseBuild;
         public SupportedLanguage? Language { get; } = language;
         public MemberKind? Procedure { get; } = procedure;
         public List<Instruction> Items { get; } = [];

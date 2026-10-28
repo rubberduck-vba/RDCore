@@ -406,7 +406,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                 return (null, string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description ? error.Description : $"{error.Description}: {error.Verbose}");
             }
 
-            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
+            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
+                DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements);
             var lowered = InstructionListLowering.Lower(block, options, MemberKind.Procedure);
             var scratch = (CallStackFrame)session.Symbols.CreateFrame(selected.NodeId, selected.StaticSymbol, selected.Directives);
             (scratch.Procedure, scratch.Body) = (procedure, lowered.InstructionList);

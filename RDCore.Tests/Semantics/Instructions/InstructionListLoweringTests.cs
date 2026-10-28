@@ -53,7 +53,11 @@ public sealed class InstructionListLoweringTests
         return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), default, member.MemberKind);
     }
 
+    // a release build that drops the Debug statements.
     private static InstructionListLoweringResult LowerForRelease(params string[] procedureBody)
+        => LowerForRelease(dropsDebugStatements: true, procedureBody);
+
+    private static InstructionListLoweringResult LowerForRelease(bool dropsDebugStatements, params string[] procedureBody)
     {
         var source = $"Sub Foo()\r\n{string.Join("\r\n", procedureBody)}\r\nEnd Sub\r\n";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
@@ -61,7 +65,7 @@ public sealed class InstructionListLoweringTests
 
         var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         return InstructionListLowering.Lower(
-            new StatementBlock([.. member.Children]), new InstructionLoweringOptions(IsReleaseBuild: true));
+            new StatementBlock([.. member.Children]), new InstructionLoweringOptions(IsReleaseBuild: true, DropsDebugStatements: dropsDebugStatements));
     }
 
     private static void AssertNoErrors(InstructionListLoweringResult result)
@@ -79,7 +83,28 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
-    public void DebugStatements_InAReleaseBuild_LeaveNoInstructionAtAll()
+    public void DebugStatements_InAReleaseBuild_AreLowered_UnlessItDropsThem()
+    {
+        var result = LowerForRelease(dropsDebugStatements: false, "Debug.Print 1", "Debug.Assert False");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items);
+    }
+
+    [TestMethod]
+    public void Stop_InAReleaseBuild_IsAnEnd_WhetherOrNotItDropsTheDebugStatements()
+    {
+        foreach (var drops in new[] { false, true })
+        {
+            var result = LowerForRelease(drops, "Stop");
+
+            AssertNoErrors(result);
+            Assert.AreEqual(InstructionKind.Halt, result.InstructionList.Items.Single().Kind, $"drops: {drops}");
+        }
+    }
+
+    [TestMethod]
+    public void DebugStatements_InAReleaseBuildThatDropsThem_LeaveNoInstructionAtAll()
     {
         // not a no-op instruction — nothing. A release build pays literally nothing for a Debug.Print
         // left in the source, which is what makes leaving them in reasonable.
@@ -110,13 +135,13 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
-    public void Stop_InAReleaseBuild_LeavesNoInstruction()
+    public void Stop_InAReleaseBuild_IsAnEnd()
     {
-        // as in a compiled VB6 executable: a release build does not break.
+        // as in a compiled VB6 executable: a release build has no debugger to break into.
         var result = LowerForRelease("Stop", "x = 1");
 
         AssertNoErrors(result);
-        Assert.AreEqual(InstructionKind.Simple, result.InstructionList.Items.Single().Kind);
+        CollectionAssert.AreEqual(new[] { InstructionKind.Halt, InstructionKind.Simple }, result.InstructionList.Items.Select(item => item.Kind).ToArray());
     }
 
     [TestMethod]

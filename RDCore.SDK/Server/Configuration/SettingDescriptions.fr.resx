@@ -86,7 +86,10 @@
     <value>Ce qui exécute un programme : l'interpréteur (Interpreter), ou du code compilé là où chaque instruction d'une procédure peut l'être (Compiled).</value>
   </data>
   <data name="Environment_Configuration" xml:space="preserve">
-    <value>Si un programme est construit pour être débogué (Debug) ou pour être exécuté (Release). Une version Release laisse de côté chaque Stop et chaque Debug.Print et Debug.Assert, et DEBUG est False.</value>
+    <value>Si un programme est construit pour être débogué (Debug) ou pour être exécuté (Release). Dans une version Release, un Stop termine le programme comme le fait End, et DEBUG est False.</value>
+  </data>
+  <data name="Environment_ReleaseDropsDebugStatements" xml:space="preserve">
+    <value>Si une version Release laisse de côté chaque Debug.Print et Debug.Assert, sans en évaluer les arguments. Désactivé par défaut : une version Release les garde, et ils s'exécutent comme dans une version Debug.</value>
   </data>
   <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
     <value>Ce qui sépare la partie entière d'un nombre de sa fraction.</value>
