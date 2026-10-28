@@ -58,6 +58,15 @@ internal interface IWorkspaceDocumentService
     /// </summary>
     /// <returns><see langword="false"/> when the document is open, or was not in the workspace.</returns>
     bool Remove(TextDocumentIdentifier id);
+
+    /// <summary>
+    /// Moves a document to another path, as the client renamed its file: the document keeps its text, its version, whether it is open, and the projects it is a module
+    /// of - nothing is read from disk, so that the text a client has open and has not saved is not lost.
+    /// </summary>
+    /// <param name="id">The document at the path it had.</param>
+    /// <param name="newId">The path it has now.</param>
+    /// <returns><see langword="false"/> when there is no such document.</returns>
+    bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId);
     void Edit(TextDocumentIdentifier id, string text);
     void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text);
     void Create(string relativePath);
@@ -286,6 +295,37 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
         documentStateProvider.Forget(id);
         return _documents.TryRemove(id, out _);
+    }
+
+    public bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId)
+    {
+        if (!_documents.TryGetValue(id, out var document))
+        {
+            return false;
+        }
+
+        // the document is addressed from the root of the project that loaded it first; a path that climbs out of it is the file it names.
+        var root = document.WorkspaceRoot;
+        var moved = new WorkspaceDocument(ioPath.GetRelativePath(root, newId.Uri.GetFileSystemPath()), root, document.Text, document.Version)
+        {
+            IsDirty = document.IsDirty,
+            Companion = document.Companion,
+            Projects = _documents.TryGetValue(newId, out var already) ? [.. document.Projects.Union(already.Projects, WorkspacePaths.Comparer)] : document.Projects,
+        };
+
+        var wasOpen = documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState;
+        _documents.TryRemove(id, out _);
+        documentStateProvider.Forget(id);
+        _documents[moved.Id] = moved;
+        documentStateProvider.Forget(moved.Id);
+        documentStateProvider.Track(moved.Id);
+        documentStateProvider.OnDocumentLoaded(moved.Id);
+        if (wasOpen)
+        {
+            documentStateProvider.OnDocumentOpened(moved.Id);
+        }
+
+        return true;
     }
 
     public void Edit(TextDocumentIdentifier id, string text)

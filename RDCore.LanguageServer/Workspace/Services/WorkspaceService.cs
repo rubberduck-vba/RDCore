@@ -271,15 +271,19 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         }
 
         documentService.Initialize(workspaceRoot);
-        // a folder that holds a Visual Basic 6 project is where one was imported: the import writes the .rdproj next to the .vbp and leaves the .vbp as it was.
-        _projects.Initialize(workspaceRoot, folders, folders.Where(HoldsAVbp));
+        // a project was imported where a .vbp has the .rdproj the import wrote beside it, and was left as it was; a .vbp alone was never imported.
+        _projects.Initialize(workspaceRoot, folders, folders.Where(folder => HoldsAVbp(folder) && HoldsAProject(folder)), folders.Where(HoldsAProject));
         await LoadOtherProjectsAsync();
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
     }
 
-    private bool HoldsAVbp(string folder) => ioDirectory.Exists(folder) && ioDirectory.EnumerateFiles(folder, "*.vbp").Any();
+    // the extension is matched without regard to case on every platform: Visual Basic 6 writes PROJECT1.VBP, and a file system may tell the two apart.
+    private bool HoldsAVbp(string folder)
+        => ioDirectory.Exists(folder) && ioDirectory.EnumerateFiles(folder).Any(file => ioPath.GetExtension(file).Equals(".vbp", StringComparison.OrdinalIgnoreCase));
+
+    private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));
 
     // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
     private async Task LoadOtherProjectsAsync()

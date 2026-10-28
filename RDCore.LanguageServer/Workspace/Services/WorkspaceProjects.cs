@@ -54,8 +54,9 @@ internal interface IWorkspaceProjects
     /// </summary>
     /// <param name="primaryRoot">The folder the language server was started on.</param>
     /// <param name="folders">The workspace folders the client gave; the primary one is among them, whether the client lists it or not.</param>
-    /// <param name="importedProjectFolders">The folders that hold a Visual Basic 6 project (<c>.vbp</c>) that was imported: they are the project folders (<see cref="WorkspaceFolderRoles"/>).</param>
-    void Initialize(string primaryRoot, IEnumerable<string> folders, IEnumerable<string> importedProjectFolders);
+    /// <param name="importedProjectFolders">The folders that hold a project that was imported: a <c>.vbp</c> with the <c>.rdproj</c> the import wrote beside it (<see cref="WorkspaceFolderRoles"/>).</param>
+    /// <param name="foldersWithProject">The folders that hold a <c>.rdproj</c>.</param>
+    void Initialize(string primaryRoot, IEnumerable<string> folders, IEnumerable<string> importedProjectFolders, IEnumerable<string> foldersWithProject);
 
     /// <summary>Makes a project of a folder.</summary>
     void Add(WorkspaceProject project);
@@ -94,6 +95,7 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
     private volatile string _primaryRoot = string.Empty;
     private WorkspaceProject? _primaryProject;
     private volatile IReadOnlyList<string> _imported = [];
+    private volatile IReadOnlyList<string> _withProject = [];
 
     public WorkspaceFolders Folders => _folders;
 
@@ -130,7 +132,7 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
         }
     }
 
-    public void Initialize(string primaryRoot, IEnumerable<string> folders, IEnumerable<string> importedProjectFolders)
+    public void Initialize(string primaryRoot, IEnumerable<string> folders, IEnumerable<string> importedProjectFolders, IEnumerable<string> foldersWithProject)
     {
         lock (_sync)
         {
@@ -138,6 +140,7 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
             _primaryRoot = primaryRoot;
             _folders = new WorkspaceFolders([primaryRoot, .. folders]);
             _imported = [.. importedProjectFolders];
+            _withProject = [.. foldersWithProject];
             _secondary.Clear();
             _primaryProject = null;
             _refused.Clear();
@@ -173,7 +176,7 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
     public IReadOnlyList<(string Root, WorkspaceFolderRole Role)> Roles()
     {
         var projects = Projects.ToDictionary(project => WorkspacePaths.Normalized(project.Root), project => project, WorkspacePaths.Comparer);
-        return new WorkspaceFolderRoles(_folders, _imported).Roles(root => projects.TryGetValue(root, out var project) ? project.ListedFiles : []);
+        return new WorkspaceFolderRoles(_folders, _imported, _withProject).Roles(root => projects.TryGetValue(root, out var project) ? project.ListedFiles : []);
     }
 
     public void Refuse(string project, string relativeUri)
