@@ -1,4 +1,5 @@
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -85,8 +86,13 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         var constants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // the class modules of the workspace are types, whatever module of it is being highlighted; a document that is no file is a project of its own.
-        foreach (var other in documentUri.IsFile ? documents.GetAllDocuments() : [])
+        // the class modules of the workspace are types, whatever module of it is being highlighted. A document that is no file, or of a server with no workspace,
+        // is a project of its own (SymbolUri.RootOf), as completion composes it: its own module is the only one there is.
+        var isOwnProject = !documentUri.IsFile || documents.WorkspaceRoot.Length == 0;
+        IEnumerable<WorkspaceDocument> modules = !isOwnProject ? documents.GetAllDocuments()
+            : documents.TryGetModule(documentUri, out var own) ? [own]
+            : [];
+        foreach (var other in modules)
         {
             var path = other.Id.Uri.GetFileSystemPath();
             if (string.Equals(Path.GetExtension(path), ".cls", StringComparison.OrdinalIgnoreCase))
