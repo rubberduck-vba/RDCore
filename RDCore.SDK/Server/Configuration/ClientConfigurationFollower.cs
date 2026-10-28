@@ -94,7 +94,7 @@ public sealed class ClientConfigurationFollower : IDisposable
             // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed: the live settings ask just before
             // they set, in the step that sets them. The state lock is held for that question only, and a listener of the change runs after both locks are released: it can wait
             // for another thread that follows or disposes.
-            if (!_liveSettings.Apply(said, adopted, () =>
+            if (!await _liveSettings.ApplyAsync(said, adopted, () =>
             {
                 lock (_gate)
                 {
@@ -116,7 +116,8 @@ public sealed class ClientConfigurationFollower : IDisposable
                 return false;
             }
 
-            // what is told is told of the change that is the last word: one that a newer change came after has been set, and the newer one is the one that says so.
+            // what is told is told once the listeners were told of the change, and of the change that is the last word: one that a newer change came after has been set, and
+            // the newer one is the one that says so.
             lock (_gate)
             {
                 if (_disposed == 1 || version != _version)
