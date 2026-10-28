@@ -413,9 +413,6 @@
   <data name="Repl_Breakpoint_Cleared" xml:space="preserve">
     <value>POINT D'ARRÊT RETIRÉ À {0}</value>
   </data>
-  <data name="Repl_Breakpoint_List" xml:space="preserve">
-    <value>POINTS D'ARRÊT : {0}</value>
-  </data>
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>AUCUN POINT D'ARRÊT</value>
   </data>
@@ -547,9 +544,6 @@
   </data>
   <data name="Repl_Breakpoint_Disabled" xml:space="preserve">
     <value>POINT D'ARRÊT INACTIF À {0}</value>
-  </data>
-  <data name="Repl_Breakpoint_DisabledMark" xml:space="preserve">
-    <value>(INACTIF)</value>
   </data>
   <data name="Repl_Breakpoint_ConditionRefused" xml:space="preserve">
     <value>CONDITION REFUSÉE À {0} : {1}</value>

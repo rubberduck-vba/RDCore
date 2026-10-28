@@ -845,29 +845,11 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to (DISABLED).
-        /// </summary>
-        public static string Repl_Breakpoint_DisabledMark {
-            get {
-                return ResourceManager.GetString("Repl_Breakpoint_DisabledMark", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to BREAKPOINT ENABLED AT {0}.
         /// </summary>
         public static string Repl_Breakpoint_Enabled {
             get {
                 return ResourceManager.GetString("Repl_Breakpoint_Enabled", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to BREAKPOINTS: {0}.
-        /// </summary>
-        public static string Repl_Breakpoint_List {
-            get {
-                return ResourceManager.GetString("Repl_Breakpoint_List", resourceCulture);
             }
         }
         

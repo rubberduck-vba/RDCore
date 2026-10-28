@@ -21,11 +21,6 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_List_Summary;
 
-    private static readonly string enabledGlyph = "●";
-    private static readonly string disabledGlyph = "○";
-    private static readonly string conditionalGlyph = "◆";
-    private static readonly string disabledConditionalGlyph = "◈";
-
     // the marks of a block, plain triangles where the console draws Unicode (an emoji looked wrong next to the code, the author found), ASCII where it does not.
     private static readonly (string Open, string Folded) unicodeFoldGlyphs = ("▽", "▲");
     private static readonly (string Open, string Folded) asciiFoldGlyphs = ("-", "+");
@@ -87,10 +82,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
                     .OrderByDescending(bp => bp.Enabled)
                     .FirstOrDefault();
             var marked = breakpoint != default ? breakpoint : hiddenBreakpoint;
-            var glyph = marked == default ? " "
-                : marked.ConditionExpression != null ?
-                    marked.Enabled ? conditionalGlyph : disabledConditionalGlyph
-                : marked.Enabled ? enabledGlyph : disabledGlyph;
+            var glyph = marked == default ? " " : ReplBreakpointMarks.GlyphOf(marked);
 
             var breakpointMark = marked != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
 
