@@ -144,7 +144,7 @@ public interface ILiveSettings
     /// </summary>
     void Refresh();
 
-    /// <summary>Raised once the live settings were set again.</summary>
+    /// <summary>Raised once the live settings were set again: once for each change, in the order the changes were made, and never by two threads at once.</summary>
     event EventHandler? Changed;
 }
 
@@ -157,6 +157,10 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     private readonly IReadOnlyList<LiveSettingsTarget> _targets = [.. targets];
     private readonly object _applying = new();
     private sealed record Snapshot(IReadOnlyDictionary<string, string> Said, IReadOnlyDictionary<string, string> Received);
+
+    // the changes that are to be told, and whether a thread is telling them: they are told one at a time, in the order they were made, with no lock held.
+    private int _unannounced;
+    private bool _announcing;
 
     // what the client said and what is handed down are published together: a reader never sees one of a newer change and the other of an older one.
     private volatile Snapshot? _snapshot;
@@ -206,11 +210,13 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
                 received[key] = value;
             }
 
-            _snapshot = new Snapshot(new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase), received);
+            // the settings are set before what is said is published: whoever sees that the client has said its settings finds them set.
             Set(received);
+            _snapshot = new Snapshot(new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase), received);
+            _unannounced++;
         }
 
-        Changed?.Invoke(this, EventArgs.Empty);
+        Announce();
         return true;
     }
 
@@ -220,9 +226,53 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
         lock (_applying)
         {
             Set(_snapshot?.Received ?? UserLiveSettings());
+            _unannounced++;
         }
 
-        Changed?.Invoke(this, EventArgs.Empty);
+        Announce();
+    }
+
+    // each change is told once and in the order it was made, by the thread that comes first: a thread that comes while another is telling leaves its change to it, and a listener
+    // that sets settings itself is not told of that change before it has returned from the one it is told of.
+    private void Announce()
+    {
+        lock (_applying)
+        {
+            if (_announcing)
+            {
+                return;
+            }
+
+            _announcing = true;
+        }
+
+        while (true)
+        {
+            lock (_applying)
+            {
+                if (_unannounced == 0)
+                {
+                    _announcing = false;
+                    return;
+                }
+
+                _unannounced--;
+            }
+
+            try
+            {
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+            catch
+            {
+                lock (_applying)
+                {
+                    _announcing = false;
+                }
+
+                throw;
+            }
+        }
     }
 
     // every live setting of the component takes the value it is said to have, or the one it started with.

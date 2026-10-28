@@ -89,6 +89,52 @@ public sealed class FormattingTabSizeTests
         Assert.AreEqual("2", live.Current["Formatting:IndentSpaces"], "and what is handed down, from the same change");
     }
 
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public void TheChangesOfTheSettings_AreToldInTheOrderTheyWereMade_AndNeverAtOnce()
+    {
+        var options = new SdkAppOptions();
+        var schema = SettingsSchema.Platform;
+        var live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+
+        // the listener of the first change is held while the second is made on another thread.
+        var inListener = 0;
+        var most = 0;
+        var told = new List<bool>();
+        using var holding = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        live.Changed += (_, _) =>
+        {
+            most = Math.Max(most, Interlocked.Increment(ref inListener));
+            lock (told)
+            {
+                told.Add(options.Server.Verbose);
+            }
+
+            if (told.Count == 1)
+            {
+                holding.Set();
+                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(20)));
+            }
+
+            Interlocked.Decrement(ref inListener);
+        };
+
+        var first = new Thread(() => live.Apply(new Dictionary<string, string> { ["Server:Verbose"] = "False" }));
+        first.Start();
+        Assert.IsTrue(holding.Wait(TimeSpan.FromSeconds(20)), "the first change is being told");
+
+        var secondDone = live.Apply(new Dictionary<string, string> { ["Server:Verbose"] = "True" }, new Dictionary<string, string>(), () => true);
+        Assert.IsTrue(secondDone, "the second change was set while the first was being told, and its call returned");
+        release.Set();
+        first.Join();
+
+        Assert.AreEqual(2, told.Count, "each change is told");
+        Assert.AreEqual(1, most, "never by two threads at once");
+        Assert.IsTrue(options.Server.Verbose);
+        Assert.IsTrue(told[1], "the second change is told after the first");
+    }
+
     // a platform component: a server with its client, followed by the follower a server app starts when it is started (ClientConfigurationFollower.Follow).
     private sealed class Wire : IAsyncDisposable
     {
@@ -106,6 +152,14 @@ public sealed class FormattingTabSizeTests
         public List<int> Seen { get; } = [];
 
         public Dictionary<string, string> Said { get; } = [];
+
+        /// <summary>What the follower said happened, in the order it said it.</summary>
+        public List<string> Log { get; } = [];
+
+        private readonly SemaphoreSlim _logged = new(0);
+
+        /// <summary>Waits for the follower to say something it has not been waited for.</summary>
+        public Task<bool> LoggedAsync() => _logged.WaitAsync(TimeSpan.FromSeconds(20));
 
         public int TabSize { get; set; } = 2;
 
@@ -136,7 +190,15 @@ public sealed class FormattingTabSizeTests
                     {
                         _followed.Release();
                         return Task.CompletedTask;
-                    }, _ => { });
+                    }, line =>
+                    {
+                        lock (Log)
+                        {
+                            Log.Add(line);
+                        }
+
+                        _logged.Release();
+                    });
                     return Task.CompletedTask;
                 }));
 
@@ -267,18 +329,23 @@ public sealed class FormattingTabSizeTests
                 await release.Task;
             }
         };
+        Assert.IsTrue(await wire.LoggedAsync(), "the first change was followed once it was initialized");
         wire.TabSize = 5;
         wire.ClientSaysConfigurationChanged();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
         wire.ClientSaysConfigurationChanged();
         Assert.IsTrue(await wire.FollowedAsync(), "the newer change was followed");
+        Assert.IsTrue(await wire.LoggedAsync(), "and said so");
 
         release.SetResult();
 
-        Assert.IsFalse(await wire.FollowedAsync(TimeSpan.FromSeconds(1)), "and the older one, answered last, was not");
-        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
-        CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen);
+        // the older change, answered last, says what became of it: that is when it is done, whichever way it went.
+        Assert.IsTrue(await wire.LoggedAsync(), "the older change was done");
+        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
+        CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
+        Assert.AreEqual(1, wire.Log.Count(line => line.Contains("dropped", StringComparison.Ordinal)), "it was dropped, and said so");
+        Assert.AreEqual(2, wire.Log.Count(line => line.Contains("were applied", StringComparison.Ordinal)), "and nothing else was told as applied but the first change and the newer one");
     }
 
     [TestMethod]
