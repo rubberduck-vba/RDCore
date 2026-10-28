@@ -34,6 +34,15 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     public SemanticModelStore Semantics { get; } = new();
 
     /// <summary>
+    /// What compiles the procedures of the image to IL, when the session runs compiled code (IR lowering §9.2): into one collectible assembly, which goes with
+    /// the image.
+    /// </summary>
+    internal Compiled.ProcedureCompiler Compiler { get; } = new();
+
+    /// <summary>How long compiling the procedures of the image to IL took, all told: each was compiled the first time it was called.</summary>
+    public TimeSpan CompilationTime => Compiler.Elapsed;
+
+    /// <summary>
     /// What the designers of the session's forms declare, by the name of the form's module: what a form is created from - its state, its caption, where it starts
     /// up - when the program first uses it.
     /// </summary>

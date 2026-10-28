@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK;
@@ -191,7 +192,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         var context = new RuntimeEvaluationContext(procedure.Uri);
         var outcome = !sweep
-            ? Executor.Run(Session, frame, body, context)
+            ? Run(procedure, frame, body, context)
             : Executor.Sweep(Session, frame, body, context) ? RuntimeExecutionOutcome.ExitProcedure : RuntimeExecutionOutcome.InternalError;
 
         // a program that was stopped does not unwind: the objects its locals held are not let go of, because that is where a Terminate would run, and an End
@@ -226,6 +227,26 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             // what the Run of the procedure that made the call, and the host that started the program, ask when they see it.
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
+    }
+
+    // the body run compiled when the session runs compiled code and the procedure is compiled (IR lowering §9.2), and in the interpreter otherwise: an
+    // analysis, a debugger attached and an error a Class_Terminate left unhandled are the interpreter's, and so is everything when payloads are not used.
+    private RuntimeExecutionOutcome Run(VBTypeMemberSymbol procedure, CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context)
+    {
+        if ((CompiledExecution.Engine ?? Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled || !UnboxedEvaluation.IsEnabled
+            || Executor.Observation is not null || Session.Halt.Gate is not null || Session.Errors.Untrappable is not null || Bodies is not ProgramImage image)
+        {
+            return Executor.Run(Session, frame, body, context);
+        }
+
+        var compiled = image.Compiler.Compile(Session, Executor.Expressions, procedure, body);
+        if (compiled.Body is { } code)
+        {
+            return code.Run(new CompiledActivation(Session, frame, body, Executor, context, code));
+        }
+
+        // a test that expects every procedure it runs to be compiled fails the call of one that is not, rather than run it interpreted unnoticed.
+        return CompiledExecution.IsStrict ? RuntimeExecutionOutcome.InternalError : Executor.Run(Session, frame, body, context);
     }
 
     // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was

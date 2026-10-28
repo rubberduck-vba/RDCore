@@ -143,6 +143,41 @@ public readonly struct Extended
         return DivideWide(left, right);
     }
 
+    /// <summary>
+    /// <c>left + right</c> of two values that are <c>Double</c>s exactly, when the sum is exact and finite: what the extended format computes, and stores as a
+    /// <c>Double</c> as it is. <see langword="false"/> when it is not, and the sum is to be computed in the extended format (<see cref="Add"/>).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryAddExactly(double left, double right, out double sum)
+    {
+        sum = left + right;
+        var virtualRight = sum - left;
+        return (left - (sum - virtualRight)) + (right - virtualRight) == 0 && double.IsFinite(sum);
+    }
+
+    /// <summary><c>left - right</c>, as <see cref="TryAddExactly"/> computes a sum.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TrySubtractExactly(double left, double right, out double difference) => TryAddExactly(left, -right, out difference);
+
+    /// <summary><c>left * right</c>, as <see cref="TryAddExactly"/> computes a sum: the product exact, finite, and of a magnitude its error is a <c>Double</c> at.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryMultiplyExactly(double left, double right, out double product)
+    {
+        product = left * right;
+        return product == 0 ? left == 0 || right == 0
+            : double.IsFinite(product) && Math.Abs(product) >= LeastCheckedMagnitude && Math.FusedMultiplyAdd(left, right, -product) == 0;
+    }
+
+    /// <summary><c>left / right</c>, as <see cref="TryAddExactly"/> computes a sum: the quotient exact, finite, and of a magnitude its remainder is a <c>Double</c> at.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryDivideExactly(double left, double right, out double quotient)
+    {
+        quotient = right == 0 ? 0 : left / right;
+        return right != 0 && (quotient == 0 ? left == 0
+            : double.IsFinite(quotient) && Math.Abs(quotient) >= LeastCheckedMagnitude && Math.Abs(left) >= LeastCheckedMagnitude
+                && Math.FusedMultiplyAdd(-quotient, right, left) == 0);
+    }
+
     /// <summary><c>-operand</c>, which signals nothing.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Extended Negate(Extended operand)

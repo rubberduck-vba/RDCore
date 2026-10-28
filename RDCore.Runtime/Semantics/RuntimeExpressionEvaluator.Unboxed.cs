@@ -480,7 +480,20 @@ public sealed partial class RuntimeExpressionEvaluator
             && TryOperateBinary(plan, lhs, rhs, out payload);
     }
 
-    private static bool IsConstant(Symbol symbol) => symbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol;
+    /// <summary>Whether <paramref name="symbol"/> is a constant: a <c>Const</c>, a member of an enumeration.</summary>
+    internal static bool IsConstant(Symbol symbol) => symbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol;
+
+    /// <summary>
+    /// The value of a constant named at <paramref name="node"/>, folded, when it is of a scalar type: what compiled code reads it as (IR lowering S2.1).
+    /// </summary>
+    internal bool TryFoldConstant(IRuntimeSession session, BoundNode node, Symbol constant, out ScalarPayload payload)
+        => TryReadConstant(session, node, constant, out payload);
+
+    /// <summary>
+    /// Whether <paramref name="node"/> is an extended intermediate (<c>ExtendedIntermediates</c>), and the type of its expression: what compiled code
+    /// computes in the extended format, as this evaluation does.
+    /// </summary>
+    internal static VBType? ExtendedTypeOf(BoundNode node) => WideTypeOf(node);
 
     // MS-VBAL §5.2.3.2, §5.2.3.4: a constant's value is its expression folded, which does not change for as long as the declaration does - and a name
     // bound to it is bound again when it changes. So it is read as the boxed evaluation reads it, once for each place it is named, and kept as a payload.

@@ -25,7 +25,8 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Runs">How many times each case is run.</param>
 /// <param name="Filter">Only the cases whose <c>Module.Procedure</c> name contains this, without regard to case; every case when <see langword="null"/>.</param>
 /// <param name="ListOnly">Whether the workspace is loaded and swept, and its cases listed, without running any of them.</param>
-internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false);
+/// <param name="Engine">What runs the cases; the engine the environment says when <see langword="null"/>.</param>
+internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null);
 
 /// <summary>
 /// A case of a benchmark, and how long each of its runs took - or the error that stopped it.
@@ -50,7 +51,8 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Symbols">Building the symbols of every module and defining them in the session.</param>
 /// <param name="Load">Loading the code of every module: lowered, and analyzed statically.</param>
 /// <param name="Sweep">From the first module loaded until the facts of every module are evaluated: the analysis sweep, which runs in the background as modules load.</param>
-/// <param name="Compile">Compiling the lowered code of every module to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>; zero while nothing is compiled.</param>
+/// <param name="Compile">Compiling the procedures the cases called to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>: each the first time it was
+/// called, which is in the first run of its case.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
 /// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
 internal sealed record class BenchReport(
@@ -94,8 +96,9 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
     {
         var problems = new List<string>();
         var root = new Uri(workspace.Root);
+        var profile = options.Engine is { } engine && environment is SDK.Runtime.RuntimeEnvironmentProfile configured ? configured with { ExecutionEngine = engine } : environment;
         var provider = new EnvironmentSessionProvider(
-            environment, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), new DirectoryLibrarySource(fileSystem, string.Empty), ExternalWorld.None);
+            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), new DirectoryLibrarySource(fileSystem, string.Empty), ExternalWorld.None);
         provider.Compose(workspace.Project, root);
 
         var stopwatch = Stopwatch.StartNew();
@@ -194,8 +197,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
             cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
         }
 
-        // nothing is compiled yet: every procedure runs in the interpreter, whichever engine is configured.
-        return new BenchReport(workspace, parseTime, symbolsTime, loadTime, sweepTime, TimeSpan.Zero, cases, problems);
+        return new BenchReport(workspace, parseTime, symbolsTime, loadTime, sweepTime, provider.Image.CompilationTime, cases, problems);
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);
