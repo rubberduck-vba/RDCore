@@ -242,6 +242,7 @@ public static class SymbolDescriptorProjector
                 DeclaredBy = local.DeclaredBy,
                 Range = local.Range,
                 SelectionRange = local.SelectionRange,
+                UnlessLive = local.GetProperty(SymbolProperties.UnlessLive) is { IsDefault: false } unlessLive ? unlessLive : [],
             });
         }
         return builder.ToImmutable();

@@ -558,13 +558,18 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     // procedure's parameters and this module's fields/consts — against which a ReDim target is a
     // re-dimension rather than an implicit declaration. <paramref name="directives"/> decides whether
     // this module has an implicit declaration mode at all.
+    // <paramref name="conditionalOuter"/> are those of the outer names the module declares only in the branches of #If blocks, with where: a ReDim or a
+    // reference that one of them keeps from declaring a local declares it still, for when each is dead (SymbolProperties.UnlessLive).
     public IEnumerable<Symbol> BuildLocals(
         MemberDeclarationNode member, Uri procedureUri, IReadOnlySet<string> outerScopeNames,
         ModuleDirectives directives = default, bool withImplicitDeclarations = true,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure,
+        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>>? conditionalOuter = null)
     {
         var results = new List<Symbol>();
         var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        ImmutableArray<SourcePosition>? UnlessLiveOf(string name)
+            => conditionalOuter is not null && !declared.Contains(name) && conditionalOuter.TryGetValue(name, out var positions) ? positions : null;
 
         // a declaration nested in an If/ElseIf/Else branch still parents to the procedure symbol —
         // VBA has no block scope (MS-VBAL 5.4.3.1-3) — so locals are hunted for through the whole
@@ -604,10 +609,18 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var valueNames = implicitDeclarations ? body.SelectMany(ValueContextSimpleNames).ToArray() : [];
         foreach (var redim in body.OfType<RedimDeclarationNode>())
         {
+            var usedBefore = valueNames.Any(used => used.SourceLocation.Range.Start < redim.SourceLocation.Range.Start
+                && string.Equals(used.IdentifierName, redim.Name, StringComparison.OrdinalIgnoreCase));
+            if (redim.IsSimpleName && !usedBefore && UnlessLiveOf(redim.Name) is { } unlessLive)
+            {
+                declared.Add(redim.Name);
+                results.Add(BuildRedimLocal(redim, procedureUri).With(SymbolProperties.UnlessLive, unlessLive));
+                continue;
+            }
+
             if (!redim.IsSimpleName || outerScopeNames.Contains(redim.Name) || declared.Contains(redim.Name)
                 || redim.Target is SimpleNameExpressionNode target && MatchesARedimTarget(target, procedureUri)
-                || valueNames.Any(used => used.SourceLocation.Range.Start < redim.SourceLocation.Range.Start
-                    && string.Equals(used.IdentifierName, redim.Name, StringComparison.OrdinalIgnoreCase)))
+                || usedBefore)
             {
                 continue;
             }
@@ -627,6 +640,13 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         {
             foreach (var reference in body.SelectMany(ValueContextSimpleNames))
             {
+                if (implicitScope == ImplicitDeclarationScope.Procedure && UnlessLiveOf(reference.IdentifierName) is { } unlessLive)
+                {
+                    declared.Add(reference.IdentifierName);
+                    results.Add(BuildImplicitLocal(reference, procedureUri, null).With(SymbolProperties.UnlessLive, unlessLive));
+                    continue;
+                }
+
                 if (outerScopeNames.Contains(reference.IdentifierName) || declared.Contains(reference.IdentifierName))
                 {
                     continue;

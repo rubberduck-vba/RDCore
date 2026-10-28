@@ -121,17 +121,21 @@ internal sealed class DefineSymbolsHandler(
             return null;
         }
 
-        // a module is defined in phases, each request carrying the same directives: they are read and evaluated once per session and module.
+        // a module is defined in phases, each request carrying the same directives: they are read and evaluated once per session and module, for as long as
+        // the project's constants are what they were evaluated with.
         var evaluated = DeadRangesBySession.GetOrCreateValue(session);
         var key = request.ModuleUri?.ToString() ?? request.ModuleName;
-        if (!evaluated.TryGetValue(key, out var cached) || !string.Equals(cached.Json, request.PrecompilerTriviaJson, StringComparison.Ordinal))
+        var constants = string.Join(";", (session.Symbols.ScopeOf(StaticSymbol.GlobalUri)?.Declarations ?? []).OfType<PrecompilerConstantSymbol>()
+            .Select(constant => $"{constant.Name}={constant.Value.Handle.Value.BoxedValue}").Order(StringComparer.OrdinalIgnoreCase));
+        if (!evaluated.TryGetValue(key, out var cached) || !string.Equals(cached.Json, request.PrecompilerTriviaJson, StringComparison.Ordinal)
+            || !string.Equals(cached.Constants, constants, StringComparison.Ordinal))
         {
             var trivia = PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson);
             var ranges = trivia.IsDefaultOrEmpty
                 ? []
                 : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages).Expressions,
                     new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
-            cached = (request.PrecompilerTriviaJson, ranges);
+            cached = (request.PrecompilerTriviaJson, constants, ranges);
             evaluated[key] = cached;
         }
 
@@ -140,7 +144,7 @@ internal sealed class DefineSymbolsHandler(
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession,
-        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, ImmutableArray<SourceRange> Dead)>> DeadRangesBySession = new();
+        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, string Constants, ImmutableArray<SourceRange> Dead)>> DeadRangesBySession = new();
 
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch
     // into one symbol, each other branch's arriving beside it with the same identity (uri): of those the one of the live branch is defined, and a declaration
@@ -177,9 +181,11 @@ internal sealed class DefineSymbolsHandler(
             return null;
         }
 
-        // without the directives, sites of different kinds are not fused: the second is reported, as a declaration written twice is.
+        // sites of different kinds are not fused - a variable and a procedure of one name are a name declared twice, which is reported - but a Sub and a
+        // Function are of one kind: the headers of one procedure written once per branch may be either.
         var notDefined = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => isDead is null ? $"{symbol.Uri}|{symbol.GetType().Name}" : symbol.Uri.ToString()))
+        var definedHere = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => $"{symbol.Uri}|{KindOf(symbol)}"))
         {
             var sites = group.ToList();
             var uri = sites[0].Uri.ToString();
@@ -209,6 +215,15 @@ internal sealed class DefineSymbolsHandler(
                 symbol = type with { Members = [.. type.Members.GroupBy(field => field.Uri.ToString()).Select(fields => fields.First())] };
             }
 
+            symbol = WithLiveLocals(symbol, isDead);
+
+            // a live declaration of a name this request has defined already, of another kind, is that name declared twice: the first stands.
+            if (!definedHere.Add(uri))
+            {
+                skipped.Add(symbol.Name);
+                continue;
+            }
+
             if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))
             {
                 defined++;
@@ -229,6 +244,24 @@ internal sealed class DefineSymbolsHandler(
         }
 
         return (defined, replaced, merged, skipped);
+    }
+
+    // what fuses with what: a procedure's headers whatever their kind, and otherwise a symbol of the same type.
+    private static string KindOf(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol ? "procedure" : symbol.GetType().Name;
+
+    // MS-VBAL §3.4, §5.6.10: the locals of a procedure, with what a name declares that the module declares only in #If branches: declared where each of
+    // those is dead, and not otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
+    private static Symbol WithLiveLocals(Symbol symbol, Func<SourcePosition, bool>? isDead)
+    {
+        bool IsDeclared(BoundTypedSymbol local)
+            => local.GetProperty(SymbolProperties.UnlessLive) is not { IsDefaultOrEmpty: false } unlessLive || isDead is not null && unlessLive.All(isDead);
+
+        return symbol switch
+        {
+            VBProcedureMemberSymbol procedure when !procedure.Locals.All(IsDeclared) => procedure with { Locals = [.. procedure.Locals.Where(IsDeclared)] },
+            VBReturningMemberSymbol returning when !returning.Locals.All(IsDeclared) => returning with { Locals = [.. returning.Locals.Where(IsDeclared)] },
+            _ => symbol,
+        };
     }
 
     // the declaration of the live branch among the sites of one identity (WorkspaceSymbol.LiveDeclaration) - and of a Type, the fields of the live branches.

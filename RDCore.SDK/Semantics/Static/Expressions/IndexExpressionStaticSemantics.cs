@@ -30,8 +30,8 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     /// <see cref="IndexExpressionNode.Callee"/>'s already-determined declared type.
     /// </summary>
     /// <param name="context">
-    /// The compile-time context this expression is evaluated against. Unused — resolution here is
-    /// structural (the callee's declared type), not lexical.
+    /// The compile-time context this expression is evaluated against. The classification is structural (the callee's declared type), except for a callee
+    /// that is a simple name of no type known yet: whether that name is declared at all is looked up from the context's scope.
     /// </param>
     /// <param name="expression">The <see cref="IndexExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">

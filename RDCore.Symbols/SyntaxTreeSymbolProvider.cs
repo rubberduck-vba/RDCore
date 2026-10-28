@@ -5,10 +5,12 @@ using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Workspace.Forms;
+using System.Collections.Immutable;
 
 namespace RDCore.Symbols;
 
@@ -145,20 +147,35 @@ public sealed class SyntaxTreeSymbolProvider(
         // module-level names are order-independent, so collect them before walking the members — a
         // ReDim in one procedure may re-dimension a field declared further down the module.
         var moduleScopeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sites = new Dictionary<string, List<SourcePosition>>(StringComparer.OrdinalIgnoreCase);
         foreach (var child in module.Children)
         {
-            switch (child)
+            var name = child switch
             {
-                case VariableDeclarationNode field:
-                    moduleScopeNames.Add(field.Name);
-                    break;
-                case ConstantDeclarationNode { ConstKind: ConstKind.ModuleMember } constant:
-                    moduleScopeNames.Add(constant.Name);
-                    break;
+                VariableDeclarationNode field => field.Name,
+                ConstantDeclarationNode { ConstKind: ConstKind.ModuleMember } constant => constant.Name,
+                _ => null,
+            };
+
+            if (name is not null)
+            {
+                moduleScopeNames.Add(name);
+                (sites.TryGetValue(name, out var positions) ? positions : sites[name] = []).Add(child.SourceLocation.Range.Start);
             }
         }
 
+        // MS-VBAL §3.4: a variable or a constant the module declares only in the branches of #If blocks is declared only where one of them is live, which the
+        // host knows and this does not. A name of one is matched here; where each is dead, the name matches nothing, and what a procedure declares by it is
+        // declared then (SymbolProperties.UnlessLive).
+        var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
+        var conditional = sites.Where(site => site.Value.TrueForAll(blocks.IsConditional))
+            .ToDictionary(site => site.Key, site => site.Value.ToImmutableArray(), StringComparer.OrdinalIgnoreCase);
+
         moduleScopeNames.UnionWith(parseResult.Designer?.DeclaredControls().Select(control => control.Name) ?? []);
+        foreach (var control in parseResult.Designer?.DeclaredControls() ?? [])
+        {
+            conditional.Remove(control.Name);
+        }
 
         foreach (var child in module.Children)
         {
@@ -174,7 +191,7 @@ public sealed class SyntaxTreeSymbolProvider(
                 case MemberDeclarationNode member:
                     foreach (var declared in member.WithEachHeader())
                     {
-                        var symbols = FromMember(builder, declared, moduleScopeNames, directives, withImplicitDeclarations, implicitScope);
+                        var symbols = FromMember(builder, declared, moduleScopeNames, conditional, directives, withImplicitDeclarations, implicitScope);
                         var isRepeat = !ReferenceEquals(declared, member) && string.Equals(declared.Name, member.Name, StringComparison.OrdinalIgnoreCase);
                         foreach (var symbol in isRepeat ? symbols.Take(1) : symbols)
                         {
@@ -232,6 +249,7 @@ public sealed class SyntaxTreeSymbolProvider(
 
     private static IEnumerable<Symbol> FromMember(
         SymbolBuilder builder, MemberDeclarationNode member, IReadOnlySet<string> moduleScopeNames,
+        IReadOnlyDictionary<string, ImmutableArray<SourcePosition>> conditional,
         ModuleDirectives directives, bool withImplicitDeclarations, ImplicitDeclarationScope implicitScope)
     {
         switch (member.MemberKind)
@@ -263,7 +281,10 @@ public sealed class SyntaxTreeSymbolProvider(
                 // procedure-local Dim/Static/Const + ReDim-introduced symbols parent to the procedure symbol. An
                 // implicit declaration does too, unless the environment has it declared at module level - then it
                 // is a member of the module like any other variable of it, and arrives here with the rest.
-                foreach (var local in builder.BuildLocals(member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope))
+                var conditionalOuter = conditional.Where(site => !member.Children.OfType<ParameterDeclarationNode>()
+                    .Any(parameter => string.Equals(parameter.Name, site.Key, StringComparison.OrdinalIgnoreCase)))
+                    .ToDictionary(site => site.Key, site => site.Value, StringComparer.OrdinalIgnoreCase);
+                foreach (var local in builder.BuildLocals(member, procedure.Uri, outerScopeNames, directives, withImplicitDeclarations, implicitScope, conditionalOuter))
                 {
                     yield return local;
                 }

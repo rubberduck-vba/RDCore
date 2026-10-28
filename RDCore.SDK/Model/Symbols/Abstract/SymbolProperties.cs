@@ -58,6 +58,16 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<bool> ImplicitlyDeclared = new(nameof(ImplicitlyDeclared));
     /// <summary>
+    /// Where the declarations are whose name an implicit or a <c>ReDim</c> local would otherwise have, when each of them is written in a branch of a
+    /// <c>#If</c> block (<strong>MS-VBAL §3.4</strong>, §5.6.10, §5.4.3.3): the local is declared only when every one of them is in a dead branch. Empty for a
+    /// local that is declared whatever the constants are.
+    /// </summary>
+    /// <remarks>
+    /// The language server reads every branch, and cannot tell which is live: a name that a module-level <c>#If</c> branch declares matches that declaration
+    /// there. MS-VBA compiles the live branch only, so where that declaration is dead the name matches nothing, and the procedure declares it.
+    /// </remarks>
+    public static readonly SymbolProperty<System.Collections.Immutable.ImmutableArray<Source.SourcePosition>> UnlessLive = new(nameof(UnlessLive));
+    /// <summary>
     /// Whether a member of a form's class is one of the form's controls: declared by the form's designer, not by its code
     /// (<see cref="Workspace.Forms.FormDescriptor.DeclaredControls"/>).
     /// </summary>

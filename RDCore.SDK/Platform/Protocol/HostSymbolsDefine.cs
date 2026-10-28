@@ -444,6 +444,12 @@ public record class LocalDescriptor
     /// The source span to select when navigating to the variable.
     /// </summary>
     public SourceRange SelectionRange { get; init; }
+
+    /// <summary>
+    /// Where the declarations are that keep this implicit or <c>ReDim</c> local from being declared, each in a branch of a <c>#If</c> block: the host
+    /// declares it only when every one of them is in a dead branch (<see cref="SymbolProperties.UnlessLive"/>). Empty for a local that is always declared.
+    /// </summary>
+    public ImmutableArray<SourcePosition> UnlessLive { get; init; } = [];
 }
 
 /// <summary>

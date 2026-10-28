@@ -1,3 +1,4 @@
+using NSubstitute;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -10,6 +11,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
 using System.Collections.Immutable;
@@ -103,9 +105,11 @@ public sealed class IndexExpressionStaticSemanticsTests
     [TestMethod]
     public void UnknownCallee_PassesThroughUnchanged()
     {
-        // what a call evaluated to, of a type not known yet.
-        var call = new IndexExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [52]), TestLocations.TestLocation, IndexOf("whatever"), [NameOf("i")]);
-        var result = IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, call, VBUnknownType.TypeInfo);
+        // a name that is declared, of a type not known yet: a variable whose type is inferred.
+        var resolver = NSubstitute.Substitute.For<ISymbolResolver>();
+        resolver.ResolveValue("whatever", Arg.Any<ScopeKind>(), Arg.Any<Uri>())
+            .Returns(SymbolResolutionResult.Resolved(new VBModuleFieldVariableMemberSymbol(Root, Root, "whatever", ScopeKind.Module, VBUnknownType.TypeInfo, R, R, AccessModifier.Private)));
+        var result = IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(Context with { Resolver = resolver }, IndexOf("whatever", NameOf("i")), VBUnknownType.TypeInfo);
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);

@@ -264,14 +264,23 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             }
             : syntaxTree;
 
-    // MS-VBA: a procedure whose every header is in a dead branch leaves the statements of its body that are not outside any procedure.
+    // MS-VBA: a procedure whose every header is in a dead branch leaves the statements of its body that are live outside any procedure, and its closing
+    // statement too when it is live: "Invalid outside procedure", at the first of them (recorded in Excel).
     private static VBCompileErrorInfo? HeaderlessBodyErrorOf(MemberDeclarationNode written, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
-        => written is ExternalMemberDeclarationNode
-            || written.WithEachHeader().Any(header => !IsDead(header.SourceLocation.Range.Start, deadRanges))
-            || written.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode)
-                .FirstOrDefault(child => !IsDead(child.SourceLocation.Range.Start, deadRanges)) is not { } statement
-            ? null
-            : VBCompileErrorInfo.For(VBCompileErrorId.InvalidOutsideProcedure, statement.SourceLocation, SDK.Exceptions.VBCompileError_HeaderInDeadBranchesOnly_Verbose);
+    {
+        if (written is ExternalMemberDeclarationNode || written.WithEachHeader().Any(header => !IsDead(header.SourceLocation.Range.Start, deadRanges)))
+        {
+            return null;
+        }
+
+        var end = written.SourceLocation.Range.End;
+        var location = written.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode)
+            .FirstOrDefault(child => !IsDead(child.SourceLocation.Range.Start, deadRanges))?.SourceLocation
+            ?? (IsDead(end, deadRanges) ? null : written.SourceLocation with { Range = new SDK.Model.Source.SourceRange(end, end) });
+        return location is { } at
+            ? VBCompileErrorInfo.For(VBCompileErrorId.InvalidOutsideProcedure, at, SDK.Exceptions.VBCompileError_HeaderInDeadBranchesOnly_Verbose)
+            : null;
+    }
 
     private static bool IsDead(SDK.Model.Source.SourcePosition position, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
         => deadRanges.Any(dead => position.CompareTo(dead.Start) >= 0 && position.CompareTo(dead.End) <= 0);
