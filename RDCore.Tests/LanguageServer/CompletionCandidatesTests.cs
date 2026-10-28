@@ -28,6 +28,18 @@ public sealed class CompletionCandidatesTests
     private static (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) Class(string name, string body)
         => (ModuleUri(name), ModuleType.ClassModule, new ModuleParser().Parse(new Uri($"file:///c:/ws/{name}.cls"), $"Attribute VB_Name = \"{name}\"\r\n{body}"));
 
+    [TestMethod]
+    public void APositionInAProcedureABranchWritesWhole_IsInThatProcedure_NotInTheOneWhoseHeaderTheBlockSplits()
+    {
+        // line 1 is the first after the attribute: F's main header is on line 2, G is on lines 5-6, inside F's lines 2-10.
+        var (tree, _) = Compose(Std("Main", string.Join("\r\n",
+            "#If VBA7 Then", "Private Function F() As Long", "#Else", "Private Sub G()", "    Debug.Print 1", "End Sub", "Private Function F() As Long", "#End If",
+            "    F = 1", "End Function", "")));
+
+        Assert.AreEqual(new UriBuilder(ModuleUri("Main")) { Fragment = "Main.G" }.Uri.AbsoluteUri, CompletionCandidates.OriginAt(tree, ModuleUri("Main"), new SourcePosition(5, 6)).AbsoluteUri);
+        Assert.AreEqual(new UriBuilder(ModuleUri("Main")) { Fragment = "Main.F" }.Uri.AbsoluteUri, CompletionCandidates.OriginAt(tree, ModuleUri("Main"), new SourcePosition(9, 6)).AbsoluteUri);
+    }
+
     private static (ScopeTree Tree, ISymbolResolver Resolver) Compose(params (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] modules)
     {
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, modules, new IntrinsicSymbolResolver());

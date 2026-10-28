@@ -1393,15 +1393,6 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to This procedure header is written in one branch of a #If block of which another branch writes the header that was read, and that procedure could not be read..
-        /// </summary>
-        public static string VBCompileError_SplitHeaderWithoutProcedure_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_SplitHeaderWithoutProcedure_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure..
         /// </summary>
         public static string VBCompileError_HeaderInDeadBranchesOnly_Verbose {
