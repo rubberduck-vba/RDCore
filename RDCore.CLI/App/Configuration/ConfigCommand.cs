@@ -68,12 +68,12 @@ internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive
                     new VerbArgument { Name = "setting", Kind = VerbArgumentKind.Setting, Settings = settable },
                 ],
                 [
-                    new VerbArgument { Name = "import", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = ImportArgument, Description = Resources.Config_Import_Detail }] },
-                    new VerbArgument { Name = "source", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = RubberduckArgument, Description = Resources.Config_Import_Rubberduck_Detail }] },
-                ],
-                [
                     new VerbArgument { Name = "setting", Kind = VerbArgumentKind.Setting, Settings = settable },
                     new VerbArgument { Name = "value", Kind = VerbArgumentKind.SettingValue, ValueOf = "setting" },
+                ],
+                [
+                    new VerbArgument { Name = "import", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = ImportArgument, Description = Resources.Config_Import_Detail }] },
+                    new VerbArgument { Name = "source", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = RubberduckArgument, Description = Resources.Config_Import_Rubberduck_Detail }] },
                 ],
             ],
         };

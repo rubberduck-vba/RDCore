@@ -162,6 +162,7 @@ writes an error.
 |`CONFIG Server.Verbose False`|Sets the setting for the user; a live one takes effect at once ([Live Settings](#live-settings)). A value it cannot be, a `Deployment` setting, and a key that names no setting are errors, and nothing is written.|
 |`CONFIG RESET Server.Verbose`|Removes what the user set of a setting, or of every setting of a section (`CONFIG RESET Server`).|
 |`CONFIG RESET`|Removes every setting the user set, and the file with them, whether or not it can be read.|
+|`CONFIG IMPORT RUBBERDUCK`|Sets the `Formatting` settings to the indenter settings the user had in Rubberduck: its configuration, else the registry key of the Smart Indenter. Windows only; elsewhere there is nothing to import. The language server also offers it once on the first start ([**RD-VBAL §2.0.2** `rdcore/rubberduck-indenter-settings`](rd-vbal.2.0.2.client-server-capabilities.md#rdcorerubberduck-indenter-settings)).|
 
 `CONFIG CLI.Theme light` sets the theme the console starts with, and does not change the current one: `THEME light` changes the theme of the session only.
 
