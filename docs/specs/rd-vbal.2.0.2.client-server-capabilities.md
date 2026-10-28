@@ -473,8 +473,8 @@ For a `.rdc` program, ranges are in its lines, and the procedure its lines are t
 
 The interactive shell folds blocks only. `FOLD <line>` folds the block that starts at that line, or unfolds it; a line that starts none is the error
 `NO FOLDING EXISTS AT <line>`. `LIST` has two lanes in its margin: a breakpoint's mark at the edge, then the mark of a block
-(▽ open, ▲ folded; `-` and `+` on a console that draws no Unicode), next to the line. A folded block is listed as its first line, faint as ghost text and cut with `…` to the console's
-width. A fold is on a line number, as a breakpoint is, and `NEW` and `LOAD` clear them.
+(▽ open, ▲ folded; `-` and `+` on a console that draws no Unicode), next to the line. A folded block is listed as its first line, with how many lines it hides before its text (`20 [4 lines] If X < 0 Then`), faint as ghost text and cut with `…` to the console's
+width. A breakpoint it hides shows in the margin of that line, an enabled one first, when the line has none of its own. A fold is on a line number, as a breakpoint is, and `NEW` and `LOAD` clear them.
 
 ### `workspace/didChangeWatchedFiles`
 

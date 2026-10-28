@@ -899,6 +899,24 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to [1 line].
+        /// </summary>
+        public static string Repl_Fold_HiddenLine {
+            get {
+                return ResourceManager.GetString("Repl_Fold_HiddenLine", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to [{0} lines].
+        /// </summary>
+        public static string Repl_Fold_HiddenLines {
+            get {
+                return ResourceManager.GetString("Repl_Fold_HiddenLines", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to BLOCK UNFOLDED AT {0}.
         /// </summary>
         public static string Repl_Fold_Unfolded {

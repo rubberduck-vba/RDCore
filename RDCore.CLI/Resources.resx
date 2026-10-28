@@ -427,6 +427,12 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Fold_Folded" xml:space="preserve">
     <value>BLOCK FOLDED AT {0}</value>
   </data>
+  <data name="Repl_Fold_HiddenLine" xml:space="preserve">
+    <value>[1 line]</value>
+  </data>
+  <data name="Repl_Fold_HiddenLines" xml:space="preserve">
+    <value>[{0} lines]</value>
+  </data>
   <data name="Repl_Fold_Unfolded" xml:space="preserve">
     <value>BLOCK UNFOLDED AT {0}</value>
   </data>

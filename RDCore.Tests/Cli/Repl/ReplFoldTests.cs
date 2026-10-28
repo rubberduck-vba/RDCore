@@ -68,9 +68,34 @@ public sealed class ReplFoldTests
 
         _console.Received(1).WriteLine(string.Format(Resources.Repl_Fold_Folded, 20));
         var listed = await ListAsync();
-        CollectionAssert.AreEqual(new[] { "10 x = 1", "20 If x > 0 Then", "50 Print \"done\"" }, listed.Select(line => TextOf(line.Runs)).ToArray());
+        // the line says how many lines it hides, before its text (the author's `[4 lines] If X < 0 Then`).
+        var hides = string.Format(Resources.Repl_Fold_HiddenLines, 2);
+        CollectionAssert.AreEqual(new[] { "10 x = 1", $"20 {hides} If x > 0 Then", "50 Print \"done\"" }, listed.Select(line => TextOf(line.Runs)).ToArray());
         Assert.AreEqual(ReplTextStyle.Ghost, listed[1].Runs[^1].Style);
         Assert.AreEqual("+", listed[1].Margin[1].Text, "the mark of a folded block, in ASCII on a console that draws no emoji");
+    }
+
+    [TestMethod]
+    public async Task AFoldedBlock_ShowsABreakpointItHides_OnItsFirstLine()
+    {
+        _context.Debugger.ToggleBreakpoint(30);
+        await FoldAsync("20");
+
+        var folded = (await ListAsync())[1];
+
+        Assert.AreEqual(ReplTextStyle.BreakpointGlyph, folded.Margin[0].Style, "the breakpoint on line 30, folded away, shows on line 20");
+        Assert.AreEqual("●", folded.Margin[0].Text);
+    }
+
+    [TestMethod]
+    public async Task AFoldedBlockWithNoBreakpointInIt_ShowsNone()
+    {
+        _context.Debugger.ToggleBreakpoint(50);
+        await FoldAsync("20");
+
+        var folded = (await ListAsync())[1];
+
+        Assert.AreEqual(" ", folded.Margin[0].Text, "line 50 isn't in the block");
     }
 
     [TestMethod]

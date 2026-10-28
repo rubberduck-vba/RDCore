@@ -77,19 +77,30 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             // background. A disabled breakpoint is its mark in the margin and nothing more: the program goes past it.
             var breakpoint = debugger.Breakpoints.SingleOrDefault(bp => bp.LineNumber == number);
             var waitsBefore = debugger.State is ReplDebugState.Suspended && debugger.StoppedAt == number;
-            var glyph = breakpoint == default ? " "
-                : breakpoint.ConditionExpression != null ?
-                    breakpoint.Enabled ? conditionalGlyph : disabledConditionalGlyph
-                : breakpoint.Enabled ? enabledGlyph : disabledGlyph;
 
-            var breakpointMark = breakpoint != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
+            // a folded block hides its lines and the breakpoints on them: its first line says how many lines, and shows a breakpoint it hides when it has none of
+            // its own - an enabled one first. The line isn't marked as a breakpoint's: the program doesn't stop on it.
+            var hiddenLines = folded ? blocks[index].EndLine - blocks[index].StartLine : 0;
+            var hiddenBreakpoint = !folded || breakpoint != default ? default
+                : debugger.Breakpoints
+                    .Where(bp => Enumerable.Range(blocks[index].StartLine + 1, hiddenLines).Any(line => context.Program.NumberAt(line) == bp.LineNumber))
+                    .OrderByDescending(bp => bp.Enabled)
+                    .FirstOrDefault();
+            var marked = breakpoint != default ? breakpoint : hiddenBreakpoint;
+            var glyph = marked == default ? " "
+                : marked.ConditionExpression != null ?
+                    marked.Enabled ? conditionalGlyph : disabledConditionalGlyph
+                : marked.Enabled ? enabledGlyph : disabledGlyph;
+
+            var breakpointMark = marked != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
 
             var style = waitsBefore ? ReplLineStyle.CurrentStatement
                 : breakpoint != default && breakpoint.Enabled ? ReplLineStyle.Breakpoint
                 : ReplLineStyle.Plain;
 
             var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
-            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, text, foldLane + 1 + padding.Text.Length), ReplTextStyle.Ghost)]
+            var foldedText = $"{number} {(hiddenLines == 1 ? Resources.Repl_Fold_HiddenLine : string.Format(Resources.Repl_Fold_HiddenLines, hiddenLines))} {statement}";
+            ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, foldedText, foldLane + 1 + padding.Text.Length), ReplTextStyle.Ghost)]
                 : highlighted is not null && highlighted.TryGetValue(index, out var tokens) ? [padding, .. ReplHighlighter.Runs(text, tokens)]
                 : [padding, new ReplTextRun(text, ReplTextStyle.Plain)];
             context.Console.WriteListingLine([breakpointMark, foldMark], runs, style);

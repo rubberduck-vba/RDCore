@@ -425,6 +425,12 @@
   <data name="Repl_Fold_Folded" xml:space="preserve">
     <value>BLOC RÉDUIT À {0}</value>
   </data>
+  <data name="Repl_Fold_HiddenLine" xml:space="preserve">
+    <value>[1 ligne]</value>
+  </data>
+  <data name="Repl_Fold_HiddenLines" xml:space="preserve">
+    <value>[{0} lignes]</value>
+  </data>
   <data name="Repl_Fold_Unfolded" xml:space="preserve">
     <value>BLOC DÉVELOPPÉ À {0}</value>
   </data>
