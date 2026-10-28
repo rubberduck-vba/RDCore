@@ -140,7 +140,7 @@ internal sealed class WorkspaceFileOperationService(
                 var oldId = new TextDocumentIdentifier(new Uri(oldPath));
                 if (newPath is null)
                 {
-                    documents.Remove(oldId);
+                    documents.Leave(oldId, project.Root);
                     continue;
                 }
 

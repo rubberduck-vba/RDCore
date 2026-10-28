@@ -230,13 +230,13 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
-    public async Task ADocumentTheClientHasOpen_IsMovedWithItsUnsavedTextAndItsVersion()
+    public async Task ADocumentTheClientHasOpen_IsMovedWithItsUnsavedTextItsVersionAndThatItIsOpen()
     {
         var files = Files();
         var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
         var from = Path.Combine(Lib, "Lib.bas");
         var to = Path.Combine(Lib, "Library.bas");
-        loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n' unsaved\r\n", 7);
+        var opened = loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n' unsaved\r\n", 7);
         files.File.Move(from, to);
 
         await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
@@ -244,8 +244,58 @@ public sealed class WorkspaceFoldersLoadTests
         Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var moved));
         StringAssert.Contains(moved.Text, "unsaved", "not read again from disk");
         Assert.AreEqual(7, moved.Version);
+        Assert.AreEqual(opened.IsDirty, moved.IsDirty);
         CollectionAssert.AreEqual(new[] { Lib }, moved.Projects.ToArray());
+        Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
         Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(from), out _), "and the old path is no document");
+    }
+
+    [TestMethod]
+    public async Task ADocumentTheClientOpenedAtTheNewPathBeforeItSaidTheFileWasRenamed_KeepsItsTextItsVersionAndThatItIsOpen()
+    {
+        // a client closes the old path and opens the new one, and then says the rename.
+        var files = Files();
+        var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
+        var from = Path.Combine(Lib, "Lib.bas");
+        var to = Path.Combine(Lib, "Library.bas");
+        files.File.Move(from, to);
+        loaded.States.Track(new TextDocumentIdentifier(new Uri(to)));
+        loaded.Documents.Open(new Uri(to), "Attribute VB_Name = \"Lib\"\r\n' typed since\r\n", 3);
+
+        await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
+
+        Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var document));
+        StringAssert.Contains(document.Text, "typed since");
+        Assert.AreEqual(3, document.Version);
+        Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
+        CollectionAssert.Contains(document.Projects.ToArray(), Lib);
+    }
+
+    [TestMethod]
+    public async Task AnOpenModuleRenamedToWhatIsNoSourceFile_IsNoModuleOfTheOtherProject()
+    {
+        var files = Files();
+        var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
+        var from = Path.Combine(Lib, "Lib.bas");
+        var to = Path.Combine(Lib, "Lib.txt");
+        loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n", 2);
+        files.File.Move(from, to);
+
+        await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "Util" }, loaded.Names(Lib), "the project does not list it, so it is none of its modules, open or not");
+    }
+
+    [TestMethod]
+    public async Task AnImportedProjectsFolder_GivenOnlyAsTheRoot_IsSeenAsImported()
+    {
+        var files = Files();
+        files.AddFile(Path.Combine(Lib, "Lib.vbp"), new MockFileData("Type=Exe\r\n"));
+        files.AddFile(Path.Combine(Shared, ProjectFile.FileName), ProjectOf(Shared, "Shared", "Util.bas"));
+
+        var loaded = await new Loaded(files).LoadAsync(Lib, Shared);
+
+        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
     }
 
     [TestMethod]
