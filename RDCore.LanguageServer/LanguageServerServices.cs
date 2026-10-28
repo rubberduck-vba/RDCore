@@ -54,6 +54,7 @@ internal static class LanguageServerServices
             .AddSingleton<IDirectory>(sp => sp.GetRequiredService<IFileSystem>().Directory)
             .AddSingleton<IProjectFileService, ProjectFileService>()
             .AddSingleton<IDocumentStateProvider, DocumentStateProvider>()
+            .AddSingleton<IWorkspaceProjects, WorkspaceProjects>()
             .AddSingleton<IWorkspaceDocumentService, WorkspaceDocumentService>()
             .AddSingleton<IWorkspaceService, WorkspaceService>()
             .AddSingleton<IParsingClientService, ParsingClientService>()

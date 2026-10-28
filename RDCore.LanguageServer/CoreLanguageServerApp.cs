@@ -50,6 +50,7 @@ internal sealed class CoreLanguageServerApp(
     ILanguageServerProtocolTransportLayer transportLayer,
     IWorkspaceService workspace,
     IWorkspaceDocumentService workspaceDocuments,
+    IWorkspaceProjects projects,
     IParsingClientService parsing,
     ISymbolSyncService symbolSync,
     IDocumentDiagnosticsService diagnostics,
@@ -170,6 +171,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceProjects>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());
@@ -212,7 +214,10 @@ internal sealed class CoreLanguageServerApp(
     /// </summary>
     private async Task LoadWorkspaceAsync(ILanguageServer server, InitializeParams request)
     {
-        if (request.RootUri is null)
+        // the folders a client gives (LSP 3.17 workspaceFolders); the server is started on the first, or on rootUri when it gives none.
+        var folders = (request.WorkspaceFolders ?? []).Select(folder => folder.Uri.GetFileSystemPath()).ToList();
+        var root = request.RootUri?.GetFileSystemPath() ?? folders.FirstOrDefault();
+        if (root is null)
         {
             LogIfEnabled(LogLevel.Warning, "No RootUri in the initialize request; workspace will not be loaded.");
             return;
@@ -220,7 +225,7 @@ internal sealed class CoreLanguageServerApp(
 
         try
         {
-            await workspace.LoadAsync(request.RootUri.GetFileSystemPath());
+            await workspace.LoadAsync(root, folders);
             LogIfEnabled(LogLevel.Information, "✅ Workspace loaded");
         }
         catch (Exception exception)
@@ -232,7 +237,17 @@ internal sealed class CoreLanguageServerApp(
             server.Window.ShowMessage(new ShowMessageParams
             {
                 Type = MessageType.Error,
-                Message = string.Format(DebuggerMessages.WorkspaceCouldNotBeLoaded, request.RootUri.GetFileSystemPath(), exception.Message),
+                Message = string.Format(DebuggerMessages.WorkspaceCouldNotBeLoaded, root, exception.Message),
+            });
+        }
+
+        // a project that lists a file no workspace folder holds does not have it: the client is told which, and why.
+        foreach (var (project, relativeUri) in projects.Refused)
+        {
+            server.Window.ShowMessage(new ShowMessageParams
+            {
+                Type = MessageType.Warning,
+                Message = string.Format(DebuggerMessages.FileOutsideTheWorkspaceFolders, relativeUri, project),
             });
         }
     }

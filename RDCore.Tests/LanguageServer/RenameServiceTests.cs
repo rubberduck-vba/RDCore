@@ -64,7 +64,7 @@ public sealed class RenameServiceTests
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
-        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance);
+        return new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
     }
 
     private static Uri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName)).ToUri();
