@@ -47,7 +47,7 @@ public sealed class ReplInteractionTests
         var output = new StringWriter();
         var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 100);
 
-        interaction.ShowMessage(new MessageBoxRequest("Saved.", "Project1", VBMsgBoxStyle.VBOkOnly | VBMsgBoxStyle.VBInformation));
+        interaction.ShowMessage(new MessageBoxRequest("Saved.", "Project1", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBInformation));
 
         var lines = output.ToString().ReplaceLineEndings("\n").Split('\n').Where(line => line.Trim().Length > 0).ToArray();
         Assert.IsTrue(lines.First().TrimStart().StartsWith('╔') && lines.Last().TrimStart().StartsWith('╚'), "the box is drawn top to bottom");
@@ -64,7 +64,7 @@ public sealed class ReplInteractionTests
         var output = new StringWriter();
         var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 60);
 
-        interaction.ShowMessage(new MessageBoxRequest(string.Join(' ', Enumerable.Repeat("duck", 40)), "t", VBMsgBoxStyle.VBOkOnly));
+        interaction.ShowMessage(new MessageBoxRequest(string.Join(' ', Enumerable.Repeat("duck", 40)), "t", VBMsgBoxStyle.VBOKOnly));
 
         var lines = output.ToString().ReplaceLineEndings("\n").Split('\n').Where(line => line.Trim().Length > 0).ToArray();
         Assert.IsTrue(lines.Count(line => line.Contains("duck")) > 1);
@@ -78,7 +78,7 @@ public sealed class ReplInteractionTests
         var output = new StringWriter();
         var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, ansi: true, consoleWidth: () => 80);
 
-        interaction.ShowMessage(new MessageBoxRequest("Line one\r\nLine two", "t", VBMsgBoxStyle.VBOkOnly | VBMsgBoxStyle.VBExclamation));
+        interaction.ShowMessage(new MessageBoxRequest("Line one\r\nLine two", "t", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBExclamation));
 
         var rows = output.ToString().ReplaceLineEndings("\n").Split('\n').Where(line => line.Contains("Line ")).ToArray();
         Assert.AreEqual(2, rows.Length);
@@ -96,7 +96,7 @@ public sealed class ReplInteractionTests
         var output = new StringWriter();
         var interaction = new ReplUserInteraction(new ScriptedKeys().Press(Key(ConsoleKey.Enter)), output, ansi: true);
 
-        interaction.ShowMessage(new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOkOnly));
+        interaction.ShowMessage(new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOKOnly));
 
         var text = output.ToString();
         Assert.IsTrue(text.IndexOf('╝') < text.IndexOf("[ OK ]", StringComparison.Ordinal), "the bottom edge is there before the buttons are drawn in it");
@@ -119,9 +119,9 @@ public sealed class ReplInteractionTests
     }
 
     [TestMethod]
-    [DataRow(VBMsgBoxStyle.VBOkCancel, VBMsgBoxResult.VBCancel)]
+    [DataRow(VBMsgBoxStyle.VBOKCancel, VBMsgBoxResult.VBCancel)]
     [DataRow(VBMsgBoxStyle.VBYesNoCancel, VBMsgBoxResult.VBCancel)]
-    [DataRow(VBMsgBoxStyle.VBOkOnly, VBMsgBoxResult.VBOk)]
+    [DataRow(VBMsgBoxStyle.VBOKOnly, VBMsgBoxResult.VBOK)]
     public void Escape_ClosesTheMessage_AsItsCloseButtonWould(VBMsgBoxStyle style, VBMsgBoxResult expected)
     {
         var (interaction, _) = Shell(new ScriptedKeys().Press(Key(ConsoleKey.Escape)));

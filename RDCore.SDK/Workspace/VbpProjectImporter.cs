@@ -98,6 +98,34 @@ public static class VbpImportText
     /// <summary>A file is not there.</summary>
     public static string NotFound(string path, CultureInfo? culture = null) => Say("VbpImport_Refused_NotFound", culture, path);
 
+    /// <summary>A file could not be read: access to it is denied, or the system says why on one line.</summary>
+    /// <param name="path">The file.</param>
+    /// <param name="cause">What the file system threw.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string NotRead(string path, Exception cause, CultureInfo? culture = null)
+        => cause is UnauthorizedAccessException
+            ? Say("VbpImport_Refused_ReadDenied", culture, path)
+            : Say("VbpImport_Refused_ReadFailed", culture, path, Server.ServerErrorAnswers.OneLineOf(cause));
+
+    /// <summary>A file could not be written: access to it is denied, or the system says why on one line.</summary>
+    /// <param name="path">The file.</param>
+    /// <param name="cause">What the file system threw.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string NotWritten(string path, Exception cause, CultureInfo? culture = null)
+        => cause is UnauthorizedAccessException
+            ? Say("VbpImport_Refused_WriteDenied", culture, path)
+            : Say("VbpImport_Refused_WriteFailed", culture, path, Server.ServerErrorAnswers.OneLineOf(cause));
+
+    /// <summary>
+    /// A project file was written, and the workspace could not be made what it lists: a file it lists could not be read, which the system says why of on one
+    /// line.
+    /// </summary>
+    /// <param name="path">The project file.</param>
+    /// <param name="cause">What the file system threw.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string NotReloaded(string path, Exception cause, CultureInfo? culture = null)
+        => Say("VbpImport_Refused_ReloadFailed", culture, path, Server.ServerErrorAnswers.OneLineOf(cause));
+
     private static string Say(string key, CultureInfo? culture, params object[] arguments)
     {
         culture ??= CultureInfo.CurrentUICulture;

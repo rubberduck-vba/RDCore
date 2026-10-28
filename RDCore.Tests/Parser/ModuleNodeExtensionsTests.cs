@@ -124,4 +124,38 @@ public sealed class ModuleNodeExtensionsTests
 
         Assert.IsFalse(module.IsPredeclared());
     }
+
+    private static readonly string MembersWithAttributes = string.Join("\r\n",
+        "Attribute VB_Name = \"M1\"",
+        "Public X As Long",
+        "Public Function Item(ByVal Index As Long) As Long",
+        "Attribute Item.VB_UserMemId = 0",
+        "Attribute Item.VB_Description = \"Gets an \"\"item\"\".\"",
+        "End Function",
+        "Public Sub Other()",
+        "Attribute Item.VB_Description = \"Written in another member's body.\"",
+        "End Sub",
+        "");
+
+    [TestMethod]
+    public void AMembersAttributes_AreFoundByItsName_WithoutRegardToCase()
+    {
+        var module = Parse(MembersWithAttributes);
+
+        Assert.AreEqual(0, module.GetMemberUserMemId("ITEM"));
+        Assert.AreEqual("Gets an \"item\".", module.GetMemberDescription("item"));
+    }
+
+    [TestMethod]
+    public void AnAttributeWrittenInAnotherMembersBody_IsNotTheMembers()
+    {
+        var module = Parse(MembersWithAttributes);
+
+        Assert.IsNull(module.GetMemberDescription("Other"));
+        Assert.IsNull(module.GetMemberUserMemId("Other"));
+    }
+
+    [TestMethod]
+    public void AVariable_HasNoMemberAttribute()
+        => Assert.IsNull(Parse(MembersWithAttributes).GetMemberDescription("X"));
 }

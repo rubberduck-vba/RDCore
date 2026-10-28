@@ -47,4 +47,18 @@ public sealed class SignatureSiteTests
     [DataRow("x = (", DisplayName = "parentheses after no name")]
     public void WhereNoCallIsWritten_ThereIsNone(string text)
         => Assert.IsNull(Read(text));
+
+    [TestMethod]
+    [DataRow("MsgBox ", true, DisplayName = "after a call statement's name")]
+    [DataRow("x = Left(", true, DisplayName = "after an opening parenthesis")]
+    [DataRow("MsgBox \"a\", ", true, DisplayName = "after a comma")]
+    [DataRow("MsgBox Buttons:= ", true, DisplayName = "after a :=")]
+    [DataRow("MsgBox \"a\", vbYesNo + ", true, DisplayName = "after a +")]
+    [DataRow("MsgBox \"a\", vbYesNo Or ", true, DisplayName = "after an Or")]
+    [DataRow("MsgBox \"a\", Not ", true, DisplayName = "after a Not")]
+    [DataRow("MsgBox a ", false, DisplayName = "after an operand")]
+    [DataRow("x = Left(s * ", false, DisplayName = "after another operator")]
+    [DataRow("MsgBox Colour ", false, DisplayName = "after a name that ends with Or")]
+    public void WhereAValueOfTheArgumentStarts_IsAfterWhatStartsOne(string text, bool starts)
+        => Assert.AreEqual(starts, SignatureSite.Read(text)!.IsWhereAValueStarts(text));
 }

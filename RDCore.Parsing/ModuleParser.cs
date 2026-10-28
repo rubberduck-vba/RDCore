@@ -163,19 +163,11 @@ public partial class ModuleParser(
             source.CopyTo(directive.Index, sanitized, directive.Index, directive.Length);
         }
 
-        var stream = new AntlrInputStream(new string(sanitized));
-        var lexer = new VBALexer(stream);
-        var tokens = new CommonTokenStream(lexer);
-        var parser = new VBAConditionalCompilationParser(tokens);
-
-        parser.Interpreter.PredictionMode = PredictionMode.Ll;
-        parser.AddErrorListener(errorListener);
-
         try
         {
             // parse to a tree, then walk it: AddParseListener fires Exit before Enter<Op> on a
             // left-recursive ccExpression (`#If A And B`), desyncing the builder stack. A walk doesn't.
-            var tree = parser.compilationUnit();
+            var tree = ParseDirectives(new string(sanitized), errorListener);
             AnchorTree(tree, anchorOffset);
             foreach (var listener in listeners)
             {
@@ -189,6 +181,38 @@ public partial class ModuleParser(
             _logger.LogDebug(exception, "Precompiler-trivia pass failed; trivia forfeited for this module.");
             return [];
         }
+    }
+
+    // the directive pass in two stages, as the main pass is: SLL with a bail-on-first-error strategy, then LL with default recovery and the error listener
+    // when SLL fails. A block's body is a non-greedy loop of lines (ccBlock), and whether a line ends the loop is a decision LL resolves with the full
+    // context of every enclosing block: on a module of many #If blocks that is quadratic in their length - 7 s for the 1,200 lines of a JSON parser - where
+    // SLL takes milliseconds, and gives the tree LL gives whenever it succeeds.
+    private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, ErrorListener errorListener)
+    {
+        try
+        {
+            return DirectiveParser(sanitized, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null).compilationUnit();
+        }
+        catch (Exception exception) when (exception is ParseCanceledException or RecognitionException)
+        {
+            return DirectiveParser(sanitized, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener).compilationUnit();
+        }
+    }
+
+    private static VBAConditionalCompilationParser DirectiveParser(string sanitized, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener)
+    {
+        var parser = new VBAConditionalCompilationParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
+        {
+            ErrorHandler = errorStrategy,
+        };
+        parser.Interpreter.PredictionMode = mode;
+        parser.RemoveErrorListeners();
+        if (errorListener is not null)
+        {
+            parser.AddErrorListener(errorListener);
+        }
+
+        return parser;
     }
 
     /// <summary>

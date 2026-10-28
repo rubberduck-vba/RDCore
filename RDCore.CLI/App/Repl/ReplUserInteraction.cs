@@ -42,7 +42,7 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
     // what a button is called and which key chooses it, as a Windows dialog has it.
     private static string LabelOf(VBMsgBoxResult choice) => choice switch
     {
-        VBMsgBoxResult.VBOk => "&OK",
+        VBMsgBoxResult.VBOK => "&OK",
         VBMsgBoxResult.VBCancel => "&Cancel",
         VBMsgBoxResult.VBAbort => "&Abort",
         VBMsgBoxResult.VBRetry => "&Retry",

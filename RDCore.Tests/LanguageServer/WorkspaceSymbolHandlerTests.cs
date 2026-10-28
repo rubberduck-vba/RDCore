@@ -61,7 +61,7 @@ public sealed class WorkspaceSymbolHandlerTests
 
     private void Hold(params WorkspaceDocument[] held)
     {
-        _documents.GetAllDocuments().Returns(held);
+        _documents.Holds(held);
         foreach (var document in held)
         {
             var uri = document.Id.Uri.ToUri();

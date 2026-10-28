@@ -1,3 +1,4 @@
+using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Platform.Commands;
 
@@ -58,10 +59,14 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
                 return ReplCommandResult.Continue;
             }
 
-            // one breakpoint a line, marked as LIST marks it: its glyph, its line number, and the condition it waits on.
+            // one breakpoint a line, marked as LIST marks it: its glyph, its line number, and the condition it waits on - the conditions of all of them
+            // coloured by one request, not one each.
+            var conditions = debugger.Breakpoints.Select(breakpoint => breakpoint.ConditionExpression).OfType<string>().Distinct().ToList();
+            var highlighted = await HighlightedAsync(context, conditions, token);
             foreach (var breakpoint in debugger.Breakpoints)
             {
-                context.Console.WriteLine(Describe(breakpoint));
+                var condition = breakpoint.ConditionExpression is { } written ? highlighted[written] : null;
+                context.Console.WriteLine(Describe(breakpoint, condition));
             }
 
             return ReplCommandResult.Continue;
@@ -157,14 +162,41 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
 
     // how BREAK lists a breakpoint: the glyph LIST marks it with - which says whether the program waits at it, and on a condition - the number of its line, and the
     // condition.
-    private static IReadOnlyList<ReplTextRun> Describe(Breakpoint breakpoint)
+    private static IReadOnlyList<ReplTextRun> Describe(Breakpoint breakpoint, IReadOnlyList<ReplTextRun>? condition)
         =>
         [
             new ReplTextRun(ReplBreakpointMarks.GlyphOf(breakpoint), ReplTextStyle.BreakpointGlyph),
             new ReplTextRun(" ", ReplTextStyle.Plain),
             new ReplTextRun(breakpoint.LineNumber.ToString(), ReplTextStyle.Number),
-            .. breakpoint.ConditionExpression is { } condition ? new[] { new ReplTextRun($" {condition}", ReplTextStyle.Plain) } : [],
+            .. condition is null ? [] : new[] { new ReplTextRun(" ", ReplTextStyle.Plain) }.Concat(condition),
         ];
+
+    // the conditions as runs of the way the language server tells their tokens, all in one request; plain where it cannot: a server without the capability,
+    // or one that does not answer, leaves a listing as legible as it was.
+    private static async Task<Dictionary<string, IReadOnlyList<ReplTextRun>>> HighlightedAsync(ReplCommandContext context, IReadOnlyList<string> conditions, CancellationToken token)
+    {
+        var plain = conditions.ToDictionary(condition => condition, condition => (IReadOnlyList<ReplTextRun>)[new ReplTextRun(condition, ReplTextStyle.Plain)]);
+        if (conditions.Count == 0 || !context.Platform.Provides<SessionSemanticTokens>())
+        {
+            return plain;
+        }
+
+        try
+        {
+            var tokens = await context.Platform.GetFragmentTokensAsync(context.Program.ToModuleSource(), ReplProgram.ModuleName, conditions, token);
+            if (tokens.Count != conditions.Count)
+            {
+                return plain;
+            }
+
+            return conditions.Select((condition, index) => (condition, runs: ReplHighlighter.Runs(condition, tokens[index])))
+                .ToDictionary(entry => entry.condition, entry => entry.runs);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return plain;
+        }
+    }
 
     // a program that waits goes on with the lines the platform has, and the next one that is run is told them anyway; telling it now makes a
     // breakpoint set while a program waits one that is waited at when it goes on.

@@ -140,6 +140,45 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
         return new SignatureSite(call.Groups["callee"].Value, commas, NameOf(arguments));
     }
 
+    /// <summary>
+    /// Whether the text up to the cursor ends where a value of the argument starts: after the opening parenthesis, a comma or a <c>:=</c>, after the name a call
+    /// statement starts with, or after an operator that combines the flags of an <c>Enum</c> - <c>+</c>, <c>Or</c>, <c>And</c>, <c>Xor</c>, <c>Not</c>
+    /// (<c>MsgBox "a", vbYesNo + |</c>).
+    /// </summary>
+    /// <remarks>
+    /// A space anywhere else in an argument - after an operand, <c>Foo a |</c> - starts no value: a list of what the parameter is declared as has nothing to
+    /// offer there.
+    /// </remarks>
+    /// <param name="text">The text of the line up to the cursor, which this site was read off.</param>
+    public bool IsWhereAValueStarts(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var before = text.TrimEnd();
+        if (before.Length == 0)
+        {
+            return false;
+        }
+
+        if (before[^1] is ',' or '(' or '+' || before.EndsWith(":=", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (FlagOperator().IsMatch(before))
+        {
+            return true;
+        }
+
+        // the name a call statement starts with, and a space: its first argument starts there.
+        return ArgumentIndex == 0 && before.EndsWith(Callee, StringComparison.OrdinalIgnoreCase)
+            && (before.Length == Callee.Length || !IsNameCharacter(before[^(Callee.Length + 1)]));
+    }
+
+    private static bool IsNameCharacter(char character) => char.IsAsciiLetterOrDigit(character) || character is '_' or '.' or '!';
+
+    [GeneratedRegex(@"(?:^|[\s(,])(?:Or|And|Xor|Not)$", RegexOptions.IgnoreCase)]
+    private static partial Regex FlagOperator();
+
     // what of a statement the call is: after its line number, and after the Then or the Else of a single-line If.
     private static string StatementOf(string text)
     {

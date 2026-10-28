@@ -47,6 +47,13 @@ public record class SessionCompletionParams : IRequest, IRequest<CompletionList>
     /// <see cref="Source"/> is still the module the command acts on: the lines a line number names, and where an expression is evaluated, are its.
     /// </remarks>
     public SessionCommandCompletion? Command { get; init; }
+
+    /// <summary>
+    /// The character typed that had the client ask, as <strong>LSP 3.17</strong> <c>CompletionContext.triggerCharacter</c> has it; <see langword="null"/> when
+    /// the list was asked for as a name was typed, or by the user. A <c>(</c>, a <c>,</c> or a space asks for the list of an argument whose parameter is an
+    /// <c>Enum</c> - its constants first - and is answered nothing elsewhere.
+    /// </summary>
+    public string? TriggerCharacter { get; init; }
 }
 
 /// <summary>
