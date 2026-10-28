@@ -65,7 +65,9 @@ internal sealed class ImportProjectCommand(
         }
 
         var folder = fileSystem.Path.GetDirectoryName(vbp)!;
-        var import = VbpProjectImporter.Import(text, fileSystem.Path.GetFileName(vbp), libraries, fileSystem.Path.GetFullPath(folder));
+        // a file the .vbp lists outside its folder is the project's when a folder of the workspace holds it, written relative to the .vbp's folder.
+        var import = VbpProjectImporter.Import(text, fileSystem.Path.GetFileName(vbp), libraries, fileSystem.Path.GetFullPath(folder),
+            workspaceProjects is { } projects ? projects.Folders.Contains : null);
         var rdproj = fileSystem.Path.Combine(folder, ProjectFile.FileName);
 
         if (fileSystem.File.Exists(rdproj) && !overwrite

@@ -66,8 +66,9 @@ public sealed class ImportProjectCommandTests
         }
     }
 
-    private ImportProjectCommand Sut()
-        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()), _server);
+    private ImportProjectCommand Sut(IWorkspaceProjects? projects = null)
+        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()), _server,
+            projects);
 
     private void Write(string path, string text) => _fileSystem.AddFile(path, new MockFileData(Encoding.Latin1.GetBytes(text)));
 
@@ -169,6 +170,25 @@ public sealed class ImportProjectCommandTests
         await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
 
         _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
+    }
+
+    // a file the .vbp lists outside its folder is a module of its project when the client gave the folder that holds it (author, 2026-10-27, desk #30).
+    [TestMethod]
+    public async Task AFileInAnotherWorkspaceFolder_IsAModuleOfTheProject_AndOneInNoneIsNoted()
+    {
+        Write(Path.Combine(Root, "Battleship.vbp"),
+            $"Name=\"Battleship\"\r\nModule=Util; ..\\{Path.GetFileName(Other)}\\Util.bas\r\nModule=Gone; ..\\rdcore-import-elsewhere\\Gone.bas\r\n");
+        var projects = Substitute.For<IWorkspaceProjects>();
+        projects.Folders.Returns(new WorkspaceFolders([Root, Other]));
+
+        var answer = (JObject)(await Sut(projects).ExecuteAsync(Argument(Uri(Path.Combine(Root, "Battleship.vbp"))), _context, CancellationToken.None))!;
+
+        var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
+        CollectionAssert.AreEqual(new[] { $"../{Path.GetFileName(Other)}/Util.bas" },
+            change(new ProjectFile(Root)).ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+        var note = (JObject)answer["notes"]!.Single();
+        Assert.AreEqual(nameof(VbpImportNoteKind.OutsideProjectFolder), note.Value<string>("kind"));
+        Assert.AreEqual(@"..\rdcore-import-elsewhere\Gone.bas", note.Value<string>("subject"));
     }
 
     [TestMethod]
