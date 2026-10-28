@@ -38,6 +38,15 @@ public sealed class WorkspaceLoaderTests
     private static ProjectFileService ProjectService(MockFileSystem fs)
         => new(NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs), () => SupportedLanguages.RDVBA);
 
+    private static WorkspaceService Service(MockFileSystem fs, IServerStateProvider state, WorkspaceDocumentService documents, DocumentStateProvider documentStates)
+    {
+        var projectFiles = ProjectService(fs);
+        return new WorkspaceService(
+            new Version(99, 0, 0), state, NullLogger<WorkspaceService>.Instance,
+            fs.Path, fs.File, fs.Directory, projectFiles, documents, documentStates,
+            () => ProtocolSupportedLanguage.VBA, new WorkspaceProjects(projectFiles), new ProjectFileLoader(fs));
+    }
+
     private static IServerStateProvider InitializingState()
     {
         var state = Substitute.For<IServerStateProvider>();
@@ -51,10 +60,7 @@ public sealed class WorkspaceLoaderTests
         var documents = new WorkspaceDocumentService(
             documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
 
-        return new WorkspaceService(
-            new Version(99, 0, 0), state ?? InitializingState(), NullLogger<WorkspaceService>.Instance,
-            fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            () => ProtocolSupportedLanguage.VBA);
+        return Service(fs, state ?? InitializingState(), documents, documentStates);
     }
 
     [TestMethod]
@@ -108,10 +114,7 @@ public sealed class WorkspaceLoaderTests
         var documents = new WorkspaceDocumentService(
             documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
 
-        var sut = new WorkspaceService(
-            new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
-            fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            () => ProtocolSupportedLanguage.VBA);
+        var sut = Service(fs, InitializingState(), documents, documentStates);
 
         await sut.LoadAsync(Root);
 
@@ -138,10 +141,7 @@ public sealed class WorkspaceLoaderTests
         });
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
-        var sut = new WorkspaceService(
-            new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
-            fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            () => ProtocolSupportedLanguage.VBA);
+        var sut = Service(fs, InitializingState(), documents, documentStates);
 
         await sut.LoadAsync(Root);
 
@@ -182,10 +182,7 @@ public sealed class WorkspaceLoaderTests
         var documents = new WorkspaceDocumentService(
             documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
 
-        var sut = new WorkspaceService(
-            new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
-            fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            () => ProtocolSupportedLanguage.VBA);
+        var sut = Service(fs, InitializingState(), documents, documentStates);
         await sut.LoadAsync(Root);
 
         var loaded = documents.GetAllDocuments().Single();

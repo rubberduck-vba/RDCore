@@ -1,3 +1,5 @@
+using RDCore.SDK.Workspace;
+
 namespace RDCore.LanguageServer.Workspace.Services;
 
 internal static class WorkspaceDocumentServiceExtensions
@@ -11,9 +13,5 @@ internal static class WorkspaceDocumentServiceExtensions
     public static IEnumerable<WorkspaceDocument> GetProjectDocuments(this IWorkspaceDocumentService documents, string projectRoot)
         => string.IsNullOrEmpty(projectRoot)
             ? documents.GetAllDocuments()
-            : documents.GetAllDocuments().Where(document => document.Projects.Any(root => SameFolder(root, projectRoot)));
-
-    internal static bool SameFolder(string left, string right)
-        => string.Equals(Path.TrimEndingDirectorySeparator(left), Path.TrimEndingDirectorySeparator(right),
-            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            : documents.GetAllDocuments().Where(document => document.Projects.Any(root => WorkspacePaths.Same(root, projectRoot)));
 }

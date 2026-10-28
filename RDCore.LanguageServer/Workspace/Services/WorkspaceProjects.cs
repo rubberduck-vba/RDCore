@@ -5,19 +5,27 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// <summary>
 /// A project of the workspace: the folder it is in, and its project file.
 /// </summary>
-/// <param name="Root">The absolute path of the project's folder, as a workspace folder of the client.</param>
-/// <param name="Project">The project file: the <c>.rdproj</c> of the folder, or the project the platform made up for it.</param>
-internal sealed record WorkspaceProject(string Root, ProjectFile Project)
+/// <param name="root">The absolute path of the project's folder, as a workspace folder of the client.</param>
+/// <param name="project">The project file: the <c>.rdproj</c> of the folder, or the project the platform made up for it.</param>
+internal sealed class WorkspaceProject(string root, ProjectFile project)
 {
+    private IReadOnlySet<string>? _listedFiles;
+
+    /// <summary>The absolute path of the project's folder, as a workspace folder of the client.</summary>
+    public string Root => root;
+
+    /// <summary>The project file: the <c>.rdproj</c> of the folder, or the project the platform made up for it.</summary>
+    public ProjectFile Project => project;
+
     /// <summary>
     /// The absolute paths of the files the project lists - its modules and its other files - which are the files of the project, wherever they are: a path that
-    /// climbs out of the project's folder (<c>..\Shared\Util.bas</c>) is the file it names.
+    /// climbs out of the project's folder (<c>..\Shared\Util.bas</c>) is the file it names. Worked out once for the project file the project has.
     /// </summary>
     public IReadOnlySet<string> ListedFiles
-        => new HashSet<string>(
-            Project.ProjectInfo.Modules.Select(module => module.RelativeUri).Concat(Project.ProjectInfo.OtherFiles.Select(file => file.RelativeUri))
-                .Select(relative => Path.GetFullPath(Path.Combine(Root, relative))),
-            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        => _listedFiles ??= new HashSet<string>(
+            project.ProjectInfo.Modules.Select(module => module.RelativeUri).Concat(project.ProjectInfo.OtherFiles.Select(file => file.RelativeUri))
+                .Select(relative => Path.GetFullPath(Path.Combine(root, relative))),
+            WorkspacePaths.Comparer);
 }
 
 /// <summary>
@@ -26,7 +34,7 @@ internal sealed record WorkspaceProject(string Root, ProjectFile Project)
 /// <remarks>
 /// <para>
 /// The first project is the primary one: the folder the language server was started on, which is the project the environment host runs. The others are
-/// analyzed - diagnostics, navigation, completion - and not run (#252, S1b).
+/// analyzed - diagnostics, navigation, completion - and not run.
 /// </para>
 /// <para>
 /// A folder is a project's, or only holds sources some project lists, as <see cref="WorkspaceFolderRoles"/> tells. A file is a module of every project that lists
@@ -56,13 +64,7 @@ internal interface IWorkspaceProjects
     IReadOnlyList<WorkspaceProject> Listing(string path);
 
     /// <summary>
-    /// Says that the client imported a project (<c>rdcore.importProject</c>): the folder that holds it is a project folder.
-    /// </summary>
-    /// <param name="projectFolder">The folder of the project that was imported.</param>
-    void Imported(string projectFolder);
-
-    /// <summary>
-    /// The role of each folder the client gave, as it is told by the imports and by what the projects loaded so far list.
+    /// The role of each folder the client gave, as it is told by what the projects loaded so far list.
     /// </summary>
     IReadOnlyList<(string Root, WorkspaceFolderRole Role)> Roles();
 
@@ -81,21 +83,31 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
 {
     private readonly object _sync = new();
     private readonly List<WorkspaceProject> _secondary = [];
-    private readonly List<string> _imported = [];
     private readonly List<(string Project, string RelativeUri)> _refused = [];
     private volatile WorkspaceFolders _folders = new([]);
     private volatile string _primaryRoot = string.Empty;
+    private WorkspaceProject? _primaryProject;
 
     public WorkspaceFolders Folders => _folders;
 
-    // the primary project is read live: the project file service holds it, and replaces it as it changes.
+    // the primary project is read live: the project file service holds it, and replaces it as it changes - and the files it lists are worked out again then, not at each ask.
     public IReadOnlyList<WorkspaceProject> Projects
     {
         get
         {
             lock (_sync)
             {
-                return primary.Project is { } project && _primaryRoot.Length > 0 ? [new WorkspaceProject(_primaryRoot, project), .. _secondary] : [.. _secondary];
+                if (primary.Project is not { } project || _primaryRoot.Length == 0)
+                {
+                    return [.. _secondary];
+                }
+
+                if (_primaryProject is null || !ReferenceEquals(_primaryProject.Project, project) || _primaryProject.Root != _primaryRoot)
+                {
+                    _primaryProject = new WorkspaceProject(_primaryRoot, project);
+                }
+
+                return [_primaryProject, .. _secondary];
             }
         }
     }
@@ -119,7 +131,7 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
             _primaryRoot = primaryRoot;
             _folders = new WorkspaceFolders([primaryRoot, .. folders]);
             _secondary.Clear();
-            _imported.Clear();
+            _primaryProject = null;
             _refused.Clear();
         }
     }
@@ -138,25 +150,10 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
         return [.. Projects.Where(project => project.ListedFiles.Contains(full))];
     }
 
-    public void Imported(string projectFolder)
-    {
-        lock (_sync)
-        {
-            _imported.Add(projectFolder);
-        }
-    }
-
     public IReadOnlyList<(string Root, WorkspaceFolderRole Role)> Roles()
     {
-        string[] imported;
-        lock (_sync)
-        {
-            imported = [.. _imported];
-        }
-
-        var projects = Projects.ToDictionary(project => Path.TrimEndingDirectorySeparator(Path.GetFullPath(project.Root)), project => project,
-            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        return new WorkspaceFolderRoles(_folders, imported).Roles(root => projects.TryGetValue(root, out var project) ? project.ListedFiles : []);
+        var projects = Projects.ToDictionary(project => WorkspacePaths.Normalized(project.Root), project => project, WorkspacePaths.Comparer);
+        return new WorkspaceFolderRoles(_folders, []).Roles(root => projects.TryGetValue(root, out var project) ? project.ListedFiles : []);
     }
 
     public void Refuse(string project, string relativeUri)

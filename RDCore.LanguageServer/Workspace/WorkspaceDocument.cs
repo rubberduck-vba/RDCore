@@ -1,4 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Workspace;
 
@@ -18,7 +19,7 @@ internal record class WorkspaceDocument
         // a path that is absolute is the document's own: a document the client opens need not be in the workspace folder.
         // a path that climbs out of the folder (..\Shared\Util.bas) is the file it names: the address a client has it by.
         var path = Path.Combine(workspaceRoot, relativePath);
-        Id = new TextDocumentIdentifier(relativePath.Split('/', '\\').Contains("..") ? Path.GetFullPath(path) : path);
+        Id = new TextDocumentIdentifier(WorkspacePaths.Climbs(relativePath) ? Path.GetFullPath(path) : path);
         Version = version;
         Text = content;
 

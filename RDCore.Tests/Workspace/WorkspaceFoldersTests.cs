@@ -3,7 +3,7 @@ using RDCore.SDK.Workspace;
 namespace RDCore.Tests.Workspace;
 
 /// <summary>
-/// The folders of a workspace are its projects and its bounds (#252, desk #30): a file is the project's whose folder holds it most closely, and a file no
+/// The folders of a workspace are its projects and its bounds: a file is the project's whose folder holds it most closely, and a file no
 /// folder holds - a <c>..\</c> path that climbs out of every one - is outside the workspace.
 /// </summary>
 [TestClass]

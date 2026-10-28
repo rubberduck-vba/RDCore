@@ -2,6 +2,7 @@ using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
@@ -12,7 +13,7 @@ namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
 /// A client that opens several folders (<strong>LSP 3.17</strong> <c>workspaceFolders</c>): each folder that is a project's is loaded as one, a folder that only
-/// holds the sources a project lists is not, and a file no folder holds is refused (#252, desk #30).
+/// holds the sources a project lists is not, and a file no folder holds is refused.
 /// </summary>
 [TestClass]
 public sealed class WorkspaceFoldersLoadTests
@@ -122,13 +123,43 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
-    public async Task AnImport_CorrectsTheGuess_OfWhichFoldersAreProjects()
+    public async Task ARenamedModule_OfAnotherProject_StaysThatProjects()
     {
         var loaded = await new Loaded(Files()).LoadAsync(App, App, Shared, Lib);
-        loaded.Projects.Imported(Lib);
+        var lib = new Uri(Path.Combine(Lib, "Lib.bas"));
+        var renamed = new Uri(Path.Combine(Lib, "Library.bas"));
+        loaded.States.Track(new TextDocumentIdentifier(renamed));
+
+        loaded.Documents.Rename(new TextDocumentIdentifier(lib), "Library.bas");
+
+        Assert.IsTrue(loaded.Documents.TryGetDocument(renamed, out var document), "it is where its project's folder is, not under the primary project's");
+        Assert.AreEqual(Lib, document.WorkspaceRoot);
+        CollectionAssert.AreEqual(new[] { Lib }, document.Projects.ToArray());
+        Assert.IsFalse(loaded.Documents.TryGetDocument(lib, out _));
+    }
+
+    [TestMethod]
+    public async Task ARenamedSharedFile_StaysInItsFolder_AndAModuleOfEveryProjectThatListsIt()
+    {
+        var loaded = await new Loaded(Files()).LoadAsync(App, App, Shared, Lib);
+
+        var renamed = new Uri(Path.Combine(Shared, "Tools.bas"));
+        loaded.States.Track(new TextDocumentIdentifier(renamed));
+
+        loaded.Documents.Rename(new TextDocumentIdentifier(new Uri(Util)), "Tools.bas");
+
+        Assert.IsTrue(loaded.Documents.TryGetDocument(renamed, out var document));
+        Assert.AreEqual(App, document.WorkspaceRoot);
+        CollectionAssert.AreEqual(new[] { App, Lib }, document.Projects.ToArray());
+    }
+
+    [TestMethod]
+    public async Task TheFirstFolder_IsAlwaysAProject()
+    {
+        var loaded = await new Loaded(Files()).LoadAsync(App, App, Shared, Lib);
 
         var roles = loaded.Projects.Roles().Select(entry => entry.Role).ToArray();
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Source, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, roles);
+        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, roles);
     }
 }

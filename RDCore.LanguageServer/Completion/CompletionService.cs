@@ -109,8 +109,8 @@ internal sealed class CompletionService(
     IClientVerbRegistry verbs,
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger,
-    WorkspaceCompositionCache? compositions = null,
-    IWorkspaceProjects? workspaceProjects = null) : ICompletionService
+    IWorkspaceProjects workspaceProjects,
+    WorkspaceCompositionCache? compositions = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
     private const string Probe = "RDCoreCompletionProbe";
@@ -379,14 +379,14 @@ internal sealed class CompletionService(
 
         // a document is completed in the project that loaded it, and so is a line typed at a prompt: the primary project's.
         var root = documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
-        var primary = string.Equals(root, documents.WorkspaceRoot, StringComparison.Ordinal);
+        var primary = WorkspacePaths.Same(root, documents.WorkspaceRoot);
         var workspaceRoot = new Uri(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
-            projectName: primary ? referencedLibraries.ProjectName : workspaceProjects?.Projects.FirstOrDefault(project => project.Root == root)?.Project.ProjectInfo.Name,
+            projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null);
 

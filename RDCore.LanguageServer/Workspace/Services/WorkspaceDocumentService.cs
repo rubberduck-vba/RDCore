@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.States;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Concurrent;
 using System.Text;
@@ -173,7 +174,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var path = id.Uri.GetFileSystemPath();
 
         // a file another project listed is the same document: it has the text, the version and the state it has, and is a module of this project too.
-        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => WorkspaceDocumentServiceExtensions.SameFolder(root, projectRoot)))
+        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => WorkspacePaths.Same(root, projectRoot)))
         {
             _documents[id] = shared with { Projects = [.. shared.Projects, projectRoot] };
             return true;
@@ -514,9 +515,11 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         if (currentState is LoadedDocumentState or OpenedDocumentState
             && _documents.TryGetValue(id, out var d) && d is WorkspaceDocument document)
         {
-            var relativePath = ioPath.GetRelativePath(WorkspaceRoot, document.Id.Uri.GetFileSystemPath());
+            // the document is addressed from the root of the project that loaded it first, which is not the primary project's for a module of another project.
+            var root = document.WorkspaceRoot;
+            var relativePath = ioPath.GetRelativePath(root, document.Id.Uri.GetFileSystemPath());
             var newRelativePath = ioPath.Combine(ioPath.GetDirectoryName(relativePath)!, newName);
-            var newId = new TextDocumentIdentifier(new Uri(ioPath.Combine(WorkspaceRoot, newRelativePath)));
+            var newId = new TextDocumentIdentifier(new Uri(ioPath.GetFullPath(ioPath.Combine(root, newRelativePath))));
 
             if (logger.IsEnabled(LogLevel.Trace))
             {
@@ -524,7 +527,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
 
             _documents.TryRemove(id, out _);
-            _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version)
+            _documents[newId] = new WorkspaceDocument(newRelativePath, root, document.Text, document.Version)
             {
                 IsDirty = document.IsDirty,
                 Companion = document.Companion,

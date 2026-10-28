@@ -74,11 +74,10 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     IWorkspaceDocumentService documentService,
     States.IDocumentStateProvider documentStateProvider,
     Func<SupportedLanguage> language,
-    IWorkspaceProjects? workspaceProjects = null,
-    RDCore.SDK.Workspace.IProjectFileLoader? projectFileLoader = null) : IWorkspaceService
+    IWorkspaceProjects projects,
+    RDCore.SDK.Workspace.IProjectFileLoader projectFileLoader) : IWorkspaceService
 {
-    // a workspace of one folder needs neither: the registry of its one project, and a loader for the others there are not.
-    private readonly IWorkspaceProjects _projects = workspaceProjects ?? new WorkspaceProjects(projectFileService);
+    private readonly IWorkspaceProjects _projects = projects;
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
 
     // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then.
@@ -282,15 +281,10 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
     private async Task LoadOtherProjectsAsync()
     {
-        if (projectFileLoader is null)
-        {
-            return;
-        }
-
         var primary = _projects.Projects[0].Root;
-        foreach (var root in _projects.Folders.Roots.Where(root => !Same(primary, root)))
+        foreach (var root in _projects.Folders.Roots.Where(root => !WorkspacePaths.Same(primary, root)))
         {
-            if (_projects.Roles().First(entry => Same(entry.Root, root)).Role != WorkspaceFolderRole.Project)
+            if (_projects.Roles().First(entry => WorkspacePaths.Same(entry.Root, root)).Role != WorkspaceFolderRole.Project)
             {
                 logger.LogInformation("📁 '{folder}' holds sources a project lists, and is no project.", root);
                 continue;
@@ -301,8 +295,6 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
             logger.LogInformation("📁 Project '{name}' was loaded from '{folder}'.", project.ProjectInfo.Name, root);
         }
     }
-
-    private static bool Same(string left, string right) => WorkspaceFolders.Holds(left, right) && WorkspaceFolders.Holds(right, left);
 
     private async Task LoadWorkspaceFilesAsync()
     {
@@ -315,7 +307,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
                 .Concat(info.OtherFiles.Select(other => (other, !info.Modules.Any(module => string.Equals(module.RelativeUri, other.RelativeUri, StringComparison.OrdinalIgnoreCase))))))
             {
                 var path = ioPath.Combine(project.Root, file.RelativeUri);
-                if (ioPath.IsPathRooted(file.RelativeUri) || file.RelativeUri.Split('/', '\\').Contains(".."))
+                if (ioPath.IsPathRooted(file.RelativeUri) || WorkspacePaths.Climbs(file.RelativeUri))
                 {
                     path = ioPath.GetFullPath(path);
                     if (!_projects.Folders.Contains(path))

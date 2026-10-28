@@ -3,7 +3,7 @@ using RDCore.SDK.Workspace;
 namespace RDCore.Tests.Workspace;
 
 /// <summary>
-/// Which folders of a workspace are projects and which hold the sources a project lists (#252, desk #30): the import names the project, and a client that never
+/// Which folders of a workspace are projects and which hold the sources a project lists: the import names the project, and a client that never
 /// imports is read by what the projects list.
 /// </summary>
 [TestClass]
@@ -57,33 +57,32 @@ public sealed class WorkspaceFolderRolesTests
     }
 
     [TestMethod]
-    public void AnImport_NamesTheProjects_AndEveryOtherFolderIsASourceFolder()
+    public void AnImport_NamesTheProjects_AndEveryOtherLaterFolderIsASourceFolder()
     {
         var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared, Other]), [Other]);
 
         CollectionAssert.AreEqual(
-            new[] { WorkspaceFolderRole.Source, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project },
-            RolesOf(roles, _ => throw new AssertFailedException("what the projects list is not asked once the client has said which folders are projects")));
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project },
+            RolesOf(roles, _ => throw new AssertFailedException("what the projects list is not asked once the roles are told which folders are projects")));
     }
 
     [TestMethod]
-    public void AnImport_CorrectsTheGuessOfTheFirstFolderBeingAProject()
+    public void TheFirstFolder_IsAProject_WhateverWasImported()
     {
-        // the guess says App is a project and Other too; the import says the .vbp is in Other, and App holds sources only.
+        // the first folder is the one the server runs: an import of the project in another folder does not make it a source folder.
         var folders = new WorkspaceFolders([App, Other]);
-        IEnumerable<string> Listed(string root) => [];
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(new WorkspaceFolderRoles(folders, []), Listed));
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, RolesOf(new WorkspaceFolderRoles(folders, [Other]), Listed));
+        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(new WorkspaceFolderRoles(folders, [Other]), _ => []));
+        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared]), [App]), _ => []));
     }
 
     [TestMethod]
     public void AnImportedProject_IsTheFolderOfTheWorkspaceThatHoldsIt()
     {
         // the .vbp is in a subfolder of the workspace folder the client opened: the folder that holds it is the project folder.
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared]), [Path.Combine(Shared, "vbp")]);
+        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared, Other]), [Path.Combine(Shared, "vbp")]);
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, RolesOf(roles, _ => []));
+        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(roles, _ => []));
     }
 
     [TestMethod]

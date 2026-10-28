@@ -21,20 +21,22 @@ public enum WorkspaceFolderRole
 /// <remarks>
 /// <para>
 /// A client that serves a project whose sources lie outside its folder - a Visual Basic 6 <c>.vbp</c> that lists <c>..\Shared\Util.bas</c> - sends the
-/// folders and nothing that tells them apart: first the project's, then the outside folders its files are in. The platform tells them by what it is told and what
-/// it finds:
+/// folders and nothing that tells them apart: first the project's, then the outside folders its files are in. The platform tells them by what it finds, and by
+/// what it is told when it is told:
 /// </para>
 /// <list type="number">
-/// <item>A folder that holds a project the client has imported (<c>rdcore.importProject</c>) is a project folder, and every other folder is a source folder.</item>
+/// <item>The first folder is a project always: it is the folder the server runs.</item>
 /// <item>
-/// A client that imports nothing is read as follows: the first folder is a project, and a later folder is a source folder when a project that comes
-/// before it lists files in it, and a project otherwise.
+/// When the roles are told what projects were imported (<c>rdcore.importProject</c>), a later folder that holds an imported project is a project folder, and every
+/// other later folder is a source folder.
 /// </item>
-/// <item>An import that arrives corrects what the second rule guessed.</item>
+/// <item>
+/// Otherwise a later folder is a source folder when a project that comes before it lists files in it, and a project when none does.
+/// </item>
 /// </list>
 /// <para>
-/// The roles are worked out again each time they are asked, from the folders, the imports and the files the projects list: none of them is remembered, so that a
-/// project that is changed or imported changes them.
+/// The roles are worked out again each time they are asked, from the folders, the imports and the files the projects list: none of them is remembered. The language
+/// server asks when the workspace is loaded, and does not tell the roles of imports yet: the projects it loaded stay as they were when a client imports one afterwards.
 /// </para>
 /// </remarks>
 public sealed class WorkspaceFolderRoles
@@ -56,8 +58,7 @@ public sealed class WorkspaceFolderRoles
         ArgumentNullException.ThrowIfNull(importedProjectFolders);
         _folders = folders;
 
-        var comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-        _imported = new HashSet<string>(importedProjectFolders.Select(folders.RootOf).OfType<string>(), comparer);
+        _imported = new HashSet<string>(importedProjectFolders.Select(folders.RootOf).OfType<string>(), WorkspacePaths.Comparer);
     }
 
     /// <summary>
@@ -65,7 +66,7 @@ public sealed class WorkspaceFolderRoles
     /// </summary>
     /// <param name="listedFilesOf">
     /// The absolute paths of the files a project lists, given the folder of the project. It is asked of the project folders that come before the folder being
-    /// judged only, and only when the client has imported nothing.
+    /// judged only, and only when no import was told.
     /// </param>
     public IReadOnlyList<(string Root, WorkspaceFolderRole Role)> Roles(Func<string, IEnumerable<string>> listedFilesOf)
     {
@@ -73,7 +74,8 @@ public sealed class WorkspaceFolderRoles
 
         if (_imported.Count > 0)
         {
-            return [.. _folders.Roots.Select(root => (root, _imported.Contains(root) ? WorkspaceFolderRole.Project : WorkspaceFolderRole.Source))];
+            // the first folder is the one the server runs, whatever was imported.
+            return [.. _folders.Roots.Select((root, index) => (root, index == 0 || _imported.Contains(root) ? WorkspaceFolderRole.Project : WorkspaceFolderRole.Source))];
         }
 
         var roles = new List<(string Root, WorkspaceFolderRole Role)>(_folders.Roots.Count);

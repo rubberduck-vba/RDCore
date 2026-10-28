@@ -161,7 +161,7 @@ internal sealed class DocumentDiagnosticsService(
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         // the host runs the primary project only: a module of another project has the static diagnostics, and none of what running it would find out - and its
         // name is never asked for, since the host may hold a module by that name that is another.
-        var semantics = documents.WorkspaceRoot.Length == 0 || document.Projects.Contains(documents.WorkspaceRoot, StringComparer.OrdinalIgnoreCase)
+        var semantics = documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot))
             ? await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token)
             : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
