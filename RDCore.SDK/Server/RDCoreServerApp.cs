@@ -73,6 +73,17 @@ public abstract class RDCoreServerApp(
     public abstract CoreServerComponent PlatformComponent { get; }
     private OmniSharpLanguageServer? Server { get; set; }
 
+    /// <summary>
+    /// The documents the server's handlers of a document's notifications (<c>textDocument/didOpen</c>, <c>didChange</c>, <c>didClose</c>) are registered for;
+    /// <see langword="null"/> for a server that serves none.
+    /// </summary>
+    /// <remarks>
+    /// A client may send a notification about a document the server does not serve - a <c>README.md</c> it opens - which OmniSharp hands to no handler. The
+    /// selector is registered for the handlers, and says which changes are waited for (<see cref="IncomingDocumentChanges.Serve"/>): one that no handler applies
+    /// would be waited for forever.
+    /// </remarks>
+    protected virtual TextDocumentSelector? DocumentSelector => null;
+
     // the changes to documents the client has sent and the server has not applied yet, known as they arrive (HexIDE's findings desk #31).
     private readonly IncomingDocumentChanges _incomingChanges = new();
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
@@ -316,6 +327,11 @@ public abstract class RDCoreServerApp(
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
             services.AddSingleton(new PlatformComponentContext(PlatformComponent));
             services.AddSingleton(_incomingChanges);
+            if (DocumentSelector is { } selector)
+            {
+                services.AddSingleton(selector);
+                _incomingChanges.Serve(selector);
+            }
 
             // the other half of the platform handshake: what the connected client expects of us.
             // A handler serving an optional, client-driven request family consults it.

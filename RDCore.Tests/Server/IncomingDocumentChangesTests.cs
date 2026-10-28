@@ -5,6 +5,7 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Client;
 using RDCore.SDK.Server;
+using RDCore.SDK.Workspace;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 
 namespace RDCore.Tests.Server;
@@ -175,6 +176,35 @@ public sealed class IncomingDocumentChangesTests
 
         var modified = await Assert.ThrowsAsync<RpcErrorException>(() => running.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.AreEqual(-32801, modified.Code, "ContentModified: a change that arrives while it runs");
+    }
+
+    // a client opens a README.md beside the modules: OmniSharp hands its didOpen to no handler, so it is never applied. Waited for, every workspace/diagnostic
+    // after it was answered ContentModified, and the client pulled again, for good.
+    [TestMethod]
+    public async Task AChangeToADocumentNoHandlerServes_IsNotWaitedFor()
+    {
+        var incoming = new IncomingDocumentChanges();
+        incoming.Serve(SupportedLanguages.DocumentSelector);
+
+        incoming.Arrived(new Uri("file:///c:/ws/README.md"));
+
+        Assert.AreEqual(42, await incoming.WhileWorkspaceCurrentAsync(CancellationToken.None, _ => Task.FromResult(42)));
+        Assert.IsFalse(await IsUnappliedAsync(incoming, "file:///c:/ws/README.md"));
+    }
+
+    [TestMethod]
+    [DataRow("file:///c:/ws/Module1.bas")]
+    [DataRow("file:///c:/ws/Classes/Class1.cls")]
+    [DataRow("file:///c:/ws/Form1.frm")]
+    [DataRow("file:///c:/ws/Program1.rdc")]
+    public async Task AChangeToADocumentAHandlerServes_IsWaitedFor(string document)
+    {
+        var incoming = new IncomingDocumentChanges();
+        incoming.Serve(SupportedLanguages.DocumentSelector);
+
+        incoming.Arrived(new Uri(document));
+
+        await Assert.ThrowsAsync<RpcErrorException>(() => incoming.WhileWorkspaceCurrentAsync(CancellationToken.None, _ => Task.FromResult(42)));
     }
 
     [TestMethod]

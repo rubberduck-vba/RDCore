@@ -61,6 +61,8 @@ internal sealed class CoreLanguageServerApp(
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
 
+    protected override TextDocumentSelector DocumentSelector => SupportedLanguages.DocumentSelector;
+
     /// <summary>
     /// Cancels in-flight core-component bring-up when the server is shutting down.
     /// </summary>
@@ -188,11 +190,6 @@ internal sealed class CoreLanguageServerApp(
 
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
-
-        // the documents of every language the platform serves: the client names the language its own way, so what selects a document is the file it is.
-        services.AddSingleton(new TextDocumentSelector(SupportedLanguages.All
-            .SelectMany(language => language.FileTypes).Distinct()
-            .Select(fileType => new TextDocumentFilter { Pattern = $"**/{fileType}" })));
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)

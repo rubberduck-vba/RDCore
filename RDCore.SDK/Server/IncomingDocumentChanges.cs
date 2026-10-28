@@ -1,6 +1,8 @@
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace RDCore.SDK.Server;
 
@@ -33,13 +35,40 @@ public sealed class IncomingDocumentChanges
     // what each running request is made of: one document, or every document of the workspace (null).
     private readonly List<(string? Document, CancellationTokenSource Changed)> _watches = [];
 
+    // the documents a handler applies a change to: every one, until the server says which.
+    private volatile Func<Uri, bool> _serves = static _ => true;
+
+    /// <summary>
+    /// Says which documents the server's handlers apply a change to (<see cref="Applied"/>). A change to any other is no change of the server's: OmniSharp hands
+    /// it to no handler, so it is never applied, and is not waited for.
+    /// </summary>
+    /// <param name="serves">Whether a handler applies a change to a document.</param>
+    public void Serve(Func<Uri, bool> serves) => _serves = serves;
+
+    /// <summary>
+    /// Says that the server's handlers apply a change to the documents a selector matches, which is what they are registered for: the client names a
+    /// document's language its own way, so a filter of the selector is matched by the document's path alone.
+    /// </summary>
+    /// <param name="selector">What the handlers of a document's notifications are registered for.</param>
+    public void Serve(TextDocumentSelector selector)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        Serve(document => selector.IsMatch(new TextDocumentAttributes(document, string.Empty)));
+    }
+
     /// <summary>
     /// A change to a document has arrived from the client, and is waiting for its turn: the requests about the document that are running are answered
-    /// <c>ContentModified</c>, and so is each that starts before the change is applied.
+    /// <c>ContentModified</c>, and so is each that starts before the change is applied. A change to a document the server does not serve
+    /// (<see cref="Serve"/>) is nothing.
     /// </summary>
     /// <param name="document">The document the change is to.</param>
     public void Arrived(Uri document)
     {
+        if (!_serves(document))
+        {
+            return;
+        }
+
         var key = Key(document);
         CancellationTokenSource[] changed;
         lock (_gate)
