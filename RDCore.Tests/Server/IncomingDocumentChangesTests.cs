@@ -151,6 +151,32 @@ public sealed class IncomingDocumentChangesTests
         Assert.AreEqual(42, await incoming.WhileCurrentAsync(new Uri(DocumentA), CancellationToken.None, _ => Task.FromResult(42)), "the change is applied");
     }
 
+    // a request made of every document, such as workspace/diagnostic, is given up for a change to any of them.
+    [TestMethod]
+    public async Task ARequestAboutTheWorkspace_IsContentModified_ByAChangeToAnyDocument()
+    {
+        var incoming = new IncomingDocumentChanges();
+        Assert.AreEqual(42, await incoming.WhileWorkspaceCurrentAsync(CancellationToken.None, _ => Task.FromResult(42)), "nothing is unapplied");
+
+        incoming.Arrived(new Uri(DocumentB));
+        await Assert.ThrowsAsync<RpcErrorException>(() => incoming.WhileWorkspaceCurrentAsync(CancellationToken.None, _ => Task.FromResult(42)),
+            "a change unapplied as it starts");
+
+        incoming.Applied(new Uri(DocumentB));
+        var started = new TaskCompletionSource();
+        var running = incoming.WhileWorkspaceCurrentAsync(CancellationToken.None, async token =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.Infinite, token);
+            return 0;
+        });
+        await started.Task;
+        incoming.Arrived(new Uri(DocumentA));
+
+        var modified = await Assert.ThrowsAsync<RpcErrorException>(() => running.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.AreEqual(-32801, modified.Code, "ContentModified: a change that arrives while it runs");
+    }
+
     [TestMethod]
     public async Task AChangeAppliedThatNeverArrived_OwesNothing()
     {
