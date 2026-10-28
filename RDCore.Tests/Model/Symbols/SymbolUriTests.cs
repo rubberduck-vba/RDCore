@@ -44,4 +44,45 @@ public sealed class SymbolUriTests
         => Assert.AreNotEqual(
             SymbolUri.Module(new Uri(Path.Combine(Path.GetTempPath(), "rdcore-symboluri-a")), "Module1"),
             SymbolUri.Module(new Uri(Path.Combine(Path.GetTempPath(), "rdcore-symboluri-b")), "Module1"));
+
+    // LSP 3.17 §URI: a client may escape what need not be (file:///c%3A/...), and the folder is the same.
+    [TestMethod]
+    public void TheRootAsAUriThatEscapesItsPath_IsTheRootItsPathIs()
+    {
+        var root = new Uri(Path.Combine(Path.GetTempPath(), "rdcore-symboluri-(ws)"));
+        var escaped = root.AbsoluteUri.Replace("(ws)", "%28ws%29", StringComparison.Ordinal);
+        Assert.AreNotEqual(root.AbsoluteUri, new Uri(escaped).AbsoluteUri, "a Uri keeps what it is written with");
+
+        Assert.AreEqual(SymbolUri.Module(root.LocalPath, "GameBoard").AbsoluteUri, SymbolUri.Module(escaped, "GameBoard").AbsoluteUri);
+    }
+
+    [TestMethod]
+    public void ARootOfAnotherScheme_IsTheRootAsItIs()
+        => Assert.AreEqual("untitled:Untitled-1#Module1", SymbolUri.Module("untitled:Untitled-1", "Module1").AbsoluteUri);
+
+    [TestMethod]
+    [DataRow("src", DisplayName = "a relative path")]
+    [DataRow("../Work", DisplayName = "a path that climbs")]
+    public void ARootThatIsNeitherAnAbsolutePathNorAnAbsoluteUri_IsRefusedSaying(string root)
+        => StringAssert.Contains(Assert.Throws<ArgumentException>(() => SymbolUri.Module(root, "Module1")).Message, root);
+
+    [TestMethod]
+    public void AFileOfTheWorkspace_IsAddressedUnderTheWorkspace_WhereverItIs()
+    {
+        var elsewhere = new Uri(Path.Combine(Path.GetTempPath(), "rdcore-elsewhere", "Program1.rdc"));
+
+        Assert.AreEqual(Root, SymbolUri.RootOf(elsewhere, Root.LocalPath));
+    }
+
+    [TestMethod]
+    public void ADocumentThatIsNoFile_IsAProjectOfItsOwn()
+        => Assert.AreEqual("untitled:Untitled-1", SymbolUri.RootOf(new Uri("untitled:Untitled-1"), Root.LocalPath).AbsoluteUri);
+
+    [TestMethod]
+    public void ADocumentOfAServerWithNoWorkspace_IsAProjectOfItsOwn()
+    {
+        var document = new Uri(Path.Combine(Path.GetTempPath(), "rdcore-alone", "Module1.bas"));
+
+        Assert.AreEqual(document, SymbolUri.RootOf(document, workspaceRoot: string.Empty));
+    }
 }
