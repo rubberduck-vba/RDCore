@@ -96,6 +96,7 @@ internal sealed class CoreLanguageServerApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DocumentDiagnosticHandler>();
+        builder.WithHandler<WorkspaceDiagnosticHandler>();
         builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SelectionRangeHandler>();
@@ -170,6 +171,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<Workspace.States.IDocumentStateProvider>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());

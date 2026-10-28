@@ -59,7 +59,7 @@ public sealed class DocumentDiagnosticHandlerTests
     }
 
     [TestMethod]
-    public void RegistrationOptions_IdentifyAsRdcore_WithNoInterFileOrWorkspaceDiagnostics()
+    public void RegistrationOptions_IdentifyAsRdcore_WithNoInterFileDependencies_AndWorkspaceDiagnostics()
     {
         var registration = (IRegistration<DiagnosticsRegistrationOptions, DiagnosticClientCapabilities>)Sut();
 
@@ -67,6 +67,6 @@ public sealed class DocumentDiagnosticHandlerTests
 
         Assert.AreEqual("rdcore", options.Identifier);
         Assert.IsFalse(options.InterFileDependencies);
-        Assert.IsFalse(options.WorkspaceDiagnostics);
+        Assert.IsTrue(options.WorkspaceDiagnostics, "workspace/diagnostic is served (WorkspaceDiagnosticHandler)");
     }
 }

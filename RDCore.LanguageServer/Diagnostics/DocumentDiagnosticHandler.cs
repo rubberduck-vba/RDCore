@@ -37,11 +37,16 @@ internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diag
 
     protected override DiagnosticsRegistrationOptions CreateRegistrationOptions(
         DiagnosticClientCapabilities capability, ClientCapabilities clientCapabilities)
-        => new()
-        {
-            Identifier = "rdcore",
-            // one module's diagnostics never depend on another's, and workspace diagnostics aren't served yet.
-            InterFileDependencies = false,
-            WorkspaceDiagnostics = false,
-        };
+        => PullDiagnostics;
+
+    /// <summary>
+    /// The pull diagnostics the server serves, which it registers for <c>textDocument/diagnostic</c> and <c>workspace/diagnostic</c> alike
+    /// (<see cref="WorkspaceDiagnosticHandler"/>): one module's diagnostics never depend on another's.
+    /// </summary>
+    internal static DiagnosticsRegistrationOptions PullDiagnostics => new()
+    {
+        Identifier = "rdcore",
+        InterFileDependencies = false,
+        WorkspaceDiagnostics = true,
+    };
 }
