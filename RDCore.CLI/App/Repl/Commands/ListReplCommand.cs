@@ -21,11 +21,6 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_List_Summary;
 
-    private static readonly string enabledGlyph = "●";
-    private static readonly string disabledGlyph = "○";
-    private static readonly string conditionalGlyph = "◆";
-    private static readonly string disabledConditionalGlyph = "◈";
-
     // the marks of a block, plain triangles where the console draws Unicode (an emoji looks out of place next to the code), ASCII where it does not.
     private static readonly (string Open, string Folded) unicodeFoldGlyphs = ("▽", "▲");
     private static readonly (string Open, string Folded) asciiFoldGlyphs = ("-", "+");
@@ -98,10 +93,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
                     .OrderByDescending(bp => bp.Enabled)
                     .FirstOrDefault();
             var marked = breakpoint != default ? breakpoint : hiddenBreakpoint;
-            var glyph = marked == default ? " "
-                : marked.ConditionExpression != null ?
-                    marked.Enabled ? conditionalGlyph : disabledConditionalGlyph
-                : marked.Enabled ? enabledGlyph : disabledGlyph;
+            var glyph = marked == default ? " " : ReplBreakpointMarks.GlyphOf(marked);
 
             // a breakpoint's mark takes the lane before the mark of a fix, and both are padded to the width of the lane.
             var hasAFix = fixes.Contains(index) || (folded && Enumerable.Range(blocks[index].StartLine + 1, hiddenLines).Any(fixes.Contains));

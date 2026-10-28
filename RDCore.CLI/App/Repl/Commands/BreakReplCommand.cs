@@ -52,9 +52,18 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
 
         if (text.Length == 0)
         {
-            context.Console.WriteLine(debugger.Breakpoints.Count == 0
-                ? Resources.Repl_Breakpoint_None
-                : string.Format(Resources.Repl_Breakpoint_List, string.Join(", ", debugger.Breakpoints.Select(Describe))));
+            if (debugger.Breakpoints.Count == 0)
+            {
+                context.Console.WriteLine(Resources.Repl_Breakpoint_None);
+                return ReplCommandResult.Continue;
+            }
+
+            // one breakpoint a line, marked as LIST marks it: its glyph, its line number, and the condition it waits on.
+            foreach (var breakpoint in debugger.Breakpoints)
+            {
+                context.Console.WriteLine(Describe(breakpoint));
+            }
+
             return ReplCommandResult.Continue;
         }
 
@@ -146,12 +155,16 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
         return space < 0 ? (text, string.Empty) : (text[..space], text[(space + 1)..].Trim());
     }
 
-    // how BREAK lists a breakpoint: its line, the condition it waits on, and whether it is off.
-    private static string Describe(Breakpoint breakpoint)
-    {
-        var described = breakpoint.ConditionExpression is { } condition ? $"{breakpoint.LineNumber} [{condition}]" : breakpoint.LineNumber.ToString();
-        return breakpoint.Enabled ? described : $"{described} {Resources.Repl_Breakpoint_DisabledMark}";
-    }
+    // how BREAK lists a breakpoint: the glyph LIST marks it with - which says whether the program waits at it, and on a condition - the number of its line, and the
+    // condition.
+    private static IReadOnlyList<ReplTextRun> Describe(Breakpoint breakpoint)
+        =>
+        [
+            new ReplTextRun(ReplBreakpointMarks.GlyphOf(breakpoint), ReplTextStyle.BreakpointGlyph),
+            new ReplTextRun(" ", ReplTextStyle.Plain),
+            new ReplTextRun(breakpoint.LineNumber.ToString(), ReplTextStyle.Number),
+            .. breakpoint.ConditionExpression is { } condition ? new[] { new ReplTextRun($" {condition}", ReplTextStyle.Plain) } : [],
+        ];
 
     // a program that waits goes on with the lines the platform has, and the next one that is run is told them anyway; telling it now makes a
     // breakpoint set while a program waits one that is waited at when it goes on.

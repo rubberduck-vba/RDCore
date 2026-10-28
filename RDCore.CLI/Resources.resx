@@ -415,9 +415,6 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Breakpoint_Cleared" xml:space="preserve">
     <value>BREAKPOINT CLEARED AT {0}</value>
   </data>
-  <data name="Repl_Breakpoint_List" xml:space="preserve">
-    <value>BREAKPOINTS: {0}</value>
-  </data>
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>NO BREAKPOINTS</value>
   </data>
@@ -549,9 +546,6 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_Breakpoint_Disabled" xml:space="preserve">
     <value>BREAKPOINT DISABLED AT {0}</value>
-  </data>
-  <data name="Repl_Breakpoint_DisabledMark" xml:space="preserve">
-    <value>(DISABLED)</value>
   </data>
   <data name="Repl_Breakpoint_ConditionRefused" xml:space="preserve">
     <value>CONDITION REFUSED AT {0}: {1}</value>

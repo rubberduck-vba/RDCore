@@ -351,10 +351,17 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new BreakReplCommand(), "10");
         await CommandAsync(new BreakReplCommand(), "30");
+        _console.ClearReceivedCalls();
         await CommandAsync(new BreakReplCommand());
 
-        _console.Received().WriteLine(string.Format(Resources.Repl_Breakpoint_List, "10, 30"));
+        CollectionAssert.AreEqual(new[] { "● 10", "● 30" }, ListedBreakpoints(), "one a line, marked as LIST marks it");
     }
+
+    // the lines of runs the console was written: BREAK's listing of the breakpoints.
+    private string[] ListedBreakpoints()
+        => [.. _console.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteLine) && call.GetArguments()[0] is IReadOnlyList<ReplTextRun>)
+            .Select(call => string.Concat(((IReadOnlyList<ReplTextRun>)call.GetArguments()[0]!).Select(run => run.Text)))];
 
     [TestMethod]
     public async Task ABreakClear_RemovesThemAll()
@@ -471,10 +478,25 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new BreakReplCommand(), "20 X > 1");
         await CommandAsync(new BreakReplCommand(), "TOGGLE 30");
         await CommandAsync(new BreakReplCommand(), "TOGGLE 30");
+        _console.ClearReceivedCalls();
 
         await CommandAsync(new BreakReplCommand());
 
-        _console.Received().WriteLine(string.Format(Resources.Repl_Breakpoint_List, $"10, 20 [X > 1], 30 {Resources.Repl_Breakpoint_DisabledMark}"));
+        // a condition makes the diamond, and a disabled breakpoint is the hollow one: the glyph says it.
+        CollectionAssert.AreEqual(new[] { "● 10", "◆ 20 X > 1", "○ 30" }, ListedBreakpoints());
+    }
+
+    [TestMethod]
+    public async Task TheListedBreakpoints_HaveTheirGlyphInTheMarksStyle_AndTheirLineInTheNumberStyle()
+    {
+        await CommandAsync(new BreakReplCommand(), "10");
+        _console.ClearReceivedCalls();
+
+        await CommandAsync(new BreakReplCommand());
+
+        var runs = (IReadOnlyList<ReplTextRun>)_console.ReceivedCalls().Single(call => call.GetArguments()[0] is IReadOnlyList<ReplTextRun>).GetArguments()[0]!;
+        Assert.AreEqual(ReplTextStyle.BreakpointGlyph, runs[0].Style);
+        Assert.AreEqual(new ReplTextRun("10", ReplTextStyle.Number), runs[2]);
     }
 
     [TestMethod]
