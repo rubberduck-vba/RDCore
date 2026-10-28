@@ -7,6 +7,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
@@ -186,18 +187,21 @@ internal static class ModuleWorkspace
     /// <param name="cancelAfter">How long the first run has before its request is cancelled, counted from when it starts and not from when the workspace
     /// began to be composed. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
+    /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null, bool debug = false,
-        WorkspaceLibraries? libraries = null, SupportedLanguage? language = null)
-        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelAfter: cancelAfter, debug: debug, libraries: libraries);
+        WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug)
+        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelAfter: cancelAfter, debug: debug, libraries: libraries,
+            configuration: configuration);
 
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
         Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
+        VBBuildConfiguration configuration = VBBuildConfiguration.Debug)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] others =
@@ -222,7 +226,8 @@ internal static class ModuleWorkspace
         }
 
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true),
+            new RuntimeEnvironmentProfile(
+                Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration),
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
             libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));

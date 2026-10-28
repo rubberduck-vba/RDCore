@@ -28,4 +28,14 @@ Public Sub BenchStringComparison()
         S = "RD" & "-VBA"
         If S = "RD-VBA" Then N = N + 1
     Next
-End Sub
+End Sub
+
+' a line built of numbers written as text, a separator between each: what a report or an export does, a conversion and two concatenations a value.
+Public Sub BenchStringBuilding()
+    Dim I As Long
+    Dim S As String
+    For I = 1 To 5000
+        S = S & CStr(I) & ";"
+    Next
+End Sub
+

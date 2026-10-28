@@ -264,6 +264,18 @@ public record class SdkEnvironmentOptions
     /// (<see cref="Runtime.RegionalSettings"/>): en-US unless said otherwise, whatever the machine's are.
     /// </summary>
     public SdkRegionalOptions Regional { get; set; } = new();
+
+    /// <summary>
+    /// 🎯 What runs the code of a program: <c>Interpreter</c> (the default) or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the
+    /// interpreter elsewhere).
+    /// </summary>
+    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; }
+
+    /// <summary>
+    /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, which leaves out every <c>Stop</c> statement
+    /// and every <c>Debug.*</c> call. It is the default of the built-in <c>DEBUG</c> constant, which a project <c>#Const</c> still overrides.
+    /// </summary>
+    public Runtime.Abstract.Execution.VBBuildConfiguration Configuration { get; set; }
 }
 
 /// <summary>

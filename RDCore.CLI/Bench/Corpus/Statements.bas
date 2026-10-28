@@ -71,3 +71,13 @@ Public Sub BenchMidStatement()
         Mid$(S, 1, 1) = "r"
     Next
 End Sub
+
+' a loop under On Error Resume Next, a division by zero one time in ten: what the error handler costs where it is in effect, and where it is used.
+Public Sub BenchOnErrorResumeNext()
+    On Error Resume Next
+    Dim I As Long
+    Dim D As Double
+    For I = 1 To 100000
+        D = 10 / (I Mod 10)
+    Next
+End Sub

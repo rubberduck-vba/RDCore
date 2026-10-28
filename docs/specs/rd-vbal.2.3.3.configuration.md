@@ -34,6 +34,17 @@ A setting that decides what a program may do to the machine it runs on is _trust
 ([`TrustSensitiveSettingAttribute`](../api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)): `Environment.AllowDllImports`,
 `Environment.AllowAutomation`, `Environment.LegacyRegistrySettings`, and `Platform.Extensions.*`. Setting one says so, with a caution callout.
 
+### Build Configuration
+
+Two settings decide how a program is run, whatever its code says:
+
+|Setting|Values|
+|---|---|
+|`Environment.Configuration`|`Debug` (the default) or `Release`. A release build leaves out every `Stop` statement and every `Debug.Print` and `Debug.Assert` call, their arguments unevaluated, as a compiled VB6 executable does. It is the default of the built-in `DEBUG` conditional-compilation constant (`True` in a debug build, `False` in a release one), and what is left out follows `DEBUG`: a project's `#Const DEBUG`, or a command-line define, still decides.|
+|`Environment.ExecutionEngine`|`Interpreter` (the default) or `Compiled`: each procedure compiled to IL on its first call when every instruction in it can be, and interpreted otherwise. 🚧 Nothing is compiled yet: `Compiled` interprets every procedure.|
+
+The two are independent: a release build leaves out the same statements in either engine.
+
 ## User Settings
 
 What a user sets is kept in `user.settings.json`, in the user's folder of the platform: `RDCore` in the user's roaming application data (`%APPDATA%` on Windows,

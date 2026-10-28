@@ -101,6 +101,25 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
+    public void Stop_InADebugBuild_IsABreak()
+    {
+        var result = Lower("Stop");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.Break, result.InstructionList.Items.Single().Kind);
+    }
+
+    [TestMethod]
+    public void Stop_InAReleaseBuild_LeavesNoInstruction()
+    {
+        // as in a compiled VB6 executable: a release build does not break.
+        var result = LowerForRelease("Stop", "x = 1");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.Simple, result.InstructionList.Items.Single().Kind);
+    }
+
+    [TestMethod]
     public void DebugStatements_InAReleaseBuild_DoNotDisturbTheOffsetsAroundThem()
     {
         // whatever remains has to be a coherent program: a jump over a dropped Debug.Print still has

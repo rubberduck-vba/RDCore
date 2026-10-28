@@ -164,6 +164,35 @@ public sealed class EndAndStopTests
         CollectionAssert.AreEqual(new[] { "7" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "unlike an End, a Stop leaves the session as it found it");
     }
 
+    [TestMethod]
+    public async Task Stop_InAReleaseBuild_IsLeftOut_AsIsEveryDebugCall()
+    {
+        // as in a compiled VB6 executable: nothing breaks, nothing is printed, nothing is asserted, and the DEBUG constant is False.
+        ExecuteSessionResult? result = null;
+        long total = 0;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print \"dropped\"",
+            "    Stop",
+            "    Debug.Assert False",
+            "#If DEBUG Then",
+            "    Total = 1",
+            "#Else",
+            "    Total = 7",
+            "#End If",
+            "End Sub"), (provider, run, _) =>
+            {
+                result = run;
+                total = Total(provider);
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result!.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.AreEqual(7, total);
+    }
+
     private static long LocalOf(EnvironmentSessionProvider provider, ICallStackFrame frame, string name)
     {
         var symbols = provider.Session.Symbols;

@@ -82,6 +82,12 @@
   <data name="Environment_LegacyRegistrySettings" xml:space="preserve">
     <value>Si SaveSetting, GetSetting, GetAllSettings et DeleteSetting utilisent le Registre de Windows, comme le fait MS-VBA, plutôt que les paramètres de l'espace de travail.</value>
   </data>
+  <data name="Environment_ExecutionEngine" xml:space="preserve">
+    <value>Ce qui exécute un programme : l'interpréteur (Interpreter), ou du code compilé là où chaque instruction d'une procédure peut l'être (Compiled).</value>
+  </data>
+  <data name="Environment_Configuration" xml:space="preserve">
+    <value>Si un programme est construit pour être débogué (Debug) ou pour être exécuté (Release). Une version Release laisse de côté chaque Stop et chaque Debug.Print et Debug.Assert, et DEBUG est False.</value>
+  </data>
   <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
     <value>Ce qui sépare la partie entière d'un nombre de sa fraction.</value>
   </data>

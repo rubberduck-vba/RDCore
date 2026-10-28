@@ -19,6 +19,10 @@ The executor dispatches `Break` for `Stop`.
 An encountered `Stop` is a semantic break: it enters `Break` mode
 ([**RD-VBAL §2.3.2** Mode / State](rd-vbal.2.3.2.mode-state.md)).
 
+In a release build, `Stop` leaves no instruction at all, as in a compiled VB6 executable. A release build is one whose `DEBUG` conditional-compilation constant is
+`False`: by default when `Environment.Configuration` is `Release` ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#build-configuration)), and
+otherwise when the project defines `DEBUG = 0`.
+
 ## Implementation
 
 `ProcedureExecutor` dispatches [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)`.Break`
