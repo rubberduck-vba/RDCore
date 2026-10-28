@@ -211,6 +211,10 @@ The client is asked once for a burst of changes - each keystroke of a name is on
 
 👉 OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
 
+### Requests that fail
+
+A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line - never its stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log ([`ServerErrorAnswers.WithOneLineErrors`](../api/RDCore.SDK.Server.ServerErrorAnswers.html)).
+
 ### `textDocument/inlayHint`
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
@@ -455,6 +459,8 @@ The language server runs the commands it advertises (`executeCommandProvider.com
 |`rdcore.importProject`|None, a URI, or `{ "uri", "text", "overwrite" }`|Imports a VB6 project ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)).|
 
 `rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything - what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, the client is asked to refresh what it shows of every document, as for any change of the project ([Refreshing what the client shows](#refreshing-what-the-client-shows)). A project of another folder is written there, and the workspace is left as it is.
+
+What the file system refuses is a refusal (`RequestFailed`): a `.vbp` that cannot be read, or a `.rdproj` that cannot be written - read-only, or in a folder that cannot be written to - is said on one line ("Couldn't write '…\.rdproj': access to the file is denied."), and the project is left as it was.
 
 It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project's `name`, its number of `modules`, and what was skipped (`notes`), each with its `kind`, its `subject` as the `.vbp` writes it, and a `message`.
 

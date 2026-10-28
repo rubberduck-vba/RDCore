@@ -55,6 +55,8 @@ internal interface IWorkspaceReloadService
     /// What the change made of the workspace - <see cref="WorkspaceReloadResult.Unchanged"/>, and nothing written, when the project is what it was - or
     /// <see langword="null"/> when the server is not running a workspace it could change.
     /// </returns>
+    /// <exception cref="ProjectFileNotWrittenException">The file system would not let the project file be written; the project is what it was.</exception>
+    /// <exception cref="IOException">The project file was written, and a file it lists could not be read.</exception>
     Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
 
     /// <summary>
@@ -74,6 +76,12 @@ internal interface IWorkspaceReloadService
     /// </returns>
     Task<WorkspaceReloadResult?> ReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
 }
+
+/// <summary>
+/// The file system would not let the project file be written (<see cref="IWorkspaceReloadService.ChangeAsync"/>): what it threw is the inner exception. Told
+/// apart from a failure to read the files the project lists once it is written, which is another refusal.
+/// </summary>
+internal sealed class ProjectFileNotWrittenException(Exception cause) : IOException(cause.Message, cause);
 
 /// <summary>
 /// What reloading the project file changed.
@@ -167,9 +175,24 @@ internal sealed class WorkspaceReloadService(
                 return WorkspaceReloadResult.Unchanged;
             }
 
-            // the environment host reads the project file to compose its session, so it is written first.
+            // the environment host reads the project file to compose its session, so it is written first. A project file that cannot be written leaves the
+            // project what it was - what is on disk, and what the workspace is - rather than one that is neither.
             projectFiles.Update(changed);
-            await projectFiles.SaveAsync();
+            try
+            {
+                await projectFiles.SaveAsync();
+            }
+            catch (Exception exception)
+            {
+                projectFiles.Update(project);
+                if (exception is UnauthorizedAccessException or IOException)
+                {
+                    throw new ProjectFileNotWrittenException(exception);
+                }
+
+                throw;
+            }
+
             return Told(await ApplyAsync(project, token));
         }
         finally

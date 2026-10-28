@@ -311,6 +311,9 @@ public abstract class RDCoreServerApp(
             .WithUnhandledExceptionHandler(exception => LogIfEnabled(LogLevel.Error, $"❌ Unhandled exception in the language server: {exception}"))
             // a request is answered, whatever notifications come in while it runs (HexIDE's findings desk #31):
             .WithEveryRequestAnswered()
+            // a request whose handler throws is answered on one line, which a client shows as it is, and the whole exception is written to this server's own
+            // log:
+            .WithOneLineErrors(logger)
             // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change:
             .WithConfigurationSection(LiveSettingsProtocol.Section)
             // core SDK handlers:
