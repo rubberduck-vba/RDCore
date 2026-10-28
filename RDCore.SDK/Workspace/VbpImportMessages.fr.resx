@@ -65,4 +65,20 @@
   <data name="VbpImport_Refused_NotFound" xml:space="preserve">
     <value>« {0} » est introuvable.</value>
   </data>
+  <!-- A file the import reads or writes, that the file system refused: {0} is the file, {1} what the system says, on one line. -->
+  <data name="VbpImport_Refused_ReadDenied" xml:space="preserve">
+    <value>Impossible de lire « {0} » : l'accès au fichier est refusé.</value>
+  </data>
+  <data name="VbpImport_Refused_ReadFailed" xml:space="preserve">
+    <value>Impossible de lire « {0} » : {1}</value>
+  </data>
+  <data name="VbpImport_Refused_WriteDenied" xml:space="preserve">
+    <value>Impossible d'écrire « {0} » : l'accès au fichier est refusé.</value>
+  </data>
+  <data name="VbpImport_Refused_WriteFailed" xml:space="preserve">
+    <value>Impossible d'écrire « {0} » : {1}</value>
+  </data>
+  <data name="VbpImport_Refused_ReloadFailed" xml:space="preserve">
+    <value>« {0} » a été écrit, mais l'espace de travail n'a pas pu être rendu conforme à ce qu'il liste : {1}</value>
+  </data>
 </root>

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using RDCore.SDK.Platform;
 using System.Globalization;
 using System.Reflection;
@@ -129,12 +130,39 @@ public interface ILiveSettings
     void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted);
 
     /// <summary>
+    /// Takes what the client said as the overload above does, if <paramref name="isCurrent"/> says it is still what is to be taken. The check and the setting are one step; <see cref="Changed"/> is
+    /// raised after it, with no lock held. The listeners may be told by another thread, when it is telling the changes before this one.
+    /// </summary>
+    /// <param name="said">What the client said.</param>
+    /// <param name="adopted">What the component takes besides.</param>
+    /// <param name="isCurrent">Asked once the settings are about to be set, with nothing else setting them; it must not wait for anything that waits for these settings.</param>
+    /// <returns>Whether the settings were set.</returns>
+    bool Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent);
+
+    /// <summary>
+    /// Takes what the client said as <see cref="Apply(IReadOnlyDictionary{string, string}, IReadOnlyDictionary{string, string}, Func{bool})"/> does, and completes once
+    /// the listeners of <see cref="Changed"/> were told of this change - by this thread, or by the one that was telling the changes before it.
+    /// </summary>
+    /// <remarks>
+    /// Nothing waits for a thread: the task completes when the thread that tells the changes comes to this one. A listener that sets settings itself, on the thread that
+    /// tells it, gets a task that completes after it has returned; it must not wait for that task.
+    /// </remarks>
+    /// <param name="said">What the client said.</param>
+    /// <param name="adopted">What the component takes besides.</param>
+    /// <param name="isCurrent">Asked once the settings are about to be set, with nothing else setting them; it must not wait for anything that waits for these settings.</param>
+    /// <returns>Whether the settings were set, once they were told to the listeners; <see langword="false"/> at once when they were not set.</returns>
+    Task<bool> ApplyAsync(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent);
+
+    /// <summary>
     /// Sets the live settings on the settings objects as the user's settings say them now: what a component that is no other's server does when its user changes
     /// a setting.
     /// </summary>
     void Refresh();
 
-    /// <summary>Raised once the live settings were set again.</summary>
+    /// <summary>
+    /// Raised once the live settings were set again: once for each change, in the order the changes were made, and never by two threads at once. A listener that throws
+    /// is logged, and the others are told all the same.
+    /// </summary>
     event EventHandler? Changed;
 }
 
@@ -142,12 +170,20 @@ public interface ILiveSettings
 /// <param name="targets">The settings objects of the component.</param>
 /// <param name="schema">The settings of the component: what is not one of its live settings is not passed down by it from its user's settings.</param>
 /// <param name="userSettingsPath">The file of the user's settings (<see cref="UserSettingsStore.PathIn"/>).</param>
-public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, SettingsSchema schema, string userSettingsPath) : ILiveSettings
+/// <param name="logger">Where a listener of <see cref="Changed"/> that throws is logged; nowhere when <see langword="null"/>.</param>
+public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, SettingsSchema schema, string userSettingsPath, ILogger? logger = null) : ILiveSettings
 {
     private readonly IReadOnlyList<LiveSettingsTarget> _targets = [.. targets];
     private readonly object _applying = new();
-    private IReadOnlyDictionary<string, string>? _received;
-    private IReadOnlyDictionary<string, string>? _said;
+    private sealed record Snapshot(IReadOnlyDictionary<string, string> Said, IReadOnlyDictionary<string, string> Received);
+
+    // the changes that are to be told, and whether a thread is telling them: they are told one at a time, in the order they were made, with no lock held. Each completes
+    // the task of the call that made it once it is told.
+    private readonly Queue<TaskCompletionSource> _unannounced = new();
+    private bool _announcing;
+
+    // what the client said and what is handed down are published together: a reader never sees one of a newer change and the other of an older one.
+    private volatile Snapshot? _snapshot;
 
     /// <summary>
     /// The live settings of the user's settings of a platform: its settings objects, and its user's file.
@@ -155,8 +191,9 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     /// <param name="targets">The settings objects of the component.</param>
     /// <param name="schema">The settings of the component.</param>
     /// <param name="environment">Where the user's settings are.</param>
-    public LiveSettings(IEnumerable<LiveSettingsTarget> targets, SettingsSchema schema, IPlatformEnvironment environment)
-        : this(targets, schema, UserSettingsStore.PathIn(environment))
+    /// <param name="logger">Where a listener of <see cref="Changed"/> that throws is logged; nowhere when <see langword="null"/>.</param>
+    public LiveSettings(IEnumerable<LiveSettingsTarget> targets, SettingsSchema schema, IPlatformEnvironment environment, ILogger? logger = null)
+        : this(targets, schema, UserSettingsStore.PathIn(environment), logger)
     {
     }
 
@@ -164,34 +201,59 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     public event EventHandler? Changed;
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, string> Current => _received ?? UserLiveSettings();
+    public IReadOnlyDictionary<string, string> Current => _snapshot?.Received ?? UserLiveSettings();
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, string> Said => _said ?? UserLiveSettings();
+    public IReadOnlyDictionary<string, string> Said => _snapshot?.Said ?? UserLiveSettings();
 
     /// <inheritdoc/>
-    public bool HasReceived => _received is not null;
+    public bool HasReceived => _snapshot is not null;
 
     /// <inheritdoc/>
     public void Apply(IReadOnlyDictionary<string, string> settings) => Apply(settings, new Dictionary<string, string>());
 
     /// <inheritdoc/>
-    public void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted)
+    public void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted) => Apply(said, adopted, () => true);
+
+    /// <inheritdoc/>
+    public bool Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent)
+        => Apply(said, adopted, isCurrent, out _);
+
+    /// <inheritdoc/>
+    public Task<bool> ApplyAsync(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent)
+        => Apply(said, adopted, isCurrent, out var told) ? Told(told) : Task.FromResult(false);
+
+    private static async Task<bool> Told(Task told)
     {
+        await told;
+        return true;
+    }
+
+    private bool Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent, out Task told)
+    {
+        var change = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        told = change.Task;
         lock (_applying)
         {
-            _said = new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase);
+            if (!isCurrent())
+            {
+                return false;
+            }
+
             var received = new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase);
             foreach (var (key, value) in adopted)
             {
                 received[key] = value;
             }
 
-            _received = received;
-            Set(_received);
+            // the settings are set before what is said is published: whoever sees that the client has said its settings finds them set.
+            Set(received);
+            _snapshot = new Snapshot(new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase), received);
+            _unannounced.Enqueue(change);
         }
 
-        Changed?.Invoke(this, EventArgs.Empty);
+        Announce();
+        return true;
     }
 
     /// <inheritdoc/>
@@ -199,10 +261,64 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     {
         lock (_applying)
         {
-            Set(_received ?? UserLiveSettings());
+            Set(_snapshot?.Received ?? UserLiveSettings());
+            _unannounced.Enqueue(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
         }
 
-        Changed?.Invoke(this, EventArgs.Empty);
+        Announce();
+    }
+
+    // each change is told once and in the order it was made, by the thread that comes first: a thread that comes while another is telling leaves its change to it, and a listener
+    // that sets settings itself is not told of that change before it has returned from the one it is told of.
+    private void Announce()
+    {
+        lock (_applying)
+        {
+            if (_announcing)
+            {
+                return;
+            }
+
+            _announcing = true;
+        }
+
+        while (true)
+        {
+            TaskCompletionSource change;
+            lock (_applying)
+            {
+                if (!_unannounced.TryDequeue(out change!))
+                {
+                    _announcing = false;
+                    return;
+                }
+            }
+
+            Tell();
+            change.TrySetResult();
+        }
+    }
+
+    // a listener that throws is no reason for the others not to be told, nor for the changes behind this one to wait for the next: it is logged, and does not reach the
+    // thread that made the change.
+    private void Tell()
+    {
+        if (Changed is not { } listeners)
+        {
+            return;
+        }
+
+        foreach (var listener in listeners.GetInvocationList().Cast<EventHandler>())
+        {
+            try
+            {
+                listener(this, EventArgs.Empty);
+            }
+            catch (Exception exception)
+            {
+                logger?.LogError(exception, "⚙️ A listener of the change of the live settings failed; the others were told all the same.");
+            }
+        }
     }
 
     // every live setting of the component takes the value it is said to have, or the one it started with.

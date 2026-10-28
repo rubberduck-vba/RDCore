@@ -33,6 +33,7 @@ public sealed class WorkspaceReloadServiceTests
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly ISymbolSyncService _symbols = Substitute.For<ISymbolSyncService>();
     private readonly IRDCoreClientApp _host = Substitute.For<IRDCoreClientApp>();
+    private readonly IWorkspaceRefresh _refresh = Substitute.For<IWorkspaceRefresh>();
     private readonly DocumentStateProvider _documentStates = new(NullLogger<DocumentStateProvider>.Instance);
     private readonly ProjectFileService _projectFiles;
     private readonly WorkspaceDocumentService _documents;
@@ -53,7 +54,7 @@ public sealed class WorkspaceReloadServiceTests
         _projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, _files.Path, _files.File, new ProjectFileLoader(_files),
             () => SupportedLanguages.RDVBA);
         _documents = new WorkspaceDocumentService(_documentStates, NullLogger<WorkspaceDocumentService>.Instance, _files.Path, _files.File);
-        _sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path,
+        _sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path, _refresh,
             NullLogger<WorkspaceReloadService>.Instance);
 
         _files.AddFile(Path.Combine(Root, "A.bas"), new MockFileData("Attribute VB_Name = \"A\"\r\n"));
@@ -103,6 +104,7 @@ public sealed class WorkspaceReloadServiceTests
         await _parsing.Received(1).ParseDocumentAsync(UriOf("B.cls"), Arg.Any<CancellationToken>());
         await _host.Received(1).SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>());
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.Received(1).Changed();
     }
 
     // a resource file the project gained is a document of the workspace, and none of its code: it is never parsed (HexIDE, desk 2026-10-27).
@@ -214,6 +216,7 @@ public sealed class WorkspaceReloadServiceTests
         Assert.AreSame(WorkspaceReloadResult.Unchanged, result);
         await _host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(default!, default);
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.DidNotReceive().Changed();
     }
 
     [TestMethod]
@@ -231,6 +234,23 @@ public sealed class WorkspaceReloadServiceTests
         // the client that watches the project file says it changed: it is the server's own write.
         Assert.AreSame(WorkspaceReloadResult.Unchanged, await _sut.ReloadAsync(CancellationToken.None));
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.Received(1).Changed();
+    }
+
+    // a project file that cannot be written leaves the project what it was - what is on disk, and what the workspace is - and says it was not written.
+    [TestMethod]
+    public async Task AChangeThatCannotBeWritten_LeavesTheProjectAsItWas()
+    {
+        await LoadAsync("A.bas");
+        _files.File.SetAttributes(Path.Combine(Root, ProjectFile.FileName), FileAttributes.ReadOnly);
+
+        var notWritten = await Assert.ThrowsAsync<ProjectFileNotWrittenException>(
+            () => _sut.ChangeAsync(project => project.WithModule(new RDCoreModule { RelativeUri = "B.cls" }), CancellationToken.None));
+
+        Assert.IsInstanceOfType<UnauthorizedAccessException>(notWritten.InnerException);
+
+        CollectionAssert.AreEqual(new[] { "A.bas" }, _projectFiles.Project.ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsFalse(_documents.TryGetDocument(UriOf("B.cls"), out _));
     }
 
     [TestMethod]
@@ -243,6 +263,7 @@ public sealed class WorkspaceReloadServiceTests
 
         Assert.AreSame(WorkspaceReloadResult.Unchanged, result);
         Assert.AreEqual(before, _files.File.ReadAllText(Path.Combine(Root, ProjectFile.FileName)));
+        _refresh.DidNotReceive().Changed();
     }
 
     [TestMethod]
@@ -322,6 +343,7 @@ public sealed class WorkspaceReloadServiceTests
         Assert.IsGreaterThan(before.Version, document.Version);
         await _parsing.Received(1).ParseDocumentAsync(UriOf("A.bas"), Arg.Any<CancellationToken>());
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.Received(1).Changed();
     }
 
     [TestMethod]
@@ -331,6 +353,7 @@ public sealed class WorkspaceReloadServiceTests
 
         Assert.AreSame(WorkspaceReloadResult.Unchanged, await _sut.ReloadFilesAsync([UriOf("A.bas")], CancellationToken.None));
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.DidNotReceive().Changed();
     }
 
     [TestMethod]

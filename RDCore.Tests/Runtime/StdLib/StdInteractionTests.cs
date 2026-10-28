@@ -188,7 +188,7 @@ public sealed class StdInteractionTests
     {
         var interaction = Substitute.For<IUserInteraction>();
         Run(With(interaction) with { DialogTitle = "Project1" }, "MsgBox \"hello\"");
-        interaction.Received().ShowMessage(new MessageBoxRequest("hello", "Project1", VBMsgBoxStyle.VBOkOnly), Arg.Any<CancellationToken>());
+        interaction.Received().ShowMessage(new MessageBoxRequest("hello", "Project1", VBMsgBoxStyle.VBOKOnly), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -221,7 +221,7 @@ public sealed class StdInteractionTests
         interaction.ShowMessage(Arg.Any<MessageBoxRequest>(), Arg.Any<CancellationToken>()).Throws(new OperationCanceledException());
         var session = Substitute.For<IRuntimeSession>();
 
-        var result = new StdInteraction(session, With(interaction)).MsgBox(new VBVariantValue(new VBStringValue("x")), VBMsgBoxStyle.VBOkCancel);
+        var result = new StdInteraction(session, With(interaction)).MsgBox(new VBVariantValue(new VBStringValue("x")), VBMsgBoxStyle.VBOKCancel);
 
         Assert.AreEqual((int)VBMsgBoxResult.VBCancel, result.Result!.Value);
     }

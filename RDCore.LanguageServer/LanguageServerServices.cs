@@ -67,6 +67,7 @@ internal static class LanguageServerServices
             .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
+            .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()
             // intrinsic-only type resolution until project/library symbols can be composed (Slice 4).
             .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver>(provider => new IntrinsicSymbolResolver(

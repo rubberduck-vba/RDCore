@@ -32,7 +32,7 @@ public sealed class FoldingRangeHandlerTests
     };
 
     private void WorkspaceContains(WorkspaceDocument? document)
-        => _documents.GetAllDocuments().Returns(document is null ? [] : [document]);
+        => _documents.Holds(document is null ? [] : [document]);
 
     private static ModuleParseResult Parse(params string[] lines)
         => new ModuleParser().Parse(DocUri, string.Join("\n", lines));

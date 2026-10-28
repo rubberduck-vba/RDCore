@@ -13,6 +13,7 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<SessionAnalyze>]
 [assembly: ProvidesCorePlatformClientCapability<SessionCompletion>]
 [assembly: ProvidesCorePlatformClientCapability<SessionSignatureHelp>]
+[assembly: ProvidesCorePlatformClientCapability<SessionSemanticTokens>]
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // it relays the dialogs of the program that runs in the environment host to a client that answers them:
 [assembly: ProvidesCorePlatformClientCapability<SessionInteraction>]

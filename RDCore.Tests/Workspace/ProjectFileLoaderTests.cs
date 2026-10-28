@@ -43,7 +43,7 @@ public sealed class ProjectFileLoaderTests
         Assert.AreEqual("1", loaded.ProjectInfo.PrecompilerConstants["RDDEBUG"]);
     }
 
-    // a project file as the platform wrote them before the standard library was implicit (author, 2026-10-27): VBA first, with the path of Office's VBE7.DLL.
+    // a project file as the platform wrote them before the standard library was implicit: VBA first, with the path of Office's VBE7.DLL.
     private const string WrittenBefore = """
         {
           "Version": "0.1.0",
