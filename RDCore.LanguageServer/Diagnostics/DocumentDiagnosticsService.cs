@@ -60,17 +60,20 @@ internal interface IDocumentDiagnosticsService
 }
 
 /// <summary>
-/// The outcome of a diagnostics pull. <see cref="ResultId"/> tracks the workspace document version;
-/// when it equals the client's <c>previousResultId</c> the report is <see cref="Unchanged"/> and
-/// carries no items.
+/// The outcome of a diagnostics pull. <see cref="ResultId"/> is of the version of the document, and of the workspace it is in
+/// (<see cref="IWorkspaceRefresh.Generation"/>): the findings of a document that did not change change with what another module declares. When it equals the
+/// client's <c>previousResultId</c> the report is <see cref="Unchanged"/> and carries no items.
 /// </summary>
 internal readonly record struct DocumentDiagnosticsResult(string ResultId, bool Unchanged, IReadOnlyList<Diagnostic> Diagnostics)
 {
-    public static DocumentDiagnosticsResult Fresh(int version, IReadOnlyList<Diagnostic> diagnostics)
-        => new($"v{version}", Unchanged: false, diagnostics);
+    public static DocumentDiagnosticsResult Fresh(int version, IReadOnlyList<Diagnostic> diagnostics, long generation = 0)
+        => new(ResultIdOf(version, generation), Unchanged: false, diagnostics);
 
-    public static DocumentDiagnosticsResult NotChanged(int version)
-        => new($"v{version}", Unchanged: true, []);
+    public static DocumentDiagnosticsResult NotChanged(int version, long generation = 0)
+        => new(ResultIdOf(version, generation), Unchanged: true, []);
+
+    /// <summary>The result id of the findings of a document at a version, in the workspace at a generation.</summary>
+    public static string ResultIdOf(int version, long generation) => $"v{version}.{generation}";
 }
 
 internal sealed class DocumentDiagnosticsService(
@@ -78,6 +81,7 @@ internal sealed class DocumentDiagnosticsService(
     IParsingClientService parsing,
     IPlatformOrchestrationService orchestration,
     ISymbolSyncService symbols,
+    IWorkspaceRefresh refresh,
     ILogger<DocumentDiagnosticsService> logger) : IDocumentDiagnosticsService
 {
     public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
@@ -125,11 +129,12 @@ internal sealed class DocumentDiagnosticsService(
     {
         var document = Resolve(documentUri);
         var version = document?.Version ?? 0;
-        if (document is null || previousResultId == $"v{version}")
+        var generation = refresh.Generation;
+        if (document is null || previousResultId == DocumentDiagnosticsResult.ResultIdOf(version, generation))
         {
             return document is null
-                ? DocumentDiagnosticsResult.Fresh(version, [])
-                : DocumentDiagnosticsResult.NotChanged(version);
+                ? DocumentDiagnosticsResult.Fresh(version, [], generation)
+                : DocumentDiagnosticsResult.NotChanged(version, generation);
         }
 
         return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress);
@@ -139,7 +144,7 @@ internal sealed class DocumentDiagnosticsService(
     {
         var document = Resolve(documentUri);
         return document is null
-            ? DocumentDiagnosticsResult.Fresh(0, [])
+            ? DocumentDiagnosticsResult.Fresh(0, [], refresh.Generation)
             : await AnalyzePhaseAsync(document, phase, token);
     }
 
@@ -148,10 +153,13 @@ internal sealed class DocumentDiagnosticsService(
         var documentUri = document.Id.Uri.ToUri();
         var version = document.Version;
 
+        // the findings are of the workspace as it is when they are looked for: one that changes while they are is another result.
+        var generation = refresh.Generation;
+
         var providers = DiagnosticsProviders();
         if (providers.Length == 0)
         {
-            return DocumentDiagnosticsResult.Fresh(version, []);
+            return DocumentDiagnosticsResult.Fresh(version, [], generation);
         }
 
         progress?.Report(new WorkProgressStep(ProgressMessages.Parsing, 0));
@@ -170,10 +178,10 @@ internal sealed class DocumentDiagnosticsService(
         {
             logger.LogInformation("🔎 {uri}: diagnostics for v{stale} dropped, document is at v{current}.",
                 documentUri, version, currentVersion);
-            return DocumentDiagnosticsResult.Fresh(currentVersion, []);
+            return DocumentDiagnosticsResult.Fresh(currentVersion, [], generation);
         }
 
-        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)));
+        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)), generation);
     }
 
     // puts a module the host does not have where the host can analyze it, and asks it for what it found out: nothing when the host does not run the pass,

@@ -42,20 +42,20 @@ public sealed class DocumentDiagnosticHandlerTests
         var report = await Sut().Handle(Request(), CancellationToken.None);
 
         var full = (RelatedFullDocumentDiagnosticReport)report;
-        Assert.AreEqual("v2", full.ResultId);
+        Assert.AreEqual("v2.0", full.ResultId);
         Assert.AreSame(diagnostic, full.Items.Single());
     }
 
     [TestMethod]
     public async Task UnchangedResult_MapsToARelatedUnchangedReport()
     {
-        _service.GetAsync(DocUri, "v5", Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>())
+        _service.GetAsync(DocUri, "v5.0", Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>())
             .Returns(DocumentDiagnosticsResult.NotChanged(5));
 
-        var report = await Sut().Handle(Request("v5"), CancellationToken.None);
+        var report = await Sut().Handle(Request("v5.0"), CancellationToken.None);
 
         var unchanged = (RelatedUnchangedDocumentDiagnosticReport)report;
-        Assert.AreEqual("v5", unchanged.ResultId);
+        Assert.AreEqual("v5.0", unchanged.ResultId);
     }
 
     [TestMethod]

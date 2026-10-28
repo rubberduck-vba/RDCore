@@ -30,6 +30,7 @@ public sealed class DocumentLifecycleServiceTests
     private readonly ISymbolSyncService _symbols = Substitute.For<ISymbolSyncService>();
     private readonly IDocumentDiagnosticsService _diagnostics = Substitute.For<IDocumentDiagnosticsService>();
     private readonly IDiagnosticsPublisher _publisher = Substitute.For<IDiagnosticsPublisher>();
+    private readonly IWorkspaceRefresh _refresh = Substitute.For<IWorkspaceRefresh>();
     private readonly WorkspaceDocumentService _documents;
     private readonly DocumentLifecycleService _sut;
 
@@ -39,15 +40,16 @@ public sealed class DocumentLifecycleServiceTests
             new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance), NullLogger<WorkspaceDocumentService>.Instance, _files.Path, _files.File);
         _documents.Initialize(Root);
 
+        // the text of the document, as it is when it is parsed.
         _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], "Public Sub Foo()\r\nEnd Sub")));
+            .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], _documents.TryGetDocument((Uri)call[0], out var document) ? document.Text : string.Empty)));
         // the static phase finds one thing, and the runtime phase nothing: one publication.
         _diagnostics.GetPhaseAsync(Arg.Any<Uri>(), AnalysisPhase.Static, Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(DocumentDiagnosticsResult.Fresh(1, [Diagnostic()])));
         _diagnostics.GetPhaseAsync(Arg.Any<Uri>(), AnalysisPhase.Runtime, Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(DocumentDiagnosticsResult.Fresh(1, [])));
 
-        _sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, NullLogger<DocumentLifecycleService>.Instance);
+        _sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance);
     }
 
     private static Diagnostic Diagnostic() => new() { Message = "wrong", Range = new Range(new Position(0, 0), new Position(0, 1)) };
@@ -195,6 +197,93 @@ public sealed class DocumentLifecycleServiceTests
         _publisher.Received(1).Publish(Mod1, 1, Arg.Any<IReadOnlyList<Diagnostic>>());
     }
 
+    // ---- the other documents (#257) ----
+
+    private const string Declares = "Public Sub Foo()\r\n    Debug.Print 1\r\nEnd Sub\r\n";
+
+    private async Task EditedAsync(string text)
+    {
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        _refresh.ClearReceivedCalls();
+        _symbols.ClearReceivedCalls();
+
+        _sut.Changed(Mod1, 2, [Full(text)]);
+        await _sut.WhenRefreshedAsync(Mod1);
+    }
+
+    [TestMethod]
+    public async Task AChangeOfWhatTheModuleDeclares_DefinesTheWorkspaceAgain_AndThenAsksTheClientToRefresh()
+    {
+        await EditedAsync(Declares.Replace("Foo", "Bar"));
+
+        Received.InOrder(() =>
+        {
+            _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+            _publisher.Publish(Mod1, 2, Arg.Any<IReadOnlyList<Diagnostic>>());
+            _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+            _refresh.Changed();
+        });
+    }
+
+    // the next refresh finds that the others were not told: it tells them.
+    [TestMethod]
+    public async Task ARefreshSupersededBeforeTheOthersAreLoaded_LeavesThemToTheNextOne()
+    {
+        var loading = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), Arg.Any<IProgress<RDCore.SDK.Server.Progress.WorkProgressStep>?>(), Arg.Any<bool>()).Returns(async _ =>
+        {
+            loading.TrySetResult();
+            await release.Task;
+        });
+        _refresh.ClearReceivedCalls();
+
+        _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
+        await loading.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _sut.Changed(Mod1, 3, [Full(Declares.Replace("Foo", "Bar").Replace("Debug.Print 1", "Debug.Print 2"))]);
+        release.SetResult();
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        _refresh.Received(1).Changed();
+    }
+
+    [TestMethod]
+    [DataRow("Debug.Print 2", DisplayName = "a literal")]
+    [DataRow("Debug.Print 1 ' one", DisplayName = "a comment")]
+    public async Task AChangeInsideAProcedure_ThatDeclaresAndNamesNothingNew_AsksNothing(string edited)
+    {
+        await EditedAsync(Declares.Replace("Debug.Print 1", edited));
+
+        _refresh.DidNotReceive().Changed();
+        await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    // opened before the workspace was parsed: the workspace is defined with it when it is.
+    [TestMethod]
+    public async Task AnOpenedDocument_TheServerHadNoTextOf_AsksNothing()
+    {
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        _refresh.DidNotReceive().Changed();
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    [TestMethod]
+    public async Task AnOpenedDocument_WhoseTextIsWhatTheWorkspaceHad_AsksNothing()
+    {
+        TheParseOfTheDocumentIs(Mod1, Declares);
+
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        _refresh.DidNotReceive().Changed();
+    }
+
     // ---- didSave ----
 
     [TestMethod]
@@ -294,9 +383,11 @@ public sealed class DocumentLifecycleServiceTests
     // a program a shell loads is a file of the user's, outside the workspace the shell composed: the client's document, and the workspace's no more once it is closed.
     private static readonly Uri Elsewhere = new(Path.Combine(Path.GetTempPath(), "rdcore-elsewhere", "Program1.rdc"));
 
-    private void TheParseOfTheDocumentIsCached(Uri document)
+    private void TheParseOfTheDocumentIsCached(Uri document) => TheParseOfTheDocumentIs(document, "Public Sub Foo()\r\nEnd Sub");
+
+    private void TheParseOfTheDocumentIs(Uri document, string text)
     {
-        var parse = new ModuleParser().Parse(document, "Public Sub Foo()\r\nEnd Sub");
+        var parse = new ModuleParser().Parse(document, text);
         _parsing.TryGetCached(document, out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
     }
 
@@ -322,9 +413,13 @@ public sealed class DocumentLifecycleServiceTests
         await _sut.WhenRefreshedAsync(Mod1);
         TheParseOfTheDocumentIsCached(Mod1);
 
+        _refresh.ClearReceivedCalls();
+
         await _sut.ClosedAsync(Mod1);
 
         await _symbols.Received(1).DiscardModuleAsync("Mod1", Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.Received(1).Changed();
     }
 
     [TestMethod]

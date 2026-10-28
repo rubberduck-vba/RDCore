@@ -2,10 +2,8 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol;
-using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Runtime.Libraries;
@@ -39,14 +37,6 @@ public sealed class ImportProjectCommandTests
 
     public ImportProjectCommandTests()
     {
-        // a client that pulls its diagnostics, and says it is to be asked to pull them again.
-        _server.ClientSettings.Returns(new InitializeParams
-        {
-            Capabilities = new ClientCapabilities
-            {
-                Workspace = new WorkspaceClientCapabilities { Diagnostics = new DiagnosticWorkspaceClientCapabilities { RefreshSupport = true } },
-            },
-        });
         _documents.WorkspaceRoot.Returns(Root);
         _fileSystem.AddDirectory(Root);
         _fileSystem.AddDirectory(Other);
@@ -137,40 +127,7 @@ public sealed class ImportProjectCommandTests
             Arg.Any<CancellationToken>());
     }
 
-    // the workspace an import changed is reported as any change of the project is: a client that pulls its diagnostics on open and edit only would keep
-    // those of the modules the project no longer has (HexIDE, desk 2026-10-27).
-    [TestMethod]
-    public async Task AnImportThatChangesTheWorkspace_AsksTheClientToPullItsDiagnosticsAgain()
-    {
-        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
-        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>())
-            .Returns(new WorkspaceReloadResult(Added: 1, Removed: 2, IsHostComposed: true, IsProgramRunning: false));
-
-        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
-
-        _server.Received(1).SendRequest(DiagnosticRefresh.Method);
-    }
-
-    [TestMethod]
-    public async Task AnImportThatChangesNothing_AsksNothing()
-    {
-        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
-
-        await Sut().ExecuteAsync(Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["overwrite"] = true }), _context, CancellationToken.None);
-
-        _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
-    }
-
-    [TestMethod]
-    public async Task AnImportOfAnotherFolder_LeavesTheWorkspace_AndItsDiagnostics()
-    {
-        Write(Path.Combine(Other, "Battleship.vbp"), Battleship);
-
-        await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
-
-        _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
-    }
-
+    // the workspace an import changes is changed as any change of the project is, which asks the client to refresh what it shows (WorkspaceReloadServiceTests).
     [TestMethod]
     public async Task AVbpOfAnotherFolder_IsWrittenThere()
     {

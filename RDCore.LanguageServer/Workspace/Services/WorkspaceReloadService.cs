@@ -22,6 +22,9 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// <c>workspace/didChangeWatchedFiles</c>, and this is what is done about it. The client owns the file system: the server is told, and watches only for a client
 /// that does not say it watches (<see cref="Server.Handlers.Workspace.IWorkspaceFileSystemWatcher"/>).
 /// <para>
+/// The client is told of a workspace that is not what it was (<see cref="IWorkspaceRefresh"/>): what it shows of each document may be of what changed.
+/// </para>
+/// <para>
 /// The server writes the project file itself when the client creates, renames or deletes a file of the workspace (<see cref="ChangeAsync"/>): it is the
 /// project file's only writer. A client that watches the project file then says it changed, and reading it again changes nothing.
 /// </para>
@@ -98,6 +101,7 @@ internal sealed class WorkspaceReloadService(
     ISymbolSyncService symbols,
     IPlatformOrchestrationService orchestration,
     System.IO.Abstractions.IPath ioPath,
+    IWorkspaceRefresh refresh,
     ILogger<WorkspaceReloadService> logger) : IWorkspaceReloadService
 {
     // one reload at a time: a client that writes the project file twice in a row is told about it twice, and the second reload reads what the second write
@@ -125,12 +129,23 @@ internal sealed class WorkspaceReloadService(
                 return WorkspaceReloadResult.Unchanged;
             }
 
-            return await ApplyAsync(project, token);
+            return Told(await ApplyAsync(project, token));
         }
         finally
         {
             _reloading.Release();
         }
+    }
+
+    // the client is told of a workspace that is not what it was.
+    private WorkspaceReloadResult Told(WorkspaceReloadResult result)
+    {
+        if (!result.IsUnchanged)
+        {
+            refresh.Changed();
+        }
+
+        return result;
     }
 
     public async Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
@@ -155,7 +170,7 @@ internal sealed class WorkspaceReloadService(
             // the environment host reads the project file to compose its session, so it is written first.
             projectFiles.Update(changed);
             await projectFiles.SaveAsync();
-            return await ApplyAsync(project, token);
+            return Told(await ApplyAsync(project, token));
         }
         finally
         {
@@ -175,7 +190,7 @@ internal sealed class WorkspaceReloadService(
         await _reloading.WaitAsync(token);
         try
         {
-            return await ReloadListedFilesAsync(files, token);
+            return Told(await ReloadListedFilesAsync(files, token));
         }
         finally
         {
