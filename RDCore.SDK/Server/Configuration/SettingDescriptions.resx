@@ -167,7 +167,7 @@
     <value>What is done with lines that have nothing on them: left as they are (Ignore), removed (Remove), or indented as the code around them (Indent).</value>
   </data>
   <data name="Formatting_IndentSpaces" xml:space="preserve">
-    <value>The number of spaces a level of indentation is, from 0 to 32. Your editor's tab size is kept the same.</value>
+    <value>The number of spaces a level of indentation is, from 0 to 32. Left unset, it is your editor's tab size.</value>
   </data>
   <data name="Formatting_VerticallySpaceProcedures" xml:space="preserve">
     <value>Whether the number of empty lines between the procedures of a module is made the number set for it.</value>

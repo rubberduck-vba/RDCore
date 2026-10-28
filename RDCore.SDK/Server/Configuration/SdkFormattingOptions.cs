@@ -9,12 +9,12 @@ namespace RDCore.SDK.Server.Configuration;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A setting is what <see cref="CodeFormattingOptions"/> says of the property of the same name, and has its default. They are live: the next line that is
-/// formatted is formatted as the user's settings say it now.
+/// A setting is what <see cref="CodeFormattingOptions"/> says of the property of the same name, and has its default. The settings are what the platform's formatter
+/// is told to do; they take effect with the formatter, which reads them each time it formats, so that a change is the next line's.
 /// </para>
 /// <para>
-/// <see cref="IndentSpaces"/> and the tab size of a client's editor are one setting said twice: a client that has a tab size sets this one to it, and one that
-/// is told this one sets its tab size to it.
+/// <see cref="IndentSpaces"/> and the tab size of a client's editor are one setting said twice, through the client's configuration: an indentation the user never set
+/// is the editor's tab size (<see cref="Formatting.FormattingTabSize"/>).
 /// </para>
 /// </remarks>
 public record class SdkFormattingOptions

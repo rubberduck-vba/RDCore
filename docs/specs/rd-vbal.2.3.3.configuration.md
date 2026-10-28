@@ -78,7 +78,7 @@ A live setting is set on the object the component reads its settings off, in pla
 |`Server.Verbose`|For the next message the console writes.|
 |`Server.WireErrorDetail`|For the next record forwarded to the client.|
 |`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|
-|`Formatting.*`|For the next line or range that is formatted ([Formatting](#formatting)).|
+|`Formatting.*`|For the next line or range the formatter formats; they are read as the formatter arrives ([Formatting](#formatting)).|
 
 `rdc config` writes the user's settings without a running platform to tell: what it sets takes effect when the platform next starts, a live setting included.
 
@@ -87,6 +87,9 @@ A live setting is set on the object the component reads its settings off, in pla
 The `Formatting` section is what formats and completes code ([`SdkFormattingOptions`](../api/RDCore.SDK.Server.Configuration.SdkFormattingOptions.html)). A
 formatting engine is told the options these settings say ([`CodeFormattingOptions`](../api/RDCore.SDK.Formatting.CodeFormattingOptions.html)); the numbers
 are kept to the limits of their settings. The indentation is made of spaces, as VBA code is.
+
+The settings take effect with the formatter, which reads them each time it formats: the platform keeps them and hands them to it as it arrives, and until then they
+change nothing in a document. Only `IndentSpaces` has an effect of its own already, on the tab size an editor is told ([below](#indentation-and-the-editors-tab-size)).
 
 The first twenty-four are Rubberduck's indenter settings, with the names, types, defaults and limits they have there, most of them the Smart Indenter's. A
 setting means here what it means there.

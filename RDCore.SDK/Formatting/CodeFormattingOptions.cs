@@ -56,8 +56,7 @@ public enum SnippetDimPlacement
 /// </summary>
 /// <remarks>
 /// <para>
-/// The first group of settings is Rubberduck's indenter, with the names and meanings its settings have, which are the Smart Indenter's for the most part: a user who
-/// had them in Rubberduck has them here as they were (<see cref="Server.Configuration.SdkFormattingOptions"/> reads them the same way). The second group is
+/// The first group of settings is Rubberduck's indenter, with the names and meanings its settings have, which are the Smart Indenter's for the most part: a setting means here what it means there (<see cref="Server.Configuration.SdkFormattingOptions"/> is where a user says them). The second group is
 /// RDCore's own: what formats as the user types, and what completes as they do.
 /// </para>
 /// <para>

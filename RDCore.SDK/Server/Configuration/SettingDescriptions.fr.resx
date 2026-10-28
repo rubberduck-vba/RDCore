@@ -167,7 +167,7 @@
     <value>Ce qu'on fait des lignes vides : les laisser telles quelles (Ignore), les retirer (Remove), ou les indenter comme le code autour (Indent).</value>
   </data>
   <data name="Formatting_IndentSpaces" xml:space="preserve">
-    <value>Le nombre d'espaces d'un niveau d'indentation, de 0 à 32. La taille de tabulation de votre éditeur reste la même.</value>
+    <value>Le nombre d'espaces d'un niveau d'indentation, de 0 à 32. Laissé sans valeur, c'est la taille de tabulation de votre éditeur.</value>
   </data>
   <data name="Formatting_VerticallySpaceProcedures" xml:space="preserve">
     <value>Si le nombre de lignes vides entre les procédures d'un module est ramené au nombre réglé.</value>

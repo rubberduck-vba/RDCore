@@ -66,20 +66,19 @@ public static class FormattingTabSize
     }
 
     /// <summary>
-    /// Takes the editor's tab size for the indentation when the user never set one, after the client said what its live settings are.
+    /// The live settings the client said, with the editor's tab size as the indentation when the user never set one.
     /// </summary>
-    /// <param name="formatting">The formatting settings of the component, which the live settings were set on.</param>
     /// <param name="said">What the client said the live settings are, by their keys under <see cref="SettingsSchema.Root"/>, separated by <c>:</c>.</param>
     /// <param name="editorTabSize">The tab size of the client's editor; <see langword="null"/> when the client has none to say.</param>
-    /// <returns>Whether the indentation is the editor's tab size now.</returns>
-    public static bool Adopt(SdkFormattingOptions formatting, IReadOnlyDictionary<string, string> said, int? editorTabSize)
+    /// <returns><paramref name="said"/> itself when the user set the indentation or the editor has no tab size; otherwise a copy that says the indentation is the editor's tab size.</returns>
+    public static IReadOnlyDictionary<string, string> WithEditorTabSize(IReadOnlyDictionary<string, string> said, int? editorTabSize)
     {
-        if (editorTabSize is not { } size || said.ContainsKey($"{nameof(SdkAppOptions.Formatting)}:{nameof(SdkFormattingOptions.IndentSpaces)}"))
+        const string key = $"{nameof(SdkAppOptions.Formatting)}:{nameof(SdkFormattingOptions.IndentSpaces)}";
+        if (editorTabSize is not { } size || said.ContainsKey(key))
         {
-            return false;
+            return said;
         }
 
-        formatting.IndentSpaces = size;
-        return true;
+        return new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase) { [key] = size.ToString(CultureInfo.InvariantCulture) };
     }
 }

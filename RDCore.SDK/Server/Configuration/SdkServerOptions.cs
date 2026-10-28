@@ -189,7 +189,8 @@ public record class SdkAppOptions
     /// Code formatting options: the indenter settings Rubberduck has, and what formats and completes code as it is typed.
     /// </summary>
     /// <remarks>
-    /// These are live settings: the next line that is formatted is formatted as they say it now.
+    /// These settings take effect with the formatter, which reads them each time it formats; until the formatter is part of the platform they are kept and passed to it,
+    /// and change nothing in a document.
     /// </remarks>
     public SdkFormattingOptions Formatting { get; set; } = new();
 }

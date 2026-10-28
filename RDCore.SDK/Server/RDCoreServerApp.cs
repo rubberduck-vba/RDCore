@@ -269,6 +269,7 @@ public abstract class RDCoreServerApp(
         }
         _disposed = true;
 
+        _configurationFollower?.Dispose();
         if (transportLayer is IDisposable disposableTransport)
         {
             disposableTransport.Dispose();
@@ -407,34 +408,11 @@ public abstract class RDCoreServerApp(
             return;
         }
 
-        Microsoft.Extensions.Primitives.ChangeToken.OnChange(server.Configuration.GetReloadToken, () =>
-        {
-            var settings = LiveSettingsProtocol.Read(server.Configuration);
-            liveSettings.Apply(settings);
-            LogIfEnabled(LogLevel.Information, $"⚙️ The client's live settings were applied ({settings.Count} value(s)).");
-            _ = AdoptEditorTabSizeAsync(server, settings, Interlocked.Increment(ref _configurationVersion));
-            _ = OnLiveSettingsChangedAsync(server);
-        });
+        _configurationFollower = new ClientConfigurationFollower(server, liveSettings, options.Value.Formatting, () => OnLiveSettingsChangedAsync(server), message => LogIfEnabled(LogLevel.Information, message));
+        _configurationFollower.Start();
     }
 
-    private int _configurationVersion;
-
-    // an indentation the user never set is the tab size of the client's editor (FormattingTabSize); a newer change of the configuration has the last word.
-    private async Task AdoptEditorTabSizeAsync(ILanguageServer server, IReadOnlyDictionary<string, string> settings, int version)
-    {
-        try
-        {
-            var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(server);
-            if (version == Volatile.Read(ref _configurationVersion) && FormattingTabSize.Adopt(options.Value.Formatting, settings, tabSize))
-            {
-                LogIfEnabled(LogLevel.Information, $"⚙️ The indentation is the client's tab size ({options.Value.Formatting.IndentSpaces}), which no setting overrides.");
-            }
-        }
-        catch (Exception exception)
-        {
-            LogIfEnabled(LogLevel.Warning, $"The client's tab size could not be read: {exception.Message}");
-        }
-    }
+    private ClientConfigurationFollower? _configurationFollower;
 
     /// <summary>
     /// The client said the live settings changed, and they were set on the component's settings (<see cref="ILiveSettings"/>).
