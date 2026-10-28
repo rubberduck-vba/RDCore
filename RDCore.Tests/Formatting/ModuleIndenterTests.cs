@@ -154,6 +154,8 @@ public sealed class ModuleIndenterTests
         DisplayName = "blocks not closed yet")]
     [DataRow(new[] { "Sub A(", "If x Then", "y = = 1", "End If", "End Sub" }, new[] { "Sub A(", "    If x Then", "        y = = 1", "    End If", "End Sub" },
         DisplayName = "a body the parser built nothing of")]
+    [DataRow(new[] { "Sub A()", "End If", "", "", "End Sub", "", "Sub B()", "End Sub" }, new[] { "Sub A()", "    End If", "", "", "End Sub", "", "Sub B()", "End Sub" },
+        DisplayName = "a closer of no block")]
     [DataRow(new[] { "Sub A(", "If x Then", "y = = 1", "Else ' c", "y = = 2", "End If", "End Sub" },
         new[] { "Sub A(", "    If x Then", "        y = = 1", "    Else ' c", "        y = = 2", "    End If", "End Sub" }, DisplayName = "a branch with a comment")]
     public void UnfinishedCode_IsIndentedByWhatEnclosesIt(string[] typed, string[] indented)

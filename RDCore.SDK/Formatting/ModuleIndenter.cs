@@ -425,7 +425,14 @@ public static partial class ModuleIndenter
             _ => null,
         };
 
-        return closer is not null && end > start && HasStatementStartingWith(Keyworded(module.Lines[end]), closer) ? end - 1 : end;
+        // a node the parser recovered from an error may end past its closer, on the empty lines after it.
+        var last = end;
+        while (last > start && string.IsNullOrWhiteSpace(module.Lines[last]))
+        {
+            last--;
+        }
+
+        return closer is not null && last > start && HasStatementStartingWith(Keyworded(module.Lines[last]), closer) ? last - 1 : end;
     }
 
     // whether a statement of a line starts with the words of a keyword: the first, or one after a colon that is not in a string literal.
