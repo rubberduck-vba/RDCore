@@ -21,9 +21,10 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// when the body has no <c>#If</c> at all. A child lexically inside one is never lowered, at any depth.
 /// </param>
 /// <param name="IsReleaseBuild">
-/// Whether this is a release build, in which <c>Debug.Print</c>, <c>Debug.Assert</c> and <c>Stop</c> are not lowered
+/// Whether this is a release build, in which <c>Debug.Print</c> and <c>Debug.Assert</c> are not lowered
 /// at all — they leave no instruction behind, not a no-op one, so a release build pays nothing for a
-/// <c>Debug.Print</c> left in the source. Driven by the <c>DEBUG</c> conditional compilation constant
+/// <c>Debug.Print</c> left in the source — and <c>Stop</c>, having no debugger to break into, is lowered as
+/// <c>End</c> is. Driven by the <c>DEBUG</c> conditional compilation constant
 /// (whose default is the environment's <see cref="Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.Configuration"/>),
 /// so that <c>#If DEBUG Then</c> and "does this <c>Debug.Print</c> run" are the same fact rather than
 /// two settings that can disagree.
@@ -54,7 +55,7 @@ public readonly record struct InstructionLoweringOptions(
     public ImmutableArray<SourceRange> Dead => DeadRanges.IsDefault ? [] : DeadRanges;
 
     /// <summary>
-    /// Whether <c>Debug</c> statements and <c>Stop</c> are lowered — every build but a release one.
+    /// Whether <c>Debug</c> statements are lowered, and <c>Stop</c> is a break — every build but a release one.
     /// </summary>
     public bool IncludeDebugStatements => !IsReleaseBuild;
 }

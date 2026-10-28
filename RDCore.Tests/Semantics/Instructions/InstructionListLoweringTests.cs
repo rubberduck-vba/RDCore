@@ -110,13 +110,13 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
-    public void Stop_InAReleaseBuild_LeavesNoInstruction()
+    public void Stop_InAReleaseBuild_IsAnEnd()
     {
-        // as in a compiled VB6 executable: a release build does not break.
+        // as in a compiled VB6 executable: a release build has no debugger to break into.
         var result = LowerForRelease("Stop", "x = 1");
 
         AssertNoErrors(result);
-        Assert.AreEqual(InstructionKind.Simple, result.InstructionList.Items.Single().Kind);
+        CollectionAssert.AreEqual(new[] { InstructionKind.Halt, InstructionKind.Simple }, result.InstructionList.Items.Select(item => item.Kind).ToArray());
     }
 
     [TestMethod]

@@ -165,22 +165,22 @@ public sealed class EndAndStopTests
     }
 
     [TestMethod]
-    public async Task Stop_InAReleaseBuild_IsLeftOut_AsIsEveryDebugCall()
+    public async Task Stop_InAReleaseBuild_EndsTheProgram_AndEveryDebugCallIsLeftOut()
     {
-        // as in a compiled VB6 executable: nothing breaks, nothing is printed, nothing is asserted, and the DEBUG constant is False.
+        // as in a compiled VB6 executable: nothing is printed, nothing is asserted, the DEBUG constant is False, and Stop ends the program as End does.
         ExecuteSessionResult? result = null;
-        long total = 0;
+        long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
             "Public Sub Main()",
             "    Debug.Print \"dropped\"",
-            "    Stop",
             "    Debug.Assert False",
             "#If DEBUG Then",
-            "    Total = 1",
-            "#Else",
-            "    Total = 7",
+            "    Exit Sub",
             "#End If",
+            "    Total = 7",
+            "    Stop",
+            "    Total = 8",
             "End Sub"), (provider, run, _) =>
             {
                 result = run;
@@ -188,9 +188,9 @@ public sealed class EndAndStopTests
                 return Task.CompletedTask;
             }, debug: true, configuration: VBBuildConfiguration.Release);
 
-        Assert.AreEqual(ExecutionOutcome.Completed, result!.Outcome, result.ErrorMessage);
+        Assert.AreEqual(ExecutionOutcome.Halted, result!.Outcome, result.ErrorMessage);
         Assert.IsEmpty(result.Output);
-        Assert.AreEqual(7, total);
+        Assert.AreEqual(0, total, "End leaves nothing of the program, and neither does a Stop in a release build");
     }
 
     private static long LocalOf(EnvironmentSessionProvider provider, ICallStackFrame frame, string name)

@@ -197,8 +197,9 @@ public static class InstructionListLowering
                 Emit(state, scope, statement, InstructionKind.Halt);
                 break;
 
-            // as in a compiled VB6 executable, a release build leaves Stop out, the same way it leaves out the Debug statements.
+            // a release build has no debugger to break into: Stop ends the program there, as End does, as it does in a compiled VB6 executable.
             case KeywordStatementNode { Token: Tokens.Stop } when !state.IncludeDebugStatements:
+                Emit(state, scope, statement, InstructionKind.Halt);
                 break;
 
             case KeywordStatementNode { Token: Tokens.Stop }:

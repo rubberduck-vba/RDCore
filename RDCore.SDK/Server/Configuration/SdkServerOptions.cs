@@ -272,8 +272,8 @@ public record class SdkEnvironmentOptions
     public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; }
 
     /// <summary>
-    /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, which leaves out every <c>Stop</c> statement
-    /// and every <c>Debug.*</c> call. It is the default of the built-in <c>DEBUG</c> constant, which a project <c>#Const</c> still overrides.
+    /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, in which a <c>Stop</c> statement ends the
+    /// program as <c>End</c> does and every <c>Debug.*</c> call is left out. It is the default of the built-in <c>DEBUG</c> constant, which a project <c>#Const</c> still overrides.
     /// </summary>
     public Runtime.Abstract.Execution.VBBuildConfiguration Configuration { get; set; }
 }
