@@ -20,8 +20,5 @@ public enum VBExecutionEngine
     /// A procedure is compiled to IL on its first call when every instruction in it can be compiled, and runs in the interpreter otherwise; a compiled
     /// procedure walks back into the interpreter when a debugger needs it to.
     /// </summary>
-    /// <remarks>
-    /// No instruction can be compiled yet, so every procedure runs in the interpreter.
-    /// </remarks>
     Compiled = 1,
 }

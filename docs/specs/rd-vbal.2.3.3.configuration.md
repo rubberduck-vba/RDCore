@@ -42,7 +42,7 @@ Two settings decide how a program is run, whatever its code says:
 |---|---|
 |`Environment.Configuration`|`Debug` (the default) or `Release`. A release build has no debugger: a `Stop` statement ends the program as `End` does, as in a compiled VB6 executable ([**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md)). It keeps every `Debug.Print` and `Debug.Assert` call unless `Environment.ReleaseDropsDebugStatements` says otherwise. It is the default of the built-in `DEBUG` conditional-compilation constant (`True` in a debug build, `False` in a release one), and what a release build does follows `DEBUG`: a project's `#Const DEBUG`, or a command-line define, still decides.|
 |`Environment.ReleaseDropsDebugStatements`|`false` (the default) or `true`. When `true`, a release build leaves out every `Debug.Print` and `Debug.Assert` call, its arguments unevaluated: no instruction is left behind. When `false`, a release build runs them as a debug build does. A debug build keeps them either way, and a release build's `Stop` ends the program whatever this says.|
-|`Environment.ExecutionEngine`|`Interpreter` (the default) or `Compiled`: each procedure compiled to IL on its first call when every instruction in it can be, and interpreted otherwise. 🚧 Nothing is compiled yet: `Compiled` interprets every procedure.|
+|`Environment.ExecutionEngine`|`Interpreter` (the default) or `Compiled`: each procedure compiled to IL on its first call when every instruction in it can be, and interpreted otherwise ([**RD-VBAL §3.5.6** Compiled Execution](rd-vbal.3.5.6.compiled-execution.md)).|
 
 The engine is independent of the other two: a release build lowers the same statements the same way in either engine.
 
