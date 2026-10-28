@@ -52,6 +52,8 @@ internal interface IWorkspaceReloadService
     /// What the change made of the workspace - <see cref="WorkspaceReloadResult.Unchanged"/>, and nothing written, when the project is what it was - or
     /// <see langword="null"/> when the server is not running a workspace it could change.
     /// </returns>
+    /// <exception cref="ProjectFileNotWrittenException">The file system would not let the project file be written; the project is what it was.</exception>
+    /// <exception cref="IOException">The project file was written, and a file it lists could not be read.</exception>
     Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
 
     /// <summary>
@@ -71,6 +73,12 @@ internal interface IWorkspaceReloadService
     /// </returns>
     Task<WorkspaceReloadResult?> ReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
 }
+
+/// <summary>
+/// The file system would not let the project file be written (<see cref="IWorkspaceReloadService.ChangeAsync"/>): what it threw is the inner exception. Told
+/// apart from a failure to read the files the project lists once it is written, which is another refusal.
+/// </summary>
+internal sealed class ProjectFileNotWrittenException(Exception cause) : IOException(cause.Message, cause);
 
 /// <summary>
 /// What reloading the project file changed.
@@ -159,9 +167,14 @@ internal sealed class WorkspaceReloadService(
             {
                 await projectFiles.SaveAsync();
             }
-            catch
+            catch (Exception exception)
             {
                 projectFiles.Update(project);
+                if (exception is UnauthorizedAccessException or IOException)
+                {
+                    throw new ProjectFileNotWrittenException(exception);
+                }
+
                 throw;
             }
 

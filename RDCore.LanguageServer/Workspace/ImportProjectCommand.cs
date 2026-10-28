@@ -90,20 +90,35 @@ internal sealed class ImportProjectCommand(
         // the workspace's own project file is the server's to write, and the workspace becomes what it lists - which the client is told, as of any change of
         // the project: its diagnostics are to be pulled again. Another folder's is written as it is. Either way, what the .vbp does not describe is kept.
         // a project file the file system will not let be written - read-only, in a folder that cannot be written to - is a refusal said on one line; what the
-        // file system threw is the server's log's.
-        WorkspaceReloadResult? reloaded;
-        try
+        // file system threw is the server's log's. A project file that was written, and lists a file that cannot be read, is another refusal: it is written.
+        WorkspaceReloadResult? reloaded = null;
+        if (IsWorkspaceFolder(folder))
         {
-            reloaded = IsWorkspaceFolder(folder) ? await reload.ChangeAsync(project => import.Into(project, folder), token) : null;
-            if (reloaded is null)
+            try
+            {
+                reloaded = await reload.ChangeAsync(project => import.Into(project, folder), token);
+            }
+            catch (ProjectFileNotWrittenException exception)
+            {
+                throw Refused(VbpImportText.NotWritten(rdproj, exception.InnerException!), exception);
+            }
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                throw Refused(VbpImportText.NotReloaded(rdproj, exception), exception);
+            }
+        }
+
+        if (reloaded is null)
+        {
+            try
             {
                 // a project file that cannot be read is replaced whole, as the user said to replace it.
                 await writer.SaveAsync(import.Into(await loader.LoadIfReadableAsync(folder, token), folder), token);
             }
-        }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-        {
-            throw Refused(VbpImportText.NotWritten(rdproj, exception), exception);
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                throw Refused(VbpImportText.NotWritten(rdproj, exception), exception);
+            }
         }
 
         if (reloaded is not null)

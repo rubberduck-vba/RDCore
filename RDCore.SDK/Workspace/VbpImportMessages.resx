@@ -78,4 +78,7 @@
   <data name="VbpImport_Refused_WriteFailed" xml:space="preserve">
     <value>Couldn't write '{0}': {1}</value>
   </data>
+  <data name="VbpImport_Refused_ReloadFailed" xml:space="preserve">
+    <value>'{0}' was written, but the workspace couldn't be made what it lists: {1}</value>
+  </data>
 </root>

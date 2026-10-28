@@ -126,7 +126,7 @@ public sealed class ImportProjectCommandTests
         CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration);
     }
 
-    // what the file system refuses is a refusal said on one line (HexIDE, desk #32): a read-only .rdproj, in the workspace's folder or another.
+    // what the file system refuses is a refusal said on one line, which a client shows as it is: a read-only .rdproj, in the workspace's folder or another.
     [TestMethod]
     [DataRow(true, DisplayName = "the workspace's project file")]
     [DataRow(false, DisplayName = "another folder's")]
@@ -135,7 +135,8 @@ public sealed class ImportProjectCommandTests
         var folder = workspace ? Root : Other;
         Write(Path.Combine(folder, "Battleship.vbp"), Battleship);
         var denied = new UnauthorizedAccessException($"Access to the path '{Path.Combine(folder, ProjectFile.FileName)}' is denied.");
-        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns<WorkspaceReloadResult?>(_ => throw denied);
+        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>())
+            .Returns<WorkspaceReloadResult?>(_ => throw new ProjectFileNotWrittenException(denied));
         _writer.SaveAsync(Arg.Any<ProjectFile>(), Arg.Any<CancellationToken>()).Returns(_ => throw denied);
 
         var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(
@@ -145,6 +146,22 @@ public sealed class ImportProjectCommandTests
         Assert.AreEqual(VbpImportText.NotWritten(Path.Combine(folder, ProjectFile.FileName), denied), refused.Message, ignoreCase: true);
         Assert.DoesNotContain("\n", refused.Message);
         _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
+    }
+
+    // the project file is written, and a module it lists cannot be read as the workspace is made what it lists: that is not a project file that was not written.
+    [TestMethod]
+    public async Task AModuleThatCannotBeReadOnceTheProjectFileIsWritten_IsARefusal_ThatSaysTheFileWasWritten()
+    {
+        Write(Path.Combine(Root, "Battleship.vbp"), Battleship);
+        var locked = new IOException("The process cannot access the file 'modMain.bas' because it is being used by another process.");
+        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns<WorkspaceReloadResult?>(_ => throw locked);
+
+        var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(
+            Argument(new JObject { ["uri"] = Uri(Path.Combine(Root, "Battleship.vbp")), ["text"] = Battleship, ["overwrite"] = true }), _context, CancellationToken.None));
+
+        Assert.AreEqual(VbpImportText.NotReloaded(Path.Combine(Root, ProjectFile.FileName), locked), refused.Message, ignoreCase: true);
+        StringAssert.Contains(VbpImportText.NotReloaded("ws/.rdproj", locked, System.Globalization.CultureInfo.InvariantCulture), "was written");
+        await _writer.DidNotReceiveWithAnyArgs().SaveAsync(default!, default);
     }
 
     [TestMethod]

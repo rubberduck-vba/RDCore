@@ -78,4 +78,7 @@
   <data name="VbpImport_Refused_WriteFailed" xml:space="preserve">
     <value>Impossible d'écrire « {0} » : {1}</value>
   </data>
+  <data name="VbpImport_Refused_ReloadFailed" xml:space="preserve">
+    <value>« {0} » a été écrit, mais l'espace de travail n'a pas pu être rendu conforme à ce qu'il liste : {1}</value>
+  </data>
 </root>
