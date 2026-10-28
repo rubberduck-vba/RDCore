@@ -21,7 +21,8 @@ internal sealed class FoldReplCommand : IReplCommand, IReplCommandDescriptor
     {
         Name = Name,
         Summary = Summary,
-        Forms = [[new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber }]],
+        // only a line a block starts at can be folded.
+        Forms = [[new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber, LineFilter = VerbLineFilter.BlockStarts }]],
     };
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)

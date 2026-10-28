@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -168,7 +169,7 @@ internal sealed class CompletionService(
                     break;
 
                 case VerbArgumentKind.LineNumber:
-                    items.AddRange(CompletionPlacement.NumberedLinesOf(source.Split('\n')).Select((line, index) => new CompletionItem
+                    items.AddRange((await NumberedLinesAsync(moduleName, source, site.Argument.LineFilter, token)).Select((line, index) => new CompletionItem
                     {
                         Label = line.Number,
                         Kind = CompletionItemKind.Value,
@@ -204,6 +205,27 @@ internal sealed class CompletionService(
         }
 
         return new CompletionList(items.DistinctBy(item => item.Label, StringComparer.OrdinalIgnoreCase), isIncomplete: false);
+    }
+
+    // the numbered lines of the program, or the ones a block that spans more than one line starts at: the blocks are what the module's folding ranges say they are,
+    // read off the program as it is, which need not be a program that parses without error.
+    private async Task<IReadOnlyList<(string Number, string Statement)>> NumberedLinesAsync(string moduleName, string source, VerbLineFilter filter, CancellationToken token)
+    {
+        var lines = source.Split('\n');
+        var numbered = CompletionPlacement.NumberedLinePositionsOf(lines);
+        if (filter is not VerbLineFilter.BlockStarts)
+        {
+            return [.. numbered.Select(line => (line.Number, line.Statement))];
+        }
+
+        var parse = await parsing.ParseFragmentAsync(SymbolUri.Module(documents.WorkspaceRoot, moduleName), source, token);
+        if (parse.SyntaxTree is not { } module)
+        {
+            return [];
+        }
+
+        var blocks = FoldingRangeProjector.Project(module).Where(range => range.Kind is null).Select(range => range.StartLine).ToHashSet();
+        return [.. numbered.Where(line => blocks.Contains(line.Line)).Select(line => (line.Number, line.Statement))];
     }
 
     // the name of the procedure an expression evaluated in the module is completed in: it is the module's scope, and no name of it.

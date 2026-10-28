@@ -515,6 +515,30 @@ public sealed class CompletionServiceTests
         return await Sut("basic").CompleteCommandAsync("Program", source, new SessionCommandCompletion { Verb = (verb ?? Break).Name.ToLowerInvariant(), Arguments = arguments }, CancellationToken.None);
     }
 
+    private static readonly VerbDescriptor Fold = new()
+    {
+        Name = "FOLD",
+        Forms = [[new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber, LineFilter = VerbLineFilter.BlockStarts }]],
+    };
+
+    private const string Blocks = "Public Sub Main()\r\n10 x = 1\r\n20 If x > 0 Then\r\n30 Print x\r\n40 End If\r\n50 For i = 1 To 2\r\n60 Print i\r\n70 Next\r\n80 If x Then Print 1\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public async Task ALineNumberFilteredToBlocks_IsCompletedWithTheLinesABlockStartsAt_AndNoOther()
+    {
+        var list = await CommandAsync(" ", Blocks, Fold);
+
+        CollectionAssert.AreEqual(new[] { "20", "50" }, list.Items.Select(item => item.Label).ToArray(), "a single-line If folds nothing, and neither does a statement");
+    }
+
+    [TestMethod]
+    public async Task ALineNumberWithNoFilter_IsCompletedWithEveryNumberedLine()
+    {
+        var list = await CommandAsync(" ", Blocks, Fold with { Forms = [[new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber }]] });
+
+        CollectionAssert.AreEqual(new[] { "10", "20", "30", "40", "50", "60", "70", "80" }, list.Items.Select(item => item.Label).ToArray());
+    }
+
     [TestMethod]
     public async Task AVerbTheClientDidNotRegister_IsOfferedNothing()
     {
