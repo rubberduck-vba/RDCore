@@ -57,8 +57,8 @@ public static class TextModeCharacters
     /// and Swedish in Finland. <c>œ</c> and <c>ß</c> are expanded in every locale.
     /// </summary>
     /// <remarks>
-    /// This is the set MS-VBA was measured to keep them in (recorded in Excel), of the locales compared: Swedish in Sweden, English, German, Finnish and
-    /// French expand them. MS-VBA compares by the collation of the locale, so a locale that was not measured is read as the default one.
+    /// These are the locales MS-VBA keeps them in, of those it was compared in: Swedish in Sweden, English, German, Finnish and French expand them. MS-VBA
+    /// compares by the collation of the locale, and a locale that is not in the set is read as one that expands them.
     /// </remarks>
     /// <param name="culture">The locale.</param>
     public static bool KeepsAshAndThorn(CultureInfo culture)

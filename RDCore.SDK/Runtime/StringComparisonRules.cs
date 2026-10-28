@@ -45,8 +45,8 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
     /// MS-VBA reads such a <c>Compare</c> as a Windows locale identifier (LCID), and compares text case-insensitively by that locale's collation: a neutral
     /// language (<c>3</c>, Catalan), a locale (<c>1033</c>), a locale with a sort order (<c>66567</c>, German phone book), and the identifiers of the user's,
     /// the system's and the custom default locales (<c>1024</c>, <c>2048</c>, <c>3072</c>, <c>4096</c>, <c>5120</c>), which are the environment's here. An
-    /// identifier of no locale - <c>240</c>, <c>5000</c>, <c>65535</c>, a negative number - is no comparison, and the member's error 5 (recorded in Excel).
-    /// MS-VBAL names only the three comparison modes.
+    /// identifier of no locale - <c>240</c>, <c>5000</c>, <c>65535</c>, a negative number - is no comparison, and the member's error 5. MS-VBAL's
+    /// <c>VbCompareMethod</c> (§6.1.1.5) names two comparisons, <c>vbBinaryCompare</c> and <c>vbTextCompare</c>, and no locale.
     /// </para>
     /// <para>
     /// The locale's collation orders the strings (<c>StrComp</c>): <c>ä</c> comes after <c>z</c> in Swedish, <c>æ</c> after <c>z</c> in Danish. Its case is
@@ -67,9 +67,14 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
         }
         else
         {
+            if (lcid <= 0)
+            {
+                return false;
+            }
+
             try
             {
-                culture = lcid > 0 ? CultureInfo.GetCultureInfo(lcid) : throw new CultureNotFoundException();
+                culture = CultureInfo.GetCultureInfo(lcid);
             }
             catch (CultureNotFoundException)
             {

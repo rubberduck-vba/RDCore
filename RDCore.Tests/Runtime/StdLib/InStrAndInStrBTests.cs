@@ -149,10 +149,7 @@ public sealed class InStrAndInStrBTests
     [DataRow(240)]
     [DataRow(5000)]
     public void InStr_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
-    {
-        Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(1), V("abc"), V("b"), (VBCompareMethod)compare)));
-        Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStrB(V(1), V("abc"), V("b"), (VBCompareMethod)compare)));
-    }
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(1), V("abc"), V("b"), (VBCompareMethod)compare)));
 
     [TestMethod]
     public void InStr_WithVbDatabaseCompare_IsError5()
@@ -226,15 +223,16 @@ public sealed class InStrAndInStrBTests
     }
 
     [TestMethod]
-    public void InStrB_InTextMode_IsACharacterSearchReportedInBytes()
+    [DataRow(1, DisplayName = "vbTextCompare")]
+    [DataRow(2, DisplayName = "vbDatabaseCompare")]
+    [DataRow(7, DisplayName = "a neutral language")]
+    [DataRow(1033, DisplayName = "a locale")]
+    [DataRow(240, DisplayName = "no locale")]
+    [DataRow(-1, DisplayName = "a negative number")]
+    public void InStrB_SearchesTheBytes_WhateverItsCompareIs(int compare)
     {
-        Assert.AreEqual(3, LongOf(Module().InStrB(V(1), V("xAy"), V("a"), Text)));
-        Assert.AreEqual(1, LongOf(Module().InStrB(V(1), V("aA"), V("A"), Text)));
-        // an even start is inside the first character, so the search begins at the next one.
-        Assert.AreEqual(3, LongOf(Module().InStrB(V(2), V("aA"), V("A"), Text)));
-        Assert.AreEqual(3, LongOf(Module().InStrB(V(1), V("aA"), V("A"), Binary)));
-        // a start just past a trailing byte is past the last character.
-        Assert.AreEqual(0, LongOf(Module().InStrB(V(4), V(Bytes(0x41, 0x00, 0x42)), V("a"), Text)));
+        Assert.AreEqual(0, LongOf(Module().InStrB(V(1), V("xAx"), V("a"), (VBCompareMethod)compare)));
+        Assert.AreEqual(3, LongOf(Module().InStrB(V(1), V("xAx"), V("A"), (VBCompareMethod)compare)));
     }
 
     [TestMethod]
@@ -303,7 +301,8 @@ public sealed class InStrAndInStrBTests
     [TestMethod]
     public async Task InStr_FromSource_InAClassModule_FollowsThatModulesOptionCompare()
     {
-        // Finder states Option Compare Text and Program none: each call takes the Option Compare of the module whose code makes it.
+        // Finder states Option Compare Text and Program none: each call of InStr takes the Option Compare of the module whose code makes it, and InStrB
+        // searches the bytes in either.
         var finder = ClassModule("Finder", "Option Explicit", "Option Compare Text",
             "Public Function Find(ByVal s As String, ByVal p As String) As Variant", "    Find = InStr(s, p)", "End Function",
             "Public Function FindB(ByVal s As String, ByVal p As String) As Variant", "    FindB = InStrB(s, p)", "End Function");
@@ -313,13 +312,13 @@ public sealed class InStrAndInStrBTests
             "    Debug.Print f.Find(\"aA\", \"A\")\r\n    Debug.Print InStr(\"aA\", \"A\")\r\n" +
             "    Debug.Print f.FindB(\"aA\", \"A\")\r\n    Debug.Print InStrB(\"aA\", \"A\")\r\nEnd Sub\r\n");
 
-        CollectionAssert.AreEqual(new[] { "1", "2", "1", "3" }, printed, string.Join(" | ", printed));
+        CollectionAssert.AreEqual(new[] { "1", "2", "3", "3" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]
     [DataRow(null, "3")]
     [DataRow(OptionCompare.Binary, "3")]
-    [DataRow(OptionCompare.Text, "1")]
-    public void InStrB_FromSource_WithCompareLeftOut_FollowsTheModulesOptionCompare(OptionCompare? mode, string expected)
+    [DataRow(OptionCompare.Text, "3")]
+    public void InStrB_FromSource_WithCompareLeftOut_SearchesTheBytes_WhateverTheModulesOptionCompare(OptionCompare? mode, string expected)
         => Assert.AreEqual(expected, RunUnder(mode, "Debug.Print InStrB(\"aA\", \"A\")").Single());
 }

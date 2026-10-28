@@ -206,8 +206,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
 
     // an explicit Compare is vbBinaryCompare, vbTextCompare, vbDatabaseCompare where the member takes it, or the identifier of a locale, whose text comparison
     // it is (StringComparisonRules.TryForLocale); an omitted one has already been filled in as one of the first two, Option Compare Database resolved, so this
-    // never sees a caller's omission. MS-VBA's Split, InStrRev and Replace take vbDatabaseCompare, as the module's Option Compare Database compares; its
-    // InStr, StrComp and Filter refuse it (recorded in Excel).
+    // never sees a caller's omission. Split, InStrRev and Replace take vbDatabaseCompare, as the module's Option Compare Database compares; InStr, StrComp
+    // and Filter refuse it, as MS-VBA's do.
     // MS-VBA's vbDatabaseCompare, which MS-VBAL's VbCompareMethod (§6.1.1.5) does not name.
     private const VBCompareMethod DatabaseCompare = (VBCompareMethod)2;
 
@@ -929,9 +929,10 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// <remarks>
     /// <see cref="InStr"/> in bytes: "instead of returning the character position of the first occurrence of one string within
     /// another, InStrB returns the byte position", so the start and the result are 1-based positions in the String's bytes, a trailing
-    /// one included, and a match may begin inside a character. 🎯 A text comparison is a comparison of characters, which is all that
-    /// case is a property of: it searches the characters from the one at or after the start, and gives the byte position of the
-    /// character found.
+    /// one included, and a match may begin inside a character. It compares the bytes whatever Compare is: Compare is let-coerced to a <c>Long</c> as every
+    /// argument is (Null is error 94, a String that is no number error 13), and its value says nothing - <c>vbTextCompare</c>, a locale, <c>Option Compare
+    /// Text</c> and a value no other member takes all search the bytes, as MS-VBA's <c>InStrB</c> does. MS-VBAL's table says nothing of a Compare that
+    /// <c>InStrB</c> does not read.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> InStrB(VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
         => Search(nameof(InStrB), arg1, arg2, arg3, compare, inBytes: true);
@@ -975,12 +976,18 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, member, $"Start is at least 1, not {from}");
         }
 
+        // InStrB compares bytes whatever Compare is, as MS-VBA's does: a text comparison, a locale's or a value that is neither, an Option Compare Text too.
+        if (inBytes)
+        {
+            return InVariant(new VBLongValue(BytePosition(text, pattern, from)));
+        }
+
         if (!TryRulesFor(compare, member, out var rules, out error))
         {
             return Fail<VBVariantValue>(error);
         }
 
-        return InVariant(new VBLongValue(inBytes ? BytePosition(text, pattern, from, rules) : CharacterPosition(Text(text), Text(pattern), from, rules)));
+        return InVariant(new VBLongValue(CharacterPosition(Text(text), Text(pattern), from, rules)));
     }
 
     // the 1-based position of the first run of characters from the start that is equal to the pattern, or 0. A zero-length String has
@@ -988,8 +995,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     private static int CharacterPosition(string text, string pattern, int from, StringComparisonRules rules)
         => text.Length > 0 && from <= text.Length + 1 && rules.TryFind(text.AsSpan(from - 1), pattern, out var index, out _) ? from + index : 0;
 
-    // the byte position of the first run of bytes from the start that is the pattern's, or 0, by the same rules in bytes.
-    private static int BytePosition(VBStringValue text, VBStringValue pattern, int from, StringComparisonRules rules)
+    // the byte position of the first run of bytes from the start that is the pattern's, or 0.
+    private static int BytePosition(VBStringValue text, VBStringValue pattern, int from)
     {
         var bytes = text.GetBytes();
         var sought = pattern.GetBytes();
@@ -1003,15 +1010,8 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return from;
         }
 
-        if (!rules.IgnoresCase)
-        {
-            var index = bytes.AsSpan(from - 1).IndexOf(sought);
-            return index < 0 ? 0 : from + index;
-        }
-
-        // 🎯 text mode searches characters: from the one at or after the start's byte, and the k-th character begins at byte 2k - 1.
-        var found = CharacterPosition(Text(text), Text(pattern), from / 2 + 1, rules);
-        return found == 0 ? 0 : 2 * found - 1;
+        var index = bytes.AsSpan(from - 1).IndexOf(sought);
+        return index < 0 ? 0 : from + index;
     }
 
     /// <inheritdoc/>
@@ -1027,7 +1027,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// is error 5, as a Start below 1 is to the <c>Mid</c> statement (<strong>MS-VBAL §5.4.3.5</strong>). Compare left out is the
     /// calling module's <c>Option Compare</c>, as its runtime semantics say and its table does not, and an explicit one is
     /// <c>vbBinaryCompare</c>, <c>vbTextCompare</c>, <c>vbDatabaseCompare</c> (2, which compares as <c>Option Compare Database</c> does) or the identifier
-    /// of a locale (<see cref="StringComparisonRules.TryForLocale"/>), else error 5 (MS-VBA, recorded in Excel).
+    /// of a locale (<see cref="StringComparisonRules.TryForLocale"/>), else error 5, as MS-VBA's.
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBLongValue> InStrRev(VBStringValue stringCheck, VBStringValue stringMatch, VBLongValue? start = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -1572,7 +1572,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// relational operators compare them (<strong>MS-VBAL §5.6.9.5</strong>), a trailing byte included, so <c>StrComp(a, b)</c> is 0
     /// exactly when <c>a = b</c> under the <c>Option Compare</c> that Compare names. An explicit Compare is <c>vbBinaryCompare</c>,
     /// <c>vbTextCompare</c> or the identifier of a locale, which orders the strings by that locale's collation
-    /// (<see cref="StringComparisonRules.TryForLocale"/>); anything else, <c>vbDatabaseCompare</c> included, is error 5 (MS-VBA, recorded in Excel).
+    /// (<see cref="StringComparisonRules.TryForLocale"/>); anything else, <c>vbDatabaseCompare</c> included, is error 5, as MS-VBA's.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> StrComp(VBVariantValue string1, VBVariantValue string2, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
     {

@@ -85,18 +85,23 @@ otherwise ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argume
   member and `=` agree on what the calling module's mode is.
 - A caller with no calling module, such as a host that calls the library directly, gets the declared `vbBinaryCompare`.
 
-A member reads `Compare` as it is given, and never consults `Option Compare` itself. An explicit `Compare` is let-coerced to a `Long` (`4294968329` is
-error `6`, and `1.5` rounds to `2`), and then it is one of the following:
+A member reads `Compare` as it is given, and never consults `Option Compare` itself. An explicit `Compare` is let-coerced to a `Long`, as any `Long`
+argument is: `Null` is error `94`, a `String` that is no number error `13`, `4294968329` error `6`, `Empty` is `0`, and `1.5` rounds to `2`. Then it is
+one of the following:
 
 |`Compare`|What it compares by|
 |---|---|
 |`vbBinaryCompare` (`0`)|The data of the strings.|
 |`vbTextCompare` (`1`)|The text of the strings, in the environment's regional settings.|
-|`2` (MS-VBA's `vbDatabaseCompare`, which MS-VBAL's `VbCompareMethod` does not name)|`Split`, `InStrRev` and `Replace`: as `Option Compare Database` does. `InStr`, `InStrB`, `StrComp` and `Filter`: error `5`.|
+|`2` (MS-VBA's `vbDatabaseCompare`, which MS-VBAL's `VbCompareMethod` does not name)|`Split`, `InStrRev` and `Replace`: as `Option Compare Database` does. `InStr`, `StrComp` and `Filter`: error `5`.|
 |The identifier of a locale (LCID)|The text of the strings, in that locale (below).|
 |Any other value|Error `5`.|
 
-MS-VBA reads any other `Compare` as a Windows locale identifier, and **MS-VBAL** names only the three modes (recorded in Excel). These are locales:
+`InStrB` compares the bytes of the strings whatever its `Compare` is. Its `Compare` is coerced as every member's is, and its value is not read: `1`,
+a locale, `2`, a value no other member takes, and `Option Compare Text` all search the bytes, as MS-VBA's `InStrB` does (recorded in Excel).
+
+MS-VBA reads any other `Compare` as a Windows locale identifier (recorded in Excel), where **MS-VBAL**'s `VbCompareMethod` (§6.1.1.5) names
+`vbBinaryCompare` and `vbTextCompare` only. These are locales:
 
 - a neutral language (`3`, Catalan; `100`, Filipino);
 - a locale (`1033`, English (US));
@@ -438,9 +443,8 @@ The page's three-argument prose says "Arg1 is used as a string", and its table g
 read as errata: the start is a number, and that row is a start past the end of the `String` to search, plus one for a
 zero-length pattern.
 
-`InStrB` is the same over the `String`'s bytes, a trailing one included, and may match inside a character. In text mode
-it searches characters, from the one at or after the start's byte, and gives the byte position of the character it
-finds.
+`InStrB` is the same over the `String`'s bytes, a trailing one included, and may match inside a character. It searches the bytes whatever its
+`Compare` and the module's `Option Compare` are: `InStrB(1, "xAx", "a", vbTextCompare)` is `0`, as in MS-VBA (recorded in Excel).
 
 ### 6.1.2.11.1.15 InStrRev
 
