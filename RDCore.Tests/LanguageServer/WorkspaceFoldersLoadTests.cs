@@ -239,15 +239,16 @@ public sealed class WorkspaceFoldersLoadTests
         var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
         var from = Path.Combine(Lib, "Lib.bas");
         var to = Path.Combine(Lib, "Library.bas");
-        var opened = loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n' unsaved\r\n", 7);
+        loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n", 7);
+        loaded.Documents.Edit(new TextDocumentIdentifier(new Uri(from)), "Attribute VB_Name = \"Lib\"\r\n' unsaved\r\n");
         files.File.Move(from, to);
 
         await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
 
         Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var moved));
         StringAssert.Contains(moved.Text, "unsaved", "not read again from disk");
-        Assert.AreEqual(7, moved.Version);
-        Assert.AreEqual(opened.IsDirty, moved.IsDirty);
+        Assert.AreEqual(8, moved.Version, "the client's version: opened at 7, and changed once");
+        Assert.IsTrue(moved.IsDirty, "and the moved document says so");
         CollectionAssert.AreEqual(new[] { Lib }, moved.Projects.ToArray());
         Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
         Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(from), out _), "and the old path is no document");
@@ -263,15 +264,40 @@ public sealed class WorkspaceFoldersLoadTests
         var to = Path.Combine(Lib, "Library.bas");
         files.File.Move(from, to);
         loaded.States.Track(new TextDocumentIdentifier(new Uri(to)));
-        loaded.Documents.Open(new Uri(to), "Attribute VB_Name = \"Lib\"\r\n' typed since\r\n", 3);
+        loaded.Documents.Open(new Uri(to), "Attribute VB_Name = \"Lib\"\r\n", 3);
+        loaded.Documents.Edit(new TextDocumentIdentifier(new Uri(to)), "Attribute VB_Name = \"Lib\"\r\n' typed since\r\n");
 
         await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
 
         Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var document));
         StringAssert.Contains(document.Text, "typed since");
-        Assert.AreEqual(3, document.Version);
+        Assert.AreEqual(4, document.Version);
         Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
         CollectionAssert.Contains(document.Projects.ToArray(), Lib);
+        Assert.IsTrue(document.IsDirty, "what the client typed is not on disk");
+        Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(from), out _), "and the old path is no document");
+    }
+
+    [TestMethod]
+    public async Task ASharedFileOpenWithUnsavedText_KeepsItsTextWhenItIsRenamed_ThoughTheNewPathWasReadFromDiskFirst()
+    {
+        // the primary project's reload cannot remove the open document at the old path and reads the new one from disk; the other project's rename then reaches the new path.
+        var files = Files();
+        var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
+        var to = Path.Combine(Shared, "Tools.bas");
+        loaded.Documents.Open(new Uri(Util), "Attribute VB_Name = \"Util\"\r\n", 5);
+        loaded.Documents.Edit(new TextDocumentIdentifier(new Uri(Util)), "Attribute VB_Name = \"Util\"\r\n' unsaved\r\n");
+        files.File.Move(Util, to);
+
+        await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(Util), new Uri(to))], CancellationToken.None);
+
+        Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var document));
+        StringAssert.Contains(document.Text, "unsaved", "not the text that was on disk");
+        Assert.AreEqual(6, document.Version);
+        Assert.IsTrue(document.IsDirty);
+        Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
+        CollectionAssert.AreEqual(new[] { App, Lib }, document.Projects.ToArray());
+        Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(Util), out _));
     }
 
     [TestMethod]
