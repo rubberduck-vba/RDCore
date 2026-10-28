@@ -11,8 +11,8 @@ public enum VBMsgBoxStyle
 {
     VBDefaultButton1 = 0,
     VBApplicationModal = VBDefaultButton1,
-    VBOkOnly = VBDefaultButton1,
-    VBOkCancel = 1,
+    VBOKOnly = VBDefaultButton1,
+    VBOKCancel = 1,
     VBAbortRetryIgnore = 2,
     VBYesNoCancel = 3,
     VBYesNo = 4,

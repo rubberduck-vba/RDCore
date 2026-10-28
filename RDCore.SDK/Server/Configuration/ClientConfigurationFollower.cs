@@ -29,7 +29,6 @@ public sealed class ClientConfigurationFollower : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _subscription;
     private readonly object _gate = new();
-    private readonly object _applying = new();
     private int _version;
     private int _disposed;
 
@@ -92,24 +91,36 @@ public sealed class ClientConfigurationFollower : IDisposable
             var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(_server, token);
             var adopted = FormattingTabSize.AdoptedFrom(said, tabSize);
 
-            // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed - decided under a lock that is
-            // held for no longer than that: a listener of the change, which runs while the settings are set, can wait for another thread to follow or to dispose.
-            lock (_applying)
+            // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed: the live settings ask just before
+            // they set, in the step that sets them. The state lock is held for that question only, and a listener of the change runs after both locks are released: it can wait
+            // for another thread that follows or disposes.
+            if (!await _liveSettings.ApplyAsync(said, adopted, () =>
             {
                 lock (_gate)
                 {
-                    if (version != _version || _disposed == 1)
-                    {
-                        return false;
-                    }
+                    return version == _version && _disposed == 0;
+                }
+            }))
+            {
+                bool disposed;
+                lock (_gate)
+                {
+                    disposed = _disposed == 1;
                 }
 
-                _liveSettings.Apply(said, adopted);
+                if (!disposed)
+                {
+                    _log("⚙️ A newer change of the client's settings came in while the editor was asked; this one is dropped.");
+                }
+
+                return false;
             }
 
+            // what is told is told once the listeners were told of the change, and of the change that is the last word: one that a newer change came after has been set, and
+            // the newer one is the one that says so.
             lock (_gate)
             {
-                if (_disposed == 1)
+                if (_disposed == 1 || version != _version)
                 {
                     return false;
                 }

@@ -10,6 +10,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
 
@@ -29,6 +30,11 @@ internal interface IDocumentDiagnosticsService
     /// <param name="previousResultId">The result id of the findings the client has, which are not sent again when the document has not changed since.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <param name="progress">Where the steps of the analysis are reported: the parse, the semantic model, and each provider as it answers.</param>
+    /// <exception cref="OmniSharp.Extensions.JsonRpc.RpcErrorException">
+    /// The document changed while its findings were being found: <c>ContentModified</c> (<see cref="IncomingDocumentChanges.ContentModified"/>). What was found
+    /// is of text that is not there any more, and no report is made of it: a report would carry a result id the client could send again, and be answered
+    /// <c>unchanged</c> for findings it never had.
+    /// </exception>
     Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 
     /// <summary>
@@ -60,17 +66,20 @@ internal interface IDocumentDiagnosticsService
 }
 
 /// <summary>
-/// The outcome of a diagnostics pull. <see cref="ResultId"/> tracks the workspace document version;
-/// when it equals the client's <c>previousResultId</c> the report is <see cref="Unchanged"/> and
-/// carries no items.
+/// The outcome of a diagnostics pull. <see cref="ResultId"/> is of the version of the document, and of the workspace it is in
+/// (<see cref="IWorkspaceRefresh.Generation"/>): the findings of a document that did not change change with what another module declares. When it equals the
+/// client's <c>previousResultId</c> the report is <see cref="Unchanged"/> and carries no items.
 /// </summary>
 internal readonly record struct DocumentDiagnosticsResult(string ResultId, bool Unchanged, IReadOnlyList<Diagnostic> Diagnostics)
 {
-    public static DocumentDiagnosticsResult Fresh(int version, IReadOnlyList<Diagnostic> diagnostics)
-        => new($"v{version}", Unchanged: false, diagnostics);
+    public static DocumentDiagnosticsResult Fresh(int version, IReadOnlyList<Diagnostic> diagnostics, long generation = 0)
+        => new(ResultIdOf(version, generation), Unchanged: false, diagnostics);
 
-    public static DocumentDiagnosticsResult NotChanged(int version)
-        => new($"v{version}", Unchanged: true, []);
+    public static DocumentDiagnosticsResult NotChanged(int version, long generation = 0)
+        => new(ResultIdOf(version, generation), Unchanged: true, []);
+
+    /// <summary>The result id of the findings of a document at a version, in the workspace at a generation.</summary>
+    public static string ResultIdOf(int version, long generation) => $"v{version}.{generation}";
 }
 
 internal sealed class DocumentDiagnosticsService(
@@ -78,6 +87,7 @@ internal sealed class DocumentDiagnosticsService(
     IParsingClientService parsing,
     IPlatformOrchestrationService orchestration,
     ISymbolSyncService symbols,
+    IWorkspaceRefresh refresh,
     ILogger<DocumentDiagnosticsService> logger) : IDocumentDiagnosticsService
 {
     public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
@@ -125,41 +135,47 @@ internal sealed class DocumentDiagnosticsService(
     {
         var document = Resolve(documentUri);
         var version = document?.Version ?? 0;
-        if (document is null || previousResultId == $"v{version}")
+        var generation = refresh.Generation;
+        if (document is null || previousResultId == DocumentDiagnosticsResult.ResultIdOf(version, generation))
         {
             return document is null
-                ? DocumentDiagnosticsResult.Fresh(version, [])
-                : DocumentDiagnosticsResult.NotChanged(version);
+                ? DocumentDiagnosticsResult.Fresh(version, [], generation)
+                : DocumentDiagnosticsResult.NotChanged(version, generation);
         }
 
-        return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress);
+        return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress) ?? throw IncomingDocumentChanges.ContentModified();
     }
 
     public async Task<DocumentDiagnosticsResult> GetPhaseAsync(Uri documentUri, AnalysisPhase phase, CancellationToken token)
     {
         var document = Resolve(documentUri);
         return document is null
-            ? DocumentDiagnosticsResult.Fresh(0, [])
-            : await AnalyzePhaseAsync(document, phase, token);
+            ? DocumentDiagnosticsResult.Fresh(0, [], refresh.Generation)
+            : await AnalyzePhaseAsync(document, phase, token) ?? DocumentDiagnosticsResult.Fresh(Resolve(documentUri)?.Version ?? 0, [], refresh.Generation);
     }
 
-    private async Task<DocumentDiagnosticsResult> AnalyzePhaseAsync(WorkspaceDocument document, AnalysisPhase phase, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
+    // what is found of the document; nothing, when it moved on while it was being found.
+    private async Task<DocumentDiagnosticsResult?> AnalyzePhaseAsync(WorkspaceDocument document, AnalysisPhase phase, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         var documentUri = document.Id.Uri.ToUri();
         var version = document.Version;
 
+        // the findings are of the workspace as it is when they are looked for: one that changes while they are is another result.
+        var generation = refresh.Generation;
+
         var providers = DiagnosticsProviders();
         if (providers.Length == 0)
         {
-            return DocumentDiagnosticsResult.Fresh(version, []);
+            return DocumentDiagnosticsResult.Fresh(version, [], generation);
         }
 
         progress?.Report(new WorkProgressStep(ProgressMessages.Parsing, 0));
         var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
         // the module is named the way the workspace sync names it when it defines it in the host. The host answers a request for the static phase at once, and one
-        // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not.
+        // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not. A document
+        // that is no file is no module the host has - one of the workspace may have its name - and is analyzed for its syntax alone.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
-        var semantics = await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token);
+        var semantics = document.IsFile ? await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token) : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
 
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
@@ -170,10 +186,10 @@ internal sealed class DocumentDiagnosticsService(
         {
             logger.LogInformation("🔎 {uri}: diagnostics for v{stale} dropped, document is at v{current}.",
                 documentUri, version, currentVersion);
-            return DocumentDiagnosticsResult.Fresh(currentVersion, []);
+            return null;
         }
 
-        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)));
+        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)), generation);
     }
 
     // puts a module the host does not have where the host can analyze it, and asks it for what it found out: nothing when the host does not run the pass,

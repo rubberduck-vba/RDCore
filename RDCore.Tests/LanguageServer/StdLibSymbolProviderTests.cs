@@ -31,6 +31,59 @@ public sealed class StdLibSymbolProviderTests
     private static VBClassModuleSymbol DebugClass()
         => Provide().OfType<VBPredeclaredInstanceSymbol>().Single().ClassModule;
 
+    // MS-VBAL §6.1.1 Predefined Enums, each constant as the specification spells it: a completion list and a hover show the name the library gives, and a
+    // name is read in any case but shown in one (vbOKOnly, vbOK, vbIMEHiragana - not vbOkOnly, vbOk, vbIMEIragana).
+    private static readonly string[] PredefinedEnums =
+    [
+        "FormShowConstants.vbModal", "FormShowConstants.vbModeless",
+        "VbAppWinStyle.vbHide", "VbAppWinStyle.vbMaximizedFocus", "VbAppWinStyle.vbMinimizedFocus", "VbAppWinStyle.vbMinimizedNoFocus",
+        "VbAppWinStyle.vbNormalFocus", "VbAppWinStyle.vbNormalNoFocus",
+        "VbCalendar.vbCalGreg", "VbCalendar.vbCalHijri",
+        "VbCallType.vbGet", "VbCallType.vbLet", "VbCallType.vbMethod", "VbCallType.vbSet",
+        "VbCompareMethod.vbBinaryCompare", "VbCompareMethod.vbTextCompare",
+        "VbDateTimeFormat.vbGeneralDate", "VbDateTimeFormat.vbLongDate", "VbDateTimeFormat.vbLongTime", "VbDateTimeFormat.vbShortDate",
+        "VbDateTimeFormat.vbShortTime",
+        "VbDayOfWeek.vbFriday", "VbDayOfWeek.vbMonday", "VbDayOfWeek.vbSaturday", "VbDayOfWeek.vbSunday", "VbDayOfWeek.vbThursday", "VbDayOfWeek.vbTuesday",
+        "VbDayOfWeek.vbUseSystemDayOfWeek", "VbDayOfWeek.vbWednesday",
+        "VbFileAttribute.vbAlias", "VbFileAttribute.vbArchive", "VbFileAttribute.vbDirectory", "VbFileAttribute.vbHidden", "VbFileAttribute.vbNormal",
+        "VbFileAttribute.vbReadOnly", "VbFileAttribute.vbSystem", "VbFileAttribute.vbVolume",
+        "VbFirstWeekOfYear.vbFirstFourDays", "VbFirstWeekOfYear.vbFirstFullWeek", "VbFirstWeekOfYear.vbFirstJan1", "VbFirstWeekOfYear.vbUseSystem",
+        "VbIMEStatus.vbIMEAlphaDbl", "VbIMEStatus.vbIMEAlphaSng", "VbIMEStatus.vbIMEDisable", "VbIMEStatus.vbIMEHiragana", "VbIMEStatus.vbIMEKatakanaDbl",
+        "VbIMEStatus.vbIMEKatakanaSng", "VbIMEStatus.vbIMEModeAlpha", "VbIMEStatus.vbIMEModeAlphaFull", "VbIMEStatus.vbIMEModeHangul",
+        "VbIMEStatus.vbIMEModeHangulFull", "VbIMEStatus.vbIMEModeHiragana", "VbIMEStatus.vbIMEModeKatakana", "VbIMEStatus.vbIMEModeKatakanaHalf",
+        "VbIMEStatus.vbIMEModeNoControl", "VbIMEStatus.vbIMEModeOff", "VbIMEStatus.vbIMEModeOn", "VbIMEStatus.vbIMENoOp", "VbIMEStatus.vbIMEOff",
+        "VbIMEStatus.vbIMEOn",
+        "VbMsgBoxResult.vbAbort", "VbMsgBoxResult.vbCancel", "VbMsgBoxResult.vbIgnore", "VbMsgBoxResult.vbNo", "VbMsgBoxResult.vbOK",
+        "VbMsgBoxResult.vbRetry", "VbMsgBoxResult.vbYes",
+        "VbMsgBoxStyle.vbAbortRetryIgnore", "VbMsgBoxStyle.vbApplicationModal", "VbMsgBoxStyle.vbCritical", "VbMsgBoxStyle.vbDefaultButton1",
+        "VbMsgBoxStyle.vbDefaultButton2", "VbMsgBoxStyle.vbDefaultButton3", "VbMsgBoxStyle.vbDefaultButton4", "VbMsgBoxStyle.vbExclamation",
+        "VbMsgBoxStyle.vbInformation", "VbMsgBoxStyle.vbMsgBoxHelpButton", "VbMsgBoxStyle.vbMsgBoxRight", "VbMsgBoxStyle.vbMsgBoxRtlReading",
+        "VbMsgBoxStyle.vbMsgBoxSetForeground", "VbMsgBoxStyle.vbOKCancel", "VbMsgBoxStyle.vbOKOnly", "VbMsgBoxStyle.vbQuestion",
+        "VbMsgBoxStyle.vbRetryCancel", "VbMsgBoxStyle.vbSystemModal", "VbMsgBoxStyle.vbYesNo", "VbMsgBoxStyle.vbYesNoCancel",
+        "VbQueryClose.vbAppTaskManager", "VbQueryClose.vbAppWindows", "VbQueryClose.vbFormCode", "VbQueryClose.vbFormControlMenu",
+        "VbQueryClose.vbFormMDIForm",
+        "VbStrConv.vbFromUnicode", "VbStrConv.vbHiragana", "VbStrConv.vbKatakana", "VbStrConv.vbLowerCase", "VbStrConv.vbNarrow", "VbStrConv.vbProperCase",
+        "VbStrConv.vbUnicode", "VbStrConv.vbUpperCase", "VbStrConv.vbWide",
+        "VbTriState.vbFalse", "VbTriState.vbTrue", "VbTriState.vbUseDefault",
+        "VbVarType.vbArray", "VbVarType.vbBoolean", "VbVarType.vbByte", "VbVarType.vbCurrency", "VbVarType.vbDataObject", "VbVarType.vbDate",
+        "VbVarType.vbDecimal", "VbVarType.vbDouble", "VbVarType.vbEmpty", "VbVarType.vbError", "VbVarType.vbInteger", "VbVarType.vbLong",
+        "VbVarType.vbLongLong", "VbVarType.vbNull", "VbVarType.vbObject", "VbVarType.vbSingle", "VbVarType.vbString", "VbVarType.vbUserDefinedType",
+        "VbVarType.vbVariant",
+    ];
+
+    [TestMethod]
+    public void ThePredefinedEnums_AndTheirConstants_AreSpelledAsTheSpecificationSpellsThem()
+    {
+        var spelled = Provide().OfType<VBEnumMemberSymbol>()
+            .SelectMany(enumeration => ((SDK.Model.Types.Complex.VBEnumType)enumeration.ResolvedType).Members.Select(constant => $"{enumeration.Name}.{constant.Name}"))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        // in this case and no other: a name in any case would pass a comparison VBA makes, and show the wrong one.
+        CollectionAssert.AreEquivalent(PredefinedEnums.Order(StringComparer.Ordinal).ToArray(), spelled,
+            string.Join(", ", spelled.Except(PredefinedEnums, StringComparer.Ordinal)));
+    }
+
     [TestMethod]
     public void TheDebugObject_IsAClassWithADefaultInstanceNamedAfterIt()
     {

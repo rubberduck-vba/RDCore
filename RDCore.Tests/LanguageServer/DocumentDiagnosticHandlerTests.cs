@@ -42,31 +42,31 @@ public sealed class DocumentDiagnosticHandlerTests
         var report = await Sut().Handle(Request(), CancellationToken.None);
 
         var full = (RelatedFullDocumentDiagnosticReport)report;
-        Assert.AreEqual("v2", full.ResultId);
+        Assert.AreEqual("v2.0", full.ResultId);
         Assert.AreSame(diagnostic, full.Items.Single());
     }
 
     [TestMethod]
     public async Task UnchangedResult_MapsToARelatedUnchangedReport()
     {
-        _service.GetAsync(DocUri, "v5", Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>())
+        _service.GetAsync(DocUri, "v5.0", Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>())
             .Returns(DocumentDiagnosticsResult.NotChanged(5));
 
-        var report = await Sut().Handle(Request("v5"), CancellationToken.None);
+        var report = await Sut().Handle(Request("v5.0"), CancellationToken.None);
 
         var unchanged = (RelatedUnchangedDocumentDiagnosticReport)report;
-        Assert.AreEqual("v5", unchanged.ResultId);
+        Assert.AreEqual("v5.0", unchanged.ResultId);
     }
 
     [TestMethod]
-    public void RegistrationOptions_IdentifyAsRdcore_WithNoInterFileOrWorkspaceDiagnostics()
+    public void RegistrationOptions_IdentifyAsRdcore_WithInterFileDependencies_AndWorkspaceDiagnostics()
     {
         var registration = (IRegistration<DiagnosticsRegistrationOptions, DiagnosticClientCapabilities>)Sut();
 
         var options = registration.GetRegistrationOptions(new(), new());
 
         Assert.AreEqual("rdcore", options.Identifier);
-        Assert.IsFalse(options.InterFileDependencies);
-        Assert.IsFalse(options.WorkspaceDiagnostics);
+        Assert.IsTrue(options.InterFileDependencies, "a module's diagnostics depend on what the others declare");
+        Assert.IsTrue(options.WorkspaceDiagnostics, "workspace/diagnostic is served (WorkspaceDiagnosticHandler)");
     }
 }

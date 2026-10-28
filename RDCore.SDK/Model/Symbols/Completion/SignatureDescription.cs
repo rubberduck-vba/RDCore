@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 
 namespace RDCore.SDK.Model.Symbols.Completion;
 
@@ -14,7 +15,11 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// <param name="End">The offset of the character after the parameter in the label.</param>
 /// <param name="IsParamArray">Whether it is a <c>ParamArray</c>, which takes every argument from where it is on.</param>
 /// <param name="Documentation">What the parameter is, in a sentence: its doc string; <see langword="null"/> when it has none.</param>
-public sealed record class SignatureParameter(string Name, int Start, int End, bool IsParamArray = false, string? Documentation = null);
+/// <param name="Type">
+/// The declared type of the parameter: an argument given to it is let-coerced to it. An <c>Enum</c>'s, for one whose arguments are its constants (<c>Buttons As
+/// VbMsgBoxStyle</c>), which a completion list offers first; <see langword="null"/> for a <c>ParamArray</c>, whose arguments are of any type.
+/// </param>
+public sealed record class SignatureParameter(string Name, int Start, int End, bool IsParamArray = false, string? Documentation = null, VBType? Type = null);
 
 /// <summary>
 /// What a procedure takes, as a signature help shows it (<strong>LSP 3.17</strong> §Signature Help): its signature on one line - <c>Function Left(String As
@@ -58,7 +63,7 @@ public sealed record class SignatureDescription(string Label, IReadOnlyList<Sign
 
             var start = label.Length;
             label.Append(parameter.Text);
-            parameters.Add(new SignatureParameter(parameter.Name, start, label.Length, parameter.IsParamArray, parameter.Documentation));
+            parameters.Add(new SignatureParameter(parameter.Name, start, label.Length, parameter.IsParamArray, parameter.Documentation, parameter.Type));
         }
 
         label.Append(')');
@@ -110,23 +115,23 @@ public sealed record class SignatureDescription(string Label, IReadOnlyList<Sign
     };
 
     // the parameters of what is called, as they are written: `Optional ByVal Length As Long`, `ParamArray Values() As Variant`; the implicit Me is none of them.
-    private static IEnumerable<(string Name, string Text, bool IsParamArray, string? Documentation)> ParametersOf(Symbol symbol)
+    private static IEnumerable<(string Name, string Text, bool IsParamArray, string? Documentation, VBType? Type)> ParametersOf(Symbol symbol)
     {
         static string Modifiers(bool isOptional, ParameterKind kind)
             => $"{(isOptional ? "Optional " : string.Empty)}{(kind == ParameterKind.ExplicitByVal ? "ByVal " : string.Empty)}";
 
         static bool IsMe(string name, ParameterKind kind) => name == Tokens.Me && kind == ParameterKind.ImplicitByRef;
 
-        IEnumerable<(string, string, bool, string?)> Bound(IEnumerable<VBParameterSymbol> parameters)
+        IEnumerable<(string, string, bool, string?, VBType?)> Bound(IEnumerable<VBParameterSymbol> parameters)
             => parameters.Where(parameter => !IsMe(parameter.Name, parameter.ParameterKind)).Select(parameter => parameter is ParamArrayParameterSymbol
-                ? (parameter.Name, $"ParamArray {parameter.Name}() As Variant", true, parameter.GetProperty(SymbolProperties.DocString))
+                ? (parameter.Name, $"ParamArray {parameter.Name}() As Variant", true, parameter.GetProperty(SymbolProperties.DocString), (VBType?)null)
                 : (parameter.Name, $"{Modifiers(parameter.IsOptional, parameter.ParameterKind)}{parameter.Name} As {parameter.ResolvedType.Name}", false,
-                    parameter.GetProperty(SymbolProperties.DocString)));
+                    parameter.GetProperty(SymbolProperties.DocString), parameter.ResolvedType));
 
-        IEnumerable<(string, string, bool, string?)> Unbound(IEnumerable<UnboundVBParameterSymbol> parameters)
+        IEnumerable<(string, string, bool, string?, VBType?)> Unbound(IEnumerable<UnboundVBParameterSymbol> parameters)
             => parameters.Where(parameter => !IsMe(parameter.Name, parameter.ParameterKind)).Select(parameter =>
                 (parameter.Name, $"{Modifiers(parameter.IsOptional, parameter.ParameterKind)}{parameter.Name} As {parameter.ResolvedType.Name}", false,
-                    parameter.GetProperty(SymbolProperties.DocString)));
+                    parameter.GetProperty(SymbolProperties.DocString), (VBType?)parameter.ResolvedType));
 
         return symbol switch
         {
