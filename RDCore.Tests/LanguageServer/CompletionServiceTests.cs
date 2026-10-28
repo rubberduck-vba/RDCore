@@ -209,11 +209,14 @@ public sealed class CompletionServiceTests
         CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len");
     }
 
-    // a ( , or space a client asks on lists an Enum argument's constants, and nothing anywhere else: not a whole list at each comma.
+    // a ( , or space a client asks on lists an Enum argument's constants where a value of it starts, and nothing anywhere else: not a whole list at each comma,
+    // nor after an operand.
     [TestMethod]
     [DataRow("Paint |", " ", true)]
     [DataRow("Brush 1,|", ",", true)]
     [DataRow("Paint(|", "(", true)]
+    [DataRow("Paint Light + |", " ", true)]
+    [DataRow("Paint Light |", " ", false)]
     [DataRow("Stroke |", " ", false)]
     [DataRow("Dim x As Long: x = 1 |", " ", false)]
     public async Task AnArgumentTriggerCharacter_IsAnsweredOnlyForAnEnumArgument(string line, string trigger, bool listed)

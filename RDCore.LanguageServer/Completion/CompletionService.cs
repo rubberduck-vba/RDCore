@@ -286,7 +286,10 @@ internal sealed class CompletionService(
 
         // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first.
         var argument = context.Kind == CompletionSiteKind.Name ? SignatureSite.Read(before) : null;
-        if (argumentTrigger && argument is null)
+
+        // asked for by a character typed, a list is only of where an argument's value starts: anywhere else - a space after an operand - it would offer nothing,
+        // and the workspace is not composed for it.
+        if (argumentTrigger && argument?.IsWhereAValueStarts(before) != true)
         {
             return Empty;
         }
