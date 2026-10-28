@@ -137,6 +137,96 @@ public sealed class CompletionServiceTests
         return [.. list.Items.Select(item => item.Label)];
     }
 
+    // ---- an argument whose parameter is an Enum: its constants first (author, 2026-10-28) ----
+
+    private const string Painter = """
+        Attribute VB_Name = "Painter"
+        Public Enum Shade
+            Light
+            Dark
+        End Enum
+        Public Sub Paint(ByVal Colour As Shade)
+        End Sub
+        Public Sub Brush(ByVal Width As Long, Optional ByVal Colour As Shade = Light)
+        End Sub
+        Public Sub Stroke(ByVal Width As Long)
+        End Sub
+        """;
+
+    private async Task<CompletionList> ListAsync(string line, string? triggerCharacter = null)
+    {
+        WorkspaceHas(new WorkspaceDocument("Painter.bas", Root, Painter));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    {line}\r\nEnd Sub\r\n");
+        return await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter);
+    }
+
+    [TestMethod]
+    public async Task AnArgumentOfMsgBoxsButtons_IsOfferedTheConstantsOfVbMsgBoxStyle_First_TheFirstSelected_ThenTheUsualList()
+    {
+        var items = (await ListAsync("MsgBox \"Hello\", |")).Items.ToList();
+
+        Assert.AreEqual("vbAbortRetryIgnore", items[0].Label, "VbMsgBoxStyle's first constant by name");
+        Assert.IsTrue(items[0].Preselect);
+        var constants = items.TakeWhile(item => item.SortText!.StartsWith('!')).Select(item => item.Label).ToList();
+        // names in any case, as VBA reads them: the standard library spells two of them vbOkOnly and vbOkCancel.
+        CollectionAssert.IsSubsetOf(new[] { "VBOKONLY", "VBOKCANCEL", "VBYESNO", "VBCRITICAL", "VBEXCLAMATION" }, constants.Select(constant => constant.ToUpperInvariant()).ToArray());
+        Assert.IsTrue(constants.All(constant => items.Count(item => item.Label == constant) == 1), "a constant is offered once, first");
+        CollectionAssert.Contains(items.Skip(constants.Count).Select(item => item.Label).ToArray(), "Len", "then the usual list");
+        Assert.IsTrue(items.Skip(1).All(item => !item.Preselect));
+    }
+
+    [TestMethod]
+    [DataRow("Paint |", DisplayName = "a call statement's first argument")]
+    [DataRow("Paint(|", DisplayName = "in parentheses")]
+    [DataRow("Brush 1, |", DisplayName = "an Optional parameter")]
+    [DataRow("Brush Colour:=|", DisplayName = "a named argument")]
+    [DataRow("Painter.Paint |", DisplayName = "a call qualified by its module")]
+    public async Task AnArgumentOfAUserEnumParameter_IsOfferedTheEnumsConstants_First(string line)
+    {
+        var items = (await ListAsync(line)).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "Dark", "Light" }, items.Take(2).Select(item => item.Label).ToArray(),
+            $"by name: {string.Join(", ", items.Take(5).Select(item => item.Label + "/" + item.SortText))}");
+        Assert.IsTrue(items[0].Preselect);
+        Assert.IsTrue(items.Count > 2, "then the usual list");
+    }
+
+    [TestMethod]
+    public async Task ConstantsBeingTyped_AreNarrowedLikeAnyName()
+    {
+        var items = (await ListAsync("Paint Da|")).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "Dark" }, items.Where(item => item.SortText!.StartsWith('!')).Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Take(8).Select(item => item.Label + "/" + item.SortText)));
+    }
+
+    [TestMethod]
+    public async Task AnArgumentOfAParameterThatIsNoEnum_IsOfferedTheUsualList()
+    {
+        var items = (await ListAsync("Stroke |")).Items.ToList();
+
+        Assert.IsFalse(items.Any(item => item.Preselect || item.SortText!.StartsWith('!')));
+        CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len");
+    }
+
+    // a ( , or space a client asks on lists an Enum argument's constants, and nothing anywhere else: not a whole list at each comma.
+    [TestMethod]
+    [DataRow("Paint |", " ", true)]
+    [DataRow("Brush 1,|", ",", true)]
+    [DataRow("Paint(|", "(", true)]
+    [DataRow("Stroke |", " ", false)]
+    [DataRow("Dim x As Long: x = 1 |", " ", false)]
+    public async Task AnArgumentTriggerCharacter_IsAnsweredOnlyForAnEnumArgument(string line, string trigger, bool listed)
+    {
+        var items = (await ListAsync(line, trigger)).Items.ToList();
+
+        Assert.AreEqual(listed, items.Count > 0, string.Join(", ", items.Take(5).Select(item => item.Label)));
+        if (listed)
+        {
+            Assert.AreEqual("Dark", items[0].Label);
+        }
+    }
+
     [TestMethod]
     public async Task TheMembersOfAVariable_AreTheMembersOfItsDeclaredType_ThoughTheLineDoesNotParse()
     {
