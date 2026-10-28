@@ -59,11 +59,13 @@ public static partial class ModuleIndenter
         var lines = LinesOf(text);
         var module = new ModuleLines(lines);
         var levels = LevelsOf(parse, module, options);
+        var firstBlocks = FirstBlocksAtColumn1(parse, module, options);
         var edits = new List<IndentationEdit>();
         var shift = 0;
         for (var line = 0; line < lines.Length; line++)
         {
-            var edit = module.IsContinuation(line) ? Continued(module, line, shift) : Started(module, line, levels[line], options, out shift);
+            var level = firstBlocks[line] || IsForcedToColumn1(lines[line], options) ? 0 : levels[line];
+            var edit = module.IsContinuation(line) ? Continued(module, line, shift) : Started(module, line, level, options, out shift);
             if (edit is { } changed && line >= firstLine && line <= lastLine)
             {
                 edits.Add(changed);
@@ -95,17 +97,103 @@ public static partial class ModuleIndenter
     // the lines of the text, without what ends them.
     private static string[] LinesOf(string text) => [.. text.Split('\n').Select(line => line.TrimEnd('\r'))];
 
+    // a comment alone on its line: an apostrophe, or Rem.
+    private static bool IsComment(string line) => CommentLine().IsMatch(line);
+
+    // a line its setting puts in column 1, whatever its level: a directive, a bare Debug.Print, Debug.Assert or Stop.
+    private static bool IsForcedToColumn1(string line, CodeFormattingOptions options)
+    {
+        var code = Keyworded(line);
+        return (options.ForceCompilerDirectivesInColumn1 && code.StartsWith('#'))
+            || (options.ForcesDebugPrintInColumn1 && DebugPrint().IsMatch(code))
+            || (options.ForcesDebugAssertInColumn1 && DebugAssert().IsMatch(code))
+            || (options.ForcesStopInColumn1 && StopStatement().IsMatch(code));
+    }
+
+    // the first blocks of a procedure that are not indented: what comes right after its header, its comments and its declarations in any order, up to the
+    // first line that is neither - or an empty one, unless empty lines are ignored there. The first comments of an Enum or a Type too, when it is indented as a
+    // procedure is.
+    private static bool[] FirstBlocksAtColumn1(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options)
+    {
+        var atColumn1 = new bool[module.Lines.Length];
+        if (parse.SyntaxTree is not { } tree || (options.IndentFirstCommentBlock && options.IndentFirstDeclarationBlock))
+        {
+            return atColumn1;
+        }
+
+        foreach (var member in tree.Descendants().OfType<MemberDeclarationNode>())
+        {
+            var range = member.SourceLocation.Range;
+            var end = module.LastLineOf(range);
+            var isProcedure = member.MemberKind is MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
+            var isEnumOrType = member.MemberKind is MemberKind.Enum or MemberKind.UserDefinedType;
+            if (!isProcedure && !(isEnumOrType && options.IndentEnumTypeAsProcedure && !options.IndentFirstCommentBlock))
+            {
+                continue;
+            }
+
+            for (var line = module.HeaderEnd(range.Start.Line) + 1; line < end; line++)
+            {
+                var text = module.Lines[line];
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    if (!options.IgnoreEmptyLinesInFirstBlocks)
+                    {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (IsComment(text))
+                {
+                    atColumn1[line] = !options.IndentFirstCommentBlock;
+                    continue;
+                }
+
+                if (!isProcedure || !Declaration().IsMatch(Keyworded(text)))
+                {
+                    break;
+                }
+
+                // a declaration and the lines it is continued on.
+                var last = module.HeaderEnd(line);
+                for (; line <= last; line++)
+                {
+                    atColumn1[line] = !options.IndentFirstDeclarationBlock;
+                }
+
+                line = last;
+            }
+        }
+
+        return atColumn1;
+    }
+
     // the first line of a statement: indented to its level, a line number kept at the start of it. How far it moved is what its continuations move.
     private static IndentationEdit? Started(ModuleLines module, int line, int level, CodeFormattingOptions options, out int shift)
     {
         shift = 0;
         var text = module.Lines[line];
+        var indentation = level * options.IndentSpaces;
         if (string.IsNullOrWhiteSpace(text))
+        {
+            // an empty line is left as it is, emptied, or indented to its level, as the setting says.
+            var wanted = options.EmptyLineHandlingMethod switch
+            {
+                EmptyLineHandlingMethod.Remove => string.Empty,
+                EmptyLineHandlingMethod.Indent => new string(' ', indentation),
+                _ => text,
+            };
+            return wanted == text ? null : new IndentationEdit(line, 0, text.Length, wanted);
+        }
+
+        // a comment alone on its line that is not aligned with the code is where it is written.
+        if (!options.AlignCommentsWithCode && IsComment(text))
         {
             return null;
         }
 
-        var indentation = level * options.IndentSpaces;
         var leading = text.Length - text.TrimStart().Length;
         if (LineNumber().Match(text) is { Success: true } number)
         {
@@ -370,6 +458,21 @@ public static partial class ModuleIndenter
 
     [GeneratedRegex(@"^\s*(?<number>(?:-?\d+|&H[0-9A-F]{1,8}):?)(?:\s+|$)", RegexOptions.IgnoreCase)]
     private static partial Regex LineNumber();
+
+    [GeneratedRegex(@"^\s*(?:'|Rem(?:\s|$))", RegexOptions.IgnoreCase)]
+    private static partial Regex CommentLine();
+
+    [GeneratedRegex(@"^Debug\.Print\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DebugPrint();
+
+    [GeneratedRegex(@"^Debug\.Assert\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DebugAssert();
+
+    [GeneratedRegex(@"^Stop\s*(?:$|:|')", RegexOptions.IgnoreCase)]
+    private static partial Regex StopStatement();
+
+    [GeneratedRegex(@"^(Dim|Const|Static|Public|Private)\s", RegexOptions.IgnoreCase)]
+    private static partial Regex Declaration();
 
     [GeneratedRegex(@"^#If\s.+\sThen\b", RegexOptions.IgnoreCase)]
     private static partial Regex DirectiveIf();

@@ -478,12 +478,15 @@ A line is indented a level - `Formatting.IndentSpaces` spaces - for each body th
 - **A line the syntax tree has no statement of**, a branch of an `#If` that is not compiled or code the parser could not build as it is typed, is indented by its keywords, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A module is never refused.
 - **A line number** stays at the start of its line, and the code after it is where the line's level has it, a space after the number at least.
 - **A line continued from the one before** (`_`) moves with the first line of its statement, as far as it does.
-- **A comment alone on its line** is at the level of the code around it; a blank line is left as it is.
+- **A comment alone on its line** is at the level of the code around it, or where it is written when `Formatting.AlignCommentsWithCode` is off.
+- **An empty line** is left as it is, emptied of its whitespace, or indented to its level, as `Formatting.EmptyLineHandlingMethod` says (`Ignore`, `Remove`, `Indent`).
+- **In column 1**, whatever its level: an `#If`, `#Else` or `#Const` line (`Formatting.ForceCompilerDirectivesInColumn1`); a line that starts with `Debug.Print` (`Formatting.ForceDebugPrintInColumn1`), `Debug.Assert` (`ForceDebugAssertInColumn1`) or a `Stop` (`ForceStopInColumn1`) - or any of the three, `ForceDebugStatementsInColumn1`.
+- **The first blocks of a procedure** - the comments and the declarations (`Dim`, `Const`, `Static`, `Public`, `Private`) right after its header, in any order, up to its first other line or its first empty line - are in column 1 when `Formatting.IndentFirstCommentBlock` or `IndentFirstDeclarationBlock` is off. An empty line does not end them when `IgnoreEmptyLinesInFirstBlocks` is on. With `IndentEnumTypeAsProcedure` on, the first comments of an `Enum` or a `Type` are in column 1 when `IndentFirstCommentBlock` is off.
 
 The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made, and not the `tabSize` of the request's options. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell lists its lines.
 
 > [!NOTE]
-> **Not implemented.** Aligning continued lines, end-of-line comments and declarations; the first comment and declaration blocks of a procedure; the column-1 settings; empty lines; vertical spacing between procedures; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
+> **Not implemented.** Aligning continued lines, end-of-line comments and declarations; vertical spacing between procedures; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
 
 ### `textDocument/foldingRange`
 
