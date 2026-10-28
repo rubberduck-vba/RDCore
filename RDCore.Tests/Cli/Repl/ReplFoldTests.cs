@@ -68,7 +68,7 @@ public sealed class ReplFoldTests
 
         _console.Received(1).WriteLine(string.Format(Resources.Repl_Fold_Folded, 20));
         var listed = await ListAsync();
-        // the line says how many lines it hides, before its text (the author's `[4 lines] If X < 0 Then`).
+        // the line says how many lines it hides, before its text: `[4 lines] If X < 0 Then`.
         var hides = string.Format(Resources.Repl_Fold_HiddenLines, 2);
         CollectionAssert.AreEqual(new[] { "10 x = 1", $"20 {hides} If x > 0 Then", "50 Print \"done\"" }, listed.Select(line => TextOf(line.Runs)).ToArray());
         Assert.AreEqual(ReplTextStyle.Ghost, listed[1].Runs[^1].Style);
