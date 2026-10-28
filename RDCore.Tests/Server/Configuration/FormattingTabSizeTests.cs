@@ -44,10 +44,10 @@ public sealed class FormattingTabSizeTests
     {
         var said = new Dictionary<string, string> { ["Server:Verbose"] = "True" };
 
-        var settings = FormattingTabSize.WithEditorTabSize(said, 2);
+        var adopted = FormattingTabSize.AdoptedFrom(said, 2);
 
-        Assert.AreEqual("2", settings["Formatting:IndentSpaces"]);
-        Assert.AreEqual("True", settings["Server:Verbose"]);
+        Assert.AreEqual("2", adopted["Formatting:IndentSpaces"]);
+        Assert.AreEqual(1, adopted.Count, "and nothing else");
         Assert.IsFalse(said.ContainsKey("Formatting:IndentSpaces"), "what the client said is not changed");
     }
 
@@ -56,7 +56,7 @@ public sealed class FormattingTabSizeTests
     {
         var said = new Dictionary<string, string> { ["Formatting:IndentSpaces"] = "3" };
 
-        Assert.AreSame(said, FormattingTabSize.WithEditorTabSize(said, 8));
+        Assert.AreEqual(0, FormattingTabSize.AdoptedFrom(said, 8).Count);
     }
 
     [TestMethod]
@@ -64,7 +64,7 @@ public sealed class FormattingTabSizeTests
     {
         var said = new Dictionary<string, string>();
 
-        Assert.AreSame(said, FormattingTabSize.WithEditorTabSize(said, null));
+        Assert.AreEqual(0, FormattingTabSize.AdoptedFrom(said, null).Count);
     }
 
     // a platform component: a server with its client, followed by the follower a server app starts when it is started (ClientConfigurationFollower.Follow).
@@ -174,6 +174,9 @@ public sealed class FormattingTabSizeTests
 
         Assert.IsTrue(await wire.FollowedAsync(), "asked once it is initialized");
         Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces, "the editor's tab size, as the user set no indentation");
+        Assert.IsTrue(wire.Live.HasReceived);
+        Assert.IsFalse(wire.Live.Said.ContainsKey("Formatting:IndentSpaces"), "and the user did not set it, whatever the settings hand down");
+        Assert.AreEqual("2", wire.Live.Current["Formatting:IndentSpaces"]);
 
         // the user changes the tab size of the editor: a change of configuration like any other.
         wire.TabSize = 8;
@@ -210,15 +213,15 @@ public sealed class FormattingTabSizeTests
             }
         };
         wire.TabSize = 5;
-        wire.ClientSaysConfigurationChanged();
+        var older = wire.Follower!.FollowAsync();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync());
+        var newer = await wire.Follower.FollowAsync();
 
         release.SetResult();
-        await wire.Follower!.WhenIdleAsync().WaitAsync(TimeSpan.FromSeconds(20));
 
+        Assert.IsTrue(newer);
+        Assert.IsFalse(await older.WaitAsync(TimeSpan.FromSeconds(20)), "the older change was dropped, whenever its answer came");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
     }
