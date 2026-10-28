@@ -129,6 +129,14 @@ public static class SupportedLanguages
     public static IReadOnlyList<SupportedLanguage> All { get; } = [RDVBA, VB6, BASIC];
 
     /// <summary>
+    /// The selector of the documents of every language the platform serves, by their files: a client names a document's language its own way, so what selects
+    /// a document is the file it is.
+    /// </summary>
+    public static TextDocumentSelector DocumentSelector { get; } = new(All
+        .SelectMany(language => language.FileTypes).Distinct()
+        .Select(fileType => new TextDocumentFilter { Pattern = $"**/{fileType}" }));
+
+    /// <summary>
     /// The language with the given identifier.
     /// </summary>
     /// <param name="id">The identifier, as <see cref="SupportedLanguage.Id"/>; compared without regard to case.</param>

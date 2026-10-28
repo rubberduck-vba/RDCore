@@ -57,10 +57,13 @@ internal sealed class CoreLanguageServerApp(
     IDiagnosticsPublisher publisher,
     IClientInteractionRelay interaction,
     IWorkProgressReporter progress,
+    IWorkspaceRefresh refresh,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
+
+    protected override TextDocumentSelector DocumentSelector => SupportedLanguages.DocumentSelector;
 
     /// <summary>
     /// Cancels in-flight core-component bring-up when the server is shutting down.
@@ -97,6 +100,7 @@ internal sealed class CoreLanguageServerApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DocumentDiagnosticHandler>();
+        builder.WithHandler<WorkspaceDiagnosticHandler>();
         builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SelectionRangeHandler>();
@@ -138,6 +142,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionCompletionHandler>();
         builder.WithHandler<SessionSignatureHelpHandler>();
+        builder.WithHandler<SessionSemanticTokensHandler>();
         builder.WithHandler<SessionCommandsHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
@@ -171,6 +176,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<Workspace.States.IDocumentStateProvider>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());
@@ -188,11 +194,6 @@ internal sealed class CoreLanguageServerApp(
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportIndenterSettingsCommand>();
-
-        // the documents of every language the platform serves: the client names the language its own way, so what selects a document is the file it is.
-        services.AddSingleton(new TextDocumentSelector(SupportedLanguages.All
-            .SelectMany(language => language.FileTypes).Distinct()
-            .Select(fileType => new TextDocumentFilter { Pattern = $"**/{fileType}" })));
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
@@ -202,6 +203,8 @@ internal sealed class CoreLanguageServerApp(
     {
         // a client that pulls diagnostics is not pushed them as well: it would show each finding twice.
         publisher.Attach(server, enabled: request.Capabilities?.TextDocument?.Diagnostic is null);
+        // what the client shows of each document is refreshed once the workspace changed under it, as the client says it is asked to.
+        refresh.Attach(server);
         await LoadWorkspaceAsync(server, request);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
@@ -414,7 +417,7 @@ internal sealed class CoreLanguageServerApp(
     }
 
     // what the client said is said to every component: each asks the language server, which answers with what the client said. A client that pulls its
-    // diagnostics is asked to pull them again - a diagnostic's settings are among the live ones.
+    // diagnostics is asked to pull them again - a diagnostic's settings are among the live ones - and what else it shows of each document refreshed.
     protected override async Task OnLiveSettingsChangedAsync(ILanguageServer server)
     {
         var components = new[] { orchestration.ParsingService, orchestration.RuntimeEnvironment }
@@ -434,7 +437,7 @@ internal sealed class CoreLanguageServerApp(
             }
         }
 
-        DiagnosticRefresh.SendIfSupported(server);
+        refresh.Changed();
     }
 
     protected override async Task OnServerStoppingAsync()

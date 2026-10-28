@@ -73,5 +73,5 @@ internal sealed class FoldingRangeHandler(
         => new();
 
     private WorkspaceDocument? Resolve(Uri documentUri)
-        => documents.GetAllDocuments().FirstOrDefault(document => document.Id.Uri.ToUri().Equals(documentUri));
+        => documents.TryGetModule(documentUri, out var document) ? document : null;
 }

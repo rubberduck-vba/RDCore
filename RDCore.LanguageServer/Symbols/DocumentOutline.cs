@@ -41,7 +41,7 @@ internal static class DocumentOutline
             return null;
         }
 
-        var workspaceRoot = new Uri(document.WorkspaceRoot);
+        var workspaceRoot = document.ProjectRoot;
         var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(document.RelativePath);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var moduleType = ParsingClientService.ModuleTypeOf(document);

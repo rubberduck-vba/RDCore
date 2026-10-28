@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 
@@ -18,6 +19,12 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// date, and publishing the diagnostics of the text - is done in the background, and never for text that has been edited since: a refresh that is superseded by
 /// a later one is cancelled, and one that finds the document at another version than the one it started with stops, so that nothing is ever published for text
 /// that is not there any more.
+/// <para>
+/// A module whose text changed what the other modules can be told by it (<see cref="ModuleSurface"/>) changes what is found out about them: once the host has
+/// it, the workspace is defined again against it (<see cref="ISymbolSyncService.SyncWorkspaceAsync"/>), and the client is asked to refresh what it shows of
+/// every document (<see cref="IWorkspaceRefresh"/>). The same goes for a module that is gone. An edit that changes no other module's findings - inside
+/// a procedure, of a literal, a comment - does neither.
+/// </para>
 /// </remarks>
 internal interface IDocumentLifecycleService
 {
@@ -67,16 +74,34 @@ internal sealed class DocumentLifecycleService(
     ISymbolSyncService symbols,
     IDocumentDiagnosticsService diagnostics,
     IDiagnosticsPublisher publisher,
+    IWorkspaceRefresh refresh,
     ILogger<DocumentLifecycleService> logger) : IDocumentLifecycleService
 {
     // the refresh in flight for each document, and what cancels it: a later notification about the document supersedes it.
     private readonly ConcurrentDictionary<Uri, (CancellationTokenSource Cancellation, Task Refresh)> _refreshes = new();
 
+    // what the other modules were last defined against of each module, in the host, and the version of the text that was: compared, and changed, under the gate.
+    private readonly Dictionary<Uri, (int Version, string? Surface)> _surfaces = [];
+    private readonly object _surfaceGate = new();
+
+    // what the other modules are defined against while a sync of them is under way, or when one did not finish: no surface, so that the next change syncs them
+    // again whatever it is.
+    private const string Unsynced = "\0unsynced";
+
     public void Opened(Uri documentUri, string text, int version)
     {
         documents.Open(documentUri, text, version);
 
-        // the text of the client is not the text that was parsed from disk, whatever the version it comes with says.
+        // the text of the client is not the text that was parsed from disk, whatever the version it comes with says: what the workspace was told by the text
+        // on disk is what the client's is told apart from.
+        if (parsing.TryGetCached(documentUri, out var parsed))
+        {
+            lock (_surfaceGate)
+            {
+                _surfaces[documentUri] = (0, ModuleSurface.Of(parsed));
+            }
+        }
+
         parsing.Invalidate(documentUri);
         ScheduleRefresh(documentUri, publish: true);
     }
@@ -136,8 +161,31 @@ internal sealed class DocumentLifecycleService(
         else if (moduleName is not null)
         {
             // the workspace has no document of it any more, and so no module: what the host holds of it - the variables its lines declared, and the storage
-            // they were given - is not the workspace's either.
+            // they were given - is not the workspace's either, and what the other modules found of it is gone.
             await DiscardModuleAsync(moduleName);
+            lock (_surfaceGate)
+            {
+                _surfaces.Remove(documentUri);
+            }
+
+            await SyncWorkspaceAsync(CancellationToken.None);
+            refresh.Changed();
+        }
+    }
+
+    // the other modules are defined again against what one declares now - what their declarations are bound to, and what their code calls - as when a module
+    // changes outside the editor; whether they all were. A host that could not be told has some of them as they were.
+    private async Task<bool> SyncWorkspaceAsync(CancellationToken token)
+    {
+        try
+        {
+            await symbols.SyncWorkspaceAsync(token, replace: true);
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "❌ The environment host could not be brought up to date with the workspace.");
+            return false;
         }
     }
 
@@ -192,7 +240,7 @@ internal sealed class DocumentLifecycleService(
             }
 
             var version = document.Version;
-            await parsing.ParseDocumentAsync(documentUri, token);
+            var parse = await parsing.ParseDocumentAsync(documentUri, token);
             if (IsSuperseded(documentUri, version, token))
             {
                 return;
@@ -208,29 +256,76 @@ internal sealed class DocumentLifecycleService(
                 logger.LogWarning(exception, "❌ The environment host could not be brought up to date with {uri} v{version}.", documentUri, version);
             }
 
-            if (!publish || IsSuperseded(documentUri, version, token))
+            if (IsSuperseded(documentUri, version, token))
             {
                 return;
             }
 
-            // what is ready is not held back for what is not: the phases of the analysis are asked for in turn, and what each finds is published as soon as it is
-            // there, together with what the earlier ones found - a publication replaces the one before it. The static findings reach the client while the facts
-            // that come of evaluating the code are still being found out.
-            var published = new List<Diagnostic>();
-            foreach (var phase in new[] { AnalysisPhase.Static, AnalysisPhase.Runtime })
+            if (publish)
             {
-                var result = await diagnostics.GetPhaseAsync(documentUri, phase, token);
-                if (IsSuperseded(documentUri, version, token))
+                // what is ready is not held back for what is not: the phases of the analysis are asked for in turn, and what each finds is published as soon as it
+                // is there, together with what the earlier ones found - a publication replaces the one before it. The static findings reach the client while the
+                // facts that come of evaluating the code are still being found out.
+                var published = new List<Diagnostic>();
+                foreach (var phase in new[] { AnalysisPhase.Static, AnalysisPhase.Runtime })
+                {
+                    var result = await diagnostics.GetPhaseAsync(documentUri, phase, token);
+                    if (IsSuperseded(documentUri, version, token))
+                    {
+                        return;
+                    }
+
+                    // a phase that found nothing changes nothing, except that the first one is what clears what the text had before.
+                    if (result.Diagnostics.Count > 0 || phase == AnalysisPhase.Static)
+                    {
+                        published.AddRange(result.Diagnostics);
+                        publisher.Publish(documentUri, version, [.. published]);
+                    }
+                }
+            }
+
+            // what the other modules are told by this one changed: the host has them defined again against it, and then what the client shows of them is
+            // refreshed. A refresh that is superseded before the sync starts leaves it to the next one, which the host's others are still as they were for.
+            var surface = ModuleSurface.Of(parse);
+            lock (_surfaceGate)
+            {
+                if (!_surfaces.TryGetValue(documentUri, out var previous))
+                {
+                    // a module the server has had no text of yet - opened before the workspace was parsed, or of no workspace - is what the workspace is defined
+                    // with when it is: what it tells is kept, for its next change.
+                    _surfaces[documentUri] = (version, surface);
+                    return;
+                }
+
+                if (previous.Surface == surface || IsSuperseded(documentUri, version, token))
                 {
                     return;
                 }
 
-                // a phase that found nothing changes nothing, except that the first one is what clears what the text had before.
-                if (result.Diagnostics.Count > 0 || phase == AnalysisPhase.Static)
+                // the others are being defined again: until they all are, against no one surface. A refresh of a later version that compares meanwhile syncs
+                // them again itself.
+                _surfaces[documentUri] = (version, Unsynced);
+            }
+
+            // once a sync is under way the host is not what it was, whatever becomes of this refresh: what the others are defined against is kept, and the
+            // client told. A sync that did not finish leaves them defined against no one surface, which the next change syncs again whatever it is.
+            var synced = false;
+            try
+            {
+                synced = await SyncWorkspaceAsync(token);
+            }
+            finally
+            {
+                lock (_surfaceGate)
                 {
-                    published.AddRange(result.Diagnostics);
-                    publisher.Publish(documentUri, version, [.. published]);
+                    // a later version that has synced them since is what they are defined against.
+                    if (!_surfaces.TryGetValue(documentUri, out var recorded) || recorded.Version <= version)
+                    {
+                        _surfaces[documentUri] = (version, synced ? surface : Unsynced);
+                    }
                 }
+
+                refresh.Changed();
             }
         }
         catch (OperationCanceledException)

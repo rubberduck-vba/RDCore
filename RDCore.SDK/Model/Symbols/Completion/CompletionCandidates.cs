@@ -309,6 +309,28 @@ public static class CompletionCandidates
     }
 
     /// <summary>
+    /// The constants of an <c>Enum</c>, by name: what an argument given to a parameter declared as it is most likely to be (<c>MsgBox "Hello", vbYesNo</c>).
+    /// </summary>
+    /// <remarks>
+    /// A library's <c>Enum</c> carries its constants (<see cref="MembersOf(VBType)"/>). One the workspace declares does not: its constants are declarations of
+    /// the module that declares it, each of them of the <c>Enum</c> (<see cref="VBEnumConstMemberSymbol.ParentUri"/>), and are found there.
+    /// </remarks>
+    /// <param name="tree">The scope tree of the composed workspace.</param>
+    /// <param name="type">The <c>Enum</c>.</param>
+    public static IReadOnlyList<CompletionCandidate> ConstantsOf(ScopeTree tree, VBEnumType type)
+    {
+        IEnumerable<CompletionCandidate> constants = MembersOf(type);
+        if (!constants.Any() && type.Symbol is VBEnumMemberSymbol enumeration && tree.TryGetScope(enumeration.ParentUri, out var module))
+        {
+            constants = module.Declarations.OfType<VBEnumConstMemberSymbol>()
+                .Where(constant => constant.ParentUri.AbsoluteUri == enumeration.Uri.AbsoluteUri && IsMemberName(constant))
+                .Select(constant => Describe(constant) with { Rank = ModuleRank });
+        }
+
+        return [.. constants.DistinctBy(constant => constant.Label, StringComparer.OrdinalIgnoreCase).OrderBy(constant => constant.Label, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>
     /// The project or the module a qualifier names, when it names one: <c>VBA</c>, <c>VBA.Strings</c>, <c>Module1</c> - what a member access is written on that
     /// is a namespace and not a value, and whose members are its declarations (<see cref="MembersOf(ScopeTree, Symbol, Uri)"/>).
     /// </summary>

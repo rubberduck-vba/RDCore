@@ -41,8 +41,12 @@ internal interface ICompletionService
     /// <param name="documentUri">The document.</param>
     /// <param name="position">The position of the cursor, in the text of the document.</param>
     /// <param name="token">A token that cancels the request.</param>
+    /// <param name="triggerCharacter">
+    /// The character that had the client ask, when one did (<strong>LSP 3.17</strong> <c>CompletionContext.triggerCharacter</c>): a <c>,</c>, a <c>(</c> or a
+    /// space asks for the list of an argument whose parameter is an <c>Enum</c>, and is answered nothing elsewhere (<see cref="ArgumentTriggerCharacters"/>).
+    /// </param>
     /// <returns>The list; empty for a document the server does not hold, and where nothing is written - in a comment, in a string literal.</returns>
-    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token);
+    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null);
 
     /// <summary>
     /// The completion list at a position of a module a client supplies, which stands for the module of the workspace by its name.
@@ -51,7 +55,8 @@ internal interface ICompletionService
     /// <param name="source">The source of the module.</param>
     /// <param name="position">The position of the cursor, in <paramref name="source"/>.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token);
+    /// <param name="triggerCharacter">The character that had the client ask, as <see cref="CompleteDocumentAsync"/> has it.</param>
+    Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null);
 
     /// <summary>
     /// The completion list of the arguments of a client's command that is being typed at its prompt, as its verb describes them (<see cref="VerbDescriptor"/>).
@@ -80,6 +85,13 @@ internal interface ICompletionService
     /// <param name="position">The position of the cursor, in <paramref name="source"/>.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<SignatureHelp?> SignatureHelpFragmentAsync(string moduleName, string source, Position position, CancellationToken token);
+
+    /// <summary>
+    /// The characters that have a client ask for the list of an argument as it starts: after the <c>(</c> of an argument list, after a <c>,</c>, and the space
+    /// that follows either or the name of a call statement. The list is answered only for an argument whose parameter is an <c>Enum</c>; a client that asks
+    /// after any other is answered nothing, as it is not in the middle of a name.
+    /// </summary>
+    static IReadOnlyCollection<string> ArgumentTriggerCharacters { get; } = ["(", ",", " "];
 }
 
 /// <inheritdoc cref="ICompletionService"/>
@@ -122,7 +134,7 @@ internal sealed class CompletionService(
 
     private static readonly CompletionList Empty = new(isIncomplete: false);
 
-    public async Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token)
+    public async Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null)
     {
         if (!documents.TryGetDocument(documentUri, out var document))
         {
@@ -135,14 +147,15 @@ internal sealed class CompletionService(
         var line = isProgram ? position.Line + BasicProgramText.HeaderLines : position.Line;
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
-        return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position.Character, token);
+        return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position.Character, token,
+            IsArgumentTrigger(triggerCharacter));
     }
 
-    public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token)
+    public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null)
     {
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
-        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token);
+        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token, IsArgumentTrigger(triggerCharacter));
     }
 
     public async Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token)
@@ -251,7 +264,11 @@ internal sealed class CompletionService(
         return list.Items.Where(item => item.Label != ModuleScope);
     }
 
-    private async Task<CompletionList> CompleteAsync(Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token)
+    private static bool IsArgumentTrigger(string? triggerCharacter)
+        => triggerCharacter is not null && ICompletionService.ArgumentTriggerCharacters.Contains(triggerCharacter);
+
+    private async Task<CompletionList> CompleteAsync(
+        Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token, bool argumentTrigger = false)
     {
         var lines = source.Split('\n');
         if (line < 0 || line >= lines.Length)
@@ -260,8 +277,19 @@ internal sealed class CompletionService(
         }
 
         var text = lines[line].TrimEnd('\r');
-        var context = CompletionSite.Read(text[..Math.Clamp(character, 0, text.Length)]);
+        var before = text[..Math.Clamp(character, 0, text.Length)];
+        var context = CompletionSite.Read(before);
         if (context.Kind == CompletionSiteKind.None)
+        {
+            return Empty;
+        }
+
+        // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first.
+        var argument = context.Kind == CompletionSiteKind.Name ? SignatureSite.Read(before) : null;
+
+        // asked for by a character typed, a list is only of where an argument's value starts: anywhere else - a space after an operand - it would offer nothing,
+        // and the workspace is not composed for it.
+        if (argumentTrigger && argument?.IsWhereAValueStarts(before) != true)
         {
             return Empty;
         }
@@ -269,9 +297,10 @@ internal sealed class CompletionService(
         // where the line is - in which procedure, in which blocks - is read off the lines as they are, which need not parse.
         var placement = CompletionPlacement.Read(lines, line);
 
-        // the line is taken out, and only what the list needs of it goes back in.
-        if (await ComposeAsync(address, moduleName, kind, lines, line, context is { Kind: CompletionSiteKind.Member } ? context.Qualifier : string.Empty, token)
-            is not { } composed)
+        // the line is taken out, and only what the list needs of it goes back in: what a member is accessed on - the one being completed, or the one whose
+        // member is called.
+        var qualifier = context.Kind == CompletionSiteKind.Member ? context.Qualifier : argument is { IsMemberAccess: true } ? argument.Qualifier : string.Empty;
+        if (await ComposeAsync(address, moduleName, kind, lines, line, qualifier, token) is not { } composed)
         {
             return Empty;
         }
@@ -287,15 +316,34 @@ internal sealed class CompletionService(
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
 
-        // a list is for the name being typed: what has the letters typed so far, in their order, is all a client can still show of it as more is typed.
-        var matching = CompletionCandidates.Matching(candidates, context.Prefix);
-        if (logger.IsEnabled(LogLevel.Debug))
+        // the constants of the Enum the argument's parameter is declared as come first, by name, the first of them selected: what is most likely to be written
+        // there (MsgBox "Hello", vbYesNo).
+        IReadOnlyList<CompletionCandidate> constants = argument is not null && ProcedureAt(argument, composition, workspaceRoot, moduleUri, origin, module, line) is { } procedure
+            && SignatureDescription.Of(procedure) is { } signature
+            && signature.ActiveParameterOf(argument.ArgumentIndex, argument.ArgumentName) is { } active
+            && signature.Parameters[active].Type is VBEnumType constantsOf
+                ? CompletionCandidates.ConstantsOf(tree, constantsOf)
+                : [];
+        if (argumentTrigger && constants.Count == 0)
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {count} of {all} candidate(s).",
-                moduleName, line, character, context.Kind, context.Prefix, matching.Count, candidates.Count);
+            return Empty;
         }
 
-        return new CompletionList(matching.Select(candidate => candidate.ToCompletionItem()), isIncomplete: false);
+        // a list is for the name being typed: what has the letters typed so far, in their order, is all a client can still show of it as more is typed. The name
+        // a qualifier is assigned to in the line that stands for the one typed is no name of the module.
+        var first = CompletionCandidates.Matching(constants, context.Prefix);
+        var offered = first.Select(constant => constant.Label).Append(Probe).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var matching = CompletionCandidates.Matching(candidates, context.Prefix).Where(candidate => !offered.Contains(candidate.Label)).ToList();
+        if (logger.IsEnabled(LogLevel.Debug))
+        {
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) first, {count} of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, first.Count, matching.Count, candidates.Count);
+        }
+
+        return new CompletionList(
+            first.Select((constant, index) => constant.ToCompletionItem() with { SortText = $"!{index:D3}", Preselect = index == 0 })
+                .Concat(matching.Select(candidate => candidate.ToCompletionItem())),
+            isIncomplete: false);
     }
 
     public async Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token)
@@ -339,10 +387,7 @@ internal sealed class CompletionService(
 
         var (composition, module, workspaceRoot, moduleUri) = composed;
         var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character));
-        var procedure = site.IsMemberAccess
-            ? MembersOf(composition, workspaceRoot, moduleUri, origin, new CompletionSite(CompletionSiteKind.Member, Qualifier: site.Qualifier), module, line)
-                .FirstOrDefault(candidate => string.Equals(candidate.Label, site.Name, StringComparison.OrdinalIgnoreCase))?.Symbol
-            : composition.Resolver.ResolveValue(site.Name, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol;
+        var procedure = ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line);
 
         if (procedure is null || SignatureDescription.Of(procedure) is not { } signature)
         {
@@ -357,6 +402,15 @@ internal sealed class CompletionService(
             ActiveParameter = active,
         };
     }
+
+    // what the call being written calls: a name in the scope of the line, or a member of what its qualifier is - as a completion list after the qualifier's
+    // dot would offer it. The composition is the one with the qualifier put back in the line (ComposeAsync).
+    private SDK.Model.Symbols.Abstract.Symbol? ProcedureAt(
+        SignatureSite site, WorkspaceComposition composition, Uri workspaceRoot, Uri moduleUri, Uri origin, ModuleNode module, int line)
+        => site.IsMemberAccess
+            ? MembersOf(composition, workspaceRoot, moduleUri, origin, new CompletionSite(CompletionSiteKind.Member, Qualifier: site.Qualifier), module, line)
+                .FirstOrDefault(candidate => string.Equals(candidate.Label, site.Name, StringComparison.OrdinalIgnoreCase))?.Symbol
+            : composition.Resolver.ResolveValue(site.Name, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol;
 
     // the module with its line taken out - and, for a member access, put back as an assignment of what the member is accessed on - parsed and composed with the
     // workspace; nothing when the module cannot be parsed even so.
@@ -376,10 +430,13 @@ internal sealed class CompletionService(
             parse = WithDesigner(parse, designer);
         }
 
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        // a document of no project's - one that is no file, or of a server with no workspace - is a project of its own: no module of the workspace is composed
+        // with it. A fragment the shell completes is of the workspace.
+        var isOwnProject = !address.IsFile || documents.WorkspaceRoot.Length == 0;
+        var workspaceRoot = SymbolUri.RootOf(address, documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var composition = _compositions.GetOrCompose(
-            workspaceRoot, [.. OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
+            workspaceRoot, [.. isOwnProject ? [] : OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 

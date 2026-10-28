@@ -1,6 +1,8 @@
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace RDCore.SDK.Server;
 
@@ -29,21 +31,50 @@ public sealed class IncomingDocumentChanges
 
     private readonly object _gate = new();
     private readonly Dictionary<string, int> _unapplied = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<(string Document, CancellationTokenSource Changed)> _watches = [];
+
+    // what each running request is made of: one document, or every document of the workspace (null).
+    private readonly List<(string? Document, CancellationTokenSource Changed)> _watches = [];
+
+    // the documents a handler applies a change to: every one, until the server says which.
+    private volatile Func<Uri, bool> _serves = static _ => true;
+
+    /// <summary>
+    /// Says which documents the server's handlers apply a change to (<see cref="Applied"/>). A change to any other is no change of the server's: OmniSharp hands
+    /// it to no handler, so it is never applied, and is not waited for.
+    /// </summary>
+    /// <param name="serves">Whether a handler applies a change to a document.</param>
+    public void Serve(Func<Uri, bool> serves) => _serves = serves;
+
+    /// <summary>
+    /// Says that the server's handlers apply a change to the documents a selector matches, which is what they are registered for: the client names a
+    /// document's language its own way, so a filter of the selector is matched by the document's path alone.
+    /// </summary>
+    /// <param name="selector">What the handlers of a document's notifications are registered for.</param>
+    public void Serve(TextDocumentSelector selector)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        Serve(document => selector.IsMatch(new TextDocumentAttributes(document, string.Empty)));
+    }
 
     /// <summary>
     /// A change to a document has arrived from the client, and is waiting for its turn: the requests about the document that are running are answered
-    /// <c>ContentModified</c>, and so is each that starts before the change is applied.
+    /// <c>ContentModified</c>, and so is each that starts before the change is applied. A change to a document the server does not serve
+    /// (<see cref="Serve"/>) is nothing.
     /// </summary>
     /// <param name="document">The document the change is to.</param>
     public void Arrived(Uri document)
     {
+        if (!_serves(document))
+        {
+            return;
+        }
+
         var key = Key(document);
         CancellationTokenSource[] changed;
         lock (_gate)
         {
             _unapplied[key] = _unapplied.GetValueOrDefault(key) + 1;
-            changed = [.. _watches.Where(watch => string.Equals(watch.Document, key, StringComparison.OrdinalIgnoreCase)).Select(watch => watch.Changed)];
+            changed = [.. _watches.Where(watch => watch.Document is null || string.Equals(watch.Document, key, StringComparison.OrdinalIgnoreCase)).Select(watch => watch.Changed)];
         }
 
         foreach (var source in changed)
@@ -83,15 +114,33 @@ public sealed class IncomingDocumentChanges
     /// <param name="answer">Makes the answer, with a token that is cancelled when the client cancels the request or a change to the document arrives.</param>
     /// <returns>The answer.</returns>
     /// <exception cref="RpcErrorException">A change to the document arrived before the answer was made: the error is <see cref="ErrorCodes.ContentModified"/>.</exception>
-    public async Task<T> WhileCurrentAsync<T>(Uri document, CancellationToken token, Func<CancellationToken, Task<T>> answer)
+    public Task<T> WhileCurrentAsync<T>(Uri document, CancellationToken token, Func<CancellationToken, Task<T>> answer)
+        => WatchAsync(Key(document), token, answer);
+
+    /// <summary>
+    /// Answers a request about every document of the workspace with what <paramref name="answer"/> makes of them, unless a change to any document arrives
+    /// first: then the request stops, and is answered <c>ContentModified</c> (-32801).
+    /// </summary>
+    /// <remarks>
+    /// A request such as <c>workspace/diagnostic</c> is made of every module; a keystroke in any of them would wait for all of them, and the completion the
+    /// client sends after it too. The client asks again for the workspace as it is now.
+    /// </remarks>
+    /// <typeparam name="T">What the request answers.</typeparam>
+    /// <param name="token">The request's own token, which the client cancels.</param>
+    /// <param name="answer">Makes the answer, with a token that is cancelled when the client cancels the request or a change to any document arrives.</param>
+    /// <returns>The answer.</returns>
+    /// <exception cref="RpcErrorException">A change to a document arrived before the answer was made: the error is <see cref="ErrorCodes.ContentModified"/>.</exception>
+    public Task<T> WhileWorkspaceCurrentAsync<T>(CancellationToken token, Func<CancellationToken, Task<T>> answer)
+        => WatchAsync(document: null, token, answer);
+
+    private async Task<T> WatchAsync<T>(string? document, CancellationToken token, Func<CancellationToken, Task<T>> answer)
     {
-        var key = Key(document);
         using var changed = new CancellationTokenSource();
-        var watch = (key, changed);
+        var watch = (document, changed);
         lock (_gate)
         {
             _watches.Add(watch);
-            if (_unapplied.ContainsKey(key))
+            if (document is null ? _unapplied.Count > 0 : _unapplied.ContainsKey(document))
             {
                 changed.Cancel();
             }
@@ -105,8 +154,7 @@ public sealed class IncomingDocumentChanges
         }
         catch (OperationCanceledException) when (changed.IsCancellationRequested && !token.IsCancellationRequested)
         {
-            // OmniSharp answers an OperationCanceledException RequestCancelled, its own ContentModifiedException included: an RpcErrorException is answered its code.
-            throw new RpcErrorException(ErrorCodes.ContentModified, null!, ContentModifiedMessage);
+            throw ContentModified();
         }
         finally
         {
@@ -116,6 +164,16 @@ public sealed class IncomingDocumentChanges
             }
         }
     }
+
+    /// <summary>
+    /// The error a request about a document is answered with when the document changed while the answer was made: <c>ContentModified</c> (-32801), which the
+    /// client asks again after.
+    /// </summary>
+    /// <remarks>
+    /// OmniSharp answers an <see cref="OperationCanceledException"/> <c>RequestCancelled</c>, its own <c>ContentModifiedException</c> included: an
+    /// <see cref="RpcErrorException"/> is answered its code.
+    /// </remarks>
+    public static RpcErrorException ContentModified() => new(ErrorCodes.ContentModified, null!, ContentModifiedMessage);
 
     /// <summary>
     /// Wraps the stream the server reads its client's messages from, so that a change to a document is known as it arrives (<see cref="Arrived"/>). What is

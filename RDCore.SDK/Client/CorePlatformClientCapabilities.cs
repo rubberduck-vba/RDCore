@@ -149,6 +149,12 @@ public class LanguageServerCapabilities
     public SessionSignatureHelp SessionSignatureHelp { get; set; } = new();
 
     /// <summary>
+    /// If supported, the language server tells what the tokens of a code fragment the client supplies are, over <c>rdcore/session/semanticTokens</c>: the colours of
+    /// a condition, or of a line that is being typed at a prompt, which are no document.
+    /// </summary>
+    public SessionSemanticTokens SessionSemanticTokens { get; set; } = new();
+
+    /// <summary>
     /// If supported, the language server reads and writes single bytes of the runtime session's
     /// memory, over <c>rdcore/session/memory/peek</c> and <c>.../poke</c>.
     /// </summary>
@@ -330,6 +336,11 @@ public static class RDCorePlatformProtocol
     public const string SessionSignatureHelp = "rdcore/session/signatureHelp";
 
     /// <summary>
+    /// Asks the language server what the tokens of code fragments the client supplies are, with the legend of <c>textDocument/semanticTokens/full</c>.
+    /// </summary>
+    public const string SessionSemanticTokens = "rdcore/session/semanticTokens";
+
+    /// <summary>
     /// Registers the verbs of a client's own commands with the language server, described, which completes them as they are typed.
     /// </summary>
     public const string SessionCommands = "rdcore/session/commands";
@@ -394,6 +405,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(SessionAnalyze))]
 [JsonDerivedType(typeof(SessionCompletion))]
 [JsonDerivedType(typeof(SessionSignatureHelp))]
+[JsonDerivedType(typeof(SessionSemanticTokens))]
 [JsonDerivedType(typeof(SemanticAnalysis))]
 [JsonDerivedType(typeof(SessionMemoryAccess))]
 [JsonDerivedType(typeof(SessionInteraction))]
@@ -478,6 +490,12 @@ public record class SessionCompletion(bool IsSupported = false) : CorePlatformCl
 /// the counterpart to LSP's own <c>textDocument/signatureHelp</c> for a line typed at a prompt, which is in no document.
 /// </summary>
 public record class SessionSignatureHelp(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component tells what the tokens of code fragments a client supplies are - <c>rdcore/session/semanticTokens</c>, the counterpart
+/// to LSP's own <c>textDocument/semanticTokens/full</c> for code that is in no document: the condition of a breakpoint, a line typed at a prompt.
+/// </summary>
+public record class SessionSemanticTokens(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring component reads and writes single bytes of a live runtime session's

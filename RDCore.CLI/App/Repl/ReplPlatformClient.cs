@@ -210,9 +210,9 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     /// <inheritdoc/>
-    public Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token)
+    public Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token, string? triggerCharacter = null)
         => client.SendRequestAsync<SessionCompletionParams, CompletionList>(
-            new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
+            new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character, TriggerCharacter = triggerCharacter }, token);
 
     /// <inheritdoc/>
     public Task NotifyLiveSettingsChangedAsync(CancellationToken token) => client.NotifyLiveSettingsChangedAsync(token);
@@ -221,6 +221,14 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     public Task<SignatureHelp?> SignatureHelpAsync(string source, string moduleName, int line, int character, CancellationToken token)
         => client.SendRequestAsync<SessionSignatureHelpParams, SignatureHelp?>(
             new SessionSignatureHelpParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<IReadOnlyList<ReplSemanticToken>>> GetFragmentTokensAsync(string source, string moduleName, IReadOnlyList<string> fragments, CancellationToken token)
+    {
+        var result = await client.SendRequestAsync<SessionSemanticTokensParams, SessionSemanticTokensResult>(
+            new SessionSemanticTokensParams { Source = source, ModuleName = moduleName, Fragments = fragments }, token);
+        return [.. result.Fragments.Select(fragment => ReplSemanticToken.Decode(fragment.Data))];
+    }
 
     /// <inheritdoc/>
     public Task<SessionCommandsResult> RegisterCommandsAsync(IReadOnlyList<VerbDescriptor> verbs, CancellationToken token)
