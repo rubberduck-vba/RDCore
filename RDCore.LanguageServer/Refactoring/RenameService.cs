@@ -236,6 +236,24 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
+    /// The type the declarations in a range of a document have because they state none (<see cref="SDK.Semantics.Refactoring.ImplicitTypeHints"/>), each where the
+    /// declaration ends in the text of the document.
+    /// </summary>
+    public IReadOnlyList<(string TypeName, Position Position)> ImplicitTypeHints(Uri documentUri, LspRange range)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || _context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+        {
+            return [];
+        }
+
+        var start = module.ToModulePosition(range.Start);
+        var end = module.ToModulePosition(range.End);
+        return [.. SDK.Semantics.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
+            .Select(hint => (hint.TypeName, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
+    }
+
+    /// <summary>
     /// Where the symbol named at a position of a document is defined (<see cref="SymbolNavigation.DefinitionsAt"/>): each place, in the text of the document
     /// that declares it, with the name the navigation starts from.
     /// </summary>

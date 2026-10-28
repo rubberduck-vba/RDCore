@@ -17,6 +17,7 @@ internal static class ReplCommandNames
     public const string Continue = "CONTINUE"; // alias for CONT
     public const string Exit = "EXIT";
     public const string Help = "HELP";
+    public const string Inlays = "INLAYS";
     public const string List = "LIST";
     public const string Load = "LOAD";
     public const string Memory = "MEMORY";

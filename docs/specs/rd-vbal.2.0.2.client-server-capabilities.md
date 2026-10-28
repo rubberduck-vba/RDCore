@@ -180,6 +180,10 @@ procedure, a function or a property - of the workspace or of a library it refere
 argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
 of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
 
+After the name of each variable or parameter that is declared without a type, and is a `Variant` (**MS-VBAL §5.2.3.1.5**), the answer has a hint `As Variant` of kind `Type`, padded on its left: `Dim x` is shown `Dim x As Variant` ([`ImplicitTypeHints`](../api/RDCore.SDK.Semantics.Refactoring.ImplicitTypeHints.html)). A declaration with an `As` clause or a type-declaration character has none; nor has a name that a `Def<Type>` directive of the module covers, a constant, or a parameter that is an array. The hint is after the array bounds of a variable (`Dim a(10)` is shown `Dim a(10) As Variant`).
+
+The interactive shell asks for the hints of its program once for the whole listing, and shows them in `LIST`, faint, when `INLAYS ON` has been said (`INLAYS OFF` stops; they are off until then).
+
 ### `textDocument/completion` and `rdcore/session/completion`
 
 The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).

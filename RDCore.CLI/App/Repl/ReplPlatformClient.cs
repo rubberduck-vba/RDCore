@@ -65,6 +65,19 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<ReplInlayHint>> GetInlayHintsAsync(Uri document, CancellationToken token)
+    {
+        // the whole document: a program is a screenful of lines.
+        var hints = await client.SendRequestAsync<InlayHintParams, InlayHintContainer?>(
+            new InlayHintParams { TextDocument = new TextDocumentIdentifier(document), Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 0, 100_000, 0) }, token);
+        return hints is null ? [] : [.. hints.Select(hint => new ReplInlayHint(
+            hint.Position.Line, hint.Position.Character,
+            (hint.PaddingLeft == true ? " " : string.Empty)
+                + (hint.Label.String ?? string.Concat((hint.Label.InlayHintLabelParts ?? []).Select(part => part.Value)))
+                + (hint.PaddingRight == true ? " " : string.Empty)))];
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Diagnostic>> PullDiagnosticsAsync(Uri document, CancellationToken token)
     {
         // the report is read as a record of its own: OmniSharp reads no RelatedDocumentDiagnosticReport (DocumentDiagnosticPullParams).

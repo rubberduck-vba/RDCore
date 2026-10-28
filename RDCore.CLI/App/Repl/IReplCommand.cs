@@ -134,6 +134,14 @@ public interface IReplPlatformClient
     Task<IReadOnlyList<ReplFold>> GetBlockFoldsAsync(Uri document, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server for the hints of a document (<c>textDocument/inlayHint</c>): the name of the parameter each argument is given to.
+    /// </summary>
+    /// <param name="document">The document's URI; the language server answers for the text it has of it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The hints, by the zero-based line and character of the document they are shown before; none when the language server has none to give.</returns>
+    Task<IReadOnlyList<ReplInlayHint>> GetInlayHintsAsync(Uri document, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server what it finds in a document (<c>textDocument/diagnostic</c>): the diagnostics as an editor gets them, with what fixes them in
     /// their <c>data</c>.
     /// </summary>
@@ -399,6 +407,11 @@ public sealed record class ReplCommandContext(
     /// The blocks of the program that are folded in a listing (<c>FOLD</c>).
     /// </summary>
     public ReplFolds Folds { get; init; } = new();
+
+    /// <summary>
+    /// Whether a listing shows the hints of the language server (<c>INLAYS</c>).
+    /// </summary>
+    public ReplInlays Inlays { get; init; } = new();
 
     /// <summary>
     /// What the language server found in the program the last time the shell asked, which a listing marks the lines with a fix by.
