@@ -59,6 +59,16 @@ public interface IReplConsole
     /// <param name="message">The message body.</param>
     /// <param name="verbose">An optional second, dimmer line of detail.</param>
     void WriteMessage(MessageKind kind, string message, string? verbose = null);
+
+    /// <summary>
+    /// Writes a finding of an analysis on two lines: its glyph, where it is, its code and the page that explains it, in the title style of its kind; and what it
+    /// says under it, in the verbose style.
+    /// </summary>
+    /// <param name="kind">The message kind of the finding's severity, which selects the glyph and the styles.</param>
+    /// <param name="title">Where the finding is, and its code.</param>
+    /// <param name="helpUrl">The page that explains the finding, written after the title; a link where the console can draw one. <see langword="null"/> for none.</param>
+    /// <param name="description">What the finding says.</param>
+    void WriteFinding(MessageKind kind, string title, Uri? helpUrl, string description);
 }
 
 /// <summary>

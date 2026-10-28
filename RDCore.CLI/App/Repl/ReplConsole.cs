@@ -76,6 +76,23 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
         writer.WriteMessage(verbose is { Length: > 0 } ? builder.WithVerbose(verbose) : builder);
     }
 
+    /// <inheritdoc/>
+    public void WriteFinding(MessageKind kind, string title, Uri? helpUrl, string description)
+    {
+        var theme = themes.Theme;
+        var icon = theme.GetIcon(kind);
+        var titleStyle = theme.GetStyle(kind, MessagePart.Title);
+
+        // the page is written out and is a link where the console draws links (OSC 8): a console that does not shows its address, which is the same text.
+        var link = helpUrl is null ? string.Empty
+            : $" [{titleStyle}][link={Spectre.Console.Markup.Escape(helpUrl.AbsoluteUri)}]{Spectre.Console.Markup.Escape(helpUrl.AbsoluteUri)}[/][/]";
+        console.MarkupLine($"[{titleStyle}]{Spectre.Console.Markup.Escape(icon)}[/] [bold {titleStyle}]{Spectre.Console.Markup.Escape(title)}[/]{link}");
+        if (description.Length > 0)
+        {
+            console.MarkupLine($"  [{theme.GetStyle(kind, MessagePart.Verbose)}]{Spectre.Console.Markup.Escape(description)}[/]");
+        }
+    }
+
     // a style the theme does not name is the plain one, which is what the shell is written in already.
     private static string? StyleOf(ReplTextStyle style, ThemeSyntaxStyles syntax, ThemeSplashStyles splash, ThemeDebugStyles debug) => style switch
     {
