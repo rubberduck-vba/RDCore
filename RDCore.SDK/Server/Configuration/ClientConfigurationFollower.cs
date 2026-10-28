@@ -102,12 +102,24 @@ public sealed class ClientConfigurationFollower : IDisposable
                 }
             }))
             {
+                bool disposed;
+                lock (_gate)
+                {
+                    disposed = _disposed == 1;
+                }
+
+                if (!disposed)
+                {
+                    _log("⚙️ A newer change of the client's settings came in while the editor was asked; this one is dropped.");
+                }
+
                 return false;
             }
 
+            // what is told is told of the change that is the last word: one that a newer change came after has been set, and the newer one is the one that says so.
             lock (_gate)
             {
-                if (_disposed == 1)
+                if (_disposed == 1 || version != _version)
                 {
                     return false;
                 }
