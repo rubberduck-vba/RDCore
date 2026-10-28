@@ -2,10 +2,10 @@ namespace RDCore.CLI.App.Repl;
 
 /// <summary>
 /// A hint the language server gives for a place in a line of the program (<strong>LSP 3.17</strong> §Inlay Hint Request): text that is not part of the line,
-/// shown in it - the name of the parameter an argument is given to.
+/// shown in it: the name of the parameter an argument is given to, before the argument; the type of a declaration that states none, after its name.
 /// </summary>
 /// <param name="Line">The zero-based line of the document: the index of the line in the program.</param>
-/// <param name="Character">The zero-based character of the line the hint is shown before.</param>
+/// <param name="Character">The zero-based character of the line the hint is shown at: the hint is inserted there, before the character that is there.</param>
 /// <param name="Label">What the hint says, padded as the server asks.</param>
 public readonly record struct ReplInlayHint(int Line, int Character, string Label);
 
