@@ -8,8 +8,6 @@ namespace RDCore.Tests.Cli;
 [TestCategory("MS-VBAL 3.4 Conditional Compilation")]
 public sealed class SplitHeaderRuntimeTests
 {
-    private const string LiveAlternative = "the host defines the live alternative of a procedure (S2): today the first header written is the procedure's";
-
     private static async Task<string> RunAsync(params string[] lines)
         => string.Join(" ", await ModuleWorkspace.RunAsync([], string.Join("\r\n", lines) + "\r\nPublic Sub Main()\r\n    Debug.Print Probe()\r\nEnd Sub\r\n"));
 
@@ -37,7 +35,6 @@ public sealed class SplitHeaderRuntimeTests
             "Private Function Probe() As String", "    Probe = TypeName(F())", "End Function"));
 
     [TestMethod]
-    [Ignore(LiveAlternative)]
     public async Task TheElseBranchsHeader_IsTheProcedure_WhereTheIfBranchIsDead()
         // S02
         => Assert.AreEqual("String x!", await RunAsync(
@@ -46,7 +43,6 @@ public sealed class SplitHeaderRuntimeTests
             "Private Function Probe() As String", "    Probe = TypeName(F(\"x\")) & \" \" & F(\"x\")", "End Function"));
 
     [TestMethod]
-    [Ignore(LiveAlternative)]
     public async Task ADeadSubHeader_LeavesTheLiveFunction()
         // S04
         => Assert.AreEqual("3", await RunAsync(
@@ -54,11 +50,54 @@ public sealed class SplitHeaderRuntimeTests
             "Private Function Probe() As String", "    Probe = CStr(F())", "End Function"));
 
     [TestMethod]
-    [Ignore(LiveAlternative)]
     public async Task TheLiveBranchOfAnElseIfChain_IsTheProcedure()
         // S09
         => Assert.AreEqual("LongLong", await RunAsync(
             "#If Mac Then", "Private Function F() As Integer", "#ElseIf Win64 Then", "Private Function F() As LongLong", "#Else", "Private Function F() As Long", "#End If",
             "    F = 7", "End Function",
             "Private Function Probe() As String", "    Probe = TypeName(F())", "End Function"));
+
+    // ---- a declaration written whole in each branch ----
+
+    [TestMethod]
+    public async Task AProcedureWrittenInEachBranch_RunsTheLiveBranchsBody_WhereItIsFirst()
+        // S08: the dead copy was the procedure's body, empty, and returned 0.
+        => Assert.AreEqual("1", await RunAsync(
+            "#If VBA7 Then", "Private Function F() As Long", "    F = 1", "End Function", "#Else", "Private Function F() As Long", "    F = 2", "End Function", "#End If",
+            "Private Function Probe() As String", "    Probe = CStr(F())", "End Function"));
+
+    [TestMethod]
+    public async Task AProcedureWrittenInEachBranch_IsTheLiveBranchs_WhereItIsLast()
+        // S14: the first branch's signature was the procedure's, and its String result a type mismatch.
+        => Assert.AreEqual("String two", await RunAsync(
+            "#If Mac Then", "Private Function F() As Long", "    F = 1", "End Function", "#Else", "Private Function F() As String", "    F = \"two\"", "End Function",
+            "#End If",
+            "Private Function Probe() As String", "    Probe = TypeName(F()) & \" \" & F()", "End Function"));
+
+    [TestMethod]
+    public async Task ATypesFieldWrittenInEachBranch_IsTheLiveBranchs()
+        => Assert.AreEqual("Long", await RunAsync(
+            "Private Type Pair", "#If Mac Then", "    P As Integer", "#Else", "    P As Long", "#End If", "End Type",
+            "Private Function Probe() As String", "    Dim T As Pair", "    Probe = TypeName(T.P)", "End Function"));
+
+    [TestMethod]
+    public async Task ANameOnlyADeadBranchDeclares_IsNotDeclared()
+    {
+        // S06: MS-VBA says "Sub or Function not defined" of a call of the dead name.
+        RDCore.SDK.Platform.Protocol.ExecuteSessionResult? result = null;
+        IReadOnlyList<string> defined = [];
+        await ModuleWorkspace.InspectAsync([], string.Join("\r\n",
+            "#If VBA7 Then", "Private Function F() As Long", "#Else", "Private Function G() As Long", "#End If", "    F = 1", "End Function",
+            "Public Sub Main()", "    Debug.Print G()", "End Sub", ""), (provider, run, _) =>
+            {
+                result = run;
+                Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var module));
+                defined = [.. provider.Session.Symbols.MembersOf(module.Uri).Select(member => member.Name)];
+                return Task.CompletedTask;
+            });
+
+        CollectionAssert.Contains(defined.ToArray(), "F");
+        CollectionAssert.DoesNotContain(defined.ToArray(), "G");
+        Assert.AreNotEqual(SDK.Platform.Protocol.ExecutionOutcome.Completed, result!.Outcome);
+    }
 }

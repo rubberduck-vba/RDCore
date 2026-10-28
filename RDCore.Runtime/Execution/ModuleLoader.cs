@@ -94,9 +94,12 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
         var sweepable = new List<(VBTypeMemberSymbol Procedure, InstructionList Body)>();
         var swept = new HashSet<SemanticId>();
-        foreach (var declaration in syntaxTree.Children.OfType<MemberDeclarationNode>())
+        foreach (var written in syntaxTree.Children.OfType<MemberDeclarationNode>())
         {
-            if (FindMember(members, declaration) is not { } procedure)
+            // a procedure written once in each #If branch is the one of the live branch, and a header written once in each around one body is the live
+            // header's (MS-VBAL §3.4; oracle\cc-split): a declaration whose every header is in a dead branch has no code, and its dead copy is not the body of
+            // the procedure the live one declares.
+            if (LiveHeaderOf(written, members, deadRanges) is not ({ } declaration, { } procedure))
             {
                 continue;
             }
@@ -220,6 +223,27 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         });
 
     // a name is not enough: the accessors of a property share one, and the declaration says which it is.
+    // the first header of a declaration that is in no dead branch and declares a procedure the session defines, with the body; none when there is none.
+    private static (MemberDeclarationNode? Declaration, VBTypeMemberSymbol? Procedure) LiveHeaderOf(
+        MemberDeclarationNode written, IReadOnlyList<VBTypeMemberSymbol> members, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+    {
+        foreach (var header in written.WithEachHeader())
+        {
+            var start = header.SourceLocation.Range.Start;
+            if (deadRanges.Any(dead => start.CompareTo(dead.Start) >= 0 && start.CompareTo(dead.End) <= 0))
+            {
+                continue;
+            }
+
+            if (FindMember(members, header) is { } procedure)
+            {
+                return (header, procedure);
+            }
+        }
+
+        return default;
+    }
+
     private static VBTypeMemberSymbol? FindMember(IReadOnlyList<VBTypeMemberSymbol> members, MemberDeclarationNode declaration)
         => declaration.Name is { Length: > 0 } name
             ? members.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase) && KindOf(member) == declaration.MemberKind)

@@ -60,11 +60,38 @@ How RD-VBA reads it:
 - **The alternatives.** Each other branch is read on its own, and its header is an alternative of the procedure
   ([MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.HeaderAlternatives`).
 - **The body.** What a branch writes after its header belongs to the body, in source order.
-- **Which compiles.** It is decided where the constants are known; until it is, the procedure is declared as its first header in the source declares it.
+- **Which compiles.** It is decided by the environment host, which knows the constants: see below.
 - **In MS-VBA:**
   - The live branch's header is the one compiled, and the live branch's statements are the ones run.
   - A live `Sub` header closed by `End Function` is "Expected End Sub".
   - A header written only in a dead branch leaves its body "Invalid outside procedure".
+
+### The live declaration
+
+The language server fuses a declaration written once in each branch of a `#If` block into one symbol. The symbol is the first branch's, with every site in
+`Definitions` and what each other branch declares in `Alternatives`. The cases are:
+
+- a procedure written whole in each branch;
+- a procedure header split across branches;
+- a `Declare` with and without `PtrSafe`;
+- a field of a `Type` that each branch declares.
+
+Each alternative travels beside the symbol to the environment host, and the module's directives travel with them (`DefineSymbolsParams.PrecompilerTriviaJson`).
+The host evaluates the directives with the session's constants (`PrecompilerLiveBranchEvaluator`), as **MS-VBA** compiles a module (recorded in Excel,
+`oracle\cc-split`):
+
+|What the module writes|What the host defines|
+|---|---|
+|A declaration in each branch|The one of the live branch, its signature included; each site of `Definitions` marked live or dead.|
+|A declaration in dead branches only|Nothing: a call of it is a call of a procedure that is not there, as **MS-VBA** says "Sub or Function not defined".|
+|A field of a `Type` in each branch, or in a dead branch only|The type with the fields of its live branches.|
+|A procedure written whole in each branch|The live branch's procedure, whose body is the live branch's: the dead copy is not loaded.|
+
+> [!NOTE]
+> **Not implemented.**
+> - The two compile errors **MS-VBA** reports of a split header are not reported yet: "Expected End Sub" (a live header of another kind than its closing
+>   statement) and "Invalid outside procedure" (a header written only in a dead branch).
+> - The language server's own analysis - completion, diagnostics, navigation - still reads a fused symbol as its first branch declares it.
 
 > [!NOTE]
 > **Not implemented.** A `#If` that splits a block statement's header inside a body (an `If`, a `Select Case`, a loop or a `With` written once per branch)

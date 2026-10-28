@@ -116,6 +116,24 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public string ParseResultJson { get; init; } = string.Empty;
 
     /// <summary>
+    /// The <see cref="PlatformJson"/> representation of the module's conditional-compilation directives
+    /// (<see cref="RDCore.SDK.Model.AST.ModuleParseResult.PrecompilerTrivia"/>), or empty when the module has none or the caller does not send them.
+    /// </summary>
+    /// <remarks>
+    /// What lets the host define the declarations of the live <c>#If</c> branches only (<strong>MS-VBAL §3.4</strong>): it evaluates the directives with the
+    /// session's constants, and of a declaration written once per branch - a procedure, a <c>Declare</c>, a field of a <c>Type</c> - it defines the one of
+    /// the live branch; one written only in dead branches is not defined. Without them, every declaration is defined as the first branch writes it.
+    /// </remarks>
+    public string PrecompilerTriviaJson { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The <see cref="PrecompilerTriviaJson"/> of a module parsed: empty when it has no directive.
+    /// </summary>
+    /// <param name="parseResult">The module's parse.</param>
+    public static string PrecompilerTriviaJsonOf(RDCore.SDK.Model.AST.ModuleParseResult parseResult)
+        => parseResult.PrecompilerTrivia.IsDefaultOrEmpty ? string.Empty : PlatformJson.Serialize(parseResult.PrecompilerTrivia);
+
+    /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
     /// skipped.
     /// </summary>

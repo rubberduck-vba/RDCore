@@ -13,6 +13,8 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics.Precompiler;
+using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -46,12 +48,13 @@ internal sealed class DefineSymbolsHandler(
         var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
         if (!request.CodeOnly)
         {
+            var isDead = DeadBranchesOf(session, request);
             // the three phases (DefineSymbolsParams.DeclareTypesOnly): the module's types are declared - its user-defined types and enumerations - so that
             // every declaration that names one is bound to a type that exists. Everything a request carries is read before anything of it is defined, which
             // is why the types are a request of their own: a request that binds declares its own types first, which the declare phase already did for a
             // workspace (first definition wins, and they are skipped), and which a module defined on its own needs.
             var types = request with { Symbols = [.. request.Symbols.Where(IsTypeDeclaration)] };
-            var declaredTypes = DefineSymbols(session, types, [], replace: request.Replace);
+            var declaredTypes = DefineSymbols(session, types, [], replace: request.Replace, isDead);
             if (request.DeclareTypesOnly)
             {
                 (defined, replaced, merged, skipped) = declaredTypes;
@@ -59,9 +62,9 @@ internal sealed class DefineSymbolsHandler(
             else
             {
                 // then they are bound: a field of a type of another module, or of a type its own module declares after it, names a type that exists now.
-                var boundTypes = DefineSymbols(session, types, unresolvedTypeNames, replace: true);
+                var boundTypes = DefineSymbols(session, types, unresolvedTypeNames, replace: true, isDead);
                 var rest = request with { Symbols = [.. request.Symbols.Where(descriptor => !IsTypeDeclaration(descriptor))] };
-                var bound = DefineSymbols(session, rest, unresolvedTypeNames, replace: request.Replace);
+                var bound = DefineSymbols(session, rest, unresolvedTypeNames, replace: request.Replace, isDead);
                 // a type the declare phase defined is the one this request binds, not one it skipped.
                 (defined, replaced, merged, skipped) = (declaredTypes.Defined + bound.Defined, boundTypes.Replaced + bound.Replaced,
                     declaredTypes.Merged + bound.Merged, bound.Skipped);
@@ -109,11 +112,27 @@ internal sealed class DefineSymbolsHandler(
     private static bool IsTypeDeclaration(SymbolDescriptor descriptor)
         => descriptor.Kind is SymbolDescriptorKind.UserDefinedType or SymbolDescriptorKind.Enum;
 
-    // Reads the module's symbols and defines them, the newest winning when asked to. The language server already collapses #If-branch duplicates, but stay
-    // defensive: fuse any that still arrive with the same identity (uri + concrete type) so the session never sees a colliding define. Property Get/Let/Set
-    // share a uri but not a type, so they stay distinct.
+    // MS-VBAL §3.4: what the module's directives make dead, evaluated with the session's constants and the module's own - the request's directives, when it
+    // sends them; null when it does not, and every declaration is defined as the first branch writes it.
+    private Func<SourcePosition, bool>? DeadBranchesOf(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (request.PrecompilerTriviaJson.Length == 0
+            || PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson) is not { IsDefaultOrEmpty: false } trivia)
+        {
+            return null;
+        }
+
+        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages);
+        var dead = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, pipeline.Expressions, new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
+        return dead.IsEmpty ? null : position => dead.Any(range => position.CompareTo(range.Start) >= 0 && position.CompareTo(range.End) <= 0);
+    }
+
+    // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch
+    // into one symbol, each other branch's arriving beside it with the same identity (uri): of those the one of the live branch is defined, and a declaration
+    // written in dead branches only is not (oracle\cc-split S02, S06, S14). Without the directives, the first that carries every site is, as it always was.
+    // Property Get/Let/Set have identities of their own (Symbol.UriSuffix), so they stay distinct.
     private static (int Defined, int Replaced, int Merged, List<string> Skipped) DefineSymbols(
-        IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace)
+        IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace, Func<SourcePosition, bool>? isDead)
     {
         var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
 
@@ -143,11 +162,20 @@ internal sealed class DefineSymbolsHandler(
             return null;
         }
 
-        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
+        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => symbol.Uri.ToString()))
         {
             var sites = group.ToList();
             merged += sites.Count - 1;
             var symbol = sites.Find(candidate => candidate is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
+            if (isDead is not null && symbol is WorkspaceSymbol declared)
+            {
+                if (LiveDeclarationOf(declared, sites, isDead) is not { } live)
+                {
+                    continue;
+                }
+
+                symbol = live;
+            }
 
             if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))
             {
@@ -169,6 +197,18 @@ internal sealed class DefineSymbolsHandler(
         }
 
         return (defined, replaced, merged, skipped);
+    }
+
+    // the declaration of the live branch among the sites of one identity (WorkspaceSymbol.LiveDeclaration) - and of a Type, the fields of the live branches.
+    private static Symbol? LiveDeclarationOf(WorkspaceSymbol primary, List<Symbol> sites, Func<SourcePosition, bool> isDead)
+    {
+        var live = (primary with { Alternatives = [.. sites.Where(site => !ReferenceEquals(site, primary)).OfType<WorkspaceSymbol>()] }).LiveDeclaration(isDead);
+        return live is VBUserDefinedTypeMemberSymbol type
+            ? type with
+            {
+                Members = [.. type.Members.GroupBy(field => field.Uri.ToString()).Select(fields => fields.FirstOrDefault(field => !isDead(field.Range.Start))).OfType<VBTypeMemberSymbol>()],
+            }
+            : live;
     }
 
     private ImmutableArray<string> LoadCode(IRuntimeSession session, DefineSymbolsParams request)

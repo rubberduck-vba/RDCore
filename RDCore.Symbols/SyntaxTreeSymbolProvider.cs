@@ -59,12 +59,13 @@ public sealed class SyntaxTreeSymbolProvider(
 
     private IEnumerable<Symbol> ProvideDeclaredSymbols()
     {
-        // one identity (same uri, same concrete symbol type) can be declared once per #If branch — such sites are alternatives of one another, and fuse
-        // into the first, carrying every site in Definitions. a site that is not an alternative of the others is not another branch of the same
+        // one identity (same uri) can be declared once per #If branch — such sites are alternatives of one another, and fuse into the first, carrying every
+        // site in Definitions and what each other declares in Alternatives. a site that is not an alternative of the others is not another branch of the same
         // declaration but a second declaration of the name, which is an error for whoever reads the symbols to find, and not one to hide in a fusion.
-        // the accessors of one property have identities of their own (Symbol.UriSuffix), so they never fuse here.
+        // the accessors of one property have identities of their own (Symbol.UriSuffix), so they never fuse here. the identity is the uri alone, not the
+        // symbol's type: a header written once per branch may declare a Sub in one and a Function in the other (oracle\cc-split S04).
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
-        foreach (var group in EnumerateDeclaredSymbols().GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
+        foreach (var group in EnumerateDeclaredSymbols().GroupBy(symbol => symbol.Uri.ToString()))
         {
             var sites = group.ToList();
             if (sites.Count == 1)
@@ -86,11 +87,13 @@ public sealed class SyntaxTreeSymbolProvider(
 
             foreach (var alternatives in ClusterAlternatives(bound, blocks))
             {
+                // the fused symbol is the first site's, and keeps what each other site declares: whoever knows which branch is live defines that one.
                 yield return alternatives.Count == 1
                     ? alternatives[0]
                     : alternatives[0] with
                     {
                         Definitions = [.. alternatives.Select(symbol => new SymbolDefinition(symbol.Range, symbol.SelectionRange, DefinitionState.Unknown))],
+                        Alternatives = [.. alternatives.Skip(1)],
                     };
             }
         }
