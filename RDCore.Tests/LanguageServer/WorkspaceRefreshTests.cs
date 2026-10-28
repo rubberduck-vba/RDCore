@@ -20,7 +20,7 @@ using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.Langu
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// What a client shows of the documents it did not change is refreshed once another module changed what it declares (#257): each refresh the client says it is
+/// What a client shows of the documents it did not change is refreshed once another module changed what it declares: each refresh the client says it is
 /// asked for (<c>refreshSupport</c>), once for a burst of changes, as a request; and none for a change that no other module can tell.
 /// </summary>
 [TestClass]

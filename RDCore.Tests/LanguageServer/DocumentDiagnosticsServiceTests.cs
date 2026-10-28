@@ -124,7 +124,7 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.IsEmpty(result.Diagnostics);
     }
 
-    // a procedure another module calls, removed: the findings of the module that calls it are not what they were, though its text is (#257).
+    // a procedure another module calls, removed: the findings of the module that calls it are not what they were, though its text is.
     [TestMethod]
     public async Task AnotherModuleChanged_TheFindingsOfTheSameVersion_AreFoundAgain()
     {

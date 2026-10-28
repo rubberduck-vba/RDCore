@@ -197,7 +197,7 @@ public sealed class DocumentLifecycleServiceTests
         _publisher.Received(1).Publish(Mod1, 1, Arg.Any<IReadOnlyList<Diagnostic>>());
     }
 
-    // ---- the other documents (#257) ----
+    // ---- the other documents ----
 
     private const string Declares = "Public Sub Foo()\r\n    Debug.Print 1\r\nEnd Sub\r\n";
 
