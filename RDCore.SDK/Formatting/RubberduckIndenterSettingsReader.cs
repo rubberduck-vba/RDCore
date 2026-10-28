@@ -75,9 +75,17 @@ public sealed class WindowsLegacyIndenterRegistry : ILegacyIndenterRegistry
 
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\VBA\6.0\Common", writable: false)
-                ?? Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\VBA\7.0\Common", writable: false);
-            return key?.GetValue("TabWidth") is int width ? width : null;
+            // the VBA editor of Office 2007 and before is 6.0, and of later Office 7.0: the first of them that has a tab width.
+            foreach (var version in new[] { "6.0", "7.0" })
+            {
+                using var key = Registry.CurrentUser.OpenSubKey($@"Software\Microsoft\VBA\{version}\Common", writable: false);
+                if (key?.GetValue("TabWidth") is int width)
+                {
+                    return width;
+                }
+            }
+
+            return null;
         }
         catch (Exception exception) when (exception is System.Security.SecurityException or UnauthorizedAccessException or IOException)
         {
@@ -110,24 +118,11 @@ public sealed class RubberduckIndenterSettingsReader(IFileSystem fileSystem, str
     /// <param name="applicationData">The user's application data folder.</param>
     public static string ConfigPathIn(string applicationData) => Path.Combine(applicationData, "Rubberduck", "rubberduck.config");
 
-    /// <summary>The name of the environment variable that names another folder for the user's application data, and has no registry read: a place to try the import in.</summary>
-    public const string ApplicationDataVariable = "RDCORE_APPDATA";
-
-    private sealed class NoRegistry : ILegacyIndenterRegistry
-    {
-        public IReadOnlyDictionary<string, object>? ReadSmartIndenter() => null;
-
-        public int? ReadTabWidth() => null;
-    }
-
     /// <summary>
-    /// The reader of this machine: where Rubberduck keeps its settings on Windows, and nothing elsewhere. <see cref="ApplicationDataVariable"/>, when it is set, names the
-    /// folder Rubberduck's configuration is read from instead of the user's, and the registry is not read: the real settings of the user are not touched.
+    /// The reader of this machine: where Rubberduck keeps its settings on Windows, and nothing elsewhere.
     /// </summary>
     public static RubberduckIndenterSettingsReader ForThisMachine()
-        => Environment.GetEnvironmentVariable(ApplicationDataVariable) is { Length: > 0 } root
-            ? new(new FileSystem(), root, new NoRegistry(), isWindows: true)
-            : new(new FileSystem(), Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), new WindowsLegacyIndenterRegistry(), OperatingSystem.IsWindows());
+        => new(new FileSystem(), Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), new WindowsLegacyIndenterRegistry(), OperatingSystem.IsWindows());
 
     /// <summary>
     /// Reads the settings.

@@ -22,7 +22,7 @@ namespace RDCore.Tests.Server.Configuration;
 [TestClass]
 public sealed class RubberduckIndenterWireTests
 {
-    private const string AppData = @"C:\Users\duck\AppData\Roaming";
+    private static readonly string AppData = Path.Combine(Path.GetTempPath(), "rdcore-rubberduck-appdata");
 
     private static readonly string UserFolder = Path.Combine(Path.GetTempPath(), "rdcore-import-wire-user");
 

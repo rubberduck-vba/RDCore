@@ -296,7 +296,7 @@ internal sealed class CoreLanguageServerApp(
         {
             using var offering = new Workspace.IndenterSettingsOffering(
                 server, server.Services.GetRequiredService<IPlatformClientCapabilitiesService>(), ExternalServices.GetRequiredService<IndenterSettingsOffer>(),
-                ExternalServices.GetRequiredService<ILiveSettings>(), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(10));
+                ExternalServices.GetRequiredService<ILiveSettings>(), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(10), message => LogIfEnabled(LogLevel.Information, message));
             if (await offering.RunAsync(_componentsCts.Token) is { } outcome)
             {
                 LogIfEnabled(LogLevel.Information, $"⚙️ {outcome.Message}");

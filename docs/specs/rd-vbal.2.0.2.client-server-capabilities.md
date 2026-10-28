@@ -634,7 +634,7 @@ its default.
 
 The answer is `{ "applied": 2 }`, the number of settings the client set; `0` when it declines. The client sets them in its own configuration, as a change of its own - the interactive
 shell writes them to the user's settings - and says so as it says any change (`workspace/didChangeConfiguration`); the language server sees them in the section it pulls. There is
-no other way for the language server to write a setting of a client.
+no other way for the language server to write a setting of a client, and the client takes only the `Formatting` settings of the names Rubberduck has (the table above), refusing any other key.
 
 The language server sends the requests only to a client that expects the capability:
 
@@ -642,7 +642,7 @@ The language server sends the requests only to a client that expects the capabil
 - **On request.** The command `rdcore.importIndenterSettings` ([`workspace/executeCommand`](#workspaceexecutecommand)) runs the two requests against the client that sent it, and answers `{ "source", "found", "applied", "message" }`. A client that does not expect the capability is refused with a message. That nothing was found is an answer, not a refusal.
 
 The interactive shell expects the capability. It reads Rubberduck on Windows, and answers `None` elsewhere. `CONFIG IMPORT RUBBERDUCK` in the shell, and `rdc config import rubberduck` in command mode, do the same
-without the language server: they read, map and set the settings for the user. `RDCORE_APPDATA` names another folder for the user's application data and has the registry not read: a place to try the import in.
+without the language server: they read, map and set the settings for the user.
 
 ---
 > ⏮️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md) | ⏭️ [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)

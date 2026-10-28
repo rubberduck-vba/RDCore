@@ -297,6 +297,7 @@ internal class RDCoreConsoleClientApp(
     IChildConnectionFactory connectionFactory,
     ReplUserInteraction interaction,
     IReplConsole console,
+    RubberduckIndenterSettingsReader rubberduck,
     IPlatformSettings settings,
     ILiveSettings liveSettings,
     ILogger<RDCoreConsoleClientApp> logger)
@@ -336,7 +337,7 @@ internal class RDCoreConsoleClientApp(
         => services
             .AddSingleton(interaction)
             .AddSingleton(console)
-            .AddSingleton(RubberduckIndenterSettingsReader.ForThisMachine())
+            .AddSingleton(rubberduck)
             .AddSingleton(settings)
             .AddSingleton(liveSettings)
             .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));

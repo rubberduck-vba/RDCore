@@ -35,7 +35,7 @@
     <value>{0} setting(s) could not be set.</value>
   </data>
   <data name="IndenterImport_Nothing" xml:space="preserve">
-    <value>There are no indenter settings of Rubberduck to import. They are only found on Windows.</value>
+    <value>There are no indenter settings of Rubberduck to import.</value>
   </data>
   <data name="IndenterImport_Declined" xml:space="preserve">
     <value>The client did not take the settings.</value>

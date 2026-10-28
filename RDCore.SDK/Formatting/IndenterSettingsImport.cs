@@ -32,6 +32,23 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
 
     private static readonly SettingsSchema Schema = SettingsSchema.Platform;
 
+    /// <summary>The names of the settings Rubberduck has, which are the ones that are imported: its own, and none of the platform's.</summary>
+    public static IReadOnlyList<string> RubberduckSettingNames { get; } =
+    [
+        nameof(CodeFormattingOptions.IndentEntireProcedureBody), nameof(CodeFormattingOptions.IndentEnumTypeAsProcedure), nameof(CodeFormattingOptions.IndentFirstCommentBlock),
+        nameof(CodeFormattingOptions.IndentFirstDeclarationBlock), nameof(CodeFormattingOptions.IgnoreEmptyLinesInFirstBlocks), nameof(CodeFormattingOptions.AlignCommentsWithCode),
+        nameof(CodeFormattingOptions.AlignContinuations), nameof(CodeFormattingOptions.IgnoreOperatorsInContinuations), nameof(CodeFormattingOptions.IndentCase),
+        nameof(CodeFormattingOptions.ForceDebugStatementsInColumn1), nameof(CodeFormattingOptions.ForceDebugPrintInColumn1), nameof(CodeFormattingOptions.ForceDebugAssertInColumn1),
+        nameof(CodeFormattingOptions.ForceStopInColumn1), nameof(CodeFormattingOptions.ForceCompilerDirectivesInColumn1), nameof(CodeFormattingOptions.IndentCompilerDirectives),
+        nameof(CodeFormattingOptions.AlignDims), nameof(CodeFormattingOptions.AlignDimColumn), nameof(CodeFormattingOptions.EndOfLineCommentStyle),
+        nameof(CodeFormattingOptions.EndOfLineCommentColumnSpaceAlignment), nameof(CodeFormattingOptions.EmptyLineHandlingMethod), nameof(CodeFormattingOptions.IndentSpaces),
+        nameof(CodeFormattingOptions.VerticallySpaceProcedures), nameof(CodeFormattingOptions.LinesBetweenProcedures), nameof(CodeFormattingOptions.GroupRelatedProperties),
+    ];
+
+    /// <summary>Whether a key is one of the settings an import sets: <c>Formatting.</c> and the name of one of Rubberduck's settings.</summary>
+    /// <param name="key">The key of a setting.</param>
+    public static bool Imports(string key) => RubberduckSettingNames.Any(name => string.Equals(KeyOf(name), key, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The key of a <c>Formatting</c> setting.</summary>
     /// <param name="name">The name the setting has in Rubberduck and here.</param>
     public static string KeyOf(string name) => $"{Section}.{name}";
@@ -68,7 +85,7 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, token) in read)
         {
-            if (Schema.TryFind(KeyOf(name), out var setting) && TextOf(token) is { } text && Coerced(setting, text) is { } value)
+            if (Imports(KeyOf(name)) && Schema.TryFind(KeyOf(name), out var setting) && TextOf(token) is { } text && Coerced(setting, text) is { } value)
             {
                 values[setting.Key] = value;
             }
@@ -95,8 +112,8 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
 
         void Number(string name, string setting)
         {
-            if (read.TryGetValue(name, StringComparison.OrdinalIgnoreCase, out var token) && token is { Type: JTokenType.Integer } && token.Value<long>() is var number and >= 0
-                && Schema.TryFind(KeyOf(setting), out var descriptor))
+            // the registry holds what SaveSetting wrote, which is text; a number is read as Rubberduck reads it (Convert.ToInt32), and a negative one says nothing.
+            if (read.TryGetValue(name, StringComparison.OrdinalIgnoreCase, out var token) && NumberOf(token) is { } number and >= 0 && Schema.TryFind(KeyOf(setting), out var descriptor))
             {
                 values[descriptor.Key] = Math.Min(number, descriptor.Maximum!.Value).ToString(CultureInfo.InvariantCulture);
             }
@@ -141,6 +158,13 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
 
         return values;
     }
+
+    private static long? NumberOf(JToken token) => token.Type switch
+    {
+        JTokenType.Integer => token.Value<long>(),
+        JTokenType.String when long.TryParse(token.Value<string>()?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) => number,
+        _ => null,
+    };
 
     private static string? TextOf(JToken token) => token.Type is JTokenType.String or JTokenType.Integer or JTokenType.Boolean ? Convert.ToString(((JValue)token).Value, CultureInfo.InvariantCulture) : null;
 

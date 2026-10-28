@@ -35,7 +35,7 @@
     <value>{0} paramètre(s) n'ont pas pu être définis.</value>
   </data>
   <data name="IndenterImport_Nothing" xml:space="preserve">
-    <value>Il n'y a aucun paramètre d'indentation de Rubberduck à importer. On ne les trouve que sous Windows.</value>
+    <value>Il n'y a aucun paramètre d'indentation de Rubberduck à importer.</value>
   </data>
   <data name="IndenterImport_Declined" xml:space="preserve">
     <value>Le client n'a pas pris les paramètres.</value>

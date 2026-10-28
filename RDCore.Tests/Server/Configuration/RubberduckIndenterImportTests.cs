@@ -18,7 +18,7 @@ namespace RDCore.Tests.Server.Configuration;
 [TestClass]
 public sealed class RubberduckIndenterImportTests
 {
-    private const string AppData = @"C:\Users\duck\AppData\Roaming";
+    private static readonly string AppData = Path.Combine(Path.GetTempPath(), "rdcore-rubberduck-appdata");
 
     private const string Config = """
         <?xml version="1.0" encoding="utf-8"?>
@@ -103,13 +103,13 @@ public sealed class RubberduckIndenterImportTests
     [TestMethod]
     public void TheLegacySmartIndenter_IsReadFromTheRegistryAsItIs_WhenRubberduckHasNoConfiguration()
     {
-        var registry = new FakeRegistry(new Dictionary<string, object> { ["IndentProc"] = "Y", ["AlignDimCol"] = 40 }, tabWidth: 3);
+        var registry = new FakeRegistry(new Dictionary<string, object> { ["IndentProc"] = "Y", ["AlignDimCol"] = "40" }, tabWidth: 3);
 
         var read = Reader(new MockFileSystem(), registry).Read();
 
         Assert.AreEqual(RubberduckIndenterSettingsSource.SmartIndenterRegistry, read.Source);
         Assert.AreEqual("Y", (string?)read.Values["IndentProc"]);
-        Assert.AreEqual(40, (int?)read.Values["AlignDimCol"]);
+        Assert.AreEqual("40", (string?)read.Values["AlignDimCol"], "as SaveSetting wrote it: text");
         Assert.AreEqual(3, read.TabWidth);
     }
 
@@ -132,7 +132,7 @@ public sealed class RubberduckIndenterImportTests
             ["IndentDim"] = string.Empty,
             ["DebugCol1"] = "Y",
             ["CompilerCol1"] = "y",
-            ["AlignDimCol"] = 150,
+            ["AlignDimCol"] = "150",
             ["EOLAlignCol"] = -1,
             ["EOLComments"] = "AlignInCol",
             ["IndentCase"] = 1,

@@ -36,7 +36,9 @@ internal sealed class RubberduckIndenterSettingsApplyHandler(IPlatformSettings s
     /// <inheritdoc/>
     public async Task<RubberduckIndenterSettingsApplyResult> Handle(RubberduckIndenterSettingsApplyParams request, CancellationToken cancellationToken)
     {
-        var applied = IndenterSettingsImport.ApplyTo(settings.Store, request.Settings);
+        // the server asks for the settings of an import and for no others: a client owns its configuration, and this is no channel to write any of it.
+        var accepted = request.Settings.Where(setting => IndenterSettingsImport.Imports(setting.Key)).ToDictionary(setting => setting.Key, setting => setting.Value);
+        var applied = IndenterSettingsImport.ApplyTo(settings.Store, accepted);
         if (applied > 0)
         {
             liveSettings.Refresh();

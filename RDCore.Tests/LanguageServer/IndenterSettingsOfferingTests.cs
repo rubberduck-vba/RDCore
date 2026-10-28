@@ -28,7 +28,7 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class IndenterSettingsOfferingTests
 {
-    private const string AppData = @"C:\Users\duck\AppData\Roaming";
+    private static readonly string AppData = Path.Combine(Path.GetTempPath(), "rdcore-rubberduck-appdata");
     private static readonly string UserFolder = Path.Combine(Path.GetTempPath(), "rdcore-offering-user");
 
     private const string Config = "<Configuration><UserSettings><IndenterSettings><IndentCase>true</IndentCase><IndentSpaces>2</IndentSpaces></IndenterSettings></UserSettings></Configuration>";
@@ -65,7 +65,7 @@ public sealed class IndenterSettingsOfferingTests
             var extensions = Substitute.For<IExtensionsProvider>();
             extensions.Discover().Returns([]);
             Settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
-            Live.Current.Returns(new Dictionary<string, string>());
+            Live.Said.Returns(new Dictionary<string, string>());
             Capabilities.Record(new PlatformInitializeParams
             {
                 Expected = new CorePlatformClientCapabilities { LanguageServer = new LanguageServerCapabilities { RubberduckIndenterSettings = new RubberduckIndenterSettings(clientExpects) } },
@@ -98,7 +98,7 @@ public sealed class IndenterSettingsOfferingTests
         }
 
         public IndenterSettingsOffering Offering()
-            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), _ => { });
 
         public ValueTask DisposeAsync()
         {
@@ -167,13 +167,117 @@ public sealed class IndenterSettingsOfferingTests
     public async Task AUserWhoSetFormatting_IsNotAsked()
     {
         await using var platform = new Platform(clientExpects: true);
-        platform.Live.Current.Returns(new Dictionary<string, string> { ["Formatting:IndentSpaces"] = "3" });
+        platform.Live.Said.Returns(new Dictionary<string, string> { ["Formatting:IndentSpaces"] = "3" });
         await platform.StartAsync();
 
         using var offering = platform.Offering();
 
         Assert.IsNull(await offering.RunAsync(CancellationToken.None));
         Assert.AreEqual(0, platform.Questions.Count);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatAnswersTheEditorsTabSize_IsOffered_AsTheUserSetNothing()
+    {
+        // the follower and the offering as the language server starts them, over a client that has configuration to pull and an editor with a tab size.
+        var options = new SdkAppOptions();
+        var schema = SettingsSchema.Platform;
+        var live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+        var capabilities = new PlatformClientCapabilitiesService();
+        capabilities.Record(new PlatformInitializeParams
+        {
+            Expected = new CorePlatformClientCapabilities { LanguageServer = new LanguageServerCapabilities { RubberduckIndenterSettings = new RubberduckIndenterSettings(true) } },
+        });
+        var environment = Substitute.For<IPlatformEnvironment>();
+        environment.UserDataDirectory.Returns(UserFolder);
+        var extensions = Substitute.For<IExtensionsProvider>();
+        extensions.Discover().Returns([]);
+        var settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
+        var reader = new RubberduckIndenterSettingsReader(
+            new MockFileSystem(new Dictionary<string, MockFileData> { [RubberduckIndenterSettingsReader.ConfigPathIn(AppData)] = new(Config) }), AppData, new NoRegistry(), isWindows: true);
+        var questions = new List<string>();
+        var offering = new TaskCompletionSource<IndenterSettingsOffering>();
+        var services = new ServiceCollection().AddSingleton<ILiveSettings>(live).BuildServiceProvider();
+
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var serving = OmniSharpLanguageServer.From(server => server
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            .WithConfigurationSection(LiveSettingsProtocol.Section)
+            .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
+            {
+                ClientConfigurationFollower.Follow(services, started, () => Task.CompletedTask, _ => { });
+                offering.SetResult(new IndenterSettingsOffering(
+                    started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { }));
+                return Task.CompletedTask;
+            }));
+        var connecting = LanguageClient.From(client =>
+        {
+            client
+                .WithInput(toClient.Reader)
+                .WithOutput(toServer.Writer)
+                .WithClientCapabilities(new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+                {
+                    Workspace = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceClientCapabilities
+                    {
+                        Configuration = true,
+                        DidChangeConfiguration = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.DidChangeConfigurationCapability(),
+                    },
+                })
+                .WithServices(s => s.AddSingleton(reader).AddSingleton<IPlatformSettings>(settings).AddSingleton(Substitute.For<ILiveSettings>()).AddSingleton(new LiveSettingsNotifier(_ => Task.CompletedTask)))
+                .WithHandler<RubberduckIndenterSettingsHandler>()
+                .WithHandler<RubberduckIndenterSettingsApplyHandler>()
+                .OnShowMessageRequest(request =>
+                {
+                    questions.Add(request.Message);
+                    return Task.FromResult(request.Actions!.First(action => action.Title == IndenterSettingsImportText.Import()));
+                });
+            OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(client, (request, _) =>
+                Task.FromResult(new Container<Newtonsoft.Json.Linq.JToken>(request.Items.Select(item => item.Section == FormattingTabSize.EditorSection
+                    ? new Newtonsoft.Json.Linq.JValue(2)
+                    : LiveSettingsProtocol.Answer(new ConfigurationParams { Items = new Container<ConfigurationItem>(item) }, new Dictionary<string, string>()).Single()))));
+        });
+
+        await Task.WhenAll(serving, connecting);
+        using var server = await serving;
+        using var languageClient = await connecting;
+        using var made = await offering.Task;
+
+        var outcome = await made.RunAsync(CancellationToken.None);
+
+        Assert.AreEqual(2, options.Formatting.IndentSpaces, "the editor's tab size is the indentation");
+        Assert.IsFalse(live.Said.ContainsKey("Formatting:IndentSpaces"), "which the user did not set");
+        Assert.IsNotNull(outcome, "so the offer is made");
+        Assert.AreEqual(1, questions.Count);
+    }
+
+    [TestMethod]
+    public async Task TheApplyRequest_SetsTheSettingsOfAnImport_AndNoOthers()
+    {
+        var environment = Substitute.For<IPlatformEnvironment>();
+        environment.UserDataDirectory.Returns(UserFolder);
+        var extensions = Substitute.For<IExtensionsProvider>();
+        extensions.Discover().Returns([]);
+        var settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
+        var handler = new RubberduckIndenterSettingsApplyHandler(settings, Substitute.For<ILiveSettings>(), new LiveSettingsNotifier(_ => Task.CompletedTask));
+
+        var result = await handler.Handle(new RubberduckIndenterSettingsApplyParams
+        {
+            Source = RubberduckIndenterSettingsSource.RubberduckConfig,
+            Settings = new Dictionary<string, string>
+            {
+                ["Server.Verbose"] = "False",
+                ["Environment.AllowDllImports"] = "False",
+                ["Platform.Extensions.Allowed"] = "Anything",
+                ["Formatting.FormatOnType"] = "False",
+                ["Formatting.IndentCase"] = "True",
+            },
+        }, CancellationToken.None);
+
+        Assert.AreEqual(1, result.Applied);
+        CollectionAssert.AreEqual(new[] { "Formatting.IndentCase" }, settings.Store.Read().Select(value => value.Setting.Key).ToArray(), "a client owns its configuration, and this is no way to write it");
     }
 
     [TestMethod]

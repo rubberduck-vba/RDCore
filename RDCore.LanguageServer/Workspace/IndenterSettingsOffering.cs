@@ -23,6 +23,7 @@ internal sealed class IndenterSettingsOffering : IDisposable
     private readonly ILiveSettings _liveSettings;
     private readonly TimeSpan _handshakeWait;
     private readonly TimeSpan _settingsWait;
+    private readonly Action<string> _log;
     private readonly TaskCompletionSource _settingsSaid = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <param name="server">The language server.</param>
@@ -31,8 +32,9 @@ internal sealed class IndenterSettingsOffering : IDisposable
     /// <param name="liveSettings">The live settings, which hold what the client says its user set.</param>
     /// <param name="handshakeWait">How long the platform handshake is waited for.</param>
     /// <param name="settingsWait">How long the client's settings are waited for.</param>
+    /// <param name="log">Says why an offer was not made, when it is not for want of anything to offer.</param>
     public IndenterSettingsOffering(
-        ILanguageServer server, IPlatformClientCapabilitiesService capabilities, IndenterSettingsOffer offer, ILiveSettings liveSettings, TimeSpan handshakeWait, TimeSpan settingsWait)
+        ILanguageServer server, IPlatformClientCapabilitiesService capabilities, IndenterSettingsOffer offer, ILiveSettings liveSettings, TimeSpan handshakeWait, TimeSpan settingsWait, Action<string> log)
     {
         _server = server;
         _capabilities = capabilities;
@@ -40,7 +42,14 @@ internal sealed class IndenterSettingsOffering : IDisposable
         _liveSettings = liveSettings;
         _handshakeWait = handshakeWait;
         _settingsWait = settingsWait;
+        _log = log;
         _liveSettings.Changed += SettingsSaid;
+
+        // the client's settings may be in already: the follower starts before this does.
+        if (_liveSettings.HasReceived)
+        {
+            _settingsSaid.TrySetResult();
+        }
     }
 
     private void SettingsSaid(object? sender, EventArgs e) => _settingsSaid.TrySetResult();
@@ -73,12 +82,13 @@ internal sealed class IndenterSettingsOffering : IDisposable
             }
             catch (TimeoutException)
             {
+                _log("The client did not say its settings in time: the indenter settings of Rubberduck are not offered this time.");
                 return null;
             }
         }
 
         return await _offer.OfferAsync(
-            _liveSettings.Current.Keys.Any(key => key.StartsWith("Formatting:", StringComparison.OrdinalIgnoreCase)),
+            _liveSettings.Said.Keys.Any(key => key.StartsWith("Formatting:", StringComparison.OrdinalIgnoreCase)),
             client.ReadAsync,
             async (message, choices, askToken) => (await _server.Window.ShowMessageRequest(new ShowMessageRequestParams
             {
