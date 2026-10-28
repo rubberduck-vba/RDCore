@@ -41,12 +41,9 @@ internal static class WorkspaceFileOperationFilters
     };
 
     /// <summary>
-    /// Tells the client what came of its file operations, which are done in the background - the notification is answered at once - in the order it sent them.
+    /// Tells the client what came of a file operation, once it is done: a handler that awaits it keeps the notifications that follow it in the client's order behind it.
     /// </summary>
-    public static void Report(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
-        => _ = ReportAsync(operation, server, logger);
-
-    private static async Task ReportAsync(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
+    public static async Task ReportAsync(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
     {
         try
         {
@@ -85,11 +82,11 @@ internal sealed class DidCreateWorkspaceFilesHandler(
     ILanguageServerFacade server,
     ILogger<DidCreateWorkspaceFilesHandler> logger) : DidCreateFileHandlerBase
 {
-    public override Task<Unit> Handle(DidCreateFileParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidCreateFileParams request, CancellationToken cancellationToken)
     {
         var uris = request.Files.Select(file => file.Uri).ToList();
-        WorkspaceFileOperationFilters.Report(files.CreatedAsync(uris, CancellationToken.None), server, logger);
-        return Unit.Task;
+        await WorkspaceFileOperationFilters.ReportAsync(files.CreatedAsync(uris, CancellationToken.None), server, logger);
+        return Unit.Value;
     }
 
     protected override DidCreateFileRegistrationOptions CreateRegistrationOptions(FileOperationsWorkspaceClientCapabilities capability, ClientCapabilities clientCapabilities)
@@ -108,12 +105,15 @@ internal sealed class DidRenameWorkspaceFilesHandler(
     ILanguageServerFacade server,
     ILogger<DidRenameWorkspaceFilesHandler> logger) : IJsonRpcNotificationHandler<DidRenameWorkspaceFilesParams>
 {
-    public Task<Unit> Handle(DidRenameWorkspaceFilesParams request, CancellationToken cancellationToken)
+    public async Task<Unit> Handle(DidRenameWorkspaceFilesParams request, CancellationToken cancellationToken)
     {
         // read as a document URI is: a client escapes a drive letter's colon (file:///c%3A/...).
         var renames = request.Files.Select(file => (DocumentUri.From(file.OldUri).ToUri(), DocumentUri.From(file.NewUri).ToUri())).ToList();
-        WorkspaceFileOperationFilters.Report(files.RenamedAsync(renames, CancellationToken.None), server, logger);
-        return Unit.Task;
+
+        // the notification is in the lane the document notifications are in, and is answered once the rename is made: a client closes the old path and opens the
+        // new one before it says the file was renamed, and what it sends after that is not read before the rename is done.
+        await WorkspaceFileOperationFilters.ReportAsync(files.RenamedAsync(renames, CancellationToken.None), server, logger);
+        return Unit.Value;
     }
 }
 
@@ -125,11 +125,11 @@ internal sealed class DidDeleteWorkspaceFilesHandler(
     ILanguageServerFacade server,
     ILogger<DidDeleteWorkspaceFilesHandler> logger) : DidDeleteFileHandlerBase
 {
-    public override Task<Unit> Handle(DidDeleteFileParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidDeleteFileParams request, CancellationToken cancellationToken)
     {
         var uris = request.Files.Select(file => file.Uri).ToList();
-        WorkspaceFileOperationFilters.Report(files.DeletedAsync(uris, CancellationToken.None), server, logger);
-        return Unit.Task;
+        await WorkspaceFileOperationFilters.ReportAsync(files.DeletedAsync(uris, CancellationToken.None), server, logger);
+        return Unit.Value;
     }
 
     protected override DidDeleteFileRegistrationOptions CreateRegistrationOptions(FileOperationsWorkspaceClientCapabilities capability, ClientCapabilities clientCapabilities)

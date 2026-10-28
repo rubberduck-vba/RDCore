@@ -147,6 +147,10 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     // dictionary written and read at once gave those requests an internal error (HexIDE's findings desk #24).
     private readonly ConcurrentDictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
 
+    // the changes of a document that read it and write it back - the client's, the project's, a move to another path - are made one at a time, with the state they leave it
+    // in: one never overwrites another with what it read before, and nothing sees a document that is at neither of two paths.
+    private readonly object _sync = new();
+
     public string WorkspaceRoot { get; private set; } = string.Empty;
 
     public void Initialize(string workspaceRoot)
@@ -190,11 +194,16 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var path = id.Uri.GetFileSystemPath();
 
         // a file another project listed is the same document: it has the text, the version and the state it has, and is a module of this project too.
-        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => WorkspacePaths.Same(root, projectRoot)))
+        lock (_sync)
         {
-            _documents[id] = shared with { Projects = [.. shared.Projects, projectRoot] };
-            return true;
+            if (_documents.TryGetValue(id, out var listed) && !listed.Projects.Any(root => WorkspacePaths.Same(root, projectRoot)))
+            {
+                _documents[id] = listed with { Projects = [.. listed.Projects, projectRoot] };
+                return true;
+            }
         }
+
+        _documents.TryGetValue(id, out var shared);
 
         // the first project to load a document is the one it is addressed from; a project that lists it later does not move it.
         var owner = shared?.WorkspaceRoot ?? projectRoot;
@@ -295,35 +304,38 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public bool Remove(TextDocumentIdentifier id)
     {
-        if (documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState)
+        lock (_sync)
         {
-            logger.LogInformation("📌 Workspace document is open in the client, and stays.");
-            return false;
-        }
+            if (IsOpen(id))
+            {
+                logger.LogInformation("📌 Workspace document is open in the client, and stays.");
+                return false;
+            }
 
-        documentStateProvider.Forget(id);
-        return _documents.TryRemove(id, out _);
+            documentStateProvider.Forget(id);
+            return _documents.TryRemove(id, out _);
+        }
     }
 
     public void Leave(TextDocumentIdentifier id, string projectRoot)
     {
-        // read, change and written back as one step: a change of the text that lands between is not overwritten with the text that was read.
-        while (_documents.TryGetValue(id, out var document))
+        lock (_sync)
         {
+            if (!_documents.TryGetValue(id, out var document))
+            {
+                return;
+            }
+
             var remaining = document.Projects.Where(root => !WorkspacePaths.Same(root, projectRoot)).ToList();
             if (remaining.Count == 0 && !IsOpen(id))
             {
-                if (_documents.TryRemove(new KeyValuePair<TextDocumentIdentifier, WorkspaceDocument>(id, document)))
-                {
-                    documentStateProvider.Forget(id);
-                    return;
-                }
-            }
-            else if (_documents.TryUpdate(id, document with { Projects = remaining }, document))
-            {
-                // another project still lists it, or the client has it open: it is the document of the projects that are left, and of none at all when the client keeps it open.
+                documentStateProvider.Forget(id);
+                _documents.TryRemove(id, out _);
                 return;
             }
+
+            // another project still lists it, or the client has it open: it is the document of the projects that are left, and of none at all when the client keeps it open.
+            _documents[id] = document with { Projects = remaining };
         }
     }
 
@@ -331,71 +343,79 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId)
     {
-        // the document is taken out of its path first, whatever happens to it next: it is the one the client last changed.
-        if (!_documents.TryRemove(id, out var document))
+        lock (_sync)
         {
-            return false;
-        }
+            if (!_documents.TryGetValue(id, out var document))
+            {
+                return false;
+            }
 
-        var wasOpen = IsOpen(id);
-        documentStateProvider.Forget(id);
+            var wasOpen = IsOpen(id);
 
-        // the document is addressed from the root of the project that loaded it first; a path that climbs out of it is the file it names.
-        var root = document.WorkspaceRoot;
-        var moved = new WorkspaceDocument(ioPath.GetRelativePath(root, newId.Uri.GetFileSystemPath()), root, document.Text, document.Version)
-        {
-            IsDirty = document.IsDirty,
-            Companion = document.Companion,
-            Projects = document.Projects,
-        };
+            // the document is addressed from the root of the project that loaded it first; a path that climbs out of it is the file it names.
+            var root = document.WorkspaceRoot;
+            var moved = new WorkspaceDocument(ioPath.GetRelativePath(root, newId.Uri.GetFileSystemPath()), root, document.Text, document.Version)
+            {
+                IsDirty = document.IsDirty,
+                Companion = document.Companion,
+                Projects = document.Projects,
+            };
 
-        // a client closes the old path and opens the new one before it says the file was renamed: a document the client has open at the new path is the client's - its text,
-        // its version, and that it is open - and is a module of the projects the old one was. One that is not open was only read from disk, and the document that was moved
-        // is the document.
-        var keptTheOneThere = false;
-        _documents.AddOrUpdate(
-            moved.Id,
-            _ => moved,
-            (_, there) =>
+            // a client closes the old path and opens the new one before it says the file was renamed: a document the client has open at the new path is the client's - its text,
+            // its version, and that it is open - and is a module of the projects the old one was. One that is not open was only read from disk, and the document that was moved
+            // is the document.
+            var keptTheOneThere = _documents.TryGetValue(moved.Id, out var there) && IsOpen(moved.Id);
+            if (there is not null)
             {
                 var projects = (IReadOnlyList<string>)[.. there.Projects.Union(document.Projects, WorkspacePaths.Comparer)];
-                keptTheOneThere = IsOpen(moved.Id);
-                return keptTheOneThere
+                _documents[moved.Id] = keptTheOneThere
                     ? there with { Projects = projects, Companion = there.Companion.IsEmpty ? document.Companion : there.Companion }
                     : moved with { Projects = projects };
-            });
-
-        if (!keptTheOneThere)
-        {
-            documentStateProvider.Forget(moved.Id);
-            documentStateProvider.Track(moved.Id);
-            documentStateProvider.OnDocumentLoaded(moved.Id);
-            if (wasOpen)
-            {
-                documentStateProvider.OnDocumentOpened(moved.Id);
             }
-        }
+            else
+            {
+                _documents[moved.Id] = moved;
+            }
 
-        return true;
+            // the document is at its new path before it is gone from the old one: there is no moment it is at neither.
+            _documents.TryRemove(id, out _);
+            documentStateProvider.Forget(id);
+
+            if (!keptTheOneThere)
+            {
+                documentStateProvider.Forget(moved.Id);
+                documentStateProvider.Track(moved.Id);
+                documentStateProvider.OnDocumentLoaded(moved.Id);
+                if (wasOpen)
+                {
+                    documentStateProvider.OnDocumentOpened(moved.Id);
+                }
+            }
+
+            return true;
+        }
     }
 
     public void Edit(TextDocumentIdentifier id, string text)
     {
-        var currentState = documentStateProvider.GetCurrentState(id);
-        if (currentState is LoadedDocumentState or OpenedDocumentState
-            && _documents.TryGetValue(id, out var document) && document is WorkspaceDocument workspaceDocument)
+        lock (_sync)
         {
-            if (logger.IsEnabled(LogLevel.Trace))
+            var currentState = documentStateProvider.GetCurrentState(id);
+            if (currentState is LoadedDocumentState or OpenedDocumentState
+                && _documents.TryGetValue(id, out var document) && document is WorkspaceDocument workspaceDocument)
             {
-                logger.LogTrace("Editing workspace document '{uri}'...", workspaceDocument.RelativePath);
-            }
+                if (logger.IsEnabled(LogLevel.Trace))
+                {
+                    logger.LogTrace("Editing workspace document '{uri}'...", workspaceDocument.RelativePath);
+                }
 
-            _documents[id] = workspaceDocument.WithText(text);
-        }
-        else
-        {
-            logger.LogWarning("🐛 Workspace document could not be edited because it is not in a valid state ({state}).", currentState.Value);
-            throw new InvalidDocumentStateException();
+                _documents[id] = workspaceDocument.WithText(text);
+            }
+            else
+            {
+                logger.LogWarning("🐛 Workspace document could not be edited because it is not in a valid state ({state}).", currentState.Value);
+                throw new InvalidDocumentStateException();
+            }
         }
 
         logger.LogInformation("✅ Workspace document content was updated successfully.");
@@ -403,22 +423,25 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text)
     {
-        var currentState = documentStateProvider.GetCurrentState(id);
-        if (currentState is LoadedDocumentState or OpenedDocumentState
-            && _documents.TryGetValue(id, out var document) && document is WorkspaceDocument workspaceDocument)
+        lock (_sync)
         {
-            var newText = DocumentText.Apply(workspaceDocument.Text, range, text);
-            if (logger.IsEnabled(LogLevel.Trace))
+            var currentState = documentStateProvider.GetCurrentState(id);
+            if (currentState is LoadedDocumentState or OpenedDocumentState
+                && _documents.TryGetValue(id, out var document) && document is WorkspaceDocument workspaceDocument)
             {
-                logger.LogTrace("Editing workspace document '{uri}' at {range}...", workspaceDocument.RelativePath, range);
-            }
+                var newText = DocumentText.Apply(workspaceDocument.Text, range, text);
+                if (logger.IsEnabled(LogLevel.Trace))
+                {
+                    logger.LogTrace("Editing workspace document '{uri}' at {range}...", workspaceDocument.RelativePath, range);
+                }
 
-            _documents[id] = workspaceDocument.WithText(newText);
-        }
-        else
-        {
-            logger.LogWarning("🐛 Workspace document could not be edited because it is not in a valid state ({state}).", currentState.Value);
-            throw new InvalidDocumentStateException();
+                _documents[id] = workspaceDocument.WithText(newText);
+            }
+            else
+            {
+                logger.LogWarning("🐛 Workspace document could not be edited because it is not in a valid state ({state}).", currentState.Value);
+                throw new InvalidDocumentStateException();
+            }
         }
 
         logger.LogInformation("✅ Workspace document content was updated successfully.");
@@ -441,7 +464,15 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                     }
 
                     await ioFile.WriteAllTextAsync(path, document.Text);
-                    _documents[id] = workspaceDocument.AsSaved();
+
+                    // what was written is what is saved: a document that changed - or moved - while it was written is not.
+                    lock (_sync)
+                    {
+                        if (_documents.TryGetValue(id, out var current) && string.Equals(current.Text, workspaceDocument.Text, StringComparison.Ordinal))
+                        {
+                            _documents[id] = current.AsSaved();
+                        }
+                    }
 
                     logger.LogInformation("Workspace document was saved successfully.");
                     return true;
@@ -493,70 +524,83 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     public WorkspaceDocument Open(Uri documentUri, string text, int version)
     {
         var id = new TextDocumentIdentifier(documentUri);
-        if (_documents.TryGetValue(id, out var existing) && documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState)
-        {
-            logger.LogWarning("⚠️ Document '{uri}' was opened when it already was (v{existing}); the text the client sent is the document.", documentUri, existing.Version);
-        }
-
-        // a document the client opens need not be in the workspace folder: its own path is what addresses it then - and so it is when no workspace could
-        // be loaded, which leaves no root to be relative to.
-        // a document that is a module of projects stays one when the client opens it, and is addressed from the project that loaded it.
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
-        var owner = existing?.WorkspaceRoot ?? WorkspaceRoot;
-        var relativePath = owner.Length == 0 ? path : ioPath.GetRelativePath(owner, path);
-        var document = WithCompanion(
-            new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
+
+        // the document is the client's from the moment it is open, with the projects it was a module of at that moment: a move to this path, or out of it, is made before it or after it.
+        lock (_sync)
+        {
+            if (_documents.TryGetValue(id, out var existing) && documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState)
             {
-                Projects = existing?.Projects ?? [owner],
-            },
-            path);
+                logger.LogWarning("⚠️ Document '{uri}' was opened when it already was (v{existing}); the text the client sent is the document.", documentUri, existing.Version);
+            }
 
-        _documents[id] = document;
-        documentStateProvider.OnDocumentOpenedByClient(id);
+            // a document the client opens need not be in the workspace folder: its own path is what addresses it then - and so it is when no workspace could
+            // be loaded, which leaves no root to be relative to.
+            // a document that is a module of projects stays one when the client opens it, and is addressed from the project that loaded it.
+            var owner = existing?.WorkspaceRoot ?? WorkspaceRoot;
+            var relativePath = owner.Length == 0 ? path : ioPath.GetRelativePath(owner, path);
+            var document = WithCompanion(
+                new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
+                {
+                    Projects = existing?.Projects ?? [owner],
+                },
+                path);
 
-        logger.LogInformation("📂 Document '{uri}' was opened by the client at v{version}.", documentUri, version);
-        return document;
+            _documents[id] = document;
+            documentStateProvider.OnDocumentOpenedByClient(id);
+
+            logger.LogInformation("📂 Document '{uri}' was opened by the client at v{version}.", documentUri, version);
+            return document;
+        }
     }
 
     public DocumentChangeOutcome Change(Uri documentUri, int version, IEnumerable<TextDocumentContentChangeEvent> changes)
     {
         var id = new TextDocumentIdentifier(documentUri);
-        if (!_documents.TryGetValue(id, out var document)
-            || !documentStateProvider.IsTracked(id) || documentStateProvider.GetCurrentState(id) is not OpenedDocumentState)
-        {
-            logger.LogWarning("🐛 A change to '{uri}' (v{version}) was ignored: the document is not open.", documentUri, version);
-            return DocumentChangeOutcome.NotOpen;
-        }
 
-        if (version <= document.Version)
+        // read and written back in one step, with the projects the document is a module of when it is written: a project that took or left it meanwhile keeps its say.
+        lock (_sync)
         {
-            logger.LogWarning("🐛 A change to '{uri}' was ignored: v{version} is not later than v{current}.", documentUri, version, document.Version);
-            return DocumentChangeOutcome.OutOfDate;
-        }
+            if (!_documents.TryGetValue(id, out var document)
+                || !documentStateProvider.IsTracked(id) || documentStateProvider.GetCurrentState(id) is not OpenedDocumentState)
+            {
+                logger.LogWarning("🐛 A change to '{uri}' (v{version}) was ignored: the document is not open.", documentUri, version);
+                return DocumentChangeOutcome.NotOpen;
+            }
 
-        var text = document.Text;
-        foreach (var change in changes)
-        {
-            // a change with no range is the whole text.
-            text = change.Range is { } range ? DocumentText.Apply(text, range, change.Text) : change.Text;
-        }
+            if (version <= document.Version)
+            {
+                logger.LogWarning("🐛 A change to '{uri}' was ignored: v{version} is not later than v{current}.", documentUri, version, document.Version);
+                return DocumentChangeOutcome.OutOfDate;
+            }
 
-        _documents[id] = document.WithText(text, version);
-        return DocumentChangeOutcome.Applied;
+            var text = document.Text;
+            foreach (var change in changes)
+            {
+                // a change with no range is the whole text.
+                text = change.Range is { } range ? DocumentText.Apply(text, range, change.Text) : change.Text;
+            }
+
+            _documents[id] = document.WithText(text, version);
+            return DocumentChangeOutcome.Applied;
+        }
     }
 
     public bool Saved(Uri documentUri, string? text)
     {
         var id = new TextDocumentIdentifier(documentUri);
-        if (!_documents.TryGetValue(id, out var document))
+        lock (_sync)
         {
-            return false;
-        }
+            if (!_documents.TryGetValue(id, out var document))
+            {
+                return false;
+            }
 
-        // the client says what it saved, or it does not: either way, what is saved is the text of the document. When it is not the text the server has, the
-        // server was behind, and the text is one version later than what was derived from the one it had.
-        _documents[id] = (text is null || text == document.Text ? document : document.WithText(text, document.Version + 1)).AsSaved();
-        return true;
+            // the client says what it saved, or it does not: either way, what is saved is the text of the document. When it is not the text the server has, the
+            // server was behind, and the text is one version later than what was derived from the one it had.
+            _documents[id] = (text is null || text == document.Text ? document : document.WithText(text, document.Version + 1)).AsSaved();
+            return true;
+        }
     }
 
     public async Task<WorkspaceDocument?> CloseAsync(Uri documentUri)
@@ -577,13 +621,23 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
                 var content = await ioFile.ReadAllTextAsync(path);
-                var reloaded = WithCompanion(new WorkspaceDocument(document.RelativePath, document.WorkspaceRoot, content, document.Version + 1) { Projects = document.Projects }, path);
-                _documents[id] = reloaded;
-                documentStateProvider.OnDocumentOpenedByClient(id);
-                documentStateProvider.OnDocumentClosed(id);
 
-                logger.LogInformation("📁 Document '{uri}' was closed by the client; what is on disk is the document again (v{version}).", documentUri, reloaded.Version);
-                return reloaded;
+                // the document is what it is when this is written, not what it was before the file was read: it may have moved on, or a project may have taken it.
+                lock (_sync)
+                {
+                    if (!_documents.TryGetValue(id, out var current))
+                    {
+                        return null;
+                    }
+
+                    var reloaded = WithCompanion(new WorkspaceDocument(current.RelativePath, current.WorkspaceRoot, content, current.Version + 1) { Projects = current.Projects }, path);
+                    _documents[id] = reloaded;
+                    documentStateProvider.OnDocumentOpenedByClient(id);
+                    documentStateProvider.OnDocumentClosed(id);
+
+                    logger.LogInformation("📁 Document '{uri}' was closed by the client; what is on disk is the document again (v{version}).", documentUri, reloaded.Version);
+                    return reloaded;
+                }
             }
         }
         catch (Exception exception)
