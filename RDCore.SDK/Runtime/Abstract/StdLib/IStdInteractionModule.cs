@@ -241,7 +241,7 @@ public interface IStdInteractionModule
     /// <remarks>
     /// Displays a message in a dialog box, waits for the user to click a button, and returns a <see cref="VBMsgBoxResult"/> value indicating which button the user clicked.<br/>
     /// 👉 <kbd>Esc</kbd> closes the dialog at window level, as its close button does: it answers <see cref="VBMsgBoxResult.VBCancel"/> when the dialog has a
-    /// <em>Cancel</em> button, <see cref="VBMsgBoxResult.VBOk"/> when <em>OK</em> is its only button, and does nothing for <see cref="VBMsgBoxStyle.VBYesNo"/> and
+    /// <em>Cancel</em> button, <see cref="VBMsgBoxResult.VBOK"/> when <em>OK</em> is its only button, and does nothing for <see cref="VBMsgBoxStyle.VBYesNo"/> and
     /// <see cref="VBMsgBoxStyle.VBAbortRetryIgnore"/>, which cannot be dismissed without choosing.
     /// </remarks>
     /// <param name="prompt">A <see cref="VBStringValue"/> expression containing the <em>message</em> to be displayed in the dialog box.</param>
