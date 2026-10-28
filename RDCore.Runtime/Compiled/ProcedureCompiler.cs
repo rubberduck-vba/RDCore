@@ -38,6 +38,9 @@ internal sealed class ProcedureCompiler
 
     private sealed record class Entry(ScopeTree Scopes, CompilationResult Result);
 
+    // what every procedure is where values are held boxed, which is so for the whole process.
+    private static readonly CompilationResult Boxed = new(null, [new Ineligibility(IneligibilityKind.BoxedEvaluation, "RDCORE_UNBOXED=0")], TimeSpan.Zero);
+
     /// <summary>How long compiling the procedures took, all told.</summary>
     public TimeSpan Elapsed => TimeSpan.FromTicks(Interlocked.Read(ref _elapsedTicks));
 
@@ -53,15 +56,6 @@ internal sealed class ProcedureCompiler
     /// <param name="list">Its body.</param>
     public CompilationResult Compile(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol procedure, InstructionList list)
     {
-        // compiled code works on payloads: where values are held boxed, no procedure is compiled, and each says why. That is not kept for the body, which
-        // a session that uses payloads compiles.
-        if (!UnboxedEvaluation.IsEnabled)
-        {
-            var boxed = new CompilationResult(null, [new Ineligibility(IneligibilityKind.BoxedEvaluation, "RDCORE_UNBOXED=0")], TimeSpan.Zero);
-            _results[procedure.SemanticId] = (procedure, boxed);
-            return boxed;
-        }
-
         var scopes = session.Symbols.Scopes;
         if (_bodies.TryGetValue(list, out var known) && ReferenceEquals(known.Scopes, scopes))
         {
@@ -75,6 +69,14 @@ internal sealed class ProcedureCompiler
             if (_bodies.TryGetValue(list, out known) && ReferenceEquals(known.Scopes, scopes))
             {
                 return known.Result;
+            }
+
+            // compiled code works on payloads: where the process holds its values boxed, no procedure is compiled, and each says why, once for its body.
+            if (!UnboxedEvaluation.IsEnabled)
+            {
+                _bodies.AddOrUpdate(list, new Entry(scopes, Boxed));
+                _results[procedure.SemanticId] = (procedure, Boxed);
+                return Boxed;
             }
 
             var stopwatch = Stopwatch.StartNew();
