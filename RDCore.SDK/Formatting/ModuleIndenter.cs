@@ -59,6 +59,11 @@ public readonly record struct IndentationEdit(int Line, int Character, int EndLi
 /// alone on its line is at the level of the code around it. The header of a class or a form module (<c>VERSION</c>, <c>BEGIN</c> ... <c>END</c>) and its
 /// <c>Attribute</c> lines are left as they are written.
 /// </para>
+/// <para>
+/// Between procedures - a <c>Sub</c>, a <c>Function</c>, a <c>Property</c>, an <c>Enum</c> or a <c>Type</c>, with the comments right above it - there are
+/// <see cref="CodeFormattingOptions.LinesBetweenProcedures"/> empty lines when <see cref="CodeFormattingOptions.VerticallySpaceProcedures"/> says so, and as many
+/// after what is above the first; none between the accessors of a property when <see cref="CodeFormattingOptions.GroupRelatedProperties"/> groups them.
+/// </para>
 /// </remarks>
 public static partial class ModuleIndenter
 {
