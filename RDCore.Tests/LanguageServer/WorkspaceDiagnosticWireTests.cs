@@ -151,6 +151,25 @@ public sealed class WorkspaceDiagnosticWireTests
         CollectionAssert.AreEqual(new[] { "Closed.bas unchanged v1 v=null 0", "Open.bas unchanged v3 v=3 0" }, Reported(second["items"]!));
     }
 
+    // a module the project no longer lists: what the client shows of it is cleared, and there is no result id for it to send again.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AModuleTheWorkspaceNoLongerHas_IsReportedWithNoFindings()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var (server, client, _) = await ConnectAsync(timeout.Token);
+        using var _server = server;
+        using var _client = client;
+        var gone = DocumentUri.FromFileSystemPath(Path.Combine(Root, "Gone.bas"));
+
+        var answer = await PullAsync(client, new WorkspaceDiagnosticParams
+        {
+            PreviousResultIds = new Container<PreviousResultId>(new PreviousResultId { Uri = gone, Value = "v2" }),
+        }, timeout.Token);
+
+        CollectionAssert.Contains(Reported(answer["items"]!), "Gone.bas full  v=null 0");
+    }
+
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AClientThatGivesAPartialResultToken_IsSentEachModulesReportAsItIsMade_AndAnEmptyAnswer()

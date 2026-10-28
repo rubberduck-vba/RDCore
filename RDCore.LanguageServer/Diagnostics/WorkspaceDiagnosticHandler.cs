@@ -59,7 +59,21 @@ internal sealed class WorkspaceDiagnosticHandler(
                 var module = modules[index];
                 work.Report(new WorkProgressStep(string.Format(ProgressMessages.ItemOf, module.Name, index + 1, modules.Count), 100 * index / modules.Count));
 
-                var report = await ReportOfAsync(module, previous.GetValueOrDefault(module.Id.Uri), token);
+                Answer(await ReportOfAsync(module, previous.GetValueOrDefault(module.Id.Uri), token));
+            }
+
+            // a module the client has a result of and the workspace no longer has - taken out of the project, deleted - has nothing wrong with it any more: its
+            // findings are cleared, with no result id to send again. A document the server still holds is the document pull's.
+            var reported = modules.Select(module => module.Id.Uri).ToHashSet();
+            foreach (var gone in previous.Keys.Where(uri => !reported.Contains(uri) && !documents.TryGetDocument(uri.ToUri(), out _)))
+            {
+                Answer(new WorkspaceFullDocumentDiagnosticReport { Uri = gone, Version = null, Items = new Container<Diagnostic>() });
+            }
+
+            return answered;
+
+            void Answer(WorkspaceDocumentDiagnosticReport report)
+            {
                 if (partial is not null)
                 {
                     // written by the repaired serializer, which OmniSharp's progress manager does not write a partial result with (WorkspaceDiagnosticReports).
@@ -70,8 +84,6 @@ internal sealed class WorkspaceDiagnosticHandler(
                     answered.Add(report);
                 }
             }
-
-            return answered;
         });
 
         return WorkspaceDiagnosticReports.Of(reports);
