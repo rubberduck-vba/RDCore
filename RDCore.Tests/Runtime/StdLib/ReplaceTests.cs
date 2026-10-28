@@ -95,12 +95,18 @@ public sealed class ReplaceTests
     }
 
     [TestMethod]
-    [DataRow(2)]
     [DataRow(-1)]
+    [DataRow(240)]
+    [DataRow(5000)]
+    public void Replace_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Replace("abc", "b", "X", compare: (VBCompareMethod)compare)));
+
+    [TestMethod]
+    [DataRow(2, DisplayName = "vbDatabaseCompare, as Option Compare Database compares")]
     [DataRow(7)]
     [DataRow(1033)]
-    public void Replace_WithACompareOtherThanZeroOrOne_IsError5(int compare)
-        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Replace("abc", "b", "X", compare: (VBCompareMethod)compare)));
+    public void Replace_WithACompareThatIsDatabaseOrALocale_ReplacesTheText(int compare)
+        => Assert.AreEqual("aXc", ((VBStringValue)Replace("abc", "B", "X", compare: (VBCompareMethod)compare).Result!).Value);
 
     [TestMethod]
     public void Replace_DropsATrailingByte()

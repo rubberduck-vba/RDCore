@@ -164,6 +164,110 @@ public sealed class EndAndStopTests
         CollectionAssert.AreEqual(new[] { "7" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "unlike an End, a Stop leaves the session as it found it");
     }
 
+    [TestMethod]
+    public async Task Stop_InAReleaseBuild_EndsTheProgram_AndTheDebugStatementsRun()
+    {
+        // a release build keeps the Debug statements unless it is told to drop them; the DEBUG constant is False, and Stop ends the program as End does, as
+        // in a compiled VB6 executable.
+        ExecuteSessionResult? result = null;
+        long total = -1;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print \"kept\"",
+            "    Debug.Assert True",
+            "#If DEBUG Then",
+            "    Exit Sub",
+            "#End If",
+            "    Total = 7",
+            "    Stop",
+            "    Total = 8",
+            "End Sub"), (provider, run, _) =>
+            {
+                result = run;
+                total = Total(provider);
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release);
+
+        Assert.AreEqual(ExecutionOutcome.Halted, result!.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "kept" }, result.Output.Select(line => line.Trim()).ToArray());
+        Assert.AreEqual(0, total, "End leaves nothing of the program, and neither does a Stop in a release build");
+    }
+
+    [TestMethod]
+    [DataRow(false, ExecutionOutcome.Suspended, DisplayName = "kept: it breaks, as in a debug build")]
+    [DataRow(true, ExecutionOutcome.Completed, DisplayName = "dropped: nothing is asserted")]
+    public async Task AnAssertionThatFails_InAReleaseBuild(bool drops, ExecutionOutcome expected)
+    {
+        ExecuteSessionResult? result = null;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Sub Main()",
+            "    Debug.Assert False",
+            "End Sub"), (_, run, _) =>
+            {
+                result = run;
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release, releaseDropsDebugStatements: drops);
+
+        Assert.AreEqual(expected, result!.Outcome, $"{result.Outcome}: {result.ErrorMessage}");
+    }
+
+    [TestMethod]
+    [DataRow(false, 1L, DisplayName = "kept: the function is called, and what it returns printed")]
+    [DataRow(true, 0L, DisplayName = "dropped: the function is not called")]
+    public async Task ADebugPrintOfACall_InAReleaseBuild(bool drops, long calls)
+    {
+        ExecuteSessionResult? result = null;
+        long total = -1;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print Touched()",
+            "End Sub",
+            "Private Function Touched() As Long",
+            "    Total = Total + 1",
+            "    Touched = Total",
+            "End Function"), (provider, run, _) =>
+            {
+                result = run;
+                total = Total(provider);
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release, releaseDropsDebugStatements: drops);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result!.Outcome, result.ErrorMessage);
+        Assert.AreEqual(calls, total);
+        CollectionAssert.AreEqual(drops ? Array.Empty<string>() : ["1"], result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task Stop_InAReleaseBuildThatDropsTheDebugStatements_EndsTheProgram_AndEveryDebugCallIsLeftOut()
+    {
+        // nothing is printed and nothing is asserted: the arguments are not evaluated.
+        ExecuteSessionResult? result = null;
+        long total = -1;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print \"dropped\"",
+            "    Debug.Assert False",
+            "#If DEBUG Then",
+            "    Exit Sub",
+            "#End If",
+            "    Total = 7",
+            "    Stop",
+            "    Total = 8",
+            "End Sub"), (provider, run, _) =>
+            {
+                result = run;
+                total = Total(provider);
+                return Task.CompletedTask;
+            }, debug: true, configuration: VBBuildConfiguration.Release, releaseDropsDebugStatements: true);
+
+        Assert.AreEqual(ExecutionOutcome.Halted, result!.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.AreEqual(0, total, "End leaves nothing of the program, and neither does a Stop in a release build");
+    }
+
     private static long LocalOf(EnvironmentSessionProvider provider, ICallStackFrame frame, string name)
     {
         var symbols = provider.Session.Symbols;

@@ -33,8 +33,8 @@ Whether there is a bare `Print` at all is the language's to say
 |VB6|Undefined, for now: it is the `Print` member of the form or report it is written in, and the platform has no forms yet.|
 |BASIC|A statement. It writes to the session's own output - the one `Debug.Print` writes to - by the same output rules ([5.4.5.8.1](#54581-output-lists)).|
 
-In BASIC it differs from `Debug.Print` in one way: it is not a debug statement, and is lowered in a release build, where `Debug.Print` leaves no
-instruction at all ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)). It is what an interactive shell - which is written in BASIC -
+In BASIC it differs from `Debug.Print` in one way: it is not a debug statement, and is lowered in every release build, including one that drops
+`Debug.Print`, which then leaves no instruction at all ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)). It is what an interactive shell - which is written in BASIC -
 writes its output with: the shell's `?` shorthand expands to it.
 
 Instruction-list lowering is told the language the body is written in (`InstructionLoweringOptions.Language`, from the environment's

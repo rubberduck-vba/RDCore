@@ -43,9 +43,20 @@ public static class SymbolDescriptorProjector
                 continue;
             }
             builder.Add(Describe(symbol, kind, childrenByParent[symbol.Uri.ToString()], moduleKey));
+
+            // what each other #If branch declares travels beside it, as a declaration of the same identity: the host defines the one of the live branch.
+            foreach (var alternative in AlternativesOf(symbol))
+            {
+                if (KindOf(alternative) is { } alternativeKind)
+                {
+                    builder.Add(Describe(alternative, alternativeKind, childrenByParent[symbol.Uri.ToString()], moduleKey));
+                }
+            }
         }
         return builder.ToImmutable();
     }
+
+    private static IEnumerable<WorkspaceSymbol> AlternativesOf(Symbol symbol) => symbol is WorkspaceSymbol { Alternatives.IsDefaultOrEmpty: false } bound ? bound.Alternatives : [];
 
     private static SymbolDescriptor Describe(Symbol symbol, SymbolDescriptorKind kind, IEnumerable<Symbol> children, string moduleKey)
     {
@@ -71,7 +82,7 @@ public static class SymbolDescriptorProjector
             ExternalTarget = symbol.GetProperty(SymbolProperties.ExternalTarget),
             IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
             UserMemId = symbol.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) ? userMemId : null,
-            Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, [], moduleKey))],
+            Members = [.. children.Where(IsNestableMember).SelectMany(child => AlternativesOf(child).Prepend(child)).Select(child => Describe(child, KindOf(child)!.Value, [], moduleKey))],
             EnumValue = (symbol as VBEnumConstMemberSymbol)?.DeclaredValue,
             External = ExternalOf(symbol),
         };
@@ -231,6 +242,7 @@ public static class SymbolDescriptorProjector
                 DeclaredBy = local.DeclaredBy,
                 Range = local.Range,
                 SelectionRange = local.SelectionRange,
+                UnlessLive = local.GetProperty(SymbolProperties.UnlessLive) is { IsDefault: false } unlessLive ? unlessLive : [],
             });
         }
         return builder.ToImmutable();

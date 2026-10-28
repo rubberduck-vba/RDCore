@@ -977,6 +977,111 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_OnlyCommentsAfterEndProcedure", resourceCulture);
             }
         }
+
+        /// <summary>Looks up a localized string similar to An #ElseIf, #Else, or #EndIf must be preceded by an #If clause.</summary>
+        public static string VBCompileError_DirectiveWithoutIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveWithoutIf", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This #End If ends no #If block: there is none before it, or the #If before it is not a directive.</summary>
+        public static string VBCompileError_DirectiveWithoutIf_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveWithoutIf_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to An #Else clause must be preceded by an #If.</summary>
+        public static string VBCompileError_HashElseWithoutIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_HashElseWithoutIf", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This #Else belongs to no #If block, or is the second #Else of its block.</summary>
+        public static string VBCompileError_HashElseWithoutIf_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_HashElseWithoutIf_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf.</summary>
+        public static string VBCompileError_ElseIfWithoutIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_ElseIfWithoutIf", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This #ElseIf belongs to no #If block, or comes after the #Else of its block.</summary>
+        public static string VBCompileError_ElseIfWithoutIf_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ElseIfWithoutIf_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to You must terminate the #If block with an #EndIf.</summary>
+        public static string VBCompileError_HashIfWithoutEndIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_HashIfWithoutEndIf", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This #If block is not ended: the module ends before its #End If.</summary>
+        public static string VBCompileError_HashIfWithoutEndIf_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_HashIfWithoutEndIf_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: Then. An #If or #ElseIf directive is written #If expression Then.</summary>
+        public static string VBCompileError_DirectiveExpectedThen_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedThen_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: expression. The condition of an #If or #ElseIf directive is a constant expression.</summary>
+        public static string VBCompileError_DirectiveExpectedExpression_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedExpression_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: end of statement. Nothing but a comment may follow a directive on its line.</summary>
+        public static string VBCompileError_DirectiveExpectedEndOfStatement_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedEndOfStatement_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: If or Else or ElseIf or End or EndIf or Const. A line that starts with # is a directive.</summary>
+        public static string VBCompileError_DirectiveExpectedKeyword_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedKeyword_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: =. A #Const directive is written #Const name = expression.</summary>
+        public static string VBCompileError_ConstDirectiveExpectedEquals_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ConstDirectiveExpectedEquals_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: identifier. A #Const directive is written #Const name = expression.</summary>
+        public static string VBCompileError_ConstDirectiveExpectedName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ConstDirectiveExpectedName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: expression. The value of a #Const directive is a constant expression of literals, conditional-compilation constants and operators.</summary>
+        public static string VBCompileError_ConstDirectiveExpression_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ConstDirectiveExpression_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses..
@@ -1389,6 +1494,15 @@ namespace RDCore.SDK {
         public static string VBCompileError_TooManyLineContinuations_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TooManyLineContinuations_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure..
+        /// </summary>
+        public static string VBCompileError_HeaderInDeadBranchesOnly_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_HeaderInDeadBranchesOnly_Verbose", resourceCulture);
             }
         }
         

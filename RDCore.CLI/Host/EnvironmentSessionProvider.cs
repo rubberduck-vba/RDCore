@@ -209,6 +209,8 @@ public sealed class EnvironmentSessionProvider(
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
         Image = new ProgramImage();
+        Image.CompilationRefused += (procedure, exception)
+            => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
         Execution = new ProgramExecution(this);
         ProjectName = project.Name;
         ModuleCount = project.Modules.Length;

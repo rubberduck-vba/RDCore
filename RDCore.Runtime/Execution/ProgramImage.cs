@@ -34,6 +34,25 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     public SemanticModelStore Semantics { get; } = new();
 
     /// <summary>
+    /// What compiles the procedures of the image to IL, when the session runs compiled code: into one collectible assembly, which goes with
+    /// the image.
+    /// </summary>
+    internal Compiled.ProcedureCompiler Compiler { get; } = new();
+
+    /// <summary>
+    /// Raised when a procedure of the image could not be compiled because the compiler failed: the procedure runs in the interpreter, and whoever hosts the
+    /// session logs the failure.
+    /// </summary>
+    public event Action<VBTypeMemberSymbol, Exception>? CompilationRefused
+    {
+        add => Compiler.Refused += value;
+        remove => Compiler.Refused -= value;
+    }
+
+    /// <summary>How long compiling the procedures of the image to IL took, all told: each was compiled the first time it was called.</summary>
+    public TimeSpan CompilationTime => Compiler.Elapsed;
+
+    /// <summary>
     /// What the designers of the session's forms declare, by the name of the form's module: what a form is created from - its state, its caption, where it starts
     /// up - when the program first uses it.
     /// </summary>

@@ -85,12 +85,18 @@ public sealed class InStrRevTests
     }
 
     [TestMethod]
-    [DataRow(2)]
     [DataRow(-1)]
+    [DataRow(240)]
+    [DataRow(5000)]
+    public void InStrRev_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, InStrRevError("abc", "b", compare: (VBCompareMethod)compare));
+
+    [TestMethod]
+    [DataRow(2, DisplayName = "vbDatabaseCompare, as Option Compare Database compares")]
     [DataRow(7)]
     [DataRow(1033)]
-    public void InStrRev_WithACompareOtherThanZeroOrOne_IsError5(int compare)
-        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, InStrRevError("abc", "b", compare: (VBCompareMethod)compare));
+    public void InStrRev_WithACompareThatIsDatabaseOrALocale_SearchesTheText(int compare)
+        => Assert.AreEqual(2, LongOf(Module().InStrRev(new VBStringValue("abc"), new VBStringValue("B"), L(-1), (VBCompareMethod)compare)));
 
     [TestMethod]
     public void InStrRev_OfAStringWithATrailingByte_SearchesItsCharacters()
@@ -119,7 +125,7 @@ public sealed class InStrRevTests
     {
         Assert.AreEqual("1", RunUnder(OptionCompare.Text, "Debug.Print InStrRev(\"Aa\", \"A\", -1, 0)").Single());
         Assert.AreEqual("2", RunUnder(OptionCompare.Binary, "Debug.Print InStrRev(\"Aa\", \"A\", -1, vbTextCompare)").Single());
-        Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, RunToErrorUnder(OptionCompare.Text, "Debug.Print InStrRev(\"Aa\", \"A\", -1, 2)"));
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, RunToErrorUnder(OptionCompare.Text, "Debug.Print InStrRev(\"Aa\", \"A\", -1, 240)"));
     }
 
     [TestMethod]
