@@ -175,7 +175,11 @@ internal sealed class DocumentDiagnosticsService(
         // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not. A document
         // that is no file is no module the host has - one of the workspace may have its name - and is analyzed for its syntax alone.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
-        var semantics = document.IsFile ? await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token) : null;
+        // the host runs the primary project only: a module of another project has the static diagnostics, and none of what running it would find out - and its
+        // name is never asked for, since the host may hold a module by that name that is another. A document that is no file is the client's alone, and none of the host's.
+        var semantics = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)))
+            ? await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token)
+            : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
 
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);

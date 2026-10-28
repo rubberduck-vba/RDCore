@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Workspace.Services;
@@ -40,9 +41,22 @@ internal interface IWorkspaceFileOperationService
 /// <summary>
 /// What the client's file operations made of the workspace.
 /// </summary>
-/// <param name="Reload">What the change of the project made of the workspace.</param>
+/// <param name="Reload">What the change of the project made of the documents of the workspace; the environment host and the symbols follow (<see cref="Completed"/>).</param>
 /// <param name="NotAdded">The source files that are not in the project, and the module name the project has already, by their path relative to the workspace root.</param>
-internal sealed record class WorkspaceFileOperationResult(WorkspaceReloadResult Reload, IReadOnlyList<(string RelativeUri, string ModuleName)> NotAdded);
+internal sealed record class WorkspaceFileOperationResult(WorkspaceReloadResult Reload, IReadOnlyList<(string RelativeUri, string ModuleName)> NotAdded)
+{
+    private Task<WorkspaceReloadResult>? _completed;
+
+    /// <summary>
+    /// Completes with what the change made of the workspace once the environment host composed its session and the symbols were defined; it does not complete while
+    /// the host is not up, and is cancelled when the server stops.
+    /// </summary>
+    public Task<WorkspaceReloadResult> Completed
+    {
+        get => _completed ?? Task.FromResult(Reload);
+        init => _completed = value;
+    }
+}
 
 internal sealed class WorkspaceFileOperationService(
     IWorkspaceReloadService reload,
@@ -50,9 +64,13 @@ internal sealed class WorkspaceFileOperationService(
     System.IO.Abstractions.IFile ioFile,
     System.IO.Abstractions.IDirectory ioDirectory,
     Func<SupportedLanguage> language,
+    IWorkspaceProjects workspaceProjects,
+    IProjectFileWriter projectFileWriter,
+    IWorkspaceDocumentService documents,
+    States.IDocumentStateProvider documentStates,
     ILogger<WorkspaceFileOperationService> logger) : IWorkspaceFileOperationService
 {
-    private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static StringComparison PathComparison => WorkspacePaths.Comparison;
 
     public Task<WorkspaceFileOperationResult?> CreatedAsync(IEnumerable<Uri> uris, CancellationToken token)
     {
@@ -71,29 +89,136 @@ internal sealed class WorkspaceFileOperationService(
         }, token);
     }
 
-    public Task<WorkspaceFileOperationResult?> RenamedAsync(IEnumerable<(Uri OldUri, Uri NewUri)> renames, CancellationToken token)
+    public async Task<WorkspaceFileOperationResult?> RenamedAsync(IEnumerable<(Uri OldUri, Uri NewUri)> renames, CancellationToken token)
     {
         var renamed = renames.ToList();
-        return ChangeAsync((project, notAdded) =>
+
+        // the primary project and the others are one operation in the order the client did them: a second rename reads the projects the first made.
+        return await InOrderAsync(async () =>
         {
-            foreach (var (oldUri, newUri) in renamed)
+            var result = await ChangeInOrderAsync((project, notAdded) => RenameInPrimaryProject(project, notAdded, renamed), token);
+            await RenameInOtherProjectsAsync(renamed, token);
+            return result;
+        });
+    }
+
+    private ProjectFile RenameInPrimaryProject(ProjectFile project, List<(string, string)> notAdded, IReadOnlyList<(Uri OldUri, Uri NewUri)> renamed)
+    {
+        foreach (var (oldUri, newUri) in renamed)
+        {
+            var oldPath = RelativeUriOf(project, oldUri);
+            var newPath = RelativeUriOf(project, newUri);
+            if (oldPath is not null && newPath is not null && Lists(project, oldPath))
             {
-                var oldPath = RelativeUriOf(project, oldUri);
-                var newPath = RelativeUriOf(project, newUri);
-                if (oldPath is not null && newPath is not null && Lists(project, oldPath))
+                project = Rename(project, oldPath, newPath);
+            }
+            else if (OutsideUriOf(project, oldUri) is { } listedOutside && Lists(project, listedOutside) && OutsideUriOf(project, newUri) is { } movedOutside)
+            {
+                // a file of another folder of the workspace that this project lists (..\Shared\Util.bas) is listed under its new path.
+                project = Rename(project, listedOutside, movedOutside);
+            }
+            else
+            {
+                // moved in from outside the workspace, or out of it, or renamed from what was not a source file: it is what was created or deleted.
+                project = oldPath is null ? project : Remove(project, oldPath);
+                project = newPath is null ? project : Add(project, newPath, notAdded);
+            }
+        }
+
+        return project;
+    }
+
+    // the projects other than the primary one list files too: what the client renamed is listed under its new path in each of them, written to its own .rdproj,
+    // and the document of the file is moved to its new path, with its text and its version.
+    private async Task RenameInOtherProjectsAsync(IReadOnlyList<(Uri OldUri, Uri NewUri)> renamed, CancellationToken token)
+    {
+        foreach (var project in workspaceProjects.Projects.Skip(1))
+        {
+            var changed = project.Project;
+            var moved = new List<(string OldPath, string? NewPath)>();
+            foreach (var (oldUri, newUri) in renamed.Where(rename => rename.OldUri.IsFile && rename.NewUri.IsFile))
+            {
+                changed = Retarget(changed, project.Root, oldUri.LocalPath, newUri.LocalPath, moved);
+            }
+
+            if (moved.Count == 0)
+            {
+                continue;
+            }
+
+            await projectFileWriter.SaveAsync(changed, token);
+            workspaceProjects.Replace(project.Root, changed);
+            foreach (var (oldPath, newPath) in moved)
+            {
+                var oldId = new TextDocumentIdentifier(new Uri(oldPath));
+                if (newPath is null)
                 {
-                    project = Rename(project, oldPath, newPath);
+                    documents.Leave(oldId, project.Root);
+                    continue;
                 }
-                else
+
+                var newId = new TextDocumentIdentifier(new Uri(newPath));
+                if (!documents.Move(oldId, newId))
                 {
-                    // moved in from outside the workspace, or out of it, or renamed from what was not a source file: it is what was created or deleted.
-                    project = oldPath is null ? project : Remove(project, oldPath);
-                    project = newPath is null ? project : Add(project, newPath, notAdded);
+                    // another project that lists the file moved it already, or it is none yet: this project is a module of the document at its new path.
+                    documentStates.Track(newId);
+                    await documents.TryLoadAsync(newId, project.Root);
                 }
             }
 
-            return project;
-        }, token);
+            logger.LogInformation("🗂️ Project '{project}' lists {files} file(s) under the path the client gave them.", project.Root, moved.Count);
+        }
+    }
+
+    // every module and other file the project lists that is the renamed file, or under the renamed folder, is listed under the path it has now - a module renamed to what
+    // is not a source file is no longer one - and so is every folder of the project that is the renamed folder, or under it.
+    private ProjectFile Retarget(ProjectFile project, string root, string oldFull, string newFull, List<(string OldPath, string? NewPath)> moved)
+    {
+        (string Old, string Now, string Relative)? Moved(string relativeUri)
+        {
+            var full = ioPath.GetFullPath(ioPath.Combine(root, relativeUri));
+            if (!WorkspaceFolders.Holds(oldFull, full))
+            {
+                return null;
+            }
+
+            var now = ioPath.GetFullPath(ioPath.Combine(newFull, ioPath.GetRelativePath(oldFull, full)));
+            return (full, now, ioPath.GetRelativePath(root, now).Replace('\\', '/'));
+        }
+
+        var info = project.ProjectInfo;
+        var modules = new List<RDCoreModule>();
+        foreach (var module in info.Modules)
+        {
+            if (Moved(module.RelativeUri) is not { } target)
+            {
+                modules.Add(module);
+            }
+            else if (IsSourceFile(target.Relative))
+            {
+                modules.Add(module with { RelativeUri = target.Relative });
+                moved.Add((target.Old, target.Now));
+            }
+            else
+            {
+                moved.Add((target.Old, null));
+            }
+        }
+
+        var otherFiles = info.OtherFiles.Select(file =>
+        {
+            if (Moved(file.RelativeUri) is not { } target)
+            {
+                return file;
+            }
+
+            moved.Add((target.Old, target.Now));
+            return file with { RelativeUri = target.Relative };
+        }).ToArray();
+
+        var folders = info.Folders.Select(folder => Moved(folder) is { } target ? target.Relative : folder).ToArray();
+
+        return project with { ProjectInfo = info with { Modules = [.. modules], OtherFiles = otherFiles, Folders = folders } };
     }
 
     public Task<WorkspaceFileOperationResult?> DeletedAsync(IEnumerable<Uri> uris, CancellationToken token)
@@ -118,10 +243,13 @@ internal sealed class WorkspaceFileOperationService(
     private Task _last = Task.CompletedTask;
 
     private Task<WorkspaceFileOperationResult?> ChangeAsync(Func<ProjectFile, List<(string, string)>, ProjectFile> change, CancellationToken token)
+        => InOrderAsync(() => ChangeInOrderAsync(change, token));
+
+    private Task<TResult> InOrderAsync<TResult>(Func<Task<TResult>> operation)
     {
         lock (_gate)
         {
-            var next = _last.ContinueWith(_ => ChangeInOrderAsync(change, token), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
+            var next = _last.ContinueWith(_ => operation(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
             _last = next;
             return next;
         }
@@ -130,17 +258,19 @@ internal sealed class WorkspaceFileOperationService(
     private async Task<WorkspaceFileOperationResult?> ChangeInOrderAsync(Func<ProjectFile, List<(string, string)>, ProjectFile> change, CancellationToken token)
     {
         var notAdded = new List<(string, string)>();
-        if (await reload.ChangeAsync(project => change(project, notAdded), token) is not { } result)
+        // the project is written and its documents are made what it lists; the host and the symbols follow without this operation, or those the client sent after it, waiting for them.
+        if (await reload.BeginChangeAsync(project => change(project, notAdded), token) is not { } step)
         {
             return null;
         }
 
+        var result = step.Started;
         if (logger.IsEnabled(LogLevel.Information) && !result.IsUnchanged)
         {
             logger.LogInformation("🗂️ The client's file operations changed the project: {added} file(s) added, {removed} removed.", result.Added, result.Removed);
         }
 
-        return new WorkspaceFileOperationResult(result, notAdded);
+        return new WorkspaceFileOperationResult(result, notAdded) { Completed = step.Completed };
     }
 
     // a file is a module when it is a source file, and nothing of the project otherwise; a folder is added with what it holds.
@@ -221,6 +351,12 @@ internal sealed class WorkspaceFileOperationService(
     // every folder a listed path is in is a folder of the project.
     private static ProjectFile WithFoldersOf(ProjectFile project, string path)
     {
+        // a file of another folder of the workspace is in no folder of this project.
+        if (path.StartsWith("../", StringComparison.Ordinal))
+        {
+            return project;
+        }
+
         var folders = project.ProjectInfo.Folders.ToList();
         for (var separator = path.IndexOf('/'); separator > 0; separator = path.IndexOf('/', separator + 1))
         {
@@ -253,6 +389,19 @@ internal sealed class WorkspaceFileOperationService(
         return relative == "." || relative.StartsWith("../", StringComparison.Ordinal) || relative == ".." || ioPath.IsPathRooted(relative) || IsUnderADotFolder(relative)
             ? null
             : relative;
+    }
+
+    // the path, relative to the project's folder, of a file another folder of the workspace holds (../Shared/Util.bas); nothing for a file no folder of the workspace
+    // holds, and nothing for one the project's own folder holds.
+    private string? OutsideUriOf(ProjectFile project, Uri uri)
+    {
+        if (!uri.IsFile || !workspaceProjects.Folders.Contains(uri.LocalPath))
+        {
+            return null;
+        }
+
+        var relative = ioPath.GetRelativePath(project.Uri, uri.LocalPath).Replace('\\', '/');
+        return relative.StartsWith("../", StringComparison.Ordinal) ? relative : null;
     }
 
     private static bool IsUnderADotFolder(string relativePath) => relativePath.Split('/').Any(segment => segment.StartsWith('.'));

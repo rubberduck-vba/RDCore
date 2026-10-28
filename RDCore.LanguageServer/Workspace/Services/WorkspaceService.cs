@@ -17,6 +17,15 @@ internal interface IWorkspaceService
     /// Asynchronously loads the workspace from the specified root directory, including all modules and other files defined in the project file.
     /// </summary>
     Task LoadAsync(string workspaceRoot);
+
+    /// <summary>
+    /// Loads the workspace a client opened with several folders: the project of the first, which is the one the server runs, and the project of each of the
+    /// others that is a project folder (<see cref="RDCore.SDK.Workspace.WorkspaceFolderRoles"/>). A file a project lists that no folder holds is refused
+    /// (<see cref="IWorkspaceProjects.Refused"/>).
+    /// </summary>
+    /// <param name="workspaceRoot">The first folder, the primary project's.</param>
+    /// <param name="folders">The folders the client gave, the first included or not.</param>
+    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders);
     /// <summary>
     /// Asynchronously serializes the project file to disk.
     /// </summary>
@@ -64,8 +73,11 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     IProjectFileService projectFileService,
     IWorkspaceDocumentService documentService,
     States.IDocumentStateProvider documentStateProvider,
-    Func<SupportedLanguage> language) : IWorkspaceService
+    Func<SupportedLanguage> language,
+    IWorkspaceProjects projects,
+    RDCore.SDK.Workspace.IProjectFileLoader projectFileLoader) : IWorkspaceService
 {
+    private readonly IWorkspaceProjects _projects = projects;
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
 
     // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then.
@@ -240,7 +252,9 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         logger.LogInformation("✅ RemoveReference completed. A reference was successfully removed from the workspace.");
     }
 
-    public async Task LoadAsync(string workspaceRoot)
+    public Task LoadAsync(string workspaceRoot) => LoadAsync(workspaceRoot, [workspaceRoot]);
+
+    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders)
     {
         if (serverStateProvider.State.Value != ServerStateValue.Initializing)
         {
@@ -257,29 +271,77 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         }
 
         documentService.Initialize(workspaceRoot);
+        // the root is a folder of the workspace whether or not the client lists it among its folders.
+        string[] all = [workspaceRoot, .. folders];
+        _projects.Initialize(workspaceRoot, folders, all.Where(HoldsAProject));
+        await LoadOtherProjectsAsync();
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
     }
 
+    private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));
+
+    // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
+    private async Task LoadOtherProjectsAsync()
+    {
+        var primary = _projects.Projects[0].Root;
+        foreach (var root in _projects.Folders.Roots.Where(root => !WorkspacePaths.Same(primary, root)))
+        {
+            if (_projects.Roles().First(entry => WorkspacePaths.Same(entry.Root, root)).Role != WorkspaceFolderRole.Project)
+            {
+                logger.LogInformation("📁 '{folder}' holds sources a project lists, and is no project.", root);
+                continue;
+            }
+
+            var project = await projectFileLoader.LoadOrSynthesizeAsync(root, language());
+            _projects.Add(new WorkspaceProject(root, project));
+            logger.LogInformation("📁 Project '{name}' was loaded from '{folder}'.", project.ProjectInfo.Name, root);
+        }
+    }
+
     private async Task LoadWorkspaceFilesAsync()
     {
-        var workspaceRoot = projectFileService.Project.Uri;
-        var files = ProjectInfo.Modules
-            .Concat(ProjectInfo.OtherFiles)
-            .Select(file => new TextDocumentIdentifier(ioPath.Combine(workspaceRoot, file.RelativeUri)))
-            .ToList();
+        // each project's files: a path that climbs out of its folder (..\Shared\Util.bas) or is absolute is one only if a folder of the workspace holds it.
+        var listed = new List<(string Root, TextDocumentIdentifier Id, bool IsOther)>();
+        foreach (var project in _projects.Projects)
+        {
+            var info = project.Project.ProjectInfo;
+            foreach (var (file, isOther) in info.Modules.Select(module => ((RDCoreFile)module, false))
+                .Concat(info.OtherFiles.Select(other => (other, !info.Modules.Any(module => string.Equals(module.RelativeUri, other.RelativeUri, WorkspacePaths.Comparison))))))
+            {
+                var path = ioPath.Combine(project.Root, file.RelativeUri);
+                if (ioPath.IsPathRooted(file.RelativeUri) || WorkspacePaths.Climbs(file.RelativeUri))
+                {
+                    path = ioPath.GetFullPath(path);
+                    if (!_projects.Folders.Contains(path))
+                    {
+                        _projects.Refuse(project.Root, file.RelativeUri);
+                        logger.LogWarning("⚠️ '{file}' is listed by project '{project}' and no folder of the workspace holds it: it is refused.", file.RelativeUri, project.Root);
+                        continue;
+                    }
+                }
+
+                listed.Add((project.Root, new TextDocumentIdentifier(path), isOther));
+            }
+        }
+
+        var files = listed.Select(entry => entry.Id).Distinct().ToList();
 
         // seed every known document as Unloaded before loading: the document service transitions
         // state per file and each transition is only valid from a tracked Unloaded state.
         documentStateProvider.Initialize(files);
 
-        // what the project lists as other files is loaded and tracked, and never parsed as code: a resource file, a README.
-        documentService.SetOtherFiles(ProjectInfo.OtherFiles
-            .Where(file => !ProjectInfo.Modules.Any(module => string.Equals(module.RelativeUri, file.RelativeUri, StringComparison.OrdinalIgnoreCase)))
-            .Select(file => new TextDocumentIdentifier(ioPath.Combine(workspaceRoot, file.RelativeUri))));
+        // what a project lists as other files is loaded and tracked, and never parsed as code: a resource file, a README.
+        documentService.SetOtherFiles(listed.Where(entry => entry.IsOther).Select(entry => entry.Id).Except(listed.Where(entry => !entry.IsOther).Select(entry => entry.Id)));
 
-        await Task.WhenAll(files.Select(documentService.TryLoadAsync));
+        // the projects load their files one after the other, so that the project that lists a file first is the one the document belongs to; the files of one
+        // project load together.
+        foreach (var project in listed.GroupBy(entry => entry.Root))
+        {
+            await Task.WhenAll(project.Select(entry => documentService.TryLoadAsync(entry.Id, project.Key)));
+        }
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("✅ LoadWorkspaceFiles completed ({files} tasks).", files.Count);

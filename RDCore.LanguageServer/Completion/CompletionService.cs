@@ -121,6 +121,7 @@ internal sealed class CompletionService(
     IClientVerbRegistry verbs,
     IOptions<SdkAppOptions> options,
     ILogger<CompletionService> logger,
+    IWorkspaceProjects workspaceProjects,
     WorkspaceCompositionCache? compositions = null) : ICompletionService
 {
     // the name the expression a member is accessed on is assigned to, in the line that stands for the one being typed: a name no module declares.
@@ -433,12 +434,19 @@ internal sealed class CompletionService(
         // a document of no project's - one that is no file, or of a server with no workspace - is a project of its own: no module of the workspace is composed
         // with it. A fragment the shell completes is of the workspace.
         var isOwnProject = !address.IsFile || documents.WorkspaceRoot.Length == 0;
-        var workspaceRoot = SymbolUri.RootOf(address, documents.WorkspaceRoot);
+
+        // any other document is completed in the project that loaded it, and so is a line typed at a prompt: the primary project's.
+        var root = !isOwnProject && documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
+        var primary = isOwnProject || WorkspacePaths.Same(root, documents.WorkspaceRoot);
+        var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : new Uri(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
+
+        // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
         var composition = _compositions.GetOrCompose(
-            workspaceRoot, [.. isOwnProject ? [] : OtherModules(workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver, projectName: referencedLibraries.ProjectName,
+            workspaceRoot, [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
+            projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
+            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null);
 
         return (composition, syntaxTree, workspaceRoot, moduleUri);
     }
@@ -459,9 +467,9 @@ internal sealed class CompletionService(
     }
 
     // the workspace's modules but the one being completed, as the symbol sync composes them.
-    private IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> OtherModules(Uri workspaceRoot, string moduleName)
+    private IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> OtherModules(string root, Uri workspaceRoot, string moduleName)
     {
-        foreach (var document in documents.GetAllDocuments())
+        foreach (var document in documents.GetProjectDocuments(root))
         {
             if (!parsing.TryGetCached(document.Id.Uri.ToUri(), out var parse) || parse.SyntaxTree is null)
             {

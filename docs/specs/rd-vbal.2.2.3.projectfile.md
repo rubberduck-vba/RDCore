@@ -41,7 +41,8 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
   "References": [RDCoreReference],
   "Modules": [RDCoreModule],
   "OtherFiles": [RDCoreFile],
-  "Folders": []
+  "Folders": [],
+  "SourceProject": "MyProj.vbp"
 }
 ```
 
@@ -52,6 +53,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 |`Modules`|array of [`RDCoreModule`](#2233-rdcoremodule)|The project source files.|
 |`OtherFiles`|array of [`RDCoreFile`](#2234-rdcorefile)|Any non-source files included in the project.|
 |`Folders`|array of `string`|The names of all the folders in the project, whether they contain source code files or not.|
+|`SourceProject`|`string`, optional|The Visual Basic 6 project (`.vbp`) the project was imported from, by its path relative to the folder of the `.rdproj`. The import writes it, a second import of the project keeps it, and nothing else changes it. It is what makes a project an _imported_ one: a `.vbp` next to a `.rdproj` that does not record it is not an import. Absent for a project that was not imported.|
 
 > [!IMPORTANT]
 > The `Name` of a project **must** be a valid _identifier name_. It **should not** be `VBA`, or any other _reserved identifier_ name.
@@ -111,7 +113,9 @@ The order in which project references appear in the `.rdproj` file of a _workspa
 |`DocClassType`|A `string` value that can be parsed as a member of the [`DocClassType`](#22331-docclasstype-enum) enumeration.|
 
 > [!IMPORTANT]
-> The value of the `Name` property of an `RDCoreModule` **must** be unique across the entire _workspace_.
+> The value of the `Name` property of an `RDCoreModule` **must** be unique within its _project_. A project is its own namespace: two projects of a _workspace_ can each have a `Module1`.
+
+A client can open several folders (**LSP 3.17** `workspaceFolders`). The first is the project the platform runs, and each other folder that is a project's is a project that is analyzed - diagnostics, navigation, completion - and not run. The first folder is always a project. A later folder that holds a `.rdproj` of its own is a project, imported or native, even when another project lists files in it: a file two projects list is a module of each. A later folder that holds no `.rdproj` is only a place for sources when a project loaded before it lists files in it, and a project when none does. This is read when the workspace is loaded. The folders are the bounds of the workspace: a module path that climbs out of the project's folder (`..\Shared\Util.bas`) is accepted when a folder of the workspace holds the file, and is refused, and reported to the client, otherwise. Only the first project is run: the others get the language server's analysis, and not the environment host's. A file that two projects list is one document, and a module of each project - with a copy of its own, as in Visual Basic 6: each project reaches its own copy's `Friend` members and `Private` classes, with module-level state of its own. The diagnostics of the document are the first project's that loaded it, since a client keeps one set of diagnostics for a document. A file the client renames (`workspace/didRenameFiles`) is listed under its new path by every project that lists it, each in its own `.rdproj`; a project other than the first is not reloaded by the other file operations (create, delete) yet. _Known limit:_ only the first project's libraries are resolved: the other projects see the standard library and their own modules, and a name from a library they reference is not found (nothing tells the client yet).
 
 The `Name` of an `RDCoreModule` is always supplied by a `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)). In case of a mismatch between `Name` and the value of the `VB_Name` attribute, _the attribute value always takes precedence_.
 
@@ -183,13 +187,13 @@ A path is resolved against the `.vbp`'s folder first: `..\MyProj\Util.bas`, from
 |A reference to a library the platform has no description of|It cannot be resolved.|
 |A reference to another project (`*\A`)|A project cannot reference another one yet.|
 |A control (`Object`)|The platform hosts no ActiveX controls.|
-|A file outside the project's folder (`..\Shared\Utils.bas`)|It is a module of this project, as in VB6: qualified by the project's name, and a copy of its own in each project that lists it. Its folder is a _source folder_ the client adds to the workspace, not a project, and a `.rdproj` in it is ignored. The platform never takes in a folder outside the workspace folders it is given. Not carried over yet: the import notes it until the platform takes in source folders.|
+|A file outside the project's folder (`..\Shared\Utils.bas`)|It is a module of this project, as in VB6: qualified by the project's name, and a copy of its own in each project that lists it. Its folder, when it holds no `.rdproj`, is a _source folder_ the client adds to the workspace, not a project. The platform never takes in a folder outside the workspace folders it is given. Not carried over yet: the import notes it until the platform takes in source folders.|
 |A file at an absolute path|A project lists the files of its own folder.|
 |The startup object (`Startup`)|A project file does not say it yet.|
 |The project's type (`Type=Exe`, `OleDll`, `OleExe`, `Control`)|A project file does not say it yet: whether the project is run, or used by being referenced.|
 |Conditional compilation arguments VB6 refuses|VB6 refuses the whole line.|
 
-A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([`VbpImport.Into`](../api/RDCore.SDK.Workspace.VbpImport.html)). The `.vbp` describes the project's name, references, modules and other files, their folders, and its conditional compilation arguments, which replace what the `.rdproj` says of them: a file the `.vbp` no longer lists is no longer the project's. The project file's settings files (`Configuration`), the document class of a module (`Super`, by its path), and the type library information of a reference (`TypeLibInfoPath`, by its name) are kept, so a client that keeps a `.vbp` and a `.rdproj` in step can import the `.vbp` again after each change. A `.rdproj` that cannot be read is replaced whole.
+A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([`VbpImport.Into`](../api/RDCore.SDK.Workspace.VbpImport.html)). The `.vbp` describes the project's name, references, modules and other files, their folders, and its conditional compilation arguments, which replace what the `.rdproj` says of them: a file the `.vbp` no longer lists is no longer the project's. The project file's settings files (`Configuration`), the document class of a module (`Super`, by its path), and the type library information of a reference (`TypeLibInfoPath`, by its name) are kept, so a client that keeps a `.vbp` and a `.rdproj` in step can import the `.vbp` again after each change. A `.rdproj` that cannot be read is replaced whole. The `.rdproj` the import writes records the `.vbp` it was made of (`SourceProject`).
 
 `rdcore.importProject` imports a VB6 project in a client of the platform ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#workspaceexecutecommand)). `rdc import <path>` does in command mode, without starting the platform: `<path>` is the `.vbp`, or a folder with one. It writes what was skipped as warnings. A folder that has a `.rdproj` already keeps it, unless `--force` is given. It exits with `1` when `<path>` is not found, or is a folder with no `.vbp` or several.
 
