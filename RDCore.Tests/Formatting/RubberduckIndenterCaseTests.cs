@@ -12,7 +12,7 @@ namespace RDCore.Tests.Formatting;
 /// <remarks>
 /// The cases are data (<c>Data\rubberduck-indenter-cases.json</c>, from RubberduckTests\SmartIndenter): what the expected lines are is what Rubberduck's indenter
 /// was tested to write, and nothing of its code is in the engine. A case whose expectation is of what the indenter does not do yet - the alignment of
-/// continuations, comments and declarations, empty lines, the spacing of procedures - is said so, with what it waits for.
+/// continuations, comments and declarations, empty lines, the spacing of procedures - is said so, with what the engine does not do yet.
 /// </remarks>
 [TestClass]
 public sealed class RubberduckIndenterCaseTests
@@ -30,94 +30,94 @@ public sealed class RubberduckIndenterCaseTests
 
     public static IEnumerable<object[]> AllCases => Cases.Value.Select(item => new object[] { item.Source });
 
-    // what the engine does not do yet, and the slice that does it: a case that waits for one is left out until it is done, and said so.
+    // the cases of what the engine does not do yet: each is left out, and said so, until it does.
     private static readonly Dictionary<string, string> Waiting = new(StringComparer.Ordinal)
     {
-        ["EndOfLineCommentTests#AbsolutePositionWorks"] = "F3: end-of-line comments",
-        ["EndOfLineCommentTests#StandardGapWorks"] = "F3: end-of-line comments",
-        ["EndOfLineCommentTests#AlignInColumnWorks"] = "F3: end-of-line comments",
-        ["EndOfLineCommentTests#AbsoluteFallsBackToOneSpace"] = "F3: end-of-line comments",
-        ["EndOfLineCommentTests#WorksOutsideOfProcedures"] = "F3: end-of-line comments",
-        ["EndOfLineCommentTests#WorksInsideEnums"] = "F3: end-of-line comments",
-        ["LineContinuationTests#DeclarationLineAlignsCorrectly"] = "F3: continuations",
-        ["LineContinuationTests#DeclarationPtrSafeLineAlignsCorrectly"] = "F3: continuations",
-        ["LineContinuationTests#FunctionParametersAlignCorrectly"] = "F3: continuations",
-        ["LineContinuationTests#NamedParametersAlignCorrectly"] = "F3: continuations",
-        ["LineContinuationTests#IgnoreOperatorsInContinuationsOnWorks"] = "F3: continuations",
-        ["LineContinuationTests#IgnoreOperatorsInContinuationsOffWorks"] = "F3: continuations",
-        ["LineContinuationTests#ContinuedEndOfLineCommentAligned"] = "F3: continuations",
-        ["LineContinuationTests#DoWhileOnTwoLinesWorks"] = "F3: continuations",
-        ["LineContinuationTests#ContinuedIfThenWorks"] = "F3: continuations",
-        ["LineContinuationTests#MultipleFunctionCallsWorks"] = "F3: continuations",
-        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCall"] = "F3: continuations",
-        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParam"] = "F3: continuations",
-        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParamString"] = "F3: continuations",
-        ["LineContinuationTests#UncontinuedNestedFunctionWorks"] = "F3: continuations",
-        ["LineContinuationTests#ContinuedNestedFunctionWorks"] = "F3: continuations",
-        ["LineContinuationTests#MultiLineContinuedFunctionWorks"] = "F3: continuations",
-        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWorks"] = "F3: continuations",
-        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorks"] = "F3: continuations",
-        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorksBareType"] = "F3: continuations",
-        ["LineContinuationTests#ContinuationWithOnlyCommentWorks"] = "F3: continuations",
-        ["LineContinuationTests#TrailingMultiLineCommentFirstWorks"] = "F3: continuations",
-        ["LineContinuationTests#TrailingMultiLineCommentSecondWorks"] = "F3: continuations",
-        ["LineContinuationTests#SplitNamedParameterAlignsCorrectly"] = "F3: continuations",
-        ["LineContinuationTests#MultipleSplitNamedParametersAlignCorrectly"] = "F3: continuations",
-        ["MiscAndCornerCaseTests#HexLineNumbersWork"] = "F9: pretty listing, a hex line number listed in decimal",
-        ["MiscAndCornerCaseTests#MultiLineDimWithCommasAlignDimsWorks"] = "F3: Dim alignment",
-        ["MiscAndCornerCaseTests#MultiLineDimWithCommasDontIndentFirstBlockWorks"] = "F3: the first blocks of a procedure",
-        ["MiscAndCornerCaseTests#SingleQuoteInEndOfLineCommentWorks"] = "F3: end-of-line comments",
-        ["MiscAndCornerCaseTests#BracketsInEndOfLineCommentsWork"] = "F3: end-of-line comments",
-        ["MiscAndCornerCaseTests#AlignmentAnchorsInStringLiteralsAreIgnored"] = "F3: continuations",
-        ["MiscAndCornerCaseTests#LineNumbersInsideContinuationsWork"] = "F3: continuations",
-        ["SpecificSettingTests#IndentFirstCommentBlockOffWorks"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentEnumTypeCommentBlockOnWorks"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstCommentBlockOffOnlyOnFirst"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstCommentBlockOffIgnoreEmptyOnlyOnFirst"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstDeclarationBlockOffWorks"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstDeclarationBlockOffIgnoreEmptyWorks"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstDeclarationCommentBlockOffWorksIntermingled"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstDeclarationCommentBlockOffIgnoreEmptyWorksIntermingled"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#IndentFirstDeclarationBlockOffOnlyOnFirst"] = "F3: the first blocks of a procedure",
-        ["SpecificSettingTests#ForceDebugPrintInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#ForceDebugAssertInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#ForceStopInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#ForceOnlyDebugPrintInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#ForceOnlyDebugAssertInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#ForceOnlyStopInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#AlignCommentsWithCodeOffWorks"] = "F3: comments",
-        ["SpecificSettingTests#ForceCompilerDirectivesInColumn1OnWorks"] = "F3: column 1",
-        ["SpecificSettingTests#AlignDimsOnWorks"] = "F3: Dim alignment",
-        ["SpecificSettingTests#AlignDimsFallsBackToOneSpace"] = "F3: Dim alignment",
-        ["SpecificSettingTests#AlignDimColumnWorksVariedSpacing"] = "F3: Dim alignment",
-        ["SpecificSettingTests#RemoveEmptyLinesWorks"] = "F3: empty lines",
-        ["SpecificSettingTests#IndentEmptyLinesWorks"] = "F3: empty lines",
-        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorks"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_RemoveExtraLinesWorks"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_RemoveAllExtraLinesWorks"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_MixedInsertsAndDeletesWorks"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithProperties"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_GroupSingleProperty"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_GroupMultipleProperties"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithTypes"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithEnums"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_CommentsDoNotEffectSpacing"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_DimBlocksStayIntact"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_IgnoresDeclareFunctions"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInProcedures"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInEnumsOrTypes"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_MaintainsSpacingAboveFirstProcedure"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_MaintainsIgnoresCommentAboveFirstProcedure"] = "F3: vertical spacing",
-        ["VerticalSpacingTests#VerticalSpacing_RemovesExtraSpacingAboveFirstProcedure"] = "F3: vertical spacing",
+        ["EndOfLineCommentTests#AbsolutePositionWorks"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#StandardGapWorks"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#AlignInColumnWorks"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#AbsoluteFallsBackToOneSpace"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#WorksOutsideOfProcedures"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#WorksInsideEnums"] = "end-of-line comments are not aligned yet",
+        ["LineContinuationTests#DeclarationLineAlignsCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#DeclarationPtrSafeLineAlignsCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#FunctionParametersAlignCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#NamedParametersAlignCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#IgnoreOperatorsInContinuationsOnWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#IgnoreOperatorsInContinuationsOffWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuedEndOfLineCommentAligned"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#DoWhileOnTwoLinesWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuedIfThenWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultipleFunctionCallsWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCall"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParam"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParamString"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#UncontinuedNestedFunctionWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuedNestedFunctionWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineContinuedFunctionWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorksBareType"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationWithOnlyCommentWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#TrailingMultiLineCommentFirstWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#TrailingMultiLineCommentSecondWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#SplitNamedParameterAlignsCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultipleSplitNamedParametersAlignCorrectly"] = "continuation lines are not aligned yet",
+        ["MiscAndCornerCaseTests#HexLineNumbersWork"] = "a line is not listed from its compiled form yet, which lists a hex line number in decimal",
+        ["MiscAndCornerCaseTests#MultiLineDimWithCommasAlignDimsWorks"] = "declarations are not aligned yet",
+        ["MiscAndCornerCaseTests#MultiLineDimWithCommasDontIndentFirstBlockWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["MiscAndCornerCaseTests#SingleQuoteInEndOfLineCommentWorks"] = "end-of-line comments are not aligned yet",
+        ["MiscAndCornerCaseTests#BracketsInEndOfLineCommentsWork"] = "end-of-line comments are not aligned yet",
+        ["MiscAndCornerCaseTests#AlignmentAnchorsInStringLiteralsAreIgnored"] = "continuation lines are not aligned yet",
+        ["MiscAndCornerCaseTests#LineNumbersInsideContinuationsWork"] = "continuation lines are not aligned yet",
+        ["SpecificSettingTests#IndentFirstCommentBlockOffWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentEnumTypeCommentBlockOnWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstCommentBlockOffOnlyOnFirst"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstCommentBlockOffIgnoreEmptyOnlyOnFirst"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationBlockOffWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationBlockOffIgnoreEmptyWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationCommentBlockOffWorksIntermingled"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationCommentBlockOffIgnoreEmptyWorksIntermingled"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationBlockOffOnlyOnFirst"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#ForceDebugPrintInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceDebugAssertInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceStopInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceOnlyDebugPrintInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceOnlyDebugAssertInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceOnlyStopInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#AlignCommentsWithCodeOffWorks"] = "a comment that is not aligned with the code is not kept where it is yet",
+        ["SpecificSettingTests#ForceCompilerDirectivesInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#AlignDimsOnWorks"] = "declarations are not aligned yet",
+        ["SpecificSettingTests#AlignDimsFallsBackToOneSpace"] = "declarations are not aligned yet",
+        ["SpecificSettingTests#AlignDimColumnWorksVariedSpacing"] = "declarations are not aligned yet",
+        ["SpecificSettingTests#RemoveEmptyLinesWorks"] = "empty lines are not removed or indented yet",
+        ["SpecificSettingTests#IndentEmptyLinesWorks"] = "empty lines are not removed or indented yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_RemoveExtraLinesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_RemoveAllExtraLinesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_MixedInsertsAndDeletesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithProperties"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_GroupSingleProperty"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_GroupMultipleProperties"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithTypes"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithEnums"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_CommentsDoNotEffectSpacing"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_DimBlocksStayIntact"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_IgnoresDeclareFunctions"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInProcedures"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInEnumsOrTypes"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_MaintainsSpacingAboveFirstProcedure"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_MaintainsIgnoresCommentAboveFirstProcedure"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_RemovesExtraSpacingAboveFirstProcedure"] = "the lines between procedures are not spaced yet",
     };
 
     [TestMethod]
     [DynamicData(nameof(AllCases))]
     public void TheEngine_IndentsAsTheCaseExpects(string source)
     {
-        if (Waiting.TryGetValue(source, out var slice))
+        if (Waiting.TryGetValue(source, out var missing))
         {
-            Assert.Inconclusive($"{source}: waits for {slice}.");
+            Assert.Inconclusive($"{source}: {missing}.");
         }
 
         var item = Cases.Value.Single(candidate => candidate.Source == source);
@@ -135,9 +135,9 @@ public sealed class RubberduckIndenterCaseTests
     [DynamicData(nameof(AllCases))]
     public void WhatTheCaseExpects_IsGivenNoEdit(string source)
     {
-        if (Waiting.TryGetValue(source, out var slice))
+        if (Waiting.TryGetValue(source, out var missing))
         {
-            Assert.Inconclusive($"{source}: waits for {slice}.");
+            Assert.Inconclusive($"{source}: {missing}.");
         }
 
         var item = Cases.Value.Single(candidate => candidate.Source == source);
