@@ -95,7 +95,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
     /// <param name="token">Stops the benchmark between two runs, and the run that is going on.</param>
     public async Task<BenchReport> RunAsync(BenchWorkspace workspace, BenchOptions options, Action<string>? progress = null, CancellationToken token = default)
     {
-        var profile = options.Engine is { } engine && environment is SDK.Runtime.RuntimeEnvironmentProfile configured ? configured with { ExecutionEngine = engine } : environment;
+        var profile = options.Engine is { } engine ? ProfileOf(environment) with { ExecutionEngine = engine } : environment;
         var load = await LoadAsync(workspace, profile, token);
         var provider = load.Provider;
 
@@ -151,6 +151,13 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
     private sealed record class LoadedWorkspace(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems);
+
+    // the environment as a profile whose engine can be another, whatever implements it: --engine is never ignored.
+    private static SDK.Runtime.RuntimeEnvironmentProfile ProfileOf(IRuntimeEnvironmentProfile environment)
+        => environment as SDK.Runtime.RuntimeEnvironmentProfile ?? new(
+            environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
+            environment.ErlLineNumbering, environment.AllowDllImports, environment.Language, environment.AllowAutomation, environment.LegacyRegistrySettings,
+            environment.Regional, environment.ExecutionEngine, environment.Configuration, environment.ReleaseDropsDebugStatements);
 
     // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile.
     private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token)

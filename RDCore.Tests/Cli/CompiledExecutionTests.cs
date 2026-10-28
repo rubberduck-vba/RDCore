@@ -8,7 +8,7 @@ using System.Reflection.Emit;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The compiled engine (IR lowering stage 2, S2.1) against the interpreter: a program runs the same either way - what it prints, the error it raises and
+/// The compiled engine against the interpreter: a program runs the same either way - what it prints, the error it raises and
 /// where - and the procedures compiled code does are compiled, and the others say why they are not.
 /// </summary>
 [TestClass]
@@ -42,8 +42,13 @@ public sealed class CompiledExecutionTests
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorCode} {result.ErrorMessage} "
             + $"@{result.ErrorLine}:{result.ErrorCharacter} Erl {result.ErrorLineNumber} | {string.Join(" < ", result.StackTrace.Select(frame => $"{frame.Procedure}@{frame.Line}:{frame.Character}"))}";
 
-    // the program run both ways: the compiled run is the interpreted one, and the procedures named were compiled.
-    private static async Task<Run> AssertAlikeAsync(string program, params string[] compiled)
+    // the program run both ways: the compiled run is the interpreted one, and the procedures named were compiled and ran in compiled code to their end.
+    private static Task<Run> AssertAlikeAsync(string program, params string[] compiled) => AssertAlikeAsync(program, walksBack: false, compiled);
+
+    // the same, of procedures whose activation compiled code hands to the interpreter: what fails, or what no payload operation does.
+    private static Task<Run> AssertAlikeWalkingBackAsync(string program, params string[] compiled) => AssertAlikeAsync(program, walksBack: true, compiled);
+
+    private static async Task<Run> AssertAlikeAsync(string program, bool walksBack, string[] compiled)
     {
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
         var run = await RunAsync(program, VBExecutionEngine.Compiled);
@@ -53,6 +58,14 @@ public sealed class CompiledExecutionTests
         {
             Assert.IsTrue(run.Compiled.TryGetValue(name, out var result), $"{name} was not called");
             Assert.IsNotNull(result.Body, $"{name}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
+            if (walksBack)
+            {
+                Assert.IsGreaterThan(0L, result.Body.WalkBacks, $"{name} ran to its end in compiled code");
+            }
+            else
+            {
+                Assert.AreEqual(0L, result.Body.WalkBacks, $"{name} was handed to the interpreter");
+            }
         }
 
         Assert.IsEmpty(interpreted.Compiled, "the interpreter compiles nothing");
@@ -185,7 +198,7 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public async Task AnOverflowInACompiledLoop_IsRaisedWhereTheInterpreterRaisesIt()
     {
-        var run = await AssertAlikeAsync(Program(
+        var run = await AssertAlikeWalkingBackAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Count()",
             "End Sub",
@@ -202,7 +215,7 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public async Task ADivisionByZero_IsRaisedAsTheInterpreterRaisesIt()
     {
-        var run = await AssertAlikeAsync(Program(
+        var run = await AssertAlikeWalkingBackAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Quotient(7, 0)",
             "End Sub",
@@ -216,7 +229,27 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public async Task AConversionThatRounds_IsTheInterpretersToMake_AndTheLoopGoesOn()
     {
-        // 2.5 to a Long rounds to even, which no payload operation does: the interpreter is handed the activation at that Let, and runs the rest of it.
+        // a Double variable to a Long rounds to even, which no payload operation does: the interpreter is handed the activation at that Let, and runs the
+        // rest of it.
+        await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rounded()",
+            "End Sub",
+            "Private Function Rounded() As Long",
+            "    Dim I As Long, L As Long, M As Long, D As Double",
+            "    For I = 1 To 5",
+            "        D = I + 0.5",
+            "        M = D",
+            "        L = L * 10 + M",
+            "    Next",
+            "    Rounded = L",
+            "End Function"), "Rounded");
+    }
+
+    [TestMethod]
+    public async Task AnExtendedResultStoredInALong_RoundsToEven_AsTheInterpreterRoundsIt()
+    {
+        // what an arithmetic operation of a Double computes is stored in its destination by compiled code, rounded as the interpreter rounds it.
         await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Rounded()",

@@ -95,8 +95,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // set once a program that waited for the cancellation was resumed: a cancelled token stays cancelled, and it was one break.
     private bool _cancellationAcknowledged;
 
-    /// <summary>What stops the program between two instructions: what compiled code polls, and hands the program to this executor for.</summary>
-    internal CancellationToken Cancellation => cancellation;
+    /// <summary>
+    /// Whether the program is to stop between two instructions: what stops it is cancelled, and that is not a break the program was already
+    /// resumed from. What compiled code polls, and hands the program to this executor for.
+    /// </summary>
+    internal bool IsCancellationPending => cancellation.IsCancellationRequested && !_cancellationAcknowledged;
 
     /// <summary>The observation of the analysis the instructions are evaluated for, if they are: an analysis runs no compiled code.</summary>
     internal AnalysisObservation? Observation => observation;

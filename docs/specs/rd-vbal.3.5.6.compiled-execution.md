@@ -59,7 +59,8 @@ activation under the debugger.
 |`ProcedureEmitter`|Writes one static method per procedure, `Run(CompiledActivation)`, with an IL label for each instruction.|
 |`ProcedureCompiler`|Compiles each procedure on its first call, into one collectible assembly for each program image, and keeps the result for as long as the session's scopes are the same.|
 |`CompiledActivation`|What compiled code is given: its parameters, the poll, and the hand-over to the interpreter.|
-|`PayloadOperations`, `Extended`|The operations compiled code and the interpreter share.|
+|`PayloadOperations`|The operations compiled code and the interpreter share.|
+|`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 
 The IL calls only members of `RDCore.Runtime.Compiled`, and a test checks it.
 

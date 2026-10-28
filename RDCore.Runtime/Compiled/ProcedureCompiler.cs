@@ -84,23 +84,24 @@ internal sealed class ProcedureCompiler
     private CompiledBody? Emit(ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, out Ineligibility? refusal)
     {
         refusal = null;
-        var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
-        var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
-        ProcedureEmitter.Emit(analysis, method);
-
-        var run = type.CreateType().GetMethod("Run")!;
         try
         {
-            // the IL is compiled now, rather than at the first call: code the runtime refuses is the interpreter's, and the call made as if nothing was compiled.
+            var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
+            var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
+            ProcedureEmitter.Emit(analysis, method);
+
+            // the IL is compiled now, rather than at the first call: code the runtime refuses is the interpreter's, and the call made as if nothing was
+            // compiled. So is an instruction the analysis let through and the emitter has no IL for, and a type that cannot be created.
+            var run = type.CreateType().GetMethod("Run")!;
             RuntimeHelpers.PrepareMethod(run.MethodHandle);
+            return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops);
         }
-        catch (InvalidProgramException exception)
+        catch (Exception exception) when (exception is InvalidProgramException or InvalidOperationException or NotSupportedException or TypeLoadException
+            or BadImageFormatException)
         {
             refusal = new Ineligibility(IneligibilityKind.Refused, exception.Message);
             return null;
         }
-
-        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops);
     }
 }
 

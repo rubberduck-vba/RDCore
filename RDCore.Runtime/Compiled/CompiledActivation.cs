@@ -36,14 +36,12 @@ public sealed class CompiledActivation
     private readonly ProcedureExecutor _executor;
     private readonly RuntimeEvaluationContext _context;
     private readonly CompiledBody _body;
-    private readonly CancellationToken _cancellation;
     private readonly ISessionHalt _halt;
 
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body)
     {
         (_session, _frame, _list, _executor, _context, _body) = (session, frame, list, executor, context, body);
-        _cancellation = executor.Cancellation;
         _halt = session.Halt;
     }
 
@@ -67,7 +65,9 @@ public sealed class CompiledActivation
     private bool IsStopping()
     {
         _untilPoll = PollInterval;
-        return _cancellation.IsCancellationRequested || _halt.Gate is not null;
+
+        // a cancellation the program was resumed from is not asked about again: the interpreter would run the activation on without breaking.
+        return _executor.IsCancellationPending || _halt.Gate is not null;
     }
 
     /// <summary>The payload of the parameter in <paramref name="slot"/>, of an integral kind, when its cell holds one.</summary>
