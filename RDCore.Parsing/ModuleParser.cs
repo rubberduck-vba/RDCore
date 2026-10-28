@@ -50,7 +50,11 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
-    public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default)
+    public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default) => Parse(uri, content, anchorOffset, []);
+
+    // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
+    // of its own, so that no identity of its nodes is one of the module's.
+    private ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage)
     {
         var errorListener = new ErrorListener(uri, anchorOffset);
         var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
@@ -73,11 +77,24 @@ public partial class ModuleParser(
                 precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
             }
 
-            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
+            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, rootLineage), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
 
+            // a procedure header written once in each branch of a #If block is one procedure: the main pass reads one of its headers, and the branches of the
+            // others are parsed on their own, as its alternatives (SplitHeaderScanner).
+            var alternatives = hasDirectives && ConditionalBlockPattern().IsMatch(content) ? SplitHeaderScanner.Find(content) : [];
             var sanitized = hasDirectives ? PrecompilerNodePattern().Replace(content, match => Blanked(match.Value)) : content;
+            if (alternatives.Count > 0)
+            {
+                sanitized = WithoutBranches(sanitized, alternatives);
+            }
+
             var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
             var ast = listener.BuildModuleNode();
+            var trivia = listener.Trivia;
+            if (alternatives.Count > 0)
+            {
+                ast = WithHeaderAlternatives(uri, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia);
+            }
 
             // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
             // the source, which a module that has one would have read as one block too many.
@@ -94,7 +111,7 @@ public partial class ModuleParser(
             {
                 SyntaxErrors = errorListener.Errors,
                 PrecompilerTrivia = precompilerTrivia,
-                Trivia = listener.Trivia,
+                Trivia = trivia,
             };
         }
         catch (Exception exception)
@@ -126,6 +143,83 @@ public partial class ModuleParser(
             };
         }
     }
+
+    // the source with the lines of the alternatives' branches blank, as a directive is: every position stays where it is.
+    private static string WithoutBranches(string sanitized, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives)
+    {
+        var lines = sanitized.Split('\n');
+        foreach (var alternative in alternatives)
+        {
+            for (var line = alternative.StartLine; line < alternative.EndLine && line < lines.Length; line++)
+            {
+                lines[line] = new string(' ', lines[line].Length);
+            }
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    // each alternative's branch parsed on its own, closed by the statement its header opens, where it stands in the module. The header - the procedure the
+    // branch leaves open - is an alternative of the procedure the main pass read in the branch it read (MemberDeclarationNode.HeaderAlternatives), and what
+    // follows the header in the branch is of that procedure's body, in source order. Whatever else the branch holds before its header (a Declare, a variable,
+    // a whole procedure) is the module's, where it is written, as a declaration written in a branch of any #If block is. What the branch's parse says is
+    // wrong is the module's.
+    private ModuleNode WithHeaderAlternatives(Uri uri, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
+        SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia)
+    {
+        var lines = content.Split('\n');
+        var children = ast.Children.ToList();
+        var ofBranches = new HashSet<SyntaxNodeId>();
+        for (var index = 0; index < alternatives.Count; index++)
+        {
+            var alternative = alternatives[index];
+            var branch = string.Join('\n', lines[alternative.StartLine..Math.Min(alternative.EndLine, lines.Length)]);
+            var start = new SourcePosition(alternative.StartLine, 0).AnchoredAt(anchorOffset);
+            var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index));
+            errorListener.AddRange(parsed.SyntaxErrors);
+            trivia = trivia.AddRange(parsed.Trivia);
+
+            var nodes = parsed.SyntaxTree?.Children ?? [];
+            var header = nodes.LastOrDefault(IsProcedure) as MemberDeclarationNode;
+            foreach (var node in nodes.Where(node => !ReferenceEquals(node, header)))
+            {
+                ofBranches.Add(node.Identity);
+                var at = children.FindIndex(child => child.SourceLocation.Range.Start.CompareTo(node.SourceLocation.Range.Start) > 0);
+                children.Insert(at < 0 ? children.Count : at, node);
+            }
+
+            if (header is null)
+            {
+                continue;
+            }
+
+            // the procedure the block opens is the one the main pass read in the branch it read: the last that starts in it, the main branch too holding
+            // whatever it holds before its header.
+            var mainStart = new SourcePosition(alternative.MainStartLine, 0).AnchoredAt(anchorOffset);
+            var mainEnd = new SourcePosition(alternative.MainEndLine, 0).AnchoredAt(anchorOffset);
+            var found = children.FindLastIndex(child => IsProcedure(child) && !ofBranches.Contains(child.Identity)
+                && child.SourceLocation.Range.Start.CompareTo(mainStart) >= 0 && child.SourceLocation.Range.Start.CompareTo(mainEnd) < 0);
+            // the main pass did not read the procedure, which only a syntax error of its own keeps it from doing: that error is the module's already.
+            if (found < 0)
+            {
+                continue;
+            }
+
+            var procedure = (MemberDeclarationNode)children[found];
+            var headerChildren = header.HeaderChildren.ToImmutableArray();
+            var ownHeader = procedure.HeaderChildren.ToImmutableArray();
+            children[found] = procedure with
+            {
+                HeaderAlternatives = [.. procedure.HeaderAlternatives, header with { Children = headerChildren, HeaderAlternatives = [] }, .. header.HeaderAlternatives],
+                Children = [.. ownHeader, .. procedure.Children.Skip(ownHeader.Length).Concat(header.Children.Skip(headerChildren.Length))
+                    .OrderBy(child => child.SourceLocation.Range.Start)],
+            };
+        }
+
+        return ast with { Children = [.. children] };
+    }
+
+    private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode and not ExternalMemberDeclarationNode;
 
     private static ModuleNode EmptyModule(Uri uri, SourcePosition anchorOffset)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), []);
@@ -399,6 +493,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
     // whether the grammar refused something of the module.
     public bool HasGrammarErrors => _errors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError);
+
+    // the errors of a part of the module parsed on its own, already located in the module (a header alternative).
+    public void AddRange(IEnumerable<VBSyntaxErrorInfo> errors) => _errors.AddRange(errors);
 
     // records a token-semantic syntax error; idempotent per (location, id) so the two-stage parse
     // does not double-report a literal both passes reach.

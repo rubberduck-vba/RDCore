@@ -52,17 +52,18 @@ public class DeclarationPassParserTests
     [TestMethod]
     public void SplitStatementConditional_ReportsLocatedSyntaxErrors()
     {
-        // legal VBA, but a #If that splits a statement (here the function header) cannot be parsed by
-        // an ANTLR grammar — Rubberduck never supported it either. we don't try; we only make sure the
-        // failure survives the two-stage parse as syntax-error metadata a client can anchor a squiggle on.
+        // legal VBA, but a #If that splits a block statement's header inside a body is not parsed yet (a procedure header split so is: SplitHeaderParseTests).
+        // we only make sure the failure survives the two-stage parse as syntax-error metadata a client can anchor a squiggle on.
         const string content = """
+            Public Sub F(ByVal x As Long)
             #If VBA7 Then
-            Private Function GetPtr() As LongPtr
+                If x > 0 Then
             #Else
-            Private Function GetPtr() As Long
+                If x < 0 Then
             #End If
-                GetPtr = 0
-            End Function
+                    x = 1
+                End If
+            End Sub
             """;
         var uri = TestUri.TestModuleUri();
 
