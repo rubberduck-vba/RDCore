@@ -294,14 +294,14 @@ public sealed class ImplementsSemanticsTests
 
     #region A property with more than one accessor
 
-    // an interface whose property has a Property Get and a Property Set, as OOPBattleship's IGridViewCommands.Events: each accessor is a member of its own.
+    // an interface whose property has a Property Get and a Property Set: each accessor is a member of its own.
     private const string Commands =
         "Public Property Get Events() As Object\r\nEnd Property\r\n" +
         "Public Property Set Events(ByVal value As Object)\r\nEnd Property\r\n";
 
     [TestMethod]
     [DataRow(false, DisplayName = "in the interface's order")]
-    [DataRow(true, DisplayName = "the Set first, as GridViewAdapter has it")]
+    [DataRow(true, DisplayName = "the Set first, in the class")]
     public void APropertysAccessors_EachImplementTheirOwn(bool setFirst)
     {
         const string get = "Private Property Get ICommands_Events() As Object\r\nEnd Property\r\n";
