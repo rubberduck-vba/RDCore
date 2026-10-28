@@ -103,6 +103,7 @@ public sealed class FormattingTabSizeTests
         var told = new List<bool>();
         using var holding = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
+        var released = true;
         live.Changed += (_, _) =>
         {
             most = Math.Max(most, Interlocked.Increment(ref inListener));
@@ -114,7 +115,7 @@ public sealed class FormattingTabSizeTests
             if (told.Count == 1)
             {
                 holding.Set();
-                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(20)));
+                released &= release.Wait(TimeSpan.FromSeconds(20));
             }
 
             Interlocked.Decrement(ref inListener);
@@ -129,16 +130,38 @@ public sealed class FormattingTabSizeTests
         release.Set();
         first.Join();
 
+        Assert.IsTrue(released, "the listener of the first change was let go");
         Assert.AreEqual(2, told.Count, "each change is told");
         Assert.AreEqual(1, most, "never by two threads at once");
         Assert.IsTrue(options.Server.Verbose);
         Assert.IsTrue(told[1], "the second change is told after the first");
     }
 
-    private static LiveSettings LiveOf(SdkAppOptions options)
+    private static LiveSettings LiveOf(SdkAppOptions options, Microsoft.Extensions.Logging.ILogger? logger = null)
     {
         var schema = SettingsSchema.Platform;
-        return new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+        return new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName), logger);
+    }
+
+    // what a component logs, kept: the error lines, with the exceptions they carry.
+    private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger
+    {
+        public List<(string Message, Exception? Exception)> Errors { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == Microsoft.Extensions.Logging.LogLevel.Error)
+            {
+                lock (Errors)
+                {
+                    Errors.Add((formatter(state, exception), exception));
+                }
+            }
+        }
     }
 
     [TestMethod]
@@ -146,18 +169,20 @@ public sealed class FormattingTabSizeTests
     public async Task AListenerThatThrows_DoesNotKeepTheOthersFromBeingTold_NorStrandTheChangesBehindIt()
     {
         var options = new SdkAppOptions();
-        var live = LiveOf(options);
+        var logger = new CapturingLogger();
+        var live = LiveOf(options, logger);
 
         // the first listener holds the thread that tells the first change, and throws once it is let go; the second change is made meanwhile, on another thread.
         using var holding = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
+        var released = true;
         var calls = 0;
         live.Changed += (_, _) =>
         {
             if (Interlocked.Increment(ref calls) == 1)
             {
                 holding.Set();
-                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(20)));
+                released &= release.Wait(TimeSpan.FromSeconds(20));
             }
 
             throw new InvalidOperationException("a listener that fails");
@@ -178,7 +203,10 @@ public sealed class FormattingTabSizeTests
 
         await first.WaitAsync(TimeSpan.FromSeconds(20));
         Assert.IsTrue(await second.WaitAsync(TimeSpan.FromSeconds(20)), "the call that made the change behind it is not left waiting");
+        Assert.IsTrue(released, "the failing listener was let go");
         Assert.HasCount(2, told, "both changes were told to the listener that does not fail");
+        Assert.HasCount(2, logger.Errors, "the failing listener is logged once for each change it failed on");
+        Assert.IsTrue(logger.Errors.All(error => error.Exception is InvalidOperationException { Message: "a listener that fails" }), "with the exception it threw");
     }
 
     [TestMethod]
@@ -190,12 +218,13 @@ public sealed class FormattingTabSizeTests
         var told = 0;
         using var holding = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
+        var released = true;
         live.Changed += (_, _) =>
         {
             if (Interlocked.Increment(ref told) == 1)
             {
                 holding.Set();
-                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(20)));
+                released &= release.Wait(TimeSpan.FromSeconds(20));
             }
         };
 
@@ -211,7 +240,45 @@ public sealed class FormattingTabSizeTests
         release.Set();
         Assert.IsTrue(await second.WaitAsync(TimeSpan.FromSeconds(20)));
         await first.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.IsTrue(released, "the listener of the first change was let go");
         Assert.AreEqual(2, told, "and now they were");
+    }
+
+    [TestMethod]
+    public async Task AChange_WithNoListener_CompletesAtOnce_AndIsSet()
+    {
+        var options = new SdkAppOptions();
+        var live = LiveOf(options);
+
+        Assert.IsTrue(await live.ApplyAsync(new Dictionary<string, string> { ["Server:Verbose"] = "True" }, new Dictionary<string, string>(), () => true).WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.IsTrue(options.Server.Verbose);
+        Assert.IsTrue(live.HasReceived);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AListenerThatChangesTheSettingsItself_IsToldOfThatChange_AfterItReturns_AndNothingWaits()
+    {
+        var options = new SdkAppOptions();
+        var live = LiveOf(options);
+        var told = new List<bool>();
+        Task<bool>? inner = null;
+        live.Changed += (_, _) =>
+        {
+            told.Add(options.Server.Verbose);
+            if (told.Count == 1)
+            {
+                // on the thread that tells the change: the call returns at once, and the listener is told of this change once it has returned from the first.
+                inner = live.ApplyAsync(new Dictionary<string, string> { ["Server:Verbose"] = "False" }, new Dictionary<string, string>(), () => true);
+                told.Add(inner.IsCompleted);
+            }
+        };
+
+        Assert.IsTrue(await live.ApplyAsync(new Dictionary<string, string> { ["Server:Verbose"] = "True" }, new Dictionary<string, string>(), () => true).WaitAsync(TimeSpan.FromSeconds(20)));
+
+        Assert.IsNotNull(inner);
+        Assert.IsTrue(await inner.WaitAsync(TimeSpan.FromSeconds(20)), "the change the listener made was told, and its call completed");
+        CollectionAssert.AreEqual(new[] { true, false, false }, told, "told of the first (verbose), the re-entrant call was pending, then told of the second (not verbose)");
     }
 
     [TestMethod]
