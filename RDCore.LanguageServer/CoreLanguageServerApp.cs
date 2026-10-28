@@ -56,6 +56,7 @@ internal sealed class CoreLanguageServerApp(
     IDiagnosticsPublisher publisher,
     IClientInteractionRelay interaction,
     IWorkProgressReporter progress,
+    IWorkspaceRefresh refresh,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -200,6 +201,8 @@ internal sealed class CoreLanguageServerApp(
     {
         // a client that pulls diagnostics is not pushed them as well: it would show each finding twice.
         publisher.Attach(server, enabled: request.Capabilities?.TextDocument?.Diagnostic is null);
+        // what the client shows of each document is refreshed once the workspace changed under it, as the client says it is asked to.
+        refresh.Attach(server);
         await LoadWorkspaceAsync(server, request);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
@@ -389,7 +392,7 @@ internal sealed class CoreLanguageServerApp(
     }
 
     // what the client said is said to every component: each asks the language server, which answers with what the client said. A client that pulls its
-    // diagnostics is asked to pull them again - a diagnostic's settings are among the live ones.
+    // diagnostics is asked to pull them again - a diagnostic's settings are among the live ones - and what else it shows of each document refreshed.
     protected override async Task OnLiveSettingsChangedAsync(ILanguageServer server)
     {
         var components = new[] { orchestration.ParsingService, orchestration.RuntimeEnvironment }
@@ -409,7 +412,7 @@ internal sealed class CoreLanguageServerApp(
             }
         }
 
-        DiagnosticRefresh.SendIfSupported(server);
+        refresh.Changed();
     }
 
     protected override async Task OnServerStoppingAsync()

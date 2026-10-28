@@ -28,9 +28,10 @@ public sealed class DocumentDiagnosticsServiceTests
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
     private readonly IPlatformOrchestrationService _orchestration = Substitute.For<IPlatformOrchestrationService>();
     private readonly ISymbolSyncService _symbols = Substitute.For<ISymbolSyncService>();
+    private readonly WorkspaceRefresh _refresh = new(TimeSpan.Zero);
 
     private DocumentDiagnosticsService Sut()
-        => new(_documents, _parsing, _orchestration, _symbols, NullLogger<DocumentDiagnosticsService>.Instance);
+        => new(_documents, _parsing, _orchestration, _symbols, _refresh, NullLogger<DocumentDiagnosticsService>.Instance);
 
     private static WorkspaceDocument Document(int version = 1)
         => new("src/Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub", version);
@@ -103,7 +104,7 @@ public sealed class DocumentDiagnosticsServiceTests
 
         var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
-        Assert.AreEqual("v1", result.ResultId);
+        Assert.AreEqual("v1.0", result.ResultId);
         Assert.IsFalse(result.Unchanged);
         Assert.IsEmpty(result.Diagnostics);
         await _parsing.DidNotReceive().ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>());
@@ -116,11 +117,28 @@ public sealed class DocumentDiagnosticsServiceTests
         WorkspaceHas(document);
         ProvidersAre(Provider("RDCore.Diagnostics", 3, Diag(1)));
 
-        var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: "v3", CancellationToken.None);
+        var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: "v3.0", CancellationToken.None);
 
-        Assert.AreEqual("v3", result.ResultId);
+        Assert.AreEqual("v3.0", result.ResultId);
         Assert.IsTrue(result.Unchanged);
         Assert.IsEmpty(result.Diagnostics);
+    }
+
+    // a procedure another module calls, removed: the findings of the module that calls it are not what they were, though its text is.
+    [TestMethod]
+    public async Task AnotherModuleChanged_TheFindingsOfTheSameVersion_AreFoundAgain()
+    {
+        var document = Document(version: 3);
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 3, Diag(1)));
+        _refresh.Changed();
+
+        var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: "v3.0", CancellationToken.None);
+
+        Assert.IsFalse(result.Unchanged);
+        Assert.AreEqual("v3.1", result.ResultId);
+        Assert.AreEqual(1, result.Diagnostics.Count);
     }
 
     [TestMethod]
@@ -133,7 +151,7 @@ public sealed class DocumentDiagnosticsServiceTests
 
         var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
-        Assert.AreEqual("v1", result.ResultId);
+        Assert.AreEqual("v1.0", result.ResultId);
         Assert.IsFalse(result.Unchanged);
         Assert.AreEqual(2, result.Diagnostics.Count);
     }
@@ -165,7 +183,7 @@ public sealed class DocumentDiagnosticsServiceTests
 
         var result = await Sut().GetAsync(before.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
-        Assert.AreEqual("v2", result.ResultId, "the report id advances to the version the document is now at");
+        Assert.AreEqual("v2.0", result.ResultId, "the report id advances to the version the document is now at");
         Assert.IsFalse(result.Unchanged);
         Assert.IsEmpty(result.Diagnostics);
     }
