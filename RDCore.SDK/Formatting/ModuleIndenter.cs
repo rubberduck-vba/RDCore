@@ -60,21 +60,24 @@ public static partial class ModuleIndenter
         var module = new ModuleLines(lines);
         var levels = LevelsOf(parse, module, options);
         var firstBlocks = FirstBlocksAtColumn1(parse, module, options);
+        var members = EnumOrTypeMembers(parse, module);
         var edits = new List<IndentationEdit>();
-        var shift = 0;
-        var isDeclaration = false;
+        Continuation? statement = null;
         for (var line = 0; line < lines.Length; line++)
         {
+            var next = line + 1 < lines.Length ? lines[line + 1] : null;
             string wanted;
-            if (module.IsContinuation(line))
+            if (module.IsContinuation(line) && statement is not null)
             {
-                wanted = ContinuedText(module, line, shift, isDeclaration, options);
+                wanted = statement.Place(lines[line], next);
             }
             else
             {
-                isDeclaration = IsDeclaration(lines[line]);
+                var isDeclaration = IsDeclaration(lines[line]);
                 var level = firstBlocks[line] || IsForcedToColumn1(lines[line], options) ? 0 : levels[line];
-                wanted = StartedText(module, line, level, isDeclaration, options, out shift);
+                wanted = StartedText(module, line, level, isDeclaration, options, out var column);
+                statement = new Continuation(options, column, IsComment(lines[line]), members[line], isDeclaration);
+                statement.Saw(wanted, next);
             }
 
             if (line >= firstLine && line <= lastLine)
@@ -232,13 +235,13 @@ public static partial class ModuleIndenter
         return atColumn1;
     }
 
-    // the first line of a statement: indented to its level, a line number kept at the start of it, its declaration and its end-of-line comment aligned. How far
-    // its code moved is what its continuations move.
-    private static string StartedText(ModuleLines module, int line, int level, bool isDeclaration, CodeFormattingOptions options, out int shift)
+    // the first line of a statement: indented to its level, a line number kept at the start of it, its declaration and its end-of-line comment aligned. The column
+    // its code starts at is the statement's.
+    private static string StartedText(ModuleLines module, int line, int level, bool isDeclaration, CodeFormattingOptions options, out int column)
     {
-        shift = 0;
         var text = module.Lines[line];
         var indentation = level * options.IndentSpaces;
+        column = indentation;
         if (string.IsNullOrWhiteSpace(text))
         {
             // an empty line is left as it is, emptied, or indented to its level, as the setting says.
@@ -271,33 +274,48 @@ public static partial class ModuleIndenter
             codeAt = text.Length - text.TrimStart().Length;
         }
 
-        shift = head.Length - codeAt;
+        column = head.Length;
         return Aligned(text, head, text[codeAt..], isDeclaration, options);
     }
 
-    // a line continued from the one before: as far as the first line of its statement moved.
-    private static string ContinuedText(ModuleLines module, int line, int shift, bool isDeclaration, CodeFormattingOptions options)
-    {
-        var text = module.Lines[line];
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return text;
-        }
-
-        var leading = text.Length - text.TrimStart().Length;
-        return Aligned(text, new string(' ', Math.Max(0, leading + shift)), text[leading..], isDeclaration, options);
-    }
-
     // a line as it is to be: its head - its indentation, or its line number and what follows it - then its code, with the As of a declaration and an end-of-line
-    // comment where the settings have them.
+    // comment where the settings have them. A declaration's line that starts with its As has it in the column of the setting.
     private static string Aligned(string text, string head, string code, bool isDeclaration, CodeFormattingOptions options)
     {
         if (options.AlignDims && isDeclaration)
         {
-            code = WithDimAligned(head.Length, code, options);
+            if (LeadingAs().IsMatch(code))
+            {
+                head = new string(' ', Math.Max(options.AlignDimColumn - 1, head.Length));
+            }
+            else
+            {
+                code = WithDimAligned(head.Length, code, options);
+            }
         }
 
         return WithCommentAligned(text, head + code, options);
+    }
+
+    // what the lines inside an Enum or a Type are: their members, whose continued lines are where they start.
+    private static bool[] EnumOrTypeMembers(ModuleParseResult parse, ModuleLines module)
+    {
+        var members = new bool[module.Lines.Length];
+        if (parse.SyntaxTree is not { } tree)
+        {
+            return members;
+        }
+
+        foreach (var member in tree.Descendants().OfType<MemberDeclarationNode>().Where(member => member.MemberKind is MemberKind.Enum or MemberKind.UserDefinedType))
+        {
+            var range = member.SourceLocation.Range;
+            for (var line = module.HeaderEnd(range.Start.Line) + 1; line < module.LastLineOf(range) && line < members.Length; line++)
+            {
+                members[line] = true;
+            }
+        }
+
+        return members;
     }
 
     // the first As of a declaration's line, where the column of the setting has it: a space before it at least.
@@ -570,6 +588,221 @@ public static partial class ModuleIndenter
         return (0, 0);
     }
 
+    // where what a continued line starts with is to be: the anchors of the lines of its statement before it.
+    private enum AnchorKind
+    {
+        // the first argument of an argument list, the one after a comma, a named argument's value: where an argument starts.
+        Argument,
+
+        // what an argument list opens on: where it is, once the arguments after a comma are let go.
+        ArgumentList,
+
+        // the value an assignment is of.
+        Value,
+
+        // what follows the name a statement starts with: a call's arguments.
+        AfterName,
+    }
+
+    private readonly record struct Anchor(AnchorKind Kind, int Column, int Depth);
+
+    // the lines a statement is continued on, each where what it starts with lines up with the lines before it: with the arguments of the argument list that is
+    // open, with the value of an assignment, with what follows the statement's first name - a level further in when there is none of them. A line that starts
+    // with an operator has the operator before that column, so that the operands line up, when the setting says so. A declaration's lines are where the
+    // declaration starts, and a comment's - the statement's own, a member of an Enum or a Type, or a statement whose lines are not aligned - are too; what a comment
+    // is continued on is where the comment is.
+    private sealed class Continuation(CodeFormattingOptions options, int column, bool isComment, bool isMember, bool isDeclaration)
+    {
+        private readonly Stack<Anchor> _anchors = new();
+        private int _depth;
+        private int? _comment;
+
+        public string Place(string text, string? next)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return options.EmptyLineHandlingMethod switch
+                {
+                    EmptyLineHandlingMethod.Remove => string.Empty,
+                    EmptyLineHandlingMethod.Indent => new string(' ', column),
+                    _ => text,
+                };
+            }
+
+            var code = text.TrimStart();
+            int at;
+            if (!options.AlignContinuations || isComment || isMember)
+            {
+                at = column;
+            }
+            else if (_comment is { } comment)
+            {
+                at = comment;
+            }
+            else if (IsComment(code))
+            {
+                at = AnchorColumn();
+                _comment = at;
+            }
+            else if (isDeclaration)
+            {
+                at = column;
+            }
+            else
+            {
+                var operatorAdjust = options.IgnoreOperatorsInContinuations && LeadingOperator().IsMatch(code) ? 2 : 0;
+                at = Math.Max(AnchorColumn() - operatorAdjust, 0);
+            }
+
+            // what continues a comment is the comment's text, not the declaration's.
+            var wanted = Aligned(text, new string(' ', at), code, isDeclaration && _comment is null, options);
+            Saw(wanted, next);
+            return wanted;
+        }
+
+        // what a line of the statement, as it is to be, says of where its next line goes.
+        public void Saw(string line, string? next)
+        {
+            if (CommentAt(line) is { } eol && line.TrimEnd().EndsWith(" _", StringComparison.Ordinal))
+            {
+                // an end-of-line comment continued on the next line: what follows it is where it is.
+                _comment ??= eol.Comment;
+            }
+
+            if (IsComment(line) || !options.AlignContinuations)
+            {
+                return;
+            }
+
+            var code = CodeWithoutComment(line) ?? line;
+            Scan(code);
+
+            // a line that ends with a comma, or with a named argument's :=, or is followed by one that starts with :=, starts the next argument: where the argument
+            // list is. A line that ends with an opening parenthesis starts the list's first argument where the line before it says.
+            var ending = code.TrimEnd().TrimEnd('_').TrimEnd();
+            if (ending.EndsWith(',') || ending.EndsWith(":=", StringComparison.Ordinal) || (next?.TrimStart().StartsWith(":=", StringComparison.Ordinal) ?? false))
+            {
+                while (_anchors.Count > 0 && _anchors.Peek().Kind == AnchorKind.Argument)
+                {
+                    _anchors.Pop();
+                }
+            }
+            else if (ending.EndsWith('('))
+            {
+                for (var pop = 0; pop < 2 && _anchors.Count > 0; pop++)
+                {
+                    _anchors.Pop();
+                }
+            }
+        }
+
+        // the anchors a line's code sets, from after what it starts with that sets none: its line number, its Set, Let or Declare, its indentation.
+        private void Scan(string code)
+        {
+            var start = IgnoredStart().Match(code).Length;
+            var inString = false;
+            for (var index = start; index < code.Length; index++)
+            {
+                var character = code[index];
+                if (character == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (inString)
+                {
+                    continue;
+                }
+
+                switch (character)
+                {
+                    case '(':
+                        _depth++;
+                        _anchors.Push(new Anchor(AnchorKind.ArgumentList, index + 1, _depth));
+                        _anchors.Push(new Anchor(AnchorKind.Argument, index + 1, _depth));
+                        break;
+                    case ')':
+                        // the list is closed: its anchors, and those of what was in it, are let go.
+                        while (_anchors.Count > 0 && _anchors.Peek().Depth >= _depth && _depth > 0)
+                        {
+                            _anchors.Pop();
+                        }
+
+                        _depth = Math.Max(_depth - 1, 0);
+                        break;
+                    case ',':
+                        _anchors.Push(new Anchor(AnchorKind.Argument, NextToken(code, index + 1), _depth));
+                        break;
+                    case ':' when index + 1 < code.Length && code[index + 1] == '=':
+                        _anchors.Push(new Anchor(AnchorKind.Argument, NextToken(code, index + 2), _depth));
+                        index++;
+                        break;
+                    case ':':
+                        // another statement on the line: nothing of the one before it is an anchor.
+                        _anchors.Clear();
+                        _depth = 0;
+                        break;
+                    case ' ' when string.CompareOrdinal(code, index, " = ", 0, 3) == 0:
+                        if (!_anchors.Any(anchor => anchor.Kind is AnchorKind.Value or AnchorKind.AfterName))
+                        {
+                            _anchors.Push(new Anchor(AnchorKind.Value, index + 3, _depth));
+                        }
+
+                        break;
+                    case ' ' when index >= 5 && string.Compare(code, index - 5, " Then ", 0, 6, StringComparison.OrdinalIgnoreCase) == 0:
+                        // what follows the Then of an If is where the If's condition was.
+                        while (_anchors.Count > 1)
+                        {
+                            _anchors.Pop();
+                        }
+
+                        break;
+                    case ' ' when _anchors.Count == 0 && index < code.Length - 3:
+                        _anchors.Push(new Anchor(AnchorKind.AfterName, index + 1, _depth));
+                        break;
+                }
+            }
+        }
+
+        // where the next line starts: the innermost argument, argument list or value; what follows the statement's name; or a level in.
+        private int AnchorColumn()
+        {
+            int? anchored = null;
+            int? afterName = null;
+            foreach (var anchor in _anchors.Reverse())
+            {
+                if (anchor.Kind == AnchorKind.AfterName)
+                {
+                    afterName = anchor.Column;
+                }
+                else
+                {
+                    anchored = anchor.Column;
+                }
+            }
+
+            return anchored ?? afterName ?? column + options.IndentSpaces;
+        }
+
+        private static int NextToken(string code, int index)
+        {
+            while (index < code.Length && code[index] == ' ')
+            {
+                index++;
+            }
+
+            return index;
+        }
+    }
+
+    [GeneratedRegex(@"^[+&]\s")]
+    private static partial Regex LeadingOperator();
+
+    // what a line starts with that sets no anchor: its indentation and line number, a Set or a Let, a Declare up to its name.
+    [GeneratedRegex(@"^\s*(?:(?:-?\d+|&H[0-9A-F]{1,8}):?\s+)?(?:[LR]?Set\s+|Let\s+|(?:(?:Public|Private)\s+)?Declare\s+(?:PtrSafe\s+)?(?:Function|Sub))?", RegexOptions.IgnoreCase)]
+    private static partial Regex IgnoredStart();
+
     // the lines of a module, and which of them continue the one before.
     private sealed class ModuleLines(string[] lines)
     {
@@ -625,6 +858,9 @@ public static partial class ModuleIndenter
     // what a declaration's line names before its first As, and that As.
     [GeneratedRegex(@"^(?<name>.*?\S)\s+(?<as>As\s)", RegexOptions.IgnoreCase)]
     private static partial Regex DimAs();
+
+    [GeneratedRegex(@"^As\s", RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingAs();
 
     [GeneratedRegex(@"^#If\s.+\sThen\b", RegexOptions.IgnoreCase)]
     private static partial Regex DirectiveIf();

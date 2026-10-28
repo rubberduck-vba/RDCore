@@ -477,7 +477,7 @@ A line is indented a level - `Formatting.IndentSpaces` spaces - for each body th
 
 - **A line the syntax tree has no statement of**, a branch of an `#If` that is not compiled or code the parser could not build as it is typed, is indented by its keywords, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A module is never refused.
 - **A line number** stays at the start of its line, and the code after it is where the line's level has it, a space after the number at least.
-- **A line continued from the one before** (`_`) moves with the first line of its statement, as far as it does.
+- **A line continued from the one before** (`_`) lines up with the lines of its statement before it, when `Formatting.AlignContinuations` is on: with the argument it continues (the one after a comma, a named argument's value after its `:=`), the innermost argument list that is open, the value of an assignment, or what follows the name the statement starts with - a level further in than the statement when there is none of them. Parentheses, commas and `=` in a string literal are not counted. A line that starts with `+` or `&` has the operator before that column, so that the operands line up, when `Formatting.IgnoreOperatorsInContinuations` is on. The lines of a declaration, of a member of an `Enum` or a `Type`, and of a comment are where their statement starts; what continues an end-of-line comment, or a comment on a line of its own inside a statement, is where that comment is. With `AlignContinuations` off, every line of a statement is where it starts.
 - **A comment alone on its line** is at the level of the code around it, or where it is written when `Formatting.AlignCommentsWithCode` is off.
 - **An empty line** is left as it is, emptied of its whitespace, or indented to its level, as `Formatting.EmptyLineHandlingMethod` says (`Ignore`, `Remove`, `Indent`).
 - **In column 1**, whatever its level: an `#If`, `#Else` or `#Const` line (`Formatting.ForceCompilerDirectivesInColumn1`); a line that starts with `Debug.Print` (`Formatting.ForceDebugPrintInColumn1`), `Debug.Assert` (`ForceDebugAssertInColumn1`) or a `Stop` (`ForceStopInColumn1`) - or any of the three, `ForceDebugStatementsInColumn1`.
@@ -490,7 +490,7 @@ Only whitespace changes: an edit is a run of it that is not what it is to be - t
 The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made, and not the `tabSize` of the request's options. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell lists its lines.
 
 > [!NOTE]
-> **Not implemented.** Aligning continued lines; vertical spacing between procedures; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
+> **Not implemented.** Vertical spacing between procedures; a line number on a line of its own inside a continued statement; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
 
 ### `textDocument/foldingRange`
 

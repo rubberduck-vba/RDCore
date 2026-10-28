@@ -5,7 +5,7 @@ namespace RDCore.Tests.Formatting;
 
 /// <summary>
 /// A line is indented a level for each body that encloses it in the syntax tree; a line the tree has no statement of is indented by its keywords; a line number
-/// stays at the start of its line, and a continued line moves with its statement.
+/// stays at the start of its line, and a continued line lines up with the lines of its statement before it.
 /// </summary>
 [TestClass]
 public sealed class ModuleIndenterTests
@@ -87,9 +87,14 @@ public sealed class ModuleIndenterTests
     }
 
     [TestMethod]
-    public void AContinuedLine_MovesWithTheFirstLineOfItsStatement()
-        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "          2)", "End Sub"),
+    public void AContinuedLine_LinesUpWithTheArgumentsOfItsStatement()
+        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "            2)", "End Sub"),
             Indented(Lines("Sub A()", "x = Foo(1, _", "      2)", "End Sub")));
+
+    [TestMethod]
+    public void AContinuedLine_NotAligned_IsWhereItsStatementStarts()
+        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "    2)", "End Sub"),
+            Indented(Lines("Sub A()", "x = Foo(1, _", "      2)", "End Sub"), CodeFormattingOptions.Default with { AlignContinuations = false }));
 
     [TestMethod]
     public void ARange_IsGivenEditsForItsLinesOnly_TheirLevelsOfTheWholeModule()
