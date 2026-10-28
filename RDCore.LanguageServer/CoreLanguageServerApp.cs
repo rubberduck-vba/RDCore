@@ -61,6 +61,8 @@ internal sealed class CoreLanguageServerApp(
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
 
+    protected override TextDocumentSelector DocumentSelector => SupportedLanguages.DocumentSelector;
+
     /// <summary>
     /// Cancels in-flight core-component bring-up when the server is shutting down.
     /// </summary>
@@ -96,6 +98,7 @@ internal sealed class CoreLanguageServerApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DocumentDiagnosticHandler>();
+        builder.WithHandler<WorkspaceDiagnosticHandler>();
         builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SelectionRangeHandler>();
@@ -171,6 +174,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<Workspace.States.IDocumentStateProvider>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());
@@ -187,11 +191,6 @@ internal sealed class CoreLanguageServerApp(
 
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
-
-        // the documents of every language the platform serves: the client names the language its own way, so what selects a document is the file it is.
-        services.AddSingleton(new TextDocumentSelector(SupportedLanguages.All
-            .SelectMany(language => language.FileTypes).Distinct()
-            .Select(fileType => new TextDocumentFilter { Pattern = $"**/{fileType}" })));
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)

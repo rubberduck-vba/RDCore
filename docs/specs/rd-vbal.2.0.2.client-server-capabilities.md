@@ -172,6 +172,23 @@ A request that is made of what a document was would make a keystroke wait for it
 
 👉 HexIDE's client sent a keystroke and a completion while the diagnostics and the semantic tokens of a 2,100-line module were being found. The completion waited for both, about five seconds; with the request giving way, it waits for neither.
 
+### `workspace/diagnostic`
+
+The language server answers `workspace/diagnostic` (**LSP 3.17** §Workspace Diagnostics) with a report for every module of the workspace, whether the client has it open or not: the modules a client never opened are analyzed as they are on disk (`diagnosticProvider.workspaceDiagnostics = true`). The files a project lists as other files are none of them ([**RD-VBAL §2.2.3.4**](rd-vbal.2.2.3.projectfile.md#2234-rdcorefile)).
+
+|Each module's report|Is|
+|---|---|
+|`kind`|`full`, with every finding there is for the module - what `textDocument/diagnostic` answers for it - or `unchanged`, when the client sends the module's result id (`previousResultIds`) and the module has not changed since.|
+|`resultId`|The module's, as `textDocument/diagnostic` gives it (`v` and its version): a client can mix the two pulls.|
+|`uri`|The module's document.|
+|`version`|The version the client gave the module, for a module it has open; `null` for one it has not.|
+
+A pull analyzes every module, so:
+
+- **A client that gives a `partialResultToken` is sent each module's report as it is made,** as a partial result (`$/progress`), and an empty answer. A client that does not is answered every report at once.
+- **The work is reported to the `workDoneToken`,** module by module.
+- **A change to any document gives the pull up,** answered `ContentModified` (-32801) as the change arrives: the keystroke, and the client's next request, don't wait for the whole workspace ([`IncomingDocumentChanges.WhileWorkspaceCurrentAsync`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)). The client pulls again, sending the result ids it has, and is answered `unchanged` for every module that did not change.
+
 ### `textDocument/inlayHint`
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
