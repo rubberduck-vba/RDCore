@@ -47,12 +47,12 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
     private const int DefaultButtonShift = 8;
 
     /// <summary>
-    /// The set of buttons: <see cref="VBMsgBoxStyle.VBOkOnly"/> through <see cref="VBMsgBoxStyle.VBRetryCancel"/>. A value that names none of them is
-    /// <see cref="VBMsgBoxStyle.VBOkOnly"/>.
+    /// The set of buttons: <see cref="VBMsgBoxStyle.VBOKOnly"/> through <see cref="VBMsgBoxStyle.VBRetryCancel"/>. A value that names none of them is
+    /// <see cref="VBMsgBoxStyle.VBOKOnly"/>.
     /// </summary>
     public VBMsgBoxStyle Buttons => ((int)Style & ButtonsMask) is var buttons and <= (int)VBMsgBoxStyle.VBRetryCancel
         ? (VBMsgBoxStyle)buttons
-        : VBMsgBoxStyle.VBOkOnly;
+        : VBMsgBoxStyle.VBOKOnly;
 
     /// <summary>
     /// The icon: <see cref="VBMsgBoxStyle.VBCritical"/>, <see cref="VBMsgBoxStyle.VBQuestion"/>, <see cref="VBMsgBoxStyle.VBExclamation"/>,
@@ -65,12 +65,12 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
     /// </summary>
     public IReadOnlyList<VBMsgBoxResult> Choices => Buttons switch
     {
-        VBMsgBoxStyle.VBOkCancel => [VBMsgBoxResult.VBOk, VBMsgBoxResult.VBCancel],
+        VBMsgBoxStyle.VBOKCancel => [VBMsgBoxResult.VBOK, VBMsgBoxResult.VBCancel],
         VBMsgBoxStyle.VBAbortRetryIgnore => [VBMsgBoxResult.VBAbort, VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBIgnore],
         VBMsgBoxStyle.VBYesNoCancel => [VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo, VBMsgBoxResult.VBCancel],
         VBMsgBoxStyle.VBYesNo => [VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo],
         VBMsgBoxStyle.VBRetryCancel => [VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBCancel],
-        _ => [VBMsgBoxResult.VBOk],
+        _ => [VBMsgBoxResult.VBOK],
     };
 
     /// <summary>
@@ -81,12 +81,12 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
 
     /// <summary>
     /// The answer of a dialog closed at window level - <kbd>Esc</kbd>, or its close button - without choosing a button: <see cref="VBMsgBoxResult.VBCancel"/> when
-    /// it has a <em>Cancel</em> button, <see cref="VBMsgBoxResult.VBOk"/> when <em>OK</em> is its only one, and <see langword="null"/> for a dialog that cannot be
+    /// it has a <em>Cancel</em> button, <see cref="VBMsgBoxResult.VBOK"/> when <em>OK</em> is its only one, and <see langword="null"/> for a dialog that cannot be
     /// closed that way (<see cref="VBMsgBoxStyle.VBYesNo"/>, <see cref="VBMsgBoxStyle.VBAbortRetryIgnore"/>), as Windows has it.
     /// </summary>
     public VBMsgBoxResult? EscapeResult => Choices switch
     {
-        [VBMsgBoxResult.VBOk] => VBMsgBoxResult.VBOk,
+        [VBMsgBoxResult.VBOK] => VBMsgBoxResult.VBOK,
         var choices when choices.Contains(VBMsgBoxResult.VBCancel) => VBMsgBoxResult.VBCancel,
         _ => null,
     };

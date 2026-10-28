@@ -67,9 +67,12 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
             }));
         }
 
+        // a list the space after a comma opened is the one a trigger character asks for (ListsAfterSpace); one asked for any other way is the whole of it.
+        var listedAfterSpace = Interlocked.Exchange(ref _listedAfterSpace, null);
+        var trigger = listedAfterSpace is not null && cursor <= line.Length && line[..cursor] == listedAfterSpace ? " " : null;
         if (platform.Provides<SessionCompletion>() && program.ToCompletionSource(line, cursor) is { } site)
         {
-            var list = await platform.CompleteAsync(site.Source, ReplProgram.ModuleName, site.Line, site.Character, token);
+            var list = await platform.CompleteAsync(site.Source, ReplProgram.ModuleName, site.Line, site.Character, token, trigger);
             var commandNames = new HashSet<string>(items.Select(item => item.Label), StringComparer.OrdinalIgnoreCase);
             items.AddRange(list.Items.Where(item => !commandNames.Contains(item.Label)));
         }
@@ -99,20 +102,36 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
 
     /// <summary>
     /// Whether the options that can be written after a space are listed as the space is typed: it is typed in the arguments of a command that describes them,
-    /// where the language server can say what comes next.
+    /// where the language server can say what comes next - or after a <c>,</c> in the arguments of a call, where the constants of an <c>Enum</c> its parameter
+    /// is declared as are offered (<c>MsgBox "Hello", </c> lists <c>VbMsgBoxStyle</c>'s), and nothing else is.
     /// </summary>
     /// <param name="beforeCursor">The line up to the cursor, with the space.</param>
     public bool ListsAfterSpace(string beforeCursor)
     {
         var typed = beforeCursor.TrimStart();
-        if (typed.Length == 0 || char.IsAsciiDigit(typed[0]) || !char.IsWhiteSpace(typed[^1]))
+        if (typed.Length == 0 || !char.IsWhiteSpace(typed[^1]) || !platform.Provides<SessionCompletion>())
         {
             return false;
         }
 
-        var verb = typed[..IndexOfSeparator(typed)];
-        return verb.Length < typed.Length && commands.IsCommandName(verb) && CommandNamed(verb) is IReplCommandDescriptor && platform.Provides<SessionCompletion>();
+        var verb = char.IsAsciiDigit(typed[0]) ? string.Empty : typed[..IndexOfSeparator(typed)];
+        if (verb.Length > 0 && verb.Length < typed.Length && commands.IsCommandName(verb))
+        {
+            return CommandNamed(verb) is IReplCommandDescriptor;
+        }
+
+        // the language server is asked as a trigger character asks it: for the list of an Enum argument, and nothing anywhere else.
+        if (typed.TrimEnd().EndsWith(',') && SignatureSite.Read(beforeCursor) is not null)
+        {
+            Interlocked.Exchange(ref _listedAfterSpace, beforeCursor);
+            return true;
+        }
+
+        return false;
     }
+
+    // the line up to the cursor that a space after a comma opened the list at: the list it asks for is the one a trigger character does, once.
+    private string? _listedAfterSpace;
 
     // the described verbs that are not registered as they are now, in one request; none when every one of them is.
     private async Task RegisterAsync(CancellationToken token)

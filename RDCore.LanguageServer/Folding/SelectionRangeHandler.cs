@@ -27,7 +27,7 @@ internal sealed class SelectionRangeHandler(
     public override async Task<Container<SelectionRange>?> Handle(SelectionRangeParams request, CancellationToken cancellationToken)
     {
         var uri = request.TextDocument.Uri.ToUri();
-        var document = documents.GetAllDocuments().FirstOrDefault(candidate => candidate.Id.Uri.ToUri().Equals(uri));
+        var document = documents.TryGetModule(uri, out var module) ? module : null;
         var parse = document is null ? null : await parsing.ParseDocumentAsync(uri, cancellationToken);
         var isProgram = document is not null && BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath());
 
