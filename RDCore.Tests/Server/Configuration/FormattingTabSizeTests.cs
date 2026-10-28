@@ -217,10 +217,29 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(await wire.FollowedAsync());
 
         release.SetResult();
-        await Task.Delay(500);
+        await wire.Follower!.WhenIdleAsync().WaitAsync(TimeSpan.FromSeconds(20));
 
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AnErrorAnswer_ForTheEditorsTabSize_IsNoTabSize_AndTheRestOfTheSettingsAreStillSet()
+    {
+        await using var wire = new Wire();
+        await wire.StartAsync();
+        Assert.IsTrue(await wire.FollowedAsync());
+        Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces);
+
+        // the editor has no such setting: the client answers the request with an error.
+        wire.BeforeAnswering = _ => throw new InvalidOperationException("no such setting");
+        wire.Said["Server:Verbose"] = "True";
+        wire.ClientSaysConfigurationChanged();
+        Assert.IsTrue(await wire.FollowedAsync(), "the change was followed");
+
+        Assert.IsTrue(wire.Options.Server.Verbose, "what the client said of the other settings is set");
+        Assert.AreEqual(4, wire.Options.Formatting.IndentSpaces, "and the indentation is its own, as no setting and no editor says another");
     }
 
     [TestMethod]
