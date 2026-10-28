@@ -69,7 +69,7 @@
       "stack-trace": "success-dim"
     },
     "information": {
-      "icon": "ℹ",
+      "icon": "ℹ️",
       "title": "information-bright",
       "body": "information",
       "verbose": "information-dim",
