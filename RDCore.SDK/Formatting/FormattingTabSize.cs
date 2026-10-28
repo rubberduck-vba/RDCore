@@ -8,20 +8,20 @@ using System.Globalization;
 namespace RDCore.SDK.Formatting;
 
 /// <summary>
-/// Keeps <c>Formatting.IndentSpaces</c> and the tab size of the client's editor the same, through the configuration the client owns: one setting, said twice.
+/// Takes the tab size of the client's editor as <c>Formatting.IndentSpaces</c> when the user never set one, through the configuration the client owns.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Rubberduck set the tab size of the VBA editor from its indenter's setting. A client owns its configuration (<strong>LSP 3.17</strong> §Configuration Request),
-/// so a server sets nothing of it: the client says its settings, and a change of the editor's tab size is a change of configuration like any other. The server asks
-/// for two things whenever the client says the configuration changed (<c>workspace/didChangeConfiguration</c>, then <c>workspace/configuration</c>): the platform's
-/// live settings (<see cref="LiveSettingsProtocol.Section"/>), which hold <c>Formatting.IndentSpaces</c> when the user set it, and the editor's own
-/// <see cref="EditorSection"/> (<see cref="RequestEditorTabSizeAsync"/>).
+/// A client owns its configuration (<strong>LSP 3.17</strong> §Configuration Request), so a server sets nothing of it and tells the editor nothing: the flow is one way,
+/// from the client to the server. A change of the editor's tab size is a change of configuration like any other. The server asks for two things whenever the client says
+/// the configuration changed (<c>workspace/didChangeConfiguration</c>, then <c>workspace/configuration</c>): the platform's live settings
+/// (<see cref="LiveSettingsProtocol.Section"/>), which hold <c>Formatting.IndentSpaces</c> when the user set it, and the editor's own <see cref="EditorSection"/>
+/// (<see cref="RequestEditorTabSizeAsync"/>).
 /// </para>
 /// <para>
-/// When <c>Formatting.IndentSpaces</c> was never set, the indentation is the editor's tab size for as long as the server runs: nothing is written, and a client that
-/// stops saying a tab size takes it back to the default. When both are set and differ, <c>Formatting.IndentSpaces</c> wins: the formatting is made with the
-/// setting whatever <c>tabSize</c> a request to format carries. A client that wants the two to agree sets one from the other, in its own configuration.
+/// When <c>Formatting.IndentSpaces</c> was never set, it is the editor's tab size for as long as the server runs: nothing is written, and a client that stops saying a tab
+/// size takes it back to the default. When both are set and differ, <c>Formatting.IndentSpaces</c> is what the server has. A client that wants the editor to follow the
+/// setting sets its own tab size from it.
 /// </para>
 /// </remarks>
 public static class FormattingTabSize
@@ -46,7 +46,10 @@ public static class FormattingTabSize
     /// </remarks>
     /// <param name="server">The language server.</param>
     /// <param name="token">A token that cancels the request.</param>
-    /// <returns>The tab size; <see langword="null"/> when the client does not have configuration to ask, said none, or did not answer.</returns>
+    /// <returns>
+    /// The tab size; <see langword="null"/> when the client does not have configuration to ask, answered that it has none (an error response), or said one the indentation
+    /// cannot be. A request that is cancelled, or whose connection is lost, throws: it is no answer, and the editor has not said it has no tab size.
+    /// </returns>
     public static async Task<int?> RequestEditorTabSizeAsync(ILanguageServerFacade server, CancellationToken token = default)
     {
         if (server.ClientSettings.Capabilities?.Workspace?.Configuration.IsSupported != true)
@@ -59,7 +62,7 @@ public static class FormattingTabSize
             var answers = await server.Workspace.RequestConfiguration(new ConfigurationParams { Items = new Container<ConfigurationItem>(new ConfigurationItem { Section = EditorSection }) }, token);
             return EditorTabSizeOf(answers.FirstOrDefault());
         }
-        catch (Exception exception) when (exception is OperationCanceledException or OmniSharp.Extensions.JsonRpc.RpcErrorException)
+        catch (OmniSharp.Extensions.JsonRpc.RpcErrorException)
         {
             return null;
         }

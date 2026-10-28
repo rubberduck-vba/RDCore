@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -13,8 +14,8 @@ using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.Langu
 namespace RDCore.Tests.Server.Configuration;
 
 /// <summary>
-/// <c>Formatting.IndentSpaces</c> and the tab size of the client's editor are one setting said twice, through the configuration the client owns: an indentation the
-/// user never set is the editor's tab size, and one the user set is not.
+/// <c>Formatting.IndentSpaces</c> is the tab size of the client's editor when the user never set one, through the configuration the client owns: the server is told
+/// the client's configuration changed, and asks for it.
 /// </summary>
 [TestClass]
 public sealed class FormattingTabSizeTests
@@ -66,7 +67,7 @@ public sealed class FormattingTabSizeTests
         Assert.AreSame(said, FormattingTabSize.WithEditorTabSize(said, null));
     }
 
-    // a platform component: a server with its client, whose answers set the live settings through the follower the server apps use.
+    // a platform component: a server with its client, followed by the follower a server app starts when it is started (ClientConfigurationFollower.Follow).
     private sealed class Wire : IAsyncDisposable
     {
         private readonly SemaphoreSlim _followed = new(0);
@@ -77,7 +78,7 @@ public sealed class FormattingTabSizeTests
 
         public LiveSettings Live { get; }
 
-        public ClientConfigurationFollower Follower { get; private set; } = null!;
+        public ClientConfigurationFollower? Follower { get; private set; }
 
         /// <summary>The indentation as each listener of the change saw it.</summary>
         public List<int> Seen { get; } = [];
@@ -86,7 +87,7 @@ public sealed class FormattingTabSizeTests
 
         public int TabSize { get; set; } = 2;
 
-        /// <summary>Called with each request for the tab size, before it is answered.</summary>
+        /// <summary>Called with the number of each request for the tab size, before it is answered.</summary>
         public Func<int, Task>? BeforeAnswering { get; set; }
 
         private int _tabSizeRequests;
@@ -98,8 +99,9 @@ public sealed class FormattingTabSizeTests
             Live.Changed += (_, _) => Seen.Add(Options.Formatting.IndentSpaces);
         }
 
-        public async Task StartAsync(bool follow)
+        public async Task StartAsync()
         {
+            var services = new ServiceCollection().AddSingleton<ILiveSettings>(Live).BuildServiceProvider();
             var toServer = new Pipe();
             var toClient = new Pipe();
             var serving = OmniSharpLanguageServer.From(server => server
@@ -108,16 +110,11 @@ public sealed class FormattingTabSizeTests
                 .WithConfigurationSection(LiveSettingsProtocol.Section)
                 .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
                 {
-                    Follower = new ClientConfigurationFollower(started, Live, Options.Formatting, () =>
+                    Follower = ClientConfigurationFollower.Follow(services, started, () =>
                     {
                         _followed.Release();
                         return Task.CompletedTask;
                     }, _ => { });
-                    if (follow)
-                    {
-                        Follower.Start();
-                    }
-
                     return Task.CompletedTask;
                 }));
 
@@ -135,6 +132,7 @@ public sealed class FormattingTabSizeTests
                     var answer = LiveSettingsProtocol.Answer(request, Said);
                     if (request.Items.Any(item => item.Section == FormattingTabSize.EditorSection))
                     {
+                        // the editor's tab size is what it is when it is asked, and the answer comes when the test lets it.
                         var number = Interlocked.Increment(ref _tabSizeRequests);
                         var tabSize = TabSize;
                         if (BeforeAnswering is not null)
@@ -158,12 +156,12 @@ public sealed class FormattingTabSizeTests
 
         public void ClientSaysConfigurationChanged() => _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
 
-        public async ValueTask DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             Follower?.Dispose();
             _client?.Dispose();
             _server?.Dispose();
-            await Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -172,7 +170,7 @@ public sealed class FormattingTabSizeTests
     public async Task AServer_AsksForTheEditorsTabSize_WithTheLiveSettings_AndFollowsItWhenItChanges()
     {
         await using var wire = new Wire();
-        await wire.StartAsync(follow: true);
+        await wire.StartAsync();
 
         Assert.IsTrue(await wire.FollowedAsync(), "asked once it is initialized");
         Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces, "the editor's tab size, as the user set no indentation");
@@ -183,41 +181,71 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(await wire.FollowedAsync());
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "followed when it changes");
 
-        // and the user sets the indentation: it wins.
+        // and the user sets the indentation: it is what the server has.
         wire.Said["Formatting:IndentSpaces"] = "3";
         wire.ClientSaysConfigurationChanged();
         Assert.IsTrue(await wire.FollowedAsync());
-        Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces, "the setting wins over the editor's tab size");
+        Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces, "the setting is not the editor's tab size");
 
         CollectionAssert.AreEqual(new[] { 2, 8, 3 }, wire.Seen, "whoever listens sees the indentation the settings end up with, never the default in between");
     }
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    public async Task AChangeThatArrivesWhileTheEditorIsAsked_HasTheLastWord()
+    public async Task OfTwoChangesThatOverlap_TheNewerHasTheLastWord()
     {
         await using var wire = new Wire();
-        await wire.StartAsync(follow: false);
+        await wire.StartAsync();
+        Assert.IsTrue(await wire.FollowedAsync());
+
+        // the second change of the editor's tab size is asked while the first is held back; the first answer, 5, comes after the second, 8.
         var firstAsked = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         wire.BeforeAnswering = async number =>
         {
-            if (number == 1)
+            if (number == 2)
             {
                 firstAsked.SetResult();
                 await release.Task;
             }
         };
-
-        var older = wire.Follower.FollowAsync();
+        wire.TabSize = 5;
+        wire.ClientSaysConfigurationChanged();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
-        var newer = await wire.Follower.FollowAsync();
+        wire.ClientSaysConfigurationChanged();
+        Assert.IsTrue(await wire.FollowedAsync());
+
+        release.SetResult();
+        await Task.Delay(500);
+
+        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
+        CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AFollowerThatIsDisposed_WhileTheEditorIsAsked_SetsNothing()
+    {
+        await using var wire = new Wire();
+        await wire.StartAsync();
+        Assert.IsTrue(await wire.FollowedAsync());
+
+        var asked = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        wire.BeforeAnswering = async number =>
+        {
+            asked.SetResult();
+            await release.Task;
+        };
+        var following = wire.Follower!.FollowAsync();
+        await asked.Task.WaitAsync(TimeSpan.FromSeconds(20));
+
+        wire.Follower.Dispose();
         release.SetResult();
 
-        Assert.IsTrue(newer);
-        Assert.IsFalse(await older, "the older change was not set");
-        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
-        CollectionAssert.AreEqual(new[] { 8 }, wire.Seen);
+        Assert.IsFalse(await following, "a server that is going away is not a client whose editor has no tab size");
+        Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces, "the indentation was not set again, to the default or to anything");
+        CollectionAssert.AreEqual(new[] { 2 }, wire.Seen);
     }
 }
