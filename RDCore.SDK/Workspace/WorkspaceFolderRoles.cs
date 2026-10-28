@@ -28,7 +28,8 @@ public enum WorkspaceFolderRole
 /// <item>The first folder is a project always: it is the folder the server runs.</item>
 /// <item>
 /// When the roles are told what projects were imported (<c>rdcore.importProject</c>), a later folder that holds an imported project is a project folder, and every
-/// other later folder is a source folder.
+/// other later folder is a source folder. The language server tells them the folders that hold a <c>.vbp</c> when the workspace is loaded: an import leaves the
+/// <c>.vbp</c> next to the <c>.rdproj</c> it writes.
 /// </item>
 /// <item>
 /// Otherwise a later folder is a source folder when a project that comes before it lists files in it, and a project when none does.
@@ -36,7 +37,7 @@ public enum WorkspaceFolderRole
 /// </list>
 /// <para>
 /// The roles are worked out again each time they are asked, from the folders, the imports and the files the projects list: none of them is remembered. The language
-/// server asks when the workspace is loaded, and does not tell the roles of imports yet: the projects it loaded stay as they were when a client imports one afterwards.
+/// server asks when the workspace is loaded: the projects it loaded stay as they were when a client imports one afterwards.
 /// </para>
 /// </remarks>
 public sealed class WorkspaceFolderRoles

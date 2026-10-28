@@ -40,7 +40,7 @@ public sealed class WorkspaceFileOperationServiceTests
             return Task.FromResult<WorkspaceReloadResult?>(new WorkspaceReloadResult(0, 0, false, false));
         });
 
-        _sut = new WorkspaceFileOperationService(_reload, _files.Path, _files.File, _files.Directory, () => SupportedLanguages.RDVBA,
+        _sut = new WorkspaceFileOperationService(_reload, _files.Path, _files.File, _files.Directory, () => SupportedLanguages.RDVBA, OneProject.Registry(), Substitute.For<IProjectFileWriter>(), Substitute.For<IWorkspaceDocumentService>(), Substitute.For<RDCore.LanguageServer.Workspace.States.IDocumentStateProvider>(),
             NullLogger<WorkspaceFileOperationService>.Instance);
     }
 

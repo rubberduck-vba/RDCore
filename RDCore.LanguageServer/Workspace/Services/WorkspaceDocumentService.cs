@@ -60,7 +60,6 @@ internal interface IWorkspaceDocumentService
     bool Remove(TextDocumentIdentifier id);
     void Edit(TextDocumentIdentifier id, string text);
     void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text);
-    void Rename(TextDocumentIdentifier id, string newName);
     void Create(string relativePath);
 
     /// <summary>
@@ -508,45 +507,4 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return null;
     }
 
-    public void Rename(TextDocumentIdentifier id, string newName)
-    {
-        var currentState = documentStateProvider.GetCurrentState(id);
-
-        if (currentState is LoadedDocumentState or OpenedDocumentState
-            && _documents.TryGetValue(id, out var d) && d is WorkspaceDocument document)
-        {
-            // the document is addressed from the root of the project that loaded it first, which is not the primary project's for a module of another project.
-            var root = document.WorkspaceRoot;
-            var relativePath = ioPath.GetRelativePath(root, document.Id.Uri.GetFileSystemPath());
-            var newRelativePath = ioPath.Combine(ioPath.GetDirectoryName(relativePath)!, newName);
-            var newId = new TextDocumentIdentifier(new Uri(ioPath.GetFullPath(ioPath.Combine(root, newRelativePath))));
-
-            if (logger.IsEnabled(LogLevel.Trace))
-            {
-                logger.LogTrace("Renaming file '{oldPath}' to '{newPath}'...", relativePath, newRelativePath);
-            }
-
-            _documents.TryRemove(id, out _);
-            _documents[newId] = new WorkspaceDocument(newRelativePath, root, document.Text, document.Version)
-            {
-                IsDirty = document.IsDirty,
-                Companion = document.Companion,
-                Projects = document.Projects,
-            };
-
-            documentStateProvider.OnDocumentUnloaded(id);
-            documentStateProvider.OnDocumentLoaded(newId);
-            if (currentState is OpenedDocumentState)
-            {
-                documentStateProvider.OnDocumentOpened(id);
-            }
-
-            logger.LogInformation("✅ Workspace file rename operation completed successfully.");
-        }
-        else
-        {
-            logger.LogWarning("🐛 Workspace document could not be renamed because it is not in a valid state ({state}).", currentState.Value);
-            throw new InvalidDocumentStateException();
-        }
-    }
 }

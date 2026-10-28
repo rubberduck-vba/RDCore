@@ -271,12 +271,15 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         }
 
         documentService.Initialize(workspaceRoot);
-        _projects.Initialize(workspaceRoot, folders);
+        // a folder that holds a Visual Basic 6 project is where one was imported: the import writes the .rdproj next to the .vbp and leaves the .vbp as it was.
+        _projects.Initialize(workspaceRoot, folders, folders.Where(HoldsAVbp));
         await LoadOtherProjectsAsync();
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
     }
+
+    private bool HoldsAVbp(string folder) => ioDirectory.Exists(folder) && ioDirectory.EnumerateFiles(folder, "*.vbp").Any();
 
     // the other folders of the workspace that are project folders, in the order the client gave them: whether a folder is one depends on what the projects before it list.
     private async Task LoadOtherProjectsAsync()
@@ -304,7 +307,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         {
             var info = project.Project.ProjectInfo;
             foreach (var (file, isOther) in info.Modules.Select(module => ((RDCoreFile)module, false))
-                .Concat(info.OtherFiles.Select(other => (other, !info.Modules.Any(module => string.Equals(module.RelativeUri, other.RelativeUri, StringComparison.OrdinalIgnoreCase))))))
+                .Concat(info.OtherFiles.Select(other => (other, !info.Modules.Any(module => string.Equals(module.RelativeUri, other.RelativeUri, WorkspacePaths.Comparison))))))
             {
                 var path = ioPath.Combine(project.Root, file.RelativeUri);
                 if (ioPath.IsPathRooted(file.RelativeUri) || WorkspacePaths.Climbs(file.RelativeUri))
