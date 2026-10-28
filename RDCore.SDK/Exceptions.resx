@@ -819,6 +819,9 @@
   <data name="VBCompileError_SplitHeaderWithoutProcedure_Verbose" xml:space="preserve">
     <value>This procedure header is written in one branch of a #If block of which another branch writes the header that was read, and that procedure could not be read.</value>
   </data>
+  <data name="VBCompileError_HeaderInDeadBranchesOnly_Verbose" xml:space="preserve">
+    <value>Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure.</value>
+  </data>
   <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
     <value>'{0}' is no variable whose size can be measured: {1}</value>
   </data>

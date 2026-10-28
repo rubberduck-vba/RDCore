@@ -116,20 +116,35 @@ internal sealed class DefineSymbolsHandler(
     // sends them; null when it does not, and every declaration is defined as the first branch writes it.
     private Func<SourcePosition, bool>? DeadBranchesOf(IRuntimeSession session, DefineSymbolsParams request)
     {
-        if (request.PrecompilerTriviaJson.Length == 0
-            || PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson) is not { IsDefaultOrEmpty: false } trivia)
+        if (request.PrecompilerTriviaJson.Length == 0)
         {
             return null;
         }
 
-        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages);
-        var dead = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, pipeline.Expressions, new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
+        // a module is defined in phases, each request carrying the same directives: they are read and evaluated once per session and module.
+        var evaluated = DeadRangesBySession.GetOrCreateValue(session);
+        var key = request.ModuleUri?.ToString() ?? request.ModuleName;
+        if (!evaluated.TryGetValue(key, out var cached) || !string.Equals(cached.Json, request.PrecompilerTriviaJson, StringComparison.Ordinal))
+        {
+            var trivia = PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson);
+            var ranges = trivia.IsDefaultOrEmpty
+                ? []
+                : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages).Expressions,
+                    new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
+            cached = (request.PrecompilerTriviaJson, ranges);
+            evaluated[key] = cached;
+        }
+
+        var dead = cached.Dead;
         return dead.IsEmpty ? null : position => dead.Any(range => position.CompareTo(range.Start) >= 0 && position.CompareTo(range.End) <= 0);
     }
 
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession,
+        System.Collections.Concurrent.ConcurrentDictionary<string, (string Json, ImmutableArray<SourceRange> Dead)>> DeadRangesBySession = new();
+
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch
     // into one symbol, each other branch's arriving beside it with the same identity (uri): of those the one of the live branch is defined, and a declaration
-    // written in dead branches only is not (oracle\cc-split S02, S06, S14). Without the directives, the first that carries every site is, as it always was.
+    // written in dead branches only is not, as MS-VBA compiles a module. Without the directives, the first that carries every site is, as it always was.
     // Property Get/Let/Set have identities of their own (Symbol.UriSuffix), so they stay distinct.
     private static (int Defined, int Replaced, int Merged, List<string> Skipped) DefineSymbols(
         IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace, Func<SourcePosition, bool>? isDead)
@@ -162,19 +177,36 @@ internal sealed class DefineSymbolsHandler(
             return null;
         }
 
-        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => symbol.Uri.ToString()))
+        // without the directives, sites of different kinds are not fused: the second is reported, as a declaration written twice is.
+        var notDefined = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => isDead is null ? $"{symbol.Uri}|{symbol.GetType().Name}" : symbol.Uri.ToString()))
         {
             var sites = group.ToList();
+            var uri = sites[0].Uri.ToString();
+
+            // what a declaration that is not defined declares - the locals of a procedure whose every header is dead - is not defined either.
+            if (notDefined.Contains(sites[0].ParentUri.ToString()))
+            {
+                notDefined.Add(uri);
+                continue;
+            }
+
             merged += sites.Count - 1;
             var symbol = sites.Find(candidate => candidate is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
             if (isDead is not null && symbol is WorkspaceSymbol declared)
             {
                 if (LiveDeclarationOf(declared, sites, isDead) is not { } live)
                 {
+                    notDefined.Add(uri);
                     continue;
                 }
 
                 symbol = live;
+            }
+            else if (symbol is VBUserDefinedTypeMemberSymbol type)
+            {
+                // a field written in each branch is the first branch's.
+                symbol = type with { Members = [.. type.Members.GroupBy(field => field.Uri.ToString()).Select(fields => fields.First())] };
             }
 
             if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))

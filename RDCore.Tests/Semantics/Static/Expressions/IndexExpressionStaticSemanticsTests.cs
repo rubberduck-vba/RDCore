@@ -103,10 +103,23 @@ public sealed class IndexExpressionStaticSemanticsTests
     [TestMethod]
     public void UnknownCallee_PassesThroughUnchanged()
     {
-        var result = IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, IndexOf("whatever", NameOf("i")), VBUnknownType.TypeInfo);
+        // what a call evaluated to, of a type not known yet.
+        var call = new IndexExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [52]), TestLocations.TestLocation, IndexOf("whatever"), [NameOf("i")]);
+        var result = IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, call, VBUnknownType.TypeInfo);
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void ANameNothingDeclares_CalledWithArguments_IsNotASubOrFunction()
+    {
+        // the language server declares an implicit variable for every name nothing declares: one that is still not declared was declared by what is not
+        // compiled, a procedure written only in a dead #If branch.
+        var result = IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, IndexOf("whatever", NameOf("i")), VBUnknownType.TypeInfo);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(VBCompileErrorId.SubOrFunctionNotDefined, result.ErrorInfo!.VBCompileErrorId);
     }
 
     [TestMethod]

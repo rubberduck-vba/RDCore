@@ -2,6 +2,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -77,6 +78,15 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
             return classType.DefaultMember is { } defaultMember
                 ? StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType)
                 : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));
+        }
+
+        // a name that nothing compiled declares, written with an argument list, is no implicit variable: the language server declares one for each name a
+        // procedure uses that nothing declares, so what it saw declare this one is not compiled - a procedure written only in a dead #If branch (MS-VBAL
+        // §3.4). MS-VBA: "Sub or Function not defined".
+        if (callee is VBUnknownType && index.Callee is SimpleNameExpressionNode name && context.Scope is { } scope && context.Resolver is not null
+            && context.Resolver.ResolveValue(name, Model.Symbols.Abstract.ScopeKind.Local, scope.Uri) is { IsResolved: false, IsError: false })
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SubOrFunctionNotDefined, index.Callee.Location, name.WrittenName));
         }
 
         // callee is already classified as a property/function/subroutine reference (its declared type

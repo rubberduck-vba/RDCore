@@ -84,14 +84,14 @@ The host evaluates the directives with the session's constants (`PrecompilerLive
 |What the module writes|What the host defines|
 |---|---|
 |A declaration in each branch|The one of the live branch, its signature included; each site of `Definitions` marked live or dead.|
-|A declaration in dead branches only|Nothing: a call of it is a call of a procedure that is not there, as **MS-VBA** says "Sub or Function not defined".|
+|A declaration in dead branches only|Nothing, nor anything its body declares: a call of it with an argument list is "Sub or Function not defined" (`VBC09331`), as in **MS-VBA**.|
+|A procedure header in dead branches only, around a body that is not|"Invalid outside procedure" (`VBC00054`), at the first statement of the body, as in **MS-VBA**.|
 |A field of a `Type` in each branch, or in a dead branch only|The type with the fields of its live branches.|
 |A procedure written whole in each branch|The live branch's procedure, whose body is the live branch's: the dead copy is not loaded.|
 
 > [!NOTE]
 > **Not implemented.**
-> - The two compile errors **MS-VBA** reports of a split header are not reported yet: "Expected End Sub" (a live header of another kind than its closing
->   statement) and "Invalid outside procedure" (a header written only in a dead branch).
+> - "Expected End Sub", which **MS-VBA** reports of a live header of another kind than its closing statement, is not reported yet.
 > - The language server's own analysis - completion, diagnostics, navigation - still reads a fused symbol as its first branch declares it.
 
 > [!NOTE]

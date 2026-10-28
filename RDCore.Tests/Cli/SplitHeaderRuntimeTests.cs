@@ -77,21 +77,52 @@ public sealed class SplitHeaderRuntimeTests
     [TestMethod]
     public async Task ANameOnlyADeadBranchDeclares_IsNotDeclared()
     {
-        // S06: MS-VBA says "Sub or Function not defined" of a call of the dead name.
-        RDCore.SDK.Platform.Protocol.ExecuteSessionResult? result = null;
+        // MS-VBA says "Sub or Function not defined" of a call of the dead name, and nothing the dead header's body declares is declared for it.
+        var source = string.Join("\r\n",
+            "#If VBA7 Then", "Private Function F() As Long", "#Else", "Private Function G() As Long", "#End If", "    Dim n As Long", "    n = 1", "    F = n",
+            "End Function",
+            "Public Sub Main()", "    Debug.Print G()", "End Sub", "");
         IReadOnlyList<string> defined = [];
-        await ModuleWorkspace.InspectAsync([], string.Join("\r\n",
-            "#If VBA7 Then", "Private Function F() As Long", "#Else", "Private Function G() As Long", "#End If", "    F = 1", "End Function",
-            "Public Sub Main()", "    Debug.Print G()", "End Sub", ""), (provider, run, _) =>
+        IReadOnlyList<string> orphans = [];
+        await ModuleWorkspace.WithHostAsync([], source, provider =>
             {
-                result = run;
                 Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var module));
                 defined = [.. provider.Session.Symbols.MembersOf(module.Uri).Select(member => member.Name)];
+                orphans = [.. provider.Session.Symbols.DeclaredIn(module.Uri).Select(symbol => symbol.Uri.Fragment)
+                    .Where(fragment => fragment.StartsWith("#Program.G", StringComparison.OrdinalIgnoreCase))];
+                var live = provider.Session.Symbols.MembersOf(module.Uri).OfType<SDK.Model.Symbols.Abstract.VBReturningMemberSymbol>().Single(member => member.Name == "F");
+                Assert.IsTrue(live.Locals.Any(local => local.Name == "n"), "the live procedure has the body's local");
                 return Task.CompletedTask;
             });
 
         CollectionAssert.Contains(defined.ToArray(), "F");
         CollectionAssert.DoesNotContain(defined.ToArray(), "G");
-        Assert.AreNotEqual(SDK.Platform.Protocol.ExecutionOutcome.Completed, result!.Outcome);
+        Assert.IsEmpty(orphans);
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], source);
+        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.SubOrFunctionNotDefined))),
+            string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    public async Task AHeaderWrittenInADeadBranchOnly_LeavesItsBodyOutsideAnyProcedure()
+    {
+        // MS-VBA: "Invalid outside procedure", at the first statement of the body.
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], string.Join("\r\n",
+            "#If Mac Then", "Private Function F() As Long", "#End If", "    F = 1", "End Function",
+            "Public Sub Main()", "End Sub", ""));
+
+        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.InvalidOutsideProcedure))),
+            string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    [Ignore("the static semantics do not check a procedure's closing statement against the kind of its live header: MS-VBA says \"Expected End Sub\"")]
+    public async Task ALiveSubHeaderClosedByEndFunction_IsExpectedEndSub()
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], string.Join("\r\n",
+            "#If Mac Then", "Private Function F() As Long", "#Else", "Private Sub F()", "#End If", "    Debug.Print 1", "End Function",
+            "Public Sub Main()", "    F", "End Sub", ""));
+
+        Assert.IsTrue(errors.Any(error => error.Contains("Expected End Sub")), string.Join("; ", errors));
     }
 }

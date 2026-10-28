@@ -131,7 +131,12 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     /// </summary>
     /// <param name="parseResult">The module's parse.</param>
     public static string PrecompilerTriviaJsonOf(RDCore.SDK.Model.AST.ModuleParseResult parseResult)
-        => parseResult.PrecompilerTrivia.IsDefaultOrEmpty ? string.Empty : PlatformJson.Serialize(parseResult.PrecompilerTrivia);
+        => parseResult.PrecompilerTrivia.IsDefaultOrEmpty
+            ? string.Empty
+            : TriviaJson.GetValue(parseResult, parse => PlatformJson.Serialize(parse.PrecompilerTrivia));
+
+    // a parse is sent in every phase of a workspace's definition: its directives are serialized once.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<RDCore.SDK.Model.AST.ModuleParseResult, string> TriviaJson = [];
 
     /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being

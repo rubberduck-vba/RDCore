@@ -63,7 +63,7 @@ public sealed class SyntaxTreeSymbolProvider(
         // site in Definitions and what each other declares in Alternatives. a site that is not an alternative of the others is not another branch of the same
         // declaration but a second declaration of the name, which is an error for whoever reads the symbols to find, and not one to hide in a fusion.
         // the accessors of one property have identities of their own (Symbol.UriSuffix), so they never fuse here. the identity is the uri alone, not the
-        // symbol's type: a header written once per branch may declare a Sub in one and a Function in the other (oracle\cc-split S04).
+        // symbol's type: a header written once per branch may declare a Sub in one and a Function in the other.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
         foreach (var group in EnumerateDeclaredSymbols().GroupBy(symbol => symbol.Uri.ToString()))
         {
