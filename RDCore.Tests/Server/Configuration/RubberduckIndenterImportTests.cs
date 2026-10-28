@@ -85,11 +85,19 @@ public sealed class RubberduckIndenterImportTests
     [TestMethod]
     [DataRow("<notxml")]
     [DataRow("<Configuration><UserSettings/></Configuration>")]
-    [DataRow("<Configuration><UserSettings><IndenterSettings><Unknown>1</Unknown></IndenterSettings></UserSettings></Configuration>")]
     public void AConfiguration_WithNoIndenterSettings_HasNone(string xml)
     {
         Assert.AreEqual(RubberduckIndenterSettingsSource.None, Reader(WithConfig(xml)).Read().Source);
         Assert.IsNull(IndenterSettingsImport.From(RubberduckIndenterSettingsResult.Nothing));
+    }
+
+    [TestMethod]
+    public void AClientSaysWhatItFinds_AndTheMappingKeepsWhatIsASetting()
+    {
+        var read = Reader(WithConfig("<Configuration><UserSettings><IndenterSettings><Unknown>1</Unknown></IndenterSettings></UserSettings></Configuration>")).Read();
+
+        Assert.AreEqual("1", (string?)read.Values["Unknown"], "read as it is");
+        Assert.IsNull(IndenterSettingsImport.From(read), "and none of it is a setting");
     }
 
     [TestMethod]
@@ -149,20 +157,31 @@ public sealed class RubberduckIndenterImportTests
     }
 
     [TestMethod]
-    public void RubberducksOwnNames_AreEverySettingThePlatformHas()
+    public void EverySettingRubberduckHas_IsMappedByItsName()
     {
-        var all = string.Concat(Enumerable.Range(0, 1).Select(_ => string.Empty));
-        var read = new RubberduckIndenterSettingsResult
+        string[] names =
+        [
+            "IndentEntireProcedureBody", "IndentEnumTypeAsProcedure", "IndentFirstCommentBlock", "IndentFirstDeclarationBlock", "IgnoreEmptyLinesInFirstBlocks",
+            "AlignCommentsWithCode", "AlignContinuations", "IgnoreOperatorsInContinuations", "IndentCase", "ForceDebugStatementsInColumn1", "ForceDebugPrintInColumn1",
+            "ForceDebugAssertInColumn1", "ForceStopInColumn1", "ForceCompilerDirectivesInColumn1", "IndentCompilerDirectives", "AlignDims", "AlignDimColumn",
+            "EndOfLineCommentStyle", "EndOfLineCommentColumnSpaceAlignment", "EmptyLineHandlingMethod", "IndentSpaces", "VerticallySpaceProcedures",
+            "LinesBetweenProcedures", "GroupRelatedProperties",
+        ];
+        var values = new JObject();
+        foreach (var name in names)
         {
-            Source = RubberduckIndenterSettingsSource.RubberduckConfig,
-            Values = new JObject(typeof(CodeFormattingOptions).GetProperties()
-                .Where(property => property.PropertyType == typeof(bool) && property.CanWrite)
-                .Select(property => new JProperty(property.Name, "true"))),
-        };
+            values[name] = name switch
+            {
+                "EndOfLineCommentStyle" => "StandardGap",
+                "EmptyLineHandlingMethod" => "Indent",
+                "AlignDimColumn" or "EndOfLineCommentColumnSpaceAlignment" or "IndentSpaces" or "LinesBetweenProcedures" => "1",
+                _ => "true",
+            };
+        }
 
-        Assert.IsTrue(string.IsNullOrEmpty(all));
-        Assert.IsTrue(Mapped(read).Values.Keys.All(key => key.StartsWith("Formatting.", StringComparison.Ordinal)));
-        Assert.AreEqual(read.Values.Count, Mapped(read).Values.Count, "every flag has the name it has in Rubberduck");
+        var import = Mapped(new RubberduckIndenterSettingsResult { Source = RubberduckIndenterSettingsSource.RubberduckConfig, Values = values });
+
+        CollectionAssert.AreEquivalent(names.Select(name => $"Formatting.{name}").ToArray(), import.Values.Keys.ToArray());
     }
 
     // the wire: the answer is camelCase JSON with the source as its name.
