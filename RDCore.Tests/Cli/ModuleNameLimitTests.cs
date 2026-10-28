@@ -11,7 +11,7 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 /// <remarks>
 /// One test loads such a module end to end; the others ask the rule of the declarations of a parsed module, which is all the rule reads, because loading ten
-/// thousand declarations takes many seconds.
+/// thousand declarations takes a couple of seconds.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.2.3 Module Declarations")]
