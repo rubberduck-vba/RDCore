@@ -36,10 +36,9 @@ public static class SyntaxSelection
             return [];
         }
 
-        // of the children that contain the position, the innermost: the one that starts last.
         var outward = new List<SourceRange> { whole };
         SyntaxNode node = module;
-        while (node.ChildNodes().Where(child => Contains(child.SourceLocation.Range, position)).MaxBy(child => child.SourceLocation.Range.Start) is { } inner)
+        while (InnermostAt(node, position) is { } inner)
         {
             var range = inner.SourceLocation.Range;
             if (!range.IsEmpty && range != outward[^1] && Contains(outward[^1], range))
@@ -52,6 +51,22 @@ public static class SyntaxSelection
 
         outward.Reverse();
         return outward;
+    }
+
+    // of the children that contain the position, the smallest: one within another wins, and of two that touch at the position the first does.
+    private static SyntaxNode? InnermostAt(SyntaxNode node, SourcePosition position)
+    {
+        SyntaxNode? inner = null;
+        foreach (var child in node.ChildNodes())
+        {
+            var range = child.SourceLocation.Range;
+            if (Contains(range, position) && (inner is null || range != inner.SourceLocation.Range && Contains(inner.SourceLocation.Range, range)))
+            {
+                inner = child;
+            }
+        }
+
+        return inner;
     }
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;

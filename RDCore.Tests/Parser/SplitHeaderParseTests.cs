@@ -179,6 +179,20 @@ public sealed class SplitHeaderParseTests
     }
 
     [TestMethod]
+    public void TheSelectionAtWhereTwoNodesTouch_GrowsFromTheFirst()
+    {
+        // a caret between Foo and (a): the callee's end is where the parenthesized argument begins, and the selection grows from the callee, as it always has.
+        var tree = Parse("Public Sub Main()", "    Foo(a)", "End Sub", "Private Sub Foo(ByVal x As Long)", "End Sub").SyntaxTree!;
+        var foo = tree.Descendants().OfType<SimpleNameExpressionNode>().First(name => name.IdentifierName == "Foo").SourceLocation.Range;
+        var at = foo.End;
+        Assert.IsTrue(tree.Descendants().Any(node => node.SourceLocation.Range.Start == at && node.SourceLocation.Range != foo), "the argument begins where the callee ends");
+
+        var ranges = SyntaxSelection.RangesAt(tree, at);
+
+        Assert.AreEqual(foo, ranges[0]);
+    }
+
+    [TestMethod]
     public void NoTwoNodes_HaveOneIdentity()
     {
         var result = Parse([
