@@ -37,15 +37,32 @@ public static class TextModeCharacters
     /// <c>Æ</c>, <c>Œ</c> and <c>Þ</c> fold to.
     /// </summary>
     /// <param name="folded">A character, folded (<see cref="Fold"/>).</param>
+    /// <param name="keepsAshAndThorn">
+    /// Whether <c>æ</c> and <c>þ</c> are letters of their own, as they are in the comparison of a locale that has them in its alphabet
+    /// (<see cref="KeepsAshAndThorn"/>).
+    /// </param>
     /// <returns>Its letters, or <see langword="null"/> when it is not expanded.</returns>
-    public static string? Expansion(char folded) => folded switch
+    public static string? Expansion(char folded, bool keepsAshAndThorn = false) => folded switch
     {
-        'æ' => "ae",
+        'æ' when !keepsAshAndThorn => "ae",
         'œ' => "oe",
         'ß' => "ss",
-        'þ' => "th",
+        'þ' when !keepsAshAndThorn => "th",
         _ => null,
     };
+
+    /// <summary>
+    /// Whether the text comparison of <paramref name="culture"/>, named by a <c>Compare</c> that is a locale identifier, keeps <c>æ</c> and <c>þ</c> as letters
+    /// of their own, rather than the two letters each expands to: the Danish, Norwegian, Icelandic, Faroese and Greenlandic locales, Northern Sami in Norway,
+    /// and Swedish in Finland. <c>œ</c> and <c>ß</c> are expanded in every locale.
+    /// </summary>
+    /// <remarks>
+    /// These are the locales MS-VBA keeps them in, of those it was compared in: Swedish in Sweden, English, German, Finnish and French expand them. MS-VBA
+    /// compares by the collation of the locale, and a locale that is not in the set is read as one that expands them.
+    /// </remarks>
+    /// <param name="culture">The locale.</param>
+    public static bool KeepsAshAndThorn(CultureInfo culture)
+        => culture.TwoLetterISOLanguageName is "da" or "nb" or "nn" or "no" or "is" or "fo" or "kl" || culture.Name is "se-NO" or "sv-FI";
 
     /// <summary>
     /// The letters of a text in text mode: each character folded, and each that is expanded as its letters.
@@ -53,15 +70,16 @@ public static class TextModeCharacters
     /// <param name="text">The text.</param>
     /// <param name="textInfo">The casing of the regional settings.</param>
     /// <param name="characterOf">For each letter, the index in <paramref name="text"/> of the character it is part of.</param>
+    /// <param name="keepsAshAndThorn">Whether <c>æ</c> and <c>þ</c> are letters of their own (<see cref="Expansion"/>).</param>
     /// <returns>The letters.</returns>
-    public static string Letters(ReadOnlySpan<char> text, TextInfo textInfo, out int[] characterOf)
+    public static string Letters(ReadOnlySpan<char> text, TextInfo textInfo, out int[] characterOf, bool keepsAshAndThorn = false)
     {
         var letters = new StringBuilder(text.Length + 4);
         var owners = new List<int>(text.Length + 4);
         for (var i = 0; i < text.Length; i++)
         {
             var folded = Fold(text[i], textInfo);
-            if (Expansion(folded) is { } expansion)
+            if (Expansion(folded, keepsAshAndThorn) is { } expansion)
             {
                 letters.Append(expansion);
                 owners.Add(i);

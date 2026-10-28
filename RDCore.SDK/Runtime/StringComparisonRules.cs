@@ -30,6 +30,77 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
     public bool IgnoresCase => Mode == OptionCompare.Text;
 
     /// <summary>
+    /// Whether this is the text comparison of a locale that a <c>Compare</c> argument names by its identifier (<see cref="TryForLocale"/>), rather than the
+    /// text mode of the environment: a search then folds case the same way in every locale, and keeps the letters the locale's alphabet has
+    /// (<see cref="TextModeCharacters.KeepsAshAndThorn"/>).
+    /// </summary>
+    public bool IsLocaleComparison { get; init; }
+
+    /// <summary>
+    /// The text comparison a <c>Compare</c> argument names when it is neither <c>vbBinaryCompare</c>, <c>vbTextCompare</c> nor <c>vbDatabaseCompare</c>: the
+    /// locale whose identifier it is, if there is one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// MS-VBA reads such a <c>Compare</c> as a Windows locale identifier (LCID), and compares text case-insensitively by that locale's collation: a neutral
+    /// language (<c>3</c>, Catalan), a locale (<c>1033</c>), a locale with a sort order (<c>66567</c>, German phone book), and the identifiers of the user's,
+    /// the system's and the custom default locales (<c>1024</c>, <c>2048</c>, <c>3072</c>, <c>4096</c>, <c>5120</c>), which are the environment's here. An
+    /// identifier of no locale - <c>240</c>, <c>5000</c>, <c>65535</c>, a negative number - is no comparison, and the member's error 5. MS-VBAL's
+    /// <c>VbCompareMethod</c> (§6.1.1.5) names two comparisons, <c>vbBinaryCompare</c> and <c>vbTextCompare</c>, and no locale.
+    /// </para>
+    /// <para>
+    /// The locale's collation orders the strings (<c>StrComp</c>): <c>ä</c> comes after <c>z</c> in Swedish, <c>æ</c> after <c>z</c> in Danish. Its case is
+    /// not: <c>I</c> and <c>i</c> are the two cases of one letter in a Turkish comparison too, as in MS-VBA's.
+    /// </para>
+    /// </remarks>
+    /// <param name="lcid">The identifier.</param>
+    /// <param name="environment">The regional settings of the environment, which the default locales' identifiers name.</param>
+    /// <param name="rules">The text comparison of the locale.</param>
+    /// <returns><see langword="false"/> when <paramref name="lcid"/> identifies no locale.</returns>
+    public static bool TryForLocale(int lcid, CultureInfo environment, out StringComparisonRules rules)
+    {
+        rules = default;
+        CultureInfo culture;
+        if (lcid is LocaleUserDefault or LocaleSystemDefault or LocaleCustomDefault or LocaleCustomUnspecified or LocaleCustomUserInterfaceDefault)
+        {
+            culture = environment;
+        }
+        else
+        {
+            if (lcid <= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                culture = CultureInfo.GetCultureInfo(lcid);
+            }
+            catch (CultureNotFoundException)
+            {
+                return false;
+            }
+        }
+
+        rules = new StringComparisonRules(OptionCompare.Text, culture) { IsLocaleComparison = true };
+        return true;
+    }
+
+    // the identifiers Windows gives the default locales (LOCALE_USER_DEFAULT, LOCALE_SYSTEM_DEFAULT, LOCALE_CUSTOM_DEFAULT, LOCALE_CUSTOM_UNSPECIFIED,
+    // LOCALE_CUSTOM_UI_DEFAULT), which name no culture of their own.
+    private const int LocaleUserDefault = 0x0400;
+    private const int LocaleSystemDefault = 0x0800;
+    private const int LocaleCustomDefault = 0x0C00;
+    private const int LocaleCustomUnspecified = 0x1000;
+    private const int LocaleCustomUserInterfaceDefault = 0x1400;
+
+    // the casing a search folds with, and whether æ and þ are letters of their own: a locale's comparison folds case the same way in every locale.
+    private (TextInfo Casing, bool KeepsAshAndThorn) SearchLetters
+        => IsLocaleComparison
+            ? (CultureInfo.InvariantCulture.TextInfo, TextModeCharacters.KeepsAshAndThorn(EffectiveCulture))
+            : (EffectiveCulture.TextInfo, false);
+
+    /// <summary>
     /// What text mode disregards when it compares text: the case of a letter, and nothing else.
     /// </summary>
     /// <remarks>
@@ -62,9 +133,22 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
     /// <returns><c>-1</c> when <paramref name="left"/> is less than <paramref name="right"/>, <c>0</c> when they are equal, and
     /// <c>1</c> otherwise.</returns>
     public int Compare(ReadOnlySpan<char> left, ReadOnlySpan<char> right)
-        => IgnoresCase
-            ? Math.Sign(EffectiveCulture.CompareInfo.Compare(left, right, TextOptions))
-            : Math.Sign(CompareBinary(MemoryMarshal.AsBytes(left), MemoryMarshal.AsBytes(right)));
+        => !IgnoresCase ? Math.Sign(CompareBinary(MemoryMarshal.AsBytes(left), MemoryMarshal.AsBytes(right)))
+            : IsLocaleComparison ? Math.Sign(EffectiveCulture.CompareInfo.Compare(Folded(left), Folded(right), TextOptions))
+            : Math.Sign(EffectiveCulture.CompareInfo.Compare(left, right, TextOptions));
+
+    // a locale's comparison folds case the same way in every locale, then orders by the locale's collation.
+    private static string Folded(ReadOnlySpan<char> text)
+    {
+        var casing = CultureInfo.InvariantCulture.TextInfo;
+        var folded = new char[text.Length];
+        for (var i = 0; i < text.Length; i++)
+        {
+            folded[i] = TextModeCharacters.Fold(text[i], casing);
+        }
+
+        return new string(folded);
+    }
 
     /// <summary>
     /// Compares two <c>String</c> values the way the relational operators do (<strong>MS-VBAL §5.6.9.5</strong>), a trailing byte
@@ -161,9 +245,9 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
             yield break;
         }
 
-        var textInfo = EffectiveCulture.TextInfo;
-        var letters = TextModeCharacters.Letters(source, textInfo, out var characterOf);
-        var sought = TextModeCharacters.Letters(value, textInfo, out _);
+        var (casing, keeps) = SearchLetters;
+        var letters = TextModeCharacters.Letters(source, casing, out var characterOf, keeps);
+        var sought = TextModeCharacters.Letters(value, casing, out _, keeps);
         var from = 0;
         while (from <= letters.Length && letters.IndexOf(sought, from, StringComparison.Ordinal) is var first and >= 0)
         {
@@ -199,9 +283,9 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
             return index >= 0;
         }
 
-        var textInfo = EffectiveCulture.TextInfo;
-        var letters = TextModeCharacters.Letters(source, textInfo, out var characterOf);
-        var sought = TextModeCharacters.Letters(value, textInfo, out _);
+        var (casing, keeps) = SearchLetters;
+        var letters = TextModeCharacters.Letters(source, casing, out var characterOf, keeps);
+        var sought = TextModeCharacters.Letters(value, casing, out _, keeps);
         var at = last ? letters.LastIndexOf(sought, StringComparison.Ordinal) : letters.IndexOf(sought, StringComparison.Ordinal);
         if (at < 0)
         {
