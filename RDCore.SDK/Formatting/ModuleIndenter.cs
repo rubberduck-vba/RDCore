@@ -108,7 +108,8 @@ public static partial class ModuleIndenter
         }
 
         // the empty lines between procedures, as many as the setting says: those of a gap that has more or fewer are written again, from the end of the line
-        // before them, with its line end.
+        // before them, with its line end, each as an empty line at its level is. A range spaces only the gaps it takes in whole, from the line before them to
+        // the procedure after them: it changes no line outside of it.
         var edits = new List<IndentationEdit>();
         var spaced = new bool[lines.Length];
         if (options.VerticallySpaceProcedures && parse.SyntaxTree is { } procedures)
@@ -116,12 +117,14 @@ public static partial class ModuleIndenter
             var ends = LineEnd().Split(text).Where((_, index) => index % 2 == 1).ToArray();
             foreach (var gap in GapsBetweenProcedures(procedures, module, options, splitHeaders, asWritten))
             {
-                if (gap.Block - gap.Above - 1 == gap.EmptyLines || gap.Above > lastLine || gap.Block < firstLine)
+                if (gap.Block - gap.Above - 1 == gap.EmptyLines || gap.Above < firstLine || gap.Block > lastLine)
                 {
                     continue;
                 }
 
-                edits.Add(new IndentationEdit(gap.Above, lines[gap.Above].Length, gap.Block, 0, string.Concat(Enumerable.Repeat(ends[gap.Above], gap.EmptyLines + 1))));
+                var empty = options.EmptyLineHandlingMethod == EmptyLineHandlingMethod.Indent ? new string(' ', levels[gap.Block] * options.IndentSpaces) : string.Empty;
+                edits.Add(new IndentationEdit(gap.Above, lines[gap.Above].Length, gap.Block, 0,
+                    ends[gap.Above] + string.Concat(Enumerable.Repeat(empty + ends[gap.Above], gap.EmptyLines))));
                 for (var line = gap.Above + 1; line < gap.Block; line++)
                 {
                     spaced[line] = true;
@@ -1034,6 +1037,20 @@ public static partial class ModuleIndenter
                     continue;
                 }
 
+                // a bracketed name and a date literal are of one token, as a string literal is: what is in them sets no anchor.
+                if (character == '[')
+                {
+                    var close = code.IndexOf(']', index + 1);
+                    index = close < 0 ? code.Length : close;
+                    continue;
+                }
+
+                if (character == '#' && DateLiteralEnd(code, index) is { } end)
+                {
+                    index = end;
+                    continue;
+                }
+
                 switch (character)
                 {
                     case '(':
@@ -1115,6 +1132,41 @@ public static partial class ModuleIndenter
         }
     }
 
+    // where a date literal that starts at a # ends: at the # that closes it on the line. A # right after a name is its type hint (x#), and one after the
+    // keyword of a file statement is a file number (Print #1, Open ... As #1).
+    private static int? DateLiteralEnd(string code, int at)
+    {
+        var before = at - 1;
+        if (before >= 0 && (char.IsLetterOrDigit(code[before]) || code[before] is '_' or ')' or ']'))
+        {
+            return null;
+        }
+
+        while (before >= 0 && char.IsWhiteSpace(code[before]))
+        {
+            before--;
+        }
+
+        var wordStart = before;
+        while (wordStart >= 0 && (char.IsLetterOrDigit(code[wordStart]) || code[wordStart] == '_'))
+        {
+            wordStart--;
+        }
+
+        if (FileStatementKeywords.Contains(code[(wordStart + 1)..(before + 1)]))
+        {
+            return null;
+        }
+
+        var close = code.IndexOf('#', at + 1);
+        return close < 0 ? null : close;
+    }
+
+    private static readonly HashSet<string> FileStatementKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Print", "Write", "Input", "Get", "Put", "Close", "As", "Lock", "Unlock", "Seek", "Width",
+    };
+
     [GeneratedRegex(@"^[+&]\s")]
     private static partial Regex LeadingOperator();
 
@@ -1168,10 +1220,10 @@ public static partial class ModuleIndenter
     [GeneratedRegex(@"^Stop\s*(?:$|:|')", RegexOptions.IgnoreCase)]
     private static partial Regex StopStatement();
 
-    [GeneratedRegex(@"^(Dim|Const|Static|Public|Private)\s", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(Dim|Const|Static|Public|Private|Global)\s", RegexOptions.IgnoreCase)]
     private static partial Regex Declaration();
 
-    [GeneratedRegex(@"^((Public|Private|Friend)\s+)?(Declare|Enum|Type|Event|Implements)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^((Public|Private|Friend|Global)\s+)?(Declare|Enum|Type|Event|Implements)\b", RegexOptions.IgnoreCase)]
     private static partial Regex NotAVariable();
 
     // what a declaration's line names before its first As, and that As.

@@ -249,4 +249,66 @@ public sealed class ModuleIndenterTests
         CollectionAssert.AreEqual(new[] { new IndentationEdit(1, 0, 0, "    "), new IndentationEdit(2, 0, 0, "        "), new IndentationEdit(3, 0, 0, "    ") }, edits.ToArray());
         Assert.AreEqual("Sub A()\r    If x Then\n        y = 1\r\n    End If\rEnd Sub", ModuleIndenter.Apply(text, edits));
     }
+
+    // an empty line the spacing writes is as an empty line at its level is: formatting what is formatted changes nothing.
+    [TestMethod]
+    public void TheEmptyLinesBetweenProcedures_AreIndented_WhenEmptyLinesAre()
+    {
+        var options = CodeFormattingOptions.Default with { EmptyLineHandlingMethod = EmptyLineHandlingMethod.Indent };
+
+        var once = Indented(Lines("#If X Then", "Sub A()", "End Sub", "Sub B()", "End Sub", "#End If"), options);
+
+        Assert.AreEqual(Lines("#If X Then", "    Sub A()", "    End Sub", "    ", "    Sub B()", "    End Sub", "#End If"), once);
+        Assert.AreEqual(once, Indented(once, options));
+    }
+
+    // a range changes no line outside of it: it spaces a gap between procedures only when it takes in the line before the gap and the procedure after it.
+    [TestMethod]
+    public void ARange_SpacesOnlyTheGapsItTakesInWhole()
+    {
+        var text = Lines("Sub A()", "x = 1", "End Sub", "", "", "", "Sub B()", "End Sub");
+
+        Assert.AreEqual(Lines("Sub A()", "    x = 1", "End Sub", "", "", "", "Sub B()", "End Sub"), Indented(text, first: 1, last: 2));
+        Assert.AreEqual(text, Indented(text, first: 6, last: 7));
+        Assert.AreEqual(Lines("Sub A()", "x = 1", "End Sub", "", "Sub B()", "End Sub"), Indented(text, first: 2, last: 6));
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "#If X Then", "Sub A()", "End Sub", "#Else", "Sub A()", "End Sub", "#End If" }, DisplayName = "after an #If, an #Else")]
+    [DataRow(new[] { "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Sub A()", "End Sub" },
+        DisplayName = "after the header and the attributes")]
+    public void AProcedureRightAfterADirectiveOrAnAttribute_IsNotSpaced(string[] lines)
+        => Assert.AreEqual(Lines(lines), Indented(Lines(lines), CodeFormattingOptions.Default with { IndentCompilerDirectives = false }));
+
+    [TestMethod]
+    public void TheCommentsRightAboveAProcedure_AreSpacedWithIt()
+        => Assert.AreEqual(Lines("Sub A()", "End Sub", "", "' about B", "Rem and more", "Sub B()", "End Sub"),
+            Indented(Lines("Sub A()", "End Sub", "' about B", "Rem and more", "Sub B()", "End Sub")));
+
+    // the edit of a gap ends where the edit of the indentation of the line after it starts: they touch, and do not overlap.
+    [TestMethod]
+    public void AGapAndTheIndentationOfTheProcedureAfterIt_AreTwoEditsThatTouch()
+    {
+        var text = Lines("Sub A()", "End Sub", "  Sub B()", "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default);
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(1, 7, 2, 0, "\r\n\r\n"), new IndentationEdit(2, 0, 2, string.Empty) }, edits.ToArray());
+        Assert.AreEqual(Lines("Sub A()", "End Sub", "", "Sub B()", "End Sub"), ModuleIndenter.Apply(text, edits));
+    }
+
+    // a date literal and a bracketed name are of one token: a colon, a comma or a parenthesis in them is no anchor. Global declares as Dim does.
+    [TestMethod]
+    [DataRow(new[] { "Sub A()", "If Now > #5:00:00 PM# And _", "x Then", "End If", "End Sub" },
+        new[] { "Sub A()", "    If Now > #5:00:00 PM# And _", "       x Then", "    End If", "End Sub" }, DisplayName = "a date literal after an operator")]
+    [DataRow(new[] { "Sub A()", "x = Foo(#1:00:00 PM#, _", "2)", "End Sub" }, new[] { "Sub A()", "    x = Foo(#1:00:00 PM#, _", "            2)", "End Sub" },
+        DisplayName = "a date literal argument")]
+    [DataRow(new[] { "Sub A()", "x = Foo([a:b], _", "2)", "End Sub" }, new[] { "Sub A()", "    x = Foo([a:b], _", "            2)", "End Sub" },
+        DisplayName = "a bracketed name with a colon")]
+    [DataRow(new[] { "Sub A()", "x = Foo([a(b], _", "2)", "End Sub" }, new[] { "Sub A()", "    x = Foo([a(b], _", "            2)", "End Sub" },
+        DisplayName = "a bracketed name with a parenthesis")]
+    [DataRow(new[] { "Global a As Long, _", "b As Long" }, new[] { "Global a As Long, _", "b As Long" }, DisplayName = "a Global declaration")]
+    public void AContinuedLine_LinesUpPastWhatIsOfOneToken(string[] typed, string[] indented)
+        => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
 }

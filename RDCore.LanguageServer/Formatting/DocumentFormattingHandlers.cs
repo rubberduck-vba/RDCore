@@ -33,7 +33,9 @@ internal sealed class DocumentFormattingHandler(ICodeFormattingService formattin
 /// </summary>
 /// <remarks>
 /// A line is indented by what encloses it in the whole module, whatever the range: the range says which lines are given edits. A range that ends at the start
-/// of a line - a selection of whole lines - does not take in that line.
+/// of a line - a selection of whole lines - does not take in that line, and one that starts or ends inside a continued statement takes in all of its lines. The
+/// empty lines between two procedures are spaced only when the range takes in the line above them and the first line of the procedure after them: no line
+/// outside of the range is changed.
 /// </remarks>
 internal sealed class DocumentRangeFormattingHandler(ICodeFormattingService formatting, TextDocumentSelector selector, IncomingDocumentChanges incoming)
     : DocumentRangeFormattingHandlerBase
