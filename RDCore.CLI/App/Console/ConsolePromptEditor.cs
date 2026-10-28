@@ -139,6 +139,37 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
     private Task Invalidation => Volatile.Read(ref _invalidation).Task;
 
+    // set when what was drawn of the line was erased to write something above it: the line draws everything again, from the line down.
+    private int _erased;
+
+    /// <summary>
+    /// Writes what is not the line's - a message the shell logs while the workspace loads, say - above the line while it is edited, and draws the line again under
+    /// it; as it comes, while no line is.
+    /// </summary>
+    /// <remarks>
+    /// Written over the line instead, a message would leave the line, and what is drawn under it, where the editor no longer knows them to be: a progress bar
+    /// under the line stays on the console when its work is done, and the message lands in the middle of what is typed.
+    /// </remarks>
+    /// <param name="write">Writes it, at the start of a line: what it writes ends with a line break.</param>
+    public void WriteAbove(Action write)
+    {
+        lock (Sync)
+        {
+            if (!IsEditing)
+            {
+                write();
+                return;
+            }
+
+            // the line and everything under it are erased; what is written goes where the line was, and the line is drawn again after it.
+            _output.Write("\r\u001b[J");
+            _output.Flush();
+            write();
+            Volatile.Write(ref _erased, 1);
+            Invalidate();
+        }
+    }
+
     /// <summary>
     /// Reads a line.
     /// </summary>
@@ -244,7 +275,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     if (done == invalidated)
                     {
                         invalidated = editor.Invalidation;
-                        Forget();
+                        Forget(erased: Interlocked.Exchange(ref editor._erased, 0) == 1);
                         Draw();
                         continue;
                     }
@@ -797,8 +828,16 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             _drawn.AddRange(rows);
         }
 
-        // what is under the line was drawn over by someone else - the output of a program, a progress line: every row of it is written again.
-        private void Forget() => _drawn.Clear();
+        // what is under the line was drawn over by someone else - the output of a program, a progress line: every row of it is written again. When it was erased
+        // to write above the line (WriteAbove), the rows under the line are gone too, and are made again.
+        private void Forget(bool erased = false)
+        {
+            _drawn.Clear();
+            if (erased)
+            {
+                _reservedRows = 0;
+            }
+        }
 
         // what the selected item is, under the list: its signature, then what its documentation says of it, faint - each wrapped to the console, and no more lines
         // of them than the editor gives a description. A list that drops down near the right edge has its description start at the left one, where it has room.
