@@ -31,7 +31,8 @@ internal sealed class PromptAwareMessageWriter(IConsoleMessageWriter inner) : IC
 
     public IConsoleMessageWriter Clear()
     {
-        inner.Clear();
+        // the console is cleared with the line on it: the line is drawn again at its top.
+        Write(() => inner.Clear());
         return this;
     }
 

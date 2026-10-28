@@ -98,6 +98,39 @@ public sealed class ConsolePromptWriteAboveTests
     }
 
     [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task AKeyPressedWhileAMessageIsWritten_IsDrawnOnRowsMadeAgainUnderTheLine()
+    {
+        var keys = new WaitingKeys();
+        var output = new Console();
+        var editor = new ConsolePromptEditor(keys, output, () => 80) { Status = _ => ["[busy]"] };
+
+        var reading = editor.ReadLineAsync(CancellationToken.None);
+        keys.Send(Char('a'), Char('b'));
+        await WaitUntilAsync(() => output.Text.Contains("ab") && output.Text.Contains("[busy]"));
+
+        // the key comes while the message is written: the line takes it before it is told it was erased, and draws it first.
+        editor.WriteAbove(() =>
+        {
+            output.Write("LOGGED\n");
+            keys.Send(Char('c'));
+        });
+        await WaitUntilAsync(() =>
+        {
+            var after = output.Text[output.Text.IndexOf("LOGGED", StringComparison.Ordinal)..];
+            return after.IndexOf("\rabc", StringComparison.Ordinal) is var first and >= 0 && after.IndexOf("\rabc", first + 1, StringComparison.Ordinal) >= 0;
+        });
+
+        var text = output.Text[output.Text.IndexOf("LOGGED", StringComparison.Ordinal)..];
+        var second = text.IndexOf("\rabc", text.IndexOf("\rabc", StringComparison.Ordinal) + 1, StringComparison.Ordinal);
+        var reserved = text.IndexOf("\n\u001b[1A", StringComparison.Ordinal);
+        Assert.IsTrue(reserved >= 0 && reserved < second, "the first draw after the message makes the erased row under the line again, rather than moving down to where it was");
+
+        keys.Send(Key(ConsoleKey.Enter));
+        Assert.AreEqual("abc", await reading);
+    }
+
+    [TestMethod]
     public void AMessageWrittenWhileNoLineIsEdited_IsWrittenAsItComes()
     {
         var output = new Console();

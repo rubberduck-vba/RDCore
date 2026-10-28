@@ -236,6 +236,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             _history = editor._history.Count;
             Task<ConsoleKeyInfo>? key = null;
             var invalidated = editor.Invalidation;
+
+            // a line erased to write above it after the last one was entered was not this one: this one has nothing drawn yet.
+            Volatile.Write(ref editor._erased, 0);
             Draw();
             try
             {
@@ -275,7 +278,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     if (done == invalidated)
                     {
                         invalidated = editor.Invalidation;
-                        Forget(erased: Interlocked.Exchange(ref editor._erased, 0) == 1);
+                        Forget();
                         Draw();
                         continue;
                     }
@@ -724,6 +727,12 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         {
             lock (editor.Sync)
             {
+                // taken here rather than when the line is told it was invalidated: a key that is waiting is drawn first, and it draws on erased rows too.
+                if (Interlocked.Exchange(ref editor._erased, 0) == 1)
+                {
+                    Forget(erased: true);
+                }
+
                 var columns = Math.Max(10, editor._width());
 
                 // the line scrolls to keep the cursor in it, when it is longer than the console is wide.
