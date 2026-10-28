@@ -29,12 +29,12 @@ public sealed class InlayHintHandlerTests
 
     private const string Program = "10 MsgBox \"Hello\", vbOKOnly\r\n";
 
-    private static InlayHintHandler Sut()
+    private static InlayHintHandler Sut(string text = Program)
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
-        var program = new WorkspaceDocument("Main.rdc", Root, Program, version: 1);
+        var program = new WorkspaceDocument("Main.rdc", Root, text, version: 1);
         documents.GetAllDocuments().Returns([program]);
         var uri = program.Id.Uri.ToUri();
         parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>())
@@ -59,5 +59,20 @@ public sealed class InlayHintHandlerTests
         CollectionAssert.AreEqual(new[] { "Prompt:", "Buttons:" }, hints.Select(hint => hint.Label.String).ToArray());
         CollectionAssert.AreEqual(new[] { new Position(0, 10), new Position(0, 19) }, hints.Select(hint => hint.Position).ToArray());
         Assert.IsTrue(hints.All(hint => hint.Kind == InlayHintKind.Parameter && hint.PaddingRight == true));
+    }
+
+    [TestMethod]
+    public async Task ADeclarationThatStatesNoType_IsHintedWithTheVariantItIs_AfterItsName()
+    {
+        var hints = (await Sut("10 Dim x\r\n20 Dim y As Long\r\n30 Dim z$\r\n").Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(DocumentUri.From(Path.Combine(Root, "Main.rdc"))),
+            Range = new Range(0, 0, 3, 0),
+        }, CancellationToken.None))!.ToArray();
+
+        var variant = hints.Single(hint => hint.Kind == InlayHintKind.Type);
+        Assert.AreEqual("As Variant", variant.Label.String);
+        Assert.AreEqual(new Position(0, 8), variant.Position, "x ends at the eighth character of `10 Dim x`");
+        Assert.IsTrue(variant.PaddingLeft == true);
     }
 }

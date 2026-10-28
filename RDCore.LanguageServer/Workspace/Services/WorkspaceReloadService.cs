@@ -211,16 +211,6 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
-    // the client is told of a workspace that is not what it was.
-    private WorkspaceReloadResult Told(WorkspaceReloadResult result)
-    {
-        if (!result.IsUnchanged)
-        {
-            refresh.Changed();
-        }
-
-        return result;
-    }
 
     public async Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
         => await BeginChangeAsync(change, token) is { } step ? await step.Completed.WaitAsync(token) : null;
@@ -359,9 +349,19 @@ internal sealed class WorkspaceReloadService(
             {
                 // a request that was cancelled for another reason - the connection to the host was lost - is a failure like any other.
                 logger.LogError(exception, "❌ The environment host and the symbols could not be made what the project lists.");
-                foreach (var pending in batch)
+
+                // the documents of the batch were made all the same: what the client shows of the others is of a workspace that is not what it was.
+                lock (_queue)
                 {
-                    pending.Done.TrySetException(exception);
+                    if (!_lifetime.IsCancellationRequested)
+                    {
+                        refresh.Changed();
+                    }
+
+                    foreach (var pending in batch)
+                    {
+                        pending.Done.TrySetException(exception);
+                    }
                 }
             }
         }
@@ -431,6 +431,10 @@ internal sealed class WorkspaceReloadService(
         lock (_queue)
         {
             stopping.ThrowIfCancellationRequested();
+
+            // the client is told of a workspace that is not what it was once it is: the host and the symbols are what the documents are, once for all the changes of the
+            // batch, and before any of them is done.
+            refresh.Changed();
             foreach (var pending in batch)
             {
                 var failure = pending.Work.ToParse.Select(id => failed.GetValueOrDefault(id)).FirstOrDefault(exception => exception is not null);
@@ -444,9 +448,6 @@ internal sealed class WorkspaceReloadService(
                 }
             }
         }
-
-        // the client is told of a workspace that is not what it was once it is: the host and the symbols are what the documents are, once for all the changes of the batch.
-        refresh.Changed();
     }
 
     private async Task<Applied> ReloadListedFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)

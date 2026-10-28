@@ -27,6 +27,7 @@ using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
@@ -162,6 +163,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
             .AddSingleton<IReplCommand, ListReplCommand>()
             .AddSingleton<IReplCommand, FoldReplCommand>()
+            .AddSingleton<IReplCommand, InlaysReplCommand>()
             .AddSingleton<IReplCommand, BreakReplCommand>()
             .AddSingleton<IReplCommand, ContReplCommand>()
             .AddSingleton<IReplCommand, StepReplCommand>()
@@ -182,7 +184,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, ClearReplCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             // the shell is the client of a running platform: a live setting takes effect as it is set.
-            .AddSingleton(provider => new ConfigCommand(provider.GetRequiredService<IPlatformSettings>(), appliesLive: true))
+            .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
+            .AddSingleton(provider => new ConfigCommand(provider.GetRequiredService<IPlatformSettings>(), appliesLive: true, provider.GetRequiredService<RubberduckIndenterSettingsReader>()))
             .AddSingleton<IReplCommand, ConfigReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
             .AddSingleton<ReplShell>()
@@ -306,6 +309,9 @@ internal class RDCoreConsoleClientApp(
     IChildConnectionFactory connectionFactory,
     ReplUserInteraction interaction,
     IReplConsole console,
+    RubberduckIndenterSettingsReader rubberduck,
+    IPlatformSettings settings,
+    ILiveSettings liveSettings,
     ILogger<RDCoreConsoleClientApp> logger)
     : RDCoreClientApp(options, connectionFactory, logger)
 {
@@ -335,6 +341,8 @@ internal class RDCoreConsoleClientApp(
             SessionMemoryAccess = new SessionMemoryAccess(true),
             // the shell answers the dialogs a program opens, at its console.
             SessionInteraction = new SessionInteraction(true),
+            // the shell reads the indenter settings its user had in Rubberduck (on Windows), and takes the ones the language server maps as its own.
+            RubberduckIndenterSettings = new RubberduckIndenterSettings(true),
         },
     };
 
@@ -342,7 +350,11 @@ internal class RDCoreConsoleClientApp(
     protected override void ConfigureServices(IServiceCollection services)
         => services
             .AddSingleton(interaction)
-            .AddSingleton(console);
+            .AddSingleton(console)
+            .AddSingleton(rubberduck)
+            .AddSingleton(settings)
+            .AddSingleton(liveSettings)
+            .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
     {
@@ -353,7 +365,9 @@ internal class RDCoreConsoleClientApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
         => builder
             .WithHandler<ReplMessageBoxHandler>()
-            .WithHandler<ReplInputBoxHandler>();
+            .WithHandler<ReplInputBoxHandler>()
+            .WithHandler<RubberduckIndenterSettingsHandler>()
+            .WithHandler<RubberduckIndenterSettingsApplyHandler>();
 
     protected override async Task OnLanguageClientStartedAsync(ILanguageClient client, CancellationToken token)
     {
@@ -410,6 +424,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, BenchCommand>()
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
+            .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()
             .AddSingleton<ICliCommand, ConfigCliCommand>()
             // rdc bench runs a workspace in-process, as the environment host runs one: it needs what the host's errors are described with.

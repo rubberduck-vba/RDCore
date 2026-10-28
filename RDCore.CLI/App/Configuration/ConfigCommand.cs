@@ -1,4 +1,5 @@
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Server.Configuration;
 using System.Globalization;
@@ -29,7 +30,8 @@ internal sealed record class ConfigOutput(string Text, MessageKind? Kind = null,
 /// </remarks>
 /// <param name="settings">The settings.</param>
 /// <param name="appliesLive">Whether a live setting takes effect as it is set: the shell's, which is the client of a running platform; not <c>rdc config</c>'s.</param>
-internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive = false)
+/// <param name="rubberduck">Reads the indenter settings the user had in Rubberduck, for <c>CONFIG IMPORT RUBBERDUCK</c>; <see langword="null"/> where there is nothing to read them with.</param>
+internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive = false, RubberduckIndenterSettingsReader? rubberduck = null)
 {
     /// <summary>The verb.</summary>
     public const string Name = Repl.Commands.ReplCommandNames.Config;
@@ -38,6 +40,8 @@ internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive
     public const string Alias = Repl.Commands.ReplCommandNames.Configure;
 
     private const string ResetArgument = "RESET";
+    private const string ImportArgument = "IMPORT";
+    private const string RubberduckArgument = "RUBBERDUCK";
 
     /// <summary>
     /// The forms of the verb's arguments, the settings a user can set among them: <c>CONFIG RESET [setting]</c> and <c>CONFIG &lt;setting&gt; [value]</c>.
@@ -67,6 +71,10 @@ internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive
                     new VerbArgument { Name = "setting", Kind = VerbArgumentKind.Setting, Settings = settable },
                     new VerbArgument { Name = "value", Kind = VerbArgumentKind.SettingValue, ValueOf = "setting" },
                 ],
+                [
+                    new VerbArgument { Name = "import", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = ImportArgument, Description = Resources.Config_Import_Detail }] },
+                    new VerbArgument { Name = "source", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = RubberduckArgument, Description = Resources.Config_Import_Rubberduck_Detail }] },
+                ],
             ],
         };
     }
@@ -93,7 +101,37 @@ internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive
             return Reset(value.Length == 0 ? null : value);
         }
 
+        if (key.Equals(ImportArgument, StringComparison.OrdinalIgnoreCase))
+        {
+            return Import(value);
+        }
+
         return value.Length == 0 ? Show(key) : Set(key, value);
+    }
+
+    // the settings of another tool, read where it keeps them, set for the user: the shell reads them itself, as it is the client the language server would ask.
+    private IReadOnlyList<ConfigOutput> Import(string source)
+    {
+        if (!source.Equals(RubberduckArgument, StringComparison.OrdinalIgnoreCase))
+        {
+            return [new(IndenterSettingsImportText.UnknownSource(source), MessageKind.Error)];
+        }
+
+        var found = rubberduck is null ? null : IndenterSettingsImport.From(rubberduck.Read());
+        if (found is null)
+        {
+            return [new(IndenterSettingsImportText.Nothing(), MessageKind.Information)];
+        }
+
+        var store = settings.Store;
+        if (!store.IsReadable)
+        {
+            return [Unreadable(store)];
+        }
+
+        var applied = IndenterSettingsImport.ApplyTo(store, found.Values);
+        var result = new IndenterSettingsImportResult(found.Source, applied.Applied, applied.Refused);
+        return [new(IndenterSettingsImportText.Imported(result), applied.Applied > 0 ? MessageKind.Success : MessageKind.Warning)];
     }
 
     private IReadOnlyList<ConfigOutput> ListSet()

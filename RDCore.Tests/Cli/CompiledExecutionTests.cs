@@ -1,5 +1,6 @@
 using RDCore.CLI.Host;
 using RDCore.Runtime.Compiled;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection;
@@ -19,6 +20,24 @@ public sealed class CompiledExecutionTests
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
     private sealed record class Run(ExecuteSessionResult Result, IReadOnlyDictionary<string, CompilationResult> Compiled);
+
+    // compiled code works on payloads, which the suite is also run without: what it does is not to be seen then, as every procedure is refused.
+    internal static void RequirePayloads()
+    {
+        if (!UnboxedEvaluation.IsEnabled)
+        {
+            Assert.Inconclusive("compiled code needs unboxed values (RDCORE_UNBOXED=0 refuses every procedure)");
+        }
+    }
+
+    // what compiled code does without payloads is to be seen only where the suite is run without them.
+    private static void RequireBoxedValues()
+    {
+        if (UnboxedEvaluation.IsEnabled)
+        {
+            Assert.Inconclusive("values are held unboxed: what compiled code does without them is seen with RDCORE_UNBOXED=0");
+        }
+    }
 
     private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, TimeSpan? cancelAfter = null)
     {
@@ -50,6 +69,7 @@ public sealed class CompiledExecutionTests
 
     private static async Task<Run> AssertAlikeAsync(string program, bool walksBack, string[] compiled)
     {
+        RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
         var run = await RunAsync(program, VBExecutionEngine.Compiled);
 
@@ -293,6 +313,7 @@ public sealed class CompiledExecutionTests
     public void AFailureOfTheCompiler_IsAReasonTheProcedureRunsInTheInterpreter_AndIsReported()
     {
         // a procedure whose parameters were never set is no procedure a session defines, and makes the analysis fail.
+        RequirePayloads();
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
@@ -314,6 +335,7 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public void AHandlerOfAFailureThatFails_FailsNoCall_AndTheRefusalStands()
     {
+        RequirePayloads();
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
@@ -349,6 +371,7 @@ public sealed class CompiledExecutionTests
             "        I = (I + 1) Mod 1000",
             "    Loop",
             "End Sub");
+        RequirePayloads();
 
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, TimeSpan.FromMilliseconds(300));
         var compiled = await RunAsync(program, VBExecutionEngine.Compiled, TimeSpan.FromMilliseconds(300));
@@ -377,20 +400,67 @@ public sealed class CompiledExecutionTests
     }
 
     [TestMethod]
+    public async Task WhereValuesAreHeldBoxed_NoProcedureIsCompiled_AndEachSaysWhy()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Total()",
+            "End Sub",
+            "Private Function Total() As Long",
+            "    Dim i As Long",
+            "    For i = 1 To 10",
+            "        Total = Total + i",
+            "    Next",
+            "End Function");
+        RequireBoxedValues();
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
+
+        var run = await RunAsync(program, VBExecutionEngine.Compiled);
+
+        Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
+        foreach (var (name, result) in run.Compiled)
+        {
+            Assert.IsNull(result.Body, name);
+            Assert.AreEqual(IneligibilityKind.BoxedEvaluation, result.Reasons.Single().Kind, name);
+        }
+
+        Assert.IsTrue(run.Compiled.ContainsKey("Total"), "Total was not called");
+    }
+
+    [TestMethod]
+    public async Task WhereValuesAreHeldBoxed_TheStrictModeFailsTheCall()
+    {
+        RequireBoxedValues();
+        using var strictly = CompiledExecution.Strictly();
+        var run = await RunAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print 1 + 2",
+            "End Sub"), VBExecutionEngine.Compiled);
+
+        // the call fails as an internal error, rather than run in the interpreter.
+        Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));
+        Assert.IsEmpty(run.Result.Output);
+        Assert.AreEqual(IneligibilityKind.BoxedEvaluation, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
+    }
+
+    [TestMethod]
     public async Task UnderTheStrictMode_AProcedureThatIsNotCompiled_FailsItsCall()
     {
+        RequirePayloads();
         using var strictly = CompiledExecution.Strictly();
         var run = await RunAsync(Program(
             "Public Sub Main()",
             "    On Error Resume Next",
             "End Sub"), VBExecutionEngine.Compiled);
 
-        Assert.AreNotEqual(ExecutionOutcome.Completed, run.Result.Outcome);
+        Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));
+        Assert.AreEqual(IneligibilityKind.Instruction, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
     }
 
     [TestMethod]
     public async Task CompiledCode_ReferencesNothingButTheSupportNamespace()
     {
+        RequirePayloads();
         var run = await RunAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Everything(3, 4.5)",

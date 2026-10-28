@@ -115,4 +115,91 @@
   <data name="Environment_Regional_PMDesignator" xml:space="preserve">
     <value>What a time from noon on is written with.</value>
   </data>
+  <data name="Formatting_IndentEntireProcedureBody" xml:space="preserve">
+    <value>Whether the body of a procedure is indented a level from its Sub, Function or Property line and its End.</value>
+  </data>
+  <data name="Formatting_IndentEnumTypeAsProcedure" xml:space="preserve">
+    <value>Whether the body of an Enum or a Type is indented a level, as the body of a procedure is.</value>
+  </data>
+  <data name="Formatting_IndentFirstCommentBlock" xml:space="preserve">
+    <value>Whether the comments at the top of a module, before its first declaration, are indented a level.</value>
+  </data>
+  <data name="Formatting_IndentFirstDeclarationBlock" xml:space="preserve">
+    <value>Whether the declarations at the top of a procedure, before its first statement, are indented a level.</value>
+  </data>
+  <data name="Formatting_IgnoreEmptyLinesInFirstBlocks" xml:space="preserve">
+    <value>Whether the empty lines in the first comment block and the first declaration block are ignored when those blocks are found.</value>
+  </data>
+  <data name="Formatting_AlignCommentsWithCode" xml:space="preserve">
+    <value>Whether a comment on a line of its own is indented as the code that follows it.</value>
+  </data>
+  <data name="Formatting_AlignContinuations" xml:space="preserve">
+    <value>Whether the lines a statement continues onto are aligned with each other.</value>
+  </data>
+  <data name="Formatting_IgnoreOperatorsInContinuations" xml:space="preserve">
+    <value>Whether an operator that begins a continued line is ignored when continuations are aligned, so that the operands line up.</value>
+  </data>
+  <data name="Formatting_IndentCase" xml:space="preserve">
+    <value>Whether the Case clauses of a Select Case are indented a level from the Select Case.</value>
+  </data>
+  <data name="Formatting_ForceDebugStatementsInColumn1" xml:space="preserve">
+    <value>Whether Debug.Print, Debug.Assert and Stop all go in the first column, whatever is set for each.</value>
+  </data>
+  <data name="Formatting_ForceDebugPrintInColumn1" xml:space="preserve">
+    <value>Whether Debug.Print goes in the first column.</value>
+  </data>
+  <data name="Formatting_ForceDebugAssertInColumn1" xml:space="preserve">
+    <value>Whether Debug.Assert goes in the first column.</value>
+  </data>
+  <data name="Formatting_ForceStopInColumn1" xml:space="preserve">
+    <value>Whether Stop goes in the first column.</value>
+  </data>
+  <data name="Formatting_ForceCompilerDirectivesInColumn1" xml:space="preserve">
+    <value>Whether the lines of conditional compilation (#If, #Else, #End If, #Const) go in the first column.</value>
+  </data>
+  <data name="Formatting_IndentCompilerDirectives" xml:space="preserve">
+    <value>Whether the code between the lines of conditional compilation is indented a level.</value>
+  </data>
+  <data name="Formatting_AlignDims" xml:space="preserve">
+    <value>Whether the As clauses of consecutive declarations are aligned in a column.</value>
+  </data>
+  <data name="Formatting_AlignDimColumn" xml:space="preserve">
+    <value>The column the As clauses of declarations are aligned in, from 0 to 100.</value>
+  </data>
+  <data name="Formatting_EndOfLineCommentStyle" xml:space="preserve">
+    <value>Where a comment at the end of a line of code goes: where it was written (Absolute), the gap it was written with (SameGap), two spaces after the code (StandardGap), or in a column (AlignInColumn).</value>
+  </data>
+  <data name="Formatting_EndOfLineCommentColumnSpaceAlignment" xml:space="preserve">
+    <value>The column a comment at the end of a line is aligned in when the style is AlignInColumn, from 0 to 100.</value>
+  </data>
+  <data name="Formatting_EmptyLineHandlingMethod" xml:space="preserve">
+    <value>What is done with lines that have nothing on them: left as they are (Ignore), removed (Remove), or indented as the code around them (Indent).</value>
+  </data>
+  <data name="Formatting_IndentSpaces" xml:space="preserve">
+    <value>The number of spaces a level of indentation is, from 0 to 32. Left unset, it is your editor's tab size.</value>
+  </data>
+  <data name="Formatting_VerticallySpaceProcedures" xml:space="preserve">
+    <value>Whether the number of empty lines between the procedures of a module is made the number set for it.</value>
+  </data>
+  <data name="Formatting_LinesBetweenProcedures" xml:space="preserve">
+    <value>The number of empty lines between procedures, from 0 to 2, when they are spaced.</value>
+  </data>
+  <data name="Formatting_GroupRelatedProperties" xml:space="preserve">
+    <value>Whether the Get, Let and Set of a property are kept together, one after another.</value>
+  </data>
+  <data name="Formatting_FormatOnType" xml:space="preserve">
+    <value>Whether the line just finished is formatted, and the new one indented, when you press Enter.</value>
+  </data>
+  <data name="Formatting_CompleteBlocks" xml:space="preserve">
+    <value>Whether pressing Enter after a block opener that has no closer inserts the closer and leaves the caret in the indented body.</value>
+  </data>
+  <data name="Formatting_Snippets" xml:space="preserve">
+    <value>Whether completion offers snippets of blocks, with placeholders to tab between.</value>
+  </data>
+  <data name="Formatting_SnippetDimPlacement" xml:space="preserve">
+    <value>Where the Dim a snippet declares goes: right above the block (AboveBlock), where it follows the variable's name as you type it, or at the top of the procedure (ProcedureTop).</value>
+  </data>
+  <data name="Formatting_PrettyList" xml:space="preserve">
+    <value>Whether a finished line is listed back from what it compiled to, as the VBA editor does, instead of formatted by rules of spacing and casing.</value>
+  </data>
 </root>

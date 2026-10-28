@@ -12,6 +12,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Client;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
@@ -80,7 +81,11 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFileSystemWatcher, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFileSystemWatcher>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
-            .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>();
+            .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>()
+            // the indenter settings of Rubberduck, offered once and imported on demand (rdcore.importIndenterSettings).
+            .AddSingleton(provider => new IndenterSettingsOffer(
+                provider.GetRequiredService<IFileSystem>(),
+                IndenterSettingsOffer.MarkerIn(provider.GetRequiredService<IPlatformEnvironment>().UserDataDirectory)));
         return services;
     }
 
