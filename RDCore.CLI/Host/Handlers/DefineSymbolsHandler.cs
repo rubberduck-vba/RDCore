@@ -253,13 +253,17 @@ internal sealed class DefineSymbolsHandler(
     // those is dead, and not otherwise (SymbolProperties.UnlessLive). Without the directives, every branch is read as live.
     private static Symbol WithLiveLocals(Symbol symbol, Func<SourcePosition, bool>? isDead)
     {
-        bool IsDeclared(BoundTypedSymbol local)
-            => local.GetProperty(SymbolProperties.UnlessLive) is not { IsDefaultOrEmpty: false } unlessLive || isDead is not null && unlessLive.All(isDead);
+        static bool IsConditional(BoundTypedSymbol local) => !local.GetProperty(SymbolProperties.UnlessLive).IsDefaultOrEmpty;
+        bool IsDeclared(BoundTypedSymbol local) => !IsConditional(local) || isDead is not null && local.GetProperty(SymbolProperties.UnlessLive).All(isDead);
+
+        // what is declared is then declared whatever the branches are: the scope of the procedure has it.
+        ImmutableArray<BoundTypedSymbol> Live(ImmutableArray<BoundTypedSymbol> locals)
+            => [.. locals.Where(IsDeclared).Select(local => IsConditional(local) ? (BoundTypedSymbol)local.With(SymbolProperties.UnlessLive, []) : local)];
 
         return symbol switch
         {
-            VBProcedureMemberSymbol procedure when !procedure.Locals.All(IsDeclared) => procedure with { Locals = [.. procedure.Locals.Where(IsDeclared)] },
-            VBReturningMemberSymbol returning when !returning.Locals.All(IsDeclared) => returning with { Locals = [.. returning.Locals.Where(IsDeclared)] },
+            VBProcedureMemberSymbol procedure when procedure.Locals.Any(IsConditional) => procedure with { Locals = Live(procedure.Locals) },
+            VBReturningMemberSymbol returning when returning.Locals.Any(IsConditional) => returning with { Locals = Live(returning.Locals) },
             _ => symbol,
         };
     }

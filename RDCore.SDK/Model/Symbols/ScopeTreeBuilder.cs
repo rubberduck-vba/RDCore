@@ -75,6 +75,11 @@ public static class ScopeTreeBuilder
                 continue;
             }
 
+            if (!IsDeclaredInEveryBranch(symbol))
+            {
+                continue;
+            }
+
             var parent = symbol.ParentUri.AbsoluteUri;
             if (moduleDeclarations.TryGetValue(parent, out var inModule))
             {
@@ -234,10 +239,14 @@ public static class ScopeTreeBuilder
         _ => [],
     };
 
-    private static ImmutableArray<BoundTypedSymbol> LocalsOf(Symbol symbol) => symbol switch
+    // a local that is declared only where a #If branch is dead (SymbolProperties.UnlessLive) is the environment host's to declare, once it knows which branch
+    // is: a scope built without knowing it reads the declaration of the branch as the name's.
+    private static IEnumerable<BoundTypedSymbol> LocalsOf(Symbol symbol) => (symbol switch
     {
         VBReturningMemberSymbol member => member.Locals,
         VBProcedureMemberSymbol member => member.Locals,
         _ => [],
-    };
+    }).Where(IsDeclaredInEveryBranch);
+
+    private static bool IsDeclaredInEveryBranch(Symbol symbol) => symbol.GetProperty(SymbolProperties.UnlessLive).IsDefaultOrEmpty;
 }
