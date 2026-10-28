@@ -116,6 +116,27 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.1</strong> Module Body Structure.
     /// </summary>
     OnlyCommentsAfterEndProcedure = 55,
+    /// <summary>
+    /// A <c>#End If</c> directive ends no <c>#If</c> block: there is none before it, or the one before it is no directive. MS-VBA's message names
+    /// <c>#ElseIf</c> and <c>#Else</c> too, which have codes of their own (<see cref="ElseIfWithoutIf"/>, <see cref="HashElseWithoutIf"/>).<br/>
+    /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
+    /// </summary>
+    DirectiveWithoutIf = 56,
+    /// <summary>
+    /// A <c>#Else</c> directive belongs to no <c>#If</c>, or is the second of its block.<br/>
+    /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
+    /// </summary>
+    HashElseWithoutIf = 57,
+    /// <summary>
+    /// A <c>#ElseIf</c> directive belongs to no <c>#If</c>, or comes after its block's <c>#Else</c>.<br/>
+    /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
+    /// </summary>
+    ElseIfWithoutIf = 58,
+    /// <summary>
+    /// A <c>#If</c> block is not ended: the module ends before its <c>#End If</c>.<br/>
+    /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
+    /// </summary>
+    HashIfWithoutEndIf = 59,
 
     #endregion
 

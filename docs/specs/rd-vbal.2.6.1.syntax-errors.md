@@ -117,6 +117,38 @@ The host evaluates the directives with the session's constants (`PrecompilerLive
 |[`VBC00053`](../diagnostics/vbc00053.md)|Expected End With|a `With` block is not ended before its procedure is|
 |[`VBC00054`](../diagnostics/vbc00054.md)|Invalid outside procedure|a statement that runs is written in the declarations section of a module|
 |[`VBC00055`](../diagnostics/vbc00055.md)|Only comments may appear after End Sub, End Function, or End Property|a declaration or a statement is written after the first procedure of a module|
+|[`VBC00056`](../diagnostics/vbc00056.md)|An #ElseIf, #Else, or #EndIf must be preceded by an #If clause|a `#End If` ends no `#If` block|
+|[`VBC00057`](../diagnostics/vbc00057.md)|An #Else clause must be preceded by an #If|a `#Else` belongs to no block, or is the second of its block|
+|[`VBC00058`](../diagnostics/vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf|a `#ElseIf` belongs to no block, or comes after its `#Else`|
+|[`VBC00059`](../diagnostics/vbc00059.md)|You must terminate the #If block with an #EndIf|a `#If` block is not ended|
+
+## Directives That Are Wrong
+
+A directive is checked on its own logical line against the rule of the RD-VBA grammar for it. One that is not well formed is no directive, as in
+**MS-VBA** (recorded in Excel): an `#If` with no `Then`, one whose expression is no expression, one with code after its `Then`, an unknown keyword (`#Iff`),
+and an `#End If` with text after it, a comment written with `Rem` too. An `#End If` after such an `#If` ends no block, and so is `VBC00056`; a block whose
+`#End If` is not well formed is not ended, and so is `VBC00059`. `#EndIf`, written as one word, is an `#End If`.
+
+No whitespace is required around the condition of an `#If` or an `#ElseIf`, where a parenthesis separates it from the keywords: `#If(VBA7) Then`,
+`#If (Win64)Then` and `#ElseIf(Mac) Then` are well formed, as in **MS-VBA**. A `#Const` name is any identifier, an accented one too (`#Const Été = 1`).
+
+A directive line that is not well formed is the syntax error `VBC00001`, with **MS-VBA**'s message, at the token **MS-VBA** puts the caret on:
+
+|Directive|Message|At|
+|---|---|---|
+|`#If VBA7`|Expected: Then|the end of the line|
+|`#If VBA7 Foo Then`|Expected: Then|`Foo`|
+|`#If X = Then`|Expected: expression|`Then`|
+|`#If VBA7 Then Private Const A = 1`|Expected: end of statement|`Private`|
+|`#Else junk`, `#End If junk`|Expected: end of statement|`junk`|
+|`#Iff X Then`, `#`|Expected: If or Else or ElseIf or End or EndIf or Const|the word after `#`, or where it would be|
+|`#Const X`, `#Const X As Long = 1`|Expected: =|the end of the line, `As`|
+|`#Const = 1`|Expected: identifier|`=`|
+|`#Const X =`|Expected: expression|the end of the line|
+|`#Const X = 1 junk`|Expected: end of statement|`junk`|
+
+**MS-VBA** reports the first error of a module, and finds the errors of the blocks' structure (`VBC00056`–`VBC00059`) before those of the lines; RD-VBA
+reports every one of them. **MS-VBA** puts the caret of `VBC00059` on the module's last line, and RD-VBA reports it at the `#If` that is not ended.
 
 ---
 > ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)
