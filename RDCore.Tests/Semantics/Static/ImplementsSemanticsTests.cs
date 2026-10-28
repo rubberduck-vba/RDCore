@@ -291,4 +291,44 @@ public sealed class ImplementsSemanticsTests
     }
 
     #endregion
+
+    #region A property with more than one accessor
+
+    // an interface whose property has a Property Get and a Property Set, as OOPBattleship's IGridViewCommands.Events: each accessor is a member of its own.
+    private const string Commands =
+        "Public Property Get Events() As Object\r\nEnd Property\r\n" +
+        "Public Property Set Events(ByVal value As Object)\r\nEnd Property\r\n";
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the interface's order")]
+    [DataRow(true, DisplayName = "the Set first, as GridViewAdapter has it")]
+    public void APropertysAccessors_EachImplementTheirOwn(bool setFirst)
+    {
+        const string get = "Private Property Get ICommands_Events() As Object\r\nEnd Property\r\n";
+        const string set = "Private Property Set ICommands_Events(ByVal value As Object)\r\nEnd Property\r\n";
+
+        var errors = Check("Implements ICommands\r\n" + (setFirst ? set + get : get + set), ("ICommands", Commands));
+
+        Assert.IsEmpty(errors, string.Join("; ", errors.Select(error => error.Verbose)));
+    }
+
+    [TestMethod]
+    public void AnAccessorThatIsNotDeclared_IsMissing_AndTheOtherIsNotWrong()
+        => AssertOnly(VBCompileErrorId.InterfaceMemberNotImplemented,
+            Check("Implements ICommands\r\nPrivate Property Set ICommands_Events(ByVal value As Object)\r\nEnd Property\r\n", ("ICommands", Commands)));
+
+    [TestMethod]
+    public void AnAccessorOfAKindTheInterfaceHasNot_IsInvalid_Once()
+    {
+        var errors = Check(
+            "Implements ICommands\r\n" +
+            "Private Property Get ICommands_Events() As Object\r\nEnd Property\r\n" +
+            "Private Property Set ICommands_Events(ByVal value As Object)\r\nEnd Property\r\n" +
+            "Private Property Let ICommands_Events(ByVal value As Object)\r\nEnd Property\r\n",
+            ("ICommands", Commands));
+
+        AssertOnly(VBCompileErrorId.InvalidImplementedMember, errors);
+    }
+
+    #endregion
 }

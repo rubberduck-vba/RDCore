@@ -176,8 +176,20 @@ public static class ImplementsSemantics
         VBClassModuleSymbol module, VBClassModuleSymbol implemented, VBTypeMemberSymbol member, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
         var name = $"{implemented.Name}_{member.Name}";
+
+        // the accessors of an interface's property are members of their own (Property Get Events, Property Set Events): a candidate of the kind of another of
+        // them is that one's implemented name declaration, not a wrong one of this. One of no kind the interface has is reported once, with the first of them.
+        var siblings = IsVariable(member)
+            ? []
+            : InterfaceMembersOf(implemented)
+                .Where(other => !IsVariable(other) && string.Equals(other.Name, member.Name, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        var siblingShapes = siblings.Select(other => ShapeOf(other)!.Value).ToHashSet();
+        var reportsStrays = siblings.Length == 0 || ReferenceEquals(siblings[0], member);
+
         var candidates = module.Members
-            .Where(candidate => ShapeOf(candidate) is not null && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))
+            .Where(candidate => ShapeOf(candidate) is { } shape && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)
+                && (IsVariable(member) || shape == ShapeOf(member) || (!siblingShapes.Contains(shape) && reportsStrays)))
             .ToArray();
 
         var provided = new HashSet<Shape>();
@@ -194,9 +206,10 @@ public static class ImplementsSemantics
             }
         }
 
-        // a method that has a declaration, valid or not, is not missing one: what is wrong with it is reported above.
+        // a method that has a declaration, valid or not, is not missing one: what is wrong with it is reported above. A property accessor among others is missing
+        // when none of its own kind is declared, whatever else is.
         var required = RequiredShapes(member);
-        if (!IsVariable(member) && candidates.Length > 0)
+        if (!IsVariable(member) && candidates.Any(candidate => siblings.Length <= 1 || ShapeOf(candidate) == ShapeOf(member)))
         {
             return;
         }
