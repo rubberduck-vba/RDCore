@@ -100,6 +100,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SelectionRangeHandler>();
         builder.WithHandler<SemanticTokensHandler>();
+        builder.WithHandler<Formatting.DocumentFormattingHandler>();
+        builder.WithHandler<Formatting.DocumentRangeFormattingHandler>();
         builder.WithHandler<CompletionHandler>();
         builder.WithHandler<SignatureHelpHandler>();
         builder.WithHandler<RenameHandler>();
@@ -165,6 +167,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentDiagnosticsService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IParsingClientService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISemanticTokensService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<Formatting.ICodeFormattingService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
