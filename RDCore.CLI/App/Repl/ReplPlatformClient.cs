@@ -210,9 +210,9 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     /// <inheritdoc/>
-    public Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token)
+    public Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token, string? triggerCharacter = null)
         => client.SendRequestAsync<SessionCompletionParams, CompletionList>(
-            new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
+            new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character, TriggerCharacter = triggerCharacter }, token);
 
     /// <inheritdoc/>
     public Task NotifyLiveSettingsChangedAsync(CancellationToken token) => client.NotifyLiveSettingsChangedAsync(token);

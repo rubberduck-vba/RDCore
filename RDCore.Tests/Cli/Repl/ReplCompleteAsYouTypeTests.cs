@@ -87,6 +87,57 @@ public sealed class ReplCompleteAsYouTypeTests
         Assert.AreEqual(0, asked.Count);
     }
 
+    // the space after a comma in a call's arguments asks the language server for the list of an Enum argument, which it answers only there (author,
+    // 2026-10-28): MsgBox "Hello", lists VbMsgBoxStyle's constants.
+    private static (ConsolePromptEditor Editor, List<string?> Triggers) CodeEditor(ScriptedKeys keys)
+    {
+        var triggers = new List<string?>();
+        var platform = Substitute.For<IReplPlatformClient>();
+        platform.Provides<SessionCompletion>().Returns(true);
+        platform.CompleteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns(call =>
+            {
+                triggers.Add(call.ArgAt<string?>(5));
+                return call.ArgAt<string?>(5) == " "
+                    ? new CompletionList(new CompletionItem { Label = "vbAbortRetryIgnore", Preselect = true }, new CompletionItem { Label = "vbYesNo" })
+                    : new CompletionList();
+            });
+
+        var completion = new ReplCompletion(new ReplProgram(), platform, new ReplCommandDispatcher([new BreakReplCommand()]));
+        return (new ConsolePromptEditor(keys, new StringWriter(), () => 80, completion.CompleteAsync) { ListAfterSpace = completion.ListsAfterSpace }, triggers);
+    }
+
+    [TestMethod]
+    public async Task TheSpaceAfterACommaInACall_AsksForTheListOfAnEnumArgument_AsATriggerCharacterDoes()
+    {
+        var (editor, triggers) = CodeEditor(new ScriptedKeys().Type("MsgBox \"Hello\", vbY").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)));
+
+        Assert.AreEqual("MsgBox \"Hello\", vbYesNo", await editor.ReadLineAsync(CancellationToken.None), "the list the space opened, narrowed by the letters typed");
+        CollectionAssert.Contains(triggers, " ", "the list the space opened is the one the language server answers for an Enum argument only");
+    }
+
+    [TestMethod]
+    [DataRow("10 MsgBox \"Hello\", ", DisplayName = "in a numbered line")]
+    [DataRow("MsgBox \"Hello\", ", DisplayName = "in an immediate statement")]
+    public async Task TheSpaceAfterACommaInACall_IsAskedAbout(string typed)
+    {
+        var (editor, triggers) = CodeEditor(new ScriptedKeys().Type(typed).Press(Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)));
+
+        await editor.ReadLineAsync(CancellationToken.None);
+        Assert.AreEqual(" ", triggers.Last(), "the space is asked about as a trigger character asks, after the words were as they started");
+    }
+
+    [TestMethod]
+    [DataRow("x = 1 ", DisplayName = "no call")]
+    [DataRow("MsgBox ", DisplayName = "no comma")]
+    public async Task ASpaceThatFollowsNoCommaInACall_AsksForNothing(string typed)
+    {
+        var (editor, triggers) = CodeEditor(new ScriptedKeys().Type(typed).Press(Key(ConsoleKey.Enter)));
+
+        await editor.ReadLineAsync(CancellationToken.None);
+        CollectionAssert.DoesNotContain(triggers, " ", "the words are completed as they start, and the space asks for nothing");
+    }
+
     [TestMethod]
     public async Task ASpaceInANumberedLine_AsksForNothingOfACommand()
     {
