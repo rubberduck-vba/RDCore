@@ -18,6 +18,9 @@ namespace RDCore.SDK.Runtime;
 /// <param name="SourceLanguage">The language the code is written in; RD-VBA unless said otherwise.</param>
 /// <param name="LegacyRegistrySettings">Whether the legacy settings members use the Windows Registry rather than the workspace application settings; <c>false</c> unless said otherwise.</param>
 /// <param name="RegionalSettings">The regional settings a number or a date is written by as a string, and a string read by as one; en-US (<see cref="Runtime.RegionalSettings.Default"/>) unless said otherwise.</param>
+/// <param name="ExecutionEngine">What runs the code of a program; the interpreter unless said otherwise.</param>
+/// <param name="Configuration">Whether a program is built to be debugged or to be run; a debug build unless said otherwise.</param>
+/// <param name="ReleaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; <c>false</c> unless said otherwise.</param>
 public sealed record class RuntimeEnvironmentProfile(
     bool Is64Bit,
     int Lcid,
@@ -29,7 +32,10 @@ public sealed record class RuntimeEnvironmentProfile(
     Workspace.SupportedLanguage? SourceLanguage = null,
     bool AllowAutomation = true,
     bool LegacyRegistrySettings = false,
-    RegionalSettings? RegionalSettings = null) : IRuntimeEnvironmentProfile
+    RegionalSettings? RegionalSettings = null,
+    VBExecutionEngine ExecutionEngine = VBExecutionEngine.Interpreter,
+    VBBuildConfiguration Configuration = VBBuildConfiguration.Debug,
+    bool ReleaseDropsDebugStatements = false) : IRuntimeEnvironmentProfile
 {
     /// <inheritdoc/>
     public RegionalSettings Regional => RegionalSettings ?? Runtime.RegionalSettings.Default;
@@ -51,7 +57,19 @@ public sealed record class RuntimeEnvironmentProfile(
     public static RuntimeEnvironmentProfile From(Server.Configuration.SdkEnvironmentOptions options, Workspace.SupportedLanguage? language = null)
         => new(options.Is64Bit, options.Lcid, options.AnsiCodePage, options.SupportsOptionCompareDatabase, options.DatabaseCompare,
             options.ErlLineNumbering, options.AllowDllImports, language, options.AllowAutomation,
-            options.LegacyRegistrySettings, options.Regional.ToSettings());
+            options.LegacyRegistrySettings, options.Regional.ToSettings(), options.ExecutionEngine, options.Configuration,
+            options.ReleaseDropsDebugStatements);
+
+    /// <summary>
+    /// The profile <paramref name="environment"/> is, as a <see cref="RuntimeEnvironmentProfile"/>: itself when it is one, and otherwise one with each of its
+    /// properties, which a <c>with</c> expression can then change one of.
+    /// </summary>
+    /// <param name="environment">Any profile.</param>
+    public static RuntimeEnvironmentProfile Of(IRuntimeEnvironmentProfile environment)
+        => environment as RuntimeEnvironmentProfile ?? new(
+            environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
+            environment.ErlLineNumbering, environment.AllowDllImports, environment.Language, environment.AllowAutomation, environment.LegacyRegistrySettings,
+            environment.Regional, environment.ExecutionEngine, environment.Configuration, environment.ReleaseDropsDebugStatements);
 
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);

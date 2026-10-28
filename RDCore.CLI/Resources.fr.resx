@@ -539,6 +539,75 @@
   <data name="Bench_NoCases" xml:space="preserve">
     <value>Aucun cas : un cas est une Public Sub Bench*() d'un module standard.</value>
   </data>
+  <data name="Compilation_Summary" xml:space="preserve">
+    <value>Indique, pour chaque procédure d'un workspace ou du corpus intégré, si elle s'exécute compilée, et ce qui la garde dans l'interpréteur.</value>
+  </data>
+  <data name="Compilation_Compiled" xml:space="preserve">
+    <value>compilée</value>
+  </data>
+  <data name="Compilation_Interpreted" xml:space="preserve">
+    <value>interprétée</value>
+  </data>
+  <data name="Compilation_Count" xml:space="preserve">
+    <value>{0} procédures sur {1} compilées.</value>
+  </data>
+  <data name="Compilation_Line" xml:space="preserve">
+    <value>ligne {0}</value>
+  </data>
+  <data name="Compilation_Reason_MemberOfAClass" xml:space="preserve">
+    <value>un membre d'une classe</value>
+  </data>
+  <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
+    <value>un paramètre passé par référence : {0}</value>
+  </data>
+  <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
+    <value>ni un nombre, ni un Boolean, ni une Date : {0}</value>
+  </data>
+  <data name="Compilation_Reason_StaticVariable" xml:space="preserve">
+    <value>une variable Static : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Instruction" xml:space="preserve">
+    <value>une instruction que le code compilé n'exécute pas : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Statement" xml:space="preserve">
+    <value>une instruction que le code compilé n'exécute pas : {0}</value>
+  </data>
+  <data name="Compilation_Reason_AssignmentTarget" xml:space="preserve">
+    <value>une affectation de ce qui n'est pas une variable de la procédure : {0}</value>
+  </data>
+  <data name="Compilation_Reason_ForCounter" xml:space="preserve">
+    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Call" xml:space="preserve">
+    <value>un appel : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Member" xml:space="preserve">
+    <value>un membre d'un objet : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Element" xml:space="preserve">
+    <value>un élément d'un tableau, ou un appel d'un membre par défaut</value>
+  </data>
+  <data name="Compilation_Reason_LateBound" xml:space="preserve">
+    <value>un nom résolu au moment de son évaluation : {0}</value>
+  </data>
+  <data name="Compilation_Reason_VariantOperand" xml:space="preserve">
+    <value>un opérande Variant ou objet : {0}</value>
+  </data>
+  <data name="Compilation_Reason_ForeignVariable" xml:space="preserve">
+    <value>une variable qui n'est pas celle de la procédure : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Literal" xml:space="preserve">
+    <value>un littéral qui n'est ni un nombre, ni un Boolean, ni une Date : {0}</value>
+  </data>
+  <data name="Compilation_Reason_Operator" xml:space="preserve">
+    <value>un opérateur que le code compilé n'évalue pas : {0}</value>
+  </data>
+  <data name="Compilation_Reason_GoTo" xml:space="preserve">
+    <value>un GoTo</value>
+  </data>
+  <data name="Compilation_Reason_Refused" xml:space="preserve">
+    <value>du code compilé que le runtime refuse d'exécuter (un défaut du compilateur) : {0}</value>
+  </data>
   <data name="Repl_Breakpoint_Enabled" xml:space="preserve">
     <value>POINT D'ARRÊT ACTIF À {0}</value>
   </data>

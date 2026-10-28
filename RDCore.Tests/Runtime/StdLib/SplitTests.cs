@@ -116,12 +116,18 @@ public sealed class SplitTests
     }
 
     [TestMethod]
-    [DataRow(2)]
     [DataRow(-1)]
+    [DataRow(240)]
+    [DataRow(5000)]
+    public void Split_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().Split(new VBStringValue("a b"), null, All, (VBCompareMethod)compare)));
+
+    [TestMethod]
+    [DataRow(2, DisplayName = "vbDatabaseCompare, as Option Compare Database compares")]
     [DataRow(7)]
     [DataRow(1033)]
-    public void Split_WithACompareOtherThanZeroOrOne_IsError5(int compare)
-        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().Split(new VBStringValue("a b"), null, All, (VBCompareMethod)compare)));
+    public void Split_WithACompareThatIsDatabaseOrALocale_SplitsAtTheText(int compare)
+        => Assert.AreEqual(1, ArrayOf(Module().Split(new VBStringValue("aXb"), V("x"), All, (VBCompareMethod)compare)).Dimensions[0].UpperBound);
 
     [TestMethod]
     public void Split_DropsATrailingByte()

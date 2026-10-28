@@ -45,6 +45,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC00053](vbc00053.md)|Expected End With — a `With` block is not ended before its procedure is|
 |[VBC00054](vbc00054.md)|Invalid outside procedure — a statement that runs is written in the declarations section of a module|
 |[VBC00055](vbc00055.md)|Only comments may appear after End Sub, End Function, or End Property — a declaration or a statement is written after the first procedure of a module|
+|[VBC00056](vbc00056.md)|An #ElseIf, #Else, or #EndIf must be preceded by an #If clause — a `#End If` ends no `#If` block|
+|[VBC00057](vbc00057.md)|An #Else clause must be preceded by an #If — a `#Else` belongs to no block, or is the second of its block|
+|[VBC00058](vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf — a `#ElseIf` belongs to no block, or comes after its `#Else`|
+|[VBC00059](vbc00059.md)|You must terminate the #If block with an #EndIf — a `#If` block is not ended|
 
 ### Semantic compilation errors
 

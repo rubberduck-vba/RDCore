@@ -116,6 +116,29 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public string ParseResultJson { get; init; } = string.Empty;
 
     /// <summary>
+    /// The <see cref="PlatformJson"/> representation of the module's conditional-compilation directives
+    /// (<see cref="RDCore.SDK.Model.AST.ModuleParseResult.PrecompilerTrivia"/>), or empty when the module has none or the caller does not send them.
+    /// </summary>
+    /// <remarks>
+    /// What lets the host define the declarations of the live <c>#If</c> branches only (<strong>MS-VBAL §3.4</strong>): it evaluates the directives with the
+    /// session's constants, and of a declaration written once per branch - a procedure, a <c>Declare</c>, a field of a <c>Type</c> - it defines the one of
+    /// the live branch; one written only in dead branches is not defined. Without them, every declaration is defined as the first branch writes it.
+    /// </remarks>
+    public string PrecompilerTriviaJson { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The <see cref="PrecompilerTriviaJson"/> of a module parsed: empty when it has no directive.
+    /// </summary>
+    /// <param name="parseResult">The module's parse.</param>
+    public static string PrecompilerTriviaJsonOf(RDCore.SDK.Model.AST.ModuleParseResult parseResult)
+        => parseResult.PrecompilerTrivia.IsDefaultOrEmpty
+            ? string.Empty
+            : TriviaJson.GetValue(parseResult, parse => PlatformJson.Serialize(parse.PrecompilerTrivia));
+
+    // a parse is sent in every phase of a workspace's definition: its directives are serialized once.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<RDCore.SDK.Model.AST.ModuleParseResult, string> TriviaJson = [];
+
+    /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
     /// skipped.
     /// </summary>
@@ -421,6 +444,12 @@ public record class LocalDescriptor
     /// The source span to select when navigating to the variable.
     /// </summary>
     public SourceRange SelectionRange { get; init; }
+
+    /// <summary>
+    /// Where the declarations are that keep this implicit or <c>ReDim</c> local from being declared, each in a branch of a <c>#If</c> block: the host
+    /// declares it only when every one of them is in a dead branch (<see cref="SymbolProperties.UnlessLive"/>). Empty for a local that is always declared.
+    /// </summary>
+    public ImmutableArray<SourcePosition> UnlessLive { get; init; } = [];
 }
 
 /// <summary>

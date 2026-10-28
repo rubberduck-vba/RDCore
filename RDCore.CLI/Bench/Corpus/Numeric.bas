@@ -51,4 +51,17 @@ Public Sub BenchCurrencyAndDate()
         C = C + I
         D = D + 0.001
     Next
-End Sub
+End Sub
+
+' typed and Variant operands in one expression: a Long and a Double into a Variant sum, which decides its effective type from the values each time.
+Public Sub BenchVariantTypedMix()
+    Dim I As Long
+    Dim D As Double
+    Dim V As Variant
+    V = 0
+    D = 0.5
+    For I = 1 To Iterations
+        V = V + I * D
+    Next
+End Sub
+

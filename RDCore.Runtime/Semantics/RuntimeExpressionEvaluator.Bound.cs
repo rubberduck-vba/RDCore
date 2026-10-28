@@ -70,6 +70,22 @@ public sealed partial class RuntimeExpressionEvaluator
             ?? new BoundLate(expression);
     }
 
+    /// <summary>
+    /// The bound tree of an expression written in the body of <paramref name="procedure"/>, its variables bound to the slots of the procedure's layout: what
+    /// compiled code is emitted from, whatever activation is current.
+    /// </summary>
+    internal BoundNode BindInProcedure(IRuntimeSession session, ExpressionNode expression, Symbol procedure)
+    {
+        var context = new RuntimeEvaluationContext(procedure.Uri);
+        if (!session.Symbols.Scopes.TryGetScope(context.Scope, out var scope))
+        {
+            scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
+        }
+
+        return ExpressionBinder.Bind(StaticContextOf(session, scope, context), expression, FrameLayout.For(procedure)).NodeOf(expression)
+            ?? new BoundLate(expression);
+    }
+
     // a member written with no object before the dot is a member of the target of the enclosing With block, typed as the static pass types it: by the
     // declared type of the block's expression.
     private static StaticEvaluationContext StaticContextOf(IRuntimeSession session, LexicalScope scope, RuntimeEvaluationContext context)

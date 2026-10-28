@@ -304,7 +304,12 @@ public static class SymbolDescriptorReader
                 DeclaredType(local.DeclaredTypeName, local.Array, resolveType, local.FixedLength),
                 local.DeclaredBy);
             var bounded = (BoundTypedSymbol)WithArrayBounds(variable, local.Array);
-            builder.Add(local.IsAutoInstantiated ? (BoundTypedSymbol)bounded.With(SymbolProperties.AutoInstantiated, true) : bounded);
+            if (local.IsAutoInstantiated)
+            {
+                bounded = (BoundTypedSymbol)bounded.With(SymbolProperties.AutoInstantiated, true);
+            }
+
+            builder.Add(local.UnlessLive.IsDefaultOrEmpty ? bounded : (BoundTypedSymbol)bounded.With(SymbolProperties.UnlessLive, local.UnlessLive));
         }
         return builder.ToImmutable();
     }

@@ -13,5 +13,15 @@ public static class TestUserData
     public static string Directory { get; } = Path.Combine(Path.GetTempPath(), "rdcore-tests-user-" + Environment.ProcessId);
 
     [AssemblyInitialize]
-    public static void Initialize(TestContext _) => Environment.SetEnvironmentVariable(PlatformEnvironment.UserDataEnvironmentVariable, Directory);
+    public static void Initialize(TestContext _)
+    {
+        Environment.SetEnvironmentVariable(PlatformEnvironment.UserDataEnvironmentVariable, Directory);
+
+        // the suite runs each way the code can run, to compare the two: RDCORE_ENGINE=Compiled compiles every procedure that can be.
+        if (Environment.GetEnvironmentVariable("RDCORE_ENGINE") is { } engine
+            && Enum.TryParse<RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine>(engine, ignoreCase: true, out var parsed))
+        {
+            RDCore.Runtime.Compiled.CompiledExecution.Engine = parsed;
+        }
+    }
 }

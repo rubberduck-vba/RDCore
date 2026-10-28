@@ -106,6 +106,30 @@ public interface IRuntimeEnvironmentProfile
     bool AllowAutomation { get; }
 
     /// <summary>
+    /// 🎯 What runs the code of a program: the interpreter, or IL compiled from it where every instruction can be. <see cref="VBExecutionEngine.Interpreter"/>
+    /// unless said otherwise.
+    /// </summary>
+    VBExecutionEngine ExecutionEngine { get; }
+
+    /// <summary>
+    /// 🎯 Whether a program is built to be debugged or to be run. <see cref="VBBuildConfiguration.Debug"/> unless said otherwise.
+    /// </summary>
+    /// <remarks>
+    /// 👉 It is the default of the built-in <c>DEBUG</c> conditional-compilation constant, which a project <c>#Const</c> or a command-line define still overrides;
+    /// what a program leaves out follows <c>DEBUG</c> (<see cref="RuntimeSessionExtensions.IsDebugBuild"/>).
+    /// </remarks>
+    VBBuildConfiguration Configuration { get; }
+
+    /// <summary>
+    /// 🎯 Whether a release build leaves out every <c>Debug.Print</c> and <c>Debug.Assert</c>, their arguments unevaluated. <see langword="false"/> unless said
+    /// otherwise: a release build keeps them, and they run as in a debug build.
+    /// </summary>
+    /// <remarks>
+    /// A debug build keeps them whatever this says, and a release build's <c>Stop</c> ends the program as <c>End</c> does either way.
+    /// </remarks>
+    bool ReleaseDropsDebugStatements { get; }
+
+    /// <summary>
     /// 🎯 Whether the legacy settings members (<c>SaveSetting</c>, <c>GetSetting</c>, <c>GetAllSettings</c>, <c>DeleteSetting</c>) use the <em>Windows Registry</em>, as
     /// MS-VBA does. <c>false</c> unless the workspace asks for it: they use the <em>workspace application settings</em>.
     /// </summary>

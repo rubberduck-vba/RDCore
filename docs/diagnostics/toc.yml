@@ -30,6 +30,14 @@
   href: vbc00054.md
 - name: VBC00055 — Only comments may appear after End Sub, End Function, or End Property
   href: vbc00055.md
+- name: "VBC00056 — An #ElseIf, #Else, or #EndIf must be preceded by an #If clause"
+  href: vbc00056.md
+- name: "VBC00057 — An #Else clause must be preceded by an #If"
+  href: vbc00057.md
+- name: "VBC00058 — An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf"
+  href: vbc00058.md
+- name: "VBC00059 — You must terminate the #If block with an #EndIf"
+  href: vbc00059.md
 - name: VBC09301 — Ambiguous name detected
   href: vbc09301.md
 - name: VBC09302 — Variable not defined

@@ -72,6 +72,10 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.ExpectedEndWith] = Exceptions.VBCompileError_ExpectedEndWith,
         [VBCompileErrorId.InvalidOutsideProcedure] = Exceptions.VBCompileError_InvalidOutsideProcedure,
         [VBCompileErrorId.OnlyCommentsAfterEndProcedure] = Exceptions.VBCompileError_OnlyCommentsAfterEndProcedure,
+        [VBCompileErrorId.DirectiveWithoutIf] = Exceptions.VBCompileError_DirectiveWithoutIf,
+        [VBCompileErrorId.HashElseWithoutIf] = Exceptions.VBCompileError_HashElseWithoutIf,
+        [VBCompileErrorId.ElseIfWithoutIf] = Exceptions.VBCompileError_ElseIfWithoutIf,
+        [VBCompileErrorId.HashIfWithoutEndIf] = Exceptions.VBCompileError_HashIfWithoutEndIf,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,
         [VBCompileErrorId.InvalidUseOfObject] = Exceptions.VBCompileError_InvalidUseOfObject,

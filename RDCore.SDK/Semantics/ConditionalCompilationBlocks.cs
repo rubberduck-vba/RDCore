@@ -65,6 +65,12 @@ public sealed class ConditionalCompilationBlocks
         return false;
     }
 
+    /// <summary>
+    /// Whether what is written at <paramref name="position"/> is in a branch of a block, and so compiled only when that branch is live.
+    /// </summary>
+    /// <param name="position">Where it is written.</param>
+    public bool IsConditional(SourcePosition position) => _blocks.Any(branches => BranchAt(branches, position) >= 0);
+
     // the range of a branch ends at the start of its last token, and is inclusive of it.
     private static int BranchAt(ImmutableArray<SourceRange> branches, SourcePosition position)
     {
