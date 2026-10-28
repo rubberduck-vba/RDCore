@@ -80,6 +80,15 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     /// <summary>Whether the list opens on its own as a word starts to be typed; it always does after a <c>.</c> or a <c>!</c>.</summary>
     public bool CompleteWords { get; init; } = true;
 
+    /// <summary>
+    /// Whether the list opens on its own as a space is typed, given the line up to the cursor, with the space: the options that can be written next, before the first
+    /// letter of them is typed. <see langword="null"/> for a list that opens only as a word starts.
+    /// </summary>
+    /// <remarks>
+    /// The list is for the empty word at the cursor, and narrows as the word is typed. Nothing is asked for when <see cref="CompleteWords"/> is off.
+    /// </remarks>
+    public Func<string, bool>? ListAfterSpace { get; init; }
+
     /// <summary>The lines entered so far, the last one last.</summary>
     public IReadOnlyList<string> History => _history;
 
@@ -387,6 +396,11 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
                 if (typed is '.' or '!')
                 {
+                    Ask(_cursor);
+                }
+                else if (typed == ' ' && editor.CompleteWords && editor.ListAfterSpace?.Invoke(Text[.._cursor]) == true)
+                {
+                    // the options that can be written next are there before the first letter of them is: the word at the cursor is empty.
                     Ask(_cursor);
                 }
                 else if (startsWord && editor.CompleteWords && _list is null && _asked is null)

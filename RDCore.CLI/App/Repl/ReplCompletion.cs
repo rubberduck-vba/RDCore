@@ -97,6 +97,23 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
         return await platform.SignatureHelpAsync(site.Source, ReplProgram.ModuleName, site.Line, site.Character, token);
     }
 
+    /// <summary>
+    /// Whether the options that can be written after a space are listed as the space is typed: it is typed in the arguments of a command that describes them,
+    /// where the language server can say what comes next.
+    /// </summary>
+    /// <param name="beforeCursor">The line up to the cursor, with the space.</param>
+    public bool ListsAfterSpace(string beforeCursor)
+    {
+        var typed = beforeCursor.TrimStart();
+        if (typed.Length == 0 || char.IsAsciiDigit(typed[0]) || !char.IsWhiteSpace(typed[^1]))
+        {
+            return false;
+        }
+
+        var verb = typed[..IndexOfSeparator(typed)];
+        return verb.Length < typed.Length && commands.IsCommandName(verb) && CommandNamed(verb) is IReplCommandDescriptor && platform.Provides<SessionCompletion>();
+    }
+
     // the described verbs that are not registered as they are now, in one request; none when every one of them is.
     private async Task RegisterAsync(CancellationToken token)
     {
