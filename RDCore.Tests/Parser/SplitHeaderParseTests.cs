@@ -9,7 +9,7 @@ namespace RDCore.Tests.Parser;
 
 /// <summary>
 /// A procedure header written once in each branch of a <c>#If</c> block, around one body (<strong>MS-VBAL §3.4</strong>): one procedure, whose other headers
-/// are its <see cref="MemberDeclarationNode.HeaderAlternatives"/>. MS-VBA compiles the live one (recorded in Excel: oracle\cc-split).
+/// are its <see cref="MemberDeclarationNode.HeaderAlternatives"/>. MS-VBA compiles the live one (recorded in Excel).
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 3.4 Conditional Compilation")]
@@ -25,7 +25,6 @@ public sealed class SplitHeaderParseTests
 
     private static string? ReturnTypeOf(MemberDeclarationNode member) => member.HeaderChildren.OfType<AsTypeExpressionNode>().SingleOrDefault()?.TypeName;
 
-    // S01: JsonConverter.bas's json_UnsignedAdd.
     private static readonly string[] PtrSafe =
     [
         "#If VBA7 Then",
@@ -53,7 +52,7 @@ public sealed class SplitHeaderParseTests
     [TestMethod]
     public void TheHeaderTheMainParseReads_IsTheOneOfTheKindOfTheStatementThatClosesIt()
     {
-        // S04: a Sub in the first branch and a Function in the second, closed by an End Function - which MS-VBA compiles where the Function is live.
+        // a Sub in the first branch and a Function in the second, closed by an End Function - which MS-VBA compiles where the Function is live.
         var procedure = Procedure(Parse("#If Mac Then", "Private Sub F()", "#Else", "Private Function F() As Long", "#End If", "    F = 3", "End Function"));
 
         Assert.AreEqual(MemberKind.Function, procedure.MemberKind);
@@ -86,7 +85,7 @@ public sealed class SplitHeaderParseTests
     [TestMethod]
     public void WhatABranchWritesAfterItsHeader_IsOfTheBody_InSourceOrder()
     {
-        // S11: MS-VBA runs the live branch's statements, then the ones after the block.
+        // MS-VBA runs the live branch's statements, then the ones after the block.
         var procedure = Procedure(Parse(
             "#If VBA7 Then", "Private Function F() As Long", "    F = 1", "#Else", "Private Function F() As Long", "    F = 2", "#End If", "    F = F + 10", "End Function"));
 
@@ -128,11 +127,53 @@ public sealed class SplitHeaderParseTests
     }
 
     [TestMethod]
+    public void WhatABranchHoldsBeforeItsHeader_IsTheModules_WhereItIsWritten()
+    {
+        var result = Parse(
+            "#If VBA7 Then", "Private Declare PtrSafe Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "Private Function F() As LongPtr",
+            "#Else", "Private Declare Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "Private Sub G()", "End Sub", "Private Function F() As Long",
+            "#End If", "    F = 1", "End Function");
+        var procedure = Procedure(result);
+
+        Assert.AreEqual("LongPtr", ReturnTypeOf(procedure));
+        Assert.AreEqual("Long", ReturnTypeOf(Assert.ContainsSingle(procedure.HeaderAlternatives)));
+        var members = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToList();
+        CollectionAssert.AreEqual(new[] { "Ticks", "F", "Ticks", "G" }, members.Select(member => member.Name).ToArray(), "in source order, each where it is written");
+        CollectionAssert.AreEqual(new[] { 1, 2, 4, 5 }, members.Select(member => member.SourceLocation.Range.Start.Line).ToArray());
+        Assert.IsTrue(members[2] is ExternalMemberDeclarationNode { IsPtrSafe: false }, "each branch's Declare, as any #If block's");
+    }
+
+    [TestMethod]
+    public void ABranchsHeader_IsTheProcedureItLeavesOpen_NotTheFirstItOpens()
+    {
+        // a whole Function before a Sub header in the first branch, a Function header in the second, closed by an End Function: the second is read.
+        var result = Parse(
+            "#If Mac Then", "Private Function G() As Long", "End Function", "Private Sub F()", "#Else", "Private Function F() As Long", "#End If",
+            "    F = 3", "End Function");
+        var procedure = Procedure(result);
+
+        Assert.AreEqual(MemberKind.Function, procedure.MemberKind);
+        Assert.AreEqual(5, procedure.SourceLocation.Range.Start.Line);
+        var alternative = Assert.ContainsSingle(procedure.HeaderAlternatives);
+        Assert.AreEqual(MemberKind.Procedure, alternative.MemberKind);
+        Assert.AreEqual(3, alternative.SourceLocation.Range.Start.Line);
+        Assert.AreEqual(1, Procedure(result, "G").SourceLocation.Range.Start.Line, "the whole Function is the module's");
+    }
+
+    [TestMethod]
     public void NoTwoNodes_HaveOneIdentity()
     {
-        var result = Parse(["Public Sub Main()", "    Dim x As Long", "End Sub", .. PtrSafe]);
-        var procedure = Procedure(result);
-        var nodes = result.SyntaxTree!.Descendants().Concat(procedure.HeaderAlternatives.SelectMany(alternative => alternative.Descendants().Prepend(alternative))).ToList();
+        var result = Parse([
+            "#If VBA7 Then", "Private Declare PtrSafe Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "Private Function H() As Long", "    H = 1",
+            "#Else", "Private Declare Function Ticks Lib \"kernel32\" Alias \"GetTickCount\" () As Long", "Private Sub G()", "    Debug.Print 1", "End Sub",
+            "Private Function H() As Long", "    H = 2", "#End If", "    H = H + 10", "End Function",
+            "Public Sub Main()", "    Dim x As Long", "End Sub", .. PtrSafe,
+            "#If VBA7 Then", "#If Win64 Then", "Private Function K() As LongLong", "    K = 1", "#Else", "Private Function K() As Long", "    K = 2", "#End If",
+            "#Else", "Private Function K() As Integer", "    K = 3", "#End If", "    K = K + 7", "End Function"]);
+        var procedures = new[] { "F", "H", "K" }.Select(name => Procedure(result, name)).ToList();
+        Assert.HasCount(2, procedures[2].HeaderAlternatives, "the nested block's alternative and the outer one's");
+        var nodes = result.SyntaxTree!.Descendants()
+            .Concat(procedures.SelectMany(procedure => procedure.HeaderAlternatives).SelectMany(alternative => alternative.Descendants().Prepend(alternative))).ToList();
 
         Assert.HasCount(nodes.Count, nodes.Select(node => node.Identity).Distinct());
     }

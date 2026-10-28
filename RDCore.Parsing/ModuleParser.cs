@@ -159,14 +159,17 @@ public partial class ModuleParser(
         return string.Join('\n', lines);
     }
 
-    // each alternative's branch parsed on its own, closed by the statement its header opens, where it stands in the module: the header is an alternative of the
-    // procedure the main pass read around it (MemberDeclarationNode.HeaderAlternatives), and what follows the header in the branch is of that procedure's
-    // body, in source order. What the branch's parse says is wrong is the module's.
+    // each alternative's branch parsed on its own, closed by the statement its header opens, where it stands in the module. The header - the procedure the
+    // branch leaves open - is an alternative of the procedure the main pass read in the branch it read (MemberDeclarationNode.HeaderAlternatives), and what
+    // follows the header in the branch is of that procedure's body, in source order. Whatever else the branch holds before its header (a Declare, a variable,
+    // a whole procedure) is the module's, where it is written, as a declaration written in a branch of any #If block is. What the branch's parse says is
+    // wrong is the module's.
     private ModuleNode WithHeaderAlternatives(Uri uri, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
         SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia)
     {
         var lines = content.Split('\n');
         var children = ast.Children.ToList();
+        var ofBranches = new HashSet<SyntaxNodeId>();
         for (var index = 0; index < alternatives.Count; index++)
         {
             var alternative = alternatives[index];
@@ -176,10 +179,29 @@ public partial class ModuleParser(
             errorListener.AddRange(parsed.SyntaxErrors);
             trivia = trivia.AddRange(parsed.Trivia);
 
-            // the procedure the block opens: the first that ends after the branch begins - which may be after the branch, the main header being of a later one.
-            var found = children.FindIndex(child => child is MemberDeclarationNode member && member.SourceLocation.Range.End.CompareTo(start) >= 0);
-            if (parsed.SyntaxTree?.Children.OfType<MemberDeclarationNode>().FirstOrDefault() is not { } header || found < 0)
+            var nodes = parsed.SyntaxTree?.Children ?? [];
+            var header = nodes.LastOrDefault(IsProcedure) as MemberDeclarationNode;
+            foreach (var node in nodes.Where(node => !ReferenceEquals(node, header)))
             {
+                ofBranches.Add(node.Identity);
+                var at = children.FindIndex(child => child.SourceLocation.Range.Start.CompareTo(node.SourceLocation.Range.Start) > 0);
+                children.Insert(at < 0 ? children.Count : at, node);
+            }
+
+            if (header is null)
+            {
+                continue;
+            }
+
+            // the procedure the block opens is the one the main pass read in the branch it read: the last that starts in it, the main branch too holding
+            // whatever it holds before its header.
+            var mainStart = new SourcePosition(alternative.MainStartLine, 0).AnchoredAt(anchorOffset);
+            var mainEnd = new SourcePosition(alternative.MainEndLine, 0).AnchoredAt(anchorOffset);
+            var found = children.FindLastIndex(child => IsProcedure(child) && !ofBranches.Contains(child.Identity)
+                && child.SourceLocation.Range.Start.CompareTo(mainStart) >= 0 && child.SourceLocation.Range.Start.CompareTo(mainEnd) < 0);
+            if (found < 0)
+            {
+                errorListener.Report(header.SourceLocation, VBCompileErrorId.SyntaxError, SDK.Exceptions.VBCompileError_SplitHeaderWithoutProcedure_Verbose);
                 continue;
             }
 
@@ -196,6 +218,8 @@ public partial class ModuleParser(
 
         return ast with { Children = [.. children] };
     }
+
+    private static bool IsProcedure(SyntaxNode node) => node is MemberDeclarationNode and not ExternalMemberDeclarationNode;
 
     private static ModuleNode EmptyModule(Uri uri, SourcePosition anchorOffset)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), []);
