@@ -130,8 +130,8 @@ internal sealed class ConfigCommand(IPlatformSettings settings, bool appliesLive
         }
 
         var applied = IndenterSettingsImport.ApplyTo(store, found.Values);
-        var result = new IndenterSettingsImportResult(found.Source, applied, found.Values.Count - applied);
-        return [new(IndenterSettingsImportText.Imported(result), applied > 0 ? MessageKind.Success : MessageKind.Warning)];
+        var result = new IndenterSettingsImportResult(found.Source, applied.Applied, applied.Refused);
+        return [new(IndenterSettingsImportText.Imported(result), applied.Applied > 0 ? MessageKind.Success : MessageKind.Warning)];
     }
 
     private IReadOnlyList<ConfigOutput> ListSet()

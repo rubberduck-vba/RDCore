@@ -30,14 +30,15 @@ public static class IndenterSettingsImportText
     public static string Imported(IndenterSettingsImportResult result, CultureInfo? culture = null)
     {
         var imported = Say("IndenterImport_Imported", culture, result.Imported, SourceName(result.Source, culture));
-        return result.Refused == 0 ? imported : $"{imported} {Say("IndenterImport_Refused", culture, result.Refused)}";
+        return result.Refused.Count == 0 ? imported : $"{imported} {Say("IndenterImport_Refused", culture, string.Join(", ", result.Refused))}";
     }
 
     /// <summary>There are no settings to import.</summary>
     public static string Nothing(CultureInfo? culture = null) => Say("IndenterImport_Nothing", culture);
 
     /// <summary>The client was asked to take the settings, and took none.</summary>
-    public static string Declined(CultureInfo? culture = null) => Say("IndenterImport_Declined", culture);
+    public static string Declined(IndenterSettingsImportResult result, CultureInfo? culture = null)
+        => result.Refused.Count == 0 ? Say("IndenterImport_Declined", culture) : $"{Say("IndenterImport_Declined", culture)} {Say("IndenterImport_Refused", culture, string.Join(", ", result.Refused))}";
 
     /// <summary>The client does not read the settings of Rubberduck.</summary>
     public static string Unsupported(CultureInfo? culture = null) => Say("IndenterImport_Unsupported", culture);

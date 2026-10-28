@@ -41,9 +41,10 @@ public static class IndenterSettingsImportFlow
     public static async Task<IndenterSettingsImportOutcome> ApplyAsync(
         IndenterSettingsImport import, Func<RubberduckIndenterSettingsApplyParams, CancellationToken, Task<RubberduckIndenterSettingsApplyResult>> apply, CancellationToken token)
     {
-        var applied = (await apply(new RubberduckIndenterSettingsApplyParams { Source = import.Source, Settings = new Dictionary<string, string>(import.Values) }, token)).Applied;
-        return new IndenterSettingsImportOutcome(import.Source, import.Values.Count, applied,
-            applied == 0 ? IndenterSettingsImportText.Declined() : IndenterSettingsImportText.Imported(new IndenterSettingsImportResult(import.Source, applied, import.Values.Count - applied)));
+        var answer = await apply(new RubberduckIndenterSettingsApplyParams { Source = import.Source, Settings = new Dictionary<string, string>(import.Values) }, token);
+        var result = new IndenterSettingsImportResult(import.Source, answer.Applied, answer.Refused);
+        return new IndenterSettingsImportOutcome(import.Source, import.Values.Count, answer.Applied,
+            answer.Applied == 0 ? IndenterSettingsImportText.Declined(result) : IndenterSettingsImportText.Imported(result));
     }
 
     /// <summary>
@@ -66,8 +67,8 @@ public static class IndenterSettingsImportFlow
 /// </summary>
 /// <param name="Source">Where the settings were read.</param>
 /// <param name="Imported">How many settings were set.</param>
-/// <param name="Refused">How many could not be.</param>
-public sealed record class IndenterSettingsImportResult(RubberduckIndenterSettingsSource Source, int Imported, int Refused);
+/// <param name="Refused">The keys of the settings that could not be.</param>
+public sealed record class IndenterSettingsImportResult(RubberduckIndenterSettingsSource Source, int Imported, IReadOnlyList<string> Refused);
 
 /// <summary>
 /// Offers, once, to import the indenter settings of Rubberduck: when the client has them, the user never set a <c>Formatting</c> setting, and the user was not offered

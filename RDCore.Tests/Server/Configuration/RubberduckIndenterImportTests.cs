@@ -220,7 +220,7 @@ public sealed class RubberduckIndenterImportTests
         var output = command.Run("import rubberduck").Single();
 
         Assert.AreEqual(MessageKind.Success, output.Kind);
-        Assert.AreEqual(IndenterSettingsImportText.Imported(new IndenterSettingsImportResult(RubberduckIndenterSettingsSource.RubberduckConfig, 7, 0)), output.Text);
+        Assert.AreEqual(IndenterSettingsImportText.Imported(new IndenterSettingsImportResult(RubberduckIndenterSettingsSource.RubberduckConfig, 7, [])), output.Text);
         var set = settings.Store.Read().ToDictionary(value => value.Setting.Key, value => value.Value);
         Assert.AreEqual("2", set["Formatting.IndentSpaces"]);
         Assert.AreEqual("True", set["Formatting.IndentCase"]);
@@ -286,7 +286,7 @@ public sealed class RubberduckIndenterImportTests
         var outcome = await IndenterSettingsImportFlow.ImportAsync(_ => Read(Found()), (_, _) => Task.FromResult(new RubberduckIndenterSettingsApplyResult()), CancellationToken.None);
 
         Assert.AreEqual(0, outcome.Applied);
-        Assert.AreEqual(IndenterSettingsImportText.Declined(), outcome.Message);
+        Assert.AreEqual(IndenterSettingsImportText.Declined(new IndenterSettingsImportResult(RubberduckIndenterSettingsSource.None, 0, [])), outcome.Message);
     }
 
     [TestMethod]

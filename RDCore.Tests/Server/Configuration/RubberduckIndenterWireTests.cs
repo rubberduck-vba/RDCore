@@ -62,7 +62,7 @@ public sealed class RubberduckIndenterWireTests
         var connecting = LanguageClient.From(client => client
             .WithInput(toClient.Reader)
             .WithOutput(toServer.Writer)
-            .WithServices(services => services.AddSingleton(reader).AddSingleton<IPlatformSettings>(settings).AddSingleton(live).AddSingleton(new LiveSettingsNotifier(_ =>
+            .WithServices(services => services.AddSingleton(reader).AddSingleton<IPlatformSettings>(settings).AddSingleton(live).AddSingleton(Substitute.For<RDCore.CLI.App.Repl.IReplConsole>()).AddSingleton(new LiveSettingsNotifier(_ =>
             {
                 told++;
                 return Task.CompletedTask;

@@ -58,6 +58,10 @@ public sealed class IndenterSettingsOfferingTests
 
         public IPlatformClientCapabilitiesService Capabilities { get; } = new PlatformClientCapabilitiesService();
 
+        public bool ClientPullsConfiguration { get; init; }
+
+        public List<string> Log { get; } = [];
+
         public Platform(bool clientExpects)
         {
             var environment = Substitute.For<IPlatformEnvironment>();
@@ -79,17 +83,31 @@ public sealed class IndenterSettingsOfferingTests
             var toServer = new Pipe();
             var toClient = new Pipe();
             var serving = OmniSharpLanguageServer.From(server => server.WithInput(toServer.Reader).WithOutput(toClient.Writer));
-            var connecting = LanguageClient.From(client => client
+            var connecting = LanguageClient.From(client =>
+            {
+                client
                 .WithInput(toClient.Reader)
                 .WithOutput(toServer.Writer)
-                .WithServices(services => services.AddSingleton(reader).AddSingleton<IPlatformSettings>(Settings).AddSingleton(Live).AddSingleton(new LiveSettingsNotifier(_ => Task.CompletedTask)))
+                .WithClientCapabilities(new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+                {
+                    Workspace = ClientPullsConfiguration ? new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceClientCapabilities { Configuration = true, DidChangeConfiguration = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.DidChangeConfigurationCapability() } : null,
+                })
+                .WithServices(services => services.AddSingleton(reader).AddSingleton<IPlatformSettings>(Settings).AddSingleton(Live).AddSingleton(Substitute.For<RDCore.CLI.App.Repl.IReplConsole>()).AddSingleton(new LiveSettingsNotifier(_ => Task.CompletedTask)))
                 .WithHandler<RubberduckIndenterSettingsHandler>()
                 .WithHandler<RubberduckIndenterSettingsApplyHandler>()
                 .OnShowMessageRequest(request =>
                 {
                     Questions.Add(request.Message);
                     return Task.FromResult(request.Actions!.First(action => action.Title == AnswerWith));
-                }));
+                });
+
+                // a client that answers the server's configuration requests says so, and a server that is asked to wait for its settings waits.
+                if (ClientPullsConfiguration)
+                {
+                    OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(
+                        client, (request, _) => Task.FromResult(new Container<Newtonsoft.Json.Linq.JToken>(request.Items.Select(_ => (Newtonsoft.Json.Linq.JToken)Newtonsoft.Json.Linq.JValue.CreateNull()))));
+                }
+            });
 
             await Task.WhenAll(serving, connecting);
             Server = await serving;
@@ -98,7 +116,7 @@ public sealed class IndenterSettingsOfferingTests
         }
 
         public IndenterSettingsOffering Offering()
-            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), _ => { });
+            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(500), Log.Add);
 
         public ValueTask DisposeAsync()
         {
@@ -160,6 +178,36 @@ public sealed class IndenterSettingsOfferingTests
 
         Assert.IsNull(await offering.RunAsync(CancellationToken.None));
         Assert.AreEqual(0, platform.Questions.Count);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task SettingsTheClientSaidBeforeTheOfferingWasMade_AreNotWaitedFor()
+    {
+        // the client has configuration to pull, and its settings are in already: no change is raised after the offering subscribes.
+        await using var platform = new Platform(clientExpects: true) { ClientPullsConfiguration = true };
+        platform.Live.HasReceived.Returns(true);
+        await platform.StartAsync();
+
+        using var offering = platform.Offering();
+        var outcome = await offering.RunAsync(CancellationToken.None);
+
+        Assert.IsNotNull(outcome, "offered at once");
+        Assert.IsEmpty(platform.Log);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatNeverSaysItsSettings_IsNotOffered_AndTheLogSaysWhy()
+    {
+        await using var platform = new Platform(clientExpects: true) { ClientPullsConfiguration = true };
+        await platform.StartAsync();
+
+        using var offering = platform.Offering();
+
+        Assert.IsNull(await offering.RunAsync(CancellationToken.None));
+        Assert.AreEqual(0, platform.Questions.Count);
+        Assert.HasCount(1, platform.Log);
     }
 
     [TestMethod]
@@ -226,7 +274,7 @@ public sealed class IndenterSettingsOfferingTests
                         DidChangeConfiguration = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.DidChangeConfigurationCapability(),
                     },
                 })
-                .WithServices(s => s.AddSingleton(reader).AddSingleton<IPlatformSettings>(settings).AddSingleton(Substitute.For<ILiveSettings>()).AddSingleton(new LiveSettingsNotifier(_ => Task.CompletedTask)))
+                .WithServices(s => s.AddSingleton(reader).AddSingleton<IPlatformSettings>(settings).AddSingleton(Substitute.For<ILiveSettings>()).AddSingleton(Substitute.For<RDCore.CLI.App.Repl.IReplConsole>()).AddSingleton(new LiveSettingsNotifier(_ => Task.CompletedTask)))
                 .WithHandler<RubberduckIndenterSettingsHandler>()
                 .WithHandler<RubberduckIndenterSettingsApplyHandler>()
                 .OnShowMessageRequest(request =>
@@ -261,8 +309,8 @@ public sealed class IndenterSettingsOfferingTests
         var extensions = Substitute.For<IExtensionsProvider>();
         extensions.Discover().Returns([]);
         var settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
-        var handler = new RubberduckIndenterSettingsApplyHandler(settings, Substitute.For<ILiveSettings>(), new LiveSettingsNotifier(_ => Task.CompletedTask));
-
+        var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
+        var handler = new RubberduckIndenterSettingsApplyHandler(settings, Substitute.For<ILiveSettings>(), new LiveSettingsNotifier(_ => Task.CompletedTask), console);
         var result = await handler.Handle(new RubberduckIndenterSettingsApplyParams
         {
             Source = RubberduckIndenterSettingsSource.RubberduckConfig,
@@ -277,6 +325,8 @@ public sealed class IndenterSettingsOfferingTests
         }, CancellationToken.None);
 
         Assert.AreEqual(1, result.Applied);
+        CollectionAssert.AreEquivalent(new[] { "Server.Verbose", "Environment.AllowDllImports", "Platform.Extensions.Allowed", "Formatting.FormatOnType" }, result.Refused.ToArray(), "and the client says what it did not take");
+        console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, Arg.Is<string>(text => text.Contains("Server.Verbose") && text.Contains("Formatting.FormatOnType")));
         CollectionAssert.AreEqual(new[] { "Formatting.IndentCase" }, settings.Store.Read().Select(value => value.Setting.Key).ToArray(), "a client owns its configuration, and this is no way to write it");
     }
 

@@ -26,6 +26,11 @@ namespace RDCore.SDK.Formatting;
 /// </remarks>
 /// <param name="Source">Where the settings were found.</param>
 /// <param name="Values">The settings, by their keys: <c>Formatting.IndentSpaces</c>, with the value as it is written (<see cref="SettingsSchema.TryParse"/>).</param>
+/// <summary>What setting the settings of an import for a user made of them.</summary>
+/// <param name="Applied">How many were set.</param>
+/// <param name="Refused">The keys that were not.</param>
+public sealed record class IndenterSettingsApplied(int Applied, IReadOnlyList<string> Refused);
+
 public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSource Source, IReadOnlyDictionary<string, string> Values)
 {
     private const string Section = "Formatting";
@@ -76,9 +81,25 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
     /// </summary>
     /// <param name="store">The user's settings.</param>
     /// <param name="settings">The settings, by their keys, with the value as it is written.</param>
-    /// <returns>How many were set.</returns>
-    public static int ApplyTo(UserSettingsStore store, IReadOnlyDictionary<string, string> settings)
-        => settings.Count(setting => store.Set(setting.Key, setting.Value).IsSet);
+    /// <returns>How many were set, and the keys that were not: a key no import sets, or a value the setting cannot be.</returns>
+    public static IndenterSettingsApplied ApplyTo(UserSettingsStore store, IReadOnlyDictionary<string, string> settings)
+    {
+        var refused = new List<string>();
+        var applied = 0;
+        foreach (var (key, value) in settings)
+        {
+            if (Imports(key) && store.Set(key, value).IsSet)
+            {
+                applied++;
+            }
+            else
+            {
+                refused.Add(key);
+            }
+        }
+
+        return new IndenterSettingsApplied(applied, refused);
+    }
 
     private static Dictionary<string, string> FromConfig(JObject read)
     {
