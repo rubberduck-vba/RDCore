@@ -14,7 +14,7 @@ namespace RDCore.Tests.Server;
 
 /// <summary>
 /// A request whose handler throws is answered <c>InternalError</c> on one line, and the whole exception is the server's log's: OmniSharp's own answer is
-/// the exception's whole text, stack and source paths included, which a client shows its user (HexIDE, desk #32).
+/// the exception's whole text, stack and source paths included, which a client shows its user.
 /// </summary>
 [TestClass]
 public sealed class ServerErrorAnswersTests
@@ -116,7 +116,7 @@ public sealed class ServerErrorAnswersTests
 
         var error = await ErrorOfAsync("test.throw", log);
 
-        Assert.AreEqual(ServerErrorAnswers.InternalErrorCode, error.Value<int>("code"));
+        Assert.AreEqual(OmniSharp.Extensions.JsonRpc.Server.ErrorCodes.InternalError, error.Value<int>("code"));
         Assert.AreEqual("Access to the path 'ws/.rdproj' is denied.", error.Value<string>("message"), "no 'Internal Error - ', no stack, no source path");
         var logged = log.Records.Single(record => record.Level == LogLevel.Error).Exception;
         Assert.IsInstanceOfType<UnauthorizedAccessException>(logged, "the exception itself: its stack and its inner exception");

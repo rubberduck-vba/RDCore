@@ -13,18 +13,13 @@ namespace RDCore.SDK.Server;
 public static class ServerErrorAnswers
 {
     /// <summary>
-    /// JSON-RPC "Internal error" (<strong>LSP 3.17</strong> <c>ErrorCodes.InternalError</c>).
-    /// </summary>
-    public const int InternalErrorCode = -32603;
-
-    /// <summary>
     /// Has the server answer a request whose handler throws with <c>InternalError</c> (-32603) and the exception's message on one line, and write the whole
     /// exception - its stack and its inner exceptions - to <paramref name="logger"/>.
     /// </summary>
     /// <remarks>
     /// <para>
     /// By default, OmniSharp 0.19.9 answers <c>Internal Error - </c> and the exception's whole <c>ToString()</c>: some forty lines, with the stack and the
-    /// paths of the source files the platform was built from, which a client shows its user as it is (HexIDE, desk #32).
+    /// paths of the source files the platform was built from, which a client shows its user as it is.
     /// </para>
     /// <para>
     /// A refusal a handler foresees is an error of its own (<c>RpcErrorException</c>, such as <c>RequestFailed</c>, -32803), and is answered as the handler
@@ -70,7 +65,7 @@ internal sealed class OneLineErrorBehavior<TRequest, TResponse>(OneLineErrorLog 
         catch (Exception exception) when (exception is not (RpcErrorException or JsonRpcException or OperationCanceledException))
         {
             log.Logger.LogError(exception, "❌ The request {request} failed.", typeof(TRequest).Name);
-            throw new RpcErrorException(ServerErrorAnswers.InternalErrorCode, null!, ServerErrorAnswers.OneLineOf(exception));
+            throw new RpcErrorException(ErrorCodes.InternalError, null!, ServerErrorAnswers.OneLineOf(exception));
         }
     }
 }
