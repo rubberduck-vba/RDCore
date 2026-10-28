@@ -2,7 +2,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A procedure header written once in each branch of a <c>#If</c> block, around one body (<strong>MS-VBAL §3.4</strong>), run as MS-VBA runs it: the live
-/// header, and the live branch's statements (recorded in Excel, 64-bit, where VBA7 and Win64 are True and Mac is False: oracle\cc-split).
+/// header, and the live branch's statements (recorded in Excel, 64-bit, where VBA7 and Win64 are True and Mac is False).
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 3.4 Conditional Compilation")]
@@ -13,7 +13,6 @@ public sealed class SplitHeaderRuntimeTests
 
     [TestMethod]
     public async Task ThePtrSafeHeader_IsTheProcedure_WhereVBA7IsTrue()
-        // S01
         => Assert.AreEqual("LongLong 10", await RunAsync(
             "#If VBA7 Then", "Private Function F(ByVal a As LongPtr) As LongPtr", "#Else", "Private Function F(ByVal a As Long) As Long", "#End If",
             "    F = a * 2", "End Function",
@@ -21,14 +20,12 @@ public sealed class SplitHeaderRuntimeTests
 
     [TestMethod]
     public async Task TheLiveBranchsStatements_RunBeforeTheOnesAfterTheBlock()
-        // S11
         => Assert.AreEqual("11", await RunAsync(
             "#If VBA7 Then", "Private Function F() As Long", "    F = 1", "#Else", "Private Function F() As Long", "    F = 2", "#End If", "    F = F + 10", "End Function",
             "Private Function Probe() As String", "    Probe = CStr(F())", "End Function"));
 
     [TestMethod]
     public async Task ANestedBlock_GivesTheProcedureTheHeaderOfItsLiveBranch()
-        // S10
         => Assert.AreEqual("LongLong", await RunAsync(
             "#If VBA7 Then", "#If Win64 Then", "Private Function F() As LongLong", "#Else", "Private Function F() As Long", "#End If",
             "#Else", "Private Function F() As Integer", "#End If", "    F = 7", "End Function",
@@ -36,7 +33,6 @@ public sealed class SplitHeaderRuntimeTests
 
     [TestMethod]
     public async Task TheElseBranchsHeader_IsTheProcedure_WhereTheIfBranchIsDead()
-        // S02
         => Assert.AreEqual("String x!", await RunAsync(
             "#If Mac Then", "Private Function F(ByVal a As Long) As Long", "#Else", "Private Function F(ByVal a As String) As String", "#End If",
             "    F = a & \"!\"", "End Function",
@@ -44,14 +40,12 @@ public sealed class SplitHeaderRuntimeTests
 
     [TestMethod]
     public async Task ADeadSubHeader_LeavesTheLiveFunction()
-        // S04
         => Assert.AreEqual("3", await RunAsync(
             "#If Mac Then", "Private Sub F()", "#Else", "Private Function F() As Long", "#End If", "    F = 3", "End Function",
             "Private Function Probe() As String", "    Probe = CStr(F())", "End Function"));
 
     [TestMethod]
     public async Task TheLiveBranchOfAnElseIfChain_IsTheProcedure()
-        // S09
         => Assert.AreEqual("LongLong", await RunAsync(
             "#If Mac Then", "Private Function F() As Integer", "#ElseIf Win64 Then", "Private Function F() As LongLong", "#Else", "Private Function F() As Long", "#End If",
             "    F = 7", "End Function",
@@ -61,14 +55,14 @@ public sealed class SplitHeaderRuntimeTests
 
     [TestMethod]
     public async Task AProcedureWrittenInEachBranch_RunsTheLiveBranchsBody_WhereItIsFirst()
-        // S08: the dead copy was the procedure's body, empty, and returned 0.
+        // the dead copy was the procedure's body, empty, and returned 0.
         => Assert.AreEqual("1", await RunAsync(
             "#If VBA7 Then", "Private Function F() As Long", "    F = 1", "End Function", "#Else", "Private Function F() As Long", "    F = 2", "End Function", "#End If",
             "Private Function Probe() As String", "    Probe = CStr(F())", "End Function"));
 
     [TestMethod]
     public async Task AProcedureWrittenInEachBranch_IsTheLiveBranchs_WhereItIsLast()
-        // S14: the first branch's signature was the procedure's, and its String result a type mismatch.
+        // the first branch's signature was the procedure's, and its String result a type mismatch.
         => Assert.AreEqual("String two", await RunAsync(
             "#If Mac Then", "Private Function F() As Long", "    F = 1", "End Function", "#Else", "Private Function F() As String", "    F = \"two\"", "End Function",
             "#End If",

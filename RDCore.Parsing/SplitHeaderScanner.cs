@@ -11,12 +11,13 @@ namespace RDCore.Parsing;
 /// Every branch of a block is in the source, and the parse is of every branch, whatever the constants evaluate to. A block each of whose branches opens a
 /// procedure and leaves it open - <c>#If VBA7 Then</c> / <c>Function F(p As LongPtr) As LongPtr</c> / <c>#Else</c> / <c>Function F(p As Long) As Long</c>
 /// / <c>#End If</c>, then one body and one <c>End Function</c> - is read as one procedure: the main parse reads one of its headers, and each other branch is
-/// an alternative of it, parsed on its own. MS-VBA compiles the live one (recorded in Excel: oracle\cc-split S01, S02, S09-S11).
+/// an alternative of it, parsed on its own, with whatever else the branch holds. MS-VBA compiles the live one (recorded in Excel).
 /// </para>
 /// <para>
-/// The main parse reads the branch whose header is of the kind of the statement that closes the procedure, and the first one when none is: a <c>Sub</c>
-/// header in one branch and a <c>Function</c> header in the other, closed by an <c>End Function</c>, compiles where the <c>Function</c> branch is live and is
-/// "Expected End Sub" where the other is (S03, S04) - which the alternatives let whoever knows the constants decide.
+/// A branch's header is the procedure it leaves open, whatever it holds before it: a <c>Declare</c>, a variable, a whole procedure. The main parse reads the
+/// branch whose header is of the kind of the statement that closes the procedure, and the first one when none is: a <c>Sub</c> header in one branch and a
+/// <c>Function</c> header in the other, closed by an <c>End Function</c>, compiles where the <c>Function</c> branch is live and is "Expected End Sub" where the
+/// other is - which the alternatives let whoever knows the constants decide.
 /// </para>
 /// <para>
 /// It reads lines only - a directive, a procedure header, an <c>End Sub</c>, <c>End Function</c> or <c>End Property</c> - with what is in strings and comments
@@ -31,8 +32,10 @@ internal static partial class SplitHeaderScanner
     /// </summary>
     /// <param name="StartLine">The first line of the branch, after its directive.</param>
     /// <param name="EndLine">The line of the next directive of its block, which is not the branch's.</param>
-    /// <param name="Closer">The statement that closes the procedure the branch's header opens: <c>End Sub</c>, <c>End Function</c>, <c>End Property</c>.</param>
-    public readonly record struct Alternative(int StartLine, int EndLine, string Closer);
+    /// <param name="Closer">The statement that closes the procedure the branch leaves open: <c>End Sub</c>, <c>End Function</c>, <c>End Property</c>.</param>
+    /// <param name="MainStartLine">The first line of the branch the main parse reads, whose header this one is an alternative of.</param>
+    /// <param name="MainEndLine">The line of the directive after the branch the main parse reads.</param>
+    public readonly record struct Alternative(int StartLine, int EndLine, string Closer, int MainStartLine, int MainEndLine);
 
     /// <summary>
     /// The branches of <paramref name="content"/> that are alternatives of a procedure header the main parse reads, in source order.
@@ -129,11 +132,12 @@ internal static partial class SplitHeaderScanner
         }
     }
 
-    // how many procedures the branch leaves open, and the kind of the first it opens; the alternatives of the blocks in it are added.
+    // how many procedures the branch leaves open, and the kind of the one it leaves open - not the first it opens: a branch may hold a whole procedure before
+    // the header it leaves open. The alternatives of the blocks in it are added.
     private static (int Net, string? Opens) Resolve(Branch branch, string[] lines, List<Alternative> alternatives)
     {
         var net = 0;
-        string? opens = null;
+        string? open = null;
         foreach (var item in branch.Items)
         {
             var (itemNet, itemOpens) = item switch
@@ -144,10 +148,17 @@ internal static partial class SplitHeaderScanner
             };
 
             net += itemNet;
-            opens ??= itemOpens;
+            if (itemNet > 0)
+            {
+                open = itemOpens;
+            }
+            else if (itemNet < 0)
+            {
+                open = null;
+            }
         }
 
-        return (net, opens);
+        return (net, net == 1 ? open : null);
     }
 
     // a block whose branches each open a procedure - two at least, and none more than one or closing one - is one procedure: the branch the main parse reads
@@ -182,7 +193,7 @@ internal static partial class SplitHeaderScanner
         alternatives.AddRange(main.Inner);
         foreach (var other in opening.Where(branch => !ReferenceEquals(branch.Branch, main.Branch)))
         {
-            alternatives.Add(new Alternative(other.Branch.StartLine, other.Branch.EndLine, $"End {other.Opens}"));
+            alternatives.Add(new Alternative(other.Branch.StartLine, other.Branch.EndLine, $"End {other.Opens}", main.Branch.StartLine, main.Branch.EndLine));
         }
 
         // a branch that opens nothing is no alternative of the header: what it holds is the parse's as it is.

@@ -41,7 +41,7 @@ continues over lines, and the `#` of a directive may stand apart from its keywor
 continues another line is not a directive: `d = _` followed by `    #1/2/2000#` assigns a date literal. **MS-VBA** reads them so (recorded in Excel).
 
 A procedure's header written once in each branch of a `#If` block, around one body and one `End`, is one procedure, which **MS-VBA** compiles with the
-header of the live branch (recorded in Excel, `oracle\cc-split`). The common case is the `PtrSafe` pattern:
+header of the live branch (recorded in Excel). The common case is the `PtrSafe` pattern:
 
 ```vba
 #If VBA7 Then
@@ -60,6 +60,8 @@ How RD-VBA reads it:
 - **The alternatives.** Each other branch is read on its own, and its header is an alternative of the procedure
   ([MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.HeaderAlternatives`).
 - **The body.** What a branch writes after its header belongs to the body, in source order.
+- **Before the header.** What a branch writes before its header - a `Declare`, a variable, a whole procedure - is the module's, where it is written, as
+  in any `#If` block. A branch's header is the procedure it leaves open.
 - **Which compiles.** It is decided by the environment host, which knows the constants: see below.
 - **In MS-VBA:**
   - The live branch's header is the one compiled, and the live branch's statements are the ones run.
@@ -77,8 +79,7 @@ The language server fuses a declaration written once in each branch of a `#If` b
 - a field of a `Type` that each branch declares.
 
 Each alternative travels beside the symbol to the environment host, and the module's directives travel with them (`DefineSymbolsParams.PrecompilerTriviaJson`).
-The host evaluates the directives with the session's constants (`PrecompilerLiveBranchEvaluator`), as **MS-VBA** compiles a module (recorded in Excel,
-`oracle\cc-split`):
+The host evaluates the directives with the session's constants (`PrecompilerLiveBranchEvaluator`), as **MS-VBA** compiles a module (recorded in Excel):
 
 |What the module writes|What the host defines|
 |---|---|
