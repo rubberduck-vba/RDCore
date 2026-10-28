@@ -416,6 +416,15 @@
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>AUCUN POINT D'ARRÊT</value>
   </data>
+  <data name="Repl_Inlays_Summary" xml:space="preserve">
+    <value>Affiche les indices du serveur de langage dans un listage - le nom du paramètre auquel chaque argument est donné, et le type d'une déclaration qui n'en indique pas - ou cesse de les afficher (INLAYS ON, INLAYS OFF).</value>
+  </data>
+  <data name="Repl_Inlays_On" xml:space="preserve">
+    <value>INDICES AFFICHÉS DANS LES LISTAGES</value>
+  </data>
+  <data name="Repl_Inlays_Off" xml:space="preserve">
+    <value>INDICES NON AFFICHÉS DANS LES LISTAGES</value>
+  </data>
   <data name="Repl_Fold_Summary" xml:space="preserve">
     <value>Réduit le bloc qui commence à une ligne (un If, un Select Case, une boucle, un With) dans un listage, ou le développe (FOLD 40).</value>
   </data>

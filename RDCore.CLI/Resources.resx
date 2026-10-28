@@ -418,6 +418,15 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>NO BREAKPOINTS</value>
   </data>
+  <data name="Repl_Inlays_Summary" xml:space="preserve">
+    <value>Shows the hints of the language server in a listing - the name of the parameter each argument is given to, and the type of a declaration that states none - or stops showing them (INLAYS ON, INLAYS OFF).</value>
+  </data>
+  <data name="Repl_Inlays_On" xml:space="preserve">
+    <value>HINTS SHOWN IN LISTINGS</value>
+  </data>
+  <data name="Repl_Inlays_Off" xml:space="preserve">
+    <value>HINTS NOT SHOWN IN LISTINGS</value>
+  </data>
   <data name="Repl_Fold_Summary" xml:space="preserve">
     <value>Folds the block that starts at a line (an If, a Select Case, a loop, a With) in a listing, or unfolds it (FOLD 40).</value>
   </data>
