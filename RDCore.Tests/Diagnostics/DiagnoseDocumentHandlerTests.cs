@@ -25,15 +25,17 @@ namespace RDCore.Tests.Diagnostics;
 [TestClass]
 public sealed class DiagnoseDocumentHandlerTests
 {
-    // a #If that splits the function header — unparseable, so the parser yields located syntax errors.
+    // a #If that splits a block statement's header inside a body — unparseable, so the parser yields located syntax errors.
     private const string SplitConditionalModule = """
+        Public Sub F(ByVal x As Long)
         #If VBA7 Then
-        Private Function GetPtr() As LongPtr
+            If x > 0 Then
         #Else
-        Private Function GetPtr() As Long
+            If x < 0 Then
         #End If
-            GetPtr = 0
-        End Function
+                x = 1
+            End If
+        End Sub
         """;
 
     private const string CleanModule = "Option Explicit\r\n\r\nPublic Sub DoNothing()\r\nEnd Sub\r\n";
