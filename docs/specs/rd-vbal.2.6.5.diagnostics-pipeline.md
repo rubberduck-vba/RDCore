@@ -48,16 +48,13 @@ The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDoc
 
 ## Result Identity and Staleness
 
-The diagnostic report's `resultId` tracks the document's in-memory version. A `previousResultId` that still matches is answered with a `RelatedUnchangedDocumentDiagnosticReport`, and the language server computes nothing.
+The diagnostic report's `resultId` is of the document's in-memory version and of the workspace it is in (`v3.12`). The findings of a module whose text did not change change with what the other modules declare: a procedure another module calls, removed, makes the call an error. So the workspace has a generation, which moves whenever a change can change what is found out about a module that did not change - a module whose declarations changed, a module that is gone, a reload of the project, a change of the live settings ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#refreshing-what-the-client-shows)). A `previousResultId` that still matches both is answered with a `RelatedUnchangedDocumentDiagnosticReport`, and the language server computes nothing.
 
 Diagnostic results are staleness-gated:
 
-1. The document version is captured before the diagnostics fan-out.
+1. The document version, and the workspace's generation, are captured before the diagnostics fan-out.
 2. The version is re-checked after the fan-out.
 3. A report that raced a later edit is dropped rather than returned, and the `resultId` advances to the current version.
-
-> [!NOTE]
-> **Not implemented.** `textDocument/didChange` is not handled, so document versioning is inert. The document version only moves on workspace reload or rename.
 
 ## Start-up
 

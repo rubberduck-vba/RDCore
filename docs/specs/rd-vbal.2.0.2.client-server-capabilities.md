@@ -171,6 +171,28 @@ A request that is made of what a document was would make a keystroke wait for it
 
 👉 HexIDE's client sent a keystroke and a completion while the diagnostics and the semantic tokens of a 2,100-line module were being found. The completion waited for both, about five seconds; with the request giving way, it waits for neither.
 
+### Refreshing what the client shows
+
+What a client shows of a module - its diagnostics, its semantic tokens, its inlay hints, its code lenses - is of the module, and of what the other modules declare and how they use it. A procedure that another module calls, removed, makes the call an error there; a call added to it is one more reference in its code lens. A client pulls these for a document it changes; for the others, the server asks it to pull them again:
+
+|Message|Direction|Does|
+|---|---|---|
+|`workspace/diagnostic/refresh`|Server to client|Asks a client to pull the diagnostics of every document again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`workspace/semanticTokens/refresh`|Server to client|The same, for semantic tokens (`workspace.semanticTokens.refreshSupport`).|
+|`workspace/inlayHint/refresh`|Server to client|The same, for inlay hints (`workspace.inlayHint.refreshSupport`).|
+|`workspace/codeLens/refresh`|Server to client|The same, for code lenses (`workspace.codeLens.refreshSupport`).|
+
+Each is a request, which the client answers; a client that sent none of a capability is not asked. The server asks after:
+
+- **A change of a module that the others can tell,** once the environment host has it: the module's options and attributes, its module-level declarations, the signature of a procedure, a value written in any of them, and the names a procedure's body uses and what it declares ([`ModuleSurface`](../api/RDCore.SDK.Model.AST.ModuleSurface.html)). The workspace is defined again in its three phases first, so that what the host has of the other modules - what their declarations are bound to, what their code calls - is of what the module declares now. A change that no other module can tell - a literal, an operator or a comment in a procedure's body, a statement that uses the same names, whitespace - asks nothing.
+- **A module that is gone,** closed with no file under it.
+- **A reload of the project** that changed the workspace ([`workspace/didChangeWatchedFiles`](#workspacedidchangewatchedfiles), [file operations](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles), `rdcore.importProject`).
+- **A change of the live settings** ([`workspace/configuration`](#workspaceconfiguration-and-workspacedidchangeconfiguration)).
+
+The client is asked once for a burst of changes - each keystroke of a name is one - when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
+
+👉 OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
+
 ### `textDocument/inlayHint`
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
@@ -406,7 +428,7 @@ The language server runs the commands it advertises (`executeCommandProvider.com
 |---|---|---|
 |`rdcore.importProject`|None, a URI, or `{ "uri", "text", "overwrite" }`|Imports a VB6 project ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)).|
 
-`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything - what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, a client that refreshes its pulled diagnostics is asked to pull them again (`workspace/diagnostic/refresh`), as for any change of the project. A project of another folder is written there, and the workspace is left as it is.
+`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything - what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, the client is asked to refresh what it shows of every document, as for any change of the project ([Refreshing what the client shows](#refreshing-what-the-client-shows)). A project of another folder is written there, and the workspace is left as it is.
 
 It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project's `name`, its number of `modules`, and what was skipped (`notes`), each with its `kind`, its `subject` as the `.vbp` writes it, and a `message`.
 
@@ -445,7 +467,7 @@ owns its user's settings, and a server asks for them.
 |---|---|---|
 |`workspace/configuration`|Server to client|Asks for the section `rdcore`: the live settings, keyed as the platform's configuration is (`rdcore.Server.Verbose`). A server asks when it is initialized, and whenever its client says they changed.|
 |`workspace/didChangeConfiguration`|Client to server|Says the live settings changed. Its `settings` are not read: the server asks for the section.|
-|`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the settings changed. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`workspace/diagnostic/refresh`, and the other refreshes|Server to client|Asks a client to pull again what it shows of every document, once the settings changed ([Refreshing what the client shows](#refreshing-what-the-client-shows)).|
 
 Every client of the platform says it answers `workspace/configuration` (`workspace.configuration`), and answers with what its component hands down
 ([`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)): the interactive shell, with the live settings of its user's
@@ -488,7 +510,7 @@ is what a client says changed, as **LSP 3.17** has it (§DidChangeWatchedFiles N
 |`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed, and the source files of every language the platform serves (`**/*.{bas,cls,frm,doccls,rdc}`), created, changed or deleted. A client that does not is not asked.|
 |`workspace/didChangeWatchedFiles`|Client to server|Says files of the workspace changed. The server serves it whether or not it asked for it: a client that registers nothing sends it all the same. The workspace's `.rdproj`, created or changed, is read again (below); another folder's `.rdproj`, and a deletion, are left alone, and so is a project file that lists what the workspace is, as the one the server wrote does when a client that watches it says it changed. A file the project lists is read again ([below](#a-file-changed-outside-the-editor)); one it does not list is nothing of the workspace.|
 |`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
-|`workspace/diagnostic/refresh`|Server to client|Asks a client that pulls its diagnostics to pull them again, once the workspace is defined again. Sent to a client whose `workspace.diagnostics.refreshSupport` is `true`.|
+|`workspace/diagnostic/refresh`, and the other refreshes|Server to client|Asks a client to pull again what it shows of every document, once the workspace is defined again ([Refreshing what the client shows](#refreshing-what-the-client-shows)).|
 |`window/showMessage`|Server to client|Says why the workspace is as it was (the project file could not be read), or that a running program keeps its modules.|
 
 On the notification, the language server (`WorkspaceReloadService`):
@@ -497,7 +519,7 @@ On the notification, the language server (`WorkspaceReloadService`):
 2. loads and parses each file it lists that was not loaded, and takes out each one it no longer lists (a document the client has open stays: its text is the client's);
 3. asks the environment host to compose its session again;
 4. defines the whole workspace again in its three phases - its types declared, its declarations bound, its code loaded - each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
-5. asks the client to pull its diagnostics again.
+5. asks the client to refresh what it shows of every document.
 
 #### A file changed outside the editor
 
