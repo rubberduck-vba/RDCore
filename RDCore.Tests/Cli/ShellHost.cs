@@ -126,6 +126,7 @@ internal sealed class ShellHost
                 ModuleName = ModuleName,
                 Symbols = SymbolDescriptorProjector.Project(symbols, _moduleUri),
                 Directives = parse.SyntaxTree.GetModuleDirectives(),
+                PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse),
                 Replace = true,
             }), CancellationToken.None);
 

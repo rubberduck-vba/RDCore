@@ -62,11 +62,37 @@ How RD-VBA reads it:
 - **The body.** What a branch writes after its header belongs to the body, in source order.
 - **Before the header.** What a branch writes before its header - a `Declare`, a variable, a whole procedure - is the module's, where it is written, as
   in any `#If` block. A branch's header is the procedure it leaves open.
-- **Which compiles.** It is decided where the constants are known; until it is, the procedure is declared as its first header in the source declares it.
+- **Which compiles.** It is decided by the environment host, which knows the constants: see below.
 - **In MS-VBA:**
   - The live branch's header is the one compiled, and the live branch's statements are the ones run.
   - A live `Sub` header closed by `End Function` is "Expected End Sub".
   - A header written only in a dead branch leaves its body "Invalid outside procedure".
+
+### The live declaration
+
+The language server fuses a declaration written once in each branch of a `#If` block into one symbol. The symbol is the first branch's, with every site in
+`Definitions` and what each other branch declares in `Alternatives`. The cases are:
+
+- a procedure written whole in each branch;
+- a procedure header split across branches;
+- a `Declare` with and without `PtrSafe`;
+- a field of a `Type` that each branch declares.
+
+Each alternative travels beside the symbol to the environment host, and the module's directives travel with them (`DefineSymbolsParams.PrecompilerTriviaJson`).
+The host evaluates the directives with the session's constants (`PrecompilerLiveBranchEvaluator`), as **MS-VBA** compiles a module (recorded in Excel):
+
+|What the module writes|What the host defines|
+|---|---|
+|A declaration in each branch|The one of the live branch, its signature included; each site of `Definitions` marked live or dead.|
+|A declaration in dead branches only|Nothing, nor anything its body declares: a call of it with an argument list is "Sub or Function not defined" (`VBC09331`), as in **MS-VBA**.|
+|A procedure header in dead branches only, around a body that is not|"Invalid outside procedure" (`VBC00054`), at the first statement of the body, as in **MS-VBA**.|
+|A field of a `Type` in each branch, or in a dead branch only|The type with the fields of its live branches.|
+|A procedure written whole in each branch|The live branch's procedure, whose body is the live branch's: the dead copy is not loaded.|
+
+> [!NOTE]
+> **Not implemented.**
+> - "Expected End Sub", which **MS-VBA** reports of a live header of another kind than its closing statement, is not reported yet.
+> - The language server's own analysis - completion, diagnostics, navigation - still reads a fused symbol as its first branch declares it.
 
 > [!NOTE]
 > **Not implemented.** A `#If` that splits a block statement's header inside a body (an `If`, a `Select Case`, a loop or a `With` written once per branch)

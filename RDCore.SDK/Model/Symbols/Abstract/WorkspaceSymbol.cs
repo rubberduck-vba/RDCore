@@ -25,6 +25,36 @@ public abstract record class WorkspaceSymbol(Uri WorkspaceRoot, Uri ParentUri, s
     public ImmutableArray<SymbolDefinition> Definitions { get; init; } = [];
 
     /// <summary>
+    /// The symbol as each other conditional-compilation branch declares it, in source order: a declaration written once per branch of a <c>#If</c> block may
+    /// declare a different type, other parameters, another kind of procedure in each (<strong>MS-VBAL §3.4</strong>). Empty for a symbol declared once.
+    /// </summary>
+    /// <remarks>
+    /// The symbol itself is what the first branch declares, whatever the constants evaluate to. Whoever knows the constants defines the one of the live branch
+    /// in its place (<see cref="LiveDeclaration"/>).
+    /// </remarks>
+    public ImmutableArray<WorkspaceSymbol> Alternatives { get; init; } = [];
+
+    /// <summary>
+    /// The declaration of the live branch, of this symbol and its <see cref="Alternatives"/>: the first whose site is in no dead range of the module, with
+    /// every site of <see cref="Definitions"/> marked live or dead; <see langword="null"/> when every site is in a dead range, and the symbol is not declared.
+    /// </summary>
+    /// <param name="isDead">Whether a position is in a branch the constants make dead.</param>
+    public WorkspaceSymbol? LiveDeclaration(Func<SourcePosition, bool> isDead)
+    {
+        var live = (Alternatives.IsDefaultOrEmpty ? [this] : Alternatives.Prepend(this)).FirstOrDefault(site => !isDead(site.Range.Start));
+        if (live is null || Definitions.IsDefaultOrEmpty)
+        {
+            return live;
+        }
+
+        return live with
+        {
+            Definitions = [.. Definitions.Select(definition => definition with { State = isDead(definition.Range.Start) ? DefinitionState.Dead : DefinitionState.Live })],
+            Alternatives = [],
+        };
+    }
+
+    /// <summary>
     /// Every declaration site of this symbol: <see cref="Definitions"/> when it is populated,
     /// otherwise a single synthesized <see cref="DefinitionState.Live"/> site over
     /// <see cref="WorkspaceSymbol.Range"/>. Use this when a caller needs to treat single- and

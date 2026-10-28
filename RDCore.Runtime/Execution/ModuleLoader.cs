@@ -4,7 +4,9 @@ using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -75,6 +77,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
         var deadRanges = precompiled.DeadRanges;
+        var written = syntaxTree;
+        syntaxTree = WithLiveHeaders(syntaxTree, deadRanges);
 
         var members = session.Symbols.MembersOf(module.Uri);
         // what a constant's value raises when it is evaluated statically is a compile error of the module (MS-VBA: Overflow, Division by zero).
@@ -94,10 +98,19 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
         var sweepable = new List<(VBTypeMemberSymbol Procedure, InstructionList Body)>();
         var swept = new HashSet<SemanticId>();
-        foreach (var declaration in syntaxTree.Children.OfType<MemberDeclarationNode>())
+        var headerErrors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
+        foreach (var member in written.Children.OfType<MemberDeclarationNode>())
         {
-            if (FindMember(members, declaration) is not { } procedure)
+            // a procedure written once in each #If branch is the one of the live branch, and a header written once in each around one body is the live
+            // header's (MS-VBAL §3.4), as MS-VBA compiles it: a declaration whose every header is in a dead branch has no code, and its dead copy is not the
+            // body of the procedure the live one declares.
+            if (LiveHeaderOf(member, members, deadRanges) is not ({ } declaration, { } procedure))
             {
+                if (HeaderlessBodyErrorOf(member, deadRanges) is { } headerless)
+                {
+                    headerErrors.Add(headerless);
+                }
+
                 continue;
             }
 
@@ -126,6 +139,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
+            .AddRange(headerErrors)
             .AddRange(constantErrors)
             .AddRange(sizeErrors)
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks))
@@ -219,7 +233,60 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             _ => false,
         });
 
+    // the first header of a declaration that is in no dead branch and declares a procedure the session defines, with the body; none when there is none.
+    private static (MemberDeclarationNode? Declaration, VBTypeMemberSymbol? Procedure) LiveHeaderOf(
+        MemberDeclarationNode written, IReadOnlyList<VBTypeMemberSymbol> members, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+    {
+        foreach (var header in written.WithEachHeader())
+        {
+            if (IsDead(header.SourceLocation.Range.Start, deadRanges))
+            {
+                continue;
+            }
+
+            if (FindMember(members, header) is { } procedure)
+            {
+                return (header, procedure);
+            }
+        }
+
+        return default;
+    }
+
+    // the module as the constants compile it: each procedure with the header of its live branch, and a procedure whose every header is dead as it is written.
+    private static ModuleNode WithLiveHeaders(ModuleNode syntaxTree, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+        => syntaxTree.Children.Any(node => node is MemberDeclarationNode { HeaderAlternatives.IsDefaultOrEmpty: false })
+            ? syntaxTree with
+            {
+                Children = [.. syntaxTree.Children.Select(node => node is MemberDeclarationNode written
+                    ? written.WithEachHeader().FirstOrDefault(header => !IsDead(header.SourceLocation.Range.Start, deadRanges)) ?? written
+                    : node)],
+            }
+            : syntaxTree;
+
+    // MS-VBA: a procedure whose every header is in a dead branch leaves the statements of its body that are live outside any procedure, and its closing
+    // statement too when it is live: "Invalid outside procedure", at the first of them (recorded in Excel).
+    private static VBCompileErrorInfo? HeaderlessBodyErrorOf(MemberDeclarationNode written, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+    {
+        if (written is ExternalMemberDeclarationNode || written.WithEachHeader().Any(header => !IsDead(header.SourceLocation.Range.Start, deadRanges)))
+        {
+            return null;
+        }
+
+        var end = written.SourceLocation.Range.End;
+        var location = written.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode)
+            .FirstOrDefault(child => !IsDead(child.SourceLocation.Range.Start, deadRanges))?.SourceLocation
+            ?? (IsDead(end, deadRanges) ? null : written.SourceLocation with { Range = new SDK.Model.Source.SourceRange(end, end) });
+        return location is { } at
+            ? VBCompileErrorInfo.For(VBCompileErrorId.InvalidOutsideProcedure, at, SDK.Exceptions.VBCompileError_HeaderInDeadBranchesOnly_Verbose)
+            : null;
+    }
+
+    private static bool IsDead(SDK.Model.Source.SourcePosition position, ImmutableArray<SDK.Model.Source.SourceRange> deadRanges)
+        => deadRanges.Any(dead => position.CompareTo(dead.Start) >= 0 && position.CompareTo(dead.End) <= 0);
+
     // a name is not enough: the accessors of a property share one, and the declaration says which it is.
+
     private static VBTypeMemberSymbol? FindMember(IReadOnlyList<VBTypeMemberSymbol> members, MemberDeclarationNode declaration)
         => declaration.Name is { Length: > 0 } name
             ? members.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase) && KindOf(member) == declaration.MemberKind)

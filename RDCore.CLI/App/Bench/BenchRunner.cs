@@ -136,6 +136,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
                     Directives = parse.SyntaxTree!.GetModuleDirectives(),
                     ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse),
                     Replace = true,
                     DeclareTypesOnly = declareTypesOnly,
                 }, token);

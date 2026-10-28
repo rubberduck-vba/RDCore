@@ -265,6 +265,7 @@ internal static class ModuleWorkspace
                         Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
                         ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
                         ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                        PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
                         Replace = true,
                         DeclareTypesOnly = declareTypesOnly,
                     }), CancellationToken.None);

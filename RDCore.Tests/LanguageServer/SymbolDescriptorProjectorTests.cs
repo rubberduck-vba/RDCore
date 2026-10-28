@@ -299,7 +299,7 @@ public sealed class SymbolDescriptorProjectorTests
     }
 
     [TestMethod]
-    public void ConditionalCompilation_ProjectsOneDescriptorCarryingEveryBranch()
+    public void ConditionalCompilation_ProjectsTheFirstBranchCarryingEveryBranch_AndWhatEachOtherDeclaresBesideIt()
     {
         var descriptors = Project("""
             #If DEBUG Then
@@ -309,9 +309,15 @@ public sealed class SymbolDescriptorProjectorTests
             #End If
             """);
 
-        var foo = descriptors.Single(d => d.Name == "Foo");
+        // the host defines the one of the live branch (DefineSymbolsParams.PrecompilerTriviaJson).
+        var foos = descriptors.Where(d => d.Name == "Foo").ToList();
+        Assert.HasCount(2, foos);
+        var foo = foos[0];
+        Assert.AreEqual("Long", foo.DeclaredTypeName);
         Assert.AreEqual(2, foo.Definitions.Length);
         Assert.IsTrue(foo.Definitions.All(d => d.State == DefinitionState.Unknown));
         Assert.AreEqual(foo.Range, foo.Definitions[0].Range);
+        Assert.AreEqual("Double", foos[1].DeclaredTypeName);
+        Assert.AreEqual(foo.Definitions[1].Range, foos[1].Range);
     }
 }
