@@ -463,7 +463,8 @@ A position that no node is written around is answered with the empty range at it
 
 The language server answers `textDocument/formatting` (**LSP 3.17** §Document Formatting Request) with the edits that indent every line of a module, and
 `textDocument/rangeFormatting` (§Document Range Formatting Request) with those of the lines a range is on; a range that ends at the start of a line, a selection
-of whole lines, does not take in that line. Only whitespace changes ([`ModuleIndenter`](../api/RDCore.SDK.Formatting.ModuleIndenter.html)).
+of whole lines, does not take in that line, and a range that starts or ends inside a continued statement takes in all of its lines. Only whitespace changes
+([`ModuleIndenter`](../api/RDCore.SDK.Formatting.ModuleIndenter.html)). A line ends with a carriage return, a line feed, or both, as the protocol counts them.
 
 A line is indented a level - `Formatting.IndentSpaces` spaces - for each body that encloses it in the syntax tree, whatever the range:
 
@@ -471,12 +472,13 @@ A line is indented a level - `Formatting.IndentSpaces` spaces - for each body th
 |---|---|
 |A procedure's|When `Formatting.IndentEntireProcedureBody` is on.|
 |An `Enum`'s or a `Type`'s members|Always.|
-|What an `If`, `ElseIf` or `Else` guards; a loop (`For`, `For Each`, `Do`, `While`); a `With` block|Always. A block's opener, its branches and its closer are at the block's level.|
+|What an `If`, `ElseIf` or `Else` guards; a loop (`For`, `For Each`, `Do`, `While`); a `With` block|Always. A block's opener, its branches and its closer are at the block's level, and so is a line that has the closer after other code (`x = 1: End If`).|
 |The `Case` lines of a `Select Case`, and what each guards|What a `Case` guards, always; the `Case` lines, when `Formatting.IndentCase` is on.|
 |What an `#If`, `#ElseIf` or `#Else` guards|When `Formatting.IndentCompilerDirectives` is on.|
 
-- **A line the syntax tree has no statement of**, a branch of an `#If` that is not compiled or code the parser could not build as it is typed, is indented by its keywords, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A module is never refused.
-- **A line number** stays at the start of its line, and the code after it is where the line's level has it, a space after the number at least.
+- **A line the syntax tree has no statement of**, code the parser could not build as it is typed, is indented by its keywords, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A block or an `#If` the closer of which is not written yet is open to the last line. A module is never refused.
+- **A procedure whose header is written in each branch of an `#If`** (`#If VBA7 Then` / a header / `#Else` / a header / `#End If`, then one body) has the `#If` block as its header: its lines are at the procedure's level, and the body after the `#End If` is indented once.
+- **A line number** stays at the start of its line, and so does a line label, as the VBE has it: the code after either is where the line's level has it, a space after the number or the label at least, and nothing after one that has no code.
 - **A line continued from the one before** (`_`) lines up with the lines of its statement before it, when `Formatting.AlignContinuations` is on: with the argument it continues (the one after a comma, a named argument's value after its `:=`), the innermost argument list that is open, the value of an assignment, or what follows the name the statement starts with - a level further in than the statement when there is none of them. Parentheses, commas and `=` in a string literal are not counted. A line that starts with `+` or `&` has the operator before that column, so that the operands line up, when `Formatting.IgnoreOperatorsInContinuations` is on. The lines of a declaration, of a member of an `Enum` or a `Type`, and of a comment are where their statement starts; what continues an end-of-line comment, or a comment on a line of its own inside a statement, is where that comment is. With `AlignContinuations` off, every line of a statement is where it starts.
 - **A comment alone on its line** is at the level of the code around it, or where it is written when `Formatting.AlignCommentsWithCode` is off.
 - **An empty line** is left as it is, emptied of its whitespace, or indented to its level, as `Formatting.EmptyLineHandlingMethod` says (`Ignore`, `Remove`, `Indent`).
@@ -484,10 +486,11 @@ A line is indented a level - `Formatting.IndentSpaces` spaces - for each body th
 - **The first blocks of a procedure** - the comments and the declarations (`Dim`, `Const`, `Static`, `Public`, `Private`) right after its header, in any order, up to its first other line or its first empty line - are in column 1 when `Formatting.IndentFirstCommentBlock` or `IndentFirstDeclarationBlock` is off. An empty line does not end them when `IgnoreEmptyLinesInFirstBlocks` is on. With `IndentEnumTypeAsProcedure` on, the first comments of an `Enum` or a `Type` are in column 1 when `IndentFirstCommentBlock` is off.
 - **A declaration's `As`**, the first of a `Dim`, `Const`, `Static`, `Public` or `Private` line and of each line it is continued on, starts in column `Formatting.AlignDimColumn` when `Formatting.AlignDims` is on; a space before it at least.
 - **An end-of-line comment** is where `Formatting.EndOfLineCommentStyle` has it: at the column it was written at (`Absolute`), after the gap it had (`SameGap`), twice `IndentSpaces` after the code (`StandardGap`), or in column `Formatting.EndOfLineCommentColumnSpaceAlignment` (`AlignInColumn`); a space after the code at least. An apostrophe in a string literal or in a bracketed name starts no comment.
+- **The header of a class or a form module** (`VERSION`, `BEGIN` ... `END`) and its `Attribute` lines are left as they are written.
 
 Only whitespace changes: an edit is a run of it that is not what it is to be - the indentation of a line, the gap before an `As` or a comment.
 
-The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made, and not the `tabSize` of the request's options. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell lists its lines.
+The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made. Of the request's options (`FormattingOptions`), none is honoured: the `tabSize` is the editor's, which reaches the server through the configuration it owns, as `Formatting.IndentSpaces` when the user never set it; `insertSpaces: false` is not, since the code of a VBA module is indented with spaces as the VBE writes it; and `trimTrailingWhitespace`, `trimFinalNewlines` and `insertFinalNewline` are not either, since only the whitespace before the code of a line and between its parts is the indenter's. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell lists its lines.
 
 > [!NOTE]
 > **Not implemented.** Vertical spacing between procedures; a line number on a line of its own inside a continued statement; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.

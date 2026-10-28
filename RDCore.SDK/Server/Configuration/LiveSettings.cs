@@ -107,10 +107,26 @@ public interface ILiveSettings
     IReadOnlyDictionary<string, string> Current { get; }
 
     /// <summary>
+    /// What the client said its user set, without what the component took for a setting the user did not set (the editor's tab size, <see cref="Formatting.FormattingTabSize"/>); in a component
+    /// that has no client, or before its client said anything, the live settings its user set.
+    /// </summary>
+    IReadOnlyDictionary<string, string> Said { get; }
+
+    /// <summary>Whether the client has said what its settings are: <see cref="Apply(IReadOnlyDictionary{string, string})"/> was called.</summary>
+    bool HasReceived { get; }
+
+    /// <summary>
     /// Takes what the client said the settings are, and sets the live ones on the settings objects.
     /// </summary>
     /// <param name="settings">The settings, by their keys under <see cref="SettingsSchema.Root"/>, separated by <c>:</c>.</param>
     void Apply(IReadOnlyDictionary<string, string> settings);
+
+    /// <summary>
+    /// Takes what the client said the settings are, and the settings the component takes for the ones the client did not say, and sets the live ones on the settings objects.
+    /// </summary>
+    /// <param name="said">What the client said, by the keys under <see cref="SettingsSchema.Root"/>, separated by <c>:</c>: <see cref="Said"/>.</param>
+    /// <param name="adopted">What the component takes besides, for settings the client did not say.</param>
+    void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted);
 
     /// <summary>
     /// Sets the live settings on the settings objects as the user's settings say them now: what a component that is no other's server does when its user changes
@@ -131,6 +147,7 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     private readonly IReadOnlyList<LiveSettingsTarget> _targets = [.. targets];
     private readonly object _applying = new();
     private IReadOnlyDictionary<string, string>? _received;
+    private IReadOnlyDictionary<string, string>? _said;
 
     /// <summary>
     /// The live settings of the user's settings of a platform: its settings objects, and its user's file.
@@ -150,11 +167,27 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
     public IReadOnlyDictionary<string, string> Current => _received ?? UserLiveSettings();
 
     /// <inheritdoc/>
-    public void Apply(IReadOnlyDictionary<string, string> settings)
+    public IReadOnlyDictionary<string, string> Said => _said ?? UserLiveSettings();
+
+    /// <inheritdoc/>
+    public bool HasReceived => _received is not null;
+
+    /// <inheritdoc/>
+    public void Apply(IReadOnlyDictionary<string, string> settings) => Apply(settings, new Dictionary<string, string>());
+
+    /// <inheritdoc/>
+    public void Apply(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted)
     {
         lock (_applying)
         {
-            _received = new Dictionary<string, string>(settings, StringComparer.OrdinalIgnoreCase);
+            _said = new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase);
+            var received = new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase);
+            foreach (var (key, value) in adopted)
+            {
+                received[key] = value;
+            }
+
+            _received = received;
             Set(_received);
         }
 

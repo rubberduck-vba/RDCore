@@ -29,7 +29,7 @@ public sealed class ClientConfigurationFollower : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _subscription;
     private readonly object _gate = new();
-    private readonly List<Task> _following = [];
+    private readonly object _applying = new();
     private int _version;
     private int _disposed;
 
@@ -71,26 +71,7 @@ public sealed class ClientConfigurationFollower : IDisposable
     /// <summary>
     /// Starts following: the client's answers set the settings from now on.
     /// </summary>
-    public void Start() => _subscription ??= ChangeToken.OnChange(_server.Configuration.GetReloadToken, () =>
-    {
-        var following = FollowAsync();
-        lock (_gate)
-        {
-            _following.RemoveAll(task => task.IsCompleted);
-            _following.Add(following);
-        }
-    });
-
-    /// <summary>
-    /// Completes once the changes that were being followed are followed, or dropped.
-    /// </summary>
-    public Task WhenIdleAsync()
-    {
-        lock (_gate)
-        {
-            return Task.WhenAll(_following);
-        }
-    }
+    public void Start() => _subscription ??= ChangeToken.OnChange(_server.Configuration.GetReloadToken, () => _ = FollowAsync());
 
     /// <summary>
     /// Sets the live settings the client said, with the editor's tab size for an indentation the user never set.
@@ -109,20 +90,32 @@ public sealed class ClientConfigurationFollower : IDisposable
             var token = _lifetime.Token;
             var said = LiveSettingsProtocol.Read(_server.Configuration);
             var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(_server, token);
-            var settings = FormattingTabSize.WithEditorTabSize(said, tabSize);
+            var adopted = FormattingTabSize.AdoptedFrom(said, tabSize);
 
-            // checked and set together: a change that was passed by a newer one, or by the follower being disposed, while it was between the two would otherwise set.
+            // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed - decided under a lock that is
+            // held for no longer than that: a listener of the change, which runs while the settings are set, can wait for another thread to follow or to dispose.
+            lock (_applying)
+            {
+                lock (_gate)
+                {
+                    if (version != _version || _disposed == 1)
+                    {
+                        return false;
+                    }
+                }
+
+                _liveSettings.Apply(said, adopted);
+            }
+
             lock (_gate)
             {
-                if (version != _version || _disposed == 1)
+                if (_disposed == 1)
                 {
                     return false;
                 }
-
-                _liveSettings.Apply(settings);
             }
 
-            _log($"⚙️ The client's live settings were applied ({said.Count} value(s)){(settings.Count > said.Count ? $"; the indentation is the client's tab size ({settings["Formatting:IndentSpaces"]}), which no setting overrides" : string.Empty)}.");
+            _log($"⚙️ The client's live settings were applied ({said.Count} value(s)){(adopted.Count > 0 ? $"; the indentation is the client's tab size ({adopted.Values.Single()}), which no setting overrides" : string.Empty)}.");
             await _changed();
             return true;
         }

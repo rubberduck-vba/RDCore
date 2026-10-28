@@ -59,11 +59,6 @@ public sealed class RubberduckIndenterCaseTests
     [DynamicData(nameof(AllCases))]
     public void TheEngine_IndentsAsTheCaseExpects(string source)
     {
-        if (Waiting.TryGetValue(source, out var missing))
-        {
-            Assert.Inconclusive($"{source}: {missing}.");
-        }
-
         var item = Cases.Value.Single(candidate => candidate.Source == source);
         var options = item.Settings.Deserialize<CodeFormattingOptions>(Json)!;
         var text = string.Join("\r\n", item.Code);
@@ -71,7 +66,15 @@ public sealed class RubberduckIndenterCaseTests
 
         var indented = ModuleIndenter.Apply(text, ModuleIndenter.Indent(parse, text, options));
 
-        Assert.AreEqual(string.Join("\r\n", item.Expected), indented);
+        var expected = string.Join("\r\n", item.Expected);
+        if (Waiting.TryGetValue(source, out var missing))
+        {
+            // a case that waits is run all the same, and says so once it passes: it waits no longer than it has to.
+            Assert.AreNotEqual(expected, indented, $"{source} now passes: remove it from the waiting list.");
+            Assert.Inconclusive($"{source}: {missing}.");
+        }
+
+        Assert.AreEqual(expected, indented);
     }
 
     // formatting formatted code changes nothing.
@@ -79,16 +82,19 @@ public sealed class RubberduckIndenterCaseTests
     [DynamicData(nameof(AllCases))]
     public void WhatTheCaseExpects_IsGivenNoEdit(string source)
     {
-        if (Waiting.TryGetValue(source, out var missing))
-        {
-            Assert.Inconclusive($"{source}: {missing}.");
-        }
-
         var item = Cases.Value.Single(candidate => candidate.Source == source);
         var options = item.Settings.Deserialize<CodeFormattingOptions>(Json)!;
         var text = string.Join("\r\n", item.Expected);
         var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
 
-        Assert.IsEmpty(ModuleIndenter.Indent(parse, text, options));
+        var edits = ModuleIndenter.Indent(parse, text, options);
+
+        // what a waiting case expects may be given no edit before the engine writes it from the input: the case waits only while this fails.
+        if (edits.Count > 0 && Waiting.TryGetValue(source, out var missing))
+        {
+            Assert.Inconclusive($"{source}: {missing}.");
+        }
+
+        Assert.IsEmpty(edits);
     }
 }
