@@ -31,6 +31,21 @@ internal interface IWorkspaceDocumentService
     IEnumerable<WorkspaceDocument> GetAllDocuments();
 
     /// <summary>
+    /// The documents that are modules of one project, as <see cref="GetAllDocuments"/> has them: the files the project lists, and what a client opened that is
+    /// in the project's own folder. A file that several projects list is in each.
+    /// </summary>
+    /// <param name="projectRoot">The folder of the project.</param>
+    IEnumerable<WorkspaceDocument> GetProjectDocuments(string projectRoot);
+
+    /// <summary>
+    /// Loads a file a project lists, as <see cref="TryLoadAsync(TextDocumentIdentifier)"/> does for the primary project's: addressed relative to that project's
+    /// folder. A file another project listed before is the same document, and this project is one more it is a module of.
+    /// </summary>
+    /// <param name="id">The file.</param>
+    /// <param name="projectRoot">The folder of the project that lists it.</param>
+    Task<bool> TryLoadAsync(TextDocumentIdentifier id, string projectRoot);
+
+    /// <summary>
     /// Says which documents are the files the project lists as other files (<c>OtherFiles</c> of the <c>.rdproj</c>), and no module: they are loaded and
     /// tracked as any document is, found by <see cref="TryGetDocument"/>, and left out of <see cref="GetAllDocuments"/>. Whoever applies a project says so,
     /// each time it does.
@@ -158,10 +173,30 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             ? earlier.Version + (string.Equals(earlier.Text, content, StringComparison.Ordinal) ? 0 : 1)
             : 1;
 
-    public async Task<bool> TryLoadAsync(TextDocumentIdentifier id)
+    public IEnumerable<WorkspaceDocument> GetProjectDocuments(string projectRoot)
+        => GetAllDocuments().Where(document => document.Projects.Any(root => SameFolder(root, projectRoot)));
+
+    private static bool SameFolder(string left, string right)
+        => string.Equals(Path.TrimEndingDirectorySeparator(left), Path.TrimEndingDirectorySeparator(right),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    public Task<bool> TryLoadAsync(TextDocumentIdentifier id) => TryLoadAsync(id, WorkspaceRoot);
+
+    public async Task<bool> TryLoadAsync(TextDocumentIdentifier id, string projectRoot)
     {
         var path = id.Uri.GetFileSystemPath();
-        var relativeUri = ioPath.GetRelativePath(WorkspaceRoot, path);
+
+        // a file another project listed is the same document: it has the text, the version and the state it has, and is a module of this project too.
+        if (_documents.TryGetValue(id, out var shared) && !shared.Projects.Any(root => SameFolder(root, projectRoot)))
+        {
+            _documents[id] = shared with { Projects = [.. shared.Projects, projectRoot] };
+            return true;
+        }
+
+        // the first project to load a document is the one it is addressed from; a project that lists it later does not move it.
+        var owner = shared?.WorkspaceRoot ?? projectRoot;
+        var projects = shared?.Projects ?? [projectRoot];
+        var relativeUri = ioPath.GetRelativePath(owner, path);
 
         try
         {
@@ -173,7 +208,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 }
 
                 var content = await ioFile.ReadAllTextAsync(path);
-                var document = WithCompanion(new WorkspaceDocument(relativeUri, WorkspaceRoot, content), path);
+                var document = WithCompanion(new WorkspaceDocument(relativeUri, owner, content) { Projects = projects }, path);
                 document = document with { Version = NextVersion(document.Id, content) };
                 _documents[document.Id] = document;
 
@@ -184,7 +219,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
             else
             {
-                var document = new WorkspaceDocument(relativeUri, WorkspaceRoot);
+                var document = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
                 document = document with { Version = NextVersion(document.Id, string.Empty) };
                 _documents[document.Id] = document;
 
@@ -194,7 +229,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         }
         catch (Exception exception)
         {
-            var document = new WorkspaceDocument(relativeUri, WorkspaceRoot);
+            var document = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
             _documents[document.Id] = document;
 
             logger.LogWarning(exception, "❌ Workspace document '{uri}' could not be loaded.", relativeUri);
@@ -388,10 +423,15 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
         // a document the client opens need not be in the workspace folder: its own path is what addresses it then - and so it is when no workspace could
         // be loaded, which leaves no root to be relative to.
+        // a document that is a module of projects stays one when the client opens it, and is addressed from the project that loaded it.
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
-        var relativePath = WorkspaceRoot.Length == 0 ? path : ioPath.GetRelativePath(WorkspaceRoot, path);
+        var owner = existing?.WorkspaceRoot ?? WorkspaceRoot;
+        var relativePath = owner.Length == 0 ? path : ioPath.GetRelativePath(owner, path);
         var document = WithCompanion(
-            new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, WorkspaceRoot, text, version),
+            new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
+            {
+                Projects = existing?.Projects ?? [owner],
+            },
             path);
 
         _documents[id] = document;
@@ -460,7 +500,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
                 var content = await ioFile.ReadAllTextAsync(path);
-                var reloaded = WithCompanion(new WorkspaceDocument(document.RelativePath, document.WorkspaceRoot, content, document.Version + 1), path);
+                var reloaded = WithCompanion(new WorkspaceDocument(document.RelativePath, document.WorkspaceRoot, content, document.Version + 1) { Projects = document.Projects }, path);
                 _documents[id] = reloaded;
                 documentStateProvider.OnDocumentOpenedByClient(id);
                 documentStateProvider.OnDocumentClosed(id);
@@ -498,7 +538,12 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
 
             _documents.TryRemove(id, out _);
-            _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version) { IsDirty = document.IsDirty, Companion = document.Companion };
+            _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version)
+            {
+                IsDirty = document.IsDirty,
+                Companion = document.Companion,
+                Projects = document.Projects,
+            };
 
             documentStateProvider.OnDocumentUnloaded(id);
             documentStateProvider.OnDocumentLoaded(newId);

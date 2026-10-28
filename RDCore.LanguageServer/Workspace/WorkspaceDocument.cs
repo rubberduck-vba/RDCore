@@ -16,16 +16,29 @@ internal record class WorkspaceDocument
     public WorkspaceDocument(string relativePath, string workspaceRoot, string content, int version = 1)
     {
         // a path that is absolute is the document's own: a document the client opens need not be in the workspace folder.
-        Id = new TextDocumentIdentifier(Path.Combine(workspaceRoot, relativePath));
+        // a path that climbs out of the folder (..\Shared\Util.bas) is the file it names: the address a client has it by.
+        var path = Path.Combine(workspaceRoot, relativePath);
+        Id = new TextDocumentIdentifier(relativePath.Split('/', '\\').Contains("..") ? Path.GetFullPath(path) : path);
         Version = version;
         Text = content;
 
         WorkspaceRoot = workspaceRoot;
         RelativePath = relativePath;
+        Projects = [workspaceRoot];
     }
 
+    /// <summary>
+    /// The folder of the project that loaded the document first, which its diagnostics are the ones of: a language server keeps one set of them for a document,
+    /// whatever number of projects list it.
+    /// </summary>
     public string WorkspaceRoot { get; }
     public string RelativePath { get; }
+
+    /// <summary>
+    /// The folders of the projects the document is a module of, <see cref="WorkspaceRoot"/> first: a file that several projects list is one document - one text,
+    /// one version, opened once by a client - and a module of each, with a copy of its own as in Visual Basic 6.
+    /// </summary>
+    public IReadOnlyList<string> Projects { get; init; }
 
     /// <summary>
     /// A unique identifier for the document, represented as a URI.

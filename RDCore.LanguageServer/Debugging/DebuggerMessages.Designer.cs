@@ -313,6 +313,15 @@ namespace RDCore.LanguageServer.Debugging {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos;, listed by the project in &apos;{1}&apos;, is in no folder of the workspace, and is not a file of the project.
+        /// </summary>
+        internal static string FileOutsideTheWorkspaceFolders {
+            get {
+                return ResourceManager.GetString("FileOutsideTheWorkspaceFolders", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to a statement is one line.
         /// </summary>
         internal static string StatementIsOneLine {
