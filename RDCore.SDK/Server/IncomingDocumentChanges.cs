@@ -105,8 +105,7 @@ public sealed class IncomingDocumentChanges
         }
         catch (OperationCanceledException) when (changed.IsCancellationRequested && !token.IsCancellationRequested)
         {
-            // OmniSharp answers an OperationCanceledException RequestCancelled, its own ContentModifiedException included: an RpcErrorException is answered its code.
-            throw new RpcErrorException(ErrorCodes.ContentModified, null!, ContentModifiedMessage);
+            throw ContentModified();
         }
         finally
         {
@@ -116,6 +115,16 @@ public sealed class IncomingDocumentChanges
             }
         }
     }
+
+    /// <summary>
+    /// The error a request about a document is answered with when the document changed while the answer was made: <c>ContentModified</c> (-32801), which the
+    /// client asks again after.
+    /// </summary>
+    /// <remarks>
+    /// OmniSharp answers an <see cref="OperationCanceledException"/> <c>RequestCancelled</c>, its own <c>ContentModifiedException</c> included: an
+    /// <see cref="RpcErrorException"/> is answered its code.
+    /// </remarks>
+    public static RpcErrorException ContentModified() => new(ErrorCodes.ContentModified, null!, ContentModifiedMessage);
 
     /// <summary>
     /// Wraps the stream the server reads its client's messages from, so that a change to a document is known as it arrives (<see cref="Arrived"/>). What is
