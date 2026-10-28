@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Tests.Parser;
@@ -158,6 +159,23 @@ public sealed class SplitHeaderParseTests
         Assert.AreEqual(MemberKind.Procedure, alternative.MemberKind);
         Assert.AreEqual(3, alternative.SourceLocation.Range.Start.Line);
         Assert.AreEqual(1, Procedure(result, "G").SourceLocation.Range.Start.Line, "the whole Function is the module's");
+    }
+
+    [TestMethod]
+    public void TheSelectionAtAPositionInABranchsWholeProcedure_GrowsThroughThatProcedure()
+    {
+        // G is on lines 3-5, within the lines of F (1-9), whose header the block splits; Main follows.
+        var result = Parse(
+            "#If VBA7 Then", "Private Function F() As Long", "#Else", "Private Sub G()", "    Debug.Print 1", "End Sub", "Private Function F() As Long", "#End If",
+            "    F = 1", "End Function", "Public Sub Main()", "End Sub");
+        var tree = result.SyntaxTree!;
+        var f = Procedure(result).SourceLocation.Range;
+        var g = Procedure(result, "G").SourceLocation.Range;
+
+        var inG = SyntaxSelection.RangesAt(tree, new SourcePosition(4, 8));
+        CollectionAssert.Contains(inG.ToArray(), g);
+        CollectionAssert.DoesNotContain(inG.ToArray(), f, "a selection in G does not grow through F");
+        CollectionAssert.Contains(SyntaxSelection.RangesAt(tree, new SourcePosition(8, 6)).ToArray(), f);
     }
 
     [TestMethod]

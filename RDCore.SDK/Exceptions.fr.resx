@@ -816,9 +816,6 @@
   <data name="VBCompileError_TooManyLineContinuations_Verbose" xml:space="preserve">
     <value>Trop de continuations de ligne : une ligne logique joint au plus 25 lignes physiques, avec 24 continuations de ligne.</value>
   </data>
-  <data name="VBCompileError_SplitHeaderWithoutProcedure_Verbose" xml:space="preserve">
-    <value>Cet en-tête de procédure est écrit dans une branche d'un bloc #If dont une autre branche écrit l'en-tête qui a été lu, et cette procédure n'a pas pu être lue.</value>
-  </data>
   <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
     <value>'{0}' n'est pas une variable dont la taille peut être mesurée : {1}</value>
   </data>

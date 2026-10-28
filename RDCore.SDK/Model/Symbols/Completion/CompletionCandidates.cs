@@ -121,18 +121,27 @@ public static class CompletionCandidates
             return moduleUri;
         }
 
+        // the innermost procedure that contains the position, the one whose definition there starts last: a procedure a branch of a #If block writes whole is
+        // within the lines of the procedure whose header that block splits (MemberDeclarationNode.HeaderAlternatives), and is the one the position is in.
+        Uri? origin = null;
+        SourcePosition latest = default;
         foreach (var declaration in module.Declarations.OfType<WorkspaceSymbol>())
         {
-            if (tree.TryGetScope(declaration.Uri, out var scope)
-                && scope.Kind == LexicalScopeKind.Procedure
-                && scope.Uri.AbsoluteUri == declaration.Uri.AbsoluteUri
-                && declaration.AllDefinitions.Any(definition => Contains(definition.Range, position)))
+            if (!tree.TryGetScope(declaration.Uri, out var scope) || scope.Kind != LexicalScopeKind.Procedure || scope.Uri.AbsoluteUri != declaration.Uri.AbsoluteUri)
             {
-                return declaration.Uri;
+                continue;
+            }
+
+            foreach (var definition in declaration.AllDefinitions.Where(definition => Contains(definition.Range, position)))
+            {
+                if (origin is null || definition.Range.Start.CompareTo(latest) > 0)
+                {
+                    (origin, latest) = (declaration.Uri, definition.Range.Start);
+                }
             }
         }
 
-        return moduleUri;
+        return origin ?? moduleUri;
     }
 
     private static bool Contains(SourceRange range, SourcePosition position)

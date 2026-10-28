@@ -199,9 +199,9 @@ public partial class ModuleParser(
             var mainEnd = new SourcePosition(alternative.MainEndLine, 0).AnchoredAt(anchorOffset);
             var found = children.FindLastIndex(child => IsProcedure(child) && !ofBranches.Contains(child.Identity)
                 && child.SourceLocation.Range.Start.CompareTo(mainStart) >= 0 && child.SourceLocation.Range.Start.CompareTo(mainEnd) < 0);
+            // the main pass did not read the procedure, which only a syntax error of its own keeps it from doing: that error is the module's already.
             if (found < 0)
             {
-                errorListener.Report(header.SourceLocation, VBCompileErrorId.SyntaxError, SDK.Exceptions.VBCompileError_SplitHeaderWithoutProcedure_Verbose);
                 continue;
             }
 

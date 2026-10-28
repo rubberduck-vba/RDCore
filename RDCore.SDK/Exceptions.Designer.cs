@@ -1391,15 +1391,6 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_TooManyLineContinuations_Verbose", resourceCulture);
             }
         }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This procedure header is written in one branch of a #If block of which another branch writes the header that was read, and that procedure could not be read..
-        /// </summary>
-        public static string VBCompileError_SplitHeaderWithoutProcedure_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_SplitHeaderWithoutProcedure_Verbose", resourceCulture);
-            }
-        }
         
         /// <summary>
         ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..

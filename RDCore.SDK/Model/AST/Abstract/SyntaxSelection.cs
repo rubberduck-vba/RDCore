@@ -28,16 +28,18 @@ public static class SyntaxSelection
             return [];
         }
 
-        // a module's own node has no range: it is what its first and last declarations are written between.
-        var whole = new SourceRange(module.Children[0].SourceLocation.Range.Start, module.Children[^1].SourceLocation.Range.End);
+        // a module's own node has no range: it is what its first and last declarations are written between - the last to end, which a declaration a branch of
+        // a #If block writes within a procedure whose header the block splits is not (MemberDeclarationNode.HeaderAlternatives).
+        var whole = new SourceRange(module.Children[0].SourceLocation.Range.Start, module.Children.Max(child => child.SourceLocation.Range.End));
         if (!Contains(whole, position))
         {
             return [];
         }
 
+        // of the children that contain the position, the innermost: the one that starts last.
         var outward = new List<SourceRange> { whole };
         SyntaxNode node = module;
-        while (node.ChildNodes().FirstOrDefault(child => Contains(child.SourceLocation.Range, position)) is { } inner)
+        while (node.ChildNodes().Where(child => Contains(child.SourceLocation.Range, position)).MaxBy(child => child.SourceLocation.Range.Start) is { } inner)
         {
             var range = inner.SourceLocation.Range;
             if (!range.IsEmpty && range != outward[^1] && Contains(outward[^1], range))
