@@ -1,6 +1,4 @@
 using OmniSharp.Extensions.JsonRpc;
-using RDCore.CLI.App.Repl;
-using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
@@ -32,8 +30,7 @@ internal sealed record class LiveSettingsNotifier(Func<CancellationToken, Task> 
 /// <param name="settings">The settings the user can set.</param>
 /// <param name="liveSettings">The shell's own live settings.</param>
 /// <param name="notifier">Tells the language server the live settings changed.</param>
-/// <param name="console">The shell's console, where what was not taken is said.</param>
-internal sealed class RubberduckIndenterSettingsApplyHandler(IPlatformSettings settings, ILiveSettings liveSettings, LiveSettingsNotifier notifier, IReplConsole console)
+internal sealed class RubberduckIndenterSettingsApplyHandler(IPlatformSettings settings, ILiveSettings liveSettings, LiveSettingsNotifier notifier)
     : IJsonRpcRequestHandler<RubberduckIndenterSettingsApplyParams, RubberduckIndenterSettingsApplyResult>
 {
     /// <inheritdoc/>
@@ -41,11 +38,6 @@ internal sealed class RubberduckIndenterSettingsApplyHandler(IPlatformSettings s
     {
         // the server asks for the settings of an import and for no others: a client owns its configuration, and this is no channel to write any of it.
         var result = IndenterSettingsImport.ApplyTo(settings.Store, request.Settings);
-        if (result.Refused.Count > 0)
-        {
-            console.WriteMessage(MessageKind.Warning, IndenterSettingsImportText.Imported(new IndenterSettingsImportResult(request.Source, result.Applied, result.Refused)));
-        }
-
         if (result.Applied > 0)
         {
             liveSettings.Refresh();

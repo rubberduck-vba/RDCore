@@ -208,6 +208,7 @@ public sealed class IndenterSettingsOfferingTests
         Assert.IsNull(await offering.RunAsync(CancellationToken.None));
         Assert.AreEqual(0, platform.Questions.Count);
         Assert.HasCount(1, platform.Log);
+        StringAssert.StartsWith(platform.Log[0], "The client did not say its settings in time", "the line that says why is the timeout's");
     }
 
     [TestMethod]
@@ -309,8 +310,7 @@ public sealed class IndenterSettingsOfferingTests
         var extensions = Substitute.For<IExtensionsProvider>();
         extensions.Discover().Returns([]);
         var settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
-        var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
-        var handler = new RubberduckIndenterSettingsApplyHandler(settings, Substitute.For<ILiveSettings>(), new LiveSettingsNotifier(_ => Task.CompletedTask), console);
+        var handler = new RubberduckIndenterSettingsApplyHandler(settings, Substitute.For<ILiveSettings>(), new LiveSettingsNotifier(_ => Task.CompletedTask));
         var result = await handler.Handle(new RubberduckIndenterSettingsApplyParams
         {
             Source = RubberduckIndenterSettingsSource.RubberduckConfig,
@@ -326,7 +326,6 @@ public sealed class IndenterSettingsOfferingTests
 
         Assert.AreEqual(1, result.Applied);
         CollectionAssert.AreEquivalent(new[] { "Server.Verbose", "Environment.AllowDllImports", "Platform.Extensions.Allowed", "Formatting.FormatOnType" }, result.Refused.ToArray(), "and the client says what it did not take");
-        console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, Arg.Is<string>(text => text.Contains("Server.Verbose") && text.Contains("Formatting.FormatOnType")));
         CollectionAssert.AreEqual(new[] { "Formatting.IndentCase" }, settings.Store.Read().Select(value => value.Setting.Key).ToArray(), "a client owns its configuration, and this is no way to write it");
     }
 

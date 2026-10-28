@@ -30,7 +30,7 @@ public static class IndenterSettingsImportText
     public static string Imported(IndenterSettingsImportResult result, CultureInfo? culture = null)
     {
         var imported = Say("IndenterImport_Imported", culture, result.Imported, SourceName(result.Source, culture));
-        return result.Refused.Count == 0 ? imported : $"{imported} {Say("IndenterImport_Refused", culture, string.Join(", ", result.Refused))}";
+        return NotTaken(result, culture) is { Length: > 0 } notTaken ? $"{imported} {notTaken}" : imported;
     }
 
     /// <summary>There are no settings to import.</summary>
@@ -38,7 +38,13 @@ public static class IndenterSettingsImportText
 
     /// <summary>The client was asked to take the settings, and took none.</summary>
     public static string Declined(IndenterSettingsImportResult result, CultureInfo? culture = null)
-        => result.Refused.Count == 0 ? Say("IndenterImport_Declined", culture) : $"{Say("IndenterImport_Declined", culture)} {Say("IndenterImport_Refused", culture, string.Join(", ", result.Refused))}";
+        => NotTaken(result, culture) is { Length: > 0 } notTaken ? $"{Say("IndenterImport_Declined", culture)} {notTaken}" : Say("IndenterImport_Declined", culture);
+
+    // which settings were not taken, when the client said; how many, when it did not.
+    private static string NotTaken(IndenterSettingsImportResult result, CultureInfo? culture)
+        => result.Refused.Count > 0 ? Say("IndenterImport_Refused", culture, string.Join(", ", result.Refused))
+            : result.NotTaken > 0 ? Say("IndenterImport_NotTakenCount", culture, result.NotTaken)
+            : string.Empty;
 
     /// <summary>The client does not read the settings of Rubberduck.</summary>
     public static string Unsupported(CultureInfo? culture = null) => Say("IndenterImport_Unsupported", culture);

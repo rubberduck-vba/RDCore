@@ -6,6 +6,13 @@ using System.Globalization;
 namespace RDCore.SDK.Formatting;
 
 /// <summary>
+/// What setting an import's settings for a user made of them: how many were set, and the keys of the ones that were not.
+/// </summary>
+/// <param name="Applied">How many settings were set.</param>
+/// <param name="Refused">The keys of the settings that were not set.</param>
+public sealed record class IndenterSettingsApplied(int Applied, IReadOnlyList<string> Refused);
+
+/// <summary>
 /// The indenter settings Rubberduck has, as <c>Formatting</c> settings of the platform: the mapping of what a client read of them
 /// (<see cref="RubberduckIndenterSettingsResult"/>) to the settings of <see cref="SdkFormattingOptions"/>.
 /// </summary>
@@ -26,11 +33,6 @@ namespace RDCore.SDK.Formatting;
 /// </remarks>
 /// <param name="Source">Where the settings were found.</param>
 /// <param name="Values">The settings, by their keys: <c>Formatting.IndentSpaces</c>, with the value as it is written (<see cref="SettingsSchema.TryParse"/>).</param>
-/// <summary>What setting the settings of an import for a user made of them.</summary>
-/// <param name="Applied">How many were set.</param>
-/// <param name="Refused">The keys that were not.</param>
-public sealed record class IndenterSettingsApplied(int Applied, IReadOnlyList<string> Refused);
-
 public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSource Source, IReadOnlyDictionary<string, string> Values)
 {
     private const string Section = "Formatting";

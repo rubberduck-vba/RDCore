@@ -34,6 +34,9 @@
   <data name="IndenterImport_Refused" xml:space="preserve">
     <value>Non pris : {0}.</value>
   </data>
+  <data name="IndenterImport_NotTakenCount" xml:space="preserve">
+    <value>{0} paramètre(s) n'ont pas été pris.</value>
+  </data>
   <data name="IndenterImport_Nothing" xml:space="preserve">
     <value>Il n'y a aucun paramètre d'indentation de Rubberduck à importer.</value>
   </data>

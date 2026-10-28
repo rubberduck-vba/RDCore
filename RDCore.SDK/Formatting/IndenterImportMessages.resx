@@ -34,6 +34,9 @@
   <data name="IndenterImport_Refused" xml:space="preserve">
     <value>Not taken: {0}.</value>
   </data>
+  <data name="IndenterImport_NotTakenCount" xml:space="preserve">
+    <value>{0} setting(s) were not taken.</value>
+  </data>
   <data name="IndenterImport_Nothing" xml:space="preserve">
     <value>There are no indenter settings of Rubberduck to import.</value>
   </data>

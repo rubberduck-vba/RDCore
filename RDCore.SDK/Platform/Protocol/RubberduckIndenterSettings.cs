@@ -98,6 +98,9 @@ public record class RubberduckIndenterSettingsApplyResult
     /// <summary>How many of the settings the client set; <c>0</c> when it declined.</summary>
     public int Applied { get; init; }
 
-    /// <summary>The keys of the settings the client did not take, when it took some or none: a key an import does not set, or a value its setting cannot be.</summary>
+    /// <summary>
+    /// The keys of the settings the client did not take, when it took some or none: a key an import does not set, or a value its setting cannot be. A client that
+    /// does not say (<see cref="Applied"/> is all it says) has the settings it took told as a number only.
+    /// </summary>
     public IReadOnlyList<string> Refused { get; init; } = [];
 }

@@ -42,7 +42,9 @@ public static class IndenterSettingsImportFlow
         IndenterSettingsImport import, Func<RubberduckIndenterSettingsApplyParams, CancellationToken, Task<RubberduckIndenterSettingsApplyResult>> apply, CancellationToken token)
     {
         var answer = await apply(new RubberduckIndenterSettingsApplyParams { Source = import.Source, Settings = new Dictionary<string, string>(import.Values) }, token);
-        var result = new IndenterSettingsImportResult(import.Source, answer.Applied, answer.Refused);
+        // a client that does not say which settings it did not take - an older one - is still told to have left some out, by their number.
+        var refused = answer.Refused ?? [];
+        var result = new IndenterSettingsImportResult(import.Source, answer.Applied, refused, refused.Count == 0 && answer.Applied > 0 ? Math.Max(0, import.Values.Count - answer.Applied) : 0);
         return new IndenterSettingsImportOutcome(import.Source, import.Values.Count, answer.Applied,
             answer.Applied == 0 ? IndenterSettingsImportText.Declined(result) : IndenterSettingsImportText.Imported(result));
     }
@@ -68,7 +70,8 @@ public static class IndenterSettingsImportFlow
 /// <param name="Source">Where the settings were read.</param>
 /// <param name="Imported">How many settings were set.</param>
 /// <param name="Refused">The keys of the settings that could not be.</param>
-public sealed record class IndenterSettingsImportResult(RubberduckIndenterSettingsSource Source, int Imported, IReadOnlyList<string> Refused);
+/// <param name="NotTaken">How many settings were not taken, when it is not known which: the client did not say.</param>
+public sealed record class IndenterSettingsImportResult(RubberduckIndenterSettingsSource Source, int Imported, IReadOnlyList<string> Refused, int NotTaken = 0);
 
 /// <summary>
 /// Offers, once, to import the indenter settings of Rubberduck: when the client has them, the user never set a <c>Formatting</c> setting, and the user was not offered

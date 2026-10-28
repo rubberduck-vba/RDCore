@@ -290,6 +290,30 @@ public sealed class RubberduckIndenterImportTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task AClientThatTakesSome_ButDoesNotSayWhichItLeftOut_IsToldHowManyWereNot(bool answersNull)
+    {
+        // an older client answers with the number of settings it took and nothing else, which is a list that is absent, or null.
+        var found = Found();
+        var outcome = await IndenterSettingsImportFlow.ImportAsync(_ => Read(found), (_, _) =>
+            Task.FromResult(new RubberduckIndenterSettingsApplyResult { Applied = 3, Refused = answersNull ? null! : [] }), CancellationToken.None);
+
+        var expected = IndenterSettingsImportText.Imported(new IndenterSettingsImportResult(found.Source, 3, [], outcome.Found - 3));
+        Assert.AreEqual(expected, outcome.Message);
+    }
+
+    [TestMethod]
+    public async Task AClientThatTakesAll_IsNotToldOfAnySettingLeftOut()
+    {
+        var found = Found();
+        var outcome = await IndenterSettingsImportFlow.ImportAsync(_ => Read(found), (request, _) =>
+            Task.FromResult(new RubberduckIndenterSettingsApplyResult { Applied = request.Settings.Count }), CancellationToken.None);
+
+        Assert.IsFalse(outcome.Message.Contains("not taken", StringComparison.OrdinalIgnoreCase), outcome.Message);
+    }
+
+    [TestMethod]
     public async Task AClientThatFoundNothing_IsNotAskedToApplyAnything()
     {
         var applied = false;

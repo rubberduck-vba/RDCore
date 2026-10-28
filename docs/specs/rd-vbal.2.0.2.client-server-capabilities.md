@@ -632,7 +632,7 @@ its default.
 { "source": "RubberduckConfig", "settings": { "Formatting.IndentCase": "True", "Formatting.IndentSpaces": "2" } }
 ```
 
-The answer is `{ "applied": 2 }`, the number of settings the client set; `0` when it declines. The client sets them in its own configuration, as a change of its own - the interactive
+The answer is `{ "applied": 2, "refused": ["Server.Verbose"] }`: the number of settings the client set (`0` when it declines), and the keys of the ones it did not take. A client that answers `applied` only is told to have left some out by their number, and a client that took them all, or declined, is told nothing more. The client sets them in its own configuration, as a change of its own - the interactive
 shell writes them to the user's settings - and says so as it says any change (`workspace/didChangeConfiguration`); the language server sees them in the section it pulls. There is
 no other way for the language server to write a setting of a client, and the client takes only the `Formatting` settings of the names Rubberduck has (the table above), refusing any other key.
 
