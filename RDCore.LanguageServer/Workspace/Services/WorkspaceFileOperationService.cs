@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Workspace.Services;
@@ -50,6 +51,10 @@ internal sealed class WorkspaceFileOperationService(
     System.IO.Abstractions.IFile ioFile,
     System.IO.Abstractions.IDirectory ioDirectory,
     Func<SupportedLanguage> language,
+    IWorkspaceProjects workspaceProjects,
+    IProjectFileWriter projectFileWriter,
+    IWorkspaceDocumentService documents,
+    States.IDocumentStateProvider documentStates,
     ILogger<WorkspaceFileOperationService> logger) : IWorkspaceFileOperationService
 {
     private static StringComparison PathComparison => WorkspacePaths.Comparison;
@@ -71,10 +76,10 @@ internal sealed class WorkspaceFileOperationService(
         }, token);
     }
 
-    public Task<WorkspaceFileOperationResult?> RenamedAsync(IEnumerable<(Uri OldUri, Uri NewUri)> renames, CancellationToken token)
+    public async Task<WorkspaceFileOperationResult?> RenamedAsync(IEnumerable<(Uri OldUri, Uri NewUri)> renames, CancellationToken token)
     {
         var renamed = renames.ToList();
-        return ChangeAsync((project, notAdded) =>
+        var result = await ChangeAsync((project, notAdded) =>
         {
             foreach (var (oldUri, newUri) in renamed)
             {
@@ -83,6 +88,11 @@ internal sealed class WorkspaceFileOperationService(
                 if (oldPath is not null && newPath is not null && Lists(project, oldPath))
                 {
                     project = Rename(project, oldPath, newPath);
+                }
+                else if (OutsideUriOf(project, oldUri) is { } listedOutside && Lists(project, listedOutside) && OutsideUriOf(project, newUri) is { } movedOutside)
+                {
+                    // a file of another folder of the workspace that this project lists (..\Shared\Util.bas) is listed under its new path.
+                    project = Rename(project, listedOutside, movedOutside);
                 }
                 else
                 {
@@ -94,6 +104,69 @@ internal sealed class WorkspaceFileOperationService(
 
             return project;
         }, token);
+
+        await RenameInOtherProjectsAsync(renamed, token);
+        return result;
+    }
+
+    // the projects other than the primary one list files too: what the client renamed is listed under its new path in each of them, written to its own .rdproj,
+    // and the document of the file is the document of its new path.
+    private async Task RenameInOtherProjectsAsync(IReadOnlyList<(Uri OldUri, Uri NewUri)> renamed, CancellationToken token)
+    {
+        foreach (var project in workspaceProjects.Projects.Skip(1))
+        {
+            var changed = project.Project;
+            var moved = new List<(string OldPath, string NewPath)>();
+            foreach (var (oldUri, newUri) in renamed.Where(rename => rename.OldUri.IsFile && rename.NewUri.IsFile))
+            {
+                changed = Retarget(changed, project.Root, oldUri.LocalPath, newUri.LocalPath, moved);
+            }
+
+            if (moved.Count == 0)
+            {
+                continue;
+            }
+
+            await projectFileWriter.SaveAsync(changed, token);
+            workspaceProjects.Replace(project.Root, changed);
+            foreach (var (oldPath, newPath) in moved)
+            {
+                var oldId = new TextDocumentIdentifier(new Uri(oldPath));
+                var newId = new TextDocumentIdentifier(new Uri(newPath));
+                documents.Remove(oldId);
+                documentStates.Track(newId);
+                await documents.TryLoadAsync(newId, project.Root);
+            }
+
+            logger.LogInformation("🗂️ Project '{project}' lists {files} file(s) under the path the client gave them.", project.Root, moved.Count);
+        }
+    }
+
+    // every module and other file the project lists that is the renamed file, or under the renamed folder, is listed under the path it has now.
+    private ProjectFile Retarget(ProjectFile project, string root, string oldFull, string newFull, List<(string OldPath, string NewPath)> moved)
+    {
+        string? Moved(string relativeUri)
+        {
+            var full = ioPath.GetFullPath(ioPath.Combine(root, relativeUri));
+            if (!WorkspaceFolders.Holds(oldFull, full))
+            {
+                return null;
+            }
+
+            var now = ioPath.GetFullPath(ioPath.Combine(newFull, ioPath.GetRelativePath(oldFull, full)));
+            moved.Add((full, now));
+            return ioPath.GetRelativePath(root, now).Replace('\\', '/');
+        }
+
+        var info = project.ProjectInfo;
+        return project with
+        {
+            ProjectInfo = info with
+            {
+                Modules = [.. info.Modules.Select(module => Moved(module.RelativeUri) is { } path ? module with { RelativeUri = path } : module)],
+                OtherFiles = [.. info.OtherFiles.Select(file => Moved(file.RelativeUri) is { } path ? file with { RelativeUri = path } : file)],
+            },
+        };
     }
 
     public Task<WorkspaceFileOperationResult?> DeletedAsync(IEnumerable<Uri> uris, CancellationToken token)
@@ -221,6 +294,12 @@ internal sealed class WorkspaceFileOperationService(
     // every folder a listed path is in is a folder of the project.
     private static ProjectFile WithFoldersOf(ProjectFile project, string path)
     {
+        // a file of another folder of the workspace is in no folder of this project.
+        if (path.StartsWith("../", StringComparison.Ordinal))
+        {
+            return project;
+        }
+
         var folders = project.ProjectInfo.Folders.ToList();
         for (var separator = path.IndexOf('/'); separator > 0; separator = path.IndexOf('/', separator + 1))
         {
@@ -253,6 +332,19 @@ internal sealed class WorkspaceFileOperationService(
         return relative == "." || relative.StartsWith("../", StringComparison.Ordinal) || relative == ".." || ioPath.IsPathRooted(relative) || IsUnderADotFolder(relative)
             ? null
             : relative;
+    }
+
+    // the path, relative to the project's folder, of a file another folder of the workspace holds (../Shared/Util.bas); nothing for a file no folder of the workspace
+    // holds, and nothing for one the project's own folder holds.
+    private string? OutsideUriOf(ProjectFile project, Uri uri)
+    {
+        if (!uri.IsFile || !workspaceProjects.Folders.Contains(uri.LocalPath))
+        {
+            return null;
+        }
+
+        var relative = ioPath.GetRelativePath(project.Uri, uri.LocalPath).Replace('\\', '/');
+        return relative.StartsWith("../", StringComparison.Ordinal) ? relative : null;
     }
 
     private static bool IsUnderADotFolder(string relativePath) => relativePath.Split('/').Any(segment => segment.StartsWith('.'));

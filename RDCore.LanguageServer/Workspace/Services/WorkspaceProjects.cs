@@ -60,6 +60,11 @@ internal interface IWorkspaceProjects
     /// <summary>Makes a project of a folder.</summary>
     void Add(WorkspaceProject project);
 
+    /// <summary>Replaces the project file of a project that is not the primary one: its file was changed.</summary>
+    /// <param name="root">The folder of the project.</param>
+    /// <param name="project">The project file as it is now.</param>
+    void Replace(string root, ProjectFile project);
+
     /// <summary>The projects that list a file, the one that was loaded first first.</summary>
     /// <param name="path">The absolute path of the file.</param>
     IReadOnlyList<WorkspaceProject> Listing(string path);
@@ -144,6 +149,18 @@ internal sealed class WorkspaceProjects(IProjectFileService primary) : IWorkspac
         lock (_sync)
         {
             _secondary.Add(project);
+        }
+    }
+
+    public void Replace(string root, ProjectFile project)
+    {
+        lock (_sync)
+        {
+            var index = _secondary.FindIndex(candidate => WorkspacePaths.Same(candidate.Root, root));
+            if (index >= 0)
+            {
+                _secondary[index] = new WorkspaceProject(_secondary[index].Root, project);
+            }
         }
     }
 

@@ -367,5 +367,7 @@ internal sealed class WorkspaceReloadService(
         return files;
     }
 
-    private TextDocumentIdentifier IdOf(string root, string relativePath) => new(ioPath.Combine(root, relativePath));
+    // a path that climbs out of the project's folder (../Shared/Util.bas) is the file it names: the address the document has.
+    private TextDocumentIdentifier IdOf(string root, string relativePath)
+        => new(WorkspacePaths.Climbs(relativePath) ? ioPath.GetFullPath(ioPath.Combine(root, relativePath)) : ioPath.Combine(root, relativePath));
 }

@@ -63,6 +63,39 @@ public sealed class WorkspaceFoldersLoadTests
             return this;
         }
 
+        // the file operations of a client, with the reload service doing what it does for the primary project: the project file is what the change makes of it, and the
+        // workspace becomes what it lists.
+        public WorkspaceFileOperationService FileOperations(MockFileSystem fileSystem, IProjectFileWriter writer)
+        {
+            var reload = Substitute.For<IWorkspaceReloadService>();
+            reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns(async call =>
+            {
+                var before = ProjectFiles.Project;
+                var after = ((Func<ProjectFile, ProjectFile>)call[0])(before);
+                ProjectFiles.Update(after);
+
+                TextDocumentIdentifier IdOf(string relative) => new(new Uri(fileSystem.Path.GetFullPath(fileSystem.Path.Combine(before.Uri, relative))));
+                var listedBefore = before.ProjectInfo.Modules.Select(module => module.RelativeUri).ToHashSet();
+                var listedAfter = after.ProjectInfo.Modules.Select(module => module.RelativeUri).ToHashSet();
+                foreach (var removed in listedBefore.Except(listedAfter))
+                {
+                    Documents.Remove(IdOf(removed));
+                }
+
+                foreach (var added in listedAfter.Except(listedBefore))
+                {
+                    States.Track(IdOf(added));
+                    await Documents.TryLoadAsync(IdOf(added));
+                }
+
+                return new WorkspaceReloadResult(listedAfter.Except(listedBefore).Count(), listedBefore.Except(listedAfter).Count(), false, false);
+            });
+
+            return new WorkspaceFileOperationService(
+                reload, fileSystem.Path, fileSystem.File, fileSystem.Directory, () => SupportedLanguages.RDVBA, Projects, writer, Documents, States,
+                NullLogger<WorkspaceFileOperationService>.Instance);
+        }
+
         public string[] Names(string project) => [.. Documents.GetProjectDocuments(project).Select(document => document.Name).Order()];
     }
 
@@ -122,35 +155,48 @@ public sealed class WorkspaceFoldersLoadTests
         Assert.AreEqual(App, loaded.Documents.GetAllDocuments().Single().WorkspaceRoot);
     }
 
-    [TestMethod]
-    public async Task ARenamedModule_OfAnotherProject_StaysThatProjects()
+    // the client renames a file on disk and says so (workspace/didRenameFiles).
+    private static async Task<(Loaded Loaded, IProjectFileWriter Writer)> RenamedAsync(string from, string to)
     {
-        var loaded = await new Loaded(Files()).LoadAsync(App, App, Shared, Lib);
-        var lib = new Uri(Path.Combine(Lib, "Lib.bas"));
-        var renamed = new Uri(Path.Combine(Lib, "Library.bas"));
-        loaded.States.Track(new TextDocumentIdentifier(renamed));
+        var files = Files();
+        var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
+        var writer = Substitute.For<IProjectFileWriter>();
+        files.File.Move(from, to);
 
-        loaded.Documents.Rename(new TextDocumentIdentifier(lib), "Library.bas");
+        await loaded.FileOperations(files, writer).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
 
-        Assert.IsTrue(loaded.Documents.TryGetDocument(renamed, out var document), "it is where its project's folder is, not under the primary project's");
-        Assert.AreEqual(Lib, document.WorkspaceRoot);
+        return (loaded, writer);
+    }
+
+    private static string[] ListedBy(ProjectFile project) => [.. project.ProjectInfo.Modules.Select(module => module.RelativeUri.Replace('\\', '/')).Order()];
+
+    [TestMethod]
+    public async Task ARenamedModule_OfAnotherProject_IsListedUnderItsNewPath_ByThatProject()
+    {
+        var (loaded, writer) = await RenamedAsync(Path.Combine(Lib, "Lib.bas"), Path.Combine(Lib, "Library.bas"));
+
+        var lib = loaded.Projects.Projects.Single(project => project.Root == Lib).Project;
+        CollectionAssert.AreEqual(new[] { "../Shared/Util.bas", "Library.bas" }, ListedBy(lib));
+        await writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.Uri == Lib && ListedBy(project).Contains("Library.bas")), Arg.Any<CancellationToken>());
+        Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(Path.Combine(Lib, "Library.bas")), out var document), "the document is the one of the new path");
+        Assert.AreEqual(Lib, document.WorkspaceRoot, "of the project that lists it, not the primary one");
         CollectionAssert.AreEqual(new[] { Lib }, document.Projects.ToArray());
-        Assert.IsFalse(loaded.Documents.TryGetDocument(lib, out _));
+        Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(Path.Combine(Lib, "Lib.bas")), out _));
+        CollectionAssert.AreEqual(new[] { "Main", "Util" }, loaded.Names(App), "the primary project is as it was");
     }
 
     [TestMethod]
-    public async Task ARenamedSharedFile_StaysInItsFolder_AndAModuleOfEveryProjectThatListsIt()
+    public async Task ARenamedSharedFile_IsListedUnderItsNewPath_ByEveryProjectThatListsIt()
     {
-        var loaded = await new Loaded(Files()).LoadAsync(App, App, Shared, Lib);
+        var (loaded, writer) = await RenamedAsync(Util, Path.Combine(Shared, "Tools.bas"));
 
-        var renamed = new Uri(Path.Combine(Shared, "Tools.bas"));
-        loaded.States.Track(new TextDocumentIdentifier(renamed));
-
-        loaded.Documents.Rename(new TextDocumentIdentifier(new Uri(Util)), "Tools.bas");
-
-        Assert.IsTrue(loaded.Documents.TryGetDocument(renamed, out var document));
-        Assert.AreEqual(App, document.WorkspaceRoot);
-        CollectionAssert.AreEqual(new[] { App, Lib }, document.Projects.ToArray());
+        CollectionAssert.AreEqual(new[] { "../Shared/Tools.bas", "Main.bas" }, ListedBy(loaded.ProjectFiles.Project), "the primary project");
+        CollectionAssert.AreEqual(new[] { "../Shared/Tools.bas", "Lib.bas" }, ListedBy(loaded.Projects.Projects.Single(project => project.Root == Lib).Project), "and the other");
+        await writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => project.Uri == Lib), Arg.Any<CancellationToken>());
+        Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(Path.Combine(Shared, "Tools.bas")), out var document));
+        CollectionAssert.AreEqual(new[] { App, Lib }, document.Projects.ToArray(), "one document, a module of each");
+        Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(Util), out _));
+        Assert.IsEmpty(loaded.ProjectFiles.Project.ProjectInfo.Folders, "a file of another folder is in no folder of the project");
     }
 
     [TestMethod]
