@@ -67,6 +67,28 @@ public sealed class FormattingTabSizeTests
         Assert.AreEqual(0, FormattingTabSize.AdoptedFrom(said, null).Count);
     }
 
+    [TestMethod]
+    public void AChangeThatIsNoLongerCurrent_SetsNothing_AndSaysNothingChanged()
+    {
+        var options = new SdkAppOptions();
+        var schema = SettingsSchema.Platform;
+        var live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+        var changed = 0;
+        live.Changed += (_, _) => changed++;
+        var said = new Dictionary<string, string> { ["Server:Verbose"] = "True" };
+
+        Assert.IsFalse(live.Apply(said, new Dictionary<string, string>(), () => false));
+        Assert.IsFalse(options.Server.Verbose);
+        Assert.IsFalse(live.HasReceived);
+        Assert.AreEqual(0, changed);
+
+        Assert.IsTrue(live.Apply(said, new Dictionary<string, string> { ["Formatting:IndentSpaces"] = "2" }, () => true));
+        Assert.IsTrue(options.Server.Verbose);
+        Assert.AreEqual(1, changed);
+        Assert.IsFalse(live.Said.ContainsKey("Formatting:IndentSpaces"), "what the client said");
+        Assert.AreEqual("2", live.Current["Formatting:IndentSpaces"], "and what is handed down, from the same change");
+    }
+
     // a platform component: a server with its client, followed by the follower a server app starts when it is started (ClientConfigurationFollower.Follow).
     private sealed class Wire : IAsyncDisposable
     {
@@ -152,7 +174,7 @@ public sealed class FormattingTabSizeTests
             _client = await connecting;
         }
 
-        public Task<bool> FollowedAsync() => _followed.WaitAsync(TimeSpan.FromSeconds(20));
+        public Task<bool> FollowedAsync(TimeSpan? wait = null) => _followed.WaitAsync(wait ?? TimeSpan.FromSeconds(20));
 
         public void ClientSaysConfigurationChanged() => _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
 
@@ -224,6 +246,39 @@ public sealed class FormattingTabSizeTests
         Assert.IsFalse(await older.WaitAsync(TimeSpan.FromSeconds(20)), "the older change was dropped, whenever its answer came");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task OfTwoChangesTheClientSays_TheNewerHasTheLastWord_WhateverOrderTheyAreAnswered()
+    {
+        await using var wire = new Wire();
+        await wire.StartAsync();
+        Assert.IsTrue(await wire.FollowedAsync());
+
+        // the client says its configuration changed twice; the editor's answer to the first, 5, comes after the answer to the second, 8.
+        var firstAsked = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        wire.BeforeAnswering = async number =>
+        {
+            if (number == 2)
+            {
+                firstAsked.SetResult();
+                await release.Task;
+            }
+        };
+        wire.TabSize = 5;
+        wire.ClientSaysConfigurationChanged();
+        await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        wire.TabSize = 8;
+        wire.ClientSaysConfigurationChanged();
+        Assert.IsTrue(await wire.FollowedAsync(), "the newer change was followed");
+
+        release.SetResult();
+
+        Assert.IsFalse(await wire.FollowedAsync(TimeSpan.FromSeconds(1)), "and the older one, answered last, was not");
+        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
+        CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen);
     }
 
     [TestMethod]
