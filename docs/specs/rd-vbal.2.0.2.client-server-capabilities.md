@@ -487,13 +487,14 @@ A line is indented a level - `Formatting.IndentSpaces` spaces - for each body th
 - **A declaration's `As`**, the first of a `Dim`, `Const`, `Static`, `Public` or `Private` line and of each line it is continued on, starts in column `Formatting.AlignDimColumn` when `Formatting.AlignDims` is on; a space before it at least.
 - **An end-of-line comment** is where `Formatting.EndOfLineCommentStyle` has it: at the column it was written at (`Absolute`), after the gap it had (`SameGap`), twice `IndentSpaces` after the code (`StandardGap`), or in column `Formatting.EndOfLineCommentColumnSpaceAlignment` (`AlignInColumn`); a space after the code at least. An apostrophe in a string literal or in a bracketed name starts no comment.
 - **The header of a class or a form module** (`VERSION`, `BEGIN` ... `END`) and its `Attribute` lines are left as they are written.
+- **Between procedures** - a `Sub`, a `Function`, a `Property`, an `Enum` or a `Type`, with the comments right above it - there are `Formatting.LinesBetweenProcedures` empty lines when `Formatting.VerticallySpaceProcedures` is on, and so many after what is above the first procedure: its declarations, its `Option` statements, a `#Const`. With `Formatting.GroupRelatedProperties` on, the accessors of a property that follow one another have none between them. Nothing is spaced inside a procedure, an `Enum` or a `Type`, nor after an `#If`, `#ElseIf` or `#Else` line, the module's header or its attributes.
 
-Only whitespace changes: an edit is a run of it that is not what it is to be - the indentation of a line, the gap before an `As` or a comment.
+Only whitespace changes: an edit is a run of it that is not what it is to be - the indentation of a line, the gap before an `As` or a comment - or the empty lines between two procedures, from the end of the line before them, written with that line's line end.
 
 The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made. Of the request's options (`FormattingOptions`), none is honoured: the `tabSize` is the editor's, which reaches the server through the configuration it owns, as `Formatting.IndentSpaces` when the user never set it; `insertSpaces: false` is not, since the code of a VBA module is indented with spaces as the VBE writes it; and `trimTrailingWhitespace`, `trimFinalNewlines` and `insertFinalNewline` are not either, since only the whitespace before the code of a line and between its parts is the indenter's. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell lists its lines.
 
 > [!NOTE]
-> **Not implemented.** Vertical spacing between procedures; a line number on a line of its own inside a continued statement; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
+> **Not implemented.** A line number on a line of its own inside a continued statement; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
 
 ### `textDocument/foldingRange`
 

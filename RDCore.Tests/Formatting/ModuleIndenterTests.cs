@@ -119,7 +119,7 @@ public sealed class ModuleIndenterTests
     [TestMethod]
     public void AModuleIndentedAlready_IsGivenNoEdit()
     {
-        var text = Lines("Option Explicit", "Public Enum Shade", "    Light", "End Enum", "Sub A()", "    Select Case x", "    Case 1", "        y = 1", "    End Select", "End Sub");
+        var text = Lines("Option Explicit", "", "Public Enum Shade", "    Light", "End Enum", "", "Sub A()", "    Select Case x", "    Case 1", "        y = 1", "    End Select", "End Sub");
         var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
 
         Assert.IsEmpty(ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default));
@@ -132,9 +132,11 @@ public sealed class ModuleIndenterTests
         string[] indented =
         [
             "Option Explicit",
+            "",
             "Private Type Point",
             "    X As Long",
             "End Type",
+            "",
             "Public Function Area(ByVal a As Long, _",
             "                     ByVal b As Long) As Long",
             "    Dim p As Point",
@@ -182,13 +184,26 @@ public sealed class ModuleIndenterTests
         => Assert.AreEqual(Lines("Sub A()", "    If a Then", "    x = 1: End If", "    For i = 1 To 2", "    Debug.Print i: Next", "End Sub"),
             Indented(Lines("Sub A()", "If a Then", "x = 1: End If", "For i = 1 To 2", "Debug.Print i: Next", "End Sub")));
 
+    // the empty lines between procedures are one edit, from the end of the line before them, with that line's line end; what is in a procedure is not spaced.
+    [TestMethod]
+    public void TheEmptyLinesBetweenProcedures_AreOneEditFromTheEndOfTheLineBeforeThem()
+    {
+        var text = "Sub A()\n\n\nEnd Sub\n  \n\n\nSub B()\r\nEnd Sub\r\nSub C()\r\nEnd Sub";
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default);
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(3, 7, 7, 0, "\n\n"), new IndentationEdit(8, 7, 9, 0, "\r\n\r\n") }, edits.ToArray());
+        Assert.AreEqual("Sub A()\n\n\nEnd Sub\n\nSub B()\r\nEnd Sub\r\n\r\nSub C()\r\nEnd Sub", ModuleIndenter.Apply(text, edits));
+    }
+
     [TestMethod]
     public void TheHeaderOfAClassModule_AndItsAttributes_AreLeftAsTheyAreWritten()
     {
         var text = Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Option Explicit",
             "Public Property Get Item() As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Property");
 
-        Assert.AreEqual(Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Option Explicit",
+        Assert.AreEqual(Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Option Explicit", "",
             "Public Property Get Item() As Long", "Attribute Item.VB_UserMemId = 0", "    Item = 1", "End Property"), Indented(text));
     }
 

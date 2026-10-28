@@ -8,14 +8,30 @@ using System.Text.RegularExpressions;
 namespace RDCore.SDK.Formatting;
 
 /// <summary>
-/// An edit of the whitespace of a line: the <paramref name="Length"/> characters at <paramref name="Character"/> of line <paramref name="Line"/> are replaced by
-/// <paramref name="NewText"/>. What is replaced is a run of whitespace, or none at all, and what replaces it is whitespace, or nothing.
+/// An edit of the whitespace of a module: what is from <paramref name="Character"/> of line <paramref name="Line"/> to <paramref name="EndCharacter"/> of line
+/// <paramref name="EndLine"/> is replaced by <paramref name="NewText"/>. What is replaced is whitespace, or nothing, and so is what replaces it: a run of it
+/// within a line, or the empty lines between two procedures, from the end of the line before them.
 /// </summary>
-/// <param name="Line">The line, from 0.</param>
-/// <param name="Character">Where what is replaced starts, in UTF-16 code units from the start of the line.</param>
-/// <param name="Length">How many characters are replaced.</param>
-/// <param name="NewText">What replaces them.</param>
-public readonly record struct IndentationEdit(int Line, int Character, int Length, string NewText);
+/// <param name="Line">The line where what is replaced starts, from 0.</param>
+/// <param name="Character">Where what is replaced starts, in UTF-16 code units from the start of its line.</param>
+/// <param name="EndLine">The line where what is replaced ends.</param>
+/// <param name="EndCharacter">Where what is replaced ends, in UTF-16 code units from the start of its line: the character after it.</param>
+/// <param name="NewText">What replaces it.</param>
+public readonly record struct IndentationEdit(int Line, int Character, int EndLine, int EndCharacter, string NewText)
+{
+    /// <summary>
+    /// An edit within a line: the <paramref name="length"/> characters at <paramref name="character"/> of line <paramref name="line"/> are replaced by
+    /// <paramref name="newText"/>.
+    /// </summary>
+    /// <param name="line">The line, from 0.</param>
+    /// <param name="character">Where what is replaced starts.</param>
+    /// <param name="length">How many characters are replaced.</param>
+    /// <param name="newText">What replaces them.</param>
+    public IndentationEdit(int line, int character, int length, string newText)
+        : this(line, character, line, character + length, newText)
+    {
+    }
+}
 
 /// <summary>
 /// Indents the lines of a module by what encloses them in its syntax tree (<see cref="CodeFormattingOptions"/>): a line is indented one level for each body it
@@ -86,7 +102,28 @@ public static partial class ModuleIndenter
             lastLine = module.HeaderEnd(lastLine);
         }
 
+        // the empty lines between procedures, as many as the setting says: those of a gap that has more or fewer are written again, from the end of the line
+        // before them, with its line end.
         var edits = new List<IndentationEdit>();
+        var spaced = new bool[lines.Length];
+        if (options.VerticallySpaceProcedures && parse.SyntaxTree is { } procedures)
+        {
+            var ends = LineEnd().Split(text).Where((_, index) => index % 2 == 1).ToArray();
+            foreach (var gap in GapsBetweenProcedures(procedures, module, options, splitHeaders, asWritten))
+            {
+                if (gap.Block - gap.Above - 1 == gap.EmptyLines || gap.Above > lastLine || gap.Block < firstLine)
+                {
+                    continue;
+                }
+
+                edits.Add(new IndentationEdit(gap.Above, lines[gap.Above].Length, gap.Block, 0, string.Concat(Enumerable.Repeat(ends[gap.Above], gap.EmptyLines + 1))));
+                for (var line = gap.Above + 1; line < gap.Block; line++)
+                {
+                    spaced[line] = true;
+                }
+            }
+        }
+
         Continuation? statement = null;
         var keep = false;
         for (var line = 0; line < lines.Length; line++)
@@ -108,21 +145,79 @@ public static partial class ModuleIndenter
                 statement.Saw(wanted, next);
             }
 
-            if (line >= firstLine && line <= lastLine)
+            if (line >= firstLine && line <= lastLine && !spaced[line])
             {
                 edits.AddRange(WhitespaceEdits(line, lines[line], wanted));
             }
         }
 
-        return edits;
+        return [.. edits.OrderBy(edit => edit.Line).ThenBy(edit => edit.Character)];
     }
+
+    // the empty lines between two procedures, or before the first after what is above it: from the line above them to the first line of the procedure, its
+    // comments right above it, which are of it. A procedure is a Sub, a Function, a Property, an Enum or a Type; what is in a procedure is not spaced, nor what
+    // follows a directive that opens a branch, the module's header or its attributes.
+    private readonly record struct Gap(int Above, int Block, int EmptyLines);
+
+    private static IEnumerable<Gap> GapsBetweenProcedures(ModuleNode tree, ModuleLines module, CodeFormattingOptions options, IReadOnlyDictionary<int, DirectiveBlock> splitHeaders,
+        bool[] asWritten)
+    {
+        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(member => member.MemberKind is MemberKind.Procedure or MemberKind.Function
+            or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet or MemberKind.Enum or MemberKind.UserDefinedType).ToList();
+        var endingOn = new Dictionary<int, MemberDeclarationNode>();
+        foreach (var procedure in procedures)
+        {
+            endingOn.TryAdd(module.LastLineOf(procedure.SourceLocation.Range), procedure);
+        }
+
+        var emptyLines = Math.Clamp(options.LinesBetweenProcedures, 0, CodeFormattingOptions.MaximumLinesBetweenProcedures);
+        foreach (var procedure in procedures)
+        {
+            var start = procedure.SourceLocation.Range.Start.Line;
+            var block = splitHeaders.TryGetValue(start, out var header) ? header.If : start;
+            for (var line = block - 1; line >= 0; line--)
+            {
+                var first = line;
+                while (first > 0 && module.IsContinuation(first))
+                {
+                    first--;
+                }
+
+                if (!IsComment(module.Lines[first]))
+                {
+                    break;
+                }
+
+                (block, line) = (first, first);
+            }
+
+            var above = block - 1;
+            while (above >= 0 && string.IsNullOrWhiteSpace(module.Lines[above]))
+            {
+                above--;
+            }
+
+            var code = above < 0 ? string.Empty : module.Lines[above].TrimStart();
+            if (above < 0 || asWritten[above] || DirectiveIf().IsMatch(code) || DirectiveBranch().IsMatch(code))
+            {
+                continue;
+            }
+
+            // the accessors of a property together, when the setting groups them.
+            var grouped = options.GroupRelatedProperties && IsProperty(procedure) && endingOn.TryGetValue(above, out var before) && IsProperty(before)
+                && string.Equals(before.Name, procedure.Name, StringComparison.OrdinalIgnoreCase);
+            yield return new Gap(above, block, grouped ? 0 : emptyLines);
+        }
+    }
+
+    private static bool IsProperty(MemberDeclarationNode member) => member.MemberKind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
 
     /// <summary>
     /// The text of a module with indentation edits made to it (<see cref="Indent"/>).
     /// </summary>
     /// <param name="text">The text.</param>
-    /// <param name="edits">The edits, none of them overlapping, each within its line; in any order.</param>
-    /// <returns>The text with the edits made, its line ends as they were.</returns>
+    /// <param name="edits">The edits, none of them overlapping; in any order.</param>
+    /// <returns>The text with the edits made, the line ends it keeps as they were.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> or <paramref name="edits"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have.</exception>
     public static string Apply(string text, IReadOnlyList<IndentationEdit> edits)
@@ -131,16 +226,26 @@ public static partial class ModuleIndenter
         ArgumentNullException.ThrowIfNull(edits);
         var parts = LineEnd().Split(text);
 
-        // the edits of a line, from its last to its first: each is where the text before it puts it.
-        foreach (var edit in edits.OrderByDescending(edit => edit.Line).ThenByDescending(edit => edit.Character))
+        // where a position is in the text: the lines before it, with what ends them, and its character in its line.
+        int OffsetOf(int line, int character)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(edit.Line);
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(edit.Line * 2, parts.Length);
-            var line = parts[edit.Line * 2];
-            parts[edit.Line * 2] = line[..edit.Character] + edit.NewText + line[(edit.Character + edit.Length)..];
+            ArgumentOutOfRangeException.ThrowIfNegative(line);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(line * 2, parts.Length);
+            ArgumentOutOfRangeException.ThrowIfNegative(character);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(character, parts[line * 2].Length);
+            return parts.Take(line * 2).Sum(part => part.Length) + character;
         }
 
-        return string.Concat(parts);
+        // the edits from the last to the first: each is where the text before it puts it.
+        var edited = new System.Text.StringBuilder(text);
+        foreach (var edit in edits.OrderByDescending(edit => edit.Line).ThenByDescending(edit => edit.Character))
+        {
+            var (start, end) = (OffsetOf(edit.Line, edit.Character), OffsetOf(edit.EndLine, edit.EndCharacter));
+            ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
+            edited.Remove(start, end - start).Insert(start, edit.NewText);
+        }
+
+        return edited.ToString();
     }
 
     // what ends a line, kept by a split: a carriage return and a line feed, or either alone.
