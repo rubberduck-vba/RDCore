@@ -223,6 +223,14 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
             new SessionSignatureHelpParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<IReadOnlyList<ReplSemanticToken>>> GetFragmentTokensAsync(string source, string moduleName, IReadOnlyList<string> fragments, CancellationToken token)
+    {
+        var result = await client.SendRequestAsync<SessionSemanticTokensParams, SessionSemanticTokensResult>(
+            new SessionSemanticTokensParams { Source = source, ModuleName = moduleName, Fragments = fragments }, token);
+        return [.. result.Fragments.Select(fragment => ReplSemanticToken.Decode(fragment.Data))];
+    }
+
+    /// <inheritdoc/>
     public Task<SessionCommandsResult> RegisterCommandsAsync(IReadOnlyList<VerbDescriptor> verbs, CancellationToken token)
         => client.SendRequestAsync<SessionCommandsParams, SessionCommandsResult>(new SessionCommandsParams { Verbs = verbs }, token);
 

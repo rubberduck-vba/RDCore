@@ -107,6 +107,7 @@ This catalogue is intended to document every platform capability the SDK defines
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
 |[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
 |[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
+|[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
 
 > [!NOTE]
 > The handshake for every capability listed is _informational_ (see [**RD-VBAL §2.0.2.1** The `rdcore/platform/initialize` handshake](#2021-the-rdcoreplatforminitialize-handshake)).
@@ -253,6 +254,14 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/R
 > **Not implemented.** The standard library's doc strings cover the `Strings`, `Interaction`, `Conversion`, `Math`, `Information` and `DateTime` modules, and the parameters of the members of `Strings`, `Interaction` and `DateTime` that take several, and of `Round` and `RGB`. The other modules' members have a signature and no doc string; a parameter with none shows none.
 
 `rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
+
+### `textDocument/semanticTokens/full` and `rdcore/session/semanticTokens`
+
+The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](../api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares - a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class` - unless it follows a `.` or a `!`, which makes it a member of something.
+
+`rdcore/session/semanticTokens` ([`SessionSemanticTokensParams`](../api/RDCore.SDK.Platform.Protocol.SessionSemanticTokensParams.html)) answers the same for code fragments the client supplies, which are in no document: the condition of a breakpoint, say. The request has the complete source of a module and its name, which the names of the fragments are resolved against, and the fragments. The answer has the tokens of each fragment, in the order they were asked, encoded as `textDocument/semanticTokens/full` encodes them, with the first line of a fragment as line 0. Many fragments are asked in one request, so that coloring a list of them costs one round trip, not one each.
+
+The interactive shell asks it once for the conditions of all the breakpoints `BREAK` lists, and draws each condition as `LIST` draws the same code. A server without the capability, or one that does not answer, leaves the conditions plain.
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 

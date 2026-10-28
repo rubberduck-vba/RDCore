@@ -326,6 +326,17 @@ public interface IReplPlatformClient
     Task<SignatureHelp?> SignatureHelpAsync(string source, string moduleName, int line, int character, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server for the semantic tokens of code fragments - the conditions of breakpoints, say - with the names in them told apart by what the
+    /// module declares (<c>rdcore/session/semanticTokens</c>).
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="fragments">The fragments of code, each as it is written.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The tokens of each fragment, in the order they were asked, positioned in the fragment.</returns>
+    Task<IReadOnlyList<IReadOnlyList<ReplSemanticToken>>> GetFragmentTokensAsync(string source, string moduleName, IReadOnlyList<string> fragments, CancellationToken token);
+
+    /// <summary>
     /// Says to the language server that the live settings changed (<c>workspace/didChangeConfiguration</c>): it asks the shell for them, and passes them on.
     /// </summary>
     /// <param name="token">A token that cancels the notification.</param>
