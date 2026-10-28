@@ -97,7 +97,7 @@ public sealed class DialogOffTheConnectionTests
         var another = await shell.ImmediateAsync(program, "PRINT 1", alongside: true).WaitAsync(Patience);
         Assert.AreEqual(ExecutionOutcome.Refused, another.Outcome);
 
-        client.Answer(VBMsgBoxResult.VBOk);
+        client.Answer(VBMsgBoxResult.VBOK);
         var typed = await running.WaitAsync(Patience);
         Assert.AreEqual(ExecutionOutcome.Completed, typed.Outcome, typed.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "1" }, typed.Output.Select(line => line.Trim()).ToArray());

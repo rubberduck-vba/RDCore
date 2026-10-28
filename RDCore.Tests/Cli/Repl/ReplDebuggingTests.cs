@@ -5,6 +5,7 @@ using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Themes;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using Spectre.Console;
@@ -355,6 +356,64 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new BreakReplCommand());
 
         CollectionAssert.AreEqual(new[] { "● 10", "● 30" }, ListedBreakpoints(), "one a line, marked as LIST marks it");
+    }
+
+    private static int TypeIndex(string name) => SemanticTokenLegend.TokenTypes.ToList().IndexOf(name);
+
+    // the runs of the lines BREAK's listing wrote.
+    private IReadOnlyList<ReplTextRun>[] ListedRuns()
+        => [.. _console.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteLine) && call.GetArguments()[0] is IReadOnlyList<ReplTextRun>)
+            .Select(call => (IReadOnlyList<ReplTextRun>)call.GetArguments()[0]!)];
+
+    [TestMethod]
+    public async Task ABreakListing_ColoursTheConditionsOfAllTheBreakpoints_WithOneRequest()
+    {
+        _platform.Provides<SessionSemanticTokens>().Returns(true);
+        _platform.GetFragmentTokensAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<IReadOnlyList<ReplSemanticToken>>>(
+            [
+                [new ReplSemanticToken(0, 0, 1, TypeIndex("variable"), 0), new ReplSemanticToken(0, 4, 1, TypeIndex("number"), 0)],
+                [new ReplSemanticToken(0, 0, 3, TypeIndex("variable"), SemanticTokenLegend.ReadOnly)],
+            ]));
+        await CommandAsync(new BreakReplCommand(), "10 X > 1");
+        await CommandAsync(new BreakReplCommand(), "30 Max");
+        _console.ClearReceivedCalls();
+
+        await CommandAsync(new BreakReplCommand());
+
+        await _platform.Received(1).GetFragmentTokensAsync(Arg.Any<string>(), "Program", Arg.Is<IReadOnlyList<string>>(sent => sent.SequenceEqual(new[] { "X > 1", "Max" })), Arg.Any<CancellationToken>());
+        var first = ListedRuns()[0];
+        CollectionAssert.AreEqual(new[] { "X", " > ", "1" }, first.Skip(4).Select(run => run.Text).ToArray());
+        Assert.AreEqual(ReplTextStyle.Identifier, first[4].Style);
+        Assert.AreEqual(ReplTextStyle.Number, first[^1].Style);
+        Assert.AreEqual(ReplTextStyle.IdentifierConst, ListedRuns()[1][^1].Style, "a constant is the way a listing shows one");
+    }
+
+    [TestMethod]
+    public async Task ABreakListing_IsPlain_WhereThePlatformDoesNotColourFragments()
+    {
+        await CommandAsync(new BreakReplCommand(), "10 X > 1");
+        _console.ClearReceivedCalls();
+
+        await CommandAsync(new BreakReplCommand());
+
+        await _platform.DidNotReceiveWithAnyArgs().GetFragmentTokensAsync(default!, default!, default!, default);
+        CollectionAssert.AreEqual(new[] { "◆ 10 X > 1" }, ListedBreakpoints(), "the glyph of a breakpoint that waits on a condition");
+    }
+
+    [TestMethod]
+    public async Task ABreakListing_IsPlain_WhenThePlatformCannotAnswer()
+    {
+        _platform.Provides<SessionSemanticTokens>().Returns(true);
+        _platform.GetFragmentTokensAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IReadOnlyList<IReadOnlyList<ReplSemanticToken>>>>(_ => throw new InvalidOperationException("no answer"));
+        await CommandAsync(new BreakReplCommand(), "10 X > 1");
+        _console.ClearReceivedCalls();
+
+        await CommandAsync(new BreakReplCommand());
+
+        CollectionAssert.AreEqual(new[] { "◆ 10 X > 1" }, ListedBreakpoints());
     }
 
     // the lines of runs the console was written: BREAK's listing of the breakpoints.

@@ -117,7 +117,7 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual(@"C:\Windows\System32\scrrun.dll", scripting.AbsolutePath);
     }
 
-    // the standard library is every project's own (author, 2026-10-27): no project file lists it, and a .vbp line that references VBA's type library adds none.
+    // the standard library is every project's own: no project file lists it, and a .vbp line that references VBA's type library adds none.
     [TestMethod]
     public void TheStandardLibrary_IsNoReference_EvenOfAVbpThatReferencesIt()
         => Assert.IsEmpty(Import(@"Reference=*\G{000204EF-0000-0000-C000-000000000046}#4.2#0#C:\Program Files\Microsoft Office\VBE7.DLL#Visual Basic For Applications").Project.References);
@@ -141,7 +141,7 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("-1", constants["TRACE"]);
     }
 
-    // as vb6.exe reads CondComp, measured with /make (HexIDE, 2026-10-27): name = n, colon-separated, spaces optional, n a whole number -32768..32767.
+    // as vb6.exe reads CondComp, measured with /make: name = n, colon-separated, spaces optional, n a whole number -32768..32767.
     [TestMethod]
     [DataRow("A=1:B=-2", "A=1;B=-2")]
     [DataRow("debug = +5 : Trace=0", "debug=5;Trace=0")]
@@ -301,7 +301,7 @@ public sealed class VbpProjectImporterTests
     }
 
     // a ..\ file is a module of this project, as in VB6, in a source folder the client adds to the workspace; not carried over until the platform takes such
-    // folders in (author, 2026-10-27, reversing the morning's "a project of its own"; HexIDE's desk #30 and #31).
+    // folders in.
     [TestMethod]
     public void AFileOutsideTheProjectsFolder_IsSaidToBeAModuleOfThisProjectInASourceFolder()
     {

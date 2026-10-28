@@ -16,8 +16,8 @@ public sealed class InteractionTests
     // ---- MessageBoxRequest ----
 
     [TestMethod]
-    [DataRow(VBMsgBoxStyle.VBOkOnly, new[] { VBMsgBoxResult.VBOk })]
-    [DataRow(VBMsgBoxStyle.VBOkCancel, new[] { VBMsgBoxResult.VBOk, VBMsgBoxResult.VBCancel })]
+    [DataRow(VBMsgBoxStyle.VBOKOnly, new[] { VBMsgBoxResult.VBOK })]
+    [DataRow(VBMsgBoxStyle.VBOKCancel, new[] { VBMsgBoxResult.VBOK, VBMsgBoxResult.VBCancel })]
     [DataRow(VBMsgBoxStyle.VBAbortRetryIgnore, new[] { VBMsgBoxResult.VBAbort, VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBIgnore })]
     [DataRow(VBMsgBoxStyle.VBYesNoCancel, new[] { VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo, VBMsgBoxResult.VBCancel })]
     [DataRow(VBMsgBoxStyle.VBYesNo, new[] { VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo })]
@@ -35,15 +35,15 @@ public sealed class InteractionTests
 
     [TestMethod]
     public void ADefaultButtonTheMessageDoesNotHave_IsTheFirst()
-        => Assert.AreEqual(0, new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOkOnly | VBMsgBoxStyle.VBDefaultButton2).DefaultChoice);
+        => Assert.AreEqual(0, new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBDefaultButton2).DefaultChoice);
 
     [TestMethod]
     public void AStyleThatNamesNoButtons_IsOKOnly()
-        => CollectionAssert.AreEqual(new[] { VBMsgBoxResult.VBOk }, new MessageBoxRequest("x", "t", (VBMsgBoxStyle)7).Choices.ToArray());
+        => CollectionAssert.AreEqual(new[] { VBMsgBoxResult.VBOK }, new MessageBoxRequest("x", "t", (VBMsgBoxStyle)7).Choices.ToArray());
 
     [TestMethod]
-    [DataRow(VBMsgBoxStyle.VBOkOnly, VBMsgBoxResult.VBOk)]
-    [DataRow(VBMsgBoxStyle.VBOkCancel, VBMsgBoxResult.VBCancel)]
+    [DataRow(VBMsgBoxStyle.VBOKOnly, VBMsgBoxResult.VBOK)]
+    [DataRow(VBMsgBoxStyle.VBOKCancel, VBMsgBoxResult.VBCancel)]
     [DataRow(VBMsgBoxStyle.VBYesNoCancel, VBMsgBoxResult.VBCancel)]
     [DataRow(VBMsgBoxStyle.VBRetryCancel, VBMsgBoxResult.VBCancel)]
     public void EscapeClosesAMessage_AsItsCloseButtonWould(VBMsgBoxStyle style, VBMsgBoxResult expected)

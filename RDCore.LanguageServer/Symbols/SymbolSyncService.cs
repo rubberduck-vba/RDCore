@@ -309,12 +309,13 @@ internal sealed class SymbolSyncService(
         {
             token.ThrowIfCancellationRequested();
 
-            if (!parsing.TryGetCached(document.Id.Uri.ToUri(), out var parseResult) || parseResult.SyntaxTree is null)
+            // a document of a server with no workspace is a project of its own, of which the host has no session.
+            if (document.WorkspaceRoot.Length == 0 || !parsing.TryGetCached(document.Id.Uri.ToUri(), out var parseResult) || parseResult.SyntaxTree is null)
             {
                 continue;
             }
 
-            workspaceRoot ??= new Uri(document.WorkspaceRoot);
+            workspaceRoot ??= SymbolUri.Root(document.WorkspaceRoot);
             // the module's programmatic name is its Attribute VB_Name; the file name is the fallback.
             var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
             // module kind is never a parser input — read it off the raw source, same as the parsing pass.

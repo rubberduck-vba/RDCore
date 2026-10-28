@@ -1,14 +1,14 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
-using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 
 namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 
 /// <summary>
-/// What the client is told once the workspace was made what its project lists: a program that kept its session, and that its diagnostics are to be pulled again.
+/// What the user is told once the workspace was made what its project lists: a program that kept its session. That what the client shows of each document is to
+/// be refreshed is told by the reload itself (<see cref="IWorkspaceRefresh"/>).
 /// </summary>
 internal static class WorkspaceChangeReport
 {
@@ -26,7 +26,5 @@ internal static class WorkspaceChangeReport
         {
             server.Window.ShowMessage(new ShowMessageParams { Type = MessageType.Info, Message = WorkspaceMessages.ProjectReloadedProgramRunning });
         }
-
-        DiagnosticRefresh.SendIfSupported(server);
     }
 }

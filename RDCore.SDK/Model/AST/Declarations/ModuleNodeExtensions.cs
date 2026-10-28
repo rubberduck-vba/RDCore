@@ -216,27 +216,44 @@ public static class ModuleNodeExtensions
         return value is { Length: >= 2 } && value[0] == '"' && value[^1] == '"' && value[1..^1].Replace("\"\"", "\"") is { Length: > 0 } text ? text : null;
     }
 
-    // the value of a member's own attribute, as it is written; the attribute is written in the member's body (see GetMemberUserMemId).
+    // the value of a member's own attribute, as it is written; the attribute is written in the member's body (see GetMemberUserMemId). The first a module
+    // writes for that member, of the first member of that name that writes one.
     private static string? GetMemberAttribute(this ModuleNode module, string memberName, string attributeName)
-    {
-        foreach (var member in module.Children.OfType<MemberDeclarationNode>())
+        => MemberAttributesOf(module).TryGetValue((memberName, attributeName), out var value) ? value : null;
+
+    // every member attribute of a module, by member and attribute name, gathered once for each module node: a symbol is made of each declaration of a
+    // module, and asking each for its attributes by walking every member of the module is quadratic in their number - ten thousand declarations take
+    // seconds. A node is immutable, so what is gathered of it stays true of it.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ModuleNode, Dictionary<(string Member, string Attribute), string>> _memberAttributes = [];
+
+    private static Dictionary<(string Member, string Attribute), string> MemberAttributesOf(ModuleNode module)
+        => _memberAttributes.GetValue(module, static node =>
         {
-            if (!string.Equals(member.Name, memberName, StringComparison.OrdinalIgnoreCase))
+            var attributes = new Dictionary<(string Member, string Attribute), string>(MemberAttributeComparer.Instance);
+            foreach (var member in node.Children.OfType<MemberDeclarationNode>())
             {
-                continue;
-            }
-            foreach (var attribute in member.Children.OfType<AttributeDirectiveNode>())
-            {
-                if (attribute.Binding is not null
-                    && string.Equals(attribute.Binding, memberName, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(attribute.Name, attributeName, StringComparison.OrdinalIgnoreCase))
+                foreach (var attribute in member.Children.OfType<AttributeDirectiveNode>())
                 {
-                    return attribute.Value;
+                    if (attribute.Binding is { } binding && string.Equals(binding, member.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _ = attributes.TryAdd((binding, attribute.Name), attribute.Value);
+                    }
                 }
             }
-        }
 
-        return null;
+            return attributes;
+        });
+
+    // member and attribute names are compared as VBA compares names: without regard to case.
+    private sealed class MemberAttributeComparer : IEqualityComparer<(string Member, string Attribute)>
+    {
+        public static readonly MemberAttributeComparer Instance = new();
+
+        public bool Equals((string Member, string Attribute) x, (string Member, string Attribute) y)
+            => string.Equals(x.Member, y.Member, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Attribute, y.Attribute, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Member, string Attribute) obj)
+            => HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Member), StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Attribute));
     }
 
     /// <summary>

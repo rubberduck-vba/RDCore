@@ -26,8 +26,10 @@ internal interface IWorkspaceDocumentService
     string WorkspaceRoot { get; }
 
     /// <summary>
-    /// Every document whose text is code: the modules of the project, and what a client opens. The files the project lists as other files
+    /// Every file whose text is the workspace's code: the modules of the project, and the files a client opens. The files the project lists as other files
     /// (<see cref="SetOtherFiles"/>) are documents the workspace holds, and none of its code: a resource file, a <c>README</c> or a UserControl is never parsed.
+    /// A document the client holds that is no file (<see cref="WorkspaceDocument.IsFile"/>) is no module of the workspace either: it is found by
+    /// <see cref="TryGetModule"/>, and is a project of its own (<see cref="WorkspaceDocument.ProjectRoot"/>).
     /// </summary>
     IEnumerable<WorkspaceDocument> GetAllDocuments();
 
@@ -40,6 +42,14 @@ internal interface IWorkspaceDocumentService
     Task<bool> TryLoadAsync(TextDocumentIdentifier id, string projectRoot);
 
     /// <summary>
+    /// A document whose text is code, by the address the client gives it: a module of the workspace, or a document the client holds that is no file. Not an
+    /// other file of the project.
+    /// </summary>
+    /// <param name="documentUri">The address of the document, however the client spells it (<see cref="TryGetDocument"/>).</param>
+    /// <param name="document">The document.</param>
+    bool TryGetModule(Uri documentUri, out WorkspaceDocument document);
+
+    /// <summary>
     /// Says which documents are the files the project lists as other files (<c>OtherFiles</c> of the <c>.rdproj</c>), and no module: they are loaded and
     /// tracked as any document is, found by <see cref="TryGetDocument"/>, and left out of <see cref="GetAllDocuments"/>. Whoever applies a project says so,
     /// each time it does.
@@ -47,6 +57,15 @@ internal interface IWorkspaceDocumentService
     /// <param name="ids">Every other file of the project: one said before and not now is a document of code again.</param>
     void SetOtherFiles(IEnumerable<TextDocumentIdentifier> ids);
 
+    /// <summary>
+    /// A document the server tracks, by the address the client gives it.
+    /// </summary>
+    /// <remarks>
+    /// An address is the document's however it is spelled, as <strong>LSP 3.17</strong> §URI has a client spell it: <c>file:///c%3A/Work/A.bas</c> is
+    /// <c>file:///C:/Work/A.bas</c>.
+    /// </remarks>
+    /// <param name="documentUri">The address of the document.</param>
+    /// <param name="document">The document.</param>
     bool TryGetDocument(Uri documentUri, out WorkspaceDocument document);
     void Initialize(string workspaceRoot);
     Task<bool> TryLoadAsync(TextDocumentIdentifier id);
@@ -177,16 +196,18 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     public IEnumerable<WorkspaceDocument> GetAllDocuments()
     {
         var others = _otherFiles;
-        return [.. _documents.Where(document => !others.Contains(document.Key)).Select(document => document.Value)];
+        return [.. _documents.Where(document => document.Value.IsFile && !others.Contains(document.Key)).Select(document => document.Value)];
     }
 
     public void SetOtherFiles(IEnumerable<TextDocumentIdentifier> ids) => _otherFiles = new HashSet<TextDocumentIdentifier>(ids);
 
+    // a document is keyed by its identifier, whose address is the document's however it is spelled: an identifier compares its DocumentUri, which is the
+    // client's address normalized, where a Uri compares the spelling.
     public bool TryGetDocument(Uri documentUri, out WorkspaceDocument document)
-    {
-        document = _documents.Values.FirstOrDefault(candidate => candidate.Id.Uri.ToUri().Equals(documentUri))!;
-        return document is not null;
-    }
+        => _documents.TryGetValue(new TextDocumentIdentifier(documentUri), out document!);
+
+    public bool TryGetModule(Uri documentUri, out WorkspaceDocument document)
+        => TryGetDocument(documentUri, out document) && !_otherFiles.Contains(document.Id);
 
     // a version only goes up: a document read again from disk - changed outside the editor - is the next version when its text is other than it was, and what
     // was made of the version before (its parse) is not taken for what is made of this one.
@@ -571,8 +592,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     public WorkspaceDocument Open(Uri documentUri, string text, int version)
     {
         var id = new TextDocumentIdentifier(documentUri);
-        var path = DocumentUri.From(documentUri).GetFileSystemPath();
-        var companion = ReadCompanion(text, path);
+        // a document that is no file is addressed by the URI the client gives it, and has no companion file.
+        var path = documentUri.IsFile ? DocumentUri.From(documentUri).GetFileSystemPath() : documentUri.ToString();
+        var companion = documentUri.IsFile ? ReadCompanion(text, path) : default;
 
         // the document is the client's from the moment it is open, with the projects it was a module of at that moment: a move to this path, or out of it, is made before it or after it.
         lock (_sync)
@@ -583,15 +605,23 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
 
             // a document the client opens need not be in the workspace folder: its own path is what addresses it then - and so it is when no workspace could
-            // be loaded, which leaves no root to be relative to.
+            // be loaded, which leaves no root to be relative to. Nor need it be a file: one that is not is addressed by the URI the client gives it.
             // a document that is a module of projects stays one when the client opens it, and is addressed from the project that loaded it.
             var owner = existing?.WorkspaceRoot ?? WorkspaceRoot;
-            var relativePath = owner.Length == 0 ? path : ioPath.GetRelativePath(owner, path);
-            var document = new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
+            WorkspaceDocument document;
+            if (documentUri.IsFile)
             {
-                Projects = existing?.Projects ?? [owner],
-                Companion = companion,
-            };
+                var relativePath = owner.Length == 0 ? path : ioPath.GetRelativePath(owner, path);
+                document = new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, owner, text, version)
+                {
+                    Projects = existing?.Projects ?? [owner],
+                    Companion = companion,
+                };
+            }
+            else
+            {
+                document = new WorkspaceDocument(documentUri, owner, text, version);
+            }
 
             _documents[id] = document;
             documentStateProvider.OnDocumentOpenedByClient(id);
@@ -600,6 +630,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             return document;
         }
     }
+
 
     public DocumentChangeOutcome Change(Uri documentUri, int version, IEnumerable<TextDocumentContentChangeEvent> changes)
     {
@@ -676,7 +707,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
         try
         {
-            if (!ioPath.IsPathRooted(document.RelativePath) && ioFile.Exists(path))
+            if (document.IsFile && !ioPath.IsPathRooted(document.RelativePath) && ioFile.Exists(path))
             {
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.

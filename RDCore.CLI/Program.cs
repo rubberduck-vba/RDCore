@@ -203,19 +203,26 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
         {
             services
                 .AddSingleton<ReplCompletion>()
-                .AddSingleton(provider => new ConsolePromptEditor(
-                    provider.GetRequiredService<IConsoleKeys>(),
-                    System.Console.Out,
-                    () => System.Console.WindowWidth,
-                    provider.GetRequiredService<ReplCompletion>().CompleteAsync,
-                    ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single)
+                .AddSingleton(provider =>
                 {
-                    // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text.
-                    Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
-                    // what the call being typed takes is shown under the line, as it is typed.
-                    Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
-                    // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
-                    ListAfterSpace = provider.GetRequiredService<ReplCompletion>().ListsAfterSpace,
+                    var editor = new ConsolePromptEditor(
+                        provider.GetRequiredService<IConsoleKeys>(),
+                        System.Console.Out,
+                        () => System.Console.WindowWidth,
+                        provider.GetRequiredService<ReplCompletion>().CompleteAsync,
+                        ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single)
+                    {
+                        // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text.
+                        Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
+                        // what the call being typed takes is shown under the line, as it is typed.
+                        Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
+                        // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
+                        ListAfterSpace = provider.GetRequiredService<ReplCompletion>().ListsAfterSpace,
+                    };
+
+                    // from now on, the shell's messages are written above the line being edited, not over it.
+                    provider.GetRequiredService<PromptAwareMessageWriter>().Editor = editor;
+                    return editor;
                 })
                 // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.
                 .AddSingleton(provider => new ReplProgressDisplay(
@@ -223,7 +230,11 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     System.Console.Out,
                     () => System.Console.WindowWidth,
                     provider.GetRequiredService<ConsolePromptEditor>(),
-                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii));
+                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii))
+                // the shell's messages, its log's included, through a writer the editor attaches itself to as it is made.
+                .AddSingleton<SpectreConsoleMessageWriter>()
+                .AddSingleton(provider => new PromptAwareMessageWriter(provider.GetRequiredService<SpectreConsoleMessageWriter>()))
+                .AddSingleton<IConsoleMessageWriter>(provider => provider.GetRequiredService<PromptAwareMessageWriter>());
         }
     }
 
@@ -320,6 +331,8 @@ internal class RDCoreConsoleClientApp(
             SessionCompletion = new SessionCompletion(true),
             // and what the call being typed at it takes is shown under it.
             SessionSignatureHelp = new SessionSignatureHelp(true),
+            // the code it lists - the condition of a breakpoint - is highlighted the way the language server tells the tokens of it.
+            SessionSemanticTokens = new SessionSemanticTokens(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
             // the shell answers the dialogs a program opens, at its console.
             SessionInteraction = new SessionInteraction(true),

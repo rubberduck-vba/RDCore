@@ -22,6 +22,9 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// <c>workspace/didChangeWatchedFiles</c>, and this is what is done about it. The client owns the file system: the server is told, and watches only for a client
 /// that does not say it watches (<see cref="Server.Handlers.Workspace.IWorkspaceFileSystemWatcher"/>).
 /// <para>
+/// The client is told of a workspace that is not what it was (<see cref="IWorkspaceRefresh"/>): what it shows of each document may be of what changed.
+/// </para>
+/// <para>
 /// The server writes the project file itself when the client creates, renames or deletes a file of the workspace (<see cref="ChangeAsync"/>): it is the
 /// project file's only writer. A client that watches the project file then says it changed, and reading it again changes nothing.
 /// </para>
@@ -61,10 +64,13 @@ internal interface IWorkspaceReloadService
     /// What the change made of the workspace - <see cref="WorkspaceReloadResult.Unchanged"/>, and nothing written, when the project is what it was - or
     /// <see langword="null"/> when the server is not running a workspace it could change.
     /// </returns>
+    /// <exception cref="ProjectFileNotWrittenException">The file system would not let the project file be written; the project is what it was.</exception>
+    /// <exception cref="IOException">The project file was written, and a file it lists could not be read.</exception>
     Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
 
     /// <summary>
-    /// Changes the project as <see cref="ChangeAsync"/> does, and returns once the project file is written and the workspace's documents are what it lists: the
+    /// Changes the project as <see cref="ChangeAsync"/> does (and, as it does, throws <see cref="ProjectFileNotWrittenException"/> when the file system would not let the
+    /// project file be written), and returns once the project file is written and the workspace's documents are what it lists: the
     /// environment host and the symbols follow, in the order the changes were made, with no one waiting for them.
     /// </summary>
     /// <remarks>
@@ -116,6 +122,12 @@ internal interface IWorkspaceReloadService
 internal sealed record class WorkspaceReloadStep(WorkspaceReloadResult Started, Task<WorkspaceReloadResult> Completed);
 
 /// <summary>
+/// The file system would not let the project file be written (<see cref="IWorkspaceReloadService.ChangeAsync"/>): what it threw is the inner exception. Told
+/// apart from a failure to read the files the project lists once it is written, which is another refusal.
+/// </summary>
+internal sealed class ProjectFileNotWrittenException(Exception cause) : IOException(cause.Message, cause);
+
+/// <summary>
 /// What reloading the project file changed.
 /// </summary>
 /// <param name="Added">The files the project lists now that it did not.</param>
@@ -141,6 +153,7 @@ internal sealed class WorkspaceReloadService(
     ISymbolSyncService symbols,
     IPlatformOrchestrationService orchestration,
     System.IO.Abstractions.IPath ioPath,
+    IWorkspaceRefresh refresh,
     ILogger<WorkspaceReloadService> logger) : IWorkspaceReloadService
 {
     // one reload at a time: a client that writes the project file twice in a row is told about it twice, and the second reload reads what the second write
@@ -198,6 +211,17 @@ internal sealed class WorkspaceReloadService(
         }
     }
 
+    // the client is told of a workspace that is not what it was.
+    private WorkspaceReloadResult Told(WorkspaceReloadResult result)
+    {
+        if (!result.IsUnchanged)
+        {
+            refresh.Changed();
+        }
+
+        return result;
+    }
+
     public async Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
         => await BeginChangeAsync(change, token) is { } step ? await step.Completed.WaitAsync(token) : null;
 
@@ -220,9 +244,24 @@ internal sealed class WorkspaceReloadService(
                 return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
             }
 
-            // the environment host reads the project file to compose its session, so it is written first.
+            // the environment host reads the project file to compose its session, so it is written first. A project file that cannot be written leaves the
+            // project what it was - what is on disk, and what the workspace is - rather than one that is neither.
             projectFiles.Update(changed);
-            await projectFiles.SaveAsync();
+            try
+            {
+                await projectFiles.SaveAsync();
+            }
+            catch (Exception exception)
+            {
+                projectFiles.Update(project);
+                if (exception is UnauthorizedAccessException or IOException)
+                {
+                    throw new ProjectFileNotWrittenException(exception);
+                }
+
+                throw;
+            }
+
             return Queued(await ApplyDocumentsAsync(project, token));
         }
         finally
@@ -405,6 +444,9 @@ internal sealed class WorkspaceReloadService(
                 }
             }
         }
+
+        // the client is told of a workspace that is not what it was once it is: the host and the symbols are what the documents are, once for all the changes of the batch.
+        refresh.Changed();
     }
 
     private async Task<Applied> ReloadListedFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
