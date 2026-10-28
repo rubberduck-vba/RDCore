@@ -50,10 +50,12 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Symbols">Building the symbols of every module and defining them in the session.</param>
 /// <param name="Load">Loading the code of every module: lowered, and analyzed statically.</param>
 /// <param name="Sweep">From the first module loaded until the facts of every module are evaluated: the analysis sweep, which runs in the background as modules load.</param>
+/// <param name="Compile">Compiling the lowered code of every module to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>; zero while nothing is compiled.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
 /// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
 internal sealed record class BenchReport(
-    BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, IReadOnlyList<BenchCase> Cases, IReadOnlyList<string> Problems);
+    BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
+    IReadOnlyList<string> Problems);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -77,6 +79,9 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
 {
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
+
+    /// <summary>The environment the session is composed for: what runs the cases, and how they are built.</summary>
+    public IRuntimeEnvironmentProfile Environment => environment;
 
     /// <summary>
     /// Loads <paramref name="workspace"/>, waits for its analysis sweep, and runs its cases.
@@ -190,7 +195,8 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
             cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
         }
 
-        return new BenchReport(workspace, parseTime, symbolsTime, loadTime, sweepTime, cases, problems);
+        // nothing is compiled yet: every procedure runs in the interpreter, whichever engine is configured.
+        return new BenchReport(workspace, parseTime, symbolsTime, loadTime, sweepTime, TimeSpan.Zero, cases, problems);
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);

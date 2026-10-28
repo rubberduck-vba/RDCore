@@ -93,7 +93,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
-        var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
+        var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language,
+            DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
         var sweepable = new List<(VBTypeMemberSymbol Procedure, InstructionList Body)>();

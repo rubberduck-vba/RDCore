@@ -21,8 +21,8 @@ public static class RuntimeSessionExtensions
     public const string DebugConstantName = "DEBUG";
 
     /// <summary>
-    /// Whether this session is running a debug build — whether <c>Debug.Print</c> and
-    /// <c>Debug.Assert</c> are lowered and executed at all.
+    /// Whether this session is running a debug build — whether <c>Stop</c> breaks, and whether a release build's
+    /// choice to drop <c>Debug.Print</c> and <c>Debug.Assert</c> (<see cref="Abstract.Execution.IRuntimeEnvironmentProfile.ReleaseDropsDebugStatements"/>) applies.
     /// </summary>
     /// <remarks>
     /// False only when <see cref="DebugConstantName"/> is defined <em>and</em> zero. A session

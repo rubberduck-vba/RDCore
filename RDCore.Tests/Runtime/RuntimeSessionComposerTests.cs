@@ -38,6 +38,41 @@ public sealed class RuntimeSessionComposerTests
     }
 
     [TestMethod]
+    public void AReleaseConfiguration_IsAReleaseBuild()
+    {
+        var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, Configuration: VBBuildConfiguration.Release);
+        var session = RuntimeSessionComposer.Compose(environment, new ConfigurationSymbolProvider(environment, new RDCoreProject()));
+
+        Assert.IsFalse(session.IsDebugBuild());
+    }
+
+    [TestMethod]
+    public void AProjectThatDefinesDebug_DecidesTheBuild_OverTheConfiguration()
+    {
+        // the configuration is only the default of the built-in constant: a project's #Const DEBUG still wins.
+        var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, Configuration: VBBuildConfiguration.Release);
+        var project = new RDCoreProject { PrecompilerConstants = { ["DEBUG"] = "-1" } };
+        var session = RuntimeSessionComposer.Compose(environment, new ConfigurationSymbolProvider(environment, project));
+
+        Assert.IsTrue(session.IsDebugBuild());
+    }
+
+    [TestMethod]
+    public void TheProfile_CarriesTheEngineAndTheConfiguration_FromTheOptions()
+    {
+        var profile = RuntimeEnvironmentProfile.From(new SDK.Server.Configuration.SdkEnvironmentOptions
+        {
+            ExecutionEngine = VBExecutionEngine.Compiled,
+            Configuration = VBBuildConfiguration.Release,
+        });
+
+        Assert.AreEqual(VBExecutionEngine.Compiled, profile.ExecutionEngine);
+        Assert.AreEqual(VBBuildConfiguration.Release, profile.Configuration);
+        Assert.AreEqual(VBExecutionEngine.Interpreter, RuntimeEnvironmentProfile.Default.ExecutionEngine);
+        Assert.AreEqual(VBBuildConfiguration.Debug, RuntimeEnvironmentProfile.Default.Configuration);
+    }
+
+    [TestMethod]
     public void AProjectThatDefinesDebugAsZero_IsAReleaseBuild()
     {
         var project = new RDCoreProject { PrecompilerConstants = { ["DEBUG"] = "0" } };

@@ -118,6 +118,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         var runtime = typeof(Runtime.Execution.RuntimeExecutionPipeline).Assembly;
         var configuration = runtime.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled == true ? "Debug" : "Release";
         Output.WriteLine($"rdc bench · {configuration} · {RuntimeInformation.FrameworkDescription} · {RuntimeInformation.OSDescription} {RuntimeInformation.ProcessArchitecture} · {Environment.ProcessorCount} cores");
+        Output.WriteLine($"engine     {runner.Environment.ExecutionEngine} · {runner.Environment.Configuration}");
         Output.WriteLine($"workspace  {(builtIn ? Resources.Bench_BuiltInCorpus : workspace.Root)} ({workspace.Modules.Count} modules)");
     }
 
@@ -128,6 +129,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"{"symbols",-10}{Milliseconds(report.Symbols),12}");
         Output.WriteLine($"{"load",-10}{Milliseconds(report.Load),12}");
         Output.WriteLine($"{"sweep",-10}{Milliseconds(report.Sweep),12}");
+        Output.WriteLine($"{"compile",-10}{Milliseconds(report.Compile),12}");
 
         foreach (var problem in report.Problems)
         {
