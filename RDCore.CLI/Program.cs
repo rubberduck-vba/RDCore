@@ -213,6 +213,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
                     // what the call being typed takes is shown under the line, as it is typed.
                     Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
+                    // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
+                    ListAfterSpace = provider.GetRequiredService<ReplCompletion>().ListsAfterSpace,
                 })
                 // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.
                 .AddSingleton(provider => new ReplProgressDisplay(
