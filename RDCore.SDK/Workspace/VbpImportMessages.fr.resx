@@ -23,10 +23,10 @@
     <value>Le contrôle « {0} » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.</value>
   </data>
   <data name="VbpImport_OutsideProjectFolder" xml:space="preserve">
-    <value>« {0} » n'est pas encore repris : il est dans un dossier hors de celui du projet. Il sera un module de ce projet quand son dossier fera partie de l'espace de travail, comme dossier source; la plateforme ne prend pas encore un tel dossier en charge.</value>
+    <value>« {0} » n'est pas repris : il est hors de tous les dossiers de l'espace de travail. Ouvrez aussi son dossier comme dossier de l'espace de travail, puis importez le projet de nouveau.</value>
   </data>
   <data name="VbpImport_AbsolutePath" xml:space="preserve">
-    <value>« {0} » n'est pas repris : un projet liste les fichiers de son propre dossier.</value>
+    <value>« {0} » n'est pas repris : il est hors du dossier du projet et de tous les dossiers de l'espace de travail, et un fichier de projet ne liste aucun chemin absolu.</value>
   </data>
   <data name="VbpImport_NotAModule" xml:space="preserve">
     <value>« {0} » est un fichier du projet, et non un module : la plateforme ne le compile pas.</value>

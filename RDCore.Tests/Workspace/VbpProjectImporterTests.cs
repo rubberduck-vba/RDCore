@@ -265,17 +265,66 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual("Le contrôle « MSCOMCTL.OCX » n'est pas repris : la plateforme n'héberge pas de contrôles ActiveX.", note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")));
     }
 
-    // a ..\ file is a module of this project, as in VB6, in a source folder the client adds to the workspace; not carried over until the platform takes such
-    // folders in (author, 2026-10-27, reversing the morning's "a project of its own"; HexIDE's desk #30 and #31).
+    // a ..\ file is a module of this project, as in VB6, when a folder of the workspace holds it; one that none holds is said so (author, 2026-10-27, desk #30).
     [TestMethod]
-    public void AFileOutsideTheProjectsFolder_IsSaidToBeAModuleOfThisProjectInASourceFolder()
+    public void AFileOutsideEveryWorkspaceFolder_IsSaidToBeSo()
     {
         var note = new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, @"..\Shared\Utils.bas");
 
-        Assert.AreEqual(@"'..\Shared\Utils.bas' is not carried over yet: it is in a folder outside the project's. It will be a module of this project once its folder is part of the workspace, as a source folder; the platform does not take in such a folder yet.",
+        Assert.AreEqual(@"'..\Shared\Utils.bas' is not carried over: it is outside every folder of the workspace. Open the folder it is in as a workspace folder too, and import the project again.",
             note.ToMessage(CultureInfo.InvariantCulture));
-        StringAssert.Contains(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), "un module de ce projet");
-        StringAssert.DoesNotMatch(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), new System.Text.RegularExpressions.Regex("autre projet"));
+        StringAssert.Contains(note.ToMessage(CultureInfo.GetCultureInfo("fr-CA")), "hors de tous les dossiers de l'espace de travail");
+    }
+
+    // the folder of the .vbp, and the folders of the workspace: one beside it (Shared) the client opened too, one (Elsewhere) it did not.
+    private static readonly string Projects = Path.Combine(Path.GetTempPath(), "rdcore-import-bounds");
+    private static readonly string Battleship = Path.Combine(Projects, "Battleship");
+    private static readonly string Shared = Path.Combine(Projects, "Shared");
+
+    private static bool InWorkspace(string path)
+        => new SDK.Workspace.WorkspaceFolders([Battleship, Shared]).Contains(path);
+
+    private static VbpImport ImportBounded(string vbp, bool withWorkspace = true)
+        => VbpProjectImporter.Import(vbp, "Battleship.vbp", Libraries, Battleship, withWorkspace ? InWorkspace : null);
+
+    [TestMethod]
+    public void AFileInAnotherWorkspaceFolder_IsAModuleOfTheProject_ByItsRelativePath()
+    {
+        var import = ImportBounded(@"Module=Util; ..\Shared\Util.bas" + "\r\n" + @"Class=Ship; ..\Shared\Model\Ship.cls");
+
+        CollectionAssert.AreEqual(new[] { "../Shared/Util.bas", "../Shared/Model/Ship.cls" }, import.Project.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsEmpty(import.Notes);
+        Assert.IsEmpty(import.Project.Folders, "a folder outside the project's is the workspace folder's that holds it");
+    }
+
+    [TestMethod]
+    public void AnAbsolutePathInAWorkspaceFolder_IsWrittenRelative_AndOneInTheProjectsOwnToo()
+    {
+        var import = ImportBounded($"Module=Util; {Path.Combine(Shared, "Util.bas")}\r\nModule=Main; {Path.Combine(Battleship, "Main.bas")}");
+
+        CollectionAssert.AreEqual(new[] { "../Shared/Util.bas", "Main.bas" }, import.Project.Modules.Select(module => module.RelativeUri).ToArray(),
+            "nothing a project file lists is absolute");
+        Assert.IsEmpty(import.Notes);
+    }
+
+    [TestMethod]
+    public void AFileInNoWorkspaceFolder_IsNoted_WhetherItsPathClimbsOutOrIsAbsolute()
+    {
+        var absolute = Path.Combine(Projects, "Elsewhere", "Util.bas");
+        var import = ImportBounded($"Module=Util; ..\\Elsewhere\\Util.bas\r\nModule=Other; {absolute}");
+
+        Assert.IsEmpty(import.Project.Modules);
+        CollectionAssert.AreEqual(new[] { (VbpImportNoteKind.OutsideProjectFolder, @"..\Elsewhere\Util.bas"), (VbpImportNoteKind.AbsolutePath, absolute) },
+            import.Notes.Select(note => (note.Kind, note.Subject)).ToArray());
+    }
+
+    [TestMethod]
+    public void WithoutWorkspaceFolders_AFileOutsideTheProjectsFolder_IsNoted()
+    {
+        var import = ImportBounded(@"Module=Util; ..\Shared\Util.bas", withWorkspace: false);
+
+        Assert.IsEmpty(import.Project.Modules, "rdc import has no workspace folders");
+        Assert.AreEqual(VbpImportNoteKind.OutsideProjectFolder, import.Notes.Single().Kind);
     }
 
     // VB6 writes its project files in the ANSI code page of the machine.
