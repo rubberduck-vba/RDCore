@@ -54,7 +54,7 @@ Diagnostic results are staleness-gated:
 
 1. The document version, and the workspace's generation, are captured before the diagnostics fan-out.
 2. The version is re-checked after the fan-out.
-3. A report that raced a later edit is dropped rather than returned, and the `resultId` advances to the current version.
+3. A report that raced a later edit is dropped rather than returned, and the pull is answered `ContentModified` (-32801), which the client asks again after. No report is made of text that is not there any more: its `resultId`, sent again, would be answered `unchanged` for findings the client never had.
 
 ## Start-up
 

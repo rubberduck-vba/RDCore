@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using OmniSharp.Extensions.JsonRpc;
+using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Diagnostics;
@@ -172,8 +174,9 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual(2, result.Diagnostics.Count, "the diagnostic reported by both providers is collapsed");
     }
 
+    // a report of the text there was would carry an id the client sends again, and be answered unchanged for findings it never had.
     [TestMethod]
-    public async Task DocumentMovesDuringFanOut_StaleDiagnosticsAreDropped()
+    public async Task DocumentMovesDuringFanOut_IsAnsweredContentModified_AndThePullAfterGetsEverything()
     {
         var before = Document(version: 1);
         var after = Document(version: 2);
@@ -181,10 +184,28 @@ public sealed class DocumentDiagnosticsServiceTests
         ParseYields();
         ProvidersAre(Provider("RDCore.Diagnostics", 1, Diag(1), Diag(2)));
 
-        var result = await Sut().GetAsync(before.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var moved = await Assert.ThrowsAsync<RpcErrorException>(() => Sut().GetAsync(before.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None));
+        var again = await Sut().GetAsync(before.Id.Uri.ToUri(), previousResultId: "v1", CancellationToken.None);
 
-        Assert.AreEqual("v2.0", result.ResultId, "the report id advances to the version the document is now at");
-        Assert.IsFalse(result.Unchanged);
+        Assert.AreEqual(ErrorCodes.ContentModified, moved.Code);
+        Assert.IsFalse(again.Unchanged);
+        Assert.AreEqual("v2.0", again.ResultId);
+        Assert.AreEqual(2, again.Diagnostics.Count);
+    }
+
+    // what is pushed is of the version the document is at, which the lifecycle publishes nothing for until its own refresh of it.
+    [TestMethod]
+    public async Task DocumentMovesDuringAPhase_ThePhaseIsEmpty_OfTheVersionTheDocumentIsAt()
+    {
+        var before = Document(version: 1);
+        var after = Document(version: 2);
+        WorkspaceVersions(before, after);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1, Diag(1), Diag(2)));
+
+        var result = await Sut().GetPhaseAsync(before.Id.Uri.ToUri(), AnalysisPhase.Static, CancellationToken.None);
+
+        Assert.AreEqual("v2.0", result.ResultId);
         Assert.IsEmpty(result.Diagnostics);
     }
 

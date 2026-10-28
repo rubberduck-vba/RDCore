@@ -49,7 +49,7 @@ public sealed class WorkspaceDiagnosticWireTests
         _diagnostics.GetAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(call =>
         {
             var document = call.Arg<Uri>().AbsolutePath.EndsWith("Open.bas", StringComparison.OrdinalIgnoreCase) ? _open : _closed;
-            return Task.FromResult(call.Arg<string?>() == $"v{document.Version}"
+            return Task.FromResult(call.Arg<string?>() == DocumentDiagnosticsResult.ResultIdOf(document.Version, generation: 0)
                 ? DocumentDiagnosticsResult.NotChanged(document.Version)
                 : DocumentDiagnosticsResult.Fresh(document.Version, [new Diagnostic { Range = new Range(0, 0, 0, 9), Message = $"in {document.Name}" }]));
         });
@@ -139,16 +139,16 @@ public sealed class WorkspaceDiagnosticWireTests
         Assert.IsTrue(client.ServerSettings.Capabilities.DiagnosticProvider?.WorkspaceDiagnostics, "the server says it serves workspace/diagnostic");
 
         var first = await PullAsync(client, new WorkspaceDiagnosticParams { PreviousResultIds = new Container<PreviousResultId>() }, timeout.Token);
-        CollectionAssert.AreEqual(new[] { "Closed.bas full v1 v=null 1", "Open.bas full v3 v=3 1" }, Reported(first["items"]!),
+        CollectionAssert.AreEqual(new[] { "Closed.bas full v1.0 v=null 1", "Open.bas full v3.0 v=3 1" }, Reported(first["items"]!),
             "the open module at the client's version, the closed one at none");
 
         var second = await PullAsync(client, new WorkspaceDiagnosticParams
         {
             PreviousResultIds = new Container<PreviousResultId>(
-                new PreviousResultId { Uri = _open.Id.Uri, Value = "v3" },
-                new PreviousResultId { Uri = _closed.Id.Uri, Value = "v1" }),
+                new PreviousResultId { Uri = _open.Id.Uri, Value = "v3.0" },
+                new PreviousResultId { Uri = _closed.Id.Uri, Value = "v1.0" }),
         }, timeout.Token);
-        CollectionAssert.AreEqual(new[] { "Closed.bas unchanged v1 v=null 0", "Open.bas unchanged v3 v=3 0" }, Reported(second["items"]!));
+        CollectionAssert.AreEqual(new[] { "Closed.bas unchanged v1.0 v=null 0", "Open.bas unchanged v3.0 v=3 0" }, Reported(second["items"]!));
     }
 
     // a module the project no longer lists: what the client shows of it is cleared, and there is no result id for it to send again.
@@ -164,7 +164,7 @@ public sealed class WorkspaceDiagnosticWireTests
 
         var answer = await PullAsync(client, new WorkspaceDiagnosticParams
         {
-            PreviousResultIds = new Container<PreviousResultId>(new PreviousResultId { Uri = gone, Value = "v2" }),
+            PreviousResultIds = new Container<PreviousResultId>(new PreviousResultId { Uri = gone, Value = "v2.0" }),
         }, timeout.Token);
 
         CollectionAssert.Contains(Reported(answer["items"]!), "Gone.bas full  v=null 0");
@@ -188,7 +188,7 @@ public sealed class WorkspaceDiagnosticWireTests
             progress = [.. wire.Where(message => message.Value<string>("method") == "$/progress" && message["params"]!.Value<string>("token") == "partial")];
         }
 
-        CollectionAssert.AreEqual(new[] { "Closed.bas full v1 v=null 1", "Open.bas full v3 v=3 1" },
+        CollectionAssert.AreEqual(new[] { "Closed.bas full v1.0 v=null 1", "Open.bas full v3.0 v=3 1" },
             progress.SelectMany(message => Reported(message["params"]!["value"]!["items"]!)).ToArray(), "one module at a time");
     }
 

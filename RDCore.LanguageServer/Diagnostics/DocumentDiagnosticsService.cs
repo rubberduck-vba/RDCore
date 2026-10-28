@@ -10,6 +10,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
 
@@ -29,6 +30,11 @@ internal interface IDocumentDiagnosticsService
     /// <param name="previousResultId">The result id of the findings the client has, which are not sent again when the document has not changed since.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <param name="progress">Where the steps of the analysis are reported: the parse, the semantic model, and each provider as it answers.</param>
+    /// <exception cref="OmniSharp.Extensions.JsonRpc.RpcErrorException">
+    /// The document changed while its findings were being found: <c>ContentModified</c> (<see cref="IncomingDocumentChanges.ContentModified"/>). What was found
+    /// is of text that is not there any more, and no report is made of it: a report would carry a result id the client could send again, and be answered
+    /// <c>unchanged</c> for findings it never had.
+    /// </exception>
     Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 
     /// <summary>
@@ -137,7 +143,7 @@ internal sealed class DocumentDiagnosticsService(
                 : DocumentDiagnosticsResult.NotChanged(version, generation);
         }
 
-        return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress);
+        return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress) ?? throw IncomingDocumentChanges.ContentModified();
     }
 
     public async Task<DocumentDiagnosticsResult> GetPhaseAsync(Uri documentUri, AnalysisPhase phase, CancellationToken token)
@@ -145,10 +151,11 @@ internal sealed class DocumentDiagnosticsService(
         var document = Resolve(documentUri);
         return document is null
             ? DocumentDiagnosticsResult.Fresh(0, [], refresh.Generation)
-            : await AnalyzePhaseAsync(document, phase, token);
+            : await AnalyzePhaseAsync(document, phase, token) ?? DocumentDiagnosticsResult.Fresh(Resolve(documentUri)?.Version ?? 0, [], refresh.Generation);
     }
 
-    private async Task<DocumentDiagnosticsResult> AnalyzePhaseAsync(WorkspaceDocument document, AnalysisPhase phase, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
+    // what is found of the document; nothing, when it moved on while it was being found.
+    private async Task<DocumentDiagnosticsResult?> AnalyzePhaseAsync(WorkspaceDocument document, AnalysisPhase phase, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         var documentUri = document.Id.Uri.ToUri();
         var version = document.Version;
@@ -178,7 +185,7 @@ internal sealed class DocumentDiagnosticsService(
         {
             logger.LogInformation("🔎 {uri}: diagnostics for v{stale} dropped, document is at v{current}.",
                 documentUri, version, currentVersion);
-            return DocumentDiagnosticsResult.Fresh(currentVersion, [], generation);
+            return null;
         }
 
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)), generation);
