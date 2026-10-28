@@ -46,12 +46,13 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
             return;
         }
 
-        // the marking is a background, and runs to the end of the line: the line is filled with spaces up to the width of the console, and what the runs are
-        // coloured in goes over the marking's own foreground and leaves its background be. The widths are in cells: the mark of a fold is an emoji's two.
+        // the marking is a background, and runs to the end of the line: the line is filled with spaces up to the width of the console. Its foreground is the
+        // whole line's too, as VBE draws a breakpoint and the current statement: syntax colours on that background are hard to read (the author), so the runs are
+        // written plain under it. The margin keeps its own styles. The widths are in cells.
         var width = runs.Sum(run => App.Console.ConsoleText.WidthOf(run.Text));
         var marginWidth = margin.Sum(run => App.Console.ConsoleText.WidthOf(run.Text));
         var fill = new string(' ', Math.Max(0, console.Profile.Width - marginWidth - width - 1));
-        console.MarkupLine($"{Markup(margin)}[{marking}]{Markup(runs)}{fill}[/]");
+        console.MarkupLine($"{Markup(margin)}[{marking}]{Markup([.. runs.Select(run => run with { Style = ReplTextStyle.Plain })])}{fill}[/]");
     }
 
     /// <inheritdoc/>

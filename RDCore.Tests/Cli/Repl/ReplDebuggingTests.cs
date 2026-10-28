@@ -928,15 +928,18 @@ public sealed class ReplDebuggingTests
         Assert.DoesNotContain("48;2;", output);
     }
 
+    // syntax colours on a marking's background are hard to read: a marked line is written in the marking's foreground, as VBE draws it (the author, 2026-10-27).
     [TestMethod]
-    public void TheColoursOfAMarkedLine_KeepTheBackgroundOfTheMarking()
+    [DataRow(ReplLineStyle.CurrentStatement, "48;2;216;176;100", "38;2;0;0;0", DisplayName = "the current statement: black on #d8b064")]
+    [DataRow(ReplLineStyle.Breakpoint, "48;2;181;26;23", "38;2;255;255;255", DisplayName = "a breakpoint: white on #b51a17")]
+    public void AMarkedLine_IsWrittenInTheMarkingsColours_NotInItsSyntaxColours(ReplLineStyle style, string background, string foreground)
     {
         var output = Render(Dark(), console => console.WriteListingLine(
             [new ReplTextRun(" ", ReplTextStyle.Plain)],
-            [new ReplTextRun(" 20 ", ReplTextStyle.Plain), new ReplTextRun("STOP", ReplTextStyle.Keyword)], ReplLineStyle.CurrentStatement));
+            [new ReplTextRun(" 20 ", ReplTextStyle.Plain), new ReplTextRun("STOP", ReplTextStyle.Keyword)], style));
 
-        // #d8b064 is the background of the current statement, and the keyword is blue on it.
-        StringAssert.Contains(output, "48;2;216;176;100");
-        StringAssert.Contains(output, "38;2;62;97;255");
+        StringAssert.Contains(output, background);
+        StringAssert.Contains(output, foreground);
+        Assert.IsFalse(output.Contains("38;2;62;97;255", StringComparison.Ordinal), "the keyword's blue is not written on the marking");
     }
 }
