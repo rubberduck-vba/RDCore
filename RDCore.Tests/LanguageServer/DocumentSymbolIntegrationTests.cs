@@ -37,7 +37,7 @@ public sealed class DocumentSymbolIntegrationTests
         var documentUri = document.Id.Uri.ToUri();
 
         var documents = Substitute.For<IWorkspaceDocumentService>();
-        documents.GetAllDocuments().Returns([document]);
+        documents.Holds(document);
 
         var parsing = Substitute.For<IParsingClientService>();
         parsing.ParseDocumentAsync(documentUri, Arg.Any<CancellationToken>())

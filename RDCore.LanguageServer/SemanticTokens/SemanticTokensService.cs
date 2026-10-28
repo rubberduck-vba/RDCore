@@ -85,8 +85,8 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         var constants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // the class modules of the workspace are types, whatever module is being highlighted.
-        foreach (var other in documents.GetAllDocuments())
+        // the class modules of the workspace are types, whatever module of it is being highlighted; a document that is no file is a project of its own.
+        foreach (var other in documentUri.IsFile ? documents.GetAllDocuments() : [])
         {
             var path = other.Id.Uri.GetFileSystemPath();
             if (string.Equals(Path.GetExtension(path), ".cls", StringComparison.OrdinalIgnoreCase))

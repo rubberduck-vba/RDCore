@@ -24,6 +24,20 @@ internal record class WorkspaceDocument
         RelativePath = relativePath;
     }
 
+    /// <summary>
+    /// A document the client holds that is no file (<c>untitled:Untitled-1</c>): addressed by the URI the client gives it, which is its
+    /// <see cref="RelativePath"/> too.
+    /// </summary>
+    public WorkspaceDocument(Uri documentUri, string workspaceRoot, string content, int version = 1)
+    {
+        Id = new TextDocumentIdentifier(documentUri);
+        Version = version;
+        Text = content;
+
+        WorkspaceRoot = workspaceRoot;
+        RelativePath = documentUri.ToString();
+    }
+
     public string WorkspaceRoot { get; }
     public string RelativePath { get; }
 
@@ -31,9 +45,21 @@ internal record class WorkspaceDocument
     /// A unique identifier for the document, represented as a URI.
     /// </summary>
     /// <remarks>
-    /// The URI is expected to use the "file" scheme and contain an absolute file path to the document on disk.
+    /// The URI of a file is its absolute path on disk, with the <c>file</c> scheme. A document the client holds that is no file is addressed by the URI the client
+    /// gives it, of whatever scheme (<strong>LSP 3.17</strong> §URI).
     /// </remarks>
     public TextDocumentIdentifier Id { get; }
+
+    /// <summary>
+    /// Whether the document is a file: one that is no file is the client's alone, and no module of the workspace (<see cref="ProjectRoot"/>).
+    /// </summary>
+    public bool IsFile => Id.Uri.Scheme == Uri.UriSchemeFile;
+
+    /// <summary>
+    /// The root the document's module is addressed under (<see cref="SDK.Model.Symbols.SymbolUri.RootOf"/>): the workspace's, or, for a document that is no file
+    /// or of a server with no workspace, its own address.
+    /// </summary>
+    public Uri ProjectRoot => SDK.Model.Symbols.SymbolUri.RootOf(Id.Uri.ToUri(), WorkspaceRoot);
     /// <summary>
     /// Gets the name of the file, without its extension.
     /// </summary>
