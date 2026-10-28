@@ -66,6 +66,12 @@ public enum IneligibilityKind
     /// said.
     /// </summary>
     Refused,
+
+    /// <summary>
+    /// The session holds and evaluates its values boxed (<c>RDCORE_UNBOXED=0</c>): compiled code reads and writes the payloads of the procedure's scalar
+    /// variables, and hands its activation to the interpreter in them, which only the unboxed evaluation keeps.
+    /// </summary>
+    BoxedEvaluation,
 }
 
 /// <summary>

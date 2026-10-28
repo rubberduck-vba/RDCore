@@ -115,7 +115,7 @@ public sealed class CompletionServiceTests
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, references, [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
         libraries.DescribedSymbolsOf(Arg.Any<Uri>(), Arg.Any<string>()).Returns(call => LibrarySymbolProvider.ReadDescribed(source, call.Arg<Uri>(), call.Arg<string>()));
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language } });
-        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance);
+        return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, OneProject.Registry());
     }
 
     private readonly ClientVerbRegistry _verbs = new();
@@ -373,7 +373,7 @@ public sealed class CompletionServiceTests
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(symbols);
         var compositions = new WorkspaceCompositionCache();
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
-        var sut = new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, compositions);
+        var sut = new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, OneProject.Registry(), compositions);
 
         async Task<string[]> CompleteAsync(string module)
         {

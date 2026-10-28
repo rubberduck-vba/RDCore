@@ -27,6 +27,9 @@
   <data name="WorkspaceCouldNotBeLoaded" xml:space="preserve">
     <value>L'espace de travail '{0}' n'a pas pu être chargé : {1}</value>
   </data>
+  <data name="FileOutsideTheWorkspaceFolders" xml:space="preserve">
+    <value>'{0}', listé par le projet de '{1}', n'est dans aucun dossier de l'espace de travail et n'est pas un fichier du projet.</value>
+  </data>
   <data name="ComponentParsingServer" xml:space="preserve">
     <value>serveur d'analyse</value>
   </data>

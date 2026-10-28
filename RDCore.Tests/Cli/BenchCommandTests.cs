@@ -261,6 +261,7 @@ public sealed class BenchCommandTests
     [TestMethod]
     public async Task TheCompilationReport_SaysOfEachProcedureWhetherItIsCompiled_AndWhatKeepsItInTheInterpreter()
     {
+        CompiledExecutionTests.RequirePayloads();
         var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
         var output = new StringWriter();
         var command = new CompilationCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem), Runner(fileSystem), output);

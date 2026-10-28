@@ -318,10 +318,42 @@ public sealed class FormattingTabSizeTests
         /// <summary>Waits for the follower to say something it has not been waited for.</summary>
         public Task<bool> LoggedAsync() => _logged.WaitAsync(TimeSpan.FromSeconds(20));
 
+        /// <summary>Waits until what the follower said is what <paramref name="condition"/> asks for, each time it says something.</summary>
+        public async Task<bool> LoggedUntilAsync(Func<IReadOnlyList<string>, bool> condition)
+        {
+            while (true)
+            {
+                lock (Log)
+                {
+                    if (condition(Log))
+                    {
+                        return true;
+                    }
+                }
+
+                if (!await LoggedAsync())
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>How many of the lines the follower said so far contain <paramref name="text"/>.</summary>
+        public int LinesWith(string text)
+        {
+            lock (Log)
+            {
+                return Log.Count(line => line.Contains(text, StringComparison.Ordinal));
+            }
+        }
+
         public int TabSize { get; set; } = 2;
 
-        /// <summary>Called with the number of each request for the tab size, before it is answered.</summary>
-        public Func<int, Task>? BeforeAnswering { get; set; }
+        /// <summary>
+        /// Called with the number of each request for the tab size, and the tab size it is answered with, before it is answered. A server may pull its
+        /// configuration more than once as it starts, so a test that holds an answer back tells it by the tab size it set, not by its number.
+        /// </summary>
+        public Func<int, int, Task>? BeforeAnswering { get; set; }
 
         private int _tabSizeRequests;
 
@@ -378,7 +410,7 @@ public sealed class FormattingTabSizeTests
                         var tabSize = TabSize;
                         if (BeforeAnswering is not null)
                         {
-                            await BeforeAnswering(number);
+                            await BeforeAnswering(number, tabSize);
                         }
 
                         return new Container<JToken>(request.Items.Zip(answer, (item, token) => item.Section == FormattingTabSize.EditorSection ? new JValue(tabSize) : token));
@@ -445,11 +477,11 @@ public sealed class FormattingTabSizeTests
         // the second change of the editor's tab size is asked while the first is held back; the first answer, 5, comes after the second, 8.
         var firstAsked = new TaskCompletionSource();
         var release = new TaskCompletionSource();
-        wire.BeforeAnswering = async number =>
+        wire.BeforeAnswering = async (_, tabSize) =>
         {
-            if (number == 2)
+            if (tabSize == 5)
             {
-                firstAsked.SetResult();
+                firstAsked.TrySetResult();
                 await release.Task;
             }
         };
@@ -475,34 +507,35 @@ public sealed class FormattingTabSizeTests
         await wire.StartAsync();
         Assert.IsTrue(await wire.FollowedAsync());
 
-        // the client says its configuration changed twice; the editor's answer to the first, 5, comes after the answer to the second, 8.
+        // the client says its configuration changed twice; the editor's answer to the first, 5, comes after the answer to the second, 8. What the server
+        // pulled as it started was said before it was followed - more than once, on some platforms - and is counted apart.
         var firstAsked = new TaskCompletionSource();
         var release = new TaskCompletionSource();
-        wire.BeforeAnswering = async number =>
+        wire.BeforeAnswering = async (_, tabSize) =>
         {
-            if (number == 2)
+            if (tabSize == 5)
             {
-                firstAsked.SetResult();
+                firstAsked.TrySetResult();
                 await release.Task;
             }
         };
-        Assert.IsTrue(await wire.LoggedAsync(), "the first change was followed once it was initialized");
+        Assert.IsTrue(await wire.LoggedUntilAsync(log => log.Any(line => line.Contains("were applied", StringComparison.Ordinal))), "the first change was followed once it was initialized");
+        var (dropped, applied) = (wire.LinesWith("dropped"), wire.LinesWith("were applied"));
         wire.TabSize = 5;
         wire.ClientSaysConfigurationChanged();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
         wire.ClientSaysConfigurationChanged();
         Assert.IsTrue(await wire.FollowedAsync(), "the newer change was followed");
-        Assert.IsTrue(await wire.LoggedAsync(), "and said so");
+        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("were applied") == applied + 1), "and said so");
 
         release.SetResult();
 
         // the older change, answered last, says what became of it: that is when it is done, whichever way it went.
-        Assert.IsTrue(await wire.LoggedAsync(), "the older change was done");
+        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("dropped") == dropped + 1), "the older change was dropped, and said so");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
-        Assert.AreEqual(1, wire.Log.Count(line => line.Contains("dropped", StringComparison.Ordinal)), "it was dropped, and said so");
-        Assert.AreEqual(2, wire.Log.Count(line => line.Contains("were applied", StringComparison.Ordinal)), "and nothing else was told as applied but the first change and the newer one");
+        Assert.AreEqual(applied + 1, wire.LinesWith("were applied"), "and nothing else was told as applied but the newer change");
     }
 
     [TestMethod]
@@ -515,7 +548,7 @@ public sealed class FormattingTabSizeTests
         Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces);
 
         // the editor has no such setting: the client answers the request with an error.
-        wire.BeforeAnswering = _ => throw new InvalidOperationException("no such setting");
+        wire.BeforeAnswering = (_, _) => throw new InvalidOperationException("no such setting");
         wire.Said["Server:Verbose"] = "True";
         wire.ClientSaysConfigurationChanged();
         Assert.IsTrue(await wire.FollowedAsync(), "the change was followed");
@@ -534,9 +567,9 @@ public sealed class FormattingTabSizeTests
 
         var asked = new TaskCompletionSource();
         var release = new TaskCompletionSource();
-        wire.BeforeAnswering = async number =>
+        wire.BeforeAnswering = async (_, _) =>
         {
-            asked.SetResult();
+            asked.TrySetResult();
             await release.Task;
         };
         var following = wire.Follower!.FollowAsync();

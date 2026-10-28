@@ -109,22 +109,21 @@ public sealed class ConsolePromptWriteAboveTests
         keys.Send(Char('a'), Char('b'));
         await WaitUntilAsync(() => output.Text.Contains("ab") && output.Text.Contains("[busy]"));
 
-        // the key comes while the message is written: the line takes it before it is told it was erased, and draws it first.
+        // the key comes while the message is written: the line may take it before it is told it was erased, and draw it first. Whichever comes first,
+        // the draw that first shows the key makes the erased row under the line again, rather than moving the cursor down to where it was: the row is
+        // made before the line is drawn with the key a second time, if it is.
         editor.WriteAbove(() =>
         {
             output.Write("LOGGED\n");
             keys.Send(Char('c'));
         });
-        await WaitUntilAsync(() =>
-        {
-            var after = output.Text[output.Text.IndexOf("LOGGED", StringComparison.Ordinal)..];
-            return after.IndexOf("\rabc", StringComparison.Ordinal) is var first and >= 0 && after.IndexOf("\rabc", first + 1, StringComparison.Ordinal) >= 0;
-        });
+        string After() => output.Text[output.Text.IndexOf("LOGGED", StringComparison.Ordinal)..];
+        await WaitUntilAsync(() => After() is var after && after.Contains("\rabc", StringComparison.Ordinal) && after.Contains("\n\u001b[1A", StringComparison.Ordinal));
 
-        var text = output.Text[output.Text.IndexOf("LOGGED", StringComparison.Ordinal)..];
-        var second = text.IndexOf("\rabc", text.IndexOf("\rabc", StringComparison.Ordinal) + 1, StringComparison.Ordinal);
-        var reserved = text.IndexOf("\n\u001b[1A", StringComparison.Ordinal);
-        Assert.IsTrue(reserved >= 0 && reserved < second, "the first draw after the message makes the erased row under the line again, rather than moving down to where it was");
+        var text = After();
+        var again = text.IndexOf("\rabc", text.IndexOf("\rabc", StringComparison.Ordinal) + 1, StringComparison.Ordinal);
+        Assert.IsLessThan(again < 0 ? int.MaxValue : again, text.IndexOf("\n\u001b[1A", StringComparison.Ordinal),
+            "the erased row under the line is made by the draw that first shows the key");
 
         keys.Send(Key(ConsoleKey.Enter));
         Assert.AreEqual("abc", await reading);

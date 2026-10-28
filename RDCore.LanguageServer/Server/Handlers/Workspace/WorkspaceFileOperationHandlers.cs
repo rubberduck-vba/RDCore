@@ -40,13 +40,32 @@ internal static class WorkspaceFileOperationFilters
         Pattern = new FileOperationPattern { Glob = glob, Matches = kind, Options = new FileOperationPatternOptions { IgnoreCase = true } },
     };
 
-    /// <summary>
-    /// Tells the client what came of its file operations, which are done in the background - the notification is answered at once - in the order it sent them.
-    /// </summary>
-    public static void Report(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
-        => _ = ReportAsync(operation, server, logger);
+    // the environment host and the symbols are done some time after the operation is: the client is told then what they made of the workspace.
+    public static async Task ReportCompletedAsync(Task<WorkspaceReloadResult> completed, ILanguageServerFacade server, ILogger logger)
+    {
+        try
+        {
+            // the operation was started by the service that puts the client's operations in order.
+#pragma warning disable VSTHRD003
+            WorkspaceChangeReport.Send(server, await completed);
+#pragma warning restore VSTHRD003
+        }
+        catch (OperationCanceledException) when (completed.IsCanceled)
+        {
+            // the server is stopping: there is nobody to tell. A request that failed by being cancelled is not that, and is logged below.
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "❌ The environment host and the symbols could not be made what the client's file operations left the project.");
+        }
+    }
 
-    private static async Task ReportAsync(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
+    /// <summary>
+    /// Tells the client what came of a file operation, once the documents of the workspace are what the project lists: a handler that awaits it keeps the notifications that
+    /// follow it in the client's order behind it. The environment host and the symbols follow, and the client is told what they made of the workspace when they are done:
+    /// nothing waits for them.
+    /// </summary>
+    public static async Task ReportAsync(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
     {
         try
         {
@@ -58,6 +77,8 @@ internal static class WorkspaceFileOperationFilters
                 return;
             }
 
+            // the end of the operation is watched before anything the client is told can fail.
+            _ = ReportCompletedAsync(result.Completed, server, logger);
             foreach (var (relativeUri, moduleName) in result.NotAdded)
             {
                 server.Window.ShowMessage(new ShowMessageParams
@@ -66,8 +87,6 @@ internal static class WorkspaceFileOperationFilters
                     Message = string.Format(WorkspaceMessages.FileNotAddedModuleNameTaken, relativeUri, moduleName),
                 });
             }
-
-            WorkspaceChangeReport.Send(server, result.Reload);
         }
         catch (Exception exception)
         {
@@ -85,11 +104,11 @@ internal sealed class DidCreateWorkspaceFilesHandler(
     ILanguageServerFacade server,
     ILogger<DidCreateWorkspaceFilesHandler> logger) : DidCreateFileHandlerBase
 {
-    public override Task<Unit> Handle(DidCreateFileParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidCreateFileParams request, CancellationToken cancellationToken)
     {
         var uris = request.Files.Select(file => file.Uri).ToList();
-        WorkspaceFileOperationFilters.Report(files.CreatedAsync(uris, CancellationToken.None), server, logger);
-        return Unit.Task;
+        await WorkspaceFileOperationFilters.ReportAsync(files.CreatedAsync(uris, CancellationToken.None), server, logger);
+        return Unit.Value;
     }
 
     protected override DidCreateFileRegistrationOptions CreateRegistrationOptions(FileOperationsWorkspaceClientCapabilities capability, ClientCapabilities clientCapabilities)
@@ -108,12 +127,15 @@ internal sealed class DidRenameWorkspaceFilesHandler(
     ILanguageServerFacade server,
     ILogger<DidRenameWorkspaceFilesHandler> logger) : IJsonRpcNotificationHandler<DidRenameWorkspaceFilesParams>
 {
-    public Task<Unit> Handle(DidRenameWorkspaceFilesParams request, CancellationToken cancellationToken)
+    public async Task<Unit> Handle(DidRenameWorkspaceFilesParams request, CancellationToken cancellationToken)
     {
         // read as a document URI is: a client escapes a drive letter's colon (file:///c%3A/...).
         var renames = request.Files.Select(file => (DocumentUri.From(file.OldUri).ToUri(), DocumentUri.From(file.NewUri).ToUri())).ToList();
-        WorkspaceFileOperationFilters.Report(files.RenamedAsync(renames, CancellationToken.None), server, logger);
-        return Unit.Task;
+
+        // the notification is in the lane the document notifications are in, and is answered once the rename is made: a client closes the old path and opens the
+        // new one before it says the file was renamed, and what it sends after that is not read before the rename is done.
+        await WorkspaceFileOperationFilters.ReportAsync(files.RenamedAsync(renames, CancellationToken.None), server, logger);
+        return Unit.Value;
     }
 }
 
@@ -125,11 +147,11 @@ internal sealed class DidDeleteWorkspaceFilesHandler(
     ILanguageServerFacade server,
     ILogger<DidDeleteWorkspaceFilesHandler> logger) : DidDeleteFileHandlerBase
 {
-    public override Task<Unit> Handle(DidDeleteFileParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidDeleteFileParams request, CancellationToken cancellationToken)
     {
         var uris = request.Files.Select(file => file.Uri).ToList();
-        WorkspaceFileOperationFilters.Report(files.DeletedAsync(uris, CancellationToken.None), server, logger);
-        return Unit.Task;
+        await WorkspaceFileOperationFilters.ReportAsync(files.DeletedAsync(uris, CancellationToken.None), server, logger);
+        return Unit.Value;
     }
 
     protected override DidDeleteFileRegistrationOptions CreateRegistrationOptions(FileOperationsWorkspaceClientCapabilities capability, ClientCapabilities clientCapabilities)

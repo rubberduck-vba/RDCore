@@ -27,6 +27,9 @@
   <data name="WorkspaceCouldNotBeLoaded" xml:space="preserve">
     <value>The workspace '{0}' could not be loaded: {1}</value>
   </data>
+  <data name="FileOutsideTheWorkspaceFolders" xml:space="preserve">
+    <value>'{0}', listed by the project in '{1}', is in no folder of the workspace, and is not a file of the project.</value>
+  </data>
   <data name="ComponentParsingServer" xml:space="preserve">
     <value>parsing server</value>
   </data>

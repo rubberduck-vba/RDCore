@@ -416,6 +416,15 @@
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>AUCUN POINT D'ARRÊT</value>
   </data>
+  <data name="Repl_Inlays_Summary" xml:space="preserve">
+    <value>Affiche les indices du serveur de langage dans un listage - le nom du paramètre auquel chaque argument est donné, et le type d'une déclaration qui n'en indique pas - ou cesse de les afficher (INLAYS ON, INLAYS OFF).</value>
+  </data>
+  <data name="Repl_Inlays_On" xml:space="preserve">
+    <value>INDICES AFFICHÉS DANS LES LISTAGES</value>
+  </data>
+  <data name="Repl_Inlays_Off" xml:space="preserve">
+    <value>INDICES NON AFFICHÉS DANS LES LISTAGES</value>
+  </data>
   <data name="Repl_Fold_Summary" xml:space="preserve">
     <value>Réduit le bloc qui commence à une ligne (un If, un Select Case, une boucle, un With) dans un listage, ou le développe (FOLD 40).</value>
   </data>
@@ -608,6 +617,9 @@
   <data name="Compilation_Reason_Refused" xml:space="preserve">
     <value>du code compilé que le runtime refuse d'exécuter (un défaut du compilateur) : {0}</value>
   </data>
+  <data name="Compilation_Reason_BoxedEvaluation" xml:space="preserve">
+    <value>les valeurs sont tenues en boîte ({0}), et le code compilé travaille sur les valeurs brutes de ses variables</value>
+  </data>
   <data name="Repl_Breakpoint_Enabled" xml:space="preserve">
     <value>POINT D'ARRÊT ACTIF À {0}</value>
   </data>
@@ -643,6 +655,12 @@
   </data>
   <data name="Config_Reset_Detail" xml:space="preserve">
     <value>Remet un paramètre, une section ou chaque paramètre tel que la plateforme a été déployée</value>
+  </data>
+  <data name="Config_Import_Detail" xml:space="preserve">
+    <value>Importe des paramètres d'un autre outil</value>
+  </data>
+  <data name="Config_Import_Rubberduck_Detail" xml:space="preserve">
+    <value>Règle le formatage d'après les paramètres d'indentation que vous aviez dans Rubberduck (Windows seulement)</value>
   </data>
   <data name="Config_NothingSet" xml:space="preserve">
     <value>Chaque paramètre est tel que la plateforme a été déployée.</value>

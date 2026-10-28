@@ -48,10 +48,10 @@ internal sealed class WorkspaceFileSystemWatcher(
         .Select(fileType => fileType.TrimStart('*', '.').ToLowerInvariant())
         .Distinct()];
 
-    private static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static StringComparison PathComparison => WorkspacePaths.Comparison;
 
     private readonly object _gate = new();
-    private readonly Dictionary<string, FileChangeType> _pending = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+    private readonly Dictionary<string, FileChangeType> _pending = new(WorkspacePaths.Comparer);
     private IFileSystemWatcher? _watcher;
     private ILanguageServerFacade? _server;
     private string _root = string.Empty;

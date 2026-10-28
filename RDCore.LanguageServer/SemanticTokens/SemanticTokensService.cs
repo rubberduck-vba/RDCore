@@ -120,12 +120,12 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         var constants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // the class modules of the workspace are types, whatever module of it is being highlighted. A document that is no file, or of a server with no workspace,
+        // the class modules of the document's project are types, whatever module is being highlighted. A document that is no file, or of a server with no workspace,
         // is a project of its own (SymbolUri.RootOf), as completion composes it: its own module is the only one there is.
         var isOwnProject = !documentUri.IsFile || documents.WorkspaceRoot.Length == 0;
-        IEnumerable<WorkspaceDocument> modules = !isOwnProject ? documents.GetAllDocuments()
-            : documents.TryGetModule(documentUri, out var own) ? [own]
-            : [];
+        IEnumerable<WorkspaceDocument> modules = isOwnProject
+            ? (documents.TryGetModule(documentUri, out var own) ? [own] : [])
+            : documents.TryGetDocument(documentUri, out var holder) ? documents.GetProjectDocuments(holder.WorkspaceRoot) : documents.GetAllDocuments();
         foreach (var other in modules)
         {
             var path = other.Id.Uri.GetFileSystemPath();

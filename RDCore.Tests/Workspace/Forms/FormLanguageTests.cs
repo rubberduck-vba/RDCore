@@ -271,7 +271,7 @@ public sealed class FormLanguageTests
         });
         var completion = new CompletionService(
             documents, parsing, new IntrinsicSymbolResolver(), libraries, References.Source, new ClientVerbRegistry(), options,
-            NullLogger<CompletionService>.Instance);
+            NullLogger<CompletionService>.Instance, RDCore.Tests.LanguageServer.OneProject.Registry());
 
         var list = await completion.CompleteDocumentAsync(uri, position, CancellationToken.None);
         return [.. list.Items.Select(item => item.Label)];
