@@ -169,6 +169,57 @@ public sealed class SplitHeaderRuntimeTests
             "Private Function Probe() As String", "    Fill", "    Probe = CStr(arr(2))", "End Function"));
 
     [TestMethod]
+    public async Task ANameADeadBranchDeclaresPrivately_IsThePublicOfAnotherModule()
+    {
+        // S increments the Public of the other module, as MS-VBA compiles the module where Mac is False: there is no Count of the module's own to hide it.
+        var output = await ModuleWorkspace.RunAsync([],
+            [("Counting", ModuleWorkspace.StandardModule("Counting", "#If Mac Then", "Private Count As Long", "#End If", "Public Sub S()", "    Count = Count + 1", "End Sub")),
+                ("Counter", ModuleWorkspace.StandardModule("Counter", "Public Count As Long"))],
+            string.Join("\r\n", "Public Sub Main()", "    S", "    S", "    Debug.Print Count", "End Sub", ""));
+
+        CollectionAssert.AreEqual(new[] { "2" }, output);
+    }
+
+    [TestMethod]
+    public async Task AReDimOfANameADeadBranchDeclaresPrivately_ReDimsThePublicOfAnotherModule()
+    {
+        var output = await ModuleWorkspace.RunAsync([],
+            [("Filling", ModuleWorkspace.StandardModule("Filling", "#If Mac Then", "Private arr() As Long", "#End If", "Public Sub S()", "    ReDim arr(3)", "    arr(1) = 5", "End Sub")),
+                ("Store", ModuleWorkspace.StandardModule("Store", "Public arr() As Long"))],
+            string.Join("\r\n", "Public Sub Main()", "    S", "    Debug.Print UBound(arr) & \" \" & arr(1)", "End Sub", ""));
+
+        CollectionAssert.AreEqual(new[] { "3 5" }, output);
+    }
+
+    [TestMethod]
+    [Ignore("a Public that another module declares only in dead #If branches still keeps a procedure from declaring the name: the language server binds it, "
+        + "and the host, which drops it, has no other module's dead branches to decide a local of this one by")]
+    public async Task AReDimOfAPublicThatADeadBranchOfAnotherModuleDeclares_DeclaresALocalArray()
+    {
+        var output = await ModuleWorkspace.RunAsync([],
+            [("Store", ModuleWorkspace.StandardModule("Store", "#If Mac Then", "Public arr() As Long", "#End If"))],
+            string.Join("\r\n", "Public Sub Main()", "    ReDim arr(3)", "    arr(1) = 5", "    Debug.Print arr(1)", "End Sub", ""));
+
+        CollectionAssert.AreEqual(new[] { "5" }, output);
+    }
+
+    [TestMethod]
+    public async Task WhereImplicitVariablesAreTheModules_ANameADeadBranchDeclares_IsOne()
+    {
+        // a BASIC declares a name a procedure uses at module level (ImplicitDeclarationScope.Module): the one the dead branch declares is not that variable.
+        SDK.Platform.Protocol.ExecuteSessionResult? result = null;
+        await ModuleWorkspace.InspectAsync([], string.Join("\r\n",
+            "#If Mac Then", "Dim N As Long", "#End If", "Public Sub Main()", "    N = 5", "    Debug.Print N", "End Sub", ""), (_, run, _) =>
+            {
+                result = run;
+                return Task.CompletedTask;
+            }, language: SDK.Workspace.SupportedLanguages.BASIC);
+
+        Assert.AreEqual(SDK.Platform.Protocol.ExecutionOutcome.Completed, result!.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "5" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
     [DataRow("    v = Array(1)|    Probe = CStr(v(0))", "1", DisplayName = "an implicit local")]
     [DataRow("    ReDim a(2)|    a(1) = 4|    Probe = CStr(a(1))", "4", DisplayName = "a ReDim's target")]
     [DataRow("    Dim v As Variant|    v = Array(7)|    Probe = CStr(v(0))", "7", DisplayName = "a Variant that holds an array")]

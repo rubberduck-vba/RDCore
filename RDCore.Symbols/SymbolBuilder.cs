@@ -611,7 +611,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         {
             var usedBefore = valueNames.Any(used => used.SourceLocation.Range.Start < redim.SourceLocation.Range.Start
                 && string.Equals(used.IdentifierName, redim.Name, StringComparison.OrdinalIgnoreCase));
-            if (redim.IsSimpleName && !usedBefore && UnlessLiveOf(redim.Name) is { } unlessLive)
+            if (redim.IsSimpleName && !usedBefore && UnlessLiveOf(redim.Name) is { } unlessLive
+                && !(redim.Target is SimpleNameExpressionNode redimmed && IsBoundBeyondTheModule(redimmed, asRedimTarget: true)))
             {
                 declared.Add(redim.Name);
                 results.Add(BuildRedimLocal(redim, procedureUri).With(SymbolProperties.UnlessLive, unlessLive));
@@ -640,10 +641,13 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         {
             foreach (var reference in body.SelectMany(ValueContextSimpleNames))
             {
-                if (implicitScope == ImplicitDeclarationScope.Procedure && UnlessLiveOf(reference.IdentifierName) is { } unlessLive)
+                // where the environment declares an implicit variable at module level, it is a site of the module's name beside the dead declarations: the
+                // host defines the live one of them (WorkspaceSymbol.LiveDeclaration), and this language server's scopes leave it out.
+                if (UnlessLiveOf(reference.IdentifierName) is { } unlessLive && !IsBoundBeyondTheModule(reference, asRedimTarget: false))
                 {
                     declared.Add(reference.IdentifierName);
-                    results.Add(BuildImplicitLocal(reference, procedureUri, null).With(SymbolProperties.UnlessLive, unlessLive));
+                    results.Add((implicitScope == ImplicitDeclarationScope.Module ? BuildImplicitModuleVariable(reference, null) : BuildImplicitLocal(reference, procedureUri, null))
+                        .With(SymbolProperties.UnlessLive, unlessLive));
                     continue;
                 }
 
@@ -708,6 +712,17 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         => resolved.Symbol is VBModuleFieldVariableMemberSymbol variable
             && variable.GetProperty(SymbolProperties.ImplicitlyDeclared)
             && variable.ParentUri.AbsoluteUri == moduleUri.AbsoluteUri;
+
+    // whether a name the module declares only in #If branches is bound where the module's own declarations are not seen - a Public of another module, a member
+    // of a library - so that where those are dead it binds there, and the procedure declares nothing by it. Of a ReDim's target, only a variable or a
+    // constant is a match (MatchesARedimTarget). A lookup that is ambiguous is a match too, which the reference has to qualify.
+    private bool IsBoundBeyondTheModule(SimpleNameExpressionNode name, bool asRedimTarget)
+    {
+        var resolved = resolver.ResolveValue(name, ScopeKind.Local, workspaceRoot);
+        return resolved.IsError
+            || resolved.Symbol is { } symbol && symbol.ParentUri.AbsoluteUri != moduleUri.AbsoluteUri
+                && (!asRedimTarget || symbol is VBModuleFieldVariableMemberSymbol or VBConstantMemberSymbol or VBEnumConstMemberSymbol);
+    }
 
     // what a ReDim's target matches (MS-VBAL §5.4.3.3), as MS-VBA has it: a variable or a constant of any module or library, a member of an enumeration,
     // the result of the function or the Property Get the ReDim is in; and a name that is ambiguous, which the ReDim has to qualify. The local an earlier pass
