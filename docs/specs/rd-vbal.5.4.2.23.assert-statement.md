@@ -31,7 +31,8 @@ concerned.
 A failed `Assert` call is a semantic break: it enters `Break` mode
 ([**RD-VBAL §2.3.2** Mode / State](rd-vbal.2.3.2.mode-state.md)).
 
-In a release build, `Debug.Assert` leaves no instruction at all and its expression is not evaluated, as with `Debug.Print`
+A release build keeps `Debug.Assert`, as a debug build does, unless `Environment.ReleaseDropsDebugStatements` is set. Then `Debug.Assert` leaves no
+instruction at all and its expression is not evaluated, as with `Debug.Print`
 ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#build-configuration)).
 
 ---
