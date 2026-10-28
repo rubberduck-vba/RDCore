@@ -49,7 +49,7 @@ public sealed class RenameServiceProjectsTests
         var primary = Substitute.For<IProjectFileService>();
         primary.Project.Returns(new ProjectFile(RootA, new RDCoreProject { Name = "A" }));
         _projects = new WorkspaceProjects(primary);
-        _projects.Initialize(RootA, [RootA, RootB, Shared], []);
+        _projects.Initialize(RootA, [RootA, RootB, Shared], [], []);
         _projects.Add(new WorkspaceProject(RootB, new ProjectFile(RootB, new RDCoreProject { Name = "B" })));
 
         _documents.WorkspaceRoot.Returns(RootA);

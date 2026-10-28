@@ -3,8 +3,8 @@ using RDCore.SDK.Workspace;
 namespace RDCore.Tests.Workspace;
 
 /// <summary>
-/// Which folders of a workspace are projects and which hold the sources a project lists: the import names the project, and a client that never
-/// imports is read by what the projects list.
+/// Which folders of a workspace are projects and which hold the sources a project lists: the first folder is a project; a folder that an imported project lists files
+/// in is a source folder, whatever it holds; a folder with a project of its own is a project; and a folder that holds none is judged by what the projects before it list.
 /// </summary>
 [TestClass]
 public sealed class WorkspaceFolderRolesTests
@@ -21,91 +21,98 @@ public sealed class WorkspaceFolderRolesTests
     private static WorkspaceFolderRole[] RolesOf(WorkspaceFolderRoles roles, Func<string, IEnumerable<string>> listed)
         => [.. roles.Roles(listed).Select(entry => entry.Role)];
 
-    [TestMethod]
-    public void WithoutAnImport_TheFirstFolderIsAProject_AndALaterOneAProjectListsFilesIn_IsASourceFolder()
-    {
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared]), []);
-
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(roles, AppListsShared));
-    }
+    private static WorkspaceFolderRoles Roles(string[] folders, string[]? imported = null, string[]? withProject = null)
+        => new(new WorkspaceFolders(folders), imported ?? [], withProject ?? []);
 
     [TestMethod]
-    public void WithoutAnImport_ALaterFolderNoProjectListsFilesIn_IsAProject()
-    {
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Other]), []);
-
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(roles, AppListsShared));
-    }
+    public void ALaterFolderAProjectListsFilesIn_IsASourceFolder_WhenItHoldsNoProject()
+        => CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(Roles([App, Shared]), AppListsShared));
 
     [TestMethod]
-    public void WithoutAnImport_AProjectListsNothingOfAFolderBeforeIt_SoItIsAProject()
-    {
-        // Shared comes first, and App after it: only a project that comes before a folder says what the folder is.
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([Shared, App]), []);
-
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(roles, AppListsShared));
-    }
+    public void ALaterFolderNoProjectListsFilesIn_IsAProject()
+        => CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(Roles([App, Other]), AppListsShared));
 
     [TestMethod]
-    public void WithoutAnImport_ASourceFolderListsNothingOfAnother()
+    public void OnlyAProjectThatComesBeforeAFolder_SaysWhatItIs()
+        => CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(Roles([Shared, App]), AppListsShared));
+
+    [TestMethod]
+    public void ASourceFolder_ListsNothingOfAnother()
     {
         // Shared is a source folder; what it lists, if it held a .rdproj, is nobody's: the third folder is a project.
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared, Other]), []);
         IEnumerable<string> Listed(string root) => root == App ? [Path.Combine(Shared, "Util.bas")] : root == Shared ? [Path.Combine(Other, "X.bas")] : [];
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, RolesOf(roles, Listed));
+        CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project }, RolesOf(Roles([App, Shared, Other]), Listed));
     }
 
     [TestMethod]
-    public void AnImport_NamesTheProjects_AndEveryOtherLaterFolderIsASourceFolder()
+    public void AFolderWithAProjectOfItsOwn_IsAProject_WhateverAProjectBeforeItLists()
+        => CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(Roles([App, Shared], withProject: [Shared]), AppListsShared),
+            "a native project that a project lists a file of is still a project");
+
+    [TestMethod]
+    public void AFolderAnImportedProjectListsFilesIn_IsASourceFolder_EvenWhenItHoldsAProjectOfItsOwn()
+        => CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(Roles([App, Shared], imported: [App], withProject: [App, Shared]), AppListsShared),
+            "its .rdproj is ignored");
+
+    [TestMethod]
+    public void ANativeProjectFolder_AfterAnImportedProjectsFolder_StaysAProject()
     {
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared, Other]), [Other]);
+        // App was imported and lists nothing in Other; Other has a project of its own.
+        IEnumerable<string> Listed(string root) => root == App ? [Path.Combine(App, "Main.bas")] : [];
 
         CollectionAssert.AreEqual(
-            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project },
-            RolesOf(roles, _ => throw new AssertFailedException("what the projects list is not asked once the roles are told which folders are projects")));
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(Roles([App, Other], imported: [App], withProject: [App, Other]), Listed));
     }
 
     [TestMethod]
-    public void TheFirstFolder_IsAProject_WhateverWasImported()
+    public void AFolderWithNoProject_AnImportedProjectListsNothingIn_IsJudgedByOrder()
     {
-        // the first folder is the one the server runs: an import of the project in another folder does not make it a source folder.
-        var folders = new WorkspaceFolders([App, Other]);
+        IEnumerable<string> Listed(string root) => root == App ? [Path.Combine(App, "Main.bas")] : [];
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(new WorkspaceFolderRoles(folders, [Other]), _ => []));
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared]), [App]), _ => []));
+        CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, RolesOf(Roles([App, Other], imported: [App], withProject: [App]), Listed),
+            "it is not a source folder because a project was imported elsewhere");
     }
+
+    [TestMethod]
+    public void TheFirstFolder_IsAlwaysAProject()
+        => CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project },
+            RolesOf(Roles([App, Other], imported: [Other], withProject: [Other]), root => root == Other ? [Path.Combine(App, "X.bas")] : []),
+            "an imported project that comes after it lists files in it, and it stays the folder the server runs");
 
     [TestMethod]
     public void AnImportedProject_IsTheFolderOfTheWorkspaceThatHoldsIt()
     {
-        // the .vbp is in a subfolder of the workspace folder the client opened: the folder that holds it is the project folder.
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared, Other]), [Path.Combine(Shared, "vbp")]);
+        // the .vbp is in a subfolder of the workspace folder the client opened: the folder that holds it is the imported project's folder.
+        var roles = Roles([App, Shared, Other], imported: [Path.Combine(Shared, "vbp")], withProject: [Shared]);
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(roles, _ => []));
+        CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project, WorkspaceFolderRole.Source },
+            RolesOf(roles, root => root == Shared ? [Path.Combine(Other, "X.bas")] : []),
+            "Other is listed by the imported project in Shared");
     }
 
     [TestMethod]
-    public void AnImportedProject_NoFolderOfTheWorkspaceHolds_IsIgnored()
-    {
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared]), [Path.Combine(Base, "Elsewhere")]);
-
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(roles, AppListsShared),
-            "it names no folder of the workspace, so the client has imported nothing that counts");
-    }
+    public void AProjectNoFolderOfTheWorkspaceHolds_IsIgnored()
+        => CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, RolesOf(Roles([App, Shared], imported: [Path.Combine(Base, "Elsewhere")]), AppListsShared));
 
     [TestMethod]
     public void AGroup_OfTwoProjectsEachWithItsOutsideFolder_IsReadFolderByFolder()
     {
-        // HexIDE sends each .vbp's folder before that project's outside folders.
+        // a client sends each project's folder before that project's outside folders.
         var second = Path.Combine(Base, "Second");
         var secondShared = Path.Combine(Base, "SecondShared");
-        var roles = new WorkspaceFolderRoles(new WorkspaceFolders([App, Shared, second, secondShared]), []);
         IEnumerable<string> Listed(string root)
             => root == App ? [Path.Combine(Shared, "Util.bas")] : root == second ? [Path.Combine(secondShared, "Util.bas")] : [];
 
         CollectionAssert.AreEqual(
             new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source, WorkspaceFolderRole.Project, WorkspaceFolderRole.Source },
-            RolesOf(roles, Listed));
+            RolesOf(Roles([App, Shared, second, secondShared]), Listed));
     }
 }
