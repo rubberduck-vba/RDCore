@@ -68,7 +68,7 @@ public enum LogicalOperator
 
 /// <summary>
 /// The operations of payloads of an integer type, a <c>Boolean</c> or a <c>Currency</c>, their comparisons, and the exact conversions of a payload from one
-/// scalar type to another (IR lowering S1.8): one static method per operation, told the type it operates in, that says what it did
+/// scalar type to another: one static method per operation, told the type it operates in, that says what it did
 /// (<see cref="PayloadStatus"/>). The interpreter's evaluation on payloads and compiled code both call them, so the two are one implementation.
 /// </summary>
 /// <remarks>

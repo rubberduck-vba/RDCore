@@ -21,7 +21,7 @@ using RDCore.SDK.Semantics.Plans;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// Whether a procedure is compiled (IR lowering §9.2, eligibility), and what it compiles to: the instructions of its body, each as the payload operations
+/// Whether a procedure is compiled, and what it compiles to: the instructions of its body, each as the payload operations
 /// it is made of, in the order the interpreter's evaluation on payloads makes them.
 /// </summary>
 /// <remarks>
@@ -32,7 +32,7 @@ namespace RDCore.Runtime.Compiled;
 /// declines too, and hands the activation to the interpreter at that instruction (<see cref="CompiledActivation.Interpret"/>).
 /// </para>
 /// <para>
-/// Stage 2, S2.1 compiles a procedure of a standard module whose parameters are scalars passed by value and whose variables are scalars: literals,
+/// Compiled code does a procedure of a standard module whose parameters are scalars passed by value and whose variables are scalars: literals,
 /// constants, arithmetic, comparisons and the logical operators; <c>Let</c>; <c>If</c>, <c>Do</c>, <c>While</c> and <c>For</c>; <c>Exit</c>.
 /// </para>
 /// </remarks>

@@ -229,7 +229,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         };
     }
 
-    // the body run compiled when the session runs compiled code and the procedure is compiled (IR lowering §9.2), and in the interpreter otherwise: an
+    // the body run compiled when the session runs compiled code and the procedure is compiled, and in the interpreter otherwise: an
     // analysis, a debugger attached and an error a Class_Terminate left unhandled are the interpreter's, and so is everything when payloads are not used.
     private RuntimeExecutionOutcome Run(VBTypeMemberSymbol procedure, CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context)
     {

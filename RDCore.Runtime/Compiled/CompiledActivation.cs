@@ -12,7 +12,7 @@ using System.Runtime.CompilerServices;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// An activation of a procedure that runs compiled (IR lowering §9.2): what its compiled code is given, and everything it calls besides the payload
+/// An activation of a procedure that runs compiled: what its compiled code is given, and everything it calls besides the payload
 /// operations - reading its parameters, polling for what stops a program, and handing the activation to the interpreter.
 /// </summary>
 /// <remarks>

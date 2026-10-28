@@ -16,8 +16,7 @@ internal sealed class CompilationCommandOptions
 }
 
 /// <summary>
-/// <c>rdc compilation [path]</c>: says, for each procedure of a workspace, whether it runs compiled, and what keeps it in the interpreter when it does not
-/// (IR lowering §9.2, eligibility).
+/// <c>rdc compilation [path]</c>: says, for each procedure of a workspace, whether it runs compiled, and what keeps it in the interpreter when it does not.
 /// </summary>
 /// <remarks>
 /// The workspace is loaded as <c>rdc bench</c> loads it, and each procedure compiled as its first call would compile it; nothing is run.

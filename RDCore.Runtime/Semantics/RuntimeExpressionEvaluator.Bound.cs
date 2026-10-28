@@ -72,7 +72,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// The bound tree of an expression written in the body of <paramref name="procedure"/>, its variables bound to the slots of the procedure's layout: what
-    /// compiled code is emitted from (IR lowering S2.1), whatever activation is current.
+    /// compiled code is emitted from, whatever activation is current.
     /// </summary>
     internal BoundNode BindInProcedure(IRuntimeSession session, ExpressionNode expression, Symbol procedure)
     {

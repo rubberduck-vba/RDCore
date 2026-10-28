@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Types.Abstract;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// The scalar types a payload is of (IR lowering S1.2), as compiled code names them: a constant an operation is told, rather than a <c>VBType</c> it tests.
+/// The scalar types a payload is of, as compiled code names them: a constant an operation is told, rather than a <c>VBType</c> it tests.
 /// </summary>
 /// <remarks>
 /// An integer type, a <c>Boolean</c> and a <c>Currency</c> are held as a <see cref="long"/> - a <c>Boolean</c> as its -1 or 0, a <c>Currency</c> as its

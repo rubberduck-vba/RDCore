@@ -34,7 +34,7 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     public SemanticModelStore Semantics { get; } = new();
 
     /// <summary>
-    /// What compiles the procedures of the image to IL, when the session runs compiled code (IR lowering §9.2): into one collectible assembly, which goes with
+    /// What compiles the procedures of the image to IL, when the session runs compiled code: into one collectible assembly, which goes with
     /// the image.
     /// </summary>
     internal Compiled.ProcedureCompiler Compiler { get; } = new();

@@ -484,7 +484,7 @@ public sealed partial class RuntimeExpressionEvaluator
     internal static bool IsConstant(Symbol symbol) => symbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol;
 
     /// <summary>
-    /// The value of a constant named at <paramref name="node"/>, folded, when it is of a scalar type: what compiled code reads it as (IR lowering S2.1).
+    /// The value of a constant named at <paramref name="node"/>, folded, when it is of a scalar type: what compiled code reads it as.
     /// </summary>
     internal bool TryFoldConstant(IRuntimeSession session, BoundNode node, Symbol constant, out ScalarPayload payload)
         => TryReadConstant(session, node, constant, out payload);
@@ -828,7 +828,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // MS-VBAL §5.6.9.3: the operators on their effective type, as the boxed evaluation does them (checked, in the type's own width); a result that does not
     // fit, a division by zero and a result that is not finite are errors, which the boxed evaluation raises. The integral ones are PayloadOperations', which
-    // compiled code calls too (IR lowering S1.8).
+    // compiled code calls too.
     private static bool TryOperate(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;

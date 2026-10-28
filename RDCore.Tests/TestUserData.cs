@@ -17,7 +17,7 @@ public static class TestUserData
     {
         Environment.SetEnvironmentVariable(PlatformEnvironment.UserDataEnvironmentVariable, Directory);
 
-        // the suite runs each way the code can run (IR lowering §9.2, the differential runs): RDCORE_ENGINE=Compiled compiles every procedure that can be.
+        // the suite runs each way the code can run, to compare the two: RDCORE_ENGINE=Compiled compiles every procedure that can be.
         if (Environment.GetEnvironmentVariable("RDCORE_ENGINE") is { } engine
             && Enum.TryParse<RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine>(engine, ignoreCase: true, out var parsed))
         {

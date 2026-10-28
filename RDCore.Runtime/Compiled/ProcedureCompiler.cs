@@ -13,7 +13,7 @@ using System.Runtime.CompilerServices;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// Compiles the procedures of a program image to IL (IR lowering §9.2): each the first time it is called, into one collectible assembly for the image,
+/// Compiles the procedures of a program image to IL: each the first time it is called, into one collectible assembly for the image,
 /// which goes with it.
 /// </summary>
 /// <remarks>
@@ -107,7 +107,7 @@ internal sealed class ProcedureCompiler
 
 /// <summary>
 /// What runs the procedures of a session when it is asked to run compiled code, whatever its environment says: the test suite runs every procedure
-/// compiled this way (IR lowering §9.2, the differential runs), and holds the procedures it expects to be compiled to it.
+/// compiled this way, to compare each run with the interpreter's, and holds the procedures it expects to be compiled to it.
 /// </summary>
 internal static class CompiledExecution
 {

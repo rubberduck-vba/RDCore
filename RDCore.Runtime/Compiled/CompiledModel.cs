@@ -7,16 +7,16 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 public enum IneligibilityKind
 {
-    /// <summary>A member of a class, which is called on an object (stage 2, S2.5).</summary>
+    /// <summary>A member of a class: it is called on an object, which compiled code is not given.</summary>
     MemberOfAClass,
 
-    /// <summary>A parameter passed by reference (S2.3).</summary>
+    /// <summary>A parameter passed by reference: compiled code holds its parameters in locals of its own, which a caller's variable is not.</summary>
     ParameterByReference,
 
-    /// <summary>A parameter, a variable or a result of a type that is no scalar (S2.5, S2.6).</summary>
+    /// <summary>A parameter, a variable or a result of a type that is no scalar: compiled code holds only scalars, in locals.</summary>
     NotAScalar,
 
-    /// <summary>A <c>Static</c> variable (S2.6).</summary>
+    /// <summary>A <c>Static</c> variable: it outlives the activation, and compiled code keeps its variables in locals that go with it.</summary>
     StaticVariable,
 
     /// <summary>An instruction compiled code does not do: an error handler, a <c>GoSub</c>, a <c>With</c>, a <c>Select Case</c>, a <c>For Each</c>.</summary>
@@ -31,34 +31,40 @@ public enum IneligibilityKind
     /// <summary>A <c>For</c> loop that counts with what is not a variable of the procedure, or with a <c>Boolean</c>.</summary>
     ForCounter,
 
-    /// <summary>A call (S2.3).</summary>
+    /// <summary>A call: compiled code makes none, and a call is the interpreter's to make.</summary>
     Call,
 
-    /// <summary>A member of an object (S2.5).</summary>
+    /// <summary>A member of an object: compiled code holds no object.</summary>
     Member,
 
-    /// <summary>An element of an array, or a call of a default member (S2.6).</summary>
+    /// <summary>An element of an array, or a call of a default member: compiled code holds no array and no object.</summary>
     Element,
 
     /// <summary>A name bound late, which is resolved when it is evaluated.</summary>
     LateBound,
 
-    /// <summary>An operand of a <c>Variant</c> or an object, whose operation is planned for its value (S2.5).</summary>
+    /// <summary>An operand of a <c>Variant</c> or an object: its operation is planned for the value it holds, which compiled code does not know.</summary>
     VariantOperand,
 
-    /// <summary>A variable that is not the procedure's: a field of the module, a <c>Static</c>, another procedure's (S2.6).</summary>
+    /// <summary>
+    /// A variable that is not the procedure's - a field of the module, a <c>Static</c>, another procedure's: compiled code holds only the procedure's own
+    /// variables, in locals.
+    /// </summary>
     ForeignVariable,
 
-    /// <summary>A literal that is no scalar: a <c>String</c>, <c>Nothing</c>, <c>Null</c>, <c>Empty</c> (S2.5).</summary>
+    /// <summary>A literal that is no scalar - a <c>String</c>, <c>Nothing</c>, <c>Null</c>, <c>Empty</c>: compiled code holds only scalars.</summary>
     Literal,
 
     /// <summary>An operator compiled code does not do: <c>^</c>, <c>&amp;</c>, <c>Like</c>, <c>Is</c>; or an operation of no scalar type. Its detail is the operator.</summary>
     Operator,
 
-    /// <summary>A <c>GoTo</c>, a line that is jumped to (S2.4).</summary>
+    /// <summary>A <c>GoTo</c>, a line that is jumped to: compiled code jumps only where its loops and branches go.</summary>
     GoTo,
 
-    /// <summary>Compiled code the runtime refuses to run, which is a defect of the compiler. Its detail is what the runtime said.</summary>
+    /// <summary>
+    /// Compiled code that could not be written, or that the runtime refuses to run: a defect of the compiler. Its detail is what the emitter or the runtime
+    /// said.
+    /// </summary>
     Refused,
 }
 
@@ -71,7 +77,7 @@ public enum IneligibilityKind
 public sealed record class Ineligibility(IneligibilityKind Kind, string Detail, SourceLocation? Location = null);
 
 /// <summary>
-/// Whether a procedure runs compiled (IR lowering §9.2), and what keeps it in the interpreter when it does not: what <c>rdc compilation</c> reports.
+/// Whether a procedure runs compiled, and what keeps it in the interpreter when it does not: what <c>rdc compilation</c> reports.
 /// </summary>
 /// <param name="Procedure">The procedure.</param>
 /// <param name="IsCompiled">Whether it is compiled.</param>

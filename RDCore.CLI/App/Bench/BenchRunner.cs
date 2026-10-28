@@ -117,7 +117,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
 
     /// <summary>
     /// Loads <paramref name="workspace"/>, and compiles each procedure of each module that loaded, as its first call would: whether it runs compiled, and
-    /// what keeps it in the interpreter when it does not (IR lowering §9.2).
+    /// what keeps it in the interpreter when it does not.
     /// </summary>
     /// <param name="workspace">The workspace.</param>
     /// <param name="token">Stops the load.</param>

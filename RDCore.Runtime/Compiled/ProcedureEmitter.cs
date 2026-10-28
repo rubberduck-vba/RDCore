@@ -6,7 +6,7 @@ using System.Reflection.Emit;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// Writes the IL of a procedure that is compiled (IR lowering §9.2): one static method, <c>Run(CompiledActivation)</c>, that does what the interpreter does
+/// Writes the IL of a procedure that is compiled: one static method, <c>Run(CompiledActivation)</c>, that does what the interpreter does
 /// with its instruction list, instruction for instruction.
 /// </summary>
 /// <remarks>
