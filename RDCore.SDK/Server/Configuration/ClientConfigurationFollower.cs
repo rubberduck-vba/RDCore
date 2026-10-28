@@ -90,7 +90,7 @@ public sealed class ClientConfigurationFollower : IDisposable
             var token = _lifetime.Token;
             var said = LiveSettingsProtocol.Read(_server.Configuration);
             var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(_server, token);
-            var settings = FormattingTabSize.WithEditorTabSize(said, tabSize);
+            var adopted = FormattingTabSize.AdoptedFrom(said, tabSize);
 
             // the settings are set one change at a time, and a change is set only if no newer one came in and the follower is not disposed - decided under a lock that is
             // held for no longer than that: a listener of the change, which runs while the settings are set, can wait for another thread to follow or to dispose.
@@ -104,7 +104,7 @@ public sealed class ClientConfigurationFollower : IDisposable
                     }
                 }
 
-                _liveSettings.Apply(settings);
+                _liveSettings.Apply(said, adopted);
             }
 
             lock (_gate)
@@ -115,7 +115,7 @@ public sealed class ClientConfigurationFollower : IDisposable
                 }
             }
 
-            _log($"⚙️ The client's live settings were applied ({said.Count} value(s)){(settings.Count > said.Count ? $"; the indentation is the client's tab size ({settings["Formatting:IndentSpaces"]}), which no setting overrides" : string.Empty)}.");
+            _log($"⚙️ The client's live settings were applied ({said.Count} value(s)){(adopted.Count > 0 ? $"; the indentation is the client's tab size ({adopted.Values.Single()}), which no setting overrides" : string.Empty)}.");
             await _changed();
             return true;
         }
