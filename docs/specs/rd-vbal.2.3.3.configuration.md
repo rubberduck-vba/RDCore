@@ -126,6 +126,24 @@ RDCore's own:
 |`SnippetDimPlacement`|`AboveBlock`, `ProcedureTop`|`AboveBlock`|Where the `Dim` a snippet declares goes: right above the block, where it follows the variable's name as it is typed; or at the top of the procedure, where it does not.|
 |`PrettyList`|Boolean|`True`|A finished line is listed back from what it compiled to, as MS-VBA lists it, rather than formatted by rules of spacing and casing.|
 
+### Indentation and the editor's tab size
+
+`IndentSpaces` and the tab size of the client's editor are one setting said twice, and both are the client's: a client owns its configuration
+(**LSP 3.17** §Configuration Request), so the platform sets nothing of it. A change of the editor's tab size is a change of configuration like any other: the
+client says so (`workspace/didChangeConfiguration`), and the server asks (`workspace/configuration`) for the section `rdcore`, which holds `Formatting.IndentSpaces`
+when the user set it, and for `editor.tabSize`
+([`FormattingTabSize`](../api/RDCore.SDK.Formatting.FormattingTabSize.html)).
+
+|The user set `IndentSpaces`|The editor has a tab size|The indentation is|
+|---|---|---|
+|No|Yes|The editor's tab size, for as long as the server runs. Nothing is written.|
+|No|No|`4`.|
+|Yes|Either|`IndentSpaces`. The `tabSize` of a request to format (`FormattingOptions`) is not read: the indentation is made of spaces.|
+
+A client that wants the two to agree sets one from the other in its own configuration: the platform's shell has no editor, and a client with an editor
+(HexIDE, a VS Code extension) maps `editor.tabSize` for the VBA language to `Formatting.IndentSpaces`, or the other way.
+
+## `CONFIG`
 
 `CONFIG` (`CONFIGURE`) is a verb of the interactive shell. `rdc config` does the same in command mode, without starting the platform; it exits with `1` when it
 writes an error.

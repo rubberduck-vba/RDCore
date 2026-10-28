@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
@@ -411,8 +412,28 @@ public abstract class RDCoreServerApp(
             var settings = LiveSettingsProtocol.Read(server.Configuration);
             liveSettings.Apply(settings);
             LogIfEnabled(LogLevel.Information, $"⚙️ The client's live settings were applied ({settings.Count} value(s)).");
+            _ = AdoptEditorTabSizeAsync(server, settings, Interlocked.Increment(ref _configurationVersion));
             _ = OnLiveSettingsChangedAsync(server);
         });
+    }
+
+    private int _configurationVersion;
+
+    // an indentation the user never set is the tab size of the client's editor (FormattingTabSize); a newer change of the configuration has the last word.
+    private async Task AdoptEditorTabSizeAsync(ILanguageServer server, IReadOnlyDictionary<string, string> settings, int version)
+    {
+        try
+        {
+            var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(server);
+            if (version == Volatile.Read(ref _configurationVersion) && FormattingTabSize.Adopt(options.Value.Formatting, settings, tabSize))
+            {
+                LogIfEnabled(LogLevel.Information, $"⚙️ The indentation is the client's tab size ({options.Value.Formatting.IndentSpaces}), which no setting overrides.");
+            }
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Warning, $"The client's tab size could not be read: {exception.Message}");
+        }
     }
 
     /// <summary>
