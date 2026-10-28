@@ -275,7 +275,7 @@ public abstract class AppHost<TApp>() : IDisposable
         services
             .AddLiveSettings<SdkAppOptions>(SettingsSchema.Platform, string.Empty)
             .AddLiveSettings<SdkServerOptions>(SettingsSchema.Platform, "Server")
-            .AddSingleton<ILiveSettings>(sp => new LiveSettings(sp.GetServices<LiveSettingsTarget>(), Settings, sp.GetRequiredService<IPlatformEnvironment>()));
+            .AddSingleton<ILiveSettings>(sp => new LiveSettings(sp.GetServices<LiveSettingsTarget>(), Settings, sp.GetRequiredService<IPlatformEnvironment>(), sp.GetService<ILogger<LiveSettings>>()));
 
         services
             .AddSingleton<IRuntimeEnvironmentProfile>(sp =>

@@ -135,6 +135,96 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(told[1], "the second change is told after the first");
     }
 
+    private static LiveSettings LiveOf(SdkAppOptions options)
+    {
+        var schema = SettingsSchema.Platform;
+        return new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AListenerThatThrows_DoesNotKeepTheOthersFromBeingTold_NorStrandTheChangesBehindIt()
+    {
+        var options = new SdkAppOptions();
+        var live = LiveOf(options);
+
+        // the first listener holds the thread that tells the first change, and throws once it is let go; the second change is made meanwhile, on another thread.
+        using var holding = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var calls = 0;
+        live.Changed += (_, _) =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                holding.Set();
+                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(20)));
+            }
+
+            throw new InvalidOperationException("a listener that fails");
+        };
+        var told = new List<bool>();
+        live.Changed += (_, _) =>
+        {
+            lock (told)
+            {
+                told.Add(options.Server.Verbose);
+            }
+        };
+
+        var first = Task.Run(() => live.Apply(new Dictionary<string, string> { ["Server:Verbose"] = "False" }));
+        Assert.IsTrue(holding.Wait(TimeSpan.FromSeconds(20)), "the first change is being told");
+        var second = live.ApplyAsync(new Dictionary<string, string> { ["Server:Verbose"] = "True" }, new Dictionary<string, string>(), () => true);
+        release.Set();
+
+        await first.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.IsTrue(await second.WaitAsync(TimeSpan.FromSeconds(20)), "the call that made the change behind it is not left waiting");
+        Assert.HasCount(2, told, "both changes were told to the listener that does not fail");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AChange_IsToldOnceItsCallCompletes_WhicheverThreadTellsIt()
+    {
+        var options = new SdkAppOptions();
+        var live = LiveOf(options);
+        var told = 0;
+        using var holding = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        live.Changed += (_, _) =>
+        {
+            if (Interlocked.Increment(ref told) == 1)
+            {
+                holding.Set();
+                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(20)));
+            }
+        };
+
+        var first = Task.Run(() => live.Apply(new Dictionary<string, string> { ["Server:Verbose"] = "False" }));
+        Assert.IsTrue(holding.Wait(TimeSpan.FromSeconds(20)), "the first change is being told, and the thread that tells it is held");
+
+        // the second change is made while that is so: its settings are set, and nobody has told its listeners.
+        var second = live.ApplyAsync(new Dictionary<string, string> { ["Server:Verbose"] = "True" }, new Dictionary<string, string>(), () => true);
+        Assert.IsTrue(options.Server.Verbose, "its settings are set");
+        Assert.IsFalse(second.IsCompleted, "but its call is not done: its listeners were not told");
+        Assert.AreEqual(1, told);
+
+        release.Set();
+        Assert.IsTrue(await second.WaitAsync(TimeSpan.FromSeconds(20)));
+        await first.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.AreEqual(2, told, "and now they were");
+    }
+
+    [TestMethod]
+    public async Task AChangeThatIsNotCurrent_IsNotToldAndItsCallCompletesAtOnce()
+    {
+        var live = LiveOf(new SdkAppOptions());
+        var told = 0;
+        live.Changed += (_, _) => told++;
+
+        Assert.IsFalse(await live.ApplyAsync(new Dictionary<string, string>(), new Dictionary<string, string>(), () => false));
+        Assert.AreEqual(0, told);
+    }
+
     // a platform component: a server with its client, followed by the follower a server app starts when it is started (ClientConfigurationFollower.Follow).
     private sealed class Wire : IAsyncDisposable
     {
