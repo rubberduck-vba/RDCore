@@ -9,8 +9,8 @@ public enum WorkspaceFolderRole
     Project = 0,
 
     /// <summary>
-    /// A folder that may hold source files or other files, and is no project: a project lists files in it, and a <c>.rdproj</c> in it is ignored when the project is an
-    /// imported one - a client can open and edit it without telling the language server.
+    /// A folder that may hold source files or other files, has no <c>.rdproj</c>, and is no project: a project lists files in it - a client can open and edit it without
+    /// telling the language server.
     /// </summary>
     Source = 1,
 }
@@ -26,39 +26,31 @@ public enum WorkspaceFolderRole
 /// <list type="number">
 /// <item>The first folder is a project always: it is the folder the server runs.</item>
 /// <item>
-/// A later folder that an <em>imported</em> project lists files in is a source folder, even if it holds a <c>.rdproj</c> of its own, which is then ignored. A project is
-/// an imported one when the import wrote its <c>.rdproj</c> beside its <c>.vbp</c> (<c>rdcore.importProject</c>); a <c>.vbp</c> that was never imported counts for nothing.
+/// A later folder that holds a <c>.rdproj</c> of its own is a project, whether it was imported (<see cref="RDCoreProject.SourceProject"/>) or is a native one, and
+/// even when another project lists files in it: a file two projects list is a module of each.
 /// </item>
-/// <item>A later folder that holds a <c>.rdproj</c> of its own is a project.</item>
 /// <item>A later folder that holds no <c>.rdproj</c> is a source folder when a project that comes before it lists files in it, and a project when none does.</item>
 /// </list>
 /// <para>
 /// The roles are worked out again each time they are asked, from the folders and the files the projects list: none of it is remembered. The language server asks when the
-/// workspace is loaded: the projects it loaded stay as they were when a client imports one afterwards.
+/// workspace is loaded.
 /// </para>
 /// </remarks>
 public sealed class WorkspaceFolderRoles
 {
     private readonly WorkspaceFolders _folders;
-    private readonly HashSet<string> _imported;
     private readonly HashSet<string> _withProject;
 
     /// <summary>
     /// The roles of the folders of a workspace.
     /// </summary>
     /// <param name="folders">The folders of the workspace.</param>
-    /// <param name="importedProjectFolders">
-    /// The folders of the workspace that hold a project that was imported: a <c>.vbp</c> with the <c>.rdproj</c> the import wrote beside it. A folder that is
-    /// held by none is no folder of this workspace, and is ignored.
-    /// </param>
-    /// <param name="foldersWithProject">The folders of the workspace that hold a <c>.rdproj</c>.</param>
-    public WorkspaceFolderRoles(WorkspaceFolders folders, IEnumerable<string> importedProjectFolders, IEnumerable<string> foldersWithProject)
+    /// <param name="foldersWithProject">The folders of the workspace that hold a <c>.rdproj</c>. A folder that is held by none is no folder of this workspace, and is ignored.</param>
+    public WorkspaceFolderRoles(WorkspaceFolders folders, IEnumerable<string> foldersWithProject)
     {
         ArgumentNullException.ThrowIfNull(folders);
-        ArgumentNullException.ThrowIfNull(importedProjectFolders);
         ArgumentNullException.ThrowIfNull(foldersWithProject);
         _folders = folders;
-        _imported = new HashSet<string>(importedProjectFolders.Select(folders.RootOf).OfType<string>(), WorkspacePaths.Comparer);
         _withProject = new HashSet<string>(foldersWithProject.Select(folders.RootOf).OfType<string>(), WorkspacePaths.Comparer);
     }
 
@@ -73,21 +65,14 @@ public sealed class WorkspaceFolderRoles
         ArgumentNullException.ThrowIfNull(listedFilesOf);
 
         var roles = new List<(string Root, WorkspaceFolderRole Role)>(_folders.Roots.Count);
-        var listedByImported = new List<string>();
         var listed = new List<string>();
         foreach (var root in _folders.Roots)
         {
-            var isSource = roles.Count > 0
-                && (listedByImported.Any(path => WorkspaceFolders.Holds(root, path)) || !_withProject.Contains(root) && listed.Any(path => WorkspaceFolders.Holds(root, path)));
+            var isSource = roles.Count > 0 && !_withProject.Contains(root) && listed.Any(path => WorkspaceFolders.Holds(root, path));
             roles.Add((root, isSource ? WorkspaceFolderRole.Source : WorkspaceFolderRole.Project));
             if (!isSource)
             {
-                var files = listedFilesOf(root).ToList();
-                listed.AddRange(files);
-                if (_imported.Contains(root))
-                {
-                    listedByImported.AddRange(files);
-                }
+                listed.AddRange(listedFilesOf(root));
             }
         }
 

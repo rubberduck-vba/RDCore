@@ -32,10 +32,13 @@ public sealed class WorkspaceFoldersLoadTests
 
     private static readonly string Util = Path.Combine(Shared, "Util.bas");
 
-    private static MockFileData ProjectOf(string root, string name, params string[] modules)
+    private static MockFileData ProjectOf(string root, string name, params string[] modules) => ProjectImportedFrom(root, name, null, modules);
+
+    private static MockFileData ProjectImportedFrom(string root, string name, string? source, params string[] modules)
         => new(JsonSerializer.Serialize(new ProjectFile(root, new RDCoreProject
         {
             Name = name,
+            SourceProject = source,
             Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module })],
         })));
 
@@ -236,15 +239,16 @@ public sealed class WorkspaceFoldersLoadTests
         var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
         var from = Path.Combine(Lib, "Lib.bas");
         var to = Path.Combine(Lib, "Library.bas");
-        var opened = loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n' unsaved\r\n", 7);
+        loaded.Documents.Open(new Uri(from), "Attribute VB_Name = \"Lib\"\r\n", 7);
+        loaded.Documents.Edit(new TextDocumentIdentifier(new Uri(from)), "Attribute VB_Name = \"Lib\"\r\n' unsaved\r\n");
         files.File.Move(from, to);
 
         await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
 
         Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var moved));
         StringAssert.Contains(moved.Text, "unsaved", "not read again from disk");
-        Assert.AreEqual(7, moved.Version);
-        Assert.AreEqual(opened.IsDirty, moved.IsDirty);
+        Assert.AreEqual(8, moved.Version, "the client's version: opened at 7, and changed once");
+        Assert.IsTrue(moved.IsDirty, "and the moved document says so");
         CollectionAssert.AreEqual(new[] { Lib }, moved.Projects.ToArray());
         Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
         Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(from), out _), "and the old path is no document");
@@ -260,15 +264,40 @@ public sealed class WorkspaceFoldersLoadTests
         var to = Path.Combine(Lib, "Library.bas");
         files.File.Move(from, to);
         loaded.States.Track(new TextDocumentIdentifier(new Uri(to)));
-        loaded.Documents.Open(new Uri(to), "Attribute VB_Name = \"Lib\"\r\n' typed since\r\n", 3);
+        loaded.Documents.Open(new Uri(to), "Attribute VB_Name = \"Lib\"\r\n", 3);
+        loaded.Documents.Edit(new TextDocumentIdentifier(new Uri(to)), "Attribute VB_Name = \"Lib\"\r\n' typed since\r\n");
 
         await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
 
         Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var document));
         StringAssert.Contains(document.Text, "typed since");
-        Assert.AreEqual(3, document.Version);
+        Assert.AreEqual(4, document.Version);
         Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
         CollectionAssert.Contains(document.Projects.ToArray(), Lib);
+        Assert.IsTrue(document.IsDirty, "what the client typed is not on disk");
+        Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(from), out _), "and the old path is no document");
+    }
+
+    [TestMethod]
+    public async Task ASharedFileOpenWithUnsavedText_KeepsItsTextWhenItIsRenamed_ThoughTheNewPathWasReadFromDiskFirst()
+    {
+        // the primary project's reload cannot remove the open document at the old path and reads the new one from disk; the other project's rename then reaches the new path.
+        var files = Files();
+        var loaded = await new Loaded(files).LoadAsync(App, App, Shared, Lib);
+        var to = Path.Combine(Shared, "Tools.bas");
+        loaded.Documents.Open(new Uri(Util), "Attribute VB_Name = \"Util\"\r\n", 5);
+        loaded.Documents.Edit(new TextDocumentIdentifier(new Uri(Util)), "Attribute VB_Name = \"Util\"\r\n' unsaved\r\n");
+        files.File.Move(Util, to);
+
+        await loaded.FileOperations(files, Substitute.For<IProjectFileWriter>()).RenamedAsync([(new Uri(Util), new Uri(to))], CancellationToken.None);
+
+        Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(to), out var document));
+        StringAssert.Contains(document.Text, "unsaved", "not the text that was on disk");
+        Assert.AreEqual(6, document.Version);
+        Assert.IsTrue(document.IsDirty);
+        Assert.IsInstanceOfType<OpenedDocumentState>(loaded.States.GetCurrentState(new TextDocumentIdentifier(new Uri(to))));
+        CollectionAssert.AreEqual(new[] { App, Lib }, document.Projects.ToArray());
+        Assert.IsFalse(loaded.Documents.TryGetDocument(new Uri(Util), out _));
     }
 
     [TestMethod]
@@ -287,15 +316,14 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
-    public async Task AnImportedProjectsFolder_GivenOnlyAsTheRoot_IsSeenAsImported()
+    public async Task AFolderGivenOnlyAsTheRoot_IsTheFirstFolder_AndAProject()
     {
         var files = Files();
-        files.AddFile(Path.Combine(Lib, "Lib.vbp"), new MockFileData("Type=Exe\r\n"));
-        files.AddFile(Path.Combine(Shared, ProjectFile.FileName), ProjectOf(Shared, "Shared", "Util.bas"));
 
-        var loaded = await new Loaded(files).LoadAsync(Lib, Shared);
+        var loaded = await new Loaded(files).LoadAsync(App, Shared);
 
         CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
+        CollectionAssert.AreEqual(new[] { App }, loaded.Projects.Projects.Select(project => project.Root).ToArray());
     }
 
     [TestMethod]
@@ -317,49 +345,49 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
-    [DataRow("Lib.vbp")]
-    [DataRow("PROJECT1.VBP")]
-    public async Task AFolderTheImportListsFilesIn_IsASourceFolder_EvenWhenItHoldsAProjectOfItsOwn(string vbp)
+    public async Task AFolderWithAProjectOfItsOwn_StaysAProject_AndTheFileAProjectListsInItIsAModuleOfBoth()
     {
-        // Lib was imported - its .vbp has the .rdproj the import wrote beside it - and lists ..\Shared\Util.bas; Shared has a .rdproj of its own, which is ignored.
         var files = Files();
-        files.AddFile(Path.Combine(Lib, vbp), new MockFileData("Type=Exe\r\n"));
         files.AddFile(Path.Combine(Shared, ProjectFile.FileName), ProjectOf(Shared, "Shared", "Util.bas"));
 
-        var loaded = await new Loaded(files).LoadAsync(Lib, Lib, Shared);
+        var loaded = await new Loaded(files).LoadAsync(App, App, Shared);
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
-        CollectionAssert.AreEqual(new[] { Lib }, loaded.Projects.Projects.Select(project => project.Root).ToArray());
+        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
+        CollectionAssert.AreEqual(new[] { App, Shared }, loaded.Projects.Projects.Select(project => project.Root).ToArray());
+        CollectionAssert.AreEqual(new[] { "Main", "Util" }, loaded.Names(App));
+        CollectionAssert.AreEqual(new[] { "Util" }, loaded.Names(Shared));
+        Assert.IsTrue(loaded.Documents.TryGetDocument(new Uri(Util), out var util));
+        CollectionAssert.AreEqual(new[] { App, Shared }, util.Projects.ToArray(), "one document, bound into each project that lists it");
+        Assert.AreEqual(App, util.WorkspaceRoot, "with its diagnostics from the first project that loaded it");
     }
 
     [TestMethod]
-    public async Task ANativeProjectFolder_AfterAnImportedProjectsFolder_StaysAProject()
+    public async Task TwoImportedProjectsThatShareAModule_AreBothProjects_AndTheModuleIsInBoth()
     {
-        var native = Path.Combine(Base, "Native");
         var files = Files();
-        files.AddFile(Path.Combine(Lib, "Lib.vbp"), new MockFileData("Type=Exe\r\n"));
-        files.AddFile(Path.Combine(native, ProjectFile.FileName), ProjectOf(native, "Native", "Native.bas"));
-        files.AddFile(Path.Combine(native, "Native.bas"), new MockFileData("Attribute VB_Name = \"Native\"\r\n"));
+        files.AddFile(Path.Combine(App, ProjectFile.FileName), ProjectImportedFrom(App, "App", "App.vbp", "Main.bas", Path.Combine("..", "Shared", "Util.bas")));
+        files.AddFile(Path.Combine(Lib, ProjectFile.FileName), ProjectImportedFrom(Lib, "Lib", "Lib.vbp", "Lib.bas", Path.Combine("..", "Shared", "Util.bas")));
 
-        var loaded = await new Loaded(files).LoadAsync(Lib, Lib, native);
+        var loaded = await new Loaded(files).LoadAsync(App, App, Lib, Shared);
 
-        CollectionAssert.AreEqual(new[] { Lib, native }, loaded.Projects.Projects.Select(project => project.Root).ToArray());
-        Assert.AreEqual("Native", loaded.Projects.Projects[1].Project.ProjectInfo.Name);
+        Assert.IsTrue(loaded.Projects.Projects.All(project => project.Project.ProjectInfo.IsImported));
+        CollectionAssert.AreEqual(
+            new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
+        CollectionAssert.AreEqual(new[] { "Main", "Util" }, loaded.Names(App));
+        CollectionAssert.AreEqual(new[] { "Lib", "Util" }, loaded.Names(Lib));
     }
 
     [TestMethod]
-    public async Task AVbpThatWasNeverImported_DoesNotMakeAProjectFolder()
+    public async Task AVbpBesideANativeProject_WithoutTheField_IsNotAnImport()
     {
-        // App lists a file in Lib, which holds a .vbp and no .rdproj: nothing was imported there, so it is a folder like any other, and a project lists files in it.
         var files = Files();
         files.AddFile(Path.Combine(Lib, "Lib.vbp"), new MockFileData("Type=Exe\r\n"));
-        files.RemoveFile(Path.Combine(Lib, ProjectFile.FileName));
-        files.AddFile(Path.Combine(App, ProjectFile.FileName), ProjectOf(App, "App", "Main.bas", Path.Combine("..", "Lib", "Lib.bas")));
+        files.AddFile(Path.Combine(App, ProjectFile.FileName), ProjectImportedFrom(App, "App", "App.vbp", "Main.bas"));
 
         var loaded = await new Loaded(files).LoadAsync(App, App, Lib);
 
-        CollectionAssert.AreEqual(new[] { WorkspaceFolderRole.Project, WorkspaceFolderRole.Source }, loaded.Projects.Roles().Select(entry => entry.Role).ToArray());
-        CollectionAssert.AreEqual(new[] { App }, loaded.Projects.Projects.Select(project => project.Root).ToArray());
+        Assert.IsTrue(loaded.Projects.Projects[0].Project.ProjectInfo.IsImported, "the import recorded its .vbp");
+        Assert.IsFalse(loaded.Projects.Projects[1].Project.ProjectInfo.IsImported, "a .vbp beside a .rdproj that does not record it is not an import");
     }
 
     [TestMethod]

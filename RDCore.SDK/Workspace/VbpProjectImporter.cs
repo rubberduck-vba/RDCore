@@ -156,6 +156,7 @@ public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImp
                 OtherFiles = Project.OtherFiles,
                 Folders = Project.Folders,
                 PrecompilerConstants = Project.PrecompilerConstants,
+                SourceProject = Project.SourceProject,
             },
         };
     }
@@ -280,6 +281,7 @@ public static class VbpProjectImporter
                 .OfType<string>().Where(folder => folder.Length > 0)
                 .Distinct(StringComparer.OrdinalIgnoreCase)],
             PrecompilerConstants = constants,
+            SourceProject = Path.GetFileName(fileName),
         };
 
         return new VbpImport(project, notes);
