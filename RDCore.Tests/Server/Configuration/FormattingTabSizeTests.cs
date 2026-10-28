@@ -210,15 +210,15 @@ public sealed class FormattingTabSizeTests
             }
         };
         wire.TabSize = 5;
-        wire.ClientSaysConfigurationChanged();
+        var older = wire.Follower!.FollowAsync();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync());
+        var newer = await wire.Follower.FollowAsync();
 
         release.SetResult();
-        await wire.Follower!.WhenIdleAsync().WaitAsync(TimeSpan.FromSeconds(20));
 
+        Assert.IsTrue(newer);
+        Assert.IsFalse(await older.WaitAsync(TimeSpan.FromSeconds(20)), "the older change was dropped, whenever its answer came");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
     }

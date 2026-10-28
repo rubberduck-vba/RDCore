@@ -68,11 +68,10 @@ public static class FormattingTabSize
         }
     }
 
-    // an error answer is how a client says it has no such setting: OmniSharp raises it as an exception of its own - a request exception for an error, a cancellation for the
-    // client cancelling the request. A cancellation of the token we asked with is no answer, and neither is a connection that fails.
+    // an error answer is how a client says it has no such setting: OmniSharp raises it as a request exception, and as a cancellation (-32800, -32801) when the client says it
+    // cancelled the request. With our own token not cancelled, a cancellation is the client's. A connection that fails is no answer.
     private static bool IsTheClientsError(Exception exception, CancellationToken token)
-        => !token.IsCancellationRequested
-            && (exception is OperationCanceledException || exception.GetType().Namespace?.StartsWith("OmniSharp.Extensions.JsonRpc", StringComparison.Ordinal) == true);
+        => !token.IsCancellationRequested && (exception is OmniSharp.Extensions.JsonRpc.Server.IRequestException || exception is OperationCanceledException);
 
     /// <summary>
     /// The live settings the client said, with the editor's tab size as the indentation when the user never set one.
