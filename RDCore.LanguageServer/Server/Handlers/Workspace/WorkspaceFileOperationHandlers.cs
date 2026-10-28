@@ -40,8 +40,30 @@ internal static class WorkspaceFileOperationFilters
         Pattern = new FileOperationPattern { Glob = glob, Matches = kind, Options = new FileOperationPatternOptions { IgnoreCase = true } },
     };
 
+    // the environment host and the symbols are done some time after the operation is: the client is told then what they made of the workspace.
+    private static async Task ReportCompletedAsync(Task<WorkspaceReloadResult> completed, ILanguageServerFacade server, ILogger logger)
+    {
+        try
+        {
+            // the operation was started by the service that puts the client's operations in order.
+#pragma warning disable VSTHRD003
+            WorkspaceChangeReport.Send(server, await completed);
+#pragma warning restore VSTHRD003
+        }
+        catch (OperationCanceledException)
+        {
+            // the server is stopping: there is nobody to tell.
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "❌ The environment host and the symbols could not be made what the client's file operations left the project.");
+        }
+    }
+
     /// <summary>
-    /// Tells the client what came of a file operation, once it is done: a handler that awaits it keeps the notifications that follow it in the client's order behind it.
+    /// Tells the client what came of a file operation, once the documents of the workspace are what the project lists: a handler that awaits it keeps the notifications that
+    /// follow it in the client's order behind it. The environment host and the symbols follow, and the client is told what they made of the workspace when they are done:
+    /// nothing waits for them.
     /// </summary>
     public static async Task ReportAsync(Task<WorkspaceFileOperationResult?> operation, ILanguageServerFacade server, ILogger logger)
     {
@@ -64,7 +86,7 @@ internal static class WorkspaceFileOperationFilters
                 });
             }
 
-            WorkspaceChangeReport.Send(server, result.Reload);
+            _ = ReportCompletedAsync(result.Completed, server, logger);
         }
         catch (Exception exception)
         {

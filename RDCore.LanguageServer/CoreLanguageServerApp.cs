@@ -430,6 +430,9 @@ internal sealed class CoreLanguageServerApp(
     protected override async Task OnServerStoppingAsync()
     {
         await _componentsCts.CancelAsync();
+
+        // what a change of the project left to do (composing the host's session, defining the symbols) waits for components that are going away.
+        ExternalServices.GetService<IWorkspaceReloadService>()?.Stop();
         ExternalServices.GetService<IWorkspaceFileSystemWatcher>()?.Dispose();
         // graceful LSP shutdown/exit of the child components before this process exits.
         await Task.WhenAll(

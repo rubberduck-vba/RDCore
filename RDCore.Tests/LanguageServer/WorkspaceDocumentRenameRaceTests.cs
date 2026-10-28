@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
@@ -180,5 +181,57 @@ public sealed class WorkspaceDocumentRenameRaceTests
         Assert.AreEqual("second", document.Text);
         Assert.AreEqual(2, document.Version);
         Assert.IsInstanceOfType<OpenedDocumentState>(states.GetCurrentState(New), "The document that was open is open where it moved.");
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public async Task ADocumentTheClientOpens_BetweenBeingResetAndBeingRead_IsNotReadOver()
+    {
+        var (documents, states) = await LoadedOldAsync();
+
+        // the watcher fallback made the document one to read again, and the client opened it before the read was written.
+        Assert.IsTrue(documents.Reset(Old));
+        documents.Open(Old.Uri.ToUri(), "client text", 7);
+
+        Assert.IsTrue(await documents.TryLoadAsync(Old), "the document is there");
+        Assert.IsTrue(documents.TryGetDocument(Old.Uri.ToUri(), out var document));
+        Assert.AreEqual("client text", document.Text, "and it is the client's");
+        Assert.AreEqual(7, document.Version);
+        Assert.IsInstanceOfType<OpenedDocumentState>(states.GetCurrentState(Old));
+        Assert.IsFalse(documents.Reset(Old), "a document the client has open is not reset");
+        Assert.IsInstanceOfType<OpenedDocumentState>(states.GetCurrentState(Old));
+    }
+
+    [TestMethod]
+    [Timeout(60_000)]
+    public async Task ADocumentTheClientOpensAgain_WhileItsCloseReadsTheFile_StaysTheClients()
+    {
+        var gate = new TaskCompletionSource<string>();
+        var reached = new ManualResetEventSlim();
+        var file = Substitute.For<System.IO.Abstractions.IFile>();
+        file.Exists(Arg.Any<string>()).Returns(true);
+        file.ReadAllTextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            reached.Set();
+            return gate.Task;
+        });
+        var states = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(states, NullLogger<WorkspaceDocumentService>.Instance, new MockFileSystem().Path, file);
+        documents.Initialize(Root);
+        documents.Open(Old.Uri.ToUri(), "first", 1);
+
+        // the close has begun - the client does not have the document open - and is reading the file when the client opens it again.
+        var closing = documents.CloseAsync(Old.Uri.ToUri());
+        Assert.IsTrue(reached.Wait(TimeSpan.FromSeconds(30)), "the close is reading the file");
+        documents.Open(Old.Uri.ToUri(), "opened again", 9);
+        gate.SetResult("what is on disk");
+        var closed = await closing;
+
+        Assert.IsNotNull(closed);
+        Assert.AreEqual("opened again", closed.Text);
+        Assert.IsTrue(documents.TryGetDocument(Old.Uri.ToUri(), out var document));
+        Assert.AreEqual("opened again", document.Text, "what is on disk did not replace what the client sent");
+        Assert.AreEqual(9, document.Version);
+        Assert.IsInstanceOfType<OpenedDocumentState>(states.GetCurrentState(Old));
     }
 }

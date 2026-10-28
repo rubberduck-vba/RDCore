@@ -34,10 +34,11 @@ public sealed class WorkspaceFileOperationServiceTests
         Write("src/Sheet1.doccls", "Sheet1");
 
         // the change is made of the project as it is, as the reload service makes it.
-        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns(call =>
+        _reload.BeginChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             _project = ((Func<ProjectFile, ProjectFile>)call[0])(_project);
-            return Task.FromResult<WorkspaceReloadResult?>(new WorkspaceReloadResult(0, 0, false, false));
+            var done = new WorkspaceReloadResult(0, 0, false, false);
+            return Task.FromResult<WorkspaceReloadStep?>(new WorkspaceReloadStep(done, Task.FromResult(done)));
         });
 
         _sut = new WorkspaceFileOperationService(_reload, _files.Path, _files.File, _files.Directory, () => SupportedLanguages.RDVBA, OneProject.Registry(), Substitute.For<IProjectFileWriter>(), Substitute.For<IWorkspaceDocumentService>(), Substitute.For<RDCore.LanguageServer.Workspace.States.IDocumentStateProvider>(),

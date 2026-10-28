@@ -55,6 +55,24 @@ internal interface IWorkspaceReloadService
     Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
 
     /// <summary>
+    /// Changes the project as <see cref="ChangeAsync"/> does, and returns once the project file is written and the workspace's documents are what it lists: the
+    /// environment host and the symbols follow, in the order the changes were made, with no one waiting for them.
+    /// </summary>
+    /// <remarks>
+    /// A host that is not up, or is starting, does not hold up the next change, nor a client's notifications that are read one after another: they are not waiting
+    /// for it. What is left to do is cancelled by <see cref="Stop"/>.
+    /// </remarks>
+    /// <param name="change">What the project is to be, from what it is.</param>
+    /// <param name="token">A token that cancels the change before the project file is written.</param>
+    /// <returns>The change, and when it is done; <see langword="null"/> when the server is not running a workspace it could change.</returns>
+    Task<WorkspaceReloadStep?> BeginChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token);
+
+    /// <summary>
+    /// Cancels what is left to do of the changes made so far, and of those that are made from now on: the server is going away.
+    /// </summary>
+    void Stop();
+
+    /// <summary>
     /// Reads again the files of the project that changed outside the editor - a <c>git checkout</c>, a module exported from the VBE - and defines the workspace
     /// again when one of them is not what was loaded.
     /// </summary>
@@ -71,6 +89,13 @@ internal interface IWorkspaceReloadService
     /// </returns>
     Task<WorkspaceReloadResult?> ReloadFilesAsync(IReadOnlyList<Uri> files, CancellationToken token);
 }
+
+/// <summary>
+/// A change of the project that was made: the documents are what the project lists, and the host and the symbols follow.
+/// </summary>
+/// <param name="Started">What the change made of the documents: <see cref="WorkspaceReloadResult.IsHostComposed"/> is not known yet.</param>
+/// <param name="Completed">Completes with what the change made of the workspace once the host composed its session and the symbols were defined; it is cancelled with the server.</param>
+internal sealed record class WorkspaceReloadStep(WorkspaceReloadResult Started, Task<WorkspaceReloadResult> Completed);
 
 /// <summary>
 /// What reloading the project file changed.
@@ -104,6 +129,15 @@ internal sealed class WorkspaceReloadService(
     // left.
     private readonly SemaphoreSlim _reloading = new(1, 1);
 
+    // the environment host and the symbols follow the documents, in the order the changes were made, and not under the lock of the changes: the host may be down or
+    // starting, and a change that is waiting for it is no reason for the next to wait before it has the documents it lists.
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly object _queue = new();
+    private Task _finishing = Task.CompletedTask;
+
+    /// <inheritdoc/>
+    public void Stop() => _lifetime.Cancel();
+
     public async Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token)
     {
         if (!IsRunningAWorkspace())
@@ -112,6 +146,7 @@ internal sealed class WorkspaceReloadService(
             return null;
         }
 
+        Applied applied;
         await _reloading.WaitAsync(token);
         try
         {
@@ -125,15 +160,20 @@ internal sealed class WorkspaceReloadService(
                 return WorkspaceReloadResult.Unchanged;
             }
 
-            return await ApplyAsync(project, token);
+            applied = await ApplyDocumentsAsync(project, token);
         }
         finally
         {
             _reloading.Release();
         }
+
+        return await FinishAsync(applied).WaitAsync(token);
     }
 
     public async Task<WorkspaceReloadResult?> ChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
+        => await BeginChangeAsync(change, token) is { } step ? await step.Completed.WaitAsync(token) : null;
+
+    public async Task<WorkspaceReloadStep?> BeginChangeAsync(Func<ProjectFile, ProjectFile> change, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(change);
         if (!IsRunningAWorkspace())
@@ -142,6 +182,7 @@ internal sealed class WorkspaceReloadService(
             return null;
         }
 
+        Applied applied;
         await _reloading.WaitAsync(token);
         try
         {
@@ -149,18 +190,20 @@ internal sealed class WorkspaceReloadService(
             var changed = change(project);
             if (IsTheSame(project, changed))
             {
-                return WorkspaceReloadResult.Unchanged;
+                return new WorkspaceReloadStep(WorkspaceReloadResult.Unchanged, Task.FromResult(WorkspaceReloadResult.Unchanged));
             }
 
             // the environment host reads the project file to compose its session, so it is written first.
             projectFiles.Update(changed);
             await projectFiles.SaveAsync();
-            return await ApplyAsync(project, token);
+            applied = await ApplyDocumentsAsync(project, token);
         }
         finally
         {
             _reloading.Release();
         }
+
+        return new WorkspaceReloadStep(applied.Started, FinishAsync(applied));
     }
 
     // running, whatever the trace a client asked for: a server that is traced nothing is RunningTraceless, and still running.
@@ -172,24 +215,46 @@ internal sealed class WorkspaceReloadService(
             return null;
         }
 
+        Applied applied;
         await _reloading.WaitAsync(token);
         try
         {
-            return await ReloadListedFilesAsync(files, token);
+            applied = await ReloadListedFilesAsync(files, token);
         }
         finally
         {
             _reloading.Release();
         }
+
+        return await FinishAsync(applied).WaitAsync(token);
     }
 
-    private async Task<WorkspaceReloadResult> ReloadListedFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
+    // what is left to do once the documents are what they are to be, in order after what the changes before it left to do; it is cancelled with the server, not with the
+    // request that asked for the change.
+    private Task<WorkspaceReloadResult> FinishAsync(Applied applied)
+    {
+        if (applied.Finish is null)
+        {
+            return Task.FromResult(applied.Started);
+        }
+
+        lock (_queue)
+        {
+            var finishing = _finishing.ContinueWith(_ => applied.Finish(_lifetime.Token), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
+            _finishing = finishing;
+            return finishing;
+        }
+    }
+
+    private async Task<Applied> ReloadListedFilesAsync(IReadOnlyList<Uri> files, CancellationToken token)
     {
         var root = projectFiles.Project.Uri;
         var listed = FilesOf(projectFiles.Project)
             .ToDictionary(file => file.Key.Replace('\\', '/'), file => file.Value, StringComparer.OrdinalIgnoreCase);
 
         var reread = 0;
+        var toParse = new List<TextDocumentIdentifier>();
+        var toDiscard = new List<string>();
         foreach (var file in files.Where(file => file.IsFile).Distinct())
         {
             token.ThrowIfCancellationRequested();
@@ -210,11 +275,19 @@ internal sealed class WorkspaceReloadService(
                 ? name
                 : before?.Name;
 
-            // a document is loaded from an Unloaded state only: whatever it was - loaded, missing, unreadable - it is read anew.
+            // a document is loaded from an Unloaded state only: whatever it was - loaded, missing, unreadable - it is read anew, unless the client opened it meanwhile.
             var wasLoaded = documentStates.IsTracked(id) && documentStates.GetCurrentState(id) is LoadedDocumentState;
-            documentStates.Forget(id);
-            documentStates.Track(id);
+            if (!documents.Reset(id))
+            {
+                continue;
+            }
+
             var loaded = await documents.TryLoadAsync(id);
+            if (documentStates.IsTracked(id) && documentStates.GetCurrentState(id) is OpenedDocumentState)
+            {
+                continue;
+            }
+
             var after = documents.TryGetDocument(id.Uri.ToUri(), out document) ? document : null;
             if (loaded == wasLoaded && string.Equals(before?.Text, after?.Text, StringComparison.Ordinal))
             {
@@ -227,7 +300,7 @@ internal sealed class WorkspaceReloadService(
                 // the module's file is gone: what the host holds of it goes with it.
                 if (isModule && moduleName is not null)
                 {
-                    await symbols.DiscardModuleAsync(moduleName, token);
+                    toDiscard.Add(moduleName);
                 }
 
                 continue;
@@ -235,24 +308,39 @@ internal sealed class WorkspaceReloadService(
 
             if (isModule)
             {
-                await parsing.ParseDocumentAsync(id.Uri.ToUri(), token);
+                toParse.Add(id);
             }
         }
 
         if (reread == 0)
         {
             logger.LogTrace("The files that changed are what was loaded; nothing is done.");
-            return WorkspaceReloadResult.Unchanged;
+            return new Applied(WorkspaceReloadResult.Unchanged, null);
         }
 
-        // every module is defined again: what another module refers to in the one that changed is bound again too.
-        await symbols.SyncWorkspaceAsync(token, progress: null, replace: true);
-        if (logger.IsEnabled(LogLevel.Information))
+        var started = new WorkspaceReloadResult(0, 0, false, false, reread);
+        return new Applied(started, async stopping =>
         {
-            logger.LogInformation("🔄 {reread} file(s) of the project changed outside the editor, and were read again.", reread);
-        }
+            foreach (var module in toDiscard)
+            {
+                await symbols.DiscardModuleAsync(module, stopping);
+            }
 
-        return new WorkspaceReloadResult(0, 0, false, false, reread);
+            foreach (var id in toParse)
+            {
+                stopping.ThrowIfCancellationRequested();
+                await parsing.ParseDocumentAsync(id.Uri.ToUri(), stopping);
+            }
+
+            // every module is defined again: what another module refers to in the one that changed is bound again too.
+            await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("🔄 {reread} file(s) of the project changed outside the editor, and were read again.", reread);
+            }
+
+            return started;
+        });
     }
 
     private bool IsRunningAWorkspace() => serverStateProvider.State is RunningServerState && projectFiles.Project?.ProjectInfo is not null;
@@ -261,8 +349,9 @@ internal sealed class WorkspaceReloadService(
     private static bool IsTheSame(ProjectFile project, ProjectFile other)
         => string.Equals(JsonSerializer.Serialize(project), JsonSerializer.Serialize(other), StringComparison.Ordinal);
 
-    // the workspace was what the project was; it is made what the project is now.
-    private async Task<WorkspaceReloadResult> ApplyAsync(ProjectFile project, CancellationToken token)
+    // The documents are made what the project lists: the files it gained are read, those it lost are taken out. What is left to do is the host's and the symbols' - the
+    // environment host composes its session, and every module is defined again - and is done when the changes before it were.
+    private async Task<Applied> ApplyDocumentsAsync(ProjectFile project, CancellationToken token)
     {
         var root = project.Uri;
         var before = FilesOf(project);
@@ -287,6 +376,7 @@ internal sealed class WorkspaceReloadService(
             documents.Remove(id);
         }
 
+        var toParse = new List<TextDocumentIdentifier>();
         foreach (var path in added)
         {
             token.ThrowIfCancellationRequested();
@@ -301,32 +391,45 @@ internal sealed class WorkspaceReloadService(
 
             if (await documents.TryLoadAsync(id) && after[path])
             {
-                await parsing.ParseDocumentAsync(id.Uri.ToUri(), token);
+                toParse.Add(id);
             }
         }
 
-        var (composed, programRunning) = await ComposeHostAsync(root, token);
-
-        // a session composed again holds nothing of what was defined in it; one that was kept still holds what the removed modules declared.
-        if (!composed)
+        var started = new WorkspaceReloadResult(added.Count, removed.Count, false, false);
+        return new Applied(started, async stopping =>
         {
-            foreach (var module in removedModules)
+            foreach (var id in toParse)
             {
-                await symbols.DiscardModuleAsync(module, token);
+                stopping.ThrowIfCancellationRequested();
+                await parsing.ParseDocumentAsync(id.Uri.ToUri(), stopping);
             }
-        }
 
-        // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
-        await symbols.SyncWorkspaceAsync(token, progress: null, replace: true);
+            var (composed, programRunning) = await ComposeHostAsync(root, stopping);
 
-        if (logger.IsEnabled(LogLevel.Information))
-        {
-            logger.LogInformation("🔄 Project file reloaded: {added} file(s) added, {removed} removed; the environment host {host}.",
-                added.Count, removed.Count, composed ? "composed its session again" : programRunning ? "kept its session, a program runs" : "was not asked to compose");
-        }
+            // a session composed again holds nothing of what was defined in it; one that was kept still holds what the removed modules declared.
+            if (!composed)
+            {
+                foreach (var module in removedModules)
+                {
+                    await symbols.DiscardModuleAsync(module, stopping);
+                }
+            }
 
-        return new WorkspaceReloadResult(added.Count, removed.Count, composed, programRunning);
+            // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
+            await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
+
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("🔄 Project file reloaded: {added} file(s) added, {removed} removed; the environment host {host}.",
+                    added.Count, removed.Count, composed ? "composed its session again" : programRunning ? "kept its session, a program runs" : "was not asked to compose");
+            }
+
+            return new WorkspaceReloadResult(added.Count, removed.Count, composed, programRunning);
+        });
     }
+
+    // the documents are what they are to be; what is left is done by Finish.
+    private sealed record class Applied(WorkspaceReloadResult Started, Func<CancellationToken, Task<WorkspaceReloadResult>>? Finish);
 
     // the environment host composes its session from the project file, and a class module's symbol is the project's: it composes it again, unless a program
     // runs in it.

@@ -73,8 +73,10 @@ public sealed class WorkspaceFoldersLoadTests
             return this;
         }
 
-        // the file operations of a client, with the reload service the server has for the primary project.
-        public WorkspaceFileOperationService FileOperations(MockFileSystem fileSystem, IProjectFileWriter writer)
+        public WorkspaceReloadService? Reload { get; private set; }
+
+        // the file operations of a client, with the reload service the server has for the primary project; the environment host is never ready when it is said so.
+        public WorkspaceFileOperationService FileOperations(MockFileSystem fileSystem, IProjectFileWriter writer, bool hostNeverReady = false)
         {
             var running = Substitute.For<IServerStateProvider>();
             running.State.Returns(ServerState.Running);
@@ -82,7 +84,7 @@ public sealed class WorkspaceFoldersLoadTests
             parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], "Public Sub Foo()\r\nEnd Sub")));
             var host = Substitute.For<IRDCoreClientApp>();
-            host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+            host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(call => hostNeverReady ? Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>()) : Task.CompletedTask);
             host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(ProjectReload)] });
             host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new HostProjectReloadResult { Composed = true }));
@@ -91,6 +93,7 @@ public sealed class WorkspaceFoldersLoadTests
 
             var reload = new WorkspaceReloadService(
                 running, ProjectFiles, Documents, States, parsing, Substitute.For<ISymbolSyncService>(), orchestration, fileSystem.Path, NullLogger<WorkspaceReloadService>.Instance);
+            Reload = reload;
             return new WorkspaceFileOperationService(
                 reload, fileSystem.Path, fileSystem.File, fileSystem.Directory, () => SupportedLanguages.RDVBA, Projects, writer, Documents, States,
                 NullLogger<WorkspaceFileOperationService>.Instance);
@@ -153,6 +156,33 @@ public sealed class WorkspaceFoldersLoadTests
         CollectionAssert.AreEqual(new[] { "Main" }, loaded.Names(App));
         Assert.IsEmpty(loaded.Projects.Refused);
         Assert.AreEqual(App, loaded.Documents.GetAllDocuments().Single().WorkspaceRoot);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ARename_WhileTheEnvironmentHostIsNeverReady_IsMadeAtOnce_AndWhatTheClientSendsAfterItIsApplied()
+    {
+        var files = Files();
+        var loaded = await new Loaded(files).LoadAsync(App, App);
+        var operations = loaded.FileOperations(files, Substitute.For<IProjectFileWriter>(), hostNeverReady: true);
+        var from = Path.Combine(App, "Main.bas");
+        var to = Path.Combine(App, "Program.bas");
+        files.File.Move(from, to);
+
+        // what the language server answers a notification it reads in order with the others: the rename returns without the host.
+        var renamed = await operations.RenamedAsync([(new Uri(from), new Uri(to))], CancellationToken.None);
+
+        Assert.IsNotNull(renamed);
+        Assert.IsFalse(renamed.Completed.IsCompleted, "the host and the symbols are still to follow");
+        CollectionAssert.AreEqual(new[] { "Program" }, loaded.Names(App), "the documents are what the project lists now");
+
+        // the client opens the new path and types in it: the next messages are read.
+        loaded.Documents.Open(new Uri(to), "Option Explicit\r\n", 1);
+        Assert.AreEqual(DocumentChangeOutcome.Applied, loaded.Documents.Change(new Uri(to), 2, [new TextDocumentContentChangeEvent { Text = "Option Explicit\r\n'typed" }]));
+
+        // the server stops: what waited for the host ends.
+        loaded.Reload!.Stop();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => renamed.Completed);
     }
 
     // the client renames a file on disk and says so (workspace/didRenameFiles).
