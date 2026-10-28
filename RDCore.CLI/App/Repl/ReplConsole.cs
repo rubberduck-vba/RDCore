@@ -47,7 +47,7 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
         }
 
         // the marking is a background, and runs to the end of the line: the line is filled with spaces up to the width of the console. Its foreground is the
-        // whole line's too, as VBE draws a breakpoint and the current statement: syntax colours on that background are hard to read (the author), so the runs are
+        // whole line's too, as VBE draws a breakpoint and the current statement: syntax colours on that background are hard to read, so the runs are
         // written plain under it. The margin keeps its own styles. The widths are in cells.
         var width = runs.Sum(run => App.Console.ConsoleText.WidthOf(run.Text));
         var marginWidth = margin.Sum(run => App.Console.ConsoleText.WidthOf(run.Text));

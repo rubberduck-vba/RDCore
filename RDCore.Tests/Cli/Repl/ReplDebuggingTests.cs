@@ -928,7 +928,7 @@ public sealed class ReplDebuggingTests
         Assert.DoesNotContain("48;2;", output);
     }
 
-    // syntax colours on a marking's background are hard to read: a marked line is written in the marking's foreground, as VBE draws it (the author, 2026-10-27).
+    // syntax colours on a marking's background are hard to read: a marked line is written in the marking's foreground, as VBE draws it.
     [TestMethod]
     [DataRow(ReplLineStyle.CurrentStatement, "48;2;216;176;100", "38;2;0;0;0", DisplayName = "the current statement: black on #d8b064")]
     [DataRow(ReplLineStyle.Breakpoint, "48;2;181;26;23", "38;2;255;255;255", DisplayName = "a breakpoint: white on #b51a17")]

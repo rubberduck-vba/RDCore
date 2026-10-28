@@ -26,7 +26,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     private static readonly string conditionalGlyph = "◆";
     private static readonly string disabledConditionalGlyph = "◈";
 
-    // the marks of a block, plain triangles where the console draws Unicode (an emoji looked wrong next to the code, the author found), ASCII where it does not.
+    // the marks of a block, plain triangles where the console draws Unicode (an emoji looks out of place next to the code), ASCII where it does not.
     private static readonly (string Open, string Folded) unicodeFoldGlyphs = ("▽", "▲");
     private static readonly (string Open, string Folded) asciiFoldGlyphs = ("-", "+");
 
