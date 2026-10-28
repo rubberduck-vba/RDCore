@@ -185,6 +185,13 @@ public record class SdkAppOptions
     /// </remarks>
     [Setting(SettingReach.NextStart)]
     public SdkEnvironmentOptions Environment { get; set; } = new();
+    /// <summary>
+    /// Code formatting options: the indenter settings Rubberduck has, and what formats and completes code as it is typed.
+    /// </summary>
+    /// <remarks>
+    /// These are live settings: the next line that is formatted is formatted as they say it now.
+    /// </remarks>
+    public SdkFormattingOptions Formatting { get; set; } = new();
 }
 
 /// <summary>

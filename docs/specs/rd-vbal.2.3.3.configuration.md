@@ -23,7 +23,7 @@ When a change of a setting takes effect is part of the setting ([`SettingAttribu
 
 |Reach|Takes effect|Examples|
 |---|---|---|
-|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Diagnostics.*`|
+|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`|
 |`NextStart`|When the component that reads it starts, or the next session does.|`Environment.*`, `Workspace.*`, `CLI.*`, `Platform.Extensions.Allowed`|
 |`Deployment`|Never through the platform: only the deployed configuration sets it.|`ServerApp.Component`, `Platform.Transport.*`, `Server.ClientProcessId`|
 
@@ -78,10 +78,54 @@ A live setting is set on the object the component reads its settings off, in pla
 |`Server.Verbose`|For the next message the console writes.|
 |`Server.WireErrorDetail`|For the next record forwarded to the client.|
 |`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|
+|`Formatting.*`|For the next line or range that is formatted ([Formatting](#formatting)).|
 
 `rdc config` writes the user's settings without a running platform to tell: what it sets takes effect when the platform next starts, a live setting included.
 
-## `CONFIG`
+## Formatting
+
+The `Formatting` section is what formats and completes code ([`SdkFormattingOptions`](../api/RDCore.SDK.Server.Configuration.SdkFormattingOptions.html)). A
+formatting engine is told the options these settings say ([`CodeFormattingOptions`](../api/RDCore.SDK.Formatting.CodeFormattingOptions.html)); the numbers
+are kept to the limits of their settings. The indentation is made of spaces, as VBA code is.
+
+The first twenty-four are Rubberduck's indenter settings, with the names, types, defaults and limits they have there, most of them the Smart Indenter's. A
+setting means here what it means there.
+
+|Setting|Value|Default|
+|---|---|---|
+|`IndentEntireProcedureBody`|Boolean|`True`|
+|`IndentEnumTypeAsProcedure`|Boolean|`False`|
+|`IndentFirstCommentBlock`|Boolean|`True`|
+|`IndentFirstDeclarationBlock`|Boolean|`True`|
+|`IgnoreEmptyLinesInFirstBlocks`|Boolean|`False`|
+|`AlignCommentsWithCode`|Boolean|`True`|
+|`AlignContinuations`|Boolean|`True`|
+|`IgnoreOperatorsInContinuations`|Boolean|`True`|
+|`IndentCase`|Boolean|`False`|
+|`ForceDebugStatementsInColumn1`|Boolean; says it of `ForceDebugPrintInColumn1`, `ForceDebugAssertInColumn1` and `ForceStopInColumn1` all|`False`|
+|`ForceDebugPrintInColumn1`, `ForceDebugAssertInColumn1`, `ForceStopInColumn1`|Boolean|`False`|
+|`ForceCompilerDirectivesInColumn1`|Boolean|`False`|
+|`IndentCompilerDirectives`|Boolean|`True`|
+|`AlignDims`|Boolean|`False`|
+|`AlignDimColumn`|0 to 100|`15`|
+|`EndOfLineCommentStyle`|`Absolute`, `SameGap`, `StandardGap`, `AlignInColumn`|`AlignInColumn`|
+|`EndOfLineCommentColumnSpaceAlignment`|0 to 100|`50`|
+|`EmptyLineHandlingMethod`|`Ignore`, `Remove`, `Indent`|`Ignore`|
+|`IndentSpaces`|0 to 32|`4`|
+|`VerticallySpaceProcedures`|Boolean|`True`|
+|`LinesBetweenProcedures`|0 to 2|`1`|
+|`GroupRelatedProperties`|Boolean|`False`|
+
+RDCore's own:
+
+|Setting|Value|Default|Does|
+|---|---|---|---|
+|`FormatOnType`|Boolean|`True`|Formats the line just finished, and indents the new one, on Enter.|
+|`CompleteBlocks`|Boolean|`True`|On Enter after a block opener with no closer, inserts the closer and leaves the caret in the indented body.|
+|`Snippets`|Boolean|`True`|Completion offers snippets of blocks, with placeholders.|
+|`SnippetDimPlacement`|`AboveBlock`, `ProcedureTop`|`AboveBlock`|Where the `Dim` a snippet declares goes: right above the block, where it follows the variable's name as it is typed; or at the top of the procedure, where it does not.|
+|`PrettyList`|Boolean|`True`|A finished line is listed back from what it compiled to, as MS-VBA lists it, rather than formatted by rules of spacing and casing.|
+
 
 `CONFIG` (`CONFIGURE`) is a verb of the interactive shell. `rdc config` does the same in command mode, without starting the platform; it exits with `1` when it
 writes an error.

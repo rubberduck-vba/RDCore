@@ -106,4 +106,91 @@
   <data name="Environment_Regional_PMDesignator" xml:space="preserve">
     <value>Ce avec quoi s'écrit une heure à partir de midi.</value>
   </data>
+  <data name="Formatting_IndentEntireProcedureBody" xml:space="preserve">
+    <value>Si le corps d'une procédure est indenté d'un niveau par rapport à sa ligne Sub, Function ou Property et à son End.</value>
+  </data>
+  <data name="Formatting_IndentEnumTypeAsProcedure" xml:space="preserve">
+    <value>Si le corps d'un Enum ou d'un Type est indenté d'un niveau, comme le corps d'une procédure.</value>
+  </data>
+  <data name="Formatting_IndentFirstCommentBlock" xml:space="preserve">
+    <value>Si les commentaires en haut d'un module, avant sa première déclaration, sont indentés d'un niveau.</value>
+  </data>
+  <data name="Formatting_IndentFirstDeclarationBlock" xml:space="preserve">
+    <value>Si les déclarations en haut d'une procédure, avant sa première instruction, sont indentées d'un niveau.</value>
+  </data>
+  <data name="Formatting_IgnoreEmptyLinesInFirstBlocks" xml:space="preserve">
+    <value>Si les lignes vides du premier bloc de commentaires et du premier bloc de déclarations sont ignorées pour trouver ces blocs.</value>
+  </data>
+  <data name="Formatting_AlignCommentsWithCode" xml:space="preserve">
+    <value>Si un commentaire seul sur sa ligne est indenté comme le code qui le suit.</value>
+  </data>
+  <data name="Formatting_AlignContinuations" xml:space="preserve">
+    <value>Si les lignes sur lesquelles se poursuit une instruction sont alignées entre elles.</value>
+  </data>
+  <data name="Formatting_IgnoreOperatorsInContinuations" xml:space="preserve">
+    <value>Si l'opérateur qui commence une ligne poursuivie est ignoré pour aligner les continuations, de sorte que les opérandes s'alignent.</value>
+  </data>
+  <data name="Formatting_IndentCase" xml:space="preserve">
+    <value>Si les clauses Case d'un Select Case sont indentées d'un niveau par rapport au Select Case.</value>
+  </data>
+  <data name="Formatting_ForceDebugStatementsInColumn1" xml:space="preserve">
+    <value>Si Debug.Print, Debug.Assert et Stop vont tous dans la première colonne, quoi que dise le réglage de chacun.</value>
+  </data>
+  <data name="Formatting_ForceDebugPrintInColumn1" xml:space="preserve">
+    <value>Si Debug.Print va dans la première colonne.</value>
+  </data>
+  <data name="Formatting_ForceDebugAssertInColumn1" xml:space="preserve">
+    <value>Si Debug.Assert va dans la première colonne.</value>
+  </data>
+  <data name="Formatting_ForceStopInColumn1" xml:space="preserve">
+    <value>Si Stop va dans la première colonne.</value>
+  </data>
+  <data name="Formatting_ForceCompilerDirectivesInColumn1" xml:space="preserve">
+    <value>Si les lignes de compilation conditionnelle (#If, #Else, #End If, #Const) vont dans la première colonne.</value>
+  </data>
+  <data name="Formatting_IndentCompilerDirectives" xml:space="preserve">
+    <value>Si le code entre les lignes de compilation conditionnelle est indenté d'un niveau.</value>
+  </data>
+  <data name="Formatting_AlignDims" xml:space="preserve">
+    <value>Si les clauses As de déclarations consécutives sont alignées dans une colonne.</value>
+  </data>
+  <data name="Formatting_AlignDimColumn" xml:space="preserve">
+    <value>La colonne dans laquelle les clauses As des déclarations sont alignées, de 0 à 100.</value>
+  </data>
+  <data name="Formatting_EndOfLineCommentStyle" xml:space="preserve">
+    <value>Où va un commentaire en fin de ligne de code : là où il a été écrit (Absolute), avec l'espace avec lequel il a été écrit (SameGap), deux espaces après le code (StandardGap), ou dans une colonne (AlignInColumn).</value>
+  </data>
+  <data name="Formatting_EndOfLineCommentColumnSpaceAlignment" xml:space="preserve">
+    <value>La colonne dans laquelle un commentaire en fin de ligne est aligné quand le style est AlignInColumn, de 0 à 100.</value>
+  </data>
+  <data name="Formatting_EmptyLineHandlingMethod" xml:space="preserve">
+    <value>Ce qu'on fait des lignes vides : les laisser telles quelles (Ignore), les retirer (Remove), ou les indenter comme le code autour (Indent).</value>
+  </data>
+  <data name="Formatting_IndentSpaces" xml:space="preserve">
+    <value>Le nombre d'espaces d'un niveau d'indentation, de 0 à 32. La taille de tabulation de votre éditeur reste la même.</value>
+  </data>
+  <data name="Formatting_VerticallySpaceProcedures" xml:space="preserve">
+    <value>Si le nombre de lignes vides entre les procédures d'un module est ramené au nombre réglé.</value>
+  </data>
+  <data name="Formatting_LinesBetweenProcedures" xml:space="preserve">
+    <value>Le nombre de lignes vides entre les procédures, de 0 à 2, quand elles sont espacées.</value>
+  </data>
+  <data name="Formatting_GroupRelatedProperties" xml:space="preserve">
+    <value>Si le Get, le Let et le Set d'une propriété sont gardés ensemble, l'un après l'autre.</value>
+  </data>
+  <data name="Formatting_FormatOnType" xml:space="preserve">
+    <value>Si la ligne qu'on vient de finir est formatée, et la nouvelle indentée, quand vous appuyez sur Entrée.</value>
+  </data>
+  <data name="Formatting_CompleteBlocks" xml:space="preserve">
+    <value>Si appuyer sur Entrée après l'ouverture d'un bloc sans fermeture insère la fermeture et laisse le curseur dans le corps indenté.</value>
+  </data>
+  <data name="Formatting_Snippets" xml:space="preserve">
+    <value>Si la complétion propose des extraits de blocs, avec des espaces réservés entre lesquels passer par tabulation.</value>
+  </data>
+  <data name="Formatting_SnippetDimPlacement" xml:space="preserve">
+    <value>Où va le Dim que déclare un extrait : juste au-dessus du bloc (AboveBlock), où il suit le nom de la variable pendant que vous le tapez, ou en haut de la procédure (ProcedureTop).</value>
+  </data>
+  <data name="Formatting_PrettyList" xml:space="preserve">
+    <value>Si une ligne terminée est relistée d'après ce qu'elle a compilé, comme le fait l'éditeur VBA, plutôt que formatée par des règles d'espacement et de casse.</value>
+  </data>
 </root>
