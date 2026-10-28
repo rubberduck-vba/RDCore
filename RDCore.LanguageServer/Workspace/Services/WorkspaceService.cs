@@ -272,7 +272,9 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
         documentService.Initialize(workspaceRoot);
         // a project was imported where a .vbp has the .rdproj the import wrote beside it, and was left as it was; a .vbp alone was never imported.
-        _projects.Initialize(workspaceRoot, folders, folders.Where(folder => HoldsAVbp(folder) && HoldsAProject(folder)), folders.Where(HoldsAProject));
+        // the root is a folder of the workspace whether or not the client lists it among its folders.
+        string[] all = [workspaceRoot, .. folders];
+        _projects.Initialize(workspaceRoot, folders, all.Where(folder => HoldsAVbp(folder) && HoldsAProject(folder)), all.Where(HoldsAProject));
         await LoadOtherProjectsAsync();
         await LoadWorkspaceFilesAsync();
 

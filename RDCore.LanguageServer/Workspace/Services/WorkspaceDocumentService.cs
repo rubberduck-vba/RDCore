@@ -67,6 +67,14 @@ internal interface IWorkspaceDocumentService
     /// <param name="newId">The path it has now.</param>
     /// <returns><see langword="false"/> when there is no such document.</returns>
     bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId);
+
+    /// <summary>
+    /// Says a project no longer lists a document: it is a module of one project less. The document is taken out of the workspace when it was the last project's and the
+    /// client does not have it open; one the client has open stays, a module of no project.
+    /// </summary>
+    /// <param name="id">The document.</param>
+    /// <param name="projectRoot">The folder of the project that no longer lists it.</param>
+    void Leave(TextDocumentIdentifier id, string projectRoot);
     void Edit(TextDocumentIdentifier id, string text);
     void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text);
     void Create(string relativePath);
@@ -297,11 +305,38 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return _documents.TryRemove(id, out _);
     }
 
+    public void Leave(TextDocumentIdentifier id, string projectRoot)
+    {
+        if (!_documents.TryGetValue(id, out var document))
+        {
+            return;
+        }
+
+        var remaining = document.Projects.Where(root => !WorkspacePaths.Same(root, projectRoot)).ToList();
+        if (remaining.Count == 0 && Remove(id))
+        {
+            return;
+        }
+
+        // another project still lists it, or the client has it open: it is the document of the projects that are left, and of none at all when the client keeps it open.
+        _documents[id] = document with { Projects = remaining };
+    }
+
     public bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId)
     {
         if (!_documents.TryGetValue(id, out var document))
         {
             return false;
+        }
+
+        // a client closes the old path and opens the new one before it says the file was renamed: the document at the new path is the client's - its text, its version, and
+        // that it is open - and is a module of the projects the old one was.
+        if (_documents.TryGetValue(newId, out var already))
+        {
+            _documents[newId] = already with { Projects = [.. already.Projects.Union(document.Projects, WorkspacePaths.Comparer)] };
+            _documents.TryRemove(id, out _);
+            documentStateProvider.Forget(id);
+            return true;
         }
 
         // the document is addressed from the root of the project that loaded it first; a path that climbs out of it is the file it names.
@@ -310,7 +345,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         {
             IsDirty = document.IsDirty,
             Companion = document.Companion,
-            Projects = _documents.TryGetValue(newId, out var already) ? [.. document.Projects.Union(already.Projects, WorkspacePaths.Comparer)] : document.Projects,
+            Projects = document.Projects,
         };
 
         var wasOpen = documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState;
