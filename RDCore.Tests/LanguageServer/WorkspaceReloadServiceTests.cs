@@ -233,6 +233,20 @@ public sealed class WorkspaceReloadServiceTests
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
     }
 
+    // a project file that cannot be written leaves the project what it was - what is on disk, and what the workspace is (HexIDE, desk #32).
+    [TestMethod]
+    public async Task AChangeThatCannotBeWritten_LeavesTheProjectAsItWas()
+    {
+        await LoadAsync("A.bas");
+        _files.File.SetAttributes(Path.Combine(Root, ProjectFile.FileName), FileAttributes.ReadOnly);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _sut.ChangeAsync(project => project.WithModule(new RDCoreModule { RelativeUri = "B.cls" }), CancellationToken.None));
+
+        CollectionAssert.AreEqual(new[] { "A.bas" }, _projectFiles.Project.ProjectInfo.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsFalse(_documents.TryGetDocument(UriOf("B.cls"), out _));
+    }
+
     [TestMethod]
     public async Task AChangeThatLeavesTheProjectAsItWas_WritesNothing()
     {

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -30,6 +31,10 @@ namespace RDCore.LanguageServer.Workspace;
 /// Either way, what the <c>.vbp</c> does not describe is kept (<see cref="VbpImport.Into"/>).
 /// The answer is the project file, and what the import could not carry over, each as the user is told it.
 /// </para>
+/// <para>
+/// What the file system refuses - a <c>.vbp</c> that cannot be read, a project file that cannot be written - is a refusal (<c>RequestFailed</c>, -32803)
+/// said on one line, in the language of the user interface; the whole of it is written to the server's log.
+/// </para>
 /// </remarks>
 internal sealed class ImportProjectCommand(
     IWorkspaceDocumentService documents,
@@ -39,7 +44,8 @@ internal sealed class ImportProjectCommand(
     ILibrarySource libraries,
     IFileSystem fileSystem,
     IOptions<SdkAppOptions> options,
-    ILanguageServerFacade server) : IServerCommand
+    ILanguageServerFacade server,
+    ILogger<ImportProjectCommand> logger) : IServerCommand
 {
     /// <summary>The name a client asks for the command by.</summary>
     public const string CommandName = "rdcore.importProject";
@@ -60,7 +66,14 @@ internal sealed class ImportProjectCommand(
                 throw new ServerCommandRefusedException(VbpImportText.NotFound(vbp));
             }
 
-            text = VbpProjectImporter.Decode(await fileSystem.File.ReadAllBytesAsync(vbp, token), AnsiEncoding());
+            try
+            {
+                text = VbpProjectImporter.Decode(await fileSystem.File.ReadAllBytesAsync(vbp, token), AnsiEncoding());
+            }
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                throw Refused(VbpImportText.NotRead(vbp, exception), exception);
+            }
         }
 
         var folder = fileSystem.Path.GetDirectoryName(vbp)!;
@@ -76,15 +89,26 @@ internal sealed class ImportProjectCommand(
 
         // the workspace's own project file is the server's to write, and the workspace becomes what it lists - which the client is told, as of any change of
         // the project: its diagnostics are to be pulled again. Another folder's is written as it is. Either way, what the .vbp does not describe is kept.
-        var reloaded = IsWorkspaceFolder(folder) ? await reload.ChangeAsync(project => import.Into(project, folder), token) : null;
+        // a project file the file system will not let be written - read-only, in a folder that cannot be written to - is a refusal said on one line; what the
+        // file system threw is the server's log's.
+        WorkspaceReloadResult? reloaded;
+        try
+        {
+            reloaded = IsWorkspaceFolder(folder) ? await reload.ChangeAsync(project => import.Into(project, folder), token) : null;
+            if (reloaded is null)
+            {
+                // a project file that cannot be read is replaced whole, as the user said to replace it.
+                await writer.SaveAsync(import.Into(await loader.LoadIfReadableAsync(folder, token), folder), token);
+            }
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            throw Refused(VbpImportText.NotWritten(rdproj, exception), exception);
+        }
+
         if (reloaded is not null)
         {
             WorkspaceChangeReport.Send(server, reloaded);
-        }
-        else
-        {
-            // a project file that cannot be read is replaced whole, as the user said to replace it.
-            await writer.SaveAsync(import.Into(await loader.LoadIfReadableAsync(folder, token), folder), token);
         }
 
         return new JObject
@@ -139,6 +163,13 @@ internal sealed class ImportProjectCommand(
         return chosen is not null && names.IndexOf(chosen) is var index and >= 0
             ? projects[index]
             : throw new ServerCommandRefusedException(VbpImportText.Cancelled(path));
+    }
+
+    // a refusal the client shows its user on one line, and the whole of what caused it in the server's log.
+    private ServerCommandRefusedException Refused(string message, Exception cause)
+    {
+        logger.LogWarning(cause, "⚠️ rdcore.importProject was refused: {message}", message);
+        return new ServerCommandRefusedException(message);
     }
 
     private bool IsWorkspaceFolder(string folder)

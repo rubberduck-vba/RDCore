@@ -67,7 +67,8 @@ public sealed class ImportProjectCommandTests
     }
 
     private ImportProjectCommand Sut()
-        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()), _server);
+        => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()), _server,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ImportProjectCommand>.Instance);
 
     private void Write(string path, string text) => _fileSystem.AddFile(path, new MockFileData(Encoding.Latin1.GetBytes(text)));
 
@@ -123,6 +124,49 @@ public sealed class ImportProjectCommandTests
         var project = change(new ProjectFile(Root, new RDCoreProject { Name = "Old" }) with { Configuration = ["rdcore.settings.json"] });
         Assert.AreEqual("Battleship", project.ProjectInfo.Name);
         CollectionAssert.AreEqual(new[] { "rdcore.settings.json" }, project.Configuration);
+    }
+
+    // what the file system refuses is a refusal said on one line (HexIDE, desk #32): a read-only .rdproj, in the workspace's folder or another.
+    [TestMethod]
+    [DataRow(true, DisplayName = "the workspace's project file")]
+    [DataRow(false, DisplayName = "another folder's")]
+    public async Task AProjectFileThatCannotBeWritten_IsARefusal_OnOneLine(bool workspace)
+    {
+        var folder = workspace ? Root : Other;
+        Write(Path.Combine(folder, "Battleship.vbp"), Battleship);
+        var denied = new UnauthorizedAccessException($"Access to the path '{Path.Combine(folder, ProjectFile.FileName)}' is denied.");
+        _reload.ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>()).Returns<WorkspaceReloadResult?>(_ => throw denied);
+        _writer.SaveAsync(Arg.Any<ProjectFile>(), Arg.Any<CancellationToken>()).Returns(_ => throw denied);
+
+        var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(() => Sut().ExecuteAsync(
+            Argument(new JObject { ["uri"] = Uri(Path.Combine(folder, "Battleship.vbp")), ["text"] = Battleship, ["overwrite"] = true }), _context, CancellationToken.None));
+
+        // the path is the one of the .vbp's URI, whose drive a file URI spells in lowercase.
+        Assert.AreEqual(VbpImportText.NotWritten(Path.Combine(folder, ProjectFile.FileName), denied), refused.Message, ignoreCase: true);
+        Assert.DoesNotContain("\n", refused.Message);
+        _server.DidNotReceive().SendRequest(DiagnosticRefresh.Method);
+    }
+
+    [TestMethod]
+    public async Task AVbpThatCannotBeRead_IsARefusal_OnOneLine()
+    {
+        _fileSystem.AddFile(Path.Combine(Other, "Locked.vbp"), new MockFileData(Battleship) { AllowedFileShare = FileShare.None });
+
+        var refused = await Assert.ThrowsAsync<ServerCommandRefusedException>(
+            () => Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Locked.vbp"))), _context, CancellationToken.None));
+
+        StringAssert.StartsWith(refused.Message, VbpImportText.NotRead(Path.Combine(Other, "Locked.vbp"), new IOException("x"))[..^1], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\n", refused.Message);
+    }
+
+    [TestMethod]
+    public void AFileTheFileSystemRefuses_IsSaid_InTheLanguageOfTheReader()
+    {
+        var denied = new UnauthorizedAccessException("Access is denied.");
+
+        Assert.AreEqual("Couldn't write 'ws/.rdproj': access to the file is denied.", VbpImportText.NotWritten("ws/.rdproj", denied, System.Globalization.CultureInfo.InvariantCulture));
+        Assert.AreEqual("Impossible d'écrire « ws/.rdproj » : l'accès au fichier est refusé.", VbpImportText.NotWritten("ws/.rdproj", denied, System.Globalization.CultureInfo.GetCultureInfo("fr-CA")));
+        Assert.AreEqual("Couldn't read 'x.vbp': the disk is gone", VbpImportText.NotRead("x.vbp", new IOException("the disk is gone\r\n   at Somewhere()"), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [TestMethod]

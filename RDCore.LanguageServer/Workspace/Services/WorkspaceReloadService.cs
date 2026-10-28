@@ -152,9 +152,19 @@ internal sealed class WorkspaceReloadService(
                 return WorkspaceReloadResult.Unchanged;
             }
 
-            // the environment host reads the project file to compose its session, so it is written first.
+            // the environment host reads the project file to compose its session, so it is written first. A project file that cannot be written leaves the
+            // project what it was - what is on disk, and what the workspace is - rather than one that is neither.
             projectFiles.Update(changed);
-            await projectFiles.SaveAsync();
+            try
+            {
+                await projectFiles.SaveAsync();
+            }
+            catch
+            {
+                projectFiles.Update(project);
+                throw;
+            }
+
             return await ApplyAsync(project, token);
         }
         finally
