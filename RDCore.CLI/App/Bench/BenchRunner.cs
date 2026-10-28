@@ -3,6 +3,7 @@ using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.External;
 using RDCore.Parsing;
+using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
@@ -25,7 +26,8 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Runs">How many times each case is run.</param>
 /// <param name="Filter">Only the cases whose <c>Module.Procedure</c> name contains this, without regard to case; every case when <see langword="null"/>.</param>
 /// <param name="ListOnly">Whether the workspace is loaded and swept, and its cases listed, without running any of them.</param>
-internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false);
+/// <param name="Engine">What runs the cases; the engine the environment says when <see langword="null"/>.</param>
+internal sealed record class BenchOptions(int Runs = 3, string? Filter = null, bool ListOnly = false, VBExecutionEngine? Engine = null);
 
 /// <summary>
 /// A case of a benchmark, and how long each of its runs took - or the error that stopped it.
@@ -50,10 +52,13 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Symbols">Building the symbols of every module and defining them in the session.</param>
 /// <param name="Load">Loading the code of every module: lowered, and analyzed statically.</param>
 /// <param name="Sweep">From the first module loaded until the facts of every module are evaluated: the analysis sweep, which runs in the background as modules load.</param>
+/// <param name="Compile">Compiling the procedures the cases called to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>: each the first time it was
+/// called, which is in the first run of its case.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
 /// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
 internal sealed record class BenchReport(
-    BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, IReadOnlyList<BenchCase> Cases, IReadOnlyList<string> Problems);
+    BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
+    IReadOnlyList<string> Problems);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -78,6 +83,9 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
 
+    /// <summary>The environment the session is composed for: what runs the cases, and how they are built.</summary>
+    public IRuntimeEnvironmentProfile Environment => environment;
+
     /// <summary>
     /// Loads <paramref name="workspace"/>, waits for its analysis sweep, and runs its cases.
     /// </summary>
@@ -87,10 +95,71 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
     /// <param name="token">Stops the benchmark between two runs, and the run that is going on.</param>
     public async Task<BenchReport> RunAsync(BenchWorkspace workspace, BenchOptions options, Action<string>? progress = null, CancellationToken token = default)
     {
+        // whatever implements the environment: --engine is never ignored.
+        var profile = options.Engine is { } engine ? SDK.Runtime.RuntimeEnvironmentProfile.Of(environment) with { ExecutionEngine = engine } : environment;
+        var load = await LoadAsync(workspace, profile, token);
+        var provider = load.Provider;
+
+        var cases = new List<BenchCase>();
+        foreach (var (name, entryPoint) in Cases(provider.Session, load.Loaded).Where(found => Selected(found.Name, options.Filter)))
+        {
+            if (options.ListOnly)
+            {
+                cases.Add(new BenchCase(name, []));
+                continue;
+            }
+
+            progress?.Invoke(name);
+            cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
+        }
+
+        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems);
+    }
+
+    /// <summary>
+    /// Loads <paramref name="workspace"/>, and compiles each procedure of each module that loaded, as its first call would: whether it runs compiled, and
+    /// what keeps it in the interpreter when it does not.
+    /// </summary>
+    /// <param name="workspace">The workspace.</param>
+    /// <param name="token">Stops the load.</param>
+    /// <returns>Each procedure, by module and in the order the module declares them; and what kept a module from being parsed or loaded.</returns>
+    public async Task<(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems)> CompileAsync(
+        BenchWorkspace workspace, CancellationToken token = default)
+    {
+        var load = await LoadAsync(workspace, environment, token);
+        var session = load.Provider.Session;
+        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
+        var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
+        foreach (var (module, _) in load.Loaded)
+        {
+            if (!session.Symbols.TryGetModule(module.Name, out var symbol))
+            {
+                continue;
+            }
+
+            foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
+            {
+                if (ProcedureCompilation.Of(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
+                {
+                    procedures.Add((module.Name, compilation));
+                }
+            }
+        }
+
+        return (procedures, load.Problems);
+    }
+
+    private sealed record class LoadedWorkspace(
+        EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
+        IReadOnlyList<string> Problems);
+
+    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile.
+    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token)
+    {
         var problems = new List<string>();
         var root = new Uri(workspace.Root);
         var provider = new EnvironmentSessionProvider(
-            environment, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), new DirectoryLibrarySource(fileSystem, string.Empty), ExternalWorld.None);
+            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), new DirectoryLibrarySource(fileSystem, string.Empty), ExternalWorld.None);
         provider.Compose(workspace.Project, root);
 
         var stopwatch = Stopwatch.StartNew();
@@ -136,6 +205,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
                     Directives = parse.SyntaxTree!.GetModuleDirectives(),
                     ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse),
                     Replace = true,
                     DeclareTypesOnly = declareTypesOnly,
                 }, token);
@@ -176,20 +246,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
         await provider.Image.Semantics.WhenAllEvaluatedAsync(token);
         var sweepTime = stopwatch.Elapsed;
 
-        var cases = new List<BenchCase>();
-        foreach (var (name, entryPoint) in Cases(provider.Session, loaded).Where(found => Selected(found.Name, options.Filter)))
-        {
-            if (options.ListOnly)
-            {
-                cases.Add(new BenchCase(name, []));
-                continue;
-            }
-
-            progress?.Invoke(name);
-            cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
-        }
-
-        return new BenchReport(workspace, parseTime, symbolsTime, loadTime, sweepTime, cases, problems);
+        return new LoadedWorkspace(provider, loaded, parseTime, symbolsTime, loadTime, sweepTime, problems);
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);

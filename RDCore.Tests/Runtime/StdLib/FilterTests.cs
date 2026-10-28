@@ -105,9 +105,15 @@ public sealed class FilterTests
     [TestMethod]
     [DataRow(2)]
     [DataRow(-1)]
-    [DataRow(1033)]
-    public void Filter_WithACompareOtherThanZeroOrOne_IsError5(int compare)
+    [DataRow(240)]
+    public void Filter_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
         => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().Filter(StringArray("a"), new VBStringValue("a"), Include, (VBCompareMethod)compare)));
+
+    [TestMethod]
+    [DataRow(7)]
+    [DataRow(1033)]
+    public void Filter_WithACompareThatIsALocale_FiltersByText(int compare)
+        => Assert.AreEqual("A", ((VBStringValue)ArrayOf(Module().Filter(StringArray("A"), new VBStringValue("a"), Include, (VBCompareMethod)compare)).ElementAt(0)!).Value);
 
     [TestMethod]
     public void Filter_KeepsAnElementAsItIs()

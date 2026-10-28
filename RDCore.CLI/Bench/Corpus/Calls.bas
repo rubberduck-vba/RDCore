@@ -6,6 +6,20 @@ Private Function Add(ByVal A As Long, ByVal B As Long) As Long
     Add = A + B
 End Function
 
+Private Function Fib(ByVal N As Long) As Long
+    If N < 2 Then
+        Fib = N
+    Else
+        Fib = Fib(N - 1) + Fib(N - 2)
+    End If
+End Function
+
+' recursion: Fib(25) is 242,785 calls, each of which is short, so the case measures what an activation costs.
+Public Sub BenchRecursion()
+    Dim S As Long
+    S = Fib(25)
+End Sub
+
 Public Sub BenchProcedureCalls()
     Dim I As Long
     Dim S As Long

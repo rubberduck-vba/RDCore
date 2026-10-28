@@ -285,6 +285,7 @@ internal sealed class SymbolSyncService(
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = withCode ? PlatformJson.Serialize(parseResult) : string.Empty,
+                PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult),
                 Replace = replace,
                 DeclareTypesOnly = declareTypesOnly,
             }, token);

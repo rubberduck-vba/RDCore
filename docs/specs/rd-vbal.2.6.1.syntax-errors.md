@@ -40,8 +40,63 @@ no code of the module. `#Const Debugging = _` followed by `    1` is one `#Const
 continues over lines, and the `#` of a directive may stand apart from its keyword (`#  If`, `# _` followed by `If 1 Then`). A line that starts with `#` and
 continues another line is not a directive: `d = _` followed by `    #1/2/2000#` assigns a date literal. **MS-VBA** reads them so (recorded in Excel).
 
+A procedure's header written once in each branch of a `#If` block, around one body and one `End`, is one procedure, which **MS-VBA** compiles with the
+header of the live branch (recorded in Excel). The common case is the `PtrSafe` pattern:
+
+```vba
+#If VBA7 Then
+Private Function Address(ByVal p As LongPtr) As LongPtr
+#Else
+Private Function Address(ByVal p As Long) As Long
+#End If
+    Address = p
+End Function
+```
+
+How RD-VBA reads it:
+
+- **One branch's header.** The parse is of every branch, whatever the constants are. It reads the branch whose header is of the kind of the statement
+  that closes the procedure, or the first branch when none is.
+- **The alternatives.** Each other branch is read on its own, and its header is an alternative of the procedure
+  ([MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.HeaderAlternatives`).
+- **The body.** What a branch writes after its header belongs to the body, in source order.
+- **Before the header.** What a branch writes before its header - a `Declare`, a variable, a whole procedure - is the module's, where it is written, as
+  in any `#If` block. A branch's header is the procedure it leaves open.
+- **Which compiles.** It is decided by the environment host, which knows the constants: see below.
+- **In MS-VBA:**
+  - The live branch's header is the one compiled, and the live branch's statements are the ones run.
+  - A live `Sub` header closed by `End Function` is "Expected End Sub".
+  - A header written only in a dead branch leaves its body "Invalid outside procedure".
+
+### The live declaration
+
+The language server fuses a declaration written once in each branch of a `#If` block into one symbol. The symbol is the first branch's, with every site in
+`Definitions` and what each other branch declares in `Alternatives`. The cases are:
+
+- a procedure written whole in each branch;
+- a procedure header split across branches;
+- a `Declare` with and without `PtrSafe`;
+- a field of a `Type` that each branch declares.
+
+Each alternative travels beside the symbol to the environment host, and the module's directives travel with them (`DefineSymbolsParams.PrecompilerTriviaJson`).
+The host evaluates the directives with the session's constants (`PrecompilerLiveBranchEvaluator`), as **MS-VBA** compiles a module (recorded in Excel):
+
+|What the module writes|What the host defines|
+|---|---|
+|A declaration in each branch|The one of the live branch, its signature included; each site of `Definitions` marked live or dead.|
+|A declaration in dead branches only|Nothing, nor anything its body declares: a call of it with an argument list is "Sub or Function not defined" (`VBC09331`), as in **MS-VBA**.|
+|A procedure header in dead branches only, around a body that is not|"Invalid outside procedure" (`VBC00054`), at the first statement of the body, as in **MS-VBA**.|
+|A field of a `Type` in each branch, or in a dead branch only|The type with the fields of its live branches.|
+|A procedure written whole in each branch|The live branch's procedure, whose body is the live branch's: the dead copy is not loaded.|
+
 > [!NOTE]
-> **Not implemented.** A `#If` that splits a single statement across conditional-compilation branches (`#If` / `#Else` / `#End If`) is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range.
+> **Not implemented.**
+> - "Expected End Sub", which **MS-VBA** reports of a live header of another kind than its closing statement, is not reported yet.
+> - The language server's own analysis - completion, diagnostics, navigation - still reads a fused symbol as its first branch declares it.
+
+> [!NOTE]
+> **Not implemented.** A `#If` that splits a block statement's header inside a body (an `If`, a `Select Case`, a loop or a `With` written once per branch)
+> is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range.
 
 ## Published Codes
 
@@ -62,6 +117,38 @@ continues another line is not a directive: `d = _` followed by `    #1/2/2000#` 
 |[`VBC00053`](../diagnostics/vbc00053.md)|Expected End With|a `With` block is not ended before its procedure is|
 |[`VBC00054`](../diagnostics/vbc00054.md)|Invalid outside procedure|a statement that runs is written in the declarations section of a module|
 |[`VBC00055`](../diagnostics/vbc00055.md)|Only comments may appear after End Sub, End Function, or End Property|a declaration or a statement is written after the first procedure of a module|
+|[`VBC00056`](../diagnostics/vbc00056.md)|An #ElseIf, #Else, or #EndIf must be preceded by an #If clause|a `#End If` ends no `#If` block|
+|[`VBC00057`](../diagnostics/vbc00057.md)|An #Else clause must be preceded by an #If|a `#Else` belongs to no block, or is the second of its block|
+|[`VBC00058`](../diagnostics/vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf|a `#ElseIf` belongs to no block, or comes after its `#Else`|
+|[`VBC00059`](../diagnostics/vbc00059.md)|You must terminate the #If block with an #EndIf|a `#If` block is not ended|
+
+## Directives That Are Wrong
+
+A directive is checked on its own logical line against the rule of the RD-VBA grammar for it. One that is not well formed is no directive, as in
+**MS-VBA** (recorded in Excel): an `#If` with no `Then`, one whose expression is no expression, one with code after its `Then`, an unknown keyword (`#Iff`),
+and an `#End If` with text after it, a comment written with `Rem` too. An `#End If` after such an `#If` ends no block, and so is `VBC00056`; a block whose
+`#End If` is not well formed is not ended, and so is `VBC00059`. `#EndIf`, written as one word, is an `#End If`.
+
+No whitespace is required around the condition of an `#If` or an `#ElseIf`, where a parenthesis separates it from the keywords: `#If(VBA7) Then`,
+`#If (Win64)Then` and `#ElseIf(Mac) Then` are well formed, as in **MS-VBA**. A `#Const` name is any identifier, an accented one too (`#Const Été = 1`).
+
+A directive line that is not well formed is the syntax error `VBC00001`, with **MS-VBA**'s message, at the token **MS-VBA** puts the caret on:
+
+|Directive|Message|At|
+|---|---|---|
+|`#If VBA7`|Expected: Then|the end of the line|
+|`#If VBA7 Foo Then`|Expected: Then|`Foo`|
+|`#If X = Then`|Expected: expression|`Then`|
+|`#If VBA7 Then Private Const A = 1`|Expected: end of statement|`Private`|
+|`#Else junk`, `#End If junk`|Expected: end of statement|`junk`|
+|`#Iff X Then`, `#`|Expected: If or Else or ElseIf or End or EndIf or Const|the word after `#`, or where it would be|
+|`#Const X`, `#Const X As Long = 1`|Expected: =|the end of the line, `As`|
+|`#Const = 1`|Expected: identifier|`=`|
+|`#Const X =`|Expected: expression|the end of the line|
+|`#Const X = 1 junk`|Expected: end of statement|`junk`|
+
+**MS-VBA** reports the first error of a module, and finds the errors of the blocks' structure (`VBC00056`–`VBC00059`) before those of the lines; RD-VBA
+reports every one of them. **MS-VBA** puts the caret of `VBC00059` on the module's last line, and RD-VBA reports it at the `#If` that is not ended.
 
 ---
 > ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)

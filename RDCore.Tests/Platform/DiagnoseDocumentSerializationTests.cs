@@ -16,16 +16,18 @@ namespace RDCore.Tests.Platform;
 [TestClass]
 public sealed class DiagnoseDocumentSerializationTests
 {
-    // legal VBA a #If splits mid-statement: unparseable, so the two-stage parser yields an AST plus
+    // legal VBA a #If splits mid-statement - a block statement's header inside a body, which is not parsed yet - so the two-stage parser yields an AST plus
     // located syntax errors — exactly the payload shape a provider has to round-trip.
     private const string SplitConditionalModule = """
+        Public Sub F(ByVal x As Long)
         #If VBA7 Then
-        Private Function GetPtr() As LongPtr
+            If x > 0 Then
         #Else
-        Private Function GetPtr() As Long
+            If x < 0 Then
         #End If
-            GetPtr = 0
-        End Function
+                x = 1
+            End If
+        End Sub
         """;
 
     private const string CleanModule = "Option Explicit\r\n\r\nPublic Sub DoNothing()\r\nEnd Sub\r\n";

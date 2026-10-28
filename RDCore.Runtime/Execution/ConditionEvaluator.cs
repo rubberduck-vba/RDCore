@@ -24,6 +24,9 @@ namespace RDCore.Runtime.Execution;
 /// </remarks>
 public sealed class ConditionEvaluator(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercion)
 {
+    /// <summary>The evaluator the conditions are evaluated with.</summary>
+    internal RuntimeExpressionEvaluator Expressions => expressionEvaluator;
+
     /// <summary>
     /// Evaluates <paramref name="condition"/> and let-coerces the result to <c>Boolean</c>.
     /// </summary>
