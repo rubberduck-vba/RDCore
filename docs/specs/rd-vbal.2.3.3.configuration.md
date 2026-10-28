@@ -23,7 +23,7 @@ When a change of a setting takes effect is part of the setting ([`SettingAttribu
 
 |Reach|Takes effect|Examples|
 |---|---|---|
-|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Diagnostics.*`|
+|`Live`|When it changes, in the components that are running.|`Server.Verbose`, `Server.TraceLevel`, `Formatting.*`, `Diagnostics.*`|
 |`NextStart`|When the component that reads it starts, or the next session does.|`Environment.*`, `Workspace.*`, `CLI.*`, `Platform.Extensions.Allowed`|
 |`Deployment`|Never through the platform: only the deployed configuration sets it.|`ServerApp.Component`, `Platform.Transport.*`, `Server.ClientProcessId`|
 
@@ -90,8 +90,76 @@ A live setting is set on the object the component reads its settings off, in pla
 |`Server.Verbose`|For the next message the console writes.|
 |`Server.WireErrorDetail`|For the next record forwarded to the client.|
 |`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|
+|`Formatting.*`|For the next line or range the formatter formats; they are read as the formatter arrives ([Formatting](#formatting)).|
 
 `rdc config` writes the user's settings without a running platform to tell: what it sets takes effect when the platform next starts, a live setting included.
+
+## Formatting
+
+The `Formatting` section is what formats and completes code ([`SdkFormattingOptions`](../api/RDCore.SDK.Server.Configuration.SdkFormattingOptions.html)). A
+formatting engine is told the options these settings say ([`CodeFormattingOptions`](../api/RDCore.SDK.Formatting.CodeFormattingOptions.html)); the numbers
+are kept to the limits of their settings. The indentation is made of spaces, as VBA code is.
+
+The settings take effect with the formatter, which reads them each time it formats: the platform keeps them and hands them to it as it arrives, and until then they
+change nothing in a document. What the platform does with them today is keep them, and take the editor's tab size as `IndentSpaces` when the user never set one
+([below](#indentation-and-the-editors-tab-size)).
+
+The first twenty-four are Rubberduck's indenter settings, with the names, types, defaults and limits they have there, most of them the Smart Indenter's. A
+setting means here what it means there.
+
+|Setting|Value|Default|
+|---|---|---|
+|`IndentEntireProcedureBody`|Boolean|`True`|
+|`IndentEnumTypeAsProcedure`|Boolean|`False`|
+|`IndentFirstCommentBlock`|Boolean|`True`|
+|`IndentFirstDeclarationBlock`|Boolean|`True`|
+|`IgnoreEmptyLinesInFirstBlocks`|Boolean|`False`|
+|`AlignCommentsWithCode`|Boolean|`True`|
+|`AlignContinuations`|Boolean|`True`|
+|`IgnoreOperatorsInContinuations`|Boolean|`True`|
+|`IndentCase`|Boolean|`False`|
+|`ForceDebugStatementsInColumn1`|Boolean; says it of `ForceDebugPrintInColumn1`, `ForceDebugAssertInColumn1` and `ForceStopInColumn1` all|`False`|
+|`ForceDebugPrintInColumn1`, `ForceDebugAssertInColumn1`, `ForceStopInColumn1`|Boolean|`False`|
+|`ForceCompilerDirectivesInColumn1`|Boolean|`False`|
+|`IndentCompilerDirectives`|Boolean|`True`|
+|`AlignDims`|Boolean|`False`|
+|`AlignDimColumn`|0 to 100|`15`|
+|`EndOfLineCommentStyle`|`Absolute`, `SameGap`, `StandardGap`, `AlignInColumn`|`AlignInColumn`|
+|`EndOfLineCommentColumnSpaceAlignment`|0 to 100|`50`|
+|`EmptyLineHandlingMethod`|`Ignore`, `Remove`, `Indent`|`Ignore`|
+|`IndentSpaces`|0 to 32|`4`|
+|`VerticallySpaceProcedures`|Boolean|`True`|
+|`LinesBetweenProcedures`|0 to 2|`1`|
+|`GroupRelatedProperties`|Boolean|`False`|
+
+RDCore's own:
+
+|Setting|Value|Default|Does|
+|---|---|---|---|
+|`FormatOnType`|Boolean|`True`|Formats the line just finished, and indents the new one, on Enter.|
+|`CompleteBlocks`|Boolean|`True`|On Enter after a block opener with no closer, inserts the closer and leaves the caret in the indented body.|
+|`Snippets`|Boolean|`True`|Completion offers snippets of blocks, with placeholders.|
+|`SnippetDimPlacement`|`AboveBlock`, `ProcedureTop`|`AboveBlock`|Where the `Dim` a snippet declares goes: right above the block, where it follows the variable's name as it is typed; or at the top of the procedure, where it does not.|
+|`PrettyList`|Boolean|`True`|A finished line is listed back from what it compiled to, as MS-VBA lists it, rather than formatted by rules of spacing and casing.|
+
+### Indentation and the editor's tab size
+
+A client owns its configuration (**LSP 3.17** §Configuration Request), so the platform sets nothing of it and tells the editor nothing: the flow is one way, from the
+client to the server. A change of the editor's tab size is a change of configuration like any other: the client says so (`workspace/didChangeConfiguration`), and the
+server asks (`workspace/configuration`) for the section `rdcore`, which holds `Formatting.IndentSpaces` when the user set it, and for `editor.tabSize`
+([`FormattingTabSize`](../api/RDCore.SDK.Formatting.FormattingTabSize.html)).
+
+|The user set `IndentSpaces`|The editor has a tab size|The server has `Formatting.IndentSpaces` =|
+|---|---|---|
+|No|Yes|The editor's tab size, for as long as the server runs. Nothing is written.|
+|No|No|`4`.|
+|Yes|Either|`IndentSpaces`.|
+
+A change that is still being followed when a newer one arrives is dropped, and so is one that is being followed when the server shuts down. The formatter does not exist
+yet: when it does, it indents with `Formatting.IndentSpaces`, and not with the `tabSize` of the options of a request to format.
+
+A client that wants its editor to agree with the setting sets one from the other in its own configuration: the platform's shell has no editor, and a client with an
+editor (HexIDE, a VS Code extension) maps `editor.tabSize` for the VBA language to `Formatting.IndentSpaces`, or the other way.
 
 ## `CONFIG`
 

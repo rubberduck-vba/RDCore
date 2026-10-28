@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
@@ -279,6 +280,7 @@ public abstract class RDCoreServerApp(
         }
         _disposed = true;
 
+        _configurationFollower?.Dispose();
         if (transportLayer is IDisposable disposableTransport)
         {
             disposableTransport.Dispose();
@@ -420,19 +422,10 @@ public abstract class RDCoreServerApp(
     // client says it changed - OmniSharp's own pull, for the section it was configured with - and the answer is set on the component's settings.
     private void FollowClientConfiguration(ILanguageServer server)
     {
-        if (ExternalServices?.GetService(typeof(ILiveSettings)) is not ILiveSettings liveSettings)
-        {
-            return;
-        }
-
-        Microsoft.Extensions.Primitives.ChangeToken.OnChange(server.Configuration.GetReloadToken, () =>
-        {
-            var settings = LiveSettingsProtocol.Read(server.Configuration);
-            liveSettings.Apply(settings);
-            LogIfEnabled(LogLevel.Information, $"⚙️ The client's live settings were applied ({settings.Count} value(s)).");
-            _ = OnLiveSettingsChangedAsync(server);
-        });
+        _configurationFollower = ClientConfigurationFollower.Follow(ExternalServices, server, () => OnLiveSettingsChangedAsync(server), message => LogIfEnabled(LogLevel.Information, message));
     }
+
+    private ClientConfigurationFollower? _configurationFollower;
 
     /// <summary>
     /// The client said the live settings changed, and they were set on the component's settings (<see cref="ILiveSettings"/>).
