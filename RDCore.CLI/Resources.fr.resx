@@ -608,6 +608,9 @@
   <data name="Compilation_Reason_Refused" xml:space="preserve">
     <value>du code compilé que le runtime refuse d'exécuter (un défaut du compilateur) : {0}</value>
   </data>
+  <data name="Compilation_Reason_BoxedEvaluation" xml:space="preserve">
+    <value>les valeurs sont tenues en boîte ({0}), et le code compilé travaille sur les valeurs brutes de ses variables</value>
+  </data>
   <data name="Repl_Breakpoint_Enabled" xml:space="preserve">
     <value>POINT D'ARRÊT ACTIF À {0}</value>
   </data>

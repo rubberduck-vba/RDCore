@@ -610,6 +610,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Reason_Refused" xml:space="preserve">
     <value>compiled code the runtime refuses to run (a defect of the compiler): {0}</value>
   </data>
+  <data name="Compilation_Reason_BoxedEvaluation" xml:space="preserve">
+    <value>values are held boxed ({0}), and compiled code works on the payloads of its variables</value>
+  </data>
   <data name="Repl_Breakpoint_Enabled" xml:space="preserve">
     <value>BREAKPOINT ENABLED AT {0}</value>
   </data>

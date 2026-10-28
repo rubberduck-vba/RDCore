@@ -1,5 +1,6 @@
 using RDCore.CLI.Host;
 using RDCore.Runtime.Compiled;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection;
@@ -20,13 +21,15 @@ public sealed class CompiledExecutionTests
 
     private sealed record class Run(ExecuteSessionResult Result, IReadOnlyDictionary<string, CompilationResult> Compiled);
 
-    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, TimeSpan? cancelAfter = null)
+    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, TimeSpan? cancelAfter = null, bool payloads = true)
     {
         ExecuteSessionResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
 
-        // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two.
+        // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two. Compiled code works on payloads, which the suite
+        // may be run without (RDCORE_UNBOXED=0): the compiled run uses them unless it is told not to, and the interpreted one is whatever the suite says.
         using var running = CompiledExecution.Running(engine);
+        using var evaluation = engine is VBExecutionEngine.Compiled ? UnboxedEvaluation.Using(payloads) : null;
         await ModuleWorkspace.InspectAsync(NoClasses, program, (provider, run, _) =>
         {
             result = run;
@@ -292,7 +295,8 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public void AFailureOfTheCompiler_IsAReasonTheProcedureRunsInTheInterpreter_AndIsReported()
     {
-        // a procedure whose parameters were never set is no procedure a session defines, and makes the analysis fail.
+        // a procedure whose parameters were never set is no procedure a session defines, and makes the analysis fail - which is reached where payloads are used.
+        using var payloads = UnboxedEvaluation.Using(true);
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
@@ -314,6 +318,7 @@ public sealed class CompiledExecutionTests
     [TestMethod]
     public void AHandlerOfAFailureThatFails_FailsNoCall_AndTheRefusalStands()
     {
+        using var payloads = UnboxedEvaluation.Using(true);
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
@@ -374,6 +379,45 @@ public sealed class CompiledExecutionTests
         Assert.IsNull(guarded.Body);
         Assert.AreEqual(IneligibilityKind.Instruction, guarded.Reasons.Single().Kind);
         Assert.AreEqual(nameof(SDK.Semantics.Instructions.InstructionKind.OnErrorResumeNext), guarded.Reasons.Single().Detail);
+    }
+
+    [TestMethod]
+    public async Task WhereValuesAreHeldBoxed_NoProcedureIsCompiled_AndEachSaysWhy()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Total()",
+            "End Sub",
+            "Private Function Total() As Long",
+            "    Dim i As Long",
+            "    For i = 1 To 10",
+            "        Total = Total + i",
+            "    Next",
+            "End Function");
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
+
+        var run = await RunAsync(program, VBExecutionEngine.Compiled, payloads: false);
+
+        Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
+        foreach (var (name, result) in run.Compiled)
+        {
+            Assert.IsNull(result.Body, name);
+            Assert.AreEqual(IneligibilityKind.BoxedEvaluation, result.Reasons.Single().Kind, name);
+        }
+
+        Assert.IsTrue(run.Compiled.ContainsKey("Total"), "Total was not called");
+    }
+
+    [TestMethod]
+    public async Task WhereValuesAreHeldBoxed_TheStrictModeFailsTheCall()
+    {
+        using var strictly = CompiledExecution.Strictly();
+        var run = await RunAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print 1 + 2",
+            "End Sub"), VBExecutionEngine.Compiled, payloads: false);
+
+        Assert.AreNotEqual(ExecutionOutcome.Completed, run.Result.Outcome);
     }
 
     [TestMethod]

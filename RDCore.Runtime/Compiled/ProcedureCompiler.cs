@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -19,7 +20,7 @@ namespace RDCore.Runtime.Compiled;
 /// <remarks>
 /// A body is compiled for the scopes the session binds its names in: a module defined again binds them anew, and the body is compiled again on its next
 /// call. A procedure that is not compiled - <see cref="ProcedureAnalysis"/> says why - runs in the interpreter, and so does one whose compiled code the
-/// runtime refuses to run.
+/// runtime refuses to run, and every one where values are held boxed (<see cref="IneligibilityKind.BoxedEvaluation"/>).
 /// </remarks>
 internal sealed class ProcedureCompiler
 {
@@ -52,6 +53,15 @@ internal sealed class ProcedureCompiler
     /// <param name="list">Its body.</param>
     public CompilationResult Compile(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol procedure, InstructionList list)
     {
+        // compiled code works on payloads: where values are held boxed, no procedure is compiled, and each says why. That is not kept for the body, which
+        // a session that uses payloads compiles.
+        if (!UnboxedEvaluation.IsEnabled)
+        {
+            var boxed = new CompilationResult(null, [new Ineligibility(IneligibilityKind.BoxedEvaluation, "RDCORE_UNBOXED=0")], TimeSpan.Zero);
+            _results[procedure.SemanticId] = (procedure, boxed);
+            return boxed;
+        }
+
         var scopes = session.Symbols.Scopes;
         if (_bodies.TryGetValue(list, out var known) && ReferenceEquals(known.Scopes, scopes))
         {
