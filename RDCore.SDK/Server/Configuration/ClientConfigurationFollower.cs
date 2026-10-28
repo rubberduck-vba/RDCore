@@ -28,6 +28,8 @@ public sealed class ClientConfigurationFollower : IDisposable
     private readonly Action<string> _log;
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _subscription;
+    private readonly object _gate = new();
+    private readonly List<Task> _following = [];
     private int _version;
     private int _disposed;
 
@@ -69,7 +71,26 @@ public sealed class ClientConfigurationFollower : IDisposable
     /// <summary>
     /// Starts following: the client's answers set the settings from now on.
     /// </summary>
-    public void Start() => _subscription ??= ChangeToken.OnChange(_server.Configuration.GetReloadToken, () => _ = FollowAsync());
+    public void Start() => _subscription ??= ChangeToken.OnChange(_server.Configuration.GetReloadToken, () =>
+    {
+        var following = FollowAsync();
+        lock (_gate)
+        {
+            _following.RemoveAll(task => task.IsCompleted);
+            _following.Add(following);
+        }
+    });
+
+    /// <summary>
+    /// Completes once the changes that were being followed are followed, or dropped.
+    /// </summary>
+    public Task WhenIdleAsync()
+    {
+        lock (_gate)
+        {
+            return Task.WhenAll(_following);
+        }
+    }
 
     /// <summary>
     /// Sets the live settings the client said, with the editor's tab size for an indentation the user never set.
@@ -77,19 +98,30 @@ public sealed class ClientConfigurationFollower : IDisposable
     /// <returns>Whether the settings were set: not when a newer change came in while the editor's tab size was asked, nor when the follower was disposed.</returns>
     public async Task<bool> FollowAsync()
     {
-        var version = Interlocked.Increment(ref _version);
+        int version;
+        lock (_gate)
+        {
+            version = ++_version;
+        }
+
         try
         {
             var token = _lifetime.Token;
             var said = LiveSettingsProtocol.Read(_server.Configuration);
             var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(_server, token);
-            if (version != Volatile.Read(ref _version) || token.IsCancellationRequested)
+            var settings = FormattingTabSize.WithEditorTabSize(said, tabSize);
+
+            // checked and set together: a change that was passed by a newer one, or by the follower being disposed, while it was between the two would otherwise set.
+            lock (_gate)
             {
-                return false;
+                if (version != _version || _disposed == 1)
+                {
+                    return false;
+                }
+
+                _liveSettings.Apply(settings);
             }
 
-            var settings = FormattingTabSize.WithEditorTabSize(said, tabSize);
-            _liveSettings.Apply(settings);
             _log($"⚙️ The client's live settings were applied ({said.Count} value(s)){(settings.Count > said.Count ? $"; the indentation is the client's tab size ({settings["Formatting:IndentSpaces"]}), which no setting overrides" : string.Empty)}.");
             await _changed();
             return true;
@@ -108,9 +140,14 @@ public sealed class ClientConfigurationFollower : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        lock (_gate)
         {
-            return;
+            if (_disposed == 1)
+            {
+                return;
+            }
+
+            _disposed = 1;
         }
 
         _lifetime.Cancel();
