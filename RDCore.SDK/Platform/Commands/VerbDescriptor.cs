@@ -36,6 +36,18 @@ public enum VerbArgumentKind
 }
 
 /// <summary>
+/// Which lines of the program a <see cref="VerbArgumentKind.LineNumber"/> argument can be the number of.
+/// </summary>
+public enum VerbLineFilter
+{
+    /// <summary>Any numbered line: <c>BREAK 40</c>.</summary>
+    Any,
+
+    /// <summary>A line a block starts at - an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c> - that spans more than one line: <c>FOLD 20</c>.</summary>
+    BlockStarts,
+}
+
+/// <summary>
 /// A value an argument of a verb can be (<see cref="VerbArgumentKind.Keyword"/>, <see cref="VerbArgumentKind.Choice"/>).
 /// </summary>
 public sealed record class VerbArgumentValue
@@ -60,6 +72,11 @@ public sealed record class VerbArgument
 
     /// <summary>The values the argument can be, for a <see cref="VerbArgumentKind.Keyword"/> or a <see cref="VerbArgumentKind.Choice"/>.</summary>
     public IReadOnlyList<VerbArgumentValue> Values { get; init; } = [];
+
+    /// <summary>
+    /// For a <see cref="VerbArgumentKind.LineNumber"/>, which lines of the program it is completed with: all of the numbered ones, or only those a block starts at.
+    /// </summary>
+    public VerbLineFilter LineFilter { get; init; } = VerbLineFilter.Any;
 
     /// <summary>
     /// For an <see cref="VerbArgumentKind.Expression"/>, the <see cref="Name"/> of the <see cref="VerbArgumentKind.LineNumber"/> argument of the same form that says

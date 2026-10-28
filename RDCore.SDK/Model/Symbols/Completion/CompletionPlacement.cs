@@ -151,7 +151,15 @@ public sealed record class CompletionPlacement(CompletionProcedure? Procedure, I
     /// </summary>
     /// <param name="lines">The lines of the module's source.</param>
     public static IReadOnlyList<(string Number, string Statement)> NumberedLinesOf(IReadOnlyList<string> lines)
-        => [.. Statements(lines, 0, lines.Count).Where(statement => statement.Label is { } label && char.IsAsciiDigit(label[0])).Select(statement => (statement.Label!, statement.Statement))];
+        => [.. NumberedLinePositionsOf(lines).Select(line => (line.Number, line.Statement))];
+
+    /// <summary>
+    /// The numbered lines of a module as <see cref="NumberedLinesOf"/> has them, and where each is in the module.
+    /// </summary>
+    /// <param name="lines">The lines of the module's source.</param>
+    /// <returns>Each line's number, its statement, and the zero-based position of the line in <paramref name="lines"/>.</returns>
+    public static IReadOnlyList<(string Number, string Statement, int Line)> NumberedLinePositionsOf(IReadOnlyList<string> lines)
+        => [.. Statements(lines, 0, lines.Count).Where(statement => statement.Label is { } label && char.IsAsciiDigit(label[0])).Select(statement => (statement.Label!, statement.Statement, statement.Line))];
 
     // the procedure a statement declares the start of: `Sub`, `Function` or `Property`, after the modifiers it can have - and not a `Declare`, which has no body.
     private static CompletionProcedure? ProcedureOf(IReadOnlyList<string> tokens)
