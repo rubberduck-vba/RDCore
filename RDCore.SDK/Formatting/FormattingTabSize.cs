@@ -74,19 +74,16 @@ public static class FormattingTabSize
         => !token.IsCancellationRequested && (exception is OmniSharp.Extensions.JsonRpc.Server.IRequestException || exception is OperationCanceledException);
 
     /// <summary>
-    /// The live settings the client said, with the editor's tab size as the indentation when the user never set one.
+    /// The settings the server takes for the ones the client did not say: the editor's tab size as the indentation, when the user never set one.
     /// </summary>
     /// <param name="said">What the client said the live settings are, by their keys under <see cref="SettingsSchema.Root"/>, separated by <c>:</c>.</param>
     /// <param name="editorTabSize">The tab size of the client's editor; <see langword="null"/> when the client has none to say.</param>
-    /// <returns><paramref name="said"/> itself when the user set the indentation or the editor has no tab size; otherwise a copy that says the indentation is the editor's tab size.</returns>
-    public static IReadOnlyDictionary<string, string> WithEditorTabSize(IReadOnlyDictionary<string, string> said, int? editorTabSize)
+    /// <returns>The indentation, by its key; none when the user set it or the editor has no tab size.</returns>
+    public static IReadOnlyDictionary<string, string> AdoptedFrom(IReadOnlyDictionary<string, string> said, int? editorTabSize)
     {
         const string key = $"{nameof(SdkAppOptions.Formatting)}:{nameof(SdkFormattingOptions.IndentSpaces)}";
-        if (editorTabSize is not { } size || said.ContainsKey(key))
-        {
-            return said;
-        }
-
-        return new Dictionary<string, string>(said, StringComparer.OrdinalIgnoreCase) { [key] = size.ToString(CultureInfo.InvariantCulture) };
+        return editorTabSize is not { } size || said.ContainsKey(key)
+            ? new Dictionary<string, string>()
+            : new Dictionary<string, string> { [key] = size.ToString(CultureInfo.InvariantCulture) };
     }
 }
