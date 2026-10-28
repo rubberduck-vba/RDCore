@@ -6,7 +6,10 @@ options {
     contextSuperClass = VBABaseParserRuleContext;
  }
 
-compilationUnit : ccBlock EOF;
+// a #Else, #ElseIf or #End If that belongs to no block is a line of the module's own, between its blocks: SLL prediction, which does not know the module's
+// ccBlock from a block's, ends the ccBlock there. A #Else or #End If with text after it is no directive, and is a physicalLine wherever it is.
+compilationUnit : ccBlock (strayDirective ccBlock)* EOF;
+strayDirective : whiteSpace* (hashElseIf ~(NEWLINE | EOF)* (NEWLINE | EOF) | hashElse ccEol | hashEndIf ccEol);
 
 ccBlock :
     // We use the non-greedy operator so that we stop consuming EOFs as soon as possible.

@@ -6,12 +6,13 @@ using RDCore.SDK.Model.AST.Statements;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// The directive pass of <see cref="ModuleParser"/> (<strong>MS-VBAL §3.4</strong>), parsed in two stages as the main pass is: SLL, which gives the tree
-/// LL gives whenever it succeeds, and LL with error recovery when it does not.
+/// The directive pass of <see cref="ModuleParser"/> (<strong>MS-VBAL §3.4</strong>), parsed in SLL, which gives the tree LL gives whenever it succeeds,
+/// and in SLL with error recovery when it does not: a module whose directives do not fit the grammar is recovered from as fast.
 /// </summary>
 /// <remarks>
 /// In LL alone, the 30 nested blocks of <see cref="NestedBlocks_AreEachTheirOwn_HoweverLongTheirBodies"/> took 12 s to parse: whether a line ends a block's
-/// body is decided with the full context of every enclosing block.
+/// body is decided with the full context of every enclosing block. A module of 100 blocks after a stray <c>#End If</c> took 28 s in LL, and one of 300
+/// overflowed the stack.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 3.4 Conditional Compilation")]
@@ -44,5 +45,42 @@ public sealed class DirectivePassTests
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
         var blocks = result.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node)).OfType<PrecompilerIfBlockStatementNode>().ToList();
         Assert.HasCount(60, blocks, "an outer and an inner block for each procedure");
+    }
+
+    // a Declare written for VBA7 and for VBA6 alike, in a block of its own: what a module of Declares has one of for each.
+    private static IEnumerable<string> Declare(int index)
+        => [
+            "#If VBA7 Then",
+            $"Private Declare PtrSafe Function F{index} Lib \"kernel32\" Alias \"GetTickCount\" () As Long",
+            "#Else",
+            $"Private Declare Function F{index} Lib \"kernel32\" Alias \"GetTickCount\" () As Long",
+            "#End If",
+            "",
+        ];
+
+    private static List<PrecompilerIfBlockStatementNode> Blocks(ModuleParseResult result)
+        => [.. result.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node)).OfType<PrecompilerIfBlockStatementNode>()];
+
+    [TestMethod]
+    [Timeout(10_000, CooperativeCancellation = true)]
+    [DataRow("#End If", 100, DisplayName = "a stray #End If before them")]
+    [DataRow("#Else", 100, DisplayName = "a stray #Else before them")]
+    [DataRow("#If Mac Then", 101, DisplayName = "an #If that is never ended before them, which holds them all")]
+    public void DirectivesThatDoNotFit_AreParsedAsFast_AndTheBlocksAfterThemAreEachTheirOwn(string first, int blocks)
+    {
+        var result = Parse(Enumerable.Range(0, 100).SelectMany(Declare).Prepend(first));
+
+        Assert.HasCount(blocks, Blocks(result));
+    }
+
+    [TestMethod]
+    public void AnEndIfWithTextAfterIt_IsNoDirective_AndTheBlockGoesOnToTheNext()
+    {
+        // MS-VBA reads `#End If junk` as no directive: the block it is in is ended by the #End If after it.
+        var result = Parse(["#If VBA7 Then", "Private Const A = 1", "#End If junk", "Private Const B = 1", "#End If"]);
+
+        var block = Assert.ContainsSingle(Blocks(result));
+        // the block's range ends with the line of its #End If: the start of the line after it.
+        Assert.AreEqual((5, 0), (block.SourceLocation.Range.End.Line, block.SourceLocation.Range.End.Character), "ended by the #End If of line 4, not by line 2");
     }
 }
