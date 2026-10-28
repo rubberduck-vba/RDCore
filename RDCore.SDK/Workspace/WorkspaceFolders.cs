@@ -1,17 +1,18 @@
 namespace RDCore.SDK.Workspace;
 
 /// <summary>
-/// The folders of a workspace, as a client gives them (<strong>LSP 3.17</strong> <c>workspaceFolders</c>): each is a project, and they are the bounds of the
-/// workspace - a file is the project's whose folder holds it, and a file no folder holds is nothing of the workspace.
+/// The folders of a workspace, as a client gives them (<strong>LSP 3.17</strong> <c>workspaceFolders</c>): they are the bounds of the workspace - a file a
+/// folder holds is of the workspace, and a file no folder holds is nothing of it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A workspace folder is a project (<strong>RD-VBAL §2.2.3</strong>): its <c>.rdproj</c>, or the one the platform makes up for a folder that has none. A folder
-/// a client opens for sources a project lists outside its own - a shared library in a sibling folder - is a project of its own, and the workspace is not
-/// widened beyond the folders it is given: a path that climbs out of every one of them (<c>..\</c>) is outside the workspace, and is never followed.
+/// A workspace folder is a project's (<strong>RD-VBAL §2.2.3</strong>): its <c>.rdproj</c>, or the one the platform makes up for a folder that has none - or it
+/// only holds sources a project lists outside its own folder, a shared library in a sibling folder, and is no project (<see cref="WorkspaceFolderRoles"/> tells
+/// which). The workspace is not widened beyond the folders it is given: a path that climbs out of every one of them (<c>..\</c>) is outside the workspace, and
+/// is never followed.
 /// </para>
 /// <para>
-/// A folder inside another, when the client gives both, is a project of its own: a file is the project's whose folder holds it most closely. Folders are
+/// A folder inside another, when the client gives both, is a folder of its own: <see cref="RootOf"/> is the one that holds a file most closely. Folders are
 /// compared as full paths, without regard to case on Windows, where the file system has none.
 /// </para>
 /// </remarks>
@@ -60,6 +61,18 @@ public sealed class WorkspaceFolders
     /// <summary>Whether a folder of the workspace holds a file or folder.</summary>
     /// <param name="path">An absolute path.</param>
     public bool Contains(string path) => RootOf(path) is not null;
+
+    /// <summary>
+    /// Whether a folder holds a file or folder, itself included.
+    /// </summary>
+    /// <param name="root">The absolute path of the folder.</param>
+    /// <param name="path">An absolute path.</param>
+    public static bool Holds(string root, string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(root);
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        return Prefixed(Normalized(path)).StartsWith(Prefixed(Normalized(root)), PathComparison);
+    }
 
     private static string Normalized(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
