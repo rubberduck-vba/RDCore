@@ -312,7 +312,8 @@ public interface IReplPlatformClient
     /// <param name="line">The zero-based line of the cursor in <paramref name="source"/>.</param>
     /// <param name="character">The zero-based character of the cursor on <paramref name="line"/>.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token);
+    /// <param name="triggerCharacter">The character typed that had the shell ask, when one did (<see cref="SessionCompletionParams.TriggerCharacter"/>).</param>
+    Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token, string? triggerCharacter = null);
 
     /// <summary>
     /// Asks the language server what the call being written at a position of a module takes: the signature help of the line at the prompt.
