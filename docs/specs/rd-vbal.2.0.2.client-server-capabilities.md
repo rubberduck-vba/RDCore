@@ -459,6 +459,32 @@ step: each node of the syntax tree written around the position, from a name thro
 the procedure, to everything the module declares ([`SyntaxSelection`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxSelection.html)). Each step is in the next.
 A position that no node is written around is answered with the empty range at it. For a `.rdc` program, ranges are in its lines.
 
+### `textDocument/formatting` and `textDocument/rangeFormatting`
+
+The language server answers `textDocument/formatting` (**LSP 3.17** §Document Formatting Request) with the edits that indent every line of a module, and
+`textDocument/rangeFormatting` (§Document Range Formatting Request) with those of the lines a range is on; a range that ends at the start of a line, a selection
+of whole lines, does not take in that line. Only whitespace changes ([`ModuleIndenter`](../api/RDCore.SDK.Formatting.ModuleIndenter.html)).
+
+A line is indented a level - `Formatting.IndentSpaces` spaces - for each body that encloses it in the syntax tree, whatever the range:
+
+|Body|Indented|
+|---|---|
+|A procedure's|When `Formatting.IndentEntireProcedureBody` is on.|
+|An `Enum`'s or a `Type`'s members|Always.|
+|What an `If`, `ElseIf` or `Else` guards; a loop (`For`, `For Each`, `Do`, `While`); a `With` block|Always. A block's opener, its branches and its closer are at the block's level.|
+|The `Case` lines of a `Select Case`, and what each guards|What a `Case` guards, always; the `Case` lines, when `Formatting.IndentCase` is on.|
+|What an `#If`, `#ElseIf` or `#Else` guards|When `Formatting.IndentCompilerDirectives` is on.|
+
+- **A line the syntax tree has no statement of**, a branch of an `#If` that is not compiled or code the parser could not build as it is typed, is indented by its keywords, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A module is never refused.
+- **A line number** stays at the start of its line, and the code after it is where the line's level has it, a space after the number at least.
+- **A line continued from the one before** (`_`) moves with the first line of its statement, as far as it does.
+- **A comment alone on its line** is at the level of the code around it; a blank line is left as it is.
+
+The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made, and not the `tabSize` of the request's options. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell lists its lines.
+
+> [!NOTE]
+> **Not implemented.** Aligning continued lines, end-of-line comments and declarations; the first comment and declaration blocks of a procedure; the column-1 settings; empty lines; vertical spacing between procedures; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
+
 ### `textDocument/foldingRange`
 
 The language server answers `textDocument/foldingRange` (**LSP 3.17** §Folding Range Request) with what folds in a module:
