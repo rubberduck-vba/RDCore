@@ -299,13 +299,14 @@ internal sealed class SymbolSyncService(
         return result.Defined + result.Replaced;
     }
 
-    // every workspace module that has a parse: the resolver is composed over the whole workspace, so one module's `As SomeType` can bind to a sibling module's
-    // Type / Enum declaration.
+    // every module of the primary project that has a parse: the resolver is composed over the whole project, so one module's `As SomeType` can bind to a sibling
+    // module's Type / Enum declaration. The environment host runs that project and no other: a module of another project is analyzed by the language server,
+    // and a `Module1` of it is never defined under the primary project's.
     private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules) CollectModules(CancellationToken token)
     {
         Uri? workspaceRoot = null;
         var modules = new List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)>();
-        foreach (var document in documents.GetAllDocuments())
+        foreach (var document in documents.GetProjectDocuments(documents.WorkspaceRoot))
         {
             token.ThrowIfCancellationRequested();
 

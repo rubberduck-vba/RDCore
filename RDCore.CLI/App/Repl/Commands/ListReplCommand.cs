@@ -14,6 +14,10 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// second, next to the line, marks the line a block starts at - an <c>If</c>, a <c>Select Case</c>, a loop, a <c>With</c> - which <c>FOLD</c> folds. A folded block is its first line, faint as ghost text and cut to the console's width, and none of the lines
 /// after it, to its <c>End</c>.
 /// </para>
+/// <para>
+/// With <c>INLAYS ON</c> a listing also shows, faint and in the line, the hints the language server gives (<c>textDocument/inlayHint</c>): the name of the
+/// parameter each argument is given to, and <c>As Variant</c> after a declaration that states no type. They are asked once for the whole listing.
+/// </para>
 /// </remarks>
 internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
 {
@@ -42,6 +46,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
         var lines = context.Program.Lines(from, to).ToArray();
         var width = lines.Length == 0 ? 0 : lines.Max(line => line.Number).ToString().Length;
         var highlighted = lines.Length == 0 ? null : await TokensByLineAsync(context, token);
+        var hints = lines.Length == 0 || !context.Inlays.Enabled ? null : await InlayHintsByLineAsync(context, token);
         var debugger = context.Debugger;
 
         // the blocks, by the index of the line each starts at; and the lines a folded one hides, which are the ones after its first, to its last.
@@ -107,9 +112,15 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
 
             var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
             var foldedText = $"{number} {(hiddenLines == 1 ? Resources.Repl_Fold_HiddenLine : string.Format(Resources.Repl_Fold_HiddenLines, hiddenLines))} {statement}";
+            IReadOnlyList<ReplTextRun> code = highlighted is not null && highlighted.TryGetValue(index, out var tokens) ? ReplHighlighter.Runs(text, tokens)
+                : [new ReplTextRun(text, ReplTextStyle.Plain)];
+            if (hints is not null && hints.TryGetValue(index, out var lineHints))
+            {
+                code = ReplInlayRuns.With(code, lineHints);
+            }
+
             ReplTextRun[] runs = folded ? [padding, new ReplTextRun(FittedToTheConsole(context.Console, foldedText, foldLane + breakpointLane + padding.Text.Length), ReplTextStyle.Ghost)]
-                : highlighted is not null && highlighted.TryGetValue(index, out var tokens) ? [padding, .. ReplHighlighter.Runs(text, tokens)]
-                : [padding, new ReplTextRun(text, ReplTextStyle.Plain)];
+                : [padding, .. code];
             context.Console.WriteListingLine([breakpointMark, foldMark], runs, style);
         }
 
@@ -148,6 +159,24 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             return [];
+        }
+    }
+
+    // the hints of the language server, by the line of the program they are on, asked once for the whole listing. A listing it cannot hint is a listing all the same.
+    private static async Task<Dictionary<int, List<ReplInlayHint>>?> InlayHintsByLineAsync(ReplCommandContext context, CancellationToken token)
+    {
+        try
+        {
+            if (!await context.Document.EnsureOpenAsync(token) || context.Document.Uri is not { } document)
+            {
+                return null;
+            }
+
+            return (await context.Platform.GetInlayHintsAsync(document, token)).GroupBy(hint => hint.Line).ToDictionary(group => group.Key, group => group.ToList());
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
         }
     }
 

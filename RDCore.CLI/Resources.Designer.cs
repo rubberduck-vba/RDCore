@@ -908,6 +908,33 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Shows the hints of the language server in a listing - the name of the parameter each argument is given to - or stops showing them (INLAYS ON, INLAYS OFF)..
+        /// </summary>
+        public static string Repl_Inlays_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Inlays_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to HINTS SHOWN IN LISTINGS.
+        /// </summary>
+        public static string Repl_Inlays_On {
+            get {
+                return ResourceManager.GetString("Repl_Inlays_On", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to HINTS NOT SHOWN IN LISTINGS.
+        /// </summary>
+        public static string Repl_Inlays_Off {
+            get {
+                return ResourceManager.GetString("Repl_Inlays_Off", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Folds the block that starts at a line (an If, a Select Case, a loop, a With) in a listing, or unfolds it (FOLD 40)..
         /// </summary>
         public static string Repl_Fold_Summary {
@@ -1381,6 +1408,24 @@ namespace RDCore.CLI {
         public static string Config_Reset_Detail {
             get {
                 return ResourceManager.GetString("Config_Reset_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Imports settings from another tool.
+        /// </summary>
+        public static string Config_Import_Detail {
+            get {
+                return ResourceManager.GetString("Config_Import_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Sets the formatting settings to the indenter settings you had in Rubberduck (Windows only).
+        /// </summary>
+        public static string Config_Import_Rubberduck_Detail {
+            get {
+                return ResourceManager.GetString("Config_Import_Rubberduck_Detail", resourceCulture);
             }
         }
 

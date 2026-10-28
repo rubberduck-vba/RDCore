@@ -418,6 +418,15 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Breakpoint_None" xml:space="preserve">
     <value>NO BREAKPOINTS</value>
   </data>
+  <data name="Repl_Inlays_Summary" xml:space="preserve">
+    <value>Shows the hints of the language server in a listing - the name of the parameter each argument is given to, and the type of a declaration that states none - or stops showing them (INLAYS ON, INLAYS OFF).</value>
+  </data>
+  <data name="Repl_Inlays_On" xml:space="preserve">
+    <value>HINTS SHOWN IN LISTINGS</value>
+  </data>
+  <data name="Repl_Inlays_Off" xml:space="preserve">
+    <value>HINTS NOT SHOWN IN LISTINGS</value>
+  </data>
   <data name="Repl_Fold_Summary" xml:space="preserve">
     <value>Folds the block that starts at a line (an If, a Select Case, a loop, a With) in a listing, or unfolds it (FOLD 40).</value>
   </data>
@@ -610,6 +619,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Reason_Refused" xml:space="preserve">
     <value>compiled code the runtime refuses to run (a defect of the compiler): {0}</value>
   </data>
+  <data name="Compilation_Reason_BoxedEvaluation" xml:space="preserve">
+    <value>values are held boxed ({0}), and compiled code works on the payloads of its variables</value>
+  </data>
   <data name="Repl_Breakpoint_Enabled" xml:space="preserve">
     <value>BREAKPOINT ENABLED AT {0}</value>
   </data>
@@ -645,6 +657,12 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Config_Reset_Detail" xml:space="preserve">
     <value>Puts a setting, a section, or every setting back as the platform was deployed</value>
+  </data>
+  <data name="Config_Import_Detail" xml:space="preserve">
+    <value>Imports settings from another tool</value>
+  </data>
+  <data name="Config_Import_Rubberduck_Detail" xml:space="preserve">
+    <value>Sets the formatting settings to the indenter settings you had in Rubberduck (Windows only)</value>
   </data>
   <data name="Config_NothingSet" xml:space="preserve">
     <value>Every setting is as the platform was deployed.</value>

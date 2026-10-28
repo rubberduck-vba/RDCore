@@ -107,6 +107,7 @@ This catalogue is intended to document every platform capability the SDK defines
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
 |[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
 |[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
+|[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/rubberduck-indenter-settings`, `rdcore/rubberduck-indenter-settings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcorerubberduck-indenter-settings)).|
 |[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
 
 > [!NOTE]
@@ -236,6 +237,10 @@ the name of the parameter it is given to: `MsgBox Prompt: "Hello", Buttons: vbOK
 procedure, a function or a property - of the workspace or of a library it references; the subscripts of an array have no hint. A named argument, and every
 argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
 of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
+
+After the name of each variable or parameter that is declared without a type, and is a `Variant` (**MS-VBAL §5.2.3.1.5**), the answer has a hint `As Variant` of kind `Type`, padded on its left: `Dim x` is shown `Dim x As Variant` ([`ImplicitTypeHints`](../api/RDCore.SDK.Semantics.Refactoring.ImplicitTypeHints.html)). A declaration with an `As` clause or a type-declaration character has none; nor has a name that a `Def<Type>` directive of the module covers, a constant, or a parameter that is an array. The hint is after the array bounds of a variable (`Dim a(10)` is shown `Dim a(10) As Variant`).
+
+The interactive shell asks for the hints of its program once for the whole listing, and shows them in `LIST`, faint, when `INLAYS ON` has been said (`INLAYS OFF` stops; they are off until then).
 
 ### `textDocument/completion` and `rdcore/session/completion`
 
@@ -629,7 +634,10 @@ result (`workspace.fileOperations`), with filters for the source files of every 
 
 What is outside the workspace root, and what a folder whose name starts with a dot holds (`.git`, `.vscode`), is nothing of the project. A module name is unique in a
 project (**RD-VBAL §2.2.3.3**): a file created with the `VB_Name` of a module the project has is not added, and `window/showMessage` says so. The operations are made
-in the order the client sent them.
+in the order the client sent them: the notification returns once the project file is written and the workspace's documents are what it lists, so that what the
+client sends next (`textDocument/didOpen` of the new path, `didChange`) is read after it. The environment host composing its session again and the symbols being defined
+again follow, in the order the changes were made, and nothing the client sends waits for them: a host that is starting, or down, holds up none of it. The client's
+diagnostics are asked to be pulled again once they are done.
 
 > [!NOTE]
 > OmniSharp 0.19.9 reads `workspace/didRenameFiles` with a `FileRename` that has only a `uri`, and neither the `oldUri` nor the `newUri` a client sends. RDCore reads it
@@ -685,6 +693,60 @@ A program runs in the environment host; the person it asks is at a client. A `Ms
 The request carries the lines the program completed before it opened the dialog (`Output`), so that the client shows them first; they are not repeated in the answer to `rdcore/session/execute`. An `InputBox` that was cancelled answers `Cancelled = true`, which the program is told with `vbNullString`.
 
 The interactive shell draws a dialog as a box with a border, centred on the console, with its title in the top edge and its message wrapped inside. A `MsgBox` ends with a row of buttons, chosen with the arrow keys, <kbd>Tab</kbd>, <kbd>Enter</kbd>, or a button's key. Its icon has a column of its own, and the lines of the message hang under it. An `InputBox` ends with a line to type on, which starts with the default text selected and scrolls inside the box. <kbd>Esc</kbd> closes either at window level.
+
+### `rdcore/rubberduck-indenter-settings`
+
+A user who had Rubberduck has indenter settings (**RD-VBAL §2.3.3**, the `Formatting` settings). Rubberduck keeps them on the user's machine, in its own configuration and in the
+registry, and a client owns its configuration: the language server does not read the machine of the user, and writes none of the client's settings. A client that expects
+[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html) reads them for it, and takes the mapped settings as its own. Two requests, both sent by the
+language server to the client:
+
+**`rdcore/rubberduck-indenter-settings`** (params `{}`) asks what the client found. The client answers what it read, _as it is_, and maps nothing:
+
+```json
+{ "source": "RubberduckConfig", "values": { "IndentCase": "true", "IndentSpaces": "2" }, "tabWidth": null }
+```
+
+|Field|Is|
+|---|---|
+|`source`|`RubberduckConfig`, `SmartIndenterRegistry` or `None`. A client on a platform that has no such settings, or that found none, answers `None` and an empty `values`.|
+|`values`|For `RubberduckConfig`, the children of the `IndenterSettings` element of `%APPDATA%\Rubberduck\rubberduck.config` (XML): each element's name, and its text. For `SmartIndenterRegistry`, each value of the key `HKCU\Software\VB and VBA Program Settings\Office Automation Ltd.\Smart Indenter` (`IndentProc`, `DebugCol1`, `AlignDimCol`, `EOLComments`, ...): its name, a number for a `REG_DWORD` and text for a `REG_SZ`.|
+|`tabWidth`|`TabWidth` of the VBA editor (`HKCU\Software\Microsoft\VBA\6.0\Common`, or `7.0`) for `SmartIndenterRegistry`, which the Smart Indenter indented by; `null` otherwise.|
+
+Rubberduck's own configuration is read when it has indenter settings, and the registry otherwise. The language server maps what the client read to `Formatting` settings
+([`IndenterSettingsImport`](../api/RDCore.SDK.Formatting.IndenterSettingsImport.html)), so that every client says the same thing and the mapping is made once. A name of
+`RubberduckConfig` is the setting of that name. For `SmartIndenterRegistry`:
+
+|Value|Setting|
+|---|---|
+|`IndentProc`, `IndentFirst`, `IndentDim`, `IndentCmt`|`IndentEntireProcedureBody`, `IndentFirstCommentBlock`, `IndentFirstDeclarationBlock`, `AlignCommentsWithCode`|
+|`AlignContinued`, `AlignIgnoreOps`, `IndentCase`|`AlignContinuations`, `IgnoreOperatorsInContinuations`, `IndentCase`|
+|`DebugCol1`|`ForceDebugStatementsInColumn1`, `ForceDebugPrintInColumn1`, `ForceDebugAssertInColumn1` and `ForceStopInColumn1`, all four|
+|`CompilerCol1`, `IndentCompiler`, `AlignDim`|`ForceCompilerDirectivesInColumn1`, `IndentCompilerDirectives`, `AlignDims`|
+|`AlignDimCol`, `EOLAlignCol`|`AlignDimColumn`, `EndOfLineCommentColumnSpaceAlignment`|
+|`EOLComments`|`EndOfLineCommentStyle` (`Absolute`, `SameGap`, `StandardGap`; `AlignInCol` is `AlignInColumn`)|
+|`tabWidth`|`IndentSpaces`|
+
+A flag is `Y` or it is not (an empty one says nothing); a number is kept to the limits of its setting, and a negative one says nothing; a setting the source says nothing of keeps
+its default.
+
+**`rdcore/rubberduck-indenter-settings/apply`** asks the client to take what was mapped as its own:
+
+```json
+{ "source": "RubberduckConfig", "settings": { "Formatting.IndentCase": "True", "Formatting.IndentSpaces": "2" } }
+```
+
+The answer is `{ "applied": 2, "refused": ["Server.Verbose"] }`: the number of settings the client set (`0` when it declines), and the keys of the ones it did not take. A client that answers `applied` only is told to have left some out by their number, and a client that took them all, or declined, is told nothing more. The client sets them in its own configuration, as a change of its own - the interactive
+shell writes them to the user's settings - and says so as it says any change (`workspace/didChangeConfiguration`); the language server sees them in the section it pulls. There is
+no other way for the language server to write a setting of a client, and the client takes only the `Formatting` settings of the names Rubberduck has (the table above), refusing any other key.
+
+The language server sends the requests only to a client that expects the capability:
+
+- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer.
+- **On request.** The command `rdcore.importIndenterSettings` ([`workspace/executeCommand`](#workspaceexecutecommand)) runs the two requests against the client that sent it, and answers `{ "source", "found", "applied", "message" }`. A client that does not expect the capability is refused with a message. That nothing was found is an answer, not a refusal.
+
+The interactive shell expects the capability. It reads Rubberduck on Windows, and answers `None` elsewhere. `CONFIG IMPORT RUBBERDUCK` in the shell, and `rdc config import rubberduck` in command mode, do the same
+without the language server: they read, map and set the settings for the user.
 
 ---
 > ⏮️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md) | ⏭️ [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)

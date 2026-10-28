@@ -82,6 +82,7 @@ internal sealed class RenameService(
     IReferencedLibraryService referencedLibraries,
     IOptions<SdkAppOptions> options,
     ILogger<RenameService> logger,
+    IWorkspaceProjects workspaceProjects,
     WorkspaceCompositionCache? compositions = null) : IRenameService
 {
     // the workspace as it was composed last, for as long as no document changed: a prepared rename, the rename and the code actions of a line are of one.
@@ -109,9 +110,21 @@ internal sealed class RenameService(
             return null;
         }
 
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        // the project the server runs, then the others: each is composed of its own modules, so that a name resolves in the project of the module that writes it.
+        List<RenameWorkspace.ProjectPart> parts = [await ComposeProjectAsync(documents.WorkspaceRoot, primary: true, name: null, token)];
+        foreach (var other in workspaceProjects.Projects.Skip(1))
+        {
+            parts.Add(await ComposeProjectAsync(other.Root, primary: false, other.Project.ProjectInfo.Name, token));
+        }
+
+        return new RenameWorkspace(parts);
+    }
+
+    private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
+    {
+        var workspaceRoot = new Uri(root);
         var modules = new List<RenameWorkspace.DocumentModule>();
-        foreach (var document in documents.GetAllDocuments())
+        foreach (var document in documents.GetProjectDocuments(root))
         {
             var parse = await parsing.ParseDocumentAsync(document.Id.Uri.ToUri(), token);
             if (parse.SyntaxTree is null)
@@ -119,20 +132,22 @@ internal sealed class RenameService(
                 continue;
             }
 
-            var name = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
-            modules.Add(new(document, SymbolUri.Module(workspaceRoot, name), ParsingClientService.ModuleTypeOf(document), parse,
+            var declared = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
+            modules.Add(new(document, SymbolUri.Module(workspaceRoot, declared), ParsingClientService.ModuleTypeOf(document), parse,
                 ParsingClientService.ModuleSourceOf(document)));
         }
 
+        // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Parse))], resolver,
+            projectName: primary || string.IsNullOrEmpty(name) ? null : name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
+            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null);
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
             [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source))],
             new StaticEnvironment(options.Value.Environment.Is64Bit));
-        return new RenameWorkspace(context, modules);
+        return new RenameWorkspace.ProjectPart(context, modules);
     }
 }
 
@@ -142,14 +157,27 @@ internal sealed class RenameService(
 /// </summary>
 internal sealed class RenameWorkspace
 {
-    private readonly RenameContext _context;
-    private readonly IReadOnlyList<DocumentModule> _modules;
+    /// <summary>A project, composed: what its modules resolve in, and the document of each.</summary>
+    internal sealed record class ProjectPart(RenameContext Context, IReadOnlyList<DocumentModule> Modules);
 
-    internal RenameWorkspace(RenameContext context, IReadOnlyList<DocumentModule> modules)
+    // the projects of the workspace, the primary one first; a document is asked of the first that has it, which is the project that loaded it first. A file that
+    // several projects list is a module of each, and each project's copy of it resolves in that project.
+    private readonly IReadOnlyList<ProjectPart> _parts;
+
+    internal RenameWorkspace(RenameContext context, IReadOnlyList<DocumentModule> modules) : this([new ProjectPart(context, modules)])
     {
-        _context = context;
-        _modules = modules;
     }
+
+    internal RenameWorkspace(IReadOnlyList<ProjectPart> parts)
+    {
+        _parts = parts;
+    }
+
+    // the project a module of a document is in, which its names resolve in.
+    private ProjectPart PartOf(DocumentModule module) => _parts.First(part => part.Modules.Any(candidate => ReferenceEquals(candidate, module)));
+
+    // the project a module (by its address, root#Name) is in.
+    private ProjectPart? PartOf(Uri module) => _parts.FirstOrDefault(part => part.Modules.Any(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri));
 
     internal static RenameAnswer<T> NoName<T>() where T : class => new(null, new RenameRefusal(RenameRefusalKind.NoName, string.Empty).ToMessage());
 
@@ -161,10 +189,11 @@ internal sealed class RenameWorkspace
             return NoName<PlaceholderRange>();
         }
 
-        var preparation = SymbolRename.Prepare(_context, module.Module, module.ToModulePosition(position));
+        var part = PartOf(module);
+        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position));
         return preparation.Target is { } target
             ? new(new PlaceholderRange { Range = module.ToTextRange(target.Range), Placeholder = target.Name }, null)
-            : new(null, Say(preparation.Refusal!));
+            : new(null, Say(part, preparation.Refusal!));
     }
 
     /// <summary>The edits that rename the symbol named at a position of a document to <paramref name="newName"/>.</summary>
@@ -175,22 +204,23 @@ internal sealed class RenameWorkspace
             return NoName<WorkspaceEdit>();
         }
 
-        var preparation = SymbolRename.Prepare(_context, module.Module, module.ToModulePosition(position));
+        var part = PartOf(module);
+        var preparation = SymbolRename.Prepare(part.Context, module.Module, module.ToModulePosition(position));
         if (preparation.Target is not { } target)
         {
-            return new(null, Say(preparation.Refusal!));
+            return new(null, Say(part, preparation.Refusal!));
         }
 
-        var plan = SymbolRename.Plan(_context, target, newName);
+        var plan = SymbolRename.Plan(part.Context, target, newName);
         if (!plan.IsValid)
         {
-            return new(null, Say(plan.Refusal!));
+            return new(null, Say(part, plan.Refusal!));
         }
 
         // each document's edits name the version they are edits of, so that a client applies them to that text and to no other.
         var changes = plan.Edits
             .GroupBy(edit => edit.Module.AbsoluteUri)
-            .Select(group => _modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
+            .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))
             .Select(edited => new WorkspaceEditDocumentChange(new TextDocumentEdit
             {
                 TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = edited.Document.Id.Uri, Version = edited.Document.Version },
@@ -214,7 +244,7 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. SymbolRename.TargetsIn(_context, module.Module, new SourceRange(start, end))
+        return [.. SymbolRename.TargetsIn(PartOf(module).Context, module.Module, new SourceRange(start, end))
             .Select(target => (target.Name, module.ToTextRange(target.Range).Start))];
     }
 
@@ -231,8 +261,26 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. SDK.Semantics.Refactoring.ParameterHints.In(_context, module.Module, new SourceRange(start, end))
+        return [.. SDK.Semantics.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
             .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
+    }
+
+    /// <summary>
+    /// The type the declarations in a range of a document have because they state none (<see cref="SDK.Semantics.Refactoring.ImplicitTypeHints"/>), each where the
+    /// declaration ends in the text of the document.
+    /// </summary>
+    public IReadOnlyList<(string TypeName, Position Position)> ImplicitTypeHints(Uri documentUri, LspRange range)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+        {
+            return [];
+        }
+
+        var start = module.ToModulePosition(range.Start);
+        var end = module.ToModulePosition(range.End);
+        return [.. SDK.Semantics.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
+            .Select(hint => (hint.TypeName, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 
     /// <summary>
@@ -269,39 +317,42 @@ internal sealed class RenameWorkspace
     public HierarchyItem? PrepareHierarchy(Uri documentUri, Position position, bool types)
         => ModuleOf(documentUri) is { } module
             ? types
-                ? SymbolHierarchy.PrepareTypes(_context, module.Module, module.ToModulePosition(position))
-                : SymbolHierarchy.PrepareCalls(_context, module.Module, module.ToModulePosition(position))
+                ? SymbolHierarchy.PrepareTypes(PartOf(module).Context, module.Module, module.ToModulePosition(position))
+                : SymbolHierarchy.PrepareCalls(PartOf(module).Context, module.Module, module.ToModulePosition(position))
             : null;
 
     /// <summary>
-    /// The item of a hierarchy whose symbol has the identity a client sent back (<see cref="SymbolHierarchy.ItemOf(RenameContext, SemanticId)"/>).
+    /// The item of a hierarchy whose symbol has the identity a client sent back (<see cref="SymbolHierarchy.ItemOf(RenameContext, SemanticId)"/>): in the
+    /// project the symbol is in.
     /// </summary>
-    public HierarchyItem? HierarchyItemOf(Uri symbol) => SymbolHierarchy.ItemOf(_context, new SemanticId(symbol));
+    public HierarchyItem? HierarchyItemOf(Uri symbol) => _parts.Select(part => SymbolHierarchy.ItemOf(part.Context, new SemanticId(symbol))).FirstOrDefault(item => item is not null);
 
     /// <summary>The procedures that call an item (<see cref="SymbolHierarchy.IncomingCalls"/>).</summary>
-    public IReadOnlyList<HierarchyCall> IncomingCalls(HierarchyItem item) => SymbolHierarchy.IncomingCalls(_context, item);
+    public IReadOnlyList<HierarchyCall> IncomingCalls(HierarchyItem item) => ContextOf(item) is { } context ? SymbolHierarchy.IncomingCalls(context, item) : [];
 
     /// <summary>What an item calls (<see cref="SymbolHierarchy.OutgoingCalls"/>).</summary>
-    public IReadOnlyList<HierarchyCall> OutgoingCalls(HierarchyItem item) => SymbolHierarchy.OutgoingCalls(_context, item);
+    public IReadOnlyList<HierarchyCall> OutgoingCalls(HierarchyItem item) => ContextOf(item) is { } context ? SymbolHierarchy.OutgoingCalls(context, item) : [];
 
     /// <summary>The classes an item's class implements (<see cref="SymbolHierarchy.Supertypes"/>).</summary>
-    public IReadOnlyList<HierarchyItem> Supertypes(HierarchyItem item) => SymbolHierarchy.Supertypes(_context, item);
+    public IReadOnlyList<HierarchyItem> Supertypes(HierarchyItem item) => ContextOf(item) is { } context ? SymbolHierarchy.Supertypes(context, item) : [];
 
     /// <summary>The classes that implement an item's class (<see cref="SymbolHierarchy.Subtypes"/>).</summary>
-    public IReadOnlyList<HierarchyItem> Subtypes(HierarchyItem item) => SymbolHierarchy.Subtypes(_context, item);
+    public IReadOnlyList<HierarchyItem> Subtypes(HierarchyItem item) => ContextOf(item) is { } context ? SymbolHierarchy.Subtypes(context, item) : [];
+
+    private RenameContext? ContextOf(HierarchyItem item) => PartOf(item.Module)?.Context;
 
     /// <summary>
     /// Where an item of a hierarchy is declared, in the text of its document: the document, the whole declaration, and the name.
     /// </summary>
     /// <returns><see langword="null"/> for an item of no document the server holds.</returns>
     public (DocumentUri Uri, LspRange Range, LspRange SelectionRange)? Locate(HierarchyItem item)
-        => _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+        => PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
             ? (document.Document.Id.Uri, document.ToTextRange(item.Range), document.ToTextRange(item.SelectionRange))
             : null;
 
     /// <summary>A range of the module of an item, in the text of its document.</summary>
     public LspRange InTextOf(HierarchyItem item, SourceRange range)
-        => _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
+        => PartOf(item.Module)?.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is { } document
             ? document.ToTextRange(range)
             : new LspRange(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character);
 
@@ -324,7 +375,7 @@ internal sealed class RenameWorkspace
     {
         if (ModuleOf(documentUri) is not { } module
             || BasicProgramText.IsProgram(module.Document.Id.Uri.GetFileSystemPath())
-            || _context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
+            || PartOf(module).Context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.Module.AbsoluteUri) is not { } source)
         {
             return [];
         }
@@ -343,8 +394,9 @@ internal sealed class RenameWorkspace
             return [];
         }
 
-        return [.. SymbolLenses.ReferencesOf(_context, module.Module, module.ToModulePosition(position))
-            .Select(site => (Site: site, Document: _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+        var part = PartOf(module);
+        return [.. SymbolLenses.ReferencesOf(part.Context, module.Module, module.ToModulePosition(position))
+            .Select(site => (Site: site, Document: part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
             .Where(found => found.Document is not null)
             .Select(found => new Location { Uri = found.Document!.Document.Id.Uri, Range = found.Document.ToTextRange(found.Site.SelectionRange) })];
     }
@@ -357,7 +409,7 @@ internal sealed class RenameWorkspace
     public IReadOnlyList<DocumentHighlight> Highlights(Uri documentUri, Position position)
     {
         if (ModuleOf(documentUri) is not { } module
-            || SymbolNavigation.OccurrencesAt(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+            || SymbolNavigation.OccurrencesAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is not { } target)
         {
             return [];
         }
@@ -372,7 +424,7 @@ internal sealed class RenameWorkspace
     /// </summary>
     /// <returns>The hover; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
     public (SymbolHover Hover, LspRange Range)? Hover(Uri documentUri, Position position)
-        => ModuleOf(documentUri) is { } module && SymbolNavigation.SymbolAt(_context, module.Module, module.ToModulePosition(position)) is { } named
+        => ModuleOf(documentUri) is { } module && SymbolNavigation.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is { } named
             ? (SymbolHover.Of(named.Symbol), module.ToTextRange(named.Origin))
             : null;
 
@@ -380,14 +432,15 @@ internal sealed class RenameWorkspace
         Uri documentUri, Position position, Func<RenameContext, Uri, SourcePosition, SymbolNavigationTarget?> navigate)
     {
         if (ModuleOf(documentUri) is not { } module
-            || navigate(_context, module.Module, module.ToModulePosition(position)) is not { } target)
+            || navigate(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is not { } target)
         {
             return [];
         }
 
         var origin = module.ToTextRange(target.Origin);
+        var modules = PartOf(module).Modules;
         return [.. target.Sites
-            .Select(site => (Site: site, Document: _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
+            .Select(site => (Site: site, Document: modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == site.Module.AbsoluteUri)))
             .Where(found => found.Document is not null)
             .Select(found => new LocationLink
             {
@@ -402,12 +455,12 @@ internal sealed class RenameWorkspace
     private DocumentModule? ModuleOf(Uri documentUri)
     {
         var document = DocumentUri.From(documentUri);
-        return _modules.FirstOrDefault(module => module.Document.Id.Uri == document);
+        return _parts.SelectMany(part => part.Modules).FirstOrDefault(module => module.Document.Id.Uri == document);
     }
 
     // a position is named the way the document names it: its file, and the line of its text - for a program of the BASIC, the number it labels the line with.
-    private string Say(RenameRefusal refusal) => refusal.ToMessage((module, position) =>
-        _modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
+    private static string Say(ProjectPart part, RenameRefusal refusal) => refusal.ToMessage((module, position) =>
+        part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
             ? document.Locate(position)
             : $"{module.Fragment.TrimStart('#')} {position.Line + 1}:{position.Character + 1}");
 

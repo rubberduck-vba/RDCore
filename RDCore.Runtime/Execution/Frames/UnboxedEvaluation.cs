@@ -6,7 +6,8 @@ namespace RDCore.Runtime.Execution.Frames;
 /// </summary>
 /// <remarks>
 /// It is on, unless the environment variable <c>RDCORE_UNBOXED</c> is <c>0</c>: the test suite is run both ways, the boxed evaluation being the oracle
-/// the unboxed one is held to (plan §8.2, the differential switch).
+/// the unboxed one is held to (plan §8.2, the differential switch). Compiled code works on payloads: where they are not used, no procedure is compiled
+/// (<see cref="Compiled.IneligibilityKind.BoxedEvaluation"/>).
 /// </remarks>
 internal static class UnboxedEvaluation
 {
