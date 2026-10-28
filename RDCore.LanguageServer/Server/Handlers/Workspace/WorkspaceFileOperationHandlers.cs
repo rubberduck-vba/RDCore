@@ -50,9 +50,9 @@ internal static class WorkspaceFileOperationFilters
             WorkspaceChangeReport.Send(server, await completed);
 #pragma warning restore VSTHRD003
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (completed.IsCanceled)
         {
-            // the server is stopping: there is nobody to tell.
+            // the server is stopping: there is nobody to tell. A request that failed by being cancelled is not that, and is logged below.
         }
         catch (Exception exception)
         {
