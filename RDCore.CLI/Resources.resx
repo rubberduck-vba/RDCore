@@ -419,7 +419,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>NO BREAKPOINTS</value>
   </data>
   <data name="Repl_Inlays_Summary" xml:space="preserve">
-    <value>Shows the hints of the language server in a listing - the name of the parameter each argument is given to - or stops showing them (INLAYS ON, INLAYS OFF).</value>
+    <value>Shows the hints of the language server in a listing - the name of the parameter each argument is given to, and the type of a declaration that states none - or stops showing them (INLAYS ON, INLAYS OFF).</value>
   </data>
   <data name="Repl_Inlays_On" xml:space="preserve">
     <value>HINTS SHOWN IN LISTINGS</value>

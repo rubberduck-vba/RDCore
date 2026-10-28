@@ -134,7 +134,7 @@ public interface IReplPlatformClient
     Task<IReadOnlyList<ReplFold>> GetBlockFoldsAsync(Uri document, CancellationToken token);
 
     /// <summary>
-    /// Asks the language server for the hints of a document (<c>textDocument/inlayHint</c>): the name of the parameter each argument is given to.
+    /// Asks the language server for the hints of a document (<c>textDocument/inlayHint</c>): the name of the parameter each argument is given to, and the type a declaration has because it states none.
     /// </summary>
     /// <param name="document">The document's URI; the language server answers for the text it has of it.</param>
     /// <param name="token">A token that cancels the request.</param>

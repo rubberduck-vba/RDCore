@@ -7,8 +7,8 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// <c>INLAYS</c>: shows the hints of the language server in a listing, or stops showing them.
 /// </summary>
 /// <remarks>
-/// <c>INLAYS ON</c> - or <c>INLAYS</c> alone - has <c>LIST</c> show, faint and before each argument of a call, the name of the parameter it is given to
-/// (<c>textDocument/inlayHint</c>); <c>INLAYS OFF</c> lists the program as it is typed. The hints are not part of the program.
+/// <c>INLAYS ON</c> - or <c>INLAYS</c> alone - has <c>LIST</c> show, faint and in the line, the hints of the language server (<c>textDocument/inlayHint</c>): before each argument of a
+/// call, the name of the parameter it is given to, and after a variable or parameter that states no type, <c>As Variant</c>; <c>INLAYS OFF</c> lists the program as it is typed. The hints are not part of the program.
 /// </remarks>
 internal sealed class InlaysReplCommand : IReplCommand, IReplCommandDescriptor
 {

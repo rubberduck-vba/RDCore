@@ -64,12 +64,15 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         return ranges is null ? [] : [.. ranges.Where(range => range.Kind is null).Select(range => new ReplFold(range.StartLine, range.EndLine))];
     }
 
+    // the end of the range is a line past any program: int.MaxValue overflows the line shift of the header the program is listed under.
+    private const int WholeProgramLines = 100_000;
+
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ReplInlayHint>> GetInlayHintsAsync(Uri document, CancellationToken token)
     {
         // the whole document: a program is a screenful of lines.
         var hints = await client.SendRequestAsync<InlayHintParams, InlayHintContainer?>(
-            new InlayHintParams { TextDocument = new TextDocumentIdentifier(document), Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 0, 100_000, 0) }, token);
+            new InlayHintParams { TextDocument = new TextDocumentIdentifier(document), Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(0, 0, WholeProgramLines, 0) }, token);
         return hints is null ? [] : [.. hints.Select(hint => new ReplInlayHint(
             hint.Position.Line, hint.Position.Character,
             (hint.PaddingLeft == true ? " " : string.Empty)

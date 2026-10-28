@@ -13,7 +13,7 @@ public readonly record struct ReplInlayHint(int Line, int Character, string Labe
 /// Whether a listing shows the hints of the language server (<c>INLAYS</c>).
 /// </summary>
 /// <remarks>
-/// Off until it is said to be on: a listing is the program, and the hints are the server's, not the author's.
+/// Off until it is said to be on: a listing is the program as it was typed, and the hints are not part of it.
 /// </remarks>
 public sealed class ReplInlays
 {
