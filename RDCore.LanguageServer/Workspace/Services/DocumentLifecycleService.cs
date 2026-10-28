@@ -80,8 +80,13 @@ internal sealed class DocumentLifecycleService(
     // the refresh in flight for each document, and what cancels it: a later notification about the document supersedes it.
     private readonly ConcurrentDictionary<Uri, (CancellationTokenSource Cancellation, Task Refresh)> _refreshes = new();
 
-    // what the other modules were last told by each module: the host has it.
-    private readonly ConcurrentDictionary<Uri, string?> _surfaces = new();
+    // what the other modules were last defined against of each module, in the host, and the version of the text that was: compared, and changed, under the gate.
+    private readonly Dictionary<Uri, (int Version, string? Surface)> _surfaces = [];
+    private readonly object _surfaceGate = new();
+
+    // what the other modules are defined against while a sync of them is under way, or when one did not finish: no surface, so that the next change syncs them
+    // again whatever it is.
+    private const string Unsynced = "\0unsynced";
 
     public void Opened(Uri documentUri, string text, int version)
     {
@@ -91,7 +96,10 @@ internal sealed class DocumentLifecycleService(
         // on disk is what the client's is told apart from.
         if (parsing.TryGetCached(documentUri, out var parsed))
         {
-            _surfaces[documentUri] = ModuleSurface.Of(parsed);
+            lock (_surfaceGate)
+            {
+                _surfaces[documentUri] = (0, ModuleSurface.Of(parsed));
+            }
         }
 
         parsing.Invalidate(documentUri);
@@ -155,23 +163,29 @@ internal sealed class DocumentLifecycleService(
             // the workspace has no document of it any more, and so no module: what the host holds of it - the variables its lines declared, and the storage
             // they were given - is not the workspace's either, and what the other modules found of it is gone.
             await DiscardModuleAsync(moduleName);
-            _surfaces.TryRemove(documentUri, out _);
+            lock (_surfaceGate)
+            {
+                _surfaces.Remove(documentUri);
+            }
+
             await SyncWorkspaceAsync(CancellationToken.None);
             refresh.Changed();
         }
     }
 
     // the other modules are defined again against what one declares now - what their declarations are bound to, and what their code calls - as when a module
-    // changes outside the editor; a host that could not be told leaves them as they were.
-    private async Task SyncWorkspaceAsync(CancellationToken token)
+    // changes outside the editor; whether they all were. A host that could not be told has some of them as they were.
+    private async Task<bool> SyncWorkspaceAsync(CancellationToken token)
     {
         try
         {
             await symbols.SyncWorkspaceAsync(token, replace: true);
+            return true;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning(exception, "❌ The environment host could not be brought up to date with the workspace.");
+            return false;
         }
     }
 
@@ -271,29 +285,48 @@ internal sealed class DocumentLifecycleService(
             }
 
             // what the other modules are told by this one changed: the host has them defined again against it, and then what the client shows of them is
-            // refreshed. What they were told is kept once they are: a refresh that is superseded before leaves it to the next one.
+            // refreshed. A refresh that is superseded before the sync starts leaves it to the next one, which the host's others are still as they were for.
             var surface = ModuleSurface.Of(parse);
-            if (!_surfaces.TryGetValue(documentUri, out var previous))
+            lock (_surfaceGate)
             {
-                // a module the server has had no text of yet - opened before the workspace was parsed, or of no workspace - is what the workspace is defined with
-                // when it is: what it tells is kept, for its next change.
-                _surfaces[documentUri] = surface;
-                return;
+                if (!_surfaces.TryGetValue(documentUri, out var previous))
+                {
+                    // a module the server has had no text of yet - opened before the workspace was parsed, or of no workspace - is what the workspace is defined
+                    // with when it is: what it tells is kept, for its next change.
+                    _surfaces[documentUri] = (version, surface);
+                    return;
+                }
+
+                if (previous.Surface == surface || IsSuperseded(documentUri, version, token))
+                {
+                    return;
+                }
+
+                // the others are being defined again: until they all are, against no one surface. A refresh of a later version that compares meanwhile syncs
+                // them again itself.
+                _surfaces[documentUri] = (version, Unsynced);
             }
 
-            if (previous == surface)
+            // once a sync is under way the host is not what it was, whatever becomes of this refresh: what the others are defined against is kept, and the
+            // client told. A sync that did not finish leaves them defined against no one surface, which the next change syncs again whatever it is.
+            var synced = false;
+            try
             {
-                return;
+                synced = await SyncWorkspaceAsync(token);
             }
-
-            await SyncWorkspaceAsync(token);
-            if (IsSuperseded(documentUri, version, token))
+            finally
             {
-                return;
-            }
+                lock (_surfaceGate)
+                {
+                    // a later version that has synced them since is what they are defined against.
+                    if (!_surfaces.TryGetValue(documentUri, out var recorded) || recorded.Version <= version)
+                    {
+                        _surfaces[documentUri] = (version, synced ? surface : Unsynced);
+                    }
+                }
 
-            _surfaces[documentUri] = surface;
-            refresh.Changed();
+                refresh.Changed();
+            }
         }
         catch (OperationCanceledException)
         {

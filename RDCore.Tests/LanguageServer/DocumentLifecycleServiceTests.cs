@@ -226,28 +226,64 @@ public sealed class DocumentLifecycleServiceTests
         });
     }
 
-    // the next refresh finds that the others were not told: it tells them.
-    [TestMethod]
-    public async Task ARefreshSupersededBeforeTheOthersAreLoaded_LeavesThemToTheNextOne()
+    private void SyncingTheWorkspace(Func<int, Task> each)
     {
-        var loading = new TaskCompletionSource();
+        var calls = 0;
+        _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), Arg.Any<IProgress<RDCore.SDK.Server.Progress.WorkProgressStep>?>(), Arg.Any<bool>())
+            .Returns(_ => each(Interlocked.Increment(ref calls)));
+    }
+
+    // a character typed, then taken back while the others are defined again against it: the text tells what it did before, and the others are defined
+    // against what it told in between unless they are defined again.
+    [TestMethod]
+    public async Task AChangeTakenBackWhileTheOthersAreDefinedAgainstIt_DefinesThemAgain()
+    {
+        var syncing = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         _sut.Opened(Mod1, Declares, 1);
         await _sut.WhenRefreshedAsync(Mod1);
-        _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), Arg.Any<IProgress<RDCore.SDK.Server.Progress.WorkProgressStep>?>(), Arg.Any<bool>()).Returns(async _ =>
+        SyncingTheWorkspace(async call =>
         {
-            loading.TrySetResult();
-            await release.Task;
+            if (call == 1)
+            {
+                syncing.TrySetResult();
+                await release.Task;
+            }
         });
         _refresh.ClearReceivedCalls();
 
-        _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
-        await loading.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        _sut.Changed(Mod1, 3, [Full(Declares.Replace("Foo", "Bar").Replace("Debug.Print 1", "Debug.Print 2"))]);
+        _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Fooo"))]);
+        var taken = _sut.WhenRefreshedAsync(Mod1);
+        await syncing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _sut.Changed(Mod1, 3, [Full(Declares)]);
+        await _sut.WhenRefreshedAsync(Mod1);
         release.SetResult();
+        await taken;
+
+        await _symbols.Received(2).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.Received(2).Changed();
+
+        // what they are defined against now is what the text tells: nothing more to do for it.
+        _sut.Changed(Mod1, 4, [Full(Declares.Replace("Debug.Print 1", "Debug.Print 2"))]);
+        await _sut.WhenRefreshedAsync(Mod1);
+        await _symbols.Received(2).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    [TestMethod]
+    public async Task ASyncOfTheOthersThatDidNotFinish_IsDoneAgain_ByTheNextChange_WhateverItTells()
+    {
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        SyncingTheWorkspace(call => call == 1 ? Task.FromCanceled(new CancellationToken(canceled: true)) : Task.CompletedTask);
+        _refresh.ClearReceivedCalls();
+
+        _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
+        await _sut.WhenRefreshedAsync(Mod1);
+        _sut.Changed(Mod1, 3, [Full(Declares.Replace("Foo", "Bar").Replace("Debug.Print 1", "Debug.Print 2"))]);
         await _sut.WhenRefreshedAsync(Mod1);
 
-        _refresh.Received(1).Changed();
+        await _symbols.Received(2).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.Received(2).Changed();
     }
 
     [TestMethod]
