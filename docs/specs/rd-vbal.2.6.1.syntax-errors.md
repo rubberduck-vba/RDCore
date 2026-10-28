@@ -71,10 +71,29 @@ continues another line is not a directive: `d = _` followed by `    #1/2/2000#` 
 
 A directive is checked on its own logical line against the rule of the RD-VBA grammar for it. One that is not well formed is no directive, as in
 **MS-VBA** (recorded in Excel): an `#If` with no `Then`, one whose expression is no expression, one with code after its `Then`, an unknown keyword (`#Iff`),
-and an `#End If` with text after it. An `#End If` after such an `#If` ends no block, and so is `VBC00056`. `#EndIf`, written as one word, is an `#End If`.
+and an `#End If` with text after it, a comment written with `Rem` too. An `#End If` after such an `#If` ends no block, and so is `VBC00056`; a block whose
+`#End If` is not well formed is not ended, and so is `VBC00059`. `#EndIf`, written as one word, is an `#End If`.
 
-A `#Const` with no `=` is "Expected: =", one with no name "Expected: identifier", and one with no value "Expected: expression", each the syntax error
-`VBC00001`, as in **MS-VBA**.
+No whitespace is required around the condition of an `#If` or an `#ElseIf`, where a parenthesis separates it from the keywords: `#If(VBA7) Then`,
+`#If (Win64)Then` and `#ElseIf(Mac) Then` are well formed, as in **MS-VBA**. A `#Const` name is any identifier, an accented one too (`#Const Été = 1`).
+
+A directive line that is not well formed is the syntax error `VBC00001`, with **MS-VBA**'s message, at the token **MS-VBA** puts the caret on:
+
+|Directive|Message|At|
+|---|---|---|
+|`#If VBA7`|Expected: Then|the end of the line|
+|`#If VBA7 Foo Then`|Expected: Then|`Foo`|
+|`#If X = Then`|Expected: expression|`Then`|
+|`#If VBA7 Then Private Const A = 1`|Expected: end of statement|`Private`|
+|`#Else junk`, `#End If junk`|Expected: end of statement|`junk`|
+|`#Iff X Then`, `#`|Expected: If or Else or ElseIf or End or EndIf or Const|the word after `#`, or where it would be|
+|`#Const X`, `#Const X As Long = 1`|Expected: =|the end of the line, `As`|
+|`#Const = 1`|Expected: identifier|`=`|
+|`#Const X =`|Expected: expression|the end of the line|
+|`#Const X = 1 junk`|Expected: end of statement|`junk`|
+
+**MS-VBA** reports the first error of a module, and finds the errors of the blocks' structure (`VBC00056`–`VBC00059`) before those of the lines; RD-VBA
+reports every one of them. **MS-VBA** puts the caret of `VBC00059` on the module's last line, and RD-VBA reports it at the `#If` that is not ended.
 
 ---
 > ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)

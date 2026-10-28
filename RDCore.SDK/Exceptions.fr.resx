@@ -708,6 +708,18 @@
   <data name="VBCompileError_HashIfWithoutEndIf_Verbose" xml:space="preserve">
     <value>Ce bloc #If n&apos;est pas terminé : le module se termine avant son #End If.</value>
   </data>
+  <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
+    <value>Attendu : Then. Une directive #If ou #ElseIf s&apos;écrit #If expression Then.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedExpression_Verbose" xml:space="preserve">
+    <value>Attendu : expression. La condition d&apos;une directive #If ou #ElseIf est une expression constante de littéraux, de constantes de compilation conditionnelle et d&apos;opérateurs.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedEndOfStatement_Verbose" xml:space="preserve">
+    <value>Attendu : fin d&apos;instruction. Seul un commentaire peut suivre une directive sur sa ligne.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedKeyword_Verbose" xml:space="preserve">
+    <value>Attendu : If ou Else ou ElseIf ou End ou EndIf ou Const. Une ligne qui commence par # est une directive.</value>
+  </data>
   <data name="VBCompileError_ConstDirectiveExpectedEquals_Verbose" xml:space="preserve">
     <value>Attendu : =. Une directive #Const s&apos;écrit #Const nom = expression.</value>
   </data>

@@ -68,21 +68,21 @@ public partial class ModuleParser(
             // a module with no directive has nothing for the directive pass to find, which reads the whole module (a third of a parse, measured on a
             // 2,400-line module): it is not run, and the main pass reads the module as it is.
             var hasDirectives = PrecompilerNodePattern().IsMatch(content);
+            IReadOnlyList<DirectiveStructureScanner.Finding> directiveFindings = [];
+            var sanitized = content;
             if (hasDirectives)
             {
                 precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
 
-                // the directive pass reads a directive it cannot place as text: what is wrong with the directives is found on their own lines.
-                foreach (var finding in DirectiveStructureScanner.Scan(content, PrecompilerNodePattern().Matches(content).Select(match => (match.Index, match.Length))))
-                {
-                    var range = new SourceRange(finding.Range.Start.AnchoredAt(anchorOffset), finding.Range.End.AnchoredAt(anchorOffset));
-                    errorListener.Report(new SourceLocation(uri, range), finding.ErrorId, finding.Verbose);
-                }
+                // the directive pass reads a directive it cannot place as text: what is wrong with the directives is found on their own lines. The main pass
+                // reads the module with each directive's lines blank.
+                var directives = PrecompilerNodePattern().Matches(content).Select(match => (match.Index, match.Length)).ToList();
+                directiveFindings = DirectiveStructureScanner.Scan(content, directives);
+                sanitized = WithoutDirectives(content, directives);
             }
 
             var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
 
-            var sanitized = hasDirectives ? PrecompilerNodePattern().Replace(content, match => Blanked(match.Value)) : content;
             var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
             var ast = listener.BuildModuleNode();
 
@@ -91,6 +91,13 @@ public partial class ModuleParser(
             if (errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
             {
                 errorListener.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, sanitized, anchorOffset));
+            }
+
+            // what is wrong with a directive is no error of the grammar's, which a block's error could replace: it is reported once the grammar's are settled.
+            foreach (var finding in directiveFindings)
+            {
+                var range = new SourceRange(finding.Range.Start.AnchoredAt(anchorOffset), finding.Range.End.AnchoredAt(anchorOffset));
+                errorListener.Report(new SourceLocation(uri, range), finding.ErrorId, finding.Verbose);
             }
 
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
@@ -264,6 +271,24 @@ public partial class ModuleParser(
             return;
         }
         ParseTreeWalker.Default.Walk(new AnchorOffsetListener(anchorOffset), tree);
+    }
+
+    // the module with each directive's lines blank, as a directive is no code of it: every position stays where it is.
+    private static string WithoutDirectives(string content, List<(int Index, int Length)> directives)
+    {
+        var text = content.ToCharArray();
+        foreach (var (index, length) in directives)
+        {
+            for (var i = index; i < index + length; i++)
+            {
+                if (text[i] != '\n')
+                {
+                    text[i] = ' ';
+                }
+            }
+        }
+
+        return new string(text);
     }
 
     // the text with every character but the line breaks a space, so that what is left of it is where it was.

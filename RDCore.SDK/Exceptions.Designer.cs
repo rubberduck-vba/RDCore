@@ -1034,6 +1034,34 @@ namespace RDCore.SDK {
             }
         }
 
+        /// <summary>Looks up a localized string similar to Expected: Then. An #If or #ElseIf directive is written #If expression Then.</summary>
+        public static string VBCompileError_DirectiveExpectedThen_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedThen_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: expression. The condition of an #If or #ElseIf directive is a constant expression.</summary>
+        public static string VBCompileError_DirectiveExpectedExpression_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedExpression_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: end of statement. Nothing but a comment may follow a directive on its line.</summary>
+        public static string VBCompileError_DirectiveExpectedEndOfStatement_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedEndOfStatement_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to Expected: If or Else or ElseIf or End or EndIf or Const. A line that starts with # is a directive.</summary>
+        public static string VBCompileError_DirectiveExpectedKeyword_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DirectiveExpectedKeyword_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>Looks up a localized string similar to Expected: =. A #Const directive is written #Const name = expression.</summary>
         public static string VBCompileError_ConstDirectiveExpectedEquals_Verbose {
             get {

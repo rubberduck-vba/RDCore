@@ -117,7 +117,8 @@ public enum VBCompileErrorId
     /// </summary>
     OnlyCommentsAfterEndProcedure = 55,
     /// <summary>
-    /// A <c>#Else</c>, <c>#ElseIf</c> or <c>#End If</c> directive belongs to no <c>#If</c>: there is none before it, or the one before it is no directive.<br/>
+    /// A <c>#End If</c> directive ends no <c>#If</c> block: there is none before it, or the one before it is no directive. MS-VBA's message names
+    /// <c>#ElseIf</c> and <c>#Else</c> too, which have codes of their own (<see cref="ElseIfWithoutIf"/>, <see cref="HashElseWithoutIf"/>).<br/>
     /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
     /// </summary>
     DirectiveWithoutIf = 56,

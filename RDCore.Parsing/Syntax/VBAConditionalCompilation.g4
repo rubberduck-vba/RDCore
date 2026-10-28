@@ -18,9 +18,11 @@ ccConst : whiteSpace* hashConst whiteSpace+ ccVarLhs whiteSpace* EQ whiteSpace* 
 ccVarLhs : name;
 
 ccIfBlock : ccIf ccBlock ccElseIfBlock* ccElseBlock? ccEndIf;
-ccIf : whiteSpace* hashIf whiteSpace+ ccExpression whiteSpace+ THEN ccEol;
+// MS-VBAL 3.4.2 (cc-if): no whitespace is required around the condition, which a parenthesis or the lexer's word boundaries separate: #If(VBA7) Then,
+// #If (Win64)Then.
+ccIf : whiteSpace* hashIf whiteSpace* ccExpression whiteSpace* THEN ccEol;
 ccElseIfBlock : ccElseIf ccBlock;
-ccElseIf : whiteSpace* hashElseIf whiteSpace+ ccExpression whiteSpace+ THEN ccEol;
+ccElseIf : whiteSpace* hashElseIf whiteSpace* ccExpression whiteSpace* THEN ccEol;
 ccElseBlock : ccElse ccBlock;
 ccElse : whiteSpace* hashElse ccEol;
 ccEndIf : whiteSpace* hashEndIf ccEol;
