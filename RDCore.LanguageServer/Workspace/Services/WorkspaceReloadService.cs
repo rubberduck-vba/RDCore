@@ -156,7 +156,14 @@ internal sealed class WorkspaceReloadService(
     private bool _draining;
 
     /// <inheritdoc/>
-    public void Stop() => _lifetime.Cancel();
+    public void Stop()
+    {
+        // under the lock of the queue, with the last check of a batch and the completing of its changes: a change is done before the server stopped, or not at all.
+        lock (_queue)
+        {
+            _lifetime.Cancel();
+        }
+    }
 
     public async Task<WorkspaceReloadResult?> ReloadAsync(CancellationToken token)
         => await BeginReloadAsync(token) is { } step ? await step.Completed.WaitAsync(token) : null;
@@ -301,8 +308,9 @@ internal sealed class WorkspaceReloadService(
             {
                 await FinishAsync(batch, _lifetime.Token);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
             {
+                // only the server stopping cancels what the changes left to do.
                 foreach (var pending in batch)
                 {
                     pending.Done.TrySetCanceled(_lifetime.Token);
@@ -310,6 +318,7 @@ internal sealed class WorkspaceReloadService(
             }
             catch (Exception exception)
             {
+                // a request that was cancelled for another reason - the connection to the host was lost - is a failure like any other.
                 logger.LogError(exception, "❌ The environment host and the symbols could not be made what the project lists.");
                 foreach (var pending in batch)
                 {
@@ -337,12 +346,25 @@ internal sealed class WorkspaceReloadService(
 
         stopping.ThrowIfCancellationRequested();
         var work = batch.Select(pending => pending.Work).ToList();
+
+        // a module that cannot be parsed is left out and is the failure of the change that gained it: the others are made all the same, and the workspace is defined.
+        var failed = new Dictionary<TextDocumentIdentifier, Exception>();
         foreach (var id in work.SelectMany(each => each.ToParse).Distinct())
         {
             stopping.ThrowIfCancellationRequested();
-            if (documents.TryGetDocument(id.Uri.ToUri(), out _))
+            if (!documents.TryGetDocument(id.Uri.ToUri(), out _))
+            {
+                continue;
+            }
+
+            try
             {
                 await parsing.ParseDocumentAsync(id.Uri.ToUri(), stopping);
+            }
+            catch (Exception exception) when (!stopping.IsCancellationRequested)
+            {
+                logger.LogWarning(exception, "⚠️ '{uri}' could not be parsed; it is left out, and the workspace is defined without it.", id.Uri);
+                failed[id] = exception;
             }
         }
 
@@ -365,11 +387,23 @@ internal sealed class WorkspaceReloadService(
         // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
         await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
 
-        // the definition of the symbols ends quietly when the server stops: it is not a definition that was made.
-        stopping.ThrowIfCancellationRequested();
-        foreach (var pending in batch)
+        // the definition of the symbols ends quietly when the server stops: it is not a definition that was made. The last check and the completing are one step with
+        // Stop, so that nothing is reported after the server stopped.
+        lock (_queue)
         {
-            pending.Done.TrySetResult(pending.Work.Result(composed, programRunning));
+            stopping.ThrowIfCancellationRequested();
+            foreach (var pending in batch)
+            {
+                var failure = pending.Work.ToParse.Select(id => failed.GetValueOrDefault(id)).FirstOrDefault(exception => exception is not null);
+                if (failure is not null)
+                {
+                    pending.Done.TrySetException(failure);
+                }
+                else
+                {
+                    pending.Done.TrySetResult(pending.Work.Result(composed, programRunning));
+                }
+            }
         }
     }
 

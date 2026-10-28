@@ -1,7 +1,10 @@
 ﻿using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer;
@@ -273,13 +276,48 @@ public sealed class WorkspaceReloadServiceTests
         Assert.IsFalse(_documents.TryGetDocument(UriOf("B.cls"), out _));
     }
 
+    // what a component logs, kept.
+    private sealed class CapturingLogger : ILogger<WorkspaceReloadService>
+    {
+        public List<(LogLevel Level, string Message, Exception? Exception)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            lock (Entries)
+            {
+                Entries.Add((logLevel, formatter(state, exception), exception));
+            }
+        }
+    }
+
+    private WorkspaceReloadService ServiceLogging(CapturingLogger log)
+    {
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(_host);
+        return new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path, log);
+    }
+
+    // set when the environment host is first waited for: the work that waits for it has come as far as it can.
+    private readonly TaskCompletionSource _hostWaitedFor = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     // the environment host is ready when the test says so.
     private TaskCompletionSource HostGate()
     {
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(call => gate.Task.WaitAsync(call.Arg<CancellationToken>()));
+        _host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            _hostWaitedFor.TrySetResult();
+            return gate.Task.WaitAsync(call.Arg<CancellationToken>());
+        });
         return gate;
     }
+
+    private static Task<WorkspaceReloadStep?> Removing(WorkspaceReloadService sut, int index)
+        => sut.BeginChangeAsync(project => project.WithoutModule(project.ProjectInfo.Modules[index]), CancellationToken.None);
 
     private static Task<WorkspaceReloadStep?> Adding(WorkspaceReloadService sut, string module, List<string> order)
         => sut.BeginChangeAsync(project =>
@@ -294,10 +332,13 @@ public sealed class WorkspaceReloadServiceTests
     {
         await LoadAsync("A.bas");
         _files.AddFile(Path.Combine(Root, "C.bas"), new MockFileData("Attribute VB_Name = \"C\"\r\n"));
+        _files.AddFile(Path.Combine(Root, "D.bas"), new MockFileData("Attribute VB_Name = \"D\"\r\n"));
         var gate = HostGate();
         var order = new List<string>();
 
-        var first = (await Adding(_sut, "B.cls", order))!;
+        // the first change gains two modules, and the work for it is held at the host before the second change is made.
+        var first = (await _sut.BeginChangeAsync(project => project.WithModule(new RDCoreModule { RelativeUri = "B.cls" }).WithModule(new RDCoreModule { RelativeUri = "D.bas" }), CancellationToken.None))!;
+        await _hostWaitedFor.Task.WaitAsync(TimeSpan.FromSeconds(20));
         var second = (await Adding(_sut, "C.bas", order))!;
 
         // the second change did not wait for the first one's host: both are in the workspace, and neither is done.
@@ -307,7 +348,7 @@ public sealed class WorkspaceReloadServiceTests
         Assert.IsFalse(second.Completed.IsCompleted);
 
         gate.SetResult();
-        Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await first.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 2, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await first.Completed.WaitAsync(TimeSpan.FromSeconds(20)), "each change has its own result");
         Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await second.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
 
         // the host composes its session again, and the symbols are defined again, once for the changes that waited together.
@@ -396,6 +437,174 @@ public sealed class WorkspaceReloadServiceTests
         Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out _), "the documents are what the project lists");
         await Assert.ThrowsAsync<OperationCanceledException>(() => step.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task WhatIsMadeWhileABatchIsWorking_IsTheNextBatch()
+    {
+        await LoadAsync("A.bas");
+        _files.AddFile(Path.Combine(Root, "C.bas"), new MockFileData("Attribute VB_Name = \"C\"\r\n"));
+        var syncing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var syncs = 0;
+        _symbols.SyncWorkspaceAsync(default, default, default).ReturnsForAnyArgs(_ =>
+        {
+            if (Interlocked.Increment(ref syncs) == 1)
+            {
+                syncing.SetResult();
+                return release.Task;
+            }
+
+            return Task.CompletedTask;
+        });
+
+        var first = (await Adding(_sut, "B.cls", []))!;
+        await syncing.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        var second = (await Adding(_sut, "C.bas", []))!;
+        release.SetResult();
+
+        await first.Completed.WaitAsync(TimeSpan.FromSeconds(20));
+        await second.Completed.WaitAsync(TimeSpan.FromSeconds(20));
+        await _host.Received(2).SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(2, syncs, "the second change was not done with the batch that was already defining the workspace");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AModuleTakenOutAndPutBackInOneBatch_IsInTheWorkspace_AndTheHostIsNotToldItIsGone_WhenItComposedAgain()
+    {
+        await LoadAsync("A.bas", "B.cls");
+        var gate = HostGate();
+
+        var removed = (await Removing(_sut, 1))!;
+        await _hostWaitedFor.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        var added = (await Adding(_sut, "B.cls", []))!;
+        gate.SetResult();
+
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 0, Removed: 1, IsHostComposed: true, IsProgramRunning: false), await removed.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await added.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out _));
+        await _symbols.DidNotReceiveWithAnyArgs().DiscardModuleAsync(default!, default);
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AModuleTakenOut_IsForgottenByAHostThatKeptItsSession_AndTheWorkspaceIsDefinedAfterwards()
+    {
+        await LoadAsync("A.bas", "B.cls");
+        HostAnswers(new HostProjectReloadResult { Composed = false, IsProgramRunning = true });
+
+        var removed = (await Removing(_sut, 1))!;
+        await removed.Completed.WaitAsync(TimeSpan.FromSeconds(20));
+
+        await _symbols.Received(1).DiscardModuleAsync("B", Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AModuleThatCannotBeParsed_IsTheFailureOfItsChangeOnly_AndTheWorkspaceIsDefinedAllTheSame()
+    {
+        await LoadAsync("A.bas");
+        _files.AddFile(Path.Combine(Root, "C.bas"), new MockFileData("Attribute VB_Name = \"C\"\r\n"));
+        var log = new CapturingLogger();
+        var sut = ServiceLogging(log);
+        _parsing.ParseDocumentAsync(Arg.Is<Uri>(uri => uri.LocalPath.EndsWith("B.cls", StringComparison.Ordinal)), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("the parse server is gone"));
+        var gate = HostGate();
+
+        var broken = (await Adding(sut, "B.cls", []))!;
+        await _hostWaitedFor.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        var fine = (await Adding(sut, "C.bas", []))!;
+        gate.SetResult();
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => broken.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.AreEqual("the parse server is gone", failure.Message);
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await fine.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        await _host.Received(1).SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        lock (log.Entries)
+        {
+            var line = log.Entries.Single(entry => entry.Level == LogLevel.Warning && entry.Message.Contains("could not be parsed", StringComparison.Ordinal));
+            StringAssert.Contains(line.Message, "B.cls");
+            Assert.AreSame(failure, line.Exception);
+        }
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ARequestThatWasCancelled_ButNotByTheServerStopping_IsAFailure_AndIsLogged()
+    {
+        await LoadAsync("A.bas");
+        var log = new CapturingLogger();
+        var sut = ServiceLogging(log);
+        _host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new OperationCanceledException("the connection to the host was lost"));
+
+        var step = (await Adding(sut, "B.cls", []))!;
+        var failed = await Assert.ThrowsAsync<OperationCanceledException>(() => step.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+
+        Assert.AreEqual("the connection to the host was lost", failed.Message);
+        Assert.IsTrue(step.Completed.IsFaulted, "it failed");
+        Assert.IsFalse(step.Completed.IsCanceled, "it was not cancelled: only the server stopping does that");
+        lock (log.Entries)
+        {
+            Assert.AreEqual(1, log.Entries.Count(entry => entry.Level == LogLevel.Error && ReferenceEquals(entry.Exception, failed)));
+        }
+
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    [TestMethod]
+    public async Task TheEndOfTheWork_IsLogged_WhenItFailedBeingCancelled_AndNotWhenTheServerStopped()
+    {
+        var server = Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>();
+        var log = new CapturingLogger();
+
+        var stopped = new TaskCompletionSource<WorkspaceReloadResult>();
+        stopped.SetCanceled();
+        await WorkspaceFileOperationFilters.ReportCompletedAsync(stopped.Task, server, log);
+
+        var lost = new TaskCompletionSource<WorkspaceReloadResult>();
+        lost.SetException(new OperationCanceledException("the connection to the host was lost"));
+        await WorkspaceFileOperationFilters.ReportCompletedAsync(lost.Task, server, log);
+
+        lock (log.Entries)
+        {
+            Assert.AreEqual(1, log.Entries.Count(entry => entry.Level == LogLevel.Error), "only the one that failed is logged");
+        }
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheWatchedFileChanges_ReadTheFilesWithoutWaitingForTheHost_AndTellTheClientWhenTheWorkIsDone()
+    {
+        var reload = Substitute.For<IWorkspaceReloadService>();
+        var done = new TaskCompletionSource<WorkspaceReloadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = new WorkspaceReloadResult(0, 0, false, false, Reread: 1);
+        reload.BeginReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>()).Returns(new WorkspaceReloadStep(started, done.Task));
+        await LoadAsync("A.bas");
+        var changes = new WatchedFileChanges(reload, _documents, NullLogger<WatchedFileChanges>.Instance);
+        var told = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>();
+        server.ClientSettings.Returns(new InitializeParams
+        {
+            Capabilities = new ClientCapabilities { Workspace = new WorkspaceClientCapabilities { Diagnostics = new DiagnosticWorkspaceClientCapabilities { RefreshSupport = true } } },
+        });
+        server.SendRequest(Arg.Any<string>()).Returns(_ =>
+        {
+            told.TrySetResult();
+            return Substitute.For<OmniSharp.Extensions.JsonRpc.IResponseRouterReturns>();
+        });
+
+        // the host is not ready: the call returns, and the client has not been told.
+        await changes.ChangedAsync([new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "A.bas")), Type = FileChangeType.Changed }], server);
+        Assert.IsFalse(told.Task.IsCompleted);
+
+        done.SetResult(new WorkspaceReloadResult(0, 0, true, false, Reread: 1));
+        await told.Task.WaitAsync(TimeSpan.FromSeconds(20));
     }
 
     [TestMethod]
