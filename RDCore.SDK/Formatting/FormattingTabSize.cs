@@ -47,7 +47,7 @@ public static class FormattingTabSize
     /// <param name="server">The language server.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>
-    /// The tab size; <see langword="null"/> when the client does not have configuration to ask, answered that it has none (an error response), or said one the indentation
+    /// The tab size; <see langword="null"/> when the client does not have configuration to ask, answered with an error, or said one the indentation
     /// cannot be. A request that is cancelled, or whose connection is lost, throws: it is no answer, and the editor has not said it has no tab size.
     /// </returns>
     public static async Task<int?> RequestEditorTabSizeAsync(ILanguageServerFacade server, CancellationToken token = default)
@@ -62,11 +62,17 @@ public static class FormattingTabSize
             var answers = await server.Workspace.RequestConfiguration(new ConfigurationParams { Items = new Container<ConfigurationItem>(new ConfigurationItem { Section = EditorSection }) }, token);
             return EditorTabSizeOf(answers.FirstOrDefault());
         }
-        catch (OmniSharp.Extensions.JsonRpc.RpcErrorException)
+        catch (Exception exception) when (IsTheClientsError(exception, token))
         {
             return null;
         }
     }
+
+    // an error answer is how a client says it has no such setting: OmniSharp raises it as an exception of its own - a request exception for an error, a cancellation for the
+    // client cancelling the request. A cancellation of the token we asked with is no answer, and neither is a connection that fails.
+    private static bool IsTheClientsError(Exception exception, CancellationToken token)
+        => !token.IsCancellationRequested
+            && (exception is OperationCanceledException || exception.GetType().Namespace?.StartsWith("OmniSharp.Extensions.JsonRpc", StringComparison.Ordinal) == true);
 
     /// <summary>
     /// The live settings the client said, with the editor's tab size as the indentation when the user never set one.
