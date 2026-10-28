@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.Operators;
@@ -792,7 +793,8 @@ public sealed partial class RuntimeExpressionEvaluator
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
-    // integer type, an integer as a floating-point value, a Single as a Double. Anything else is the boxed coercion's (MS-VBAL §5.5.1.2.1), which rounds.
+    // integer type, an integer as a floating-point value, a Single as a Double (PayloadOperations.Convert). Anything else is the boxed coercion's (MS-VBAL
+    // §5.5.1.2.1), which rounds.
     private static bool TryConvertPayload(ScalarPayload payload, VBType destination, out ScalarPayload converted)
     {
         converted = payload;
@@ -801,86 +803,37 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        // MS-VBAL §5.5.1.2.2: any number is True when it is not zero, and a Boolean is the -1 or 0 it holds - which a Byte does not hold, its True being
-        // 255: the boxed coercion's.
-        if (destination is VBBooleanType)
-        {
-            converted = ScalarPayload.OfBoolean(payload.IsTrue);
-            return true;
-        }
-
-        // a Currency is a whole number in an integer type when it is one, which nothing rounds; as a floating-point value it is the Double nearest a
-        // decimal number, which is the boxed coercion's.
-        if (payload.Type is VBCurrencyType)
-        {
-            return destination is VBByteType or VBIntegerType or VBLongType or VBLongLongType && payload.Integral % ScalarPayload.CurrencyScale == 0
-                && ScalarPayload.TryIntegral(destination, payload.Integral / ScalarPayload.CurrencyScale, out converted);
-        }
-
-        if (destination is VBCurrencyType)
-        {
-            return TryConvertToCurrency(payload, out converted);
-        }
-
-        return (payload.IsIntegral, destination) switch
-        {
-            (true, VBByteType or VBIntegerType or VBLongType or VBLongLongType) => ScalarPayload.TryIntegral(destination, payload.Integral, out converted),
-            (true, VBDoubleType or VBDateType) => ScalarPayload.TryFloating(destination, payload.Integral, out converted),
-            (true, VBSingleType) when payload.Type is not VBLongLongType => ScalarPayload.TryFloating(destination, payload.Integral, out converted),
-            // a Date is its serial (MS-VBAL §5.5.1.2.3), and a number in the range of the serials is a Date.
-            (false, VBDoubleType) => ScalarPayload.TryFloating(destination, payload.Floating, out converted),
-            (false, VBDateType) => ScalarPayload.TryFloating(destination, payload.Floating, out converted),
-            _ => false,
-        };
-    }
-
-    // MS-VBAL §5.5.1.2.1: a whole number is a Currency when it is in its range; a Double when it has no more than four decimal places - and few enough
-    // digits that the Decimal the boxed coercion makes of it, rounded to 15 significant digits, is the decimal number it is the Double nearest to.
-    private static bool TryConvertToCurrency(ScalarPayload payload, out ScalarPayload converted)
-    {
-        converted = default;
-        if (payload.IsIntegral)
-        {
-            if (payload.Integral is < long.MinValue / ScalarPayload.CurrencyScale or > long.MaxValue / ScalarPayload.CurrencyScale)
-            {
-                return false;
-            }
-
-            converted = ScalarPayload.OfCurrency(payload.Integral * ScalarPayload.CurrencyScale);
-            return true;
-        }
-
-        var scaled = payload.Floating * ScalarPayload.CurrencyScale;
-        if (payload.Type is not VBDoubleType || Math.Abs(scaled) >= 1e15 || scaled != Math.Floor(scaled) || scaled / ScalarPayload.CurrencyScale != payload.Floating)
+        if (ScalarKinds.Of(payload.Type) is not { } from || ScalarKinds.Of(destination) is not { } to
+            || PayloadOperations.Convert(from, payload.Integral, payload.Floating, to, out var integral, out var floating) is not PayloadStatus.Ok)
         {
             return false;
         }
 
-        converted = ScalarPayload.OfCurrency((long)scaled);
+        converted = ScalarKinds.IsIntegral(to) ? new ScalarPayload(destination, integral, 0) : new ScalarPayload(destination, 0, floating);
         return true;
     }
 
     // MS-VBAL §5.6.9.3: the operators on their effective type, as the boxed evaluation does them (checked, in the type's own width); a result that does not
-    // fit, a division by zero and a result that is not finite are errors, which the boxed evaluation raises.
+    // fit, a division by zero and a result that is not finite are errors, which the boxed evaluation raises. The integral ones are PayloadOperations', which
+    // compiled code calls too (IR lowering S1.8).
     private static bool TryOperate(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
+        if (ScalarKinds.Of(effective) is { } kind && kind is not ScalarKind.Boolean && ScalarKinds.IsIntegral(kind))
+        {
+            if (OperatorTokens.OperateIntegral(token, kind, l.Integral, r.Integral, out var integral) is not PayloadStatus.Ok)
+            {
+                return false;
+            }
+
+            result = new ScalarPayload(effective, integral, 0);
+            return true;
+        }
+
         try
         {
             return (effective, token) switch
             {
-                (VBByteType or VBIntegerType or VBLongType or VBLongLongType, Tokens.AdditionOp) => ScalarPayload.TryIntegral(effective, checked(l.Integral + r.Integral), out result),
-                (VBByteType or VBIntegerType or VBLongType or VBLongLongType, Tokens.SubtractionOp) => ScalarPayload.TryIntegral(effective, checked(l.Integral - r.Integral), out result),
-                (VBByteType or VBIntegerType or VBLongType or VBLongLongType, Tokens.MultiplicationOp) => ScalarPayload.TryIntegral(effective, checked(l.Integral * r.Integral), out result),
-                // §5.6.9.3.5-6: a quotient that is truncated, and the remainder that has the dividend's sign - in the integer effective type the
-                // operands were coerced to (a floating-point operand is rounded to it, which is the boxed coercion's).
-                (VBByteType or VBIntegerType or VBLongType or VBLongLongType, Tokens.IntegerDivisionOp) when r.Integral != 0 => ScalarPayload.TryIntegral(effective, checked(l.Integral / r.Integral), out result),
-                (VBByteType or VBIntegerType or VBLongType or VBLongLongType, Tokens.ModuloOp) when r.Integral != 0 => ScalarPayload.TryIntegral(effective, checked(l.Integral % r.Integral), out result),
-                // a Currency is its ten-thousandths: a sum is theirs, and a product is theirs divided by 10,000 - when nothing rounds it, which the boxed
-                // evaluation does, to even (recorded in Excel).
-                (VBCurrencyType, Tokens.AdditionOp) => Currency(checked(l.Integral + r.Integral), out result),
-                (VBCurrencyType, Tokens.SubtractionOp) => Currency(checked(l.Integral - r.Integral), out result),
-                (VBCurrencyType, Tokens.MultiplicationOp) => TryMultiplyCurrency(l.Integral, r.Integral, out result),
                 // a Date operation is evaluated in Double (OperationPlan.OperandDestination), and is a Date when it is a date's serial.
                 (VBDateType, Tokens.AdditionOp) => ScalarPayload.TryFloating(effective, l.Floating + r.Floating, out result),
                 (VBDateType, Tokens.SubtractionOp) => ScalarPayload.TryFloating(effective, l.Floating - r.Floating, out result),
@@ -906,88 +859,69 @@ public sealed partial class RuntimeExpressionEvaluator
     private static bool TryLogical(string token, VBType effective, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
         result = default;
-        if (!l.IsIntegral)
+        if (!l.IsIntegral || OperatorTokens.LogicalOf(token) is not { } @operator || ScalarKinds.Of(effective) is not { } kind
+            || PayloadOperations.Logical(@operator, kind, l.Integral, r.Integral, out var bits) is not PayloadStatus.Ok)
         {
             return false;
         }
 
-        long? bits = token switch
-        {
-            Tokens.LogicalAndOp => l.Integral & r.Integral,
-            Tokens.LogicalOrOp => l.Integral | r.Integral,
-            Tokens.LogicalXOrOp => l.Integral ^ r.Integral,
-            Tokens.LogicalEqvOp => Invert(effective, l.Integral ^ r.Integral),
-            Tokens.LogicalImpOp => Invert(effective, l.Integral) | r.Integral,
-            _ => null,
-        };
-
-        return bits is { } value && ScalarPayload.TryIntegral(effective, value, out result);
+        result = new ScalarPayload(effective, bits, 0);
+        return true;
     }
 
     // MS-VBAL §5.6.9.5: a comparison of two operands of its effective type, which they were let-coerced to, is a Boolean - the payloads are finite, so any
     // two compare.
     private static bool TryCompare(string token, ScalarPayload l, ScalarPayload r, out ScalarPayload result)
     {
-        var order = l.IsIntegral ? l.Integral.CompareTo(r.Integral) : l.Floating.CompareTo(r.Floating);
-        bool? isTrue = token switch
+        result = default;
+        if (OperatorTokens.ComparisonOf(token) is not { } comparison)
         {
-            Tokens.CompareEqualOp => order == 0,
-            Tokens.CompareNotEqualOp => order != 0,
-            Tokens.CompareLessThanOp => order < 0,
-            Tokens.CompareLessThanOrEqualOp => order <= 0,
-            Tokens.CompareGreaterThanOp => order > 0,
-            Tokens.CompareGreaterThanOrEqualOp => order >= 0,
-            _ => null,
-        };
+            return false;
+        }
 
-        result = isTrue is { } value ? ScalarPayload.OfBoolean(value) : default;
-        return isTrue is not null;
+        result = ScalarPayload.OfBoolean(l.IsIntegral ? PayloadOperations.Compare(comparison, l.Integral, r.Integral) : PayloadOperations.Compare(comparison, l.Floating, r.Floating));
+        return true;
     }
 
     // §5.6.9.8.1: the bits of the operand inverted, in its type - the 8 bits of a Byte, a Boolean's -1 or 0 giving 0 or -1.
     private static bool TryNot(ScalarPayload operand, out ScalarPayload result)
     {
         result = default;
-        return operand.IsIntegral && ScalarPayload.TryIntegral(operand.Type, Invert(operand.Type, operand.Integral), out result);
-    }
-
-    private static long Invert(VBType type, long value) => type is VBByteType ? ~value & byte.MaxValue : ~value;
-
-    private static bool TryNegate(ScalarPayload operand, out ScalarPayload result)
-    {
-        result = default;
-        if (!operand.IsIntegral)
-        {
-            return ScalarPayload.TryFloating(operand.Type, -operand.Floating, out result);
-        }
-
-        // the negation of the least value of an integer type is not in its range (MS-VBA: Overflow), which the boxed evaluation raises.
-        if (operand.Integral == long.MinValue)
+        if (!operand.IsIntegral || ScalarKinds.Of(operand.Type) is not { } kind || PayloadOperations.Not(kind, operand.Integral, out var bits) is not PayloadStatus.Ok)
         {
             return false;
         }
 
-        return operand.Type is VBCurrencyType
-            ? Currency(-operand.Integral, out result)
-            : ScalarPayload.TryIntegral(operand.Type, -operand.Integral, out result);
-    }
-
-    private static bool Currency(long scaled, out ScalarPayload result)
-    {
-        result = ScalarPayload.OfCurrency(scaled);
+        result = new ScalarPayload(operand.Type, bits, 0);
         return true;
     }
 
-    private static bool TryMultiplyCurrency(long l, long r, out ScalarPayload result)
+    // the negation of the least value of an integer type is not in its range (MS-VBA: Overflow), which the boxed evaluation raises.
+    private static bool TryNegate(ScalarPayload operand, out ScalarPayload result)
     {
         result = default;
-        var product = (Int128)l * r;
-        if (product % ScalarPayload.CurrencyScale != 0)
+        if (ScalarKinds.Of(operand.Type) is not { } kind)
         {
             return false;
         }
 
-        var scaled = product / ScalarPayload.CurrencyScale;
-        return scaled >= long.MinValue && scaled <= long.MaxValue && Currency((long)scaled, out result);
+        if (!operand.IsIntegral)
+        {
+            if (PayloadOperations.Negate(kind, operand.Floating, out var negated) is not PayloadStatus.Ok)
+            {
+                return false;
+            }
+
+            result = new ScalarPayload(operand.Type, 0, negated);
+            return true;
+        }
+
+        if (PayloadOperations.Negate(kind, operand.Integral, out var integral) is not PayloadStatus.Ok)
+        {
+            return false;
+        }
+
+        result = new ScalarPayload(operand.Type, integral, 0);
+        return true;
     }
 }
