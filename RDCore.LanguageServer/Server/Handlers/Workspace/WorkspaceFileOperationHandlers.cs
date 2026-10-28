@@ -41,7 +41,7 @@ internal static class WorkspaceFileOperationFilters
     };
 
     // the environment host and the symbols are done some time after the operation is: the client is told then what they made of the workspace.
-    private static async Task ReportCompletedAsync(Task<WorkspaceReloadResult> completed, ILanguageServerFacade server, ILogger logger)
+    public static async Task ReportCompletedAsync(Task<WorkspaceReloadResult> completed, ILanguageServerFacade server, ILogger logger)
     {
         try
         {
@@ -77,6 +77,8 @@ internal static class WorkspaceFileOperationFilters
                 return;
             }
 
+            // the end of the operation is watched before anything the client is told can fail.
+            _ = ReportCompletedAsync(result.Completed, server, logger);
             foreach (var (relativeUri, moduleName) in result.NotAdded)
             {
                 server.Window.ShowMessage(new ShowMessageParams
@@ -85,8 +87,6 @@ internal static class WorkspaceFileOperationFilters
                     Message = string.Format(WorkspaceMessages.FileNotAddedModuleNameTaken, relativeUri, moduleName),
                 });
             }
-
-            _ = ReportCompletedAsync(result.Completed, server, logger);
         }
         catch (Exception exception)
         {

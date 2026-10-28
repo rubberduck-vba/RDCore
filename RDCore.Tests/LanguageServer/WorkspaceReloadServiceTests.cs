@@ -273,6 +273,131 @@ public sealed class WorkspaceReloadServiceTests
         Assert.IsFalse(_documents.TryGetDocument(UriOf("B.cls"), out _));
     }
 
+    // the environment host is ready when the test says so.
+    private TaskCompletionSource HostGate()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(call => gate.Task.WaitAsync(call.Arg<CancellationToken>()));
+        return gate;
+    }
+
+    private static Task<WorkspaceReloadStep?> Adding(WorkspaceReloadService sut, string module, List<string> order)
+        => sut.BeginChangeAsync(project =>
+        {
+            order.Add("+" + module);
+            return project.WithModule(new RDCoreModule { RelativeUri = module });
+        }, CancellationToken.None);
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TwoChanges_WhileTheHostIsNotReady_AreBothMade_AndDoneTogether_WhenItIs()
+    {
+        await LoadAsync("A.bas");
+        _files.AddFile(Path.Combine(Root, "C.bas"), new MockFileData("Attribute VB_Name = \"C\"\r\n"));
+        var gate = HostGate();
+        var order = new List<string>();
+
+        var first = (await Adding(_sut, "B.cls", order))!;
+        var second = (await Adding(_sut, "C.bas", order))!;
+
+        // the second change did not wait for the first one's host: both are in the workspace, and neither is done.
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out _));
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("C.bas"), out _));
+        Assert.IsFalse(first.Completed.IsCompleted);
+        Assert.IsFalse(second.Completed.IsCompleted);
+
+        gate.SetResult();
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await first.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.AreEqual(new WorkspaceReloadResult(Added: 1, Removed: 0, IsHostComposed: true, IsProgramRunning: false), await second.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+
+        // the host composes its session again, and the symbols are defined again, once for the changes that waited together.
+        await _host.Received(1).SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(Arg.Any<HostProjectReloadParams>(), Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ChangesMadeAtTheSameTime_AreDoneInTheOrderTheyWereMade()
+    {
+        var names = Enumerable.Range(0, 24).Select(index => $"M{index}.bas").ToArray();
+        await LoadAsync("A.bas");
+        foreach (var name in names)
+        {
+            _files.AddFile(Path.Combine(Root, name), new MockFileData($"Attribute VB_Name = \"{Path.GetFileNameWithoutExtension(name)}\"\r\n"));
+        }
+
+        // every change is made on a thread of its own, and the file system here answers at once: the lock of the changes is passed from one to the next with nothing between.
+        var made = new List<string>();
+        var steps = await Task.WhenAll(names.Select(name => Task.Run(async () => await _sut.BeginChangeAsync(project =>
+        {
+            lock (made)
+            {
+                made.Add(name);
+            }
+
+            return project.WithModule(new RDCoreModule { RelativeUri = name });
+        }, CancellationToken.None))));
+        await Task.WhenAll(steps.Select(step => step!.Completed)).WaitAsync(TimeSpan.FromSeconds(30));
+
+        // each change's module is parsed once its work is done: the order of the parses is the order the work was done in.
+        var parsed = _parsing.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IParsingClientService.ParseDocumentAsync))
+            .Select(call => Path.GetFileName(((Uri)call.GetArguments()[0]!).LocalPath))
+            .ToArray();
+        CollectionAssert.AreEqual(made.ToArray(), parsed, "the changes are done in the order they were made");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ADocumentTheClientEdits_WhileAChangeWaitsForTheHost_KeepsItsText_WhenTheHostIsReady()
+    {
+        await LoadAsync("A.bas");
+        var gate = HostGate();
+        var step = (await Adding(_sut, "B.cls", []))!;
+        _documents.Open(UriOf("B.cls"), "Attribute VB_Name = \"B\"\r\n'typed", 5);
+
+        gate.SetResult();
+        await step.Completed.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out var document));
+        Assert.AreEqual("Attribute VB_Name = \"B\"\r\n'typed", document.Text, "what the client typed is the document, after the work that waited for the host was done");
+        Assert.AreEqual(5, document.Version);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task WhenTheServerStops_WhatWaitsForTheHost_IsCancelled_AndNothingIsDefined()
+    {
+        await LoadAsync("A.bas");
+        HostGate();
+        var order = new List<string>();
+        var first = (await Adding(_sut, "B.cls", order))!;
+        var second = (await _sut.BeginChangeAsync(project => project.WithoutModule(project.ProjectInfo.Modules[0]), CancellationToken.None))!;
+
+        _sut.Stop();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => first.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => second.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AChangeMadeAfterTheServerStopped_IsNotDefined_WhateverItHasToDo()
+    {
+        // no environment host at all: with nothing to wait for, the work that was left would otherwise be done.
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        var sut = new WorkspaceReloadService(_state, _projectFiles, _documents, _documentStates, _parsing, _symbols, orchestration, _files.Path, NullLogger<WorkspaceReloadService>.Instance);
+        await LoadAsync("A.bas");
+        sut.Stop();
+
+        var step = (await Adding(sut, "B.cls", []))!;
+
+        Assert.IsTrue(_documents.TryGetDocument(UriOf("B.cls"), out _), "the documents are what the project lists");
+        await Assert.ThrowsAsync<OperationCanceledException>(() => step.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
     [TestMethod]
     [DataRow(FileChangeType.Changed, true, DisplayName = "the project file, changed")]
     [DataRow(FileChangeType.Created, true, DisplayName = "the project file, created")]
@@ -289,7 +414,7 @@ public sealed class WorkspaceReloadServiceTests
                 new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "elsewhere", ProjectFile.FileName)), Type = FileChangeType.Changed },
             ], Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>());
 
-        await reload.Received(reloads ? 1 : 0).ReloadAsync(Arg.Any<CancellationToken>());
+        await reload.Received(reloads ? 1 : 0).BeginReloadAsync(Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -302,8 +427,8 @@ public sealed class WorkspaceReloadServiceTests
         await changes.ChangedAsync([new FileEvent { Uri = DocumentUri.FromFileSystemPath(Path.Combine(Root, "A.bas")), Type = FileChangeType.Changed }],
             Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>());
 
-        await reload.DidNotReceiveWithAnyArgs().ReloadAsync(default);
-        await reload.Received(1).ReloadFilesAsync(Arg.Is<IReadOnlyList<Uri>>(files => files.Single() == UriOf("A.bas")), Arg.Any<CancellationToken>());
+        await reload.DidNotReceiveWithAnyArgs().BeginReloadAsync(default);
+        await reload.Received(1).BeginReloadFilesAsync(Arg.Is<IReadOnlyList<Uri>>(files => files.Single() == UriOf("A.bas")), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
