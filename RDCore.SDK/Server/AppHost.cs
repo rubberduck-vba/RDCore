@@ -70,6 +70,17 @@ public abstract class AppHost<TApp>() : IDisposable
     public virtual int ExitCode => 0;
 
     /// <summary>
+    /// Whether the application writes to its console: its log, and what it says as it ends.
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation is <see langword="true"/>: a client's console is the user's. A server's is no one's to read. A server talks to its client
+    /// over a pipe and keeps its log in a file, and the process that starts it may redirect its standard output and never read it. A pipe nobody reads
+    /// fills, and a console logger then blocks every thread that logs. A server answers <see langword="false"/>: it logs nothing to its console, and
+    /// what it has to say as it fails goes to its standard error.
+    /// </remarks>
+    protected virtual bool WritesToConsole => true;
+
+    /// <summary>
     /// 🧩 A method that runs after configuration but before the application is resolved and actually started.<br/>
     /// Base implementation returns a <see cref="Task.CompletedTask"/>
     /// </summary>
@@ -234,12 +245,15 @@ public abstract class AppHost<TApp>() : IDisposable
         catch (Exception exception)
         {
             // something went wrong:
-            Console.WriteLine(exception.ToString());
+            (WritesToConsole ? Console.Out : Console.Error).WriteLine(exception.ToString());
             return -1;
         }
         finally
         {
-            Console.WriteLine("V I V A T  ♥  C U C U M I S ™\n©Copyright 2026 9562-7303 Québec inc.");
+            if (WritesToConsole)
+            {
+                Console.WriteLine("V I V A T  ♥  C U C U M I S ™\n©Copyright 2026 9562-7303 Québec inc.");
+            }
         }
 
         return _unhandledFault is null ? ExitCode : Math.Max(ExitCode, 1);
@@ -332,10 +346,21 @@ public abstract class AppHost<TApp>() : IDisposable
     /// <list type="bullet">
     /// <item>Sets the effective <em>minimum log level</em> as per the supplied <see cref="SdkServerOptions.TraceLevel"/>.</item>
     /// <item>Adds a <c>Debug</c> logger in debug builds.</item>
+    /// <item>Removes the console logger the generic host adds by default, for an application that does not write to its console
+    /// (<see cref="WritesToConsole"/>).</item>
     /// </list>
     /// </remarks>
     protected virtual void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
+        if (!WritesToConsole)
+        {
+            foreach (var console in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
+                && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider)).ToList())
+            {
+                _ = services.Remove(console);
+            }
+        }
+
         // the level is a live setting: every provider writes what the level is now, which the filter reads for each message.
         var level = new LiveLogLevel(ResolveTraceLevel(configuration));
         services.AddSingleton(level);

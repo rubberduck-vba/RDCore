@@ -19,6 +19,8 @@ namespace RDCore.LanguageServer.Debugging;
 /// <param name="transport">What the client is talked to over.</param>
 internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHost<DebugAdapterApp>
 {
+    protected override bool WritesToConsole => false;
+
     protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
         var parsed = Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args).Value

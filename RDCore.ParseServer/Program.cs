@@ -36,7 +36,8 @@ public class Program
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception.ToString());
+            // a server's standard output is no one's to read (AppHost.WritesToConsole): what it says as it fails goes to its standard error.
+            Console.Error.WriteLine(exception.ToString());
             code = -1;
         }
 
@@ -50,7 +51,7 @@ public class Program
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception.ToString());
+            Console.Error.WriteLine(exception.ToString());
         }
 
         return code;

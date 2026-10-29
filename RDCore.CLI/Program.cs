@@ -65,10 +65,9 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
         try
         {
-            var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
-
             // RDCORE_MODE=external (set by the environment host when it launches rdc.exe): run as its external host,
             // the process that makes the calls a program makes to the outside world.
             if (string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
@@ -109,7 +108,10 @@ public class Program
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
+            // the environment host and the external host are servers, whose standard output is no one's to read (AppHost.WritesToConsole).
+            var server = string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(mode, RDCoreServerProcess.HostMode, StringComparison.OrdinalIgnoreCase);
+            (server ? Console.Error : Console.Out).WriteLine(exception);
             return -1;
         }
     }
