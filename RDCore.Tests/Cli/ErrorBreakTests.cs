@@ -49,7 +49,7 @@ public sealed class ErrorBreakTests
             Assert.AreNotEqual(ExecutionOutcome.NotFound, first.Outcome, first.ErrorMessage);
             _ = await new HostDebugErrorBreakHandler(provider).Handle(new HostDebugErrorBreakParams { Mode = mode }, CancellationToken.None);
             await test(provider, await again());
-        }, cancelAfter: null, debug: debug);
+        }, debug: debug);
 
     private static Task<ExecuteSessionResult> ResumeAsync(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)

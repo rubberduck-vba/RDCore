@@ -19,7 +19,7 @@ public sealed class ProgramInspectionTests
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
     private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, Task> test)
-        => ModuleWorkspace.InspectAsync(NoClasses, program, (provider, _, _) => test(provider), cancelAfter: null, debug: true);
+        => ModuleWorkspace.InspectAsync(NoClasses, program, (provider, _, _) => test(provider), debug: true);
 
     private static readonly string Source = Program(
         "Private Type TPoint",
