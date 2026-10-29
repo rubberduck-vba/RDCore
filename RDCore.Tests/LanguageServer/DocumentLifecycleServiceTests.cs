@@ -436,6 +436,37 @@ public sealed class DocumentLifecycleServiceTests
         await loaded.WaitAsync(Patience);
     }
 
+    // a file another editor saved is loaded before the wait is over, whether the watcher has said so yet or not: the project's files are read first.
+    [TestMethod]
+    public async Task TheWorkspaceLoaded_IsWaitedFor_AsTheFilesSavedAreReadAndLoaded()
+    {
+        var reload = Substitute.For<IWorkspaceReloadService>();
+        var order = new List<string>();
+        var read = new TaskCompletionSource<WorkspaceReloadResult?>();
+        reload.ReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            order.Add("read");
+            return read.Task;
+        });
+        reload.WhenIdleAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            order.Add("idle");
+            return Task.CompletedTask;
+        });
+        var sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance,
+            TimeSpan.Zero, reload: reload);
+        sut.Opened(Mod1, Declares, 1);
+        await sut.WhenRefreshedAsync(Mod1);
+
+        var loaded = sut.WhenAllLoadedAsync(CancellationToken.None);
+
+        Assert.IsFalse(loaded.IsCompleted, "the files saved are being loaded");
+        read.SetResult(WorkspaceReloadResult.Unchanged);
+        await loaded.WaitAsync(Patience);
+        CollectionAssert.AreEqual(new[] { "read", "idle" }, order);
+        await reload.Received(1).ReloadFilesAsync(Arg.Is<IReadOnlyList<Uri>>(files => files.Single() == Mod1), Arg.Any<CancellationToken>());
+    }
+
     // an edit made while the files changed are being loaded is waited for too, once they are.
     [TestMethod]
     public async Task TheWorkspaceLoaded_IsWaitedFor_AsAnEditMadeWhileTheFilesWereLoadedIs()
