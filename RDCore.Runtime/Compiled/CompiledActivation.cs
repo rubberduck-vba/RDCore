@@ -169,9 +169,10 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     private int _activations;
 
     /// <summary>
-    /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many polls it runs past first. It is
-    /// chosen from the body's name, how many activations of it came before, and the seed (<see cref="CompiledExecution.WalkBackSeed"/>), so that a run
-    /// can be replayed whatever else runs beside it; and from 1 to 4,096, so that the late iterations of a loop are reached as well as the first.
+    /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -
+    /// under that mode every instruction boundary is one. It is chosen from the body's name, how many activations of it came before, and the seed
+    /// (<see cref="CompiledExecution.WalkBackSeed"/>), so that a run can be replayed whatever else runs beside it; and from 1 to 3,969 (a 5-bit count
+    /// times a power of two up to 128), so that the late iterations of a loop are reached as well as the first.
     /// </summary>
     internal int NextRandomSafepoint()
     {
