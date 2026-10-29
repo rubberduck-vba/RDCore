@@ -79,8 +79,11 @@ internal sealed class ProgramEdits
             var declared = session.Symbols.DeclaredIn(module.Uri).ToList();
             foreach (var descriptor in SymbolDescriptorProjector.Project(declared, module.Uri))
             {
+                // a procedure's signature is what its frame's arguments and result are laid out by: not its locals, nor its own constants, whose values its
+                // code reads (Classify).
+                var signature = IsProcedure(descriptor.Kind) ? descriptor with { Locals = [], Constants = [] } : descriptor with { Locals = [] };
                 declarations[KeyOf(module.Uri, descriptor)] = new Declaration(
-                    $"{module.Name}.{descriptor.Name}", descriptor.Kind, descriptor, Text(descriptor), Text(descriptor with { Locals = [] }), descriptor.Locals,
+                    $"{module.Name}.{descriptor.Name}", descriptor.Kind, descriptor, Text(descriptor), Text(signature), descriptor.Locals,
                     inClass, module.Uri, descriptor.Range);
             }
 
