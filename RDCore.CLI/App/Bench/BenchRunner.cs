@@ -58,7 +58,7 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
 /// <param name="Indent">
 /// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
-/// fastest run: the same program whatever the workspace; none when the cases are only listed.
+/// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
 /// </param>
 internal sealed record class BenchReport(
     BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,

@@ -116,22 +116,19 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
         }
     }
 
-    private async Task SynchronizeTellingAsync(CancellationToken token)
+    // the program's text as the server holds it once this is done.
+    private async Task<string> SynchronizeTellingAsync(CancellationToken token)
     {
-        if (Uri is not { } uri)
-        {
-            return;
-        }
-
         // the version is the text's: a line stored while the server is told is the next version's, which the next change sends.
         var (version, text) = program.Snapshot();
-        if (version == _sentVersion)
+        if (Uri is not { } uri || version == _sentVersion)
         {
-            return;
+            return text;
         }
 
         await platform.ChangeDocumentAsync(uri, version, text, token);
         _sentVersion = version;
+        return text;
     }
 
     /// <summary>
@@ -141,14 +138,23 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// <returns>The text to write.</returns>
     public async Task<string> WillSaveAsync(CancellationToken token)
     {
-        await SynchronizeAsync(token);
-        if (Uri is not null)
+        await _telling.WaitAsync(token);
+        try
         {
-            // TODO(willSaveWaitUntil): the server answers with the edits it would make before the save; it has none today, and the first one it has is applied here.
-            await platform.WillSaveDocumentAsync(Uri, token);
-        }
+            // the text that is saved is the one the server was told of last, in the same turn: a line stored meanwhile is the next change's.
+            var text = await SynchronizeTellingAsync(token);
+            if (Uri is not null)
+            {
+                // TODO(willSaveWaitUntil): the server answers with the edits it would make before the save; it has none today, and the first one it has is applied here.
+                await platform.WillSaveDocumentAsync(Uri, token);
+            }
 
-        return program.ToSourceText();
+            return text;
+        }
+        finally
+        {
+            _telling.Release();
+        }
     }
 
     /// <summary>
