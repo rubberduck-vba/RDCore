@@ -104,6 +104,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool WaitsAfterPc { get; internal set; }
 
     /// <summary>
+    /// Whether the activation waits at an error the instruction at <see cref="Pc"/> raised, under a debugger that asked to see errors: when it goes on, the
+    /// error is caught by its handler, or ends the program, from that instruction.
+    /// </summary>
+    public bool WaitsAtAnError { get; internal set; }
+
+    /// <summary>
     /// Why the activation can't go on in <paramref name="body"/>, the edited body of its procedure, from where it is in <see cref="Body"/>; none when it can.
     /// </summary>
     /// <param name="body">The procedure's body, as it was edited.</param>
@@ -154,8 +160,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return true;
     }
 
+    // what a block the activation has left behind kept, and that can't be moved, is let go of.
     private static Dictionary<int, T>? Rekeyed<T>(Dictionary<int, T>? state, IReadOnlyDictionary<int, int> offsets)
-        => state?.ToDictionary(entry => offsets[entry.Key], entry => entry.Value);
+        => state?.Where(entry => offsets.ContainsKey(entry.Key)).ToDictionary(entry => offsets[entry.Key], entry => entry.Value);
 
     private sealed record class Rebasing(int Pc, bool Moved, int WaitedAt, ErrorHandlerState ErrorHandler, IReadOnlyDictionary<int, int> Offsets);
 
@@ -168,12 +175,37 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // the activation the program waits in goes on from where it was moved to, or from after the instruction it stopped at, or from the one it waits
-        // before. Any other goes on from the call it is in the middle of, which must be as it was - and a call made by a statement, not by a condition or
-        // the header of a loop, which go on by their own offsets.
+        // before - and one that waits at an error is given the error when it goes on, at the statement that raised it, which must be as it was. Any other
+        // goes on from the call it is in the middle of, which must be as it was - and a call made by a statement, not by a condition or the header of a
+        // loop, which go on by their own offsets. Each is moved only to where every alignment of the edit places it.
         int pc;
-        if (waits)
+        var moved = false;
+        if (waits && WaitsAtAnError)
         {
-            pc = _moved || !WaitsAfterPc ? alignment.Before(Pc) : alignment.After(Pc);
+            if (!alignment.IsCertain(Pc))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[Pc] is not { } faulted)
+            {
+                return FrameRebaseRefusal.FaultChanged;
+            }
+
+            pc = faulted;
+        }
+        else if (waits)
+        {
+            if ((_moved || !WaitsAfterPc ? alignment.Before(Pc) : alignment.After(Pc)) is not { } next)
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            (pc, moved) = (next, true);
+        }
+        else if (!alignment.IsCertain(Pc))
+        {
+            return FrameRebaseRefusal.Uncertain;
         }
         else if (alignment[Pc] is not { } call)
         {
@@ -188,16 +220,43 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             pc = call;
         }
 
+        var handler = ErrorHandler;
+
+        // an error is being handled when an On Error GoTo caught it: its Resume goes back to the statement that raised it. One On Error Resume Next went on
+        // past is gone by.
+        var handling = handler is { Mode: ErrorHandlingMode.Disabled, ActiveError: not null, HandlerEntry: not null };
+
+        // where the activation goes on from, and may go back to: where it is, where each GoSub it is in returns to, and the statement a Resume goes back to.
+        var returns = _occasional?.GoSubReturns?.ToList() ?? [];
+        List<int> positions = [Pc, .. returns, .. handling && handler.FaultStatementOffset is { } resumed ? [resumed] : Array.Empty<int>()];
+
         // what is kept by the offset of the block it is of - a With's target, a Select's value, a loop's state, what a block holds - is of a block whose
-        // opening is as it was.
+        // opening is as it was, while the activation is in it. What a block it has left behind keeps is of no use to it, and goes when it can't be moved.
         var offsets = new Dictionary<int, int>();
         if (_occasional is { } occasional)
         {
+            bool IsIn(int opener) => before.Items[opener].End is not { } end || positions.Any(position => position >= opener && position < end);
             IEnumerable<int> openers = [.. occasional.BlockState?.Keys ?? Enumerable.Empty<int>(), .. occasional.SelectorPayloads?.Keys ?? Enumerable.Empty<int>(),
-                .. occasional.ForLoopState?.Keys ?? Enumerable.Empty<int>(), .. occasional.ForEachState?.Keys ?? Enumerable.Empty<int>(),
-                .. occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>()];
-            foreach (var opener in openers)
+                .. occasional.ForLoopState?.Keys ?? Enumerable.Empty<int>(), .. occasional.ForEachState?.Keys ?? Enumerable.Empty<int>()];
+            foreach (var opener in openers.Concat(occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
             {
+                // what a block holds is let go of when the activation is past it, or is: it is moved, or the edit is refused.
+                var holds = occasional.BlockHolders?.ContainsKey(opener) ?? false;
+                if (!holds && !IsIn(opener))
+                {
+                    if (alignment[opener] is { } left)
+                    {
+                        offsets[opener] = left;
+                    }
+
+                    continue;
+                }
+
+                if (!alignment.IsCertain(opener))
+                {
+                    return FrameRebaseRefusal.Uncertain;
+                }
+
                 if (alignment[opener] is not { } kept)
                 {
                     return FrameRebaseRefusal.BlockChanged;
@@ -207,33 +266,53 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
 
             // a GoSub returns to the instruction after it, which is after the GoSub as it now is.
-            if (occasional.GoSubReturns is { } returns && returns.Any(offset => alignment[offset - 1] is null))
+            foreach (var offset in returns)
             {
-                return FrameRebaseRefusal.BlockChanged;
+                if (!alignment.IsCertain(offset - 1))
+                {
+                    return FrameRebaseRefusal.Uncertain;
+                }
+
+                if (alignment[offset - 1] is null)
+                {
+                    return FrameRebaseRefusal.BlockChanged;
+                }
             }
         }
 
-        // the handler of an On Error GoTo is its label, as it was named or where it was; where an error was raised is where its Resume goes back to.
+        // the handler of an On Error GoTo is its label, as it was named or where it was; where an error being handled was raised is where its Resume goes
+        // back to.
         int? Handler(int? offset)
             => offset is not { } target ? null
                 : before.LabelAt(target) is { } label && body.TryGetLabelOffset(label, out var named) ? named
                 : alignment[target];
-        var handler = ErrorHandler;
-        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null)
-            || (handler.FaultStatementOffset is { } fault && alignment[fault] is null))
+        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null))
         {
             return FrameRebaseRefusal.HandlerChanged;
+        }
+
+        if (handling && handler.FaultStatementOffset is { } fault)
+        {
+            if (!alignment.IsCertain(fault))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[fault] is null)
+            {
+                return FrameRebaseRefusal.HandlerChanged;
+            }
         }
 
         handler = handler with
         {
             HandlerTarget = Handler(handler.HandlerTarget),
             HandlerEntry = Handler(handler.HandlerEntry),
-            FaultStatementOffset = handler.FaultStatementOffset is { } faulted ? alignment[faulted] : null,
+            FaultStatementOffset = handler.FaultStatementOffset is { } raisedAt ? alignment[raisedAt] : null,
         };
 
         var waitedAt = WaitedAt >= 0 && alignment[WaitedAt] is { } waited ? waited : -1;
-        rebased = new Rebasing(pc, waits, waitedAt, handler, offsets);
+        rebased = new Rebasing(pc, moved, waitedAt, handler, offsets);
         return null;
     }
 

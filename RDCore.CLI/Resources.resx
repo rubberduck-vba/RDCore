@@ -478,6 +478,12 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_Applies" xml:space="preserve">
     <value>applied</value>
   </data>
+  <data name="Host_Edit_FaultOfAnActiveProcedure" xml:space="preserve">
+    <value>the statement a procedure the program is in stopped at an error of</value>
+  </data>
+  <data name="Host_Edit_UncertainInAnActiveProcedure" xml:space="preserve">
+    <value>an edit near where the program is that can't be placed for certain, which is not applied to a program that waits yet</value>
+  </data>
   <data name="Host_Edit_ValueReset" xml:space="preserve">
     <value>a variable whose value an edit reset, which only running the program again gives back</value>
   </data>

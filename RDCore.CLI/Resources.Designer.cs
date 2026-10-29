@@ -390,6 +390,16 @@ namespace RDCore.CLI {
         public static string Host_Edit_Applies => ResourceManager.GetString("Host_Edit_Applies", resourceCulture)!;
 
         /// <summary>
+        ///   Looks up a localized string similar to the statement a procedure the program is in stopped at an error of.
+        /// </summary>
+        public static string Host_Edit_FaultOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_FaultOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to an edit near where the program is that can't be placed for certain, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_UncertainInAnActiveProcedure => ResourceManager.GetString("Host_Edit_UncertainInAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
         ///   Looks up a localized string similar to a variable whose value an edit reset, which only running the program again gives back.
         /// </summary>
         public static string Host_Edit_ValueReset => ResourceManager.GetString("Host_Edit_ValueReset", resourceCulture)!;

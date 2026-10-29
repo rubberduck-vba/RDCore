@@ -669,6 +669,163 @@ public sealed class EditAndContinueTests
         StringAssert.Contains(takenBack.ErrorMessage, "Program.Held (a variable whose value an edit reset");
     }
 
+    // a program of one module run to its Stop, made to wait where `before` makes it, edited into another, and resumed.
+    private static async Task<ExecuteSessionResult> EditedWhereItWaitsAsync(string program, string edited, Func<EnvironmentSessionProvider, Task<ExecuteSessionResult>> before)
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            var waits = await before(provider);
+            Assert.AreEqual(ExecutionOutcome.Suspended, waits.Outcome, waits.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        return resumed!;
+    }
+
+    private static Task<ExecuteSessionResult> AtTheNextErrorAsync(EnvironmentSessionProvider provider)
+    {
+        provider.Execution.SetErrorBreak(ErrorBreakMode.All);
+        return Resume(provider);
+    }
+
+    // the code alone does not say which of two identical statements an edit removed: what the program goes on from is then refused, not guessed.
+    [TestMethod]
+    public async Task OneOfTwoIdenticalStatementsRemoved_AboveTheStopTheProgramWaitsAt_IsRefusedForNow()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Dim x As Long",
+            "    x = x + 1", "    Stop", "    x = x + 1", "    Stop", "    x = x + 1", "    Debug.Print \"x=\" & x", "End Sub");
+        var edited = Lines("Option Explicit", "Public Sub Main()", "    Dim x As Long",
+            "    x = x + 1", "    Stop", "    x = x + 1", "    Debug.Print \"x=\" & x", "End Sub");
+
+        var resumed = await EditedWhereItWaitsAsync(program, edited, Resume);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "can't be placed for certain");
+    }
+
+    [TestMethod]
+    public async Task OneOfTwoIdenticalStatementsRemoved_AtTheBreakpointTheProgramWaitsAt_IsRefusedForNow()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Dim x As Long", "    Stop",
+            "    x = x + 1", "    Debug.Print \"x=\" & x", "    x = x + 1", "    Debug.Print \"x=\" & x", "End Sub");
+        var edited = Lines("Option Explicit", "Public Sub Main()", "    Dim x As Long", "    Stop",
+            "    x = x + 1", "    Debug.Print \"x=\" & x", "End Sub");
+
+        var resumed = await EditedWhereItWaitsAsync(program, edited, async provider =>
+        {
+            _ = await SetBreakpoints(provider, 6);
+            return await Resume(provider);
+        });
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "can't be placed for certain");
+    }
+
+    [TestMethod]
+    public async Task OneOfTwoIdenticalCalls_TheOneACallerIsInTheMiddleOf_Removed_IsRefusedForNow()
+    {
+        var program = Lines("Option Explicit", "Public Sub Callee()", "    Static n As Long", "    n = n + 1", "    If n = 1 Then Stop", "    Debug.Print \"callee \" & n",
+            "End Sub", "Public Sub Main()", "    Callee", "    Debug.Print \"between\"", "    Callee", "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("    Callee\r\n    Debug.Print \"between\"\r\n", "", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Program.Main");
+        StringAssert.Contains(resumed.ErrorMessage, "can't be placed for certain");
+    }
+
+    // a program that waits at an error goes on from the statement that raised it, as it now is: caught there by its handler, with the lines above it moved.
+    [TestMethod]
+    [DataRow("    On Error Resume Next", "", new[] { "b", "c" }, DisplayName = "On Error Resume Next, a line removed above it")]
+    [DataRow("    On Error Resume Next", "    Debug.Print \"x2\"\r\n", new[] { "b", "c" }, DisplayName = "On Error Resume Next, a line added above it")]
+    [DataRow("    On Error GoTo H", "", new[] { "h", "b" }, DisplayName = "On Error GoTo and Resume Next, a line removed above it")]
+    public async Task AnEditAboveTheStatementTheProgramWaitsAtAnErrorOf_IsApplied_AndTheErrorIsCaughtThere(string handler, string replacement, string[] expected)
+    {
+        string[] after = handler.Contains("GoTo", StringComparison.Ordinal) ? ["    Debug.Print \"b\""] : ["    Debug.Print \"b\"", "    Debug.Print \"c\""];
+        var program = Lines(["Option Explicit", "Public Sub Main()", "    Stop", handler, "    Debug.Print \"x\"", "    Err.Raise 5", .. after, "    Exit Sub",
+            "H:", "    Debug.Print \"h\"", "    Resume Next", "End Sub"]);
+        var edited = program.Replace("    Debug.Print \"x\"\r\n", replacement.Length == 0 ? "" : "    Debug.Print \"x\"\r\n" + replacement, StringComparison.Ordinal);
+
+        var resumed = await EditedWhereItWaitsAsync(program, edited, AtTheNextErrorAsync);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(expected, Output(resumed));
+    }
+
+    [TestMethod]
+    public async Task TheStatementTheProgramWaitsAtAnErrorOf_Edited_IsRefused()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Stop", "    On Error Resume Next", "    Err.Raise 5", "    Debug.Print \"b\"", "End Sub");
+
+        var resumed = await EditedWhereItWaitsAsync(program, program.Replace("Err.Raise 5", "Err.Raise 6", StringComparison.Ordinal), AtTheNextErrorAsync);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "stopped at an error of");
+    }
+
+    // what a block the program has left behind kept is of no use to it: the opening of that block, edited, is applied.
+    [TestMethod]
+    [DataRow("    For i = 1 To 2|        Debug.Print i|    Next", "For i = 1 To 2|For i = 1 To 3", DisplayName = "a For")]
+    [DataRow("    For Each v In c|        Debug.Print v|    Next", "For Each v In c|For Each v In (c)", DisplayName = "a For Each")]
+    [DataRow("    Select Case s|        Case 1|            Debug.Print \"one\"|    End Select", "Select Case s|Select Case s + 0", DisplayName = "a Select Case")]
+    [DataRow("    With c|        .Add 2|    End With", "    With c|    With (c)", DisplayName = "a With")]
+    public async Task TheOpeningOfABlockTheProgramHasLeft_Edited_IsApplied(string block, string edit)
+    {
+        var program = Lines(["Option Explicit", "Public Sub Main()", "    Dim i As Long", "    Dim s As Long", "    Dim v As Variant", "    Dim c As New Collection",
+            "    c.Add 1", "    s = 1", .. block.Split('|'), "    Stop", "    Debug.Print \"end\"", "End Sub"]);
+        var (find, replace) = (edit.Split('|')[0], edit.Split('|')[1]);
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace(find, replace, StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "end" }, Output(resumed));
+    }
+
+    // an error On Error Resume Next went past is gone by: the statement that raised it, edited, is applied.
+    [TestMethod]
+    public async Task TheStatementAnErrorWasSkippedAt_Edited_IsApplied()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    On Error Resume Next", "    Err.Raise 5", "    Stop", "    Debug.Print \"err=\" & Err.Number", "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("Err.Raise 5", "Err.Raise 6", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "err=5" }, Output(resumed));
+    }
+
+    // the blocks the program is in, with a line added above them: what each keeps moves with it.
+    [TestMethod]
+    public async Task AnIfInAForInAWith_TheProgramIsIn_WithALineAddedAboveThem_GoesOnWithWhatTheyKeep()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Dim c As New Collection", "    Dim i As Long", "    With c", "        For i = 1 To 2",
+            "            If i >= 1 Then", "                .Add i", "                If i = 1 Then Stop", "                Debug.Print \"n:\" & .Count", "            End If",
+            "        Next", "    End With", "    Debug.Print \"end\"", "End Sub");
+        var edited = program.Replace("\"n:\"", "\"m:\"", StringComparison.Ordinal)
+            .Replace("    Dim i As Long\r\n", "    Dim i As Long\r\n    Debug.Print \"top\"\r\n", StringComparison.Ordinal);
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, edited);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "m:1", "m:2", "end" }, Output(resumed));
+    }
+
+    [TestMethod]
+    public async Task TheHandlerTheProgramIsIn_WithALineAddedAboveTheStatementThatRaised_ResumesNextAfterIt()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    On Error GoTo H", "    Err.Raise 5", "    Debug.Print \"after \" & Err.Number", "    Exit Sub", "H:",
+            "    Debug.Print \"in h \" & Err.Number", "    Stop", "    Debug.Print \"h2\"", "    Resume Next", "End Sub");
+        var edited = program.Replace("\"h2\"", "\"h2-edited \" & Err.Number", StringComparison.Ordinal)
+            .Replace("    On Error GoTo H\r\n", "    Debug.Print \"top\"\r\n    On Error GoTo H\r\n", StringComparison.Ordinal);
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, edited);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "h2-edited 5", "after 0" }, Output(resumed));
+    }
+
     private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
         => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams
         {

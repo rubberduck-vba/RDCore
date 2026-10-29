@@ -19,4 +19,13 @@ public enum FrameRebaseRefusal
 
     /// <summary>The handler of the activation's <c>On Error GoTo</c>, or the statement its error was raised at, was edited or removed.</summary>
     HandlerChanged,
+
+    /// <summary>The statement the activation waits at an error of was edited or removed: there is no statement left for the error to be raised at.</summary>
+    FaultChanged,
+
+    /// <summary>
+    /// What the activation goes on from can't be told for certain: the edit can be read in more than one way there (<see cref="RDCore.SDK.Semantics.Instructions.InstructionAlignment.IsCertain"/>),
+    /// as when one of two identical statements was removed.
+    /// </summary>
+    Uncertain,
 }

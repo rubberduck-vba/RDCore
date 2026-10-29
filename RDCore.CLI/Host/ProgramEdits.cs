@@ -166,6 +166,8 @@ internal sealed class ProgramEdits
                     FrameRebaseRefusal.CallChanged => (ProgramEditKind.Restart, Resources.Host_Edit_CallOfAnActiveProcedure),
                     FrameRebaseRefusal.InTheMiddleOfAHeader => (ProgramEditKind.NotYet, Resources.Host_Edit_HeaderOfAnActiveProcedure),
                     FrameRebaseRefusal.BlockChanged => (ProgramEditKind.Restart, Resources.Host_Edit_BlockOfAnActiveProcedure),
+                    FrameRebaseRefusal.FaultChanged => (ProgramEditKind.Restart, Resources.Host_Edit_FaultOfAnActiveProcedure),
+                    FrameRebaseRefusal.Uncertain => (ProgramEditKind.NotYet, Resources.Host_Edit_UncertainInAnActiveProcedure),
                     _ => (ProgramEditKind.Restart, Resources.Host_Edit_HandlerOfAnActiveProcedure),
                 };
                 edits.Add(new ProgramEdit(name, kind, reason, declared?.Module, declared?.Range));
@@ -233,7 +235,9 @@ internal sealed class ProgramEdits
             }
         }
 
-        return edits;
+        // in the order they are in the code, whatever order the declarations were found in.
+        return [.. edits.OrderBy(edit => edit.Module?.AbsoluteUri, StringComparer.Ordinal).ThenBy(edit => edit.Range?.Start.Line ?? -1)
+            .ThenBy(edit => edit.Name, StringComparer.Ordinal)];
     }
 
     /// <summary>

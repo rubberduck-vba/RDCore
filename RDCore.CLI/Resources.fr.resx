@@ -476,6 +476,12 @@
   <data name="Host_Edit_Applies" xml:space="preserve">
     <value>appliqué</value>
   </data>
+  <data name="Host_Edit_FaultOfAnActiveProcedure" xml:space="preserve">
+    <value>l'instruction d'une procédure où se trouve le programme, où celui-ci s'est arrêté sur une erreur</value>
+  </data>
+  <data name="Host_Edit_UncertainInAnActiveProcedure" xml:space="preserve">
+    <value>une modification près de l'endroit où se trouve le programme, qui ne peut être située avec certitude, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
   <data name="Host_Edit_ValueReset" xml:space="preserve">
     <value>une variable dont une modification a réinitialisé la valeur, que seule une nouvelle exécution du programme rend</value>
   </data>

@@ -1469,7 +1469,23 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // a program under a debugger that asked to see errors waits here, where the error was raised and nothing has been unwound: the activation is the one that faulted,
         // at the statement that did. It goes on from here when it is resumed, to be caught or to end the program as it would have.
-        _ = session.Halt.TrySuspendOnError(outcome.ErrorInfo!, session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
+        // The code may be edited while it waits: the activation is then moved into its edited body (CallStackFrame.TryRebase), to the statement that raised
+        // the error, and the error is caught from there.
+        var body = activation.Body;
+        activation.WaitsAtAnError = true;
+        try
+        {
+            _ = session.Halt.TrySuspendOnError(outcome.ErrorInfo!, session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
+        }
+        finally
+        {
+            activation.WaitsAtAnError = false;
+        }
+
+        if (!ReferenceEquals(activation.Body, body) && activation.Body is { } rebased)
+        {
+            (list, faultOffset) = (rebased, activation.Pc);
+        }
 
         // an error a Class_Terminate left unhandled is handled by nothing: it ends the program, from whichever activation it reaches (MS-VBA, grid oracle\s44).
         var handler = session.Errors.Untrappable is null ? activation.ErrorHandler : ErrorHandlerState.Disabled;
