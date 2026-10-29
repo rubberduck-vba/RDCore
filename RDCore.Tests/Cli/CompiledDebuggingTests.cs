@@ -287,6 +287,58 @@ public sealed class CompiledDebuggingTests
         CollectionAssert.AreEqual(new[] { "caught 6" }, resumed.Output.Select(line => line.Trim()).ToArray());
     }
 
+    // Calling, with Inner stopping twice in the same call: at line 12, then at line 13.
+    private static readonly string StoppingTwice = Calling.Replace("    If x = 3 Then Stop\r\n", "    If x = 3 Then Stop\r\n    If x = 3 Then Stop\r\n", StringComparison.Ordinal);
+
+    // the program run to the first Stop in Inner while Outer, compiled, is in the middle of its call; Outer edited as firstEdit, resumed to the second Stop
+    // in the same call, edited as secondEdit, and resumed to its end.
+    private static async Task<ExecuteSessionResult> EditedAtTwoWaitsOfACompiledCallerAsync(string firstEdit, string secondEdit)
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], StoppingTwice, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var stopped = await Resume(provider);
+                Assert.AreEqual((ExecutionOutcome.Suspended, 12), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+                if (!RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom)
+                {
+                    Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
+                        "Outer is running compiled, in the middle of its call");
+                }
+
+                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, firstEdit));
+                var again = await Resume(provider);
+                Assert.AreEqual((ExecutionOutcome.Suspended, 13), (again.Outcome, again.ErrorLine), again.ErrorMessage);
+
+                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, secondEdit));
+                resumed = await Resume(provider);
+            }
+            finally
+            {
+                _ = await Terminate(provider);
+            }
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+
+        return resumed!;
+    }
+
+    // the compiled caller edited at one wait in its call, and edited again at a later wait in the same call: the later edit is the one it goes on in - the
+    // code as it was when undone, or the second edit.
+    [TestMethod]
+    [DataRow("    Outer = t", "50", DisplayName = "the edit undone")]
+    [DataRow("    Outer = t + 2", "52", DisplayName = "edited again")]
+    public async Task ACompiledCaller_EditedAtTwoWaitsOfItsCall_GoesOnInTheLaterEdit(string second, string expected)
+    {
+        var resumed = await EditedAtTwoWaitsOfACompiledCallerAsync(
+            StoppingTwice.Replace("    Outer = t", "    Outer = t + 1", StringComparison.Ordinal),
+            StoppingTwice.Replace("    Outer = t", second, StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
+
     // a loop paused where it goes round again is shown at its Next, as MS-VBA shows it: the back edge has no statement of its own.
     [TestMethod]
     public async Task ACompiledLoopPaused_IsShownWaitingAtItsNext()

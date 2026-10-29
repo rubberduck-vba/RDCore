@@ -153,21 +153,23 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // an activation whose body, edited, has every instruction it had at the offset it had is given it, and nothing of it moves: what it keeps by offset
-        // is where it was. What the instructions bind to is bound again as they are made.
+        // is where it was. What the instructions bind to is bound again as they are made. An edit pending for when its call returns is undone by this one,
+        // which is aligned with the body it runs.
         if (rebased.Stays)
         {
-            Body = body;
+            (Body, _pendingRebase) = (body, null);
             return true;
         }
 
-        // an activation running compiled code is moved when its call returns, and its variables and its loops are in its frame (ApplyPendingRebase).
+        // an activation running compiled code is moved when its call returns, and its variables and its loops are in its frame (ApplyPendingRebase). An
+        // edit pending from an earlier wait is replaced by this one, which is aligned with the same body.
         if (rebased.Deferred)
         {
             _pendingRebase = (body, alignment, Pc);
             return true;
         }
 
-        (Body, Pc, WaitedAt, ErrorHandler) = (body, rebased.Pc, rebased.WaitedAt, rebased.ErrorHandler);
+        (Body, Pc, WaitedAt, ErrorHandler, _pendingRebase) = (body, rebased.Pc, rebased.WaitedAt, rebased.ErrorHandler, null);
         _moved = rebased.Moved;
         if (_occasional is { } occasional)
         {
@@ -237,7 +239,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     // an activation running compiled code, in the middle of a call: the call, and the For loops around it, are kept, for certain, and around it still - no
     // loop of the edited body is around it that was not - so that its loops' state, which compiled code writes into the frame when the call returns, is of
-    // the loops it is in. Compiled code has no other block, no GoSub and no handler. Its variables are its layout's, as any frame's.
+    // the loops it is in. Its If, Do and While blocks hold no state in its frame, and compiled code has no With, no GoSub and no handler. Its variables are
+    // its layout's, as any frame's.
     private FrameRebaseRefusal? CompiledRebased(InstructionList before, InstructionList body, InstructionAlignment alignment, [NotNullWhen(false)] out Rebasing? rebased)
     {
         rebased = null;
