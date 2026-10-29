@@ -304,7 +304,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             // like a Stop is, which is why it is requested of the session the same way.
             if (cancellation.IsCancellationRequested && !_cancellationAcknowledged)
             {
-                var location = list.Items[activation.Pc].Node?.SourceLocation;
+                var location = list.Items[activation.Pc].Location;
 
                 // A program that can be resumed waits here, before the instruction it was about to run, and runs it when it is resumed. The cancellation is then
                 // answered: it was one break, and a token that is cancelled stays cancelled, so it is not asked about again.
@@ -324,7 +324,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             // which is the debugger's own evaluation and not the program's.
             if (_conditionDepth == 0 && session.Halt.TakeStep(session.CallStack.Depth))
             {
-                var stepLocation = list.Items[activation.Pc].Node?.SourceLocation;
+                var stepLocation = list.Items[activation.Pc].Location;
                 if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, stepLocation))
                 {
                     session.Halt.Request(RuntimeHaltKind.Break, stepLocation);
@@ -353,7 +353,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
                 && IsMet(session, breakpointCondition, owner.Uri, ResolveContext(context, activation, list, list.Items[activation.Pc]), out var conditionFailure))
             {
-                var breakpointLocation = list.Items[activation.Pc].Node?.SourceLocation;
+                var breakpointLocation = list.Items[activation.Pc].Location;
                 var waited = conditionFailure is null
                     ? session.Halt.TrySuspend(RuntimeHaltKind.Break, breakpointLocation)
                     : session.Halt.TrySuspendOnCondition(conditionFailure, breakpointLocation);
@@ -1432,6 +1432,26 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // every position in the platform is zero-based; a line number is what an editor shows, counted from 1.
         return error.Location.Range.Start.Line + 1;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="frame"/> on from the instruction at <paramref name="pc"/>, which a caller other than this executor ran and which ended with
+    /// <paramref name="outcome"/> - an error, or the program stopped - as this executor goes on after a statement that did: the error given the activation's
+    /// handler, which catches it or lets it propagate; the program stopped, which stops this activation too. What compiled code hands over when a call it made
+    /// does not return.
+    /// </summary>
+    internal RuntimeExecutionOutcome RunAfter(IRuntimeSession session, CallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int pc,
+        RuntimeExecutionOutcome outcome)
+    {
+        frame.Pc = pc;
+        if (InterceptError(session, frame, list, pc, outcome) is { } unhandled)
+        {
+            return unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+                ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
+                : unhandled;
+        }
+
+        return Run(session, frame, list, context);
     }
 
     // Central error-handling interception point (MS-VBAL §5.4.4): every instruction dispatch above that

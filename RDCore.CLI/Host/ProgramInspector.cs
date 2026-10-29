@@ -44,7 +44,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
             [
                 .. provider.Session.CallStack.Frames.OfType<CallStackFrame>().Select((frame, index) =>
                 {
-                    var location = frame.Body is { } body && frame.Pc >= 0 && frame.Pc < body.Items.Length ? body.Items[frame.Pc].Node?.SourceLocation : null;
+                    var location = frame.Body is { } body && frame.Pc >= 0 && frame.Pc < body.Items.Length ? body.Items[frame.Pc].Location : null;
                     return new HostStackFrame(
                         index,
                         frame.Procedure?.Name ?? frame.StaticSymbol.Name,

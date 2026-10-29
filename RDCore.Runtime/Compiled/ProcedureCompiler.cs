@@ -142,7 +142,8 @@ internal sealed class ProcedureCompiler
 
         var run = type.CreateType().GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
-        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops);
+        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
+            analysis.Callees);
     }
 }
 
@@ -173,6 +174,19 @@ internal static class CompiledExecution
         _scoped.Value = engine;
         return new Scope(() => _scoped.Value = previous);
     }
+
+    /// <summary>
+    /// Whether every compiled activation is handed to the interpreter at a safepoint chosen at random - any instruction boundary, a different one for each
+    /// activation - whether or not anything asks for it: what the suite runs under to show that what a walk-back writes into the frame is all the
+    /// interpreter needs, wherever it happens. The test assembly sets it from the <c>RDCORE_WALKBACK=random</c> environment variable; nothing else does.
+    /// </summary>
+    public static bool WalksBackAtRandom { get; set; }
+
+    /// <summary>
+    /// What the random walk-back's safepoints are chosen with (<see cref="CompiledBody.NextRandomSafepoint"/>): a run that fails is replayed with the same
+    /// seed. The test assembly sets it from <c>RDCORE_WALKBACK_SEED</c>, and to 1 when that is not set.
+    /// </summary>
+    public static int WalkBackSeed { get; set; } = 1;
 
     private static readonly AsyncLocal<bool> _strict = new();
 

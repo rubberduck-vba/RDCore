@@ -191,3 +191,18 @@ internal sealed record class ForNextStep(int Offset, int Loop, int Counter, Scal
 
 // an Exit Sub, Exit Function, Exit Property.
 internal sealed record class ExitStep(int Offset) : CompiledStep(Offset);
+
+// a call of a procedure of the workspace (Callee, of CompiledBody.Callees), every argument a scalar passed by value: a call statement (Result is
+// CallStep.NoResult), or the whole value a variable (Result its slot) or the function result variable (Result is -1) is assigned, of the callee's kind.
+// Nothing of the instruction is evaluated after the call but that assignment, which can't fail: an instruction is handed to the interpreter at its start
+// only before the call is made, which it would make again.
+internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result) : CompiledStep(Offset)
+{
+    public const int NoResult = -2;
+}
+
+/// <summary>A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.</summary>
+/// <param name="Procedure">The procedure, as the call was bound to it.</param>
+/// <param name="Parameters">The kind of each parameter, each a scalar passed by value.</param>
+/// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
+internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind> Parameters, ScalarKind? Result);

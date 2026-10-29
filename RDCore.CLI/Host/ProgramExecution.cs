@@ -288,7 +288,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             }
 
             frame.MoveTo(offset);
-            var location = offset < body.Items.Length ? body.Items[offset].Node?.SourceLocation : null;
+            var location = offset < body.Items.Length ? body.Items[offset].Location : null;
             return new HostDebugGotoResult
             {
                 Moved = true,

@@ -169,22 +169,29 @@ internal sealed class SessionHalt : ISessionHalt
     private StepKind? _step;
     private int _stepDepth;
 
+    // whether a step is asked for, as compiled code running on the program's thread reads it, while the debugger's thread asks for one - a pause is one.
+    private volatile bool _stepping;
+
     public void Clear()
     {
         Pending = null;
         Location = null;
-        _step = null;
+        (_step, _stepping) = (null, false);
         _lastWaitedAt = null;
     }
 
     public IExecutionGate? Gate { get; set; }
 
+    // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step - which a pause
+    // is too, a step into whatever runs next.
+    public bool WantsInterpreter => Gate is not null && (_stepping || Breakpoints.HasAny);
+
     public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
 
     public void RequestStep(StepKind kind, int callDepth)
     {
-        _step = kind;
-        _stepDepth = callDepth;
+        (_step, _stepDepth) = (kind, callDepth);
+        _stepping = true;
     }
 
     public bool TakeStep(int callDepth)
@@ -204,7 +211,7 @@ internal sealed class SessionHalt : ISessionHalt
 
         if (due)
         {
-            _step = null;
+            (_step, _stepping) = (null, false);
         }
 
         return due;
@@ -212,7 +219,23 @@ internal sealed class SessionHalt : ISessionHalt
 
     // a program that is already being stopped does not wait again at whatever unwinds it.
     public bool TrySuspend(RuntimeHaltKind kind, SourceLocation? location)
-        => Pending is null && Gate is { } gate && gate.Suspend(kind, location) is SuspensionDecision.Resume;
+    {
+        if (Pending is not null || Gate is not { } gate)
+        {
+            return false;
+        }
+
+        _ = Interlocked.Increment(ref _suspensions);
+        return gate.Suspend(kind, location) is SuspensionDecision.Resume;
+    }
+
+    private int _suspensions;
+
+    /// <summary>
+    /// How many times the program has waited: what compiled code that made a call compares, to know whether a debugger was given the program while the
+    /// callee ran - and may have changed the caller's variables.
+    /// </summary>
+    internal int Suspensions => Volatile.Read(ref _suspensions);
 
     public ErrorBreakMode BreakOnErrors { get; set; }
 

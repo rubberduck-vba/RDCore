@@ -33,7 +33,9 @@ namespace RDCore.Runtime.Compiled;
 /// </para>
 /// <para>
 /// Compiled code does a procedure of a standard module whose parameters are scalars passed by value and whose variables are scalars: literals,
-/// constants, arithmetic, comparisons and the logical operators; <c>Let</c>; <c>If</c>, <c>Do</c>, <c>While</c> and <c>For</c>; <c>Exit</c>.
+/// constants, arithmetic, comparisons and the logical operators; <c>Let</c>; <c>If</c>, <c>Do</c>, <c>While</c> and <c>For</c>; <c>Exit</c>; and calls of
+/// procedures of the workspace whose parameters are scalars passed by value - a call statement that gives arguments (a bare <c>Foo</c> binds as a name,
+/// which is not compiled), or a function's result assigned whole; a function called as a statement returns a scalar.
 /// </para>
 /// </remarks>
 internal sealed class ProcedureAnalysis
@@ -192,8 +194,10 @@ internal sealed class ProcedureAnalysis
                 return AnalyzeLet(instruction.Offset, assignment);
 
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
-                Refuse(IneligibilityKind.Call, (call.Callee as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty, location);
-                return null;
+                return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))
+                    is BoundCall bound && CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made
+                    ? made
+                    : RefusedCall(call.Callee, location);
 
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
@@ -265,16 +269,81 @@ internal sealed class ProcedureAnalysis
             return null;
         }
 
+        // a function called for the whole value assigned, of the kind of what it is assigned to, is a call step: nothing of it can fail after the call.
+        var assigned = Bind(assignment.Value);
         switch (Bind(assignment.Target))
         {
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
-                return PayloadAs(Bind(assignment.Value), result) is { } assigned ? new LetStep(offset, -1, assigned) : null;
+                return assigned is BoundCall resultCall
+                    ? CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation)
+                    : PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null;
             case BoundVariable variable when SlotOf(variable) is { } slot:
-                return PayloadAs(Bind(assignment.Value), _slots[slot]) is { } value ? new LetStep(offset, slot, value) : null;
+                return assigned is BoundCall slotCall
+                    ? CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation)
+                    : PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null;
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
         }
+    }
+
+    /// <summary>The procedures the body calls, by the number its call steps know each by.</summary>
+    public List<CompiledCallee> Callees { get; } = [];
+
+    // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind passed by value, none a
+    // Variant, and given an argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what
+    // it returns is let go of as a temporary of the statement, which compiled code holds none of. It is made with RuntimeProcedureInvoker.InvokeScalars,
+    // as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters.
+    private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind)
+    {
+        if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
+            || procedure.GetProperty(SymbolProperties.Library) is not null || procedure.GetProperty(SymbolProperties.ExternalTarget) is not null
+            || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol))
+        {
+            return null;
+        }
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
+        if (parameters.Length != arguments.Length || parameters is [{ Name: "Me" }, ..])
+        {
+            return null;
+        }
+
+        // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
+        // Function called as a statement returns a scalar: an object it returned would be held by the statement until it ends.
+        if (resultKind is { } read && (procedure is not VBFunctionMemberSymbol { ResolvedType: var returned } || ScalarKinds.Of(returned) != read)
+            || resultKind is null && procedure is VBFunctionMemberSymbol { ResolvedType: var discarded } && ScalarKinds.Of(discarded) is null)
+        {
+            return null;
+        }
+
+        var kinds = new List<ScalarKind>(parameters.Length);
+        var values = new List<PayloadNode>(parameters.Length);
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind) || parameters[i] is ParamArrayParameterSymbol
+                || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind
+                || arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } argument } || PayloadAs(argument, kind) is not { } value)
+            {
+                return null;
+            }
+
+            kinds.Add(kind);
+            values.Add(value);
+        }
+
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind));
+        return new CallStep(offset, Callees.Count - 1, values, result);
+    }
+
+    private CompiledStep? RefusedCall(ExpressionNode callee, SourceLocation? location)
+    {
+        if (_reasons.Count == 0)
+        {
+            Refuse(IneligibilityKind.Call, (callee as SimpleNameExpressionNode)?.IdentifierName ?? callee.GetType().Name, location);
+        }
+
+        return null;
     }
 
     private bool IsOwnFunction(Symbol symbol) => ReferenceEquals(symbol, _procedure) || symbol.Uri.AbsoluteUri == _procedure.Uri.AbsoluteUri && symbol.Name == _procedure.Name;

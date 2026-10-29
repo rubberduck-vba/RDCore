@@ -77,6 +77,14 @@ internal sealed class ProcedureEmitter
         foreach (var step in _analysis.Steps)
         {
             _il.MarkLabel(_instructions[step.Offset]);
+
+            // every instruction boundary is a safepoint: under the random walk-back the activation may be handed to the interpreter at any of them, and not only
+            // where it polls for a program to stop - which a step that polls already does, before it.
+            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
+            {
+                EmitPoll(step.Offset);
+            }
+
             EmitStep(step);
         }
 
@@ -85,6 +93,7 @@ internal sealed class ProcedureEmitter
         EmitExit();
 
         EmitFailures();
+        EmitFailedCalls();
         EmitWalkBack();
     }
 
@@ -154,6 +163,120 @@ internal sealed class ProcedureEmitter
             case ExitStep:
                 EmitExit();
                 break;
+
+            case CallStep call:
+                EmitCall(call);
+                break;
+        }
+    }
+
+    // the arguments evaluated - where one fails, nothing was called, and the interpreter makes the instruction from its start - then the call. Under a
+    // debugger the activation's variables and its function result are written into its frame before it, which a debugger shows while the program waits in
+    // the callee; when the program waited, what the debugger may have changed of them is read back after it. A call that does not return - an error, the
+    // program stopped, a callee compiled code can't call - is the interpreter's at the call (CompiledActivation.AfterFailedCall). After a call returns, the
+    // activation is the interpreter's at the next instruction when the interpreter is wanted, or the symbols it was compiled against were defined again.
+    private void EmitCall(CallStep call)
+    {
+        var failure = FailureAt(call.Offset);
+        for (var i = 0; i < call.Arguments.Count; i++)
+        {
+            var argument = EmitPayload(call.Arguments[i], failure);
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, i);
+            LoadAsBoth(argument, call.Arguments[i].Kind);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetArgument))!);
+        }
+
+        var called = _il.DefineLabel();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.SpillsBeforeCalls))!.GetMethod!);
+        _il.Emit(OpCodes.Brfalse, called);
+        EmitSpill();
+        _il.MarkLabel(called);
+
+        var integral = _il.DeclareLocal(typeof(long));
+        var floating = _il.DeclareLocal(typeof(double));
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, call.Offset);
+        _il.Emit(OpCodes.Ldc_I4, call.Callee);
+        _il.Emit(OpCodes.Ldloca, integral);
+        _il.Emit(OpCodes.Ldloca, floating);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Call))!);
+        _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
+
+        var current = _il.DefineLabel();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
+        _il.Emit(OpCodes.Brfalse, current);
+        EmitReload();
+        _il.MarkLabel(current);
+
+        if (call.Result != CallStep.NoResult)
+        {
+            var kind = _analysis.Callees[call.Callee].Result!.Value;
+            _il.Emit(OpCodes.Ldloc, ScalarKinds.IsIntegral(kind) ? integral : floating);
+            _il.Emit(OpCodes.Stloc, call.Result < 0 ? _result! : _slots[call.Result]);
+        }
+
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WantsInterpreterAfterCall))!.GetMethod!);
+        _il.Emit(OpCodes.Brtrue, FailureAt(call.Offset + 1));
+    }
+
+    private readonly Dictionary<int, Label> _failedCalls = [];
+
+    // the label a call that did not return goes to: the activation written into its frame - unless the program waited during the call, when the frame is
+    // what the debugger left it - and the interpreter given what the call did, at the call.
+    private Label CallFailedAt(int offset)
+    {
+        if (!_failedCalls.TryGetValue(offset, out var label))
+        {
+            label = _il.DefineLabel();
+            _failedCalls[offset] = label;
+        }
+
+        return label;
+    }
+
+    private void EmitFailedCalls()
+    {
+        foreach (var (offset, label) in _failedCalls)
+        {
+            _il.MarkLabel(label);
+            var spilled = _il.DefineLabel();
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
+            _il.Emit(OpCodes.Brtrue, spilled);
+            EmitSpill();
+            _il.MarkLabel(spilled);
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, offset);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.AfterFailedCall))!);
+            _il.Emit(OpCodes.Ret);
+        }
+    }
+
+    // every variable read back from its cell, which a debugger may have changed while the program waited.
+    private void EmitReload()
+    {
+        foreach (var (slot, kind) in _analysis.Slots)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, slot);
+            _il.Emit(OpCodes.Ldloca, _slots[slot]);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
+            _il.Emit(OpCodes.Pop);
+        }
+
+        // the function result variable too, which the spill before the call wrote.
+        if (_result is { } result)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldloca, result);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(_analysis.ResultKind!.Value)
+                ? nameof(CompiledActivation.TryReadResultIntegral)
+                : nameof(CompiledActivation.TryReadResultFloating))!);
+            _il.Emit(OpCodes.Pop);
         }
     }
 
@@ -331,6 +454,16 @@ internal sealed class ProcedureEmitter
     private void EmitWalkBack()
     {
         _il.MarkLabel(_walkBack);
+        EmitSpill();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloc, _pc);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Interpret))!);
+        _il.Emit(OpCodes.Ret);
+    }
+
+    // every variable written into its cell, the function result into its variable, each loop that is open into the frame.
+    private void EmitSpill()
+    {
         foreach (var (slot, kind) in _analysis.Slots)
         {
             _il.Emit(OpCodes.Ldarg_0);
@@ -361,11 +494,20 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillForLoop))!);
             _il.MarkLabel(closed);
         }
+    }
 
-        _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Ldloc, _pc);
-        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Interpret))!);
-        _il.Emit(OpCodes.Ret);
+    private void LoadAsBoth(Operand operand, ScalarKind kind)
+    {
+        if (ScalarKinds.IsIntegral(kind))
+        {
+            Load(operand, kind);
+            _il.Emit(OpCodes.Ldc_R8, 0.0);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldc_I8, 0L);
+            Load(operand, kind);
+        }
     }
 
     // a payload as the two arguments a support call takes: its long and its double, the other zero.

@@ -74,6 +74,14 @@ public interface ISessionHalt
     IExecutionGate? Gate { get; set; }
 
     /// <summary>
+    /// Whether the program's procedures are to run in the interpreter: what compiled code polls between two instructions, to hand its activation to the
+    /// interpreter at the next safepoint, and what a new activation is not compiled under. Under a debugger (<see cref="Gate"/>), while a breakpoint is set
+    /// anywhere or a step is asked for - a debugger's pause is a step into whatever runs next: what only the interpreter stops at. A program under a debugger
+    /// with neither runs compiled where it can. A program with no debugger is stopped by its cancellation, which compiled code polls for itself.
+    /// </summary>
+    bool WantsInterpreter { get; }
+
+    /// <summary>
     /// Offers the program to the <see cref="Gate"/> to wait at the place it is stopped at.
     /// </summary>
     /// <param name="kind">Why the program is stopped.</param>

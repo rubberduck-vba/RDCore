@@ -39,14 +39,15 @@ public sealed class CompiledExecutionTests
         }
     }
 
-    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
+    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        (string Name, string Source)[]? classes = null)
     {
         ExecuteSessionResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
 
         // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two.
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync(NoClasses, program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync(classes ?? NoClasses, program, (provider, run, _) =>
         {
             result = run;
             compiled = provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result);
@@ -82,7 +83,8 @@ public sealed class CompiledExecutionTests
             {
                 Assert.IsGreaterThan(0L, result.Body.WalkBacks, $"{name} ran to its end in compiled code");
             }
-            else
+            // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
+            else if (!CompiledExecution.WalksBackAtRandom)
             {
                 Assert.AreEqual(0L, result.Body.WalkBacks, $"{name} was handed to the interpreter");
             }
@@ -284,6 +286,123 @@ public sealed class CompiledExecutionTests
             "End Function"), "Rounded");
     }
 
+    // a compiled procedure calls a procedure of the workspace whose parameters are scalars passed by value: a call statement, and a function's result
+    // assigned whole.
+    [TestMethod]
+    public async Task ACallOfAProcedure_FromCompiledCode_IsMadeAsTheInterpreterMakesIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(10)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim i As Long, t As Long, total As Long",
+            "    For i = 1 To n",
+            "        t = Twice(i)",
+            "        total = total + t",
+            "        Touch i, 2.5",
+            "    Next",
+            "    Outer = total",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function",
+            "Private Sub Touch(ByVal x As Long, ByVal y As Double)",
+            "    Dim z As Double",
+            "    z = x + y",
+            "End Sub"), "Outer", "Twice", "Touch");
+
+    // a function returning an object, called as a statement: what it returns is let go of when the statement is over, which compiled code holds nothing
+    // of - the caller is not compiled, and says why.
+    [TestMethod]
+    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsNotCalledFromCompiledCode()
+    {
+        RequirePayloads();
+        var program = Program(
+            "Public Sub Main()",
+            "    Outer",
+            "    Debug.Print \"after outer\"",
+            "End Sub",
+            "Private Sub Outer()",
+            "    Dim i As Long",
+            "    For i = 1 To 2",
+            "        MakeOne i",
+            "        Report i",
+            "    Next",
+            "End Sub",
+            "Private Function MakeOne(ByVal x As Long) As Class1",
+            "    Set MakeOne = New Class1",
+            "    MakeOne.Id = x",
+            "End Function",
+            "Private Sub Report(ByVal x As Long)",
+            "    Debug.Print \"report \" & x",
+            "End Sub");
+        (string Name, string Source)[] classes =
+            [("Class1", ModuleWorkspace.ClassModule("Class1", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"terminate \" & Id", "End Sub"))];
+
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes: classes);
+        var run = await RunAsync(program, VBExecutionEngine.Compiled, classes: classes);
+
+        Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
+        CollectionAssert.AreEqual(new[] { "terminate 1", "report 1", "terminate 2", "report 2", "after outer" }, run.Result.Output.Select(line => line.Trim()).ToArray());
+        var reason = Assert.ContainsSingle(run.Compiled["Outer"].Reasons);
+        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (reason.Kind, reason.Detail));
+    }
+
+    // an error raised in the callee reaches the compiled caller at its call, and the interpreter gives it the handler a caller of it has: the same error,
+    // line and stack.
+    [TestMethod]
+    public async Task AnErrorRaisedInTheCallee_OfACompiledCaller_IsCaughtAsTheInterpreterCatchesIt()
+        => await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    On Error GoTo Caught",
+            "    Debug.Print Outer(2000000000)",
+            "    Exit Sub",
+            "Caught:",
+            "    Debug.Print \"caught \" & Err.Number & \" at \" & Erl",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim t As Long",
+            "    t = Twice(n)",
+            "    Outer = t",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function"), "Outer");
+
+    [TestMethod]
+    public async Task AnErrorRaisedInTheCallee_OfACompiledCaller_ThatNothingCatches_EndsTheProgramAsTheInterpreterEndsIt()
+        => await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(2000000000)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim t As Long",
+            "    t = Twice(n)",
+            "    Outer = t",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function"), "Outer");
+
+    [TestMethod]
+    public async Task AnEndInTheCallee_OfACompiledCaller_EndsTheProgramAsTheInterpreterEndsIt()
+        => await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(3)",
+            "    Debug.Print \"never\"",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim i As Long",
+            "    For i = 1 To n",
+            "        Finish i",
+            "    Next",
+            "    Outer = n",
+            "End Function",
+            "Private Sub Finish(ByVal i As Long)",
+            "    Debug.Print \"finish \" & i",
+            "    If i = 2 Then End",
+            "End Sub"), "Outer");
+
     [TestMethod]
     public async Task ADoubleStoredInALong_ThatDoesNotFit_IsAnOverflow_AsTheInterpreterRaisesIt()
     {
@@ -305,8 +424,13 @@ public sealed class CompiledExecutionTests
         var run = await AssertAlikeWalkingBackAsync(Program(lines), "Stored");
 
         Assert.AreEqual(6, run.Result.ErrorNumber);
-        Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
-        Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
+
+        // under the random walk-back the activation may be handed over before it gets to the store, and the interpreter raises the error all the same.
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
+            Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
+        }
     }
 
     [TestMethod]
