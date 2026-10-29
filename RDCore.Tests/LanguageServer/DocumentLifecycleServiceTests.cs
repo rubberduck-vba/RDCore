@@ -294,8 +294,23 @@ public sealed class DocumentLifecycleServiceTests
         await EditedAsync(Declares.Replace("Debug.Print 1", edited));
 
         _refresh.DidNotReceive().Changed();
+        _refresh.DidNotReceive().ReferencesChanged();
         await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    // a name typed in a body is no declaration: the others are not defined again, and only what is counted of their members' references is refreshed.
+    [TestMethod]
+    [DataRow("Debug.Print Bar", DisplayName = "a new name")]
+    [DataRow("Dim Local As Long", DisplayName = "a local declared")]
+    public async Task AChangeOfTheNamesABodyUses_DefinesNothingAgain_AndRefreshesTheCountsOfReferences(string edited)
+    {
+        await EditedAsync(Declares.Replace("Debug.Print 1", edited));
+
+        await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.Received(1).ReferencesChanged();
+        _refresh.DidNotReceive().Changed();
     }
 
     // opened before the workspace was parsed: the workspace is defined with it when it is.

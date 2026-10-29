@@ -4,8 +4,8 @@ using RDCore.SDK.Model.AST;
 namespace RDCore.Tests.Model;
 
 /// <summary>
-/// The surface of a module is what the other modules can be told by it: what it declares, and the names its procedures use; not where any of it is written,
-/// nor what a procedure does with the names it uses.
+/// The surface of a module is what the other modules can be told by it: what it declares, and apart from it the names its procedures use and what they
+/// declare; not where any of it is written, nor what a procedure does with the names it uses.
 /// </summary>
 [TestClass]
 public sealed class ModuleSurfaceTests
@@ -30,13 +30,13 @@ public sealed class ModuleSurfaceTests
         End Sub
         """;
 
-    private static string? SurfaceOf(string source) => ModuleSurface.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), source));
+    private static ModuleSurface? SurfaceOf(string source) => ModuleSurface.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), source));
 
     private static void AssertSame(string edited)
         => Assert.AreEqual(SurfaceOf(Module), SurfaceOf(edited), "no other module can tell the two apart");
 
-    private static void AssertChanged(string edited)
-        => Assert.AreNotEqual(SurfaceOf(Module), SurfaceOf(edited));
+    private static void AssertDeclarationsChanged(string edited)
+        => Assert.AreNotEqual(SurfaceOf(Module)!.Declarations, SurfaceOf(edited)!.Declarations);
 
     [TestMethod]
     public void IsTheSame_ForTheSameText()
@@ -69,15 +69,21 @@ public sealed class ModuleSurfaceTests
     public void Changes_WithWhatTheModuleDeclares(string written, string edited)
     {
         Assert.Contains(written, Module.ReplaceLineEndings("\n"));
-        AssertChanged(Module.ReplaceLineEndings("\n").Replace(written, edited));
+        AssertDeclarationsChanged(Module.ReplaceLineEndings("\n").Replace(written, edited));
     }
 
+    // what a body refers to is what the counts of the other modules' references are made of, and nothing they are bound against.
     [TestMethod]
     [DataRow("Debug.Print \"Reported\"; Twice(1)", "Debug.Print \"Reported\"; Other.Twice(1)", DisplayName = "a member of another module")]
     [DataRow("mCount = mCount + 1", "mCount = mCount + Size", DisplayName = "another name")]
     [DataRow("mCount = mCount + 1", "Dim Local As Long", DisplayName = "a declaration")]
-    public void Changes_WithTheNamesABodyUses_AndWhatItDeclares(string written, string edited)
-        => AssertChanged(Module.Replace(written, edited));
+    public void TheReferencesChange_WithTheNamesABodyUses_AndWhatItDeclares_AndTheDeclarationsDoNot(string written, string edited)
+    {
+        var (before, after) = (SurfaceOf(Module)!, SurfaceOf(Module.Replace(written, edited))!);
+
+        Assert.AreNotEqual(before.References, after.References);
+        Assert.AreEqual(before.Declarations, after.Declarations);
+    }
 
     [TestMethod]
     public void IsNull_ForAModuleWithNoSyntaxTree()
@@ -145,7 +151,7 @@ public sealed class ModuleSurfaceTests
     {
         var module = $"Option Explicit\r\n{written}\r\nPublic Sub Foo()\r\nEnd Sub\r\n";
 
-        Assert.AreNotEqual(SurfaceOf(module), SurfaceOf(module.Replace(written, edited)));
+        Assert.AreNotEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
         Assert.AreEqual(SurfaceOf(module), SurfaceOf("\r\n" + module), "and not with where it is");
     }
 }

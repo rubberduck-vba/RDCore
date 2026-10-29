@@ -31,6 +31,12 @@ internal interface IWorkspaceRefresh
     /// </summary>
     void Changed();
 
+    /// <summary>
+    /// What the code of a module refers to changed, and nothing it declares: what is found out about the other modules is as it was, and only what is counted
+    /// of the references to their members - their code lenses - is refreshed, once the burst of changes is over. <see cref="Generation"/> is what it was.
+    /// </summary>
+    void ReferencesChanged();
+
     /// <summary>The server whose client is asked; until it is attached, a change only changes <see cref="Generation"/>.</summary>
     /// <param name="server">The server, initialized: what its client said it is asked for is known.</param>
     void Attach(ILanguageServerFacade server);
@@ -56,12 +62,16 @@ internal sealed class WorkspaceRefresh(TimeSpan burst) : IWorkspaceRefresh, IDis
         ("workspace/diagnostic/refresh", workspace => workspace.Diagnostics is { IsSupported: true, Value.RefreshSupport: true }),
         ("workspace/semanticTokens/refresh", workspace => workspace.SemanticTokens is { IsSupported: true, Value.RefreshSupport: true }),
         ("workspace/inlayHint/refresh", workspace => workspace.InlayHint is { IsSupported: true, Value.RefreshSupport: true }),
-        ("workspace/codeLens/refresh", workspace => workspace.CodeLens is { IsSupported: true, Value.RefreshSupport: true }),
+        (CodeLensRefresh, workspace => workspace.CodeLens is { IsSupported: true, Value.RefreshSupport: true }),
     ];
+
+    /// <summary>The refresh of what is counted of a member's references, which is all a change of what a module's code refers to asks for.</summary>
+    public const string CodeLensRefresh = "workspace/codeLens/refresh";
 
     private readonly object _sync = new();
     private Timer? _timer;
     private long _generation;
+    private bool _everything;
     private ILanguageServerFacade? _server;
 
     public long Generation => Interlocked.Read(ref _generation);
@@ -71,18 +81,38 @@ internal sealed class WorkspaceRefresh(TimeSpan burst) : IWorkspaceRefresh, IDis
     public void Changed()
     {
         Interlocked.Increment(ref _generation);
+        Schedule(everything: true);
+    }
+
+    public void ReferencesChanged() => Schedule(everything: false);
+
+    private void Schedule(bool everything)
+    {
         if (burst <= TimeSpan.Zero)
         {
-            Send();
+            Send(everything);
             return;
         }
 
-        // a change that comes before the burst is over puts the request off: the client is asked once, for all of them.
+        // a change that comes before the burst is over puts the request off: the client is asked once, for all of them, and for every refresh when any of
+        // them asked for every refresh.
         lock (_sync)
         {
-            _timer ??= new Timer(_ => Send());
+            _everything |= everything;
+            _timer ??= new Timer(_ => SendScheduled());
             _timer.Change(burst, Timeout.InfiniteTimeSpan);
         }
+    }
+
+    private void SendScheduled()
+    {
+        bool everything;
+        lock (_sync)
+        {
+            (everything, _everything) = (_everything, false);
+        }
+
+        Send(everything);
     }
 
     /// <summary>The methods of the refreshes a client said it is asked for.</summary>
@@ -91,14 +121,14 @@ internal sealed class WorkspaceRefresh(TimeSpan burst) : IWorkspaceRefresh, IDis
             ? Requests.Where(request => request.IsSupported(workspace)).Select(request => request.Method)
             : [];
 
-    private void Send()
+    private void Send(bool everything)
     {
         if (_server is not { } server)
         {
             return;
         }
 
-        foreach (var method in SupportedBy(server))
+        foreach (var method in SupportedBy(server).Where(method => everything || method == CodeLensRefresh))
         {
             _ = SendAsync(server, method);
         }
