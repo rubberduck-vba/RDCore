@@ -14,8 +14,8 @@ namespace RDCore.Parsing;
 /// </para>
 /// <para>
 /// There are no segments - the module is parsed whole - when the members don't pair as a parse of the whole module would find them: a header in a member,
-/// an <c>End</c> outside one, a header or an <c>End</c> that is not the first statement of its line, anything but comments after the last <c>End</c>, or a
-/// module with no member.
+/// an <c>End</c> outside one, a header or an <c>End</c> that is not the first statement of its line, code between two members or after the last (an
+/// attribute of a member, written after its <c>End</c>, included), a member with no <c>End</c>, or a module with no member.
 /// </para>
 /// </remarks>
 internal static class ModuleSegmentScanner
@@ -27,7 +27,13 @@ internal static class ModuleSegmentScanner
     /// The segments of <paramref name="source"/>, its declarations section first (when it has any line); none when it must be parsed whole.
     /// </summary>
     /// <param name="source">The module, its lines ending with <c>\n</c>, its directives blank, as the main parse reads it.</param>
-    public static IReadOnlyList<Segment>? Scan(string source)
+    public static IReadOnlyList<Segment>? Scan(string source) => Scan(source, out _);
+
+    /// <summary>
+    /// The segments of <paramref name="source"/>, its declarations section first; none when it must be parsed whole, and then <paramref name="giveUp"/> says
+    /// why - unless it has no member, which is one segment.
+    /// </summary>
+    public static IReadOnlyList<Segment>? Scan(string source, out SegmentationStatistics.Path? giveUp)
     {
         var lexer = new VBALexer(new AntlrInputStream(source));
         lexer.RemoveErrorListeners();
@@ -36,6 +42,7 @@ internal static class ModuleSegmentScanner
         var headers = new List<int>();
         var ends = new List<int>();
         var inMember = false;
+        giveUp = null;
 
         foreach (var (start, last, tokens) in LogicalLines(lexer.GetAllTokens()))
         {
@@ -49,16 +56,31 @@ internal static class ModuleSegmentScanner
                     ends.Add(last);
                     inMember = false;
                     break;
-                case Kind.Header or Kind.End or Kind.Misplaced:
+                case Kind.Header:
+                    giveUp = SegmentationStatistics.Path.HeaderInAMember;
+                    return null;
+                case Kind.End:
+                    giveUp = SegmentationStatistics.Path.EndOutsideAMember;
+                    return null;
+                case Kind.Misplaced:
+                    giveUp = SegmentationStatistics.Path.Misplaced;
                     return null;
 
-                // code between members, or after the last one, is the module's error to report, which a parse of the whole module reports.
+                // code between members, or after the last one: a member's attribute, written after its End, or the module's error, which a parse of the
+                // whole module reports. Neither is a segment's.
                 case Kind.Code when !inMember && headers.Count > 0:
+                    giveUp = SegmentationStatistics.Path.CodeBetweenMembers;
                     return null;
             }
         }
 
-        if (inMember || headers.Count == 0)
+        if (inMember)
+        {
+            giveUp = SegmentationStatistics.Path.MemberNotEnded;
+            return null;
+        }
+
+        if (headers.Count == 0)
         {
             return null;
         }

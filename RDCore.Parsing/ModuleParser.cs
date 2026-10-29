@@ -103,22 +103,29 @@ public partial class ModuleParser(
 
             // the module read with the grammar's fast prediction, as a whole; where that fails, each of its segments on its own where it can be, so that a part
             // the fast prediction can't read is read slowly alone, and not the whole module with it; and the whole module read slowly otherwise.
+            // The fast attempt reports to errors of its own, which are the module's only when it succeeds: a walk that throws half-way through has reported
+            // some, which the parse that follows reports again. A header written once in each branch of a #If block has its branches blank in the text the
+            // segments are found in, as in the text the main pass reads, and its alternatives are read the same way after either.
             ModuleNode ast;
             ImmutableArray<SyntaxNode> trivia;
-            var newListener = () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener);
-            if (TryParseFast(sanitized, newListener, anchorOffset, token) is { } fast)
+            var fastErrors = new ErrorListener(uri, anchorOffset);
+            if (!ForceSegments && TryParseFast(sanitized, () => declarations = new DeclarationsParseTreeListener(uri, node, fastErrors) { Anchor = anchorOffset },
+                anchorOffset, token) is { } fast)
             {
                 (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
+                errorListener.AddRange(fastErrors.Errors);
+                Statistics.Count(SegmentationStatistics.Path.Whole);
             }
-            else if (Segmented && alternatives.Count == 0 && ModuleSegmentScanner.Scan(sanitized) is { Count: > 1 } segments
-                && ParseSegments(uri, node, sanitized, segments, anchorOffset, token) is { } stitched)
+            else if (Segmented && Segments(sanitized) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, token) is { } stitched)
             {
                 (ast, trivia) = (stitched.Module, stitched.Trivia);
                 errorListener.AddRange(stitched.Errors);
+                Statistics.Count(SegmentationStatistics.Path.Stitched);
             }
             else
             {
-                var slow = ParseSlowly(sanitized, errorListener, newListener(), anchorOffset, token);
+                var slow = ParseSlowly(sanitized, errorListener, declarations = new DeclarationsParseTreeListener(uri, node, errorListener) { Anchor = anchorOffset },
+                    anchorOffset, token);
                 (ast, trivia) = (slow.BuildModuleNode(), slow.Trivia);
             }
 
@@ -190,10 +197,48 @@ public partial class ModuleParser(
     /// </summary>
     internal bool Segmented { get; init; } = true;
 
+    /// <summary>
+    /// Whether a module is parsed a segment at a time without its fast parse as a whole being tried first: what the equivalence oracle parses under, so that
+    /// every module it is given takes the segmented path where it can.
+    /// </summary>
+    internal bool ForceSegments { get; init; }
+
+    /// <summary>How the modules this parser read were read: whole, a segment at a time, or whole after a segmented parse gave up, by why.</summary>
+    internal SegmentationStatistics Statistics { get; } = new();
+
+    // the segments of the module, or none - counted by why - when it must be parsed whole.
+    private IReadOnlyList<ModuleSegmentScanner.Segment>? Segments(string sanitized)
+    {
+        var segments = ModuleSegmentScanner.Scan(sanitized, out var giveUp);
+        if (segments is { Count: > 1 })
+        {
+            return segments;
+        }
+
+        Statistics.Count(giveUp ?? SegmentationStatistics.Path.OneSegment);
+        return null;
+    }
+
     // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
-    // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error: what the grammar says is
-    // wrong, and what the block scanner says instead, is a whole module's to say, and the module is parsed whole.
+    // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error - what the grammar says is
+    // wrong, and what the block scanner says instead, is a whole module's to say - or when its parse fails: the module is then parsed whole, as a module
+    // whose parse fails is, its partial tree salvaged.
     private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, CancellationToken token)
+    {
+        try
+        {
+            return ParseEachSegment(uri, node, sanitized, segments, anchorOffset, token);
+        }
+        catch (Exception exception) when (!token.IsCancellationRequested)
+        {
+            _logger.LogDebug(exception, "A segment of {uri} failed to parse; parsing it whole.", uri);
+            Statistics.Count(SegmentationStatistics.Path.SegmentFailed);
+            return null;
+        }
+    }
+
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
         IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, CancellationToken token)
     {
         var lines = sanitized.Split('\n');
@@ -208,9 +253,11 @@ public partial class ModuleParser(
             var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
             var segmentErrors = new ErrorListener(uri, start);
             var first = next;
-            var listener = ParseWithFallback(text, segmentErrors, () => new DeclarationsParseTreeListener(uri, node, segmentErrors) { NextModuleChildId = first }, start, token);
+            var listener = ParseWithFallback(text, segmentErrors, () => new DeclarationsParseTreeListener(uri, node, segmentErrors) { NextModuleChildId = first, Anchor = start },
+                start, token);
             if (segmentErrors.HasGrammarErrors)
             {
+                Statistics.Count(SegmentationStatistics.Path.SegmentHadErrors);
                 return null;
             }
 

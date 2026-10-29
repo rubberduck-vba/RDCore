@@ -25,17 +25,29 @@ public sealed class SegmentedParseEquivalenceTests
         System.Text.Json.JsonSerializer.Serialize(result.SyntaxErrors),
     ];
 
-    private static void AssertTheSameAsAWholeParse(string source, SourcePosition anchor = default)
+    // the module parsed whole; as the parser parses it; and a segment at a time without its fast parse as a whole tried first, which takes the segmented
+    // path wherever it can - and which, said by stitches, it does or doesn't. All three are the same.
+    private static bool AssertTheSameAsAWholeParse(string source, SourcePosition anchor = default, bool? stitches = true)
     {
-        var whole = new ModuleParser { Segmented = false }.Parse(Module, source, anchor);
-        var segmented = new ModuleParser().Parse(Module, source, anchor);
-
-        var (expected, actual) = (Written(whole), Written(segmented));
+        var expected = Written(new ModuleParser { Segmented = false }.Parse(Module, source, anchor));
+        var forced = new ModuleParser { ForceSegments = true };
         string[] parts = ["the tree", "the trivia", "the directive trivia", "the errors"];
-        for (var part = 0; part < parts.Length; part++)
+        foreach (var (how, written) in new[] { ("as the parser parses it", Written(new ModuleParser().Parse(Module, source, anchor))),
+            ("a segment at a time", Written(forced.Parse(Module, source, anchor))) })
         {
-            Assert.AreEqual(expected[part], actual[part], $"{parts[part]} of a segmented parse differs from a whole parse's");
+            for (var part = 0; part < parts.Length; part++)
+            {
+                Assert.AreEqual(expected[part], written[part], $"{parts[part]} of a parse {how} differs from a whole parse's");
+            }
         }
+
+        var stitched = forced.Statistics[SegmentationStatistics.Path.Stitched] == 1;
+        if (stitches is { } expectedToStitch)
+        {
+            Assert.AreEqual(expectedToStitch, stitched, "the module parsed a segment at a time");
+        }
+
+        return stitched;
     }
 
     private static readonly string Declared = Lines(
@@ -130,6 +142,23 @@ public sealed class SegmentedParseEquivalenceTests
             "    Item = i",
             "End Function"));
 
+    // a header written once in each branch of a #If block: the main pass reads one, and the others are its alternatives, read on their own.
+    [TestMethod]
+    public void AModuleWithASplitHeader_IsSegmented_AndParsesAsAWhole()
+        => AssertTheSameAsAWholeParse(Lines(
+            "Option Explicit",
+            "Private Const N As Long = 3",
+            "#If VBA7 Then",
+            "Private Function Unsigned(ByVal a As LongPtr, ByVal b As LongPtr) As LongPtr",
+            "#Else",
+            "Private Function Unsigned(ByVal a As Long, ByVal b As Long) As Long",
+            "#End If",
+            "    Unsigned = a + b",
+            "End Function",
+            "Public Sub Main()",
+            "    Debug.Print Unsigned(1, N)",
+            "End Sub"));
+
     // what the scanner can't segment is parsed whole, as before.
     [TestMethod]
     [DataRow("Public Sub A()|    x = 1|Public Sub B()|End Sub", DisplayName = "a header in a member")]
@@ -143,7 +172,7 @@ public sealed class SegmentedParseEquivalenceTests
         var source = Lines(lines.Split('|'));
 
         Assert.IsNull(ModuleSegmentScanner.Scan(source.Replace("\r\n", "\n")));
-        AssertTheSameAsAWholeParse(source);
+        _ = AssertTheSameAsAWholeParse(source, stitches: false);
     }
 
     // a segment with a syntax error is a whole module's to report: the module is parsed whole.
@@ -152,7 +181,7 @@ public sealed class SegmentedParseEquivalenceTests
     [DataRow("Public Sub A()|    x = = 1|End Sub|Public Sub B()|End Sub", DisplayName = "a statement the grammar refuses")]
     [DataRow("Private x As|Public Sub A()|End Sub", DisplayName = "a declaration the grammar refuses")]
     public void AModuleWithASyntaxError_ParsesAsAWhole(string lines)
-        => AssertTheSameAsAWholeParse(Lines(lines.Split('|')));
+        => _ = AssertTheSameAsAWholeParse(Lines(lines.Split('|')), stitches: false);
 
     // the modules of the repository's benchmark corpus.
     [TestMethod]
@@ -167,9 +196,9 @@ public sealed class SegmentedParseEquivalenceTests
         Assert.IsNotNull(root, "the repository's root");
         var modules = Directory.GetFiles(Path.Combine(root.FullName, "RDCore.CLI", "Bench", "Corpus"));
         Assert.IsNotEmpty(modules);
-        foreach (var module in modules)
-        {
-            AssertTheSameAsAWholeParse(File.ReadAllText(module));
-        }
+
+        // a module of one member, or of none, is one segment: it is parsed whole whichever way, and every other is stitched.
+        var stitched = modules.Count(module => AssertTheSameAsAWholeParse(File.ReadAllText(module), stitches: null));
+        Assert.IsGreaterThan(modules.Length / 2, stitched, "most of the corpus is stitched");
     }
 }
