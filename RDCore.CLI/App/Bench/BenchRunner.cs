@@ -83,7 +83,12 @@ internal sealed record class BenchReport(
 /// <param name="fileSystem">The file system the workspace is on.</param>
 /// <param name="messages">Builds the verbose half of a run-time error message.</param>
 /// <param name="loggers">Makes the loggers of the host's parts.</param>
-internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, IVerboseMessageBuilder messages, ILoggerFactory loggers)
+/// <param name="libraries">
+/// Where the descriptions of the libraries a project references are found: the platform's, as the environment host has them, so that a workspace that
+/// references Excel is benched with Excel's types.
+/// </param>
+internal sealed class BenchRunner(
+    IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, IVerboseMessageBuilder messages, ILoggerFactory loggers, ILibrarySource libraries)
 {
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
@@ -199,7 +204,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
         var problems = new List<string>();
         var root = new Uri(workspace.Root);
         var provider = new EnvironmentSessionProvider(
-            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), new DirectoryLibrarySource(fileSystem, string.Empty), ExternalWorld.None);
+            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, ExternalWorld.None);
         provider.Compose(workspace.Project, root);
 
         var stopwatch = Stopwatch.StartNew();
@@ -222,8 +227,8 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
         // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
         // defined in the host, then the code of each.
         stopwatch.Restart();
-        var libraries = LibrarySymbolProvider.Load(new DirectoryLibrarySource(fileSystem, string.Empty), workspace.Project.References);
-        IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, libraries, environment.Is64Bit).ProvideSymbols()];
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References);
+        IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, environment.Is64Bit).ProvideSymbols()];
         var scope = environment.Language.ImplicitDeclarationScope;
         var resolver = WorkspaceSymbolResolver.Compose(
             root, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(environment.Is64Bit),
