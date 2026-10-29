@@ -36,7 +36,8 @@ public class Program
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception.ToString());
+            // a server's standard output is no one's to read (AppHost.WritesToConsole): what it says as it fails goes to its standard error.
+            Console.Error.WriteLine(exception.ToString());
             code = -1;
         }
 
@@ -50,7 +51,7 @@ public class Program
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception.ToString());
+            Console.Error.WriteLine(exception.ToString());
         }
 
         return code;
@@ -64,13 +65,7 @@ public class RDCoreParserAppHost : RDCorePlatformServerHost<RDCoreParserApp>
         base.ConfigureAdditionalExternalServices(services, configuration);
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            System.IO.Path.Combine(RDCore.SDK.Platform.PlatformEnvironment.Default.LogsDirectory, "RDCore.ParseServer.log"),
-            LogLevel.Trace);
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
+    protected override string? LogFileName => "RDCore.ParseServer.log";
 }
 
 public class RDCoreParserApp(

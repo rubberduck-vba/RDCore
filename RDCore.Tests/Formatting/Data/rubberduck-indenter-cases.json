@@ -1,0 +1,2987 @@
+{
+  "about": "Rubberduck SmartIndenter test cases (RubberduckTests/SmartIndenter, GPLv3), as data: input, settings over the defaults, expected output.",
+  "cases": [
+    {
+      "source": "EndOfLineCommentTests#AbsolutePositionWorks",
+      "settings": {
+        "EndOfLineCommentStyle": "Absolute"
+      },
+      "code": [
+        "Private Sub Test()",
+        "Debug.Print        'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Debug.Print    'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#SameGapWorks",
+      "settings": {
+        "EndOfLineCommentStyle": "SameGap"
+      },
+      "code": [
+        "Private Sub Test()",
+        "Debug.Print   'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Debug.Print   'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#StandardGapWorks",
+      "settings": {
+        "EndOfLineCommentStyle": "StandardGap"
+      },
+      "code": [
+        "Private Sub Test()",
+        "Debug.Print 'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Debug.Print        'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#AlignInColumnWorks",
+      "settings": {
+        "EndOfLineCommentStyle": "AlignInColumn"
+      },
+      "code": [
+        "Private Sub Test()",
+        "Debug.Print 'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Debug.Print                                  'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#AlignInColumnFallsBackToOneSpace",
+      "settings": {
+        "EndOfLineCommentStyle": "AlignInColumn"
+      },
+      "code": [
+        "Private Sub Test()",
+        "Debug.Print \"This string ends with a comment.\" 'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Debug.Print \"This string ends with a comment.\" 'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#AbsoluteFallsBackToOneSpace",
+      "settings": {
+        "EndOfLineCommentStyle": "Absolute"
+      },
+      "code": [
+        "Private Sub Test()",
+        "Debug.Print  'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Debug.Print 'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#CommentOnlyLineIgnoresEndOfLineSetting",
+      "settings": {
+        "EndOfLineCommentStyle": "AlignInColumn"
+      },
+      "code": [
+        "Private Sub Test()",
+        "'Comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    'Comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#WorksOutsideOfProcedures",
+      "settings": {
+        "EndOfLineCommentStyle": "AlignInColumn"
+      },
+      "code": [
+        "#Const Foo = Bar 'Comment",
+        "Private Sub Test()",
+        "End Sub"
+      ],
+      "expected": [
+        "#Const Foo = Bar                                 'Comment",
+        "",
+        "Private Sub Test()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "EndOfLineCommentTests#WorksInsideEnums",
+      "settings": {
+        "EndOfLineCommentStyle": "AlignInColumn"
+      },
+      "code": [
+        "Public Enum Foo",
+        "X = 1 'Comment",
+        "Y = 2",
+        "End Enum"
+      ],
+      "expected": [
+        "Public Enum Foo",
+        "    X = 1                                        'Comment",
+        "    Y = 2",
+        "End Enum"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#DeclarationLineAlignsCorrectly",
+      "settings": {},
+      "code": [
+        "Public Declare Sub Foo Lib \"bar.dll\" (x As Long, _",
+        "y As Long)"
+      ],
+      "expected": [
+        "Public Declare Sub Foo Lib \"bar.dll\" (x As Long, _",
+        "                                      y As Long)"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#DeclarationPtrSafeLineAlignsCorrectly",
+      "settings": {},
+      "code": [
+        "Private Declare PtrSafe Function Foo Lib \"bar.dll\" _",
+        "(x As Long y As Long) As LongPtr"
+      ],
+      "expected": [
+        "Private Declare PtrSafe Function Foo Lib \"bar.dll\" _",
+        "                                 (x As Long y As Long) As LongPtr"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#FunctionParametersAlignCorrectly",
+      "settings": {},
+      "code": [
+        "Private Sub Test(x As Integer, y As Integer, _",
+        "z As Long, abcde As Integer)"
+      ],
+      "expected": [
+        "Private Sub Test(x As Integer, y As Integer, _",
+        "                 z As Long, abcde As Integer)"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#NamedParametersAlignCorrectly",
+      "settings": {},
+      "code": [
+        "Private Sub Foo()",
+        "Test X:=1, Y:=2, _",
+        "Z:=3, Foobar:=4",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Foo()",
+        "    Test X:=1, Y:=2, _",
+        "         Z:=3, Foobar:=4",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#IgnoreOperatorsInContinuationsOnWorks",
+      "settings": {
+        "IgnoreOperatorsInContinuations": true
+      },
+      "code": [
+        "Private Function Test() As String",
+        "Test = \"String that is \" _",
+        "& \"split into multiple \" _",
+        "& \"lines.\"",
+        "End Function"
+      ],
+      "expected": [
+        "Private Function Test() As String",
+        "    Test = \"String that is \" _",
+        "         & \"split into multiple \" _",
+        "         & \"lines.\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#IgnoreOperatorsInContinuationsOffWorks",
+      "settings": {
+        "IgnoreOperatorsInContinuations": false
+      },
+      "code": [
+        "Private Function Test() As String",
+        "Test = \"String that is \" _",
+        "& \"split into multiple \" _",
+        "& \"lines.\"",
+        "End Function"
+      ],
+      "expected": [
+        "Private Function Test() As String",
+        "    Test = \"String that is \" _",
+        "           & \"split into multiple \" _",
+        "           & \"lines.\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#IfThenDoesntGetMangled",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "If (Foo And Bar) Or Baz Then",
+        "Debug.Print \"Foo & Bar | Baz\"",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If (Foo And Bar) Or Baz Then",
+        "        Debug.Print \"Foo & Bar | Baz\"",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultilineCommentAlignsCorrectly",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "'Long multiline comment _",
+        "blah blah blah, etc. _",
+        "etc.",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    'Long multiline comment _",
+        "    blah blah blah, etc. _",
+        "    etc.",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuedEndOfLineCommentAligned",
+      "settings": {
+        "EndOfLineCommentStyle": "AlignInColumn",
+        "EndOfLineCommentColumnSpaceAlignment": 50
+      },
+      "code": [
+        "Private Sub Test()",
+        "Dim Foo As Integer 'End of line comment _",
+        "Continued end of line comment",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Dim Foo As Integer                           'End of line comment _",
+        "                                                 Continued end of line comment",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#CommentsWithLineContinuationsWork",
+      "settings": {},
+      "code": [
+        "'Private Sub Test()",
+        "'Long multiline comment _",
+        "'blah blah blah, etc. _",
+        "'etc.",
+        "'End Sub"
+      ],
+      "expected": [
+        "'Private Sub Test()",
+        "'Long multiline comment _",
+        "'blah blah blah, etc. _",
+        "'etc.",
+        "'End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#RemsWithLineContinuationsWork",
+      "settings": {},
+      "code": [
+        "'Private Sub Test()",
+        "Rem Long multiline comment _",
+        "Rem blah blah blah, etc. _",
+        "Rem etc.",
+        "'End Sub"
+      ],
+      "expected": [
+        "'Private Sub Test()",
+        "Rem Long multiline comment _",
+        "Rem blah blah blah, etc. _",
+        "Rem etc.",
+        "'End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#DoWhileOnTwoLinesWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Do _",
+        "While X < 10: X = X + 1: Loop",
+        "Debug.Print X",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Do _",
+        "        While X < 10: X = X + 1: Loop",
+        "    Debug.Print X",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuedIfThenWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "If _",
+        "Foo = True _",
+        "Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    If _",
+        "        Foo = True _",
+        "              Then",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultipleFunctionCallsWorks",
+      "settings": {
+        "IgnoreOperatorsInContinuations": true
+      },
+      "code": [
+        "Private Function Foo()",
+        "Foo = Bar(A, B, C + 1) = D * Baz(E, F, G) / (4 * X * Y) * Bar(A + 1, B + 1, C) _",
+        "+ (D * (Bar(E, F, G) / D ^ 2 + Baz(X, Y, Z) / (2 * X)))",
+        "End Function"
+      ],
+      "expected": [
+        "Private Function Foo()",
+        "    Foo = Bar(A, B, C + 1) = D * Baz(E, F, G) / (4 * X * Y) * Bar(A + 1, B + 1, C) _",
+        "        + (D * (Bar(E, F, G) / D ^ 2 + Baz(X, Y, Z) / (2 * X)))",
+        "End Function"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCall",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "Dim bar As Long",
+        "bar = Baz(Param:=AnotherFunction(Title:=\"foobar\"), _",
+        "Behavior:=\"expected\", _",
+        "Works:=True)",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    Dim bar As Long",
+        "    bar = Baz(Param:=AnotherFunction(Title:=\"foobar\"), _",
+        "              Behavior:=\"expected\", _",
+        "              Works:=True)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParam",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "Dim bar As Long",
+        "bar = Baz(Param:=AnotherFunction(Title:=FOO_BAR), _",
+        "Behavior:=\"expected\", _",
+        "Works:=True)",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    Dim bar As Long",
+        "    bar = Baz(Param:=AnotherFunction(Title:=FOO_BAR), _",
+        "              Behavior:=\"expected\", _",
+        "              Works:=True)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParamString",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "Dim bar As Long",
+        "bar = Baz(Param:=AnotherFunction(Title:=\"foo_bar\"), _",
+        "Behavior:=\"expected\", _",
+        "Works:=True)",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    Dim bar As Long",
+        "    bar = Baz(Param:=AnotherFunction(Title:=\"foo_bar\"), _",
+        "              Behavior:=\"expected\", _",
+        "              Works:=True)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#UncontinuedNestedFunctionWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print Foo(X, Bar(Y, Z), _",
+        "Z)",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print Foo(X, Bar(Y, Z), _",
+        "                    Z)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuedNestedFunctionWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print Foo(X, Bar(A, B, _",
+        "C), Z)",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print Foo(X, Bar(A, B, _",
+        "                           C), Z)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultiLineContinuedFunctionWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print Foo(Var1, Var2, _",
+        "Var3, Var4, _",
+        "Var5)",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print Foo(Var1, Var2, _",
+        "                    Var3, Var4, _",
+        "                    Var5)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuationsInTypeDeclarationsWorks",
+      "settings": {
+        "AlignCommentsWithCode": true
+      },
+      "code": [
+        "Private Type MyType",
+        "x1 As Integer",
+        "x2 _",
+        "As Integer",
+        "x3 As _",
+        "Integer",
+        "x4 _",
+        "As _",
+        "Integer",
+        "x5 As Integer: _",
+        "x6 As _",
+        "Integer",
+        "x7 As Integer _",
+        "'Comment _",
+        "as _",
+        "integer",
+        "End Type"
+      ],
+      "expected": [
+        "Private Type MyType",
+        "    x1 As Integer",
+        "    x2 _",
+        "    As Integer",
+        "    x3 As _",
+        "    Integer",
+        "    x4 _",
+        "    As _",
+        "    Integer",
+        "    x5 As Integer: _",
+        "    x6 As _",
+        "    Integer",
+        "    x7 As Integer _",
+        "    'Comment _",
+        "    as _",
+        "    integer",
+        "End Type"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuationsInProcedureDeclarationsWorks",
+      "settings": {
+        "IndentFirstDeclarationBlock": true
+      },
+      "code": [
+        "Sub MySub()",
+        "Dim x1 As Integer",
+        "Dim _",
+        "x2 _",
+        "As Integer",
+        "Dim x3 As _",
+        "Integer",
+        "Dim x4 _",
+        "As _",
+        "Integer",
+        "Dim x5 As Integer: _",
+        "Dim x6 As _",
+        "Integer",
+        "Dim x7 As Integer _",
+        "'Comment _",
+        "as _",
+        "integer",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub()",
+        "    Dim x1 As Integer",
+        "    Dim _",
+        "    x2 _",
+        "    As Integer",
+        "    Dim x3 As _",
+        "    Integer",
+        "    Dim x4 _",
+        "    As _",
+        "    Integer",
+        "    Dim x5 As Integer: _",
+        "    Dim x6 As _",
+        "    Integer",
+        "    Dim x7 As Integer _",
+        "        'Comment _",
+        "        as _",
+        "        integer",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorks",
+      "settings": {
+        "IndentFirstDeclarationBlock": true,
+        "AlignDims": true,
+        "AlignDimColumn": 15
+      },
+      "code": [
+        "Sub MySub()",
+        "Dim x1 As Integer, x2 _",
+        "As Integer",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub()",
+        "    Dim x1    As Integer, x2 _",
+        "              As Integer",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorksBareType",
+      "settings": {
+        "IndentFirstDeclarationBlock": true,
+        "AlignDims": true,
+        "AlignDimColumn": 15
+      },
+      "code": [
+        "Sub MySub()",
+        "Dim x1 As Integer",
+        "Dim x2 As _",
+        "Integer",
+        "Dim x3 As Integer: _",
+        "Dim x4 As _",
+        "Integer",
+        "Dim x5 As Integer _",
+        "'Comment _",
+        "as _",
+        "integer",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub()",
+        "    Dim x1    As Integer",
+        "    Dim x2    As _",
+        "    Integer",
+        "    Dim x3    As Integer: _",
+        "    Dim x4    As _",
+        "    Integer",
+        "    Dim x5    As Integer _",
+        "        'Comment _",
+        "        as _",
+        "        integer",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#ContinuationWithOnlyCommentWorks",
+      "settings": {
+        "AlignCommentsWithCode": false,
+        "IndentFirstDeclarationBlock": true
+      },
+      "code": [
+        "Sub MySub()",
+        "Debug.Print Foo _",
+        "'Is this and end of line comment or not...?",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub()",
+        "    Debug.Print Foo _",
+        "                'Is this and end of line comment or not...?",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#TrailingMultiLineCommentFirstWorks",
+      "settings": {},
+      "code": [
+        "Sub MySub1()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "",
+        "End Sub",
+        "",
+        "Sub MySub2()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "foo",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub1()",
+        "    Dim x7 As Integer _",
+        "        'Comment foo _",
+        "",
+        "End Sub",
+        "",
+        "Sub MySub2()",
+        "    Dim x7 As Integer _",
+        "        'Comment foo _",
+        "        foo",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#TrailingMultiLineCommentSecondWorks",
+      "settings": {},
+      "code": [
+        "Sub MySub2()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "foo",
+        "End Sub",
+        "",
+        "Sub MySub1()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub2()",
+        "    Dim x7 As Integer _",
+        "        'Comment foo _",
+        "        foo",
+        "End Sub",
+        "",
+        "Sub MySub1()",
+        "    Dim x7 As Integer _",
+        "        'Comment foo _",
+        "",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#TrailingMultiLineCommentFirstNoAlignWorks",
+      "settings": {
+        "AlignContinuations": false
+      },
+      "code": [
+        "Sub MySub1()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "",
+        "End Sub",
+        "",
+        "Sub MySub2()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "foo",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub1()",
+        "    Dim x7 As Integer _",
+        "    'Comment foo _",
+        "",
+        "End Sub",
+        "",
+        "Sub MySub2()",
+        "    Dim x7 As Integer _",
+        "    'Comment foo _",
+        "    foo",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#TrailingMultiLineCommentSecondNoAlignWorks",
+      "settings": {
+        "AlignContinuations": false
+      },
+      "code": [
+        "Sub MySub2()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "foo",
+        "End Sub",
+        "",
+        "Sub MySub1()",
+        "Dim x7 As Integer _",
+        "'Comment foo _",
+        "",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub MySub2()",
+        "    Dim x7 As Integer _",
+        "    'Comment foo _",
+        "    foo",
+        "End Sub",
+        "",
+        "Sub MySub1()",
+        "    Dim x7 As Integer _",
+        "    'Comment foo _",
+        "",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#SplitNamedParameterAlignsCorrectly",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "Debug.Print WorksheetFunction.Sum(arg1:=1, arg2:=2, arg3 _",
+        ":=3)",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    Debug.Print WorksheetFunction.Sum(arg1:=1, arg2:=2, arg3 _",
+        "                                      :=3)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "LineContinuationTests#MultipleSplitNamedParametersAlignCorrectly",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "Debug.Print WorksheetFunction.Sum(arg1:=1, arg2:=2, arg3 _",
+        ":=3, arg4:=4, arg5:=6, arg6 _",
+        ":=6)",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    Debug.Print WorksheetFunction.Sum(arg1:=1, arg2:=2, arg3 _",
+        "                                      :=3, arg4:=4, arg5:=6, arg6 _",
+        "                                      :=6)",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#LowerCaseKeywordNext",
+      "settings": {},
+      "code": [
+        "Dim i As Long",
+        "Dim maxRow As Long",
+        "",
+        "maxRow = 120",
+        "For i = 20 To maxRow Step 19",
+        "",
+        "Sheet5.Range(Rows(i), Rows(i + 4)).Cut Sheet61.Range(Rows(i))",
+        "next i"
+      ],
+      "expected": [
+        "Dim i As Long",
+        "Dim maxRow As Long",
+        "",
+        "maxRow = 120",
+        "For i = 20 To maxRow Step 19",
+        "",
+        "    Sheet5.Range(Rows(i), Rows(i + 4)).Cut Sheet61.Range(Rows(i))",
+        "next i"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#DeclareFunctionsDoNotIndentNextLine",
+      "settings": {},
+      "code": [
+        "Public Declare Function Foo Lib \"bar.dll\" (X As Any) As Variant",
+        "Public Declare Sub Bar Lib \"bar.dll\" (Y As Integer)"
+      ],
+      "expected": [
+        "Public Declare Function Foo Lib \"bar.dll\" (X As Any) As Variant",
+        "Public Declare Sub Bar Lib \"bar.dll\" (Y As Integer)"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#SingleLineIfStatementWorks",
+      "settings": {},
+      "code": [
+        "Public Function Test() As Boolean",
+        "If Foo = True Then Bar = False",
+        "Test = Bar",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As Boolean",
+        "    If Foo = True Then Bar = False",
+        "    Test = Bar",
+        "End Function"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#ElseIfStatementWorks",
+      "settings": {},
+      "code": [
+        "Public Function Test() As Integer",
+        "If Foo = 1 Then",
+        "Bar = 3",
+        "ElseIf Foo = 3 Then",
+        "Bar = 1",
+        "End If",
+        "Test = Bar",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As Integer",
+        "    If Foo = 1 Then",
+        "        Bar = 3",
+        "    ElseIf Foo = 3 Then",
+        "        Bar = 1",
+        "    End If",
+        "    Test = Bar",
+        "End Function"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#MultipleElseIfStatementWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "If Foo And Bar Then",
+        "Call Foobar",
+        "ElseIf Not Foo Then",
+        "Call Baz",
+        "ElseIf Not Bar Then",
+        "Call NoBaz",
+        "Else",
+        "MsgBox \"No Foos or Bars\"",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    If Foo And Bar Then",
+        "        Call Foobar",
+        "    ElseIf Not Foo Then",
+        "        Call Baz",
+        "    ElseIf Not Bar Then",
+        "        Call NoBaz",
+        "    Else",
+        "        MsgBox \"No Foos or Bars\"",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#IfThenBareElseStatementWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "If Foo And Bar Then Foobar Else",
+        "Baz",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    If Foo And Bar Then Foobar Else",
+        "    Baz",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#SingleLineElseIfElseStatementWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "If x Then",
+        "NotFoobar",
+        "ElseIf Foo And Bar Then Foobar",
+        "Else",
+        "Baz",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    If x Then",
+        "        NotFoobar",
+        "    ElseIf Foo And Bar Then Foobar",
+        "    Else",
+        "        Baz",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#SingleLineElseIfStatementWorks",
+      "settings": {},
+      "code": [
+        "Public Function Test() As Integer",
+        "If Foo = 1 Then",
+        "Bar = 3",
+        "ElseIf Foo = 2 Then Bar = 2",
+        "ElseIf Foo = 3 Then",
+        "Bar = 1",
+        "End If",
+        "Test = Bar",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As Integer",
+        "    If Foo = 1 Then",
+        "        Bar = 3",
+        "    ElseIf Foo = 2 Then Bar = 2",
+        "    ElseIf Foo = 3 Then",
+        "        Bar = 1",
+        "    End If",
+        "    Test = Bar",
+        "End Function"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#LineNumbersAreNotIncludedInIndentAmount",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "5 If Foo Then",
+        "10 Debug.Print",
+        "15 End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "5   If Foo Then",
+        "10      Debug.Print",
+        "15  End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#NegativeLineNumbersWork",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "-5 If Foo Then",
+        "-10 Debug.Print",
+        "-15 End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "-5  If Foo Then",
+        "-10     Debug.Print",
+        "-15 End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#HexLineNumbersWork",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "&HAAA If Foo Then",
+        "&HABE Debug.Print",
+        "&HAD2 End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "2730 If Foo Then",
+        "2750    Debug.Print",
+        "2770 End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#LineNumbersWithColonWork",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "5: If Foo Then",
+        "10: Debug.Print",
+        "15: End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "5:  If Foo Then",
+        "10:     Debug.Print",
+        "15: End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#LineNumberLongerThanIndentFallsBackToOneSpace",
+      "settings": {},
+      "code": [
+        "Private Sub Test()",
+        "10000 If Foo Then",
+        "10001 Debug.Print",
+        "10002 End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "10000 If Foo Then",
+        "10001   Debug.Print",
+        "10002 End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#ModulePrecompilerDirectivesWork",
+      "settings": {},
+      "code": [
+        "#Const Foo = Bar",
+        "#If Foo Then",
+        "Const Baz = 1",
+        "#Else",
+        "Const Baz = 2",
+        "#End If"
+      ],
+      "expected": [
+        "#Const Foo = Bar",
+        "#If Foo Then",
+        "    Const Baz = 1",
+        "#Else",
+        "    Const Baz = 2",
+        "#End If"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#ReservedWordsInTypesWork",
+      "settings": {},
+      "code": [
+        "Private Type Foo",
+        "If As Integer",
+        "Select As Integer",
+        "For As Integer",
+        "Enum As Integer",
+        "Type As Integer",
+        "Then As Integer",
+        "Case As Integer",
+        "Function As Integer",
+        "Sub As Integer",
+        "End Type"
+      ],
+      "expected": [
+        "Private Type Foo",
+        "    If As Integer",
+        "    Select As Integer",
+        "    For As Integer",
+        "    Enum As Integer",
+        "    Type As Integer",
+        "    Then As Integer",
+        "    Case As Integer",
+        "    Function As Integer",
+        "    Sub As Integer",
+        "End Type"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#IndentationResetsAfterType",
+      "settings": {},
+      "code": [
+        "Private Type Foo",
+        "X As Integer",
+        "End Type",
+        "",
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Type Foo",
+        "    X As Integer",
+        "End Type",
+        "",
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#IndentationResetsAfterEnum",
+      "settings": {},
+      "code": [
+        "Public Enum Foo",
+        "X = 1",
+        "Y = 2",
+        "End Enum",
+        "",
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Enum Foo",
+        "    X = 1",
+        "    Y = 2",
+        "End Enum",
+        "",
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#OverIndentationLeftAligns",
+      "settings": {},
+      "code": [
+        "        Private Sub Test()",
+        "            If Foo Then",
+        "                Debug.Print",
+        "            End If",
+        "        End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#SubFooTokenIsNotInterpretedAsProcedureStart",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "If Subject = 0 Then",
+        "Subject = 1",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    If Subject = 0 Then",
+        "        Subject = 1",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#MultiLineDimWithCommasDontAlignDimWorks",
+      "settings": {
+        "AlignDims": false
+      },
+      "code": [
+        "Public Sub FooBar()",
+        "Dim foo As Boolean, bar As String _",
+        ", baz As String _",
+        ", somethingElse As String",
+        "Dim x As Integer",
+        "If Not foo Then",
+        "x = 1",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub FooBar()",
+        "    Dim foo As Boolean, bar As String _",
+        "    , baz As String _",
+        "    , somethingElse As String",
+        "    Dim x As Integer",
+        "    If Not foo Then",
+        "        x = 1",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#MultiLineDimWithCommasAlignDimsWorks",
+      "settings": {
+        "AlignDims": true
+      },
+      "code": [
+        "Public Sub FooBar()",
+        "Dim foo As Boolean, bar As String _",
+        ", baz As String _",
+        ", somethingElse As String",
+        "Dim x As Integer",
+        "If Not foo Then",
+        "x = 1",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub FooBar()",
+        "    Dim foo   As Boolean, bar As String _",
+        "    , baz     As String _",
+        "    , somethingElse As String",
+        "    Dim x     As Integer",
+        "    If Not foo Then",
+        "        x = 1",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#MultiLineDimWithCommasDontIndentFirstBlockWorks",
+      "settings": {
+        "IndentFirstDeclarationBlock": false
+      },
+      "code": [
+        "Public Sub FooBar()",
+        "Dim foo As Boolean, bar As String _",
+        ", baz As String _",
+        ", somethingElse As String",
+        "Dim x As Integer",
+        "If Not foo Then",
+        "x = 1",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub FooBar()",
+        "Dim foo As Boolean, bar As String _",
+        ", baz As String _",
+        ", somethingElse As String",
+        "Dim x As Integer",
+        "    If Not foo Then",
+        "        x = 1",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#QuotesInsideStringLiteralsWork",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print \"This is a \"\" in the middle of a string.\"",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print \"This is a \"\" in the middle of a string.\"",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#SingleQuoteInEndOfLineCommentWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print Chr$(34) 'Prints a single '\"' character.",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print Chr$(34)                         'Prints a single '\"' character.",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#BracketedIdentifiersWork",
+      "settings": {},
+      "code": [
+        "Sub test()",
+        "Dim _",
+        "s _",
+        "( _",
+        "[Option _ Explicit] _",
+        "+ _",
+        "1 _",
+        "To _",
+        "( _",
+        "[Evil : \"\" Comment \" 'here] _",
+        ") _",
+        "+ _",
+        "[End _ Sub] _",
+        ") _",
+        "As _",
+        "String _",
+        "* _",
+        "25",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub test()",
+        "    Dim _",
+        "    s _",
+        "    ( _",
+        "    [Option _ Explicit] _",
+        "    + _",
+        "    1 _",
+        "    To _",
+        "    ( _",
+        "    [Evil : \"\" Comment \" 'here] _",
+        "    ) _",
+        "    + _",
+        "    [End _ Sub] _",
+        "    ) _",
+        "    As _",
+        "    String _",
+        "    * _",
+        "    25",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#BracketsInEndOfLineCommentsWork",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print \"foo\" 'update [foo].[bar] in the frob.",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print \"foo\"                            'update [foo].[bar] in the frob.",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#AlignmentAnchorsInStringLiteralsAreIgnored",
+      "settings": {},
+      "code": [
+        "Sub Test()",
+        "Dim LoremIpsum As String",
+        "LoremIpsum = \"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam dictum,\" & vbCrLf _",
+        "& \"felis in tempor finibus, arcu lectus molestie urna, eget interdum turpis\" & vbCrLf _",
+        "& \"tellus ac diam. Nulla mauris lectus, vulputate et fringilla ac, iaculis eget urna.\" & vbCrLf _",
+        "& \"Ut feugiat felis lacinia eros vestibulum facilisis. Ut euismod dapibus augue,\" & vbCrLf _",
+        "& \"lacinia elementum elit dictum in. Nam in imperdiet tortor. Curabitur efficitur libero\" & vbCrLf _",
+        "& \"lacus, et placerat metus sodales sit amet.\"",
+        "Debug.Print LoremIpsum",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Test()",
+        "    Dim LoremIpsum As String",
+        "    LoremIpsum = \"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam dictum,\" & vbCrLf _",
+        "               & \"felis in tempor finibus, arcu lectus molestie urna, eget interdum turpis\" & vbCrLf _",
+        "               & \"tellus ac diam. Nulla mauris lectus, vulputate et fringilla ac, iaculis eget urna.\" & vbCrLf _",
+        "               & \"Ut feugiat felis lacinia eros vestibulum facilisis. Ut euismod dapibus augue,\" & vbCrLf _",
+        "               & \"lacinia elementum elit dictum in. Nam in imperdiet tortor. Curabitur efficitur libero\" & vbCrLf _",
+        "               & \"lacus, et placerat metus sodales sit amet.\"",
+        "    Debug.Print LoremIpsum",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#ElseWithEndingColonWorks",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "If True Then",
+        "Debug.Print \"True\"",
+        "Else:",
+        "Debug.Print \"False\"",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    If True Then",
+        "        Debug.Print \"True\"",
+        "    Else:",
+        "        Debug.Print \"False\"",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#ElseWithTrailingSegmentWorks",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        "If True Then",
+        "Debug.Print \"True\"",
+        "Else: Debug.Print \"False\"",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "    If True Then",
+        "        Debug.Print \"True\"",
+        "    Else: Debug.Print \"False\"",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#LineNumbersInsideContinuationsWork",
+      "settings": {},
+      "code": [
+        "Sub Foo()",
+        " _",
+        "10",
+        " _",
+        "foo _",
+        ": Beep",
+        "",
+        "20 bar: Beep",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub Foo()",
+        "   _",
+        "10",
+        "   _",
+        "foo _",
+        ":  Beep",
+        "",
+        "20 bar: Beep",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MiscAndCornerCaseTests#ReplacementPatternsInStringLiteralWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "Debug.Print \"a*${test}b\"",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Debug.Print \"a*${test}b\"",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#SingleLineFunctionsNotIndented",
+      "settings": {
+        "VerticallySpaceProcedures": false
+      },
+      "code": [
+        "Private Function Foo(): Foo = 42: End Function",
+        "Private Sub Bar(): Debug.Assert Foo = 42: End Sub"
+      ],
+      "expected": [
+        "Private Function Foo(): Foo = 42: End Function",
+        "Private Sub Bar(): Debug.Assert Foo = 42: End Sub"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#SingleLineEnumsNotIndented",
+      "settings": {
+        "VerticallySpaceProcedures": false
+      },
+      "code": [
+        "Public Enum Foo: X = 1: Y = 2: End Enum",
+        "Public Enum Bar: X = 1: Y = 2: End Enum"
+      ],
+      "expected": [
+        "Public Enum Foo: X = 1: Y = 2: End Enum",
+        "Public Enum Bar: X = 1: Y = 2: End Enum"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#SingleLineTypesNotIndented",
+      "settings": {
+        "VerticallySpaceProcedures": false
+      },
+      "code": [
+        "Public Type Foo: X As Integer: End Type",
+        "Public Enum Bar: X = 1: Y = 2: End Enum"
+      ],
+      "expected": [
+        "Public Type Foo: X As Integer: End Type",
+        "Public Enum Bar: X = 1: Y = 2: End Enum"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#UnmatchedEnumsNotIndent",
+      "settings": {},
+      "code": [
+        "Public Enum Foo: X = 1: Y = 2: End Enum: Public Enum Bar",
+        "X = 1: Y = 2: End Enum"
+      ],
+      "expected": [
+        "Public Enum Foo: X = 1: Y = 2: End Enum: Public Enum Bar",
+        "X = 1: Y = 2: End Enum"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#IfThenElseOnSameLineWorks",
+      "settings": {},
+      "code": [
+        "Public Sub Test()",
+        "If Foo = 42 Then: Bar = Foo: Else Baz = Bar",
+        "Baz = Foo",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    If Foo = 42 Then: Bar = Foo: Else Baz = Bar",
+        "    Baz = Foo",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#MixedSelectSyntaxWorks",
+      "settings": {
+        "IndentCase": true
+      },
+      "code": [
+        "Public Sub Test()",
+        "Select Case Foo",
+        "Case 1: Debug.Print \"Foo\"",
+        "Case 2",
+        "Debug.Print \"Bar\"",
+        "End Select",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Select Case Foo",
+        "        Case 1: Debug.Print \"Foo\"",
+        "        Case 2",
+        "            Debug.Print \"Bar\"",
+        "    End Select",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#UnfinishedCaseOnNextLineWorks",
+      "settings": {
+        "IndentCase": true
+      },
+      "code": [
+        "Public Sub Test()",
+        "Select Case Foo",
+        "Case 1: Debug.Print \"Foo\": Case 2",
+        "Debug.Print \"Bar\"",
+        "End Select",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Sub Test()",
+        "    Select Case Foo",
+        "        Case 1: Debug.Print \"Foo\": Case 2",
+        "            Debug.Print \"Bar\"",
+        "    End Select",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "MultiSegmentLineTests#CommentWithColon",
+      "settings": {},
+      "code": [
+        "Sub foo()",
+        "   ' : loop",
+        "' bar",
+        "End Sub"
+      ],
+      "expected": [
+        "Sub foo()",
+        "    ' : loop",
+        "    ' bar",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentEntireProcedureBodyOffWorks",
+      "settings": {
+        "IndentEntireProcedureBody": false
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "    Debug.Print",
+        "End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentEntireProcedureBodyOnWorks",
+      "settings": {
+        "IndentEntireProcedureBody": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstCommentBlockOffWorks",
+      "settings": {
+        "IndentFirstCommentBlock": false
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "    Dim Foo As Long",
+        "    Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstCommentBlockOnWorks",
+      "settings": {
+        "IndentFirstCommentBlock": true
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "    'Comment block",
+        "    'Comment block",
+        "    Dim Foo As Long",
+        "    Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentEnumTypeCommentBlockOffWorks",
+      "settings": {
+        "IndentEnumTypeAsProcedure": false,
+        "IndentFirstCommentBlock": true
+      },
+      "code": [
+        "Public Enum Test",
+        "'Comment block",
+        "'Comment block",
+        "Foo",
+        "Bar",
+        "End Enum"
+      ],
+      "expected": [
+        "Public Enum Test",
+        "    'Comment block",
+        "    'Comment block",
+        "    Foo",
+        "    Bar",
+        "End Enum"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentEnumTypeCommentBlockOnWorks",
+      "settings": {
+        "IndentEnumTypeAsProcedure": true,
+        "IndentFirstCommentBlock": false
+      },
+      "code": [
+        "Public Enum Test",
+        "'Comment block",
+        "'Comment block",
+        "Foo",
+        "Bar",
+        "End Enum"
+      ],
+      "expected": [
+        "Public Enum Test",
+        "'Comment block",
+        "'Comment block",
+        "    Foo",
+        "    Bar",
+        "End Enum"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstCommentBlockOffOnlyOnFirst",
+      "settings": {
+        "IndentFirstCommentBlock": false
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "'Not in comment block",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "    Dim Foo As Long",
+        "    Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "    'Not in comment block",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstCommentBlockOffIgnoreEmptyOnlyOnFirst",
+      "settings": {
+        "IndentFirstCommentBlock": false,
+        "IgnoreEmptyLinesInFirstBlocks": true
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "'Not in comment block",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "",
+        "'Comment block",
+        "    Dim Foo As Long",
+        "    Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "    'Not in comment block",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstDeclarationBlockOffWorks",
+      "settings": {
+        "IndentFirstDeclarationBlock": false
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "    'Comment block",
+        "    'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstDeclarationBlockOffIgnoreEmptyWorks",
+      "settings": {
+        "IndentFirstDeclarationBlock": false,
+        "IgnoreEmptyLinesInFirstBlocks": true
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "    'Comment block",
+        "    'Comment block",
+        "Dim Foo As Long",
+        "",
+        "Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstDeclarationCommentBlockOffWorksIntermingled",
+      "settings": {
+        "IndentFirstDeclarationBlock": false,
+        "IndentFirstCommentBlock": false
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Foo comment",
+        "Dim Foo As Long",
+        "'Bar comment",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "'Foo comment",
+        "Dim Foo As Long",
+        "'Bar comment",
+        "Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstDeclarationCommentBlockOffIgnoreEmptyWorksIntermingled",
+      "settings": {
+        "IndentFirstDeclarationBlock": false,
+        "IndentFirstCommentBlock": false,
+        "IgnoreEmptyLinesInFirstBlocks": true
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Foo comment",
+        "Dim Foo As Long",
+        "",
+        "'Bar comment",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "'Foo comment",
+        "Dim Foo As Long",
+        "",
+        "'Bar comment",
+        "Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstDeclarationBlockOnWorks",
+      "settings": {
+        "IndentFirstDeclarationBlock": true
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "    'Comment block",
+        "    'Comment block",
+        "    Dim Foo As Long",
+        "    Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentFirstDeclarationBlockOffOnlyOnFirst",
+      "settings": {
+        "IndentFirstDeclarationBlock": false
+      },
+      "code": [
+        "Public Function Test() As String",
+        "'Comment block",
+        "'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "Test = \"Passed!\"",
+        "Dim Baz as Long",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As String",
+        "    'Comment block",
+        "    'Comment block",
+        "Dim Foo As Long",
+        "Dim Bar As Long",
+        "    Test = \"Passed!\"",
+        "    Dim Baz as Long",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceDebugPrintInColumn1OnWorks",
+      "settings": {
+        "ForceDebugPrintInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceDebugAssertInColumn1OnWorks",
+      "settings": {
+        "ForceDebugAssertInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Assert False",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "Debug.Assert False",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceStopInColumn1OnWorks",
+      "settings": {
+        "ForceStopInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Stop",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "Stop",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceOnlyDebugPrintInColumn1OnWorks",
+      "settings": {
+        "ForceDebugPrintInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print \"Foo\"",
+        "Debug.Assert False",
+        "Stop",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "Debug.Print \"Foo\"",
+        "        Debug.Assert False",
+        "        Stop",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceOnlyDebugAssertInColumn1OnWorks",
+      "settings": {
+        "ForceDebugAssertInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print \"Foo\"",
+        "Debug.Assert False",
+        "Stop",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print \"Foo\"",
+        "Debug.Assert False",
+        "        Stop",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceOnlyStopInColumn1OnWorks",
+      "settings": {
+        "ForceStopInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print \"Foo\"",
+        "Debug.Assert False",
+        "Stop",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print \"Foo\"",
+        "        Debug.Assert False",
+        "Stop",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#AlignCommentsWithCodeOnWorks",
+      "settings": {
+        "AlignCommentsWithCode": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "  'Comment",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        'Comment",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#AlignCommentsWithCodeOffWorks",
+      "settings": {
+        "AlignCommentsWithCode": false,
+        "IndentFirstCommentBlock": false
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "  'Comment",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "  'Comment",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceDebugStatementsInColumn1OffWorks",
+      "settings": {
+        "ForceDebugStatementsInColumn1": false
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceCompilerDirectivesInColumn1OffWorks",
+      "settings": {
+        "ForceCompilerDirectivesInColumn1": false
+      },
+      "code": [
+        "Private Sub Test()",
+        "#If Foo Then",
+        "Debug.Print",
+        "#End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    #If Foo Then",
+        "        Debug.Print",
+        "    #End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#ForceCompilerDirectivesInColumn1OnWorks",
+      "settings": {
+        "ForceCompilerDirectivesInColumn1": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "#If Foo Then",
+        "Debug.Print",
+        "#End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "#If Foo Then",
+        "        Debug.Print",
+        "#End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentCaseOffWorks",
+      "settings": {
+        "IndentCase": false
+      },
+      "code": [
+        "Public Function Test() As Integer",
+        "Select Case Foo",
+        "Case Bar",
+        "Test = 1",
+        "Case Baz",
+        "Test = 2",
+        "End Select",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As Integer",
+        "    Select Case Foo",
+        "    Case Bar",
+        "        Test = 1",
+        "    Case Baz",
+        "        Test = 2",
+        "    End Select",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentCaseOnWorks",
+      "settings": {
+        "IndentCase": true
+      },
+      "code": [
+        "Public Function Test() As Integer",
+        "Select Case Foo",
+        "Case Bar",
+        "Test = 1",
+        "Case Baz",
+        "Test = 2",
+        "End Select",
+        "End Function"
+      ],
+      "expected": [
+        "Public Function Test() As Integer",
+        "    Select Case Foo",
+        "        Case Bar",
+        "            Test = 1",
+        "        Case Baz",
+        "            Test = 2",
+        "    End Select",
+        "End Function"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentCompilerDirectivesOnWorks",
+      "settings": {
+        "IndentCompilerDirectives": true
+      },
+      "code": [
+        "Private Sub Test()",
+        "#If Foo Then",
+        "Debug.Print",
+        "#End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    #If Foo Then",
+        "        Debug.Print",
+        "    #End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentCompilerDirectivesOffWorks",
+      "settings": {
+        "IndentCompilerDirectives": false
+      },
+      "code": [
+        "Private Sub Test()",
+        "#If Foo Then",
+        "Debug.Print",
+        "#End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    #If Foo Then",
+        "    Debug.Print",
+        "    #End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#AlignDimsOnWorks",
+      "settings": {
+        "AlignDims": true,
+        "AlignDimColumn": 15
+      },
+      "code": [
+        "Private Sub Test()",
+        "Dim Foo As Integer",
+        "Dim Bar As Long",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Dim Foo   As Integer",
+        "    Dim Bar   As Long",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#AlignDimsFallsBackToOneSpace",
+      "settings": {
+        "AlignDims": true,
+        "AlignDimColumn": 15
+      },
+      "code": [
+        "Private Sub Test()",
+        "Dim Foo As Integer",
+        "Dim LongVariableName As Long",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    Dim Foo   As Integer",
+        "    Dim LongVariableName As Long",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentSpacesSettingIsUsed",
+      "settings": {
+        "IndentSpaces": 3
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "   If Foo Then",
+        "      Debug.Print",
+        "   End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#AlignDimColumnWorksVariedSpacing",
+      "settings": {
+        "IndentSpaces": 4,
+        "IndentFirstCommentBlock": false,
+        "AlignDims": true,
+        "AlignDimColumn": 49
+      },
+      "code": [
+        "Private Sub Test()",
+        "' comment",
+        "    Dim a                                       As String",
+        "    Dim b As Object",
+        "    Dim c                               As Long",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "' comment",
+        "    Dim a                                       As String",
+        "    Dim b                                       As Object",
+        "    Dim c                                       As Long",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IgnoreEmptyLinesWorks",
+      "settings": {
+        "EmptyLineHandlingMethod": "Ignore"
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "     ",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "     ",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#RemoveEmptyLinesWorks",
+      "settings": {
+        "EmptyLineHandlingMethod": "Remove"
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "     ",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "SpecificSettingTests#IndentEmptyLinesWorks",
+      "settings": {
+        "EmptyLineHandlingMethod": "Indent"
+      },
+      "code": [
+        "Private Sub Test()",
+        "If Foo Then",
+        "Debug.Print",
+        "     ",
+        "End If",
+        "End Sub"
+      ],
+      "expected": [
+        "Private Sub Test()",
+        "    If Foo Then",
+        "        Debug.Print",
+        "        ",
+        "    End If",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorks",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "Private Function TestThree()",
+        "End Function",
+        "Private Function TestFour()",
+        "End Function"
+      ],
+      "expected": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "",
+        "Private Function TestThree()",
+        "End Function",
+        "",
+        "Private Function TestFour()",
+        "End Function"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_RemoveExtraLinesWorks",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "",
+        "",
+        "",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "",
+        "",
+        "",
+        "Private Function TestThree()",
+        "End Function",
+        "",
+        "",
+        "",
+        "Private Function TestFour()",
+        "End Function"
+      ],
+      "expected": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "",
+        "Private Function TestThree()",
+        "End Function",
+        "",
+        "Private Function TestFour()",
+        "End Function"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_RemoveAllExtraLinesWorks",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 0
+      },
+      "code": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "",
+        "",
+        "",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "",
+        "",
+        "",
+        "Private Function TestThree()",
+        "End Function",
+        "",
+        "",
+        "",
+        "Private Function TestFour()",
+        "End Function"
+      ],
+      "expected": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "Private Function TestThree()",
+        "End Function",
+        "Private Function TestFour()",
+        "End Function"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_MixedInsertsAndDeletesWorks",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "",
+        "",
+        "",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "Private Function TestThree()",
+        "End Function",
+        "",
+        "",
+        "Private Function TestFour()",
+        "End Function"
+      ],
+      "expected": [
+        "Private Sub TestOne()",
+        "End Sub",
+        "",
+        "Private Sub TestTwo()",
+        "End Sub",
+        "",
+        "Private Function TestThree()",
+        "End Function",
+        "",
+        "Private Function TestFour()",
+        "End Function"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithProperties",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Function TestFunction() As Long",
+        "End Function",
+        "Public Property Get TestProperty() As Long",
+        "End Property",
+        "Public Property Let TestProperty(ByVal foo As Long)",
+        "End Property",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Public Property Get TestProperty() As Long",
+        "End Property",
+        "",
+        "Public Property Let TestProperty(ByVal foo As Long)",
+        "End Property",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_GroupSingleProperty",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1,
+        "GroupRelatedProperties": true
+      },
+      "code": [
+        "Function TestFunction() As Long",
+        "End Function",
+        "Public Property Get TestProperty() As Long",
+        "End Property",
+        "Public Property Let TestProperty(ByVal foo As Long)",
+        "End Property",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Public Property Get TestProperty() As Long",
+        "End Property",
+        "Public Property Let TestProperty(ByVal foo As Long)",
+        "End Property",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_GroupMultipleProperties",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1,
+        "GroupRelatedProperties": true
+      },
+      "code": [
+        "Function TestFunction() As Long",
+        "End Function",
+        "Public Property Get TestProperty() As Long",
+        "End Property",
+        "Public Property Let TestProperty(ByVal foo As Long)",
+        "End Property",
+        "Public Property Get TestProperty2() As Variant",
+        "End Property",
+        "Public Property Let TestProperty2(ByVal foo As Variant)",
+        "End Property",
+        "Public Property Set TestProperty2(ByVal foo As Variant)",
+        "End Property",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Public Property Get TestProperty() As Long",
+        "End Property",
+        "Public Property Let TestProperty(ByVal foo As Long)",
+        "End Property",
+        "",
+        "Public Property Get TestProperty2() As Variant",
+        "End Property",
+        "Public Property Let TestProperty2(ByVal foo As Variant)",
+        "End Property",
+        "Public Property Set TestProperty2(ByVal foo As Variant)",
+        "End Property",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithTypes",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Type Foo",
+        "End Type",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Type Foo",
+        "End Type",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithEnums",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Enum Foo",
+        "End Enum",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Enum Foo",
+        "End Enum",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_CommentsDoNotEffectSpacing",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "'Comment",
+        "Function TestFunction() As Long",
+        "End Function",
+        "'Comment",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "'Comment",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "'Comment",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_DimBlocksStayIntact",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Private foo As String",
+        "Private bar As String",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Private foo As String",
+        "Private bar As String",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_IgnoresDeclareFunctions",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Public Declare Function Foo Lib \"bar.dll\" (X As Any) As Variant",
+        "Public Declare Sub Bar Lib \"bar.dll\" (Y As Integer)",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Public Declare Function Foo Lib \"bar.dll\" (X As Any) As Variant",
+        "Public Declare Sub Bar Lib \"bar.dll\" (Y As Integer)",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInProcedures",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Function TestFunction() As Long",
+        "",
+        "",
+        "TestFunction = 42",
+        "End Function",
+        "Sub TestSub()",
+        "Debug.Print TestFunction",
+        "",
+        "",
+        "End Sub"
+      ],
+      "expected": [
+        "Function TestFunction() As Long",
+        "",
+        "",
+        "    TestFunction = 42",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "    Debug.Print TestFunction",
+        "",
+        "",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInEnumsOrTypes",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Enum Foo",
+        "",
+        "    Bar",
+        "    Baz",
+        "",
+        "",
+        "End Enum",
+        "",
+        "Type Test",
+        "",
+        "    MemberOne As String",
+        "    MemberTwo As Long",
+        "",
+        "",
+        "",
+        "End Type",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Enum Foo",
+        "",
+        "    Bar",
+        "    Baz",
+        "",
+        "",
+        "End Enum",
+        "",
+        "Type Test",
+        "",
+        "    MemberOne As String",
+        "    MemberTwo As Long",
+        "",
+        "",
+        "",
+        "End Type",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_MaintainsSpacingAboveFirstProcedure",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Option Explicit",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Option Explicit",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_MaintainsIgnoresCommentAboveFirstProcedure",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Option Explicit",
+        "'Comment",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Option Explicit",
+        "",
+        "'Comment",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    },
+    {
+      "source": "VerticalSpacingTests#VerticalSpacing_RemovesExtraSpacingAboveFirstProcedure",
+      "settings": {
+        "VerticallySpaceProcedures": true,
+        "LinesBetweenProcedures": 1
+      },
+      "code": [
+        "Option Explicit",
+        "",
+        "",
+        "",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "Sub TestSub()",
+        "End Sub"
+      ],
+      "expected": [
+        "Option Explicit",
+        "",
+        "Function TestFunction() As Long",
+        "End Function",
+        "",
+        "Sub TestSub()",
+        "End Sub"
+      ]
+    }
+  ]
+}
