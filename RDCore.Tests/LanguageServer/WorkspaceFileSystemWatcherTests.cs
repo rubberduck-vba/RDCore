@@ -26,6 +26,9 @@ public sealed class WorkspaceFileSystemWatcherTests
     private readonly ILanguageServerFacade _server = Substitute.For<ILanguageServerFacade>();
     private readonly List<IReadOnlyList<FileEvent>> _said = [];
 
+    // the events settle when the test says so, and not after a time: each event drops the wait of the one before it.
+    private readonly TaskCompletionSource _settled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     public WorkspaceFileSystemWatcherTests()
     {
         _fileSystem.Path.Returns(new FileSystem().Path);
@@ -45,7 +48,7 @@ public sealed class WorkspaceFileSystemWatcherTests
     private WorkspaceFileSystemWatcher Watcher(bool enabled = true)
         => new(_fileSystem, Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { EnableFileSystemWatchers = enabled } }), _changes,
             NullLogger<WorkspaceFileSystemWatcher>.Instance)
-        { Settle = TimeSpan.FromMilliseconds(50) };
+        { Delay = (_, token) => _settled.Task.WaitAsync(token) };
 
     private static string PathOf(string relativePath) => Path.Combine(Root, relativePath);
 
@@ -89,7 +92,8 @@ public sealed class WorkspaceFileSystemWatcherTests
         sut.OnFileSystemEvent(PathOf("src/B.cls"), FileChangeType.Created);
         sut.OnFileSystemEvent(PathOf("src/B.cls"), FileChangeType.Changed);
         sut.OnFileSystemEvent(PathOf(ProjectFile.FileName), FileChangeType.Changed);
-        await sut.Said;
+        _settled.SetResult();
+        await sut.Said.WaitAsync(TimeSpan.FromSeconds(20));
 
         var said = _said.Single();
         Assert.HasCount(3, said);
@@ -107,10 +111,13 @@ public sealed class WorkspaceFileSystemWatcherTests
         using var sut = Watcher();
         sut.Start(Root, clientWatches: false, _server);
 
+        // a file of the workspace changed after it is said: what is said is that, and nothing of the other.
         sut.OnFileSystemEvent(Path.GetFullPath(PathOf(relativePath)), FileChangeType.Changed);
-        await sut.Said;
-        await Task.Delay(100);
+        sut.OnFileSystemEvent(PathOf("A.bas"), FileChangeType.Changed);
+        _settled.SetResult();
+        await sut.Said.WaitAsync(TimeSpan.FromSeconds(20));
 
-        Assert.IsEmpty(_said);
+        var said = Assert.ContainsSingle(_said);
+        Assert.AreEqual(DocumentUri.FromFileSystemPath(PathOf("A.bas")), Assert.ContainsSingle(said).Uri);
     }
 }

@@ -12,12 +12,14 @@ public sealed class SessionTurnTests
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
-    // an event as a server raises it: on a thread of its own, waiting until the session is open to it, and handled then.
-    private static Task Raise(SessionTurn turn, List<string> said, string name)
+    // an event as a server raises it: on a thread of its own, waiting until the session is open to it, and handled then. Waits says when it waits: from then on
+    // the session knows of it, which is what a program that pumps needs to have to handle it.
+    private static Task Raise(SessionTurn turn, List<string> said, string name, TaskCompletionSource? waits = null)
         => Task.Run(() =>
         {
             using (turn.Waiting())
             {
+                waits?.TrySetResult();
                 SpinWait.SpinUntil(() => turn.IsOpenForEvents);
                 turn.RunEvent(() => said.Add(name));
             }
@@ -63,9 +65,10 @@ public sealed class SessionTurnTests
         var said = new List<string>();
         turn.Enter();
 
-        var raised = Raise(turn, said, "click");
-        await Task.Delay(100);
-        Assert.IsEmpty(said, "the program is busy, and takes no call");
+        var waits = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var raised = Raise(turn, said, "click", waits);
+        await waits.Task.WaitAsync(Patience);
+        Assert.IsEmpty(said, "the event waits, and the program is busy: it takes no call");
 
         turn.Exit();
         await raised.WaitAsync(Patience);
@@ -99,10 +102,11 @@ public sealed class SessionTurnTests
         var said = new List<string>();
         turn.Enter();
 
-        var raised = Raise(turn, said, "click");
+        var waits = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var raised = Raise(turn, said, "click", waits);
 
         // the event waits: the program is busy, and takes no call until it says so.
-        await Task.Delay(200);
+        await waits.Task.WaitAsync(Patience);
         Assert.IsEmpty(said);
 
         turn.Pump();

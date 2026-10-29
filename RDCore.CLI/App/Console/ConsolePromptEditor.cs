@@ -218,6 +218,12 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
     private static string ToColumn(int column) => $"\u001b[{column}G";
 
+    /// <summary>
+    /// How many characters the keys that move the cursor back have read, to find where the character before it starts: what such a key costs, which is a few
+    /// characters, and never the line from its start.
+    /// </summary>
+    internal long CharactersReadBack { get; private set; }
+
     // one line, as it is edited: its text and its cursor, the list that is open on it, and what of both is drawn.
     private sealed class Line(ConsolePromptEditor editor)
     {
@@ -870,6 +876,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 at += Math.Max(1, StringInfo.GetNextTextElementLength(text, at));
             }
 
+            editor.CharactersReadBack += _cursor - Math.Max(0, from);
             return _cursor - last;
         }
 
