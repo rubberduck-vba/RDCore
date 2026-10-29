@@ -476,8 +476,17 @@
   <data name="Host_Edit_Applies" xml:space="preserve">
     <value>appliqué</value>
   </data>
-  <data name="Host_Edit_BodyOfAnActiveProcedure" xml:space="preserve">
-    <value>le code d'une procédure où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>
+  <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
+    <value>l'Option Base d'un module dont les tableaux détiennent des valeurs</value>
+  </data>
+  <data name="Host_Edit_CallOfAnActiveProcedure" xml:space="preserve">
+    <value>l'appel qu'une procédure où se trouve le programme est en train de faire</value>
+  </data>
+  <data name="Host_Edit_BlockOfAnActiveProcedure" xml:space="preserve">
+    <value>l'ouverture d'un bloc ou d'un GoSub où se trouve le programme</value>
+  </data>
+  <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
+    <value>le gestionnaire d'erreurs d'une procédure où se trouve le programme, ou l'instruction où son erreur a été levée</value>
   </data>
   <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
     <value>une variable locale ajoutée à une procédure où se trouve le programme, ou retirée, ce qui n'est pas encore appliqué à un programme en attente</value>
@@ -500,8 +509,8 @@
   <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
     <value>le code ne compile pas : {0}</value>
   </data>
-  <data name="Host_Edit_LinesOfAnActiveProcedure" xml:space="preserve">
-    <value>les lignes d'une procédure où se trouve le programme ont bougé, ce qui n'est pas encore appliqué à un programme en attente</value>
+  <data name="Host_Edit_HeaderOfAnActiveProcedure" xml:space="preserve">
+    <value>le code d'une procédure où se trouve le programme, au milieu d'un appel que fait sa condition ou l'en-tête de son bloc, ce qui n'est pas encore appliqué à un programme en attente</value>
   </data>
   <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
     <value>une option du module où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>

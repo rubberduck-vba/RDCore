@@ -390,9 +390,24 @@ namespace RDCore.CLI {
         public static string Host_Edit_Applies => ResourceManager.GetString("Host_Edit_Applies", resourceCulture)!;
 
         /// <summary>
-        ///   Looks up a localized string similar to the code of a procedure the program is in, which is not applied to a program that waits yet.
+        ///   Looks up a localized string similar to the Option Base of a module whose arrays hold values.
         /// </summary>
-        public static string Host_Edit_BodyOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_BodyOfAnActiveProcedure", resourceCulture)!;
+        public static string Host_Edit_OptionBaseOfStoredArrays => ResourceManager.GetString("Host_Edit_OptionBaseOfStoredArrays", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the call a procedure the program is in is in the middle of.
+        /// </summary>
+        public static string Host_Edit_CallOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_CallOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the opening of a block or a GoSub the program is in.
+        /// </summary>
+        public static string Host_Edit_BlockOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_BlockOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the error handler of a procedure the program is in, or the statement its error was raised at.
+        /// </summary>
+        public static string Host_Edit_HandlerOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_HandlerOfAnActiveProcedure", resourceCulture)!;
 
         /// <summary>
         ///   Looks up a localized string similar to a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet.
@@ -430,9 +445,9 @@ namespace RDCore.CLI {
         public static string Host_Edit_DoesNotCompile => ResourceManager.GetString("Host_Edit_DoesNotCompile", resourceCulture)!;
 
         /// <summary>
-        ///   Looks up a localized string similar to the lines of a procedure the program is in moved, which is not applied to a program that waits yet.
+        ///   Looks up a localized string similar to the code of a procedure the program is in, in the middle of a call its condition or the header of its block makes, which is not applied to a program that waits yet.
         /// </summary>
-        public static string Host_Edit_LinesOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LinesOfAnActiveProcedure", resourceCulture)!;
+        public static string Host_Edit_HeaderOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_HeaderOfAnActiveProcedure", resourceCulture)!;
 
         /// <summary>
         ///   Looks up a localized string similar to an option of the module the program is in, which is not applied to a program that waits yet.

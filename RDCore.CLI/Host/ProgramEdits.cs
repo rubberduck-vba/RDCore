@@ -1,13 +1,14 @@
 using System.Collections.Immutable;
-using System.Text.RegularExpressions;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Instructions;
 using RDCore.Symbols;
 
 namespace RDCore.CLI.Host;
@@ -55,7 +56,7 @@ internal sealed class ProgramEdits
         ImmutableArray<LocalDescriptor> Locals, bool InClass, Uri Module, SourceRange Range);
 
     // what a module says of itself, apart from its members: its options, and what a class implements and raises.
-    private sealed record class ModuleText(string Options, string? Interface);
+    private sealed record class ModuleText(string Options, string? Interface, int Base);
 
     private ProgramEdits(ImmutableDictionary<string, string> bodies, ImmutableDictionary<string, Declaration> declarations,
         ImmutableDictionary<string, string> procedures, ImmutableDictionary<string, ModuleText> modules, ImmutableHashSet<string> active)
@@ -124,8 +125,9 @@ internal sealed class ProgramEdits
             }
         }
 
-        // what the code of the frames reads: a constant folded into it keeps the value it had when the activation began.
-        var framesRead = frames.Select(frame => frame.Body is { } body ? string.Concat(body.Items.Select(item => item.Node is { } node ? NodeText(node) : string.Empty)) : string.Empty).ToList();
+        // the names the code of each frame reads: a constant folded into it keeps the value it had when the activation began. A name its procedure declares
+        // for itself - a parameter, a local - is not the module's.
+        var framesRead = frames.Select(frame => ReadBy(frame, suspended)).ToList();
 
         foreach (var key in suspended._declarations.Keys.Union(now._declarations.Keys))
         {
@@ -139,13 +141,27 @@ internal sealed class ProgramEdits
             edits.Add(Classify(before, after, activeDeclarations.Contains(key), declaredAtAStop.GetValueOrDefault(key) ?? [], suspended, now, activeDeclarations, framesRead));
         }
 
-        // a procedure the program is in whose lines moved: where it goes on, and where its breakpoints are, are lines of the code it began with.
-        foreach (var key in activeDeclarations)
+        // a procedure the program is in, whose code was edited or whose lines moved: each of its activations goes on in the edited body from where it is,
+        // unless where it is was edited.
+        foreach (var (frame, body, alignment, waits) in Rebasings(session, image))
         {
-            if (suspended._declarations.GetValueOrDefault(key) is { } before && now._declarations.GetValueOrDefault(key) is { } after
-                && before.Range.Start.Line != after.Range.Start.Line && !edits.Any(edit => edit.Name == after.Name && edit.Kind is not ProgramEditKind.Applies))
+            if (frame.WhyNotRebased(body, alignment, waits) is not { } refusal)
             {
-                edits.Add(new ProgramEdit(after.Name, ProgramEditKind.NotYet, Resources.Host_Edit_LinesOfAnActiveProcedure, after.Module, after.Range));
+                continue;
+            }
+
+            var declared = now._procedures.GetValueOrDefault(frame.Procedure!.SemanticId.ToString()) is { } key ? now._declarations.GetValueOrDefault(key) : null;
+            var name = declared?.Name ?? NameOfProcedure(frame.Procedure.SemanticId.ToString());
+            if (!edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
+            {
+                var (kind, reason) = refusal switch
+                {
+                    FrameRebaseRefusal.CallChanged => (ProgramEditKind.Restart, Resources.Host_Edit_CallOfAnActiveProcedure),
+                    FrameRebaseRefusal.InTheMiddleOfAHeader => (ProgramEditKind.NotYet, Resources.Host_Edit_HeaderOfAnActiveProcedure),
+                    FrameRebaseRefusal.BlockChanged => (ProgramEditKind.Restart, Resources.Host_Edit_BlockOfAnActiveProcedure),
+                    _ => (ProgramEditKind.Restart, Resources.Host_Edit_HandlerOfAnActiveProcedure),
+                };
+                edits.Add(new ProgramEdit(name, kind, reason, declared?.Module, declared?.Range));
             }
         }
 
@@ -164,23 +180,28 @@ internal sealed class ProgramEdits
             }
             else
             {
+                // an array the module holds that was declared with no lower bound has the one the Option Base it was declared under gave it.
                 var inIt = activeDeclarations.Any(key => key.StartsWith(module + "|", StringComparison.Ordinal));
-                edits.Add(new ProgramEdit(NameOf(module), inIt ? ProgramEditKind.NotYet : ProgramEditKind.Applies,
-                    inIt ? Resources.Host_Edit_OptionOfAnActiveModule : Resources.Host_Edit_Applies, new Uri(module)));
+                var (kind, reason) = inIt ? (ProgramEditKind.NotYet, Resources.Host_Edit_OptionOfAnActiveModule)
+                    : current.Base != text.Base && HoldsArraysOfItsBase(suspended, module) ? (ProgramEditKind.Restart, Resources.Host_Edit_OptionBaseOfStoredArrays)
+                    : (ProgramEditKind.Applies, Resources.Host_Edit_Applies);
+                edits.Add(new ProgramEdit(NameOf(module), kind, reason, new Uri(module)));
             }
         }
 
-        // a body changed, or gone, under the same declaration: read at its next call, unless the program is in it.
+        // a body changed, or gone, under the same declaration: read at its next call. One the program is in that is still loaded is its activations' to go
+        // on in, above; one that is gone has no code for them to go on in.
         foreach (var (procedure, fingerprint) in suspended._bodies)
         {
             var inIt = suspended._active.Contains(procedure);
-            var changed = now._bodies.TryGetValue(procedure, out var current) ? current != fingerprint : inIt;
+            var gone = !now._bodies.TryGetValue(procedure, out var current);
             var declared = now._procedures.GetValueOrDefault(procedure) is { } key ? now._declarations.GetValueOrDefault(key) : null;
             var name = declared?.Name ?? NameOfProcedure(procedure);
-            if (changed && !edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
+            if ((gone ? inIt : !inIt && current != fingerprint) && !edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
             {
-                edits.Add(new ProgramEdit(name, inIt ? ProgramEditKind.NotYet : ProgramEditKind.Applies,
-                    inIt ? Resources.Host_Edit_BodyOfAnActiveProcedure : Resources.Host_Edit_Applies, declared?.Module, declared?.Range));
+                edits.Add(gone
+                    ? new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_SignatureOfAnActiveProcedure, declared?.Module, declared?.Range)
+                    : new ProgramEdit(name, ProgramEditKind.Applies, Resources.Host_Edit_Applies, declared?.Module, declared?.Range));
             }
         }
 
@@ -198,9 +219,58 @@ internal sealed class ProgramEdits
         return edits;
     }
 
+    /// <summary>
+    /// Moves each activation of a procedure whose body was edited, or loaded again, into its body as it now is: what resuming the program, stepping it or
+    /// moving its point of execution does first, once nothing edited is refused (<see cref="Since"/>).
+    /// </summary>
+    public static void Rebase(IRuntimeSession session, ProgramImage image)
+    {
+        foreach (var (frame, body, alignment, waits) in Rebasings(session, image).ToList())
+        {
+            _ = frame.TryRebase(body, alignment, waits);
+        }
+    }
+
+    // the activations whose procedure's body is not the one they run - edited, or its module loaded again - each with that body, how the two align, and
+    // whether it is the activation the program waits in.
+    private static IEnumerable<(CallStackFrame Frame, InstructionList Body, InstructionAlignment Alignment, bool Waits)> Rebasings(IRuntimeSession session, ProgramImage image)
+    {
+        var current = session.CallStack.Current;
+        foreach (var frame in session.CallStack.Frames.OfType<CallStackFrame>())
+        {
+            if (frame is { Procedure: { } procedure, Body: { } body } && image.TryGetValue(procedure.SemanticId, out var now) && !ReferenceEquals(now, body))
+            {
+                yield return (frame, now, InstructionAlignment.Of(body, now), ReferenceEquals(frame, current));
+            }
+        }
+    }
+
+    // whether the module holds a fixed-size array a dimension of which was declared with no lower bound: a module variable, or a Static of its procedures.
+    // A field of a Type is not one: Option Base does not apply to it.
+    private static bool HoldsArraysOfItsBase(ProgramEdits suspended, string module)
+    {
+        static bool Unbased(ArrayDescriptor? array) => array is { IsFixedSize: true } && array.Bounds.Any(bound => bound.Lower is null);
+
+        return suspended._declarations.Values.Where(declaration => declaration.Module.AbsoluteUri == module).Any(declaration
+            => (declaration.Kind == SymbolDescriptorKind.ModuleField && Unbased(declaration.Descriptor.Array))
+            || declaration.Locals.Any(local => local.IsStatic && Unbased(local.Array)));
+    }
+
+    private static IReadOnlySet<string> ReadBy(CallStackFrame frame, ProgramEdits suspended)
+    {
+        var read = new HashSet<string>(frame.Body is { } body ? body.Items.Select(item => item.Node).OfType<SyntaxNode>().SelectMany(NamesIn) : [], StringComparer.OrdinalIgnoreCase);
+        if (suspended._procedures.GetValueOrDefault(frame.Procedure!.SemanticId.ToString()) is { } key && suspended._declarations.GetValueOrDefault(key) is { } declared)
+        {
+            read.ExceptWith(declared.Descriptor.Parameters.Select(parameter => parameter.Name));
+            read.ExceptWith(declared.Locals.Select(local => local.Name));
+        }
+
+        return read;
+    }
+
     // what an edited declaration is to the program.
     private static ProgramEdit Classify(Declaration? before, Declaration? after, bool active, IReadOnlySet<string> declaredAtAStop, ProgramEdits suspended,
-        ProgramEdits now, IReadOnlySet<string> activeDeclarations, IReadOnlyList<string> framesRead)
+        ProgramEdits now, IReadOnlySet<string> activeDeclarations, IReadOnlyList<IReadOnlySet<string>> framesRead)
     {
         var name = (after ?? before)!.Name;
         var kind = (after ?? before)!.Kind;
@@ -287,35 +357,75 @@ internal sealed class ProgramEdits
 
     // a constant, or the members of an Enum, given other values.
     private static ProgramEdit Revalued(Declaration before, Declaration after, Func<ProgramEditKind, string, ProgramEdit> edit, ProgramEdits suspended,
-        IReadOnlySet<string> activeDeclarations, IReadOnlyList<string> framesRead)
+        IReadOnlySet<string> activeDeclarations, IReadOnlyList<IReadOnlySet<string>> framesRead)
     {
-        // the names whose value changed: the constant's, or each member of the Enum whose text is not what it was.
-        var names = before.Kind == SymbolDescriptorKind.Enum
-            ? before.Descriptor.Members.Where(member => !after.Descriptor.Members.Any(other => Text(other) == Text(member))).Select(member => member.Name).ToList()
-            : [before.Descriptor.Name];
-        bool Names(string text) => names.Any(name => Regex.IsMatch(text, $"\"{Regex.Escape(name)}\"", RegexOptions.IgnoreCase));
+        // the names whose value changed: the constant's, or the members of the Enum from the first one edited on - one given no value of its own is one more
+        // than the member before it - and every constant written in terms of one of them, which changed with it.
+        var (old, edited) = (before.Descriptor.Members, after.Descriptor.Members);
+        var first = Enumerable.Range(0, Math.Max(old.Length, edited.Length))
+            .FirstOrDefault(index => index >= old.Length || index >= edited.Length || Text(old[index]) != Text(edited[index]), -1);
+        var names = ValuedWith(before.Kind == SymbolDescriptorKind.Enum
+            ? first < 0 ? [] : old.Skip(first).Concat(edited.Skip(first)).Select(member => member.Name)
+            : [before.Descriptor.Name], suspended);
 
-        // what sizes stored data: the bounds of a module variable's array, or of a Static's, or a field of a Type; a fixed-length String of them.
+        // what sizes stored data: the bounds of a module variable's array, or of a Static's, or a field of a Type; a fixed-length String of them; and the
+        // locals of a procedure the program is in.
         foreach (var declaration in suspended._declarations.Values)
         {
-            var stored = declaration.Kind is SymbolDescriptorKind.ModuleField or SymbolDescriptorKind.UserDefinedType
-                ? Sizes(declaration.Descriptor)
-                : string.Concat(declaration.Locals.Where(local => local.IsStatic || activeDeclarations.Contains(KeyOfDeclaration(declaration)))
-                    .Select(local => System.Text.Json.JsonSerializer.Serialize(new { local.Array, local.FixedLength }, SyntaxNodeJson.LocationFreeOptions)));
-            if (Names(stored))
+            var sizing = declaration.Kind is SymbolDescriptorKind.ModuleField or SymbolDescriptorKind.UserDefinedType
+                ? SizedWith(declaration.Descriptor)
+                : declaration.Locals.Where(local => local.IsStatic || activeDeclarations.Contains(KeyOfDeclaration(declaration))).SelectMany(local => SizedWith(local.Array, local.FixedLengthName));
+            if (sizing.Any(names.Contains))
             {
                 return edit(ProgramEditKind.Restart, Resources.Host_Edit_ValueThatSizesStoredData);
             }
         }
 
         // a frame's code was lowered with the value folded in: it goes on with the value it read.
-        return framesRead.Any(Names) ? edit(ProgramEditKind.NotYet, Resources.Host_Edit_ValueAnActiveProcedureRead) : edit(ProgramEditKind.Applies, Resources.Host_Edit_Applies);
+        return framesRead.Any(read => read.Overlaps(names))
+            ? edit(ProgramEditKind.NotYet, Resources.Host_Edit_ValueAnActiveProcedureRead)
+            : edit(ProgramEditKind.Applies, Resources.Host_Edit_Applies);
     }
 
-    // the bounds and fixed lengths a declaration and its fields are sized with, as text.
-    private static string Sizes(SymbolDescriptor descriptor)
-        => System.Text.Json.JsonSerializer.Serialize(new { descriptor.Array, descriptor.FixedLength }, SyntaxNodeJson.LocationFreeOptions)
-            + string.Concat(descriptor.Members.Select(Sizes));
+    // the names of the constants given, and of every constant whose value is written in terms of one of them, however indirectly: Const M = N + 1 has another
+    // value when N has. A name is a name in any module: a constant of another module that shares it is taken as changed too, which refuses, and never runs
+    // a program on a value it did not get.
+    private static HashSet<string> ValuedWith(IEnumerable<string> changed, ProgramEdits suspended)
+    {
+        var names = new HashSet<string>(changed, StringComparer.OrdinalIgnoreCase);
+        var constants = suspended._declarations.Values.SelectMany(declaration => declaration.Kind switch
+        {
+            SymbolDescriptorKind.Enum => declaration.Descriptor.Members.Select(member => (member.Name, Value: member.EnumValue?.BaseValue)),
+            _ => declaration.Descriptor.Constants.Select(constant => (constant.Name, constant.Value)),
+        }).Where(constant => constant.Value is not null).Select(constant => (constant.Name, Reads: NamesIn(constant.Value!).ToList())).ToList();
+
+        for (var grew = true; grew;)
+        {
+            grew = false;
+            foreach (var (name, reads) in constants)
+            {
+                if (!names.Contains(name) && reads.Any(names.Contains))
+                {
+                    grew = names.Add(name);
+                }
+            }
+        }
+
+        return names;
+    }
+
+    // the names a declaration and its fields are sized with: those its array bounds are written in terms of, and the constant a fixed-length String of
+    // them is the length of.
+    private static IEnumerable<string> SizedWith(SymbolDescriptor descriptor)
+        => SizedWith(descriptor.Array, descriptor.FixedLengthName).Concat(descriptor.Members.SelectMany(SizedWith));
+
+    private static IEnumerable<string> SizedWith(ArrayDescriptor? array, string? fixedLengthName)
+        => (array?.Bounds ?? []).SelectMany(bound => new[] { bound.Lower, bound.Upper }).OfType<ExpressionNode>().SelectMany(NamesIn)
+            .Concat(fixedLengthName is { } name ? [name] : []);
+
+    // the names an expression or a statement refers to by name: not a string that spells one, nor the member of an object that has one.
+    private static IEnumerable<string> NamesIn(SyntaxNode node)
+        => node.Descendants().Prepend(node).OfType<SimpleNameExpressionNode>().Select(name => name.IdentifierName);
 
     private static string KeyOfDeclaration(Declaration declaration) => $"{declaration.Module.AbsoluteUri}|{declaration.Kind}|{declaration.Descriptor.Name.ToUpperInvariant()}";
 
@@ -332,7 +442,7 @@ internal sealed class ProgramEdits
     private static ModuleText TextOf(VBModuleSymbol module)
         => new($"{module.Directives}", module is VBClassModuleSymbol type
             ? $"{string.Join(',', type.ImplementedInterfaceNames)}|{string.Join(',', type.Events.Select(@event => @event.Name))}"
-            : null);
+            : null, module.Directives.Base);
 
     // what a declaration says, wherever it is written: a blank line above it, or a comment, leaves it as it was, and so does where else it is written (its
     // Definitions: a name declared implicitly by each statement that uses it, or once in each branch of a #If block).
@@ -344,5 +454,4 @@ internal sealed class ProgramEdits
 
     private static string Text(ConstantDescriptor constant) => System.Text.Json.JsonSerializer.Serialize(constant, SyntaxNodeJson.LocationFreeOptions);
 
-    private static string NodeText(SyntaxNode node) => System.Text.Json.JsonSerializer.Serialize<SyntaxNode>(node, SyntaxNodeJson.LocationFreeOptions);
 }

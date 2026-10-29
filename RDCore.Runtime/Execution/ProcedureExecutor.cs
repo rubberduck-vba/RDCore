@@ -278,8 +278,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     {
         var activation = (CallStackFrame)frame;
 
-        while (activation.Pc < list.Items.Length)
+        // an activation that runs its procedure's body goes on in the edited body it is moved into while the program waits (CallStackFrame.TryRebase): after
+        // it waited, and after a call it was in the middle of returns. Code run in it that is not its body - a statement typed at the break - is not moved.
+        var follows = ReferenceEquals(activation.Body, list);
+
+        while (activation.Pc < list.Items.Length || (follows && !ReferenceEquals(activation.Body, list)))
         {
+            if (follows && !ReferenceEquals(activation.Body, list))
+            {
+                list = activation.Body!;
+                continue;
+            }
+
             // the instruction before this one is over: what its expressions made is let go of, and so is what a block the program is no longer in
             // held - a With's target, a For Each's enumerator - after its End With or its Next, or a jump out of it.
             ObjectReferences.ReleaseTemporaries(session, temporaries);
@@ -321,8 +331,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return RuntimeExecutionOutcome.Break;
                 }
 
-                // waiting before the instruction, the program counter is where the program goes on from, moved or not.
+                // waiting before the instruction, the program counter is where the program goes on from, moved or not - and in the body it was edited into.
                 _ = activation.TakeMove();
+                if (follows && !ReferenceEquals(activation.Body, list))
+                {
+                    list = activation.Body!;
+                }
+
                 if (activation.Pc >= list.Items.Length)
                 {
                     continue;
@@ -349,6 +364,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 }
 
                 _ = activation.TakeMove();
+                if (follows && !ReferenceEquals(activation.Body, list))
+                {
+                    list = activation.Body!;
+                }
+
                 if (activation.Pc >= list.Items.Length)
                 {
                     continue;
@@ -371,11 +391,19 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             {
                 case InstructionKind.Simple:
                     var outcome = statements.Execute(session, instructionContext, instruction.Node!);
+
+                    // a call the statement made returned into the edited body of this procedure: the statement is the one that made the call, where it now is.
+                    if (follows && !ReferenceEquals(activation.Body, list))
+                    {
+                        list = activation.Body!;
+                        instruction = list.Items[activation.Pc];
+                    }
+
                     if (outcome.Kind != RuntimeExecutionOutcomeKind.Next)
                     {
                         // the statement has completed, and what it reports is that the program is to stop after it: a program that can be resumed waits here, between
                         // this instruction and the next, and goes on from the next.
-                        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break && session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation))
+                        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break && WaitAfter(session, activation, instruction))
                         {
                             // the program counter may have been moved while the program waited, and then it goes on from where it was moved to.
                             if (!activation.TakeMove())
@@ -575,7 +603,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return RuntimeExecutionOutcome.Halt;
 
                 case InstructionKind.Break:
-                    if (session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation))
+                    if (WaitAfter(session, activation, instruction))
                     {
                         if (!activation.TakeMove())
                         {
@@ -597,6 +625,20 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // the end of the body" is the same outcome as an explicit Exit.
         ClearHandledError(session, activation);
         return RuntimeExecutionOutcome.ExitProcedure;
+    }
+
+    // waits after the instruction, which has run: unless the program is moved while it waits, it goes on from the instruction after it.
+    private static bool WaitAfter(IRuntimeSession session, CallStackFrame activation, Instruction instruction)
+    {
+        activation.WaitsAfterPc = true;
+        try
+        {
+            return session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation);
+        }
+        finally
+        {
+            activation.WaitsAfterPc = false;
+        }
     }
 
     // MS-VBAL §6.1.3.2.1: Exit Sub, Exit Function and Exit Property clear Err. In MS-VBA, reaching the end of the body does too, and either does only from

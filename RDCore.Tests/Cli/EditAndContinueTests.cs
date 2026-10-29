@@ -15,8 +15,6 @@ namespace RDCore.Tests.Cli;
 [TestCategory("Edit and continue")]
 public sealed class EditAndContinueTests
 {
-    private const string LinesMoved = "the lines of a procedure the program is in, moved by an edit above it, are not followed yet";
-
     private static readonly string Class = ModuleWorkspace.ClassModule("C",
         "Option Explicit",
         "Private mValue As Long",
@@ -208,9 +206,8 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(other is null ? AsItWas : OtherPrints(other), Output(resumed));
     }
 
-    // declarations added at the top of the module, above the procedures the program is in, and used: applied once the lines of an active procedure follow the edit.
+    // declarations added at the top of the module, above the procedures the program is in, and used: the procedures the program is in go on where they now are.
     [TestMethod]
-    [Ignore(LinesMoved)]
     [DataRow(new[] { "Program|InsertAfter|Public H As Long|Public J As Long", "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:j=\" & J" }, new[] { "other:j=0" },
         DisplayName = "a Public module variable added, and read")]
     [DataRow(new[] { "Program|Delete|Public H As Long" }, null, DisplayName = "a module variable nothing uses removed")]
@@ -251,10 +248,8 @@ public sealed class EditAndContinueTests
     [DataRow(new[] { "Program|InsertBefore|Private Declare PtrSafe|Option Compare Text" }, "an option of the module the program is in",
         DisplayName = "an Option added to the module the program is in")]
     [DataRow(new[] { "Program|InsertAfter|    X As Long|    Z As Long" }, "a field added to a Type", DisplayName = "a field added to a Type a local holds")]
-    [DataRow(new[] { "Program|Replace|a = a + 1|    a = a + 5" }, "the code of a procedure the program is in", DisplayName = "the code of the procedure the program is in")]
-    [DataRow(new[] { "Program|Replace|    Callee 5|    Callee 6" }, "the code of a procedure the program is in", DisplayName = "the call a caller is in the middle of")]
-    [DataRow(new[] { "Program|InsertAfter|Private Const K |Private Const K2 As Long = 2" }, "the lines of a procedure the program is in moved",
-        DisplayName = "a line added above the procedures the program is in")]
+    [DataRow(new[] { "Program|Replace|    Callee 5|    Callee 6" }, "the call a procedure the program is in is in the middle of",
+        DisplayName = "the call a caller is in the middle of")]
     public async Task AnEditThatIsNotApplied_IsRefused_AndTheProgramStillWaits(string[] edits, string reason)
     {
         var resumed = await EditedAtTheStopAsync(edits);
@@ -264,7 +259,7 @@ public sealed class EditAndContinueTests
     }
 
     [TestMethod]
-    public async Task AnEditOfAPropertyLetTheProgramIsIn_IsSeenAsAnEditOfAProcedureTheProgramIsIn()
+    public async Task AnEditOfAPropertyLetTheProgramIsIn_IsApplied_ToTheLet()
     {
         // a Property Get, Let and Set share a name and are three procedures: the program waits in the Let.
         var program = Lines(
@@ -291,14 +286,12 @@ public sealed class EditAndContinueTests
             resumed = await Resume(provider);
         }, debug: true);
 
-        Assert.AreEqual(ExecutionOutcome.Refused, resumed!.Outcome, string.Join(" | ", resumed.Output));
-        StringAssert.Contains(resumed.ErrorMessage, "Value");
-        StringAssert.Contains(resumed.ErrorMessage, "the code of a procedure the program is in");
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "let:EDITED 5", "main:5" }, Output(resumed));
     }
 
-    // the edits of the procedures the program is in, and of their layout: applied once the program follows them. Each is what MS-VBA does with it.
+    // the edits of the procedures the program is in: each goes on in its edited code from where it is, as MS-VBA goes on.
     [TestMethod]
-    [Ignore("the code of a procedure the program is in is not applied to it yet")]
     [DataRow(new[] { "Program|Replace|a = 10|    a = 20" }, null, DisplayName = "a statement above the yellow line")]
     [DataRow(new[] { "Program|Replace|Debug.Print \"callee:after-stop|    Debug.Print \"callee:after-stop-EDITED a=\" & a" },
         new[] { "callee:after-stop-EDITED a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
@@ -314,6 +307,8 @@ public sealed class EditAndContinueTests
         new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after-EDITED G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
         DisplayName = "a statement of a caller, below its call")]
     [DataRow(new[] { "Program|Replace|Done:|Done2:", "Program|Replace|GoTo Done|    GoTo Done2" }, null, DisplayName = "a label renamed with its GoTo")]
+    [DataRow(new[] { "Program|InsertBefore|    Callee 5|    Debug.Print \"main:inserted\"" }, null,
+        DisplayName = "a line added to a caller above its call, which it does not run")]
     public async Task AnEditOfAProcedureTheProgramIsIn_IsApplied_AsMsVbaAppliesIt(string[] edits, string[]? expected)
     {
         var resumed = await EditedAtTheStopAsync(edits);
@@ -335,6 +330,363 @@ public sealed class EditAndContinueTests
 
         Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
         CollectionAssert.AreEqual(expected ?? AsItWas, Output(resumed));
+    }
+
+    // a program of one module run to its Stop, edited into another, and resumed.
+    private static async Task<ExecuteSessionResult> ProgramEditedAtItsStopAsync(string program, string edited)
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        return resumed!;
+    }
+
+    private static readonly string InALoop = Lines(
+        "Option Explicit",
+        "Public Sub Main()",
+        "    Dim i As Long",
+        "    For i = 1 To 2",
+        "        Debug.Print \"loop:\" & i",
+        "        If i = 1 Then Stop",
+        "    Next",
+        "    Debug.Print \"main:end\"",
+        "End Sub");
+
+    [TestMethod]
+    public async Task AnEditInsideTheLoopTheProgramIsIn_IsApplied_AndTheLoopGoesOn()
+    {
+        var resumed = await ProgramEditedAtItsStopAsync(InALoop, InALoop.Replace("\"loop:\" & i", "\"edited:\" & i", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "edited:2", "main:end" }, Output(resumed));
+    }
+
+    [TestMethod]
+    public async Task AnEditOfTheOpeningOfTheLoopTheProgramIsIn_IsRefused()
+    {
+        var resumed = await ProgramEditedAtItsStopAsync(InALoop, InALoop.Replace("For i = 1 To 2", "For i = 1 To 3", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "the opening of a block or a GoSub the program is in");
+    }
+
+    [TestMethod]
+    public async Task AnEditOfACallerInTheMiddleOfACallItsConditionMakes_IsRefusedForNow()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public Function Check() As Boolean",
+            "    Stop",
+            "    Check = True",
+            "End Function",
+            "Public Sub Main()",
+            "    If Check() Then Debug.Print \"checked\"",
+            "    Debug.Print \"main:end\"",
+            "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("\"main:end\"", "\"main:edited\"", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Program.Main");
+        StringAssert.Contains(resumed.ErrorMessage, "in the middle of a call its condition or the header of its block makes");
+    }
+
+    [TestMethod]
+    public async Task AnEditOfTheProcedureTheProgramIsIn_ThatIsOnTheStackTwice_IsAppliedToBoth()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub R(ByVal n As Long)",
+            "    If n = 0 Then Stop",
+            "    If n > 0 Then R n - 1",
+            "    Debug.Print \"r:\" & n",
+            "End Sub",
+            "Public Sub Main()",
+            "    R 1",
+            "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("\"r:\" & n", "\"edited:\" & n", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "edited:0", "edited:1" }, Output(resumed));
+    }
+
+    private static readonly string InAWith = Lines(
+        "Option Explicit",
+        "Public Sub Main()",
+        "    Dim c As New Collection",
+        "    With c",
+        "        .Add 1",
+        "        Stop",
+        "        .Add 2",
+        "        Debug.Print \"count=\" & .Count",
+        "    End With",
+        "End Sub");
+
+    [TestMethod]
+    public async Task AnEditInsideTheWithTheProgramIsIn_IsApplied_WithItsTarget()
+    {
+        var resumed = await ProgramEditedAtItsStopAsync(InAWith, InAWith.Replace("\"count=\" & .Count", "\"edited=\" & .Count", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "edited=2" }, Output(resumed));
+    }
+
+    [TestMethod]
+    public async Task AnEditOfTheTargetOfTheWithTheProgramIsIn_IsRefused()
+    {
+        var resumed = await ProgramEditedAtItsStopAsync(InAWith, InAWith.Replace("    With c", "    With New Collection", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "the opening of a block or a GoSub the program is in");
+    }
+
+    private static readonly string Handled = Lines(
+        "Option Explicit",
+        "Public Sub Main()",
+        "    On Error GoTo Handler",
+        "    Stop",
+        "    Err.Raise 5",
+        "    Exit Sub",
+        "Handler:",
+        "    Debug.Print \"handled \" & Err.Number",
+        "End Sub");
+
+    // the handler an On Error GoTo set is where its label now is: renamed with its On Error GoTo, it is the statement the label was on.
+    [TestMethod]
+    [DataRow("\"handled \" & Err.Number|\"edited \" & Err.Number", "edited 5", DisplayName = "the handler's code")]
+    [DataRow("GoTo Handler|GoTo Renamed", "handled 5", DisplayName = "the handler's label, renamed with its On Error GoTo")]
+    public async Task AnEditOfTheErrorHandlerOfTheProcedureTheProgramIsIn_IsApplied(string edit, string expected)
+    {
+        var (find, replace) = (edit.Split('|')[0], edit.Split('|')[1]);
+        var edited = Handled.Replace(find, replace, StringComparison.Ordinal);
+        if (find.StartsWith("GoTo", StringComparison.Ordinal))
+        {
+            edited = edited.Replace("Handler:", "Renamed:", StringComparison.Ordinal);
+        }
+
+        var resumed = await ProgramEditedAtItsStopAsync(Handled, edited);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, Output(resumed));
+    }
+
+    [TestMethod]
+    public async Task AnEditOfTheProcedureTheProgramIsIn_InAGoSub_ReturnsWhereTheGoSubNowIs()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            "    GoSub Inner",
+            "    Debug.Print \"back\"",
+            "    Exit Sub",
+            "Inner:",
+            "    Stop",
+            "    Debug.Print \"in\"",
+            "    Return",
+            "End Sub");
+        var edited = program.Replace("    GoSub Inner", "    Debug.Print \"above\"\r\n    GoSub Inner", StringComparison.Ordinal)
+            .Replace("\"back\"", "\"edited back\"", StringComparison.Ordinal);
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, edited);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "in", "edited back" }, Output(resumed));
+    }
+
+    // the program, and a module beside it, run to the program's Stop; the module edited into another, alone, as the language server sends it; and resumed.
+    private static async Task<ExecuteSessionResult> OtherModuleEditedAtTheStopAsync(string other, string edited, string program)
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", other)], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], ("Other", ModuleType.StdModule, edited), ("Program", ModuleType.StdModule, program));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        return resumed!;
+    }
+
+    [TestMethod]
+    public async Task AConstThatSizesAnArrayThroughAnotherConst_Revalued_IsRefused()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Private Const N As Long = 3",
+            "Private Const M As Long = N + 1",
+            "Private arr(1 To M) As Long",
+            "Public Sub Main()",
+            "    arr(4) = 7",
+            "    Stop",
+            "    Debug.Print UBound(arr)",
+            "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("N As Long = 3", "N As Long = 5", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "a constant that sizes what a variable holds");
+    }
+
+    [TestMethod]
+    public async Task AConstThatSizesAFixedLengthStringOfAnotherModule_Revalued_IsRefused()
+    {
+        var other = Lines("Option Explicit", "Public Const N As Long = 3");
+        var program = Lines(
+            "Option Explicit",
+            "Private s As String * N",
+            "Public Sub Main()",
+            "    s = \"abcdef\"",
+            "    Stop",
+            "    Debug.Print \"len=\" & Len(s) & \" N=\" & N",
+            "End Sub");
+
+        var resumed = await OtherModuleEditedAtTheStopAsync(other, other.Replace("= 3", "= 5", StringComparison.Ordinal), program);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "a constant that sizes what a variable holds");
+    }
+
+    // the name of a Const in a string, and a local of the same name, are no read of it: the procedure the program is in does not read the one revalued.
+    [TestMethod]
+    public async Task AConst_ThatTheProcedureTheProgramIsInOnlySpellsOrShadows_Revalued_IsApplied()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Private Const K As Long = 1",
+            "Public Sub Other()",
+            "    Debug.Print \"other k=\" & K",
+            "End Sub",
+            "Public Sub Main()",
+            "    Dim K As Long",
+            "    K = 5",
+            "    Stop",
+            "    Debug.Print \"K\" & K",
+            "    Other",
+            "End Sub");
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace("K As Long = 1", "K As Long = 2", StringComparison.Ordinal));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "K5", "other k=2" }, Output(resumed));
+    }
+
+    // an array declared with no lower bound has the one the Option Base of its module gave it; one made after the edit, the edited one.
+    [TestMethod]
+    [DataRow("Public arr(3) As Long", null, DisplayName = "a module that holds an array declared with no lower bound")]
+    [DataRow("Public Total As Long", "lb=1", DisplayName = "a module that holds none")]
+    public async Task OptionBase_OfAModuleTheProgramIsNotIn_Changed(string holds, string? expected)
+    {
+        var other = Lines(
+            "Option Explicit",
+            holds,
+            "Public Function Lb() As Long",
+            "    Dim a(3) As Long",
+            "    Lb = LBound(a)",
+            "End Function");
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print \"lb=\" & Other.Lb()",
+            "End Sub");
+
+        var resumed = await OtherModuleEditedAtTheStopAsync(other, other.Replace("Option Explicit", "Option Explicit\r\nOption Base 1", StringComparison.Ordinal), program);
+
+        if (expected is null)
+        {
+            Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+            StringAssert.Contains(resumed.ErrorMessage, "the Option Base of a module whose arrays hold values");
+        }
+        else
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { expected }, Output(resumed));
+        }
+    }
+
+    private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
+        => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams
+        {
+            ModuleName = "Program",
+            Breakpoints = [.. lines.Select(line => new HostBreakpointLine { Line = line })],
+        }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+
+    // what Visual Studio does: the program waits before the yellow line, and the line it waits before, edited, is the line it runs.
+    [TestMethod]
+    public async Task TheLineABreakpointWaitsBefore_Edited_RunsEdited()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim x As Long",
+            "    Stop",
+            "    x = 1",
+            "    Debug.Print \"x=\" & x",
+            "End Sub");
+        ExecuteSessionResult? hit = null, resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            _ = await SetBreakpoints(provider, 4);
+            hit = await Resume(provider);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, program.Replace("x = 1", "x = 2", StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual((ExecutionOutcome.Suspended, 4), (hit!.Outcome, hit.ErrorLine), hit.ErrorMessage);
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "x=2" }, Output(resumed));
+    }
+
+    // a client sends the breakpoints of the module again with its edit, at the lines they are now on.
+    [TestMethod]
+    public async Task ABreakpoint_OnALineAnEditMoved_IsWaitedAtWhereTheLineNowIs()
+    {
+        var edited = Edited(Program, ["Program|InsertAfter|Private Const K |Private Const K2 As Long = 2"], "Program");
+        var done = edited.Split("\r\n").ToList().FindIndex(line => line.Contains("Debug.Print \"callee:done", StringComparison.Ordinal));
+        ExecuteSessionResult? hit = null, resumed = null;
+        await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
+        {
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, edited));
+            _ = await SetBreakpoints(provider, done);
+            hit = await Resume(provider);
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual((ExecutionOutcome.Suspended, done), (hit!.Outcome, hit.ErrorLine), hit.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "callee:after-stop a=10" }, Output(hit));
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(AsItWas[1..], Output(resumed));
+    }
+
+    // an edit that changes no code of the procedure, only where its lines are, is followed as any other.
+    [TestMethod]
+    [DataRow("Program|InsertAfter|Private Const K |Private Const K2 As Long = 2", DisplayName = "a declaration added above the procedure the program is in")]
+    [DataRow("Program|InsertBefore|    Stop|    ' a comment above the yellow line", DisplayName = "a comment added inside the procedure the program is in")]
+    public async Task AGoto_AfterTheLinesOfTheProcedureTheProgramIsInMoved_IsALineOfTheEditedCode(string edit)
+    {
+        var edited = Edited(Program, [edit], "Program");
+        var done = edited.Split("\r\n").ToList().FindIndex(line => line.Contains("Debug.Print \"callee:done", StringComparison.Ordinal));
+        HostDebugGotoResult? moved = null;
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, edited));
+            moved = provider.Execution.Goto(done, null);
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.IsTrue(moved!.Moved, moved.Reason);
+        Assert.AreEqual(done, moved.Line);
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        string[] expected = ["callee:done a=10 S=1 G=2 E1=1", .. AsItWas[2..]];
+        CollectionAssert.AreEqual(expected, Output(resumed));
     }
 
     // what a client asks after each edit it sends, to mark it as it is made: only what is not applied, each with what it is, why, and where it now is.

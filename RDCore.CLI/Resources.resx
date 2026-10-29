@@ -478,8 +478,17 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_Applies" xml:space="preserve">
     <value>applied</value>
   </data>
-  <data name="Host_Edit_BodyOfAnActiveProcedure" xml:space="preserve">
-    <value>the code of a procedure the program is in, which is not applied to a program that waits yet</value>
+  <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
+    <value>the Option Base of a module whose arrays hold values</value>
+  </data>
+  <data name="Host_Edit_CallOfAnActiveProcedure" xml:space="preserve">
+    <value>the call a procedure the program is in is in the middle of</value>
+  </data>
+  <data name="Host_Edit_BlockOfAnActiveProcedure" xml:space="preserve">
+    <value>the opening of a block or a GoSub the program is in</value>
+  </data>
+  <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
+    <value>the error handler of a procedure the program is in, or the statement its error was raised at</value>
   </data>
   <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
     <value>a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet</value>
@@ -502,8 +511,8 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
     <value>the code does not compile: {0}</value>
   </data>
-  <data name="Host_Edit_LinesOfAnActiveProcedure" xml:space="preserve">
-    <value>the lines of a procedure the program is in moved, which is not applied to a program that waits yet</value>
+  <data name="Host_Edit_HeaderOfAnActiveProcedure" xml:space="preserve">
+    <value>the code of a procedure the program is in, in the middle of a call its condition or the header of its block makes, which is not applied to a program that waits yet</value>
   </data>
   <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
     <value>an option of the module the program is in, which is not applied to a program that waits yet</value>

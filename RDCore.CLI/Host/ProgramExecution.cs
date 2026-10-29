@@ -199,6 +199,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                 return Refused(string.Format(Resources.Host_ChangedWhileWaiting_Resume, string.Join(", ", changed)));
             }
 
+            GoOnInTheEditedCode();
             (execution, _state) = (suspended, ProgramState.Running);
             _inspector.Forget();
             _output = NewSegmentOutput();
@@ -264,6 +265,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             {
                 return NotMoved(string.Format(Resources.Host_ChangedWhileWaiting_Goto, string.Join(", ", changed)));
             }
+
+            // the line to go on from is a line of the code as it is now.
+            GoOnInTheEditedCode();
 
             if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
             {
@@ -878,6 +882,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             : [.. ProgramEdits.Since(_suspendedWith, provider.Session, provider.Image)
                 .Where(edit => edit.Kind is not ProgramEditKind.Applies)
                 .Select(edit => $"{edit.Name} ({edit.Reason})")];
+
+    // the procedures the program is in go on in their code as it was edited, from where they are; what was edited is then what the program waits with.
+    private void GoOnInTheEditedCode()
+    {
+        if (_suspendedWith is null)
+        {
+            return;
+        }
+
+        ProgramEdits.Rebase(provider.Session, provider.Image);
+        _suspendedWith = ProgramEdits.Of(provider.Session, provider.Image);
+    }
 
     private static ExecuteSessionResult Refused(string reason) => new() { Outcome = ExecutionOutcome.Refused, ErrorMessage = reason };
 

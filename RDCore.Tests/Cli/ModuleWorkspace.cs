@@ -200,6 +200,18 @@ internal static class ModuleWorkspace
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
 
     /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
+    /// </summary>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
+    /// <param name="debug">Whether the program runs under a debugger.</param>
+    public static Task InspectWithModulesAsync(
+        IReadOnlyList<(string Name, string Source)> modules, string program,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, bool debug = false)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
+
+    /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, VBExecutionEngine engine)

@@ -65,7 +65,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// The body this activation runs: what <see cref="Pc"/> is an offset into. Not replaced by loading the module again, which is for the calls made after it - an
-    /// activation goes on with the code it started with.
+    /// activation goes on with the code it started with, unless it is moved into the edited body while the program waits (<see cref="TryRebase"/>).
     /// </summary>
     public InstructionList? Body { get; set; }
 
@@ -95,6 +95,146 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         var moved = _moved;
         _moved = false;
         return moved;
+    }
+
+    /// <summary>
+    /// Whether the activation waits after the instruction at <see cref="Pc"/>, which has run - a <c>Stop</c>, a failed <c>Debug.Assert</c> - and goes on
+    /// from the one after it; and not before it, as at a breakpoint or a step.
+    /// </summary>
+    public bool WaitsAfterPc { get; internal set; }
+
+    /// <summary>
+    /// Why the activation can't go on in <paramref name="body"/>, the edited body of its procedure, from where it is in <see cref="Body"/>; none when it can.
+    /// </summary>
+    /// <param name="body">The procedure's body, as it was edited.</param>
+    /// <param name="alignment">The instructions of <see cref="Body"/> that <paramref name="body"/> has as they were.</param>
+    /// <param name="waits">
+    /// Whether this is the activation the program waits in. Any other is in the middle of the call the instruction at its <see cref="Pc"/> makes.
+    /// </param>
+    public FrameRebaseRefusal? WhyNotRebased(InstructionList body, InstructionAlignment alignment, bool waits)
+        => Rebased(body, alignment, waits, out _);
+
+    /// <summary>
+    /// Goes on in <paramref name="body"/>, the edited body of its procedure, from where the activation is in <see cref="Body"/>: its program counter, and
+    /// what it holds of the blocks, the loops, the <c>GoSub</c>s and the error handler it is in, are moved to where they now are.
+    /// </summary>
+    /// <param name="body">The procedure's body, as it was edited.</param>
+    /// <param name="alignment">The instructions of <see cref="Body"/> that <paramref name="body"/> has as they were.</param>
+    /// <param name="waits">Whether this is the activation the program waits in.</param>
+    /// <returns>Whether it goes on in <paramref name="body"/>; when not, nothing of it was moved (<see cref="WhyNotRebased"/>).</returns>
+    /// <remarks>
+    /// Its variables are where they were: the edited body names them by the same identities, in the same slots, as long as the procedure's locals are
+    /// the ones it had.
+    /// </remarks>
+    public bool TryRebase(InstructionList body, InstructionAlignment alignment, bool waits)
+    {
+        if (Rebased(body, alignment, waits, out var rebased) is not null)
+        {
+            return false;
+        }
+
+        (Body, Pc, WaitedAt, ErrorHandler) = (body, rebased.Pc, rebased.WaitedAt, rebased.ErrorHandler);
+        _moved = rebased.Moved;
+        if (_occasional is { } occasional)
+        {
+            occasional.BlockState = Rekeyed(occasional.BlockState, rebased.Offsets);
+            occasional.SelectorPayloads = Rekeyed(occasional.SelectorPayloads, rebased.Offsets);
+            occasional.ForLoopState = Rekeyed(occasional.ForLoopState, rebased.Offsets);
+            occasional.ForEachState = Rekeyed(occasional.ForEachState, rebased.Offsets);
+            // a With's target is held until its End With, and has no end; any other block's is held until the program is past it.
+            occasional.BlockHolders = occasional.BlockHolders?.ToDictionary(holder => rebased.Offsets[holder.Key],
+                holder => (holder.Value.End is null ? null : body.Items[rebased.Offsets[holder.Key]].End, holder.Value.Cell));
+            if (occasional.GoSubReturns is { } returns)
+            {
+                // a stack enumerates from its top, and is pushed from its bottom.
+                occasional.GoSubReturns = new Stack<int>(returns.Select(offset => alignment[offset - 1]!.Value + 1).Reverse());
+            }
+        }
+
+        return true;
+    }
+
+    private static Dictionary<int, T>? Rekeyed<T>(Dictionary<int, T>? state, IReadOnlyDictionary<int, int> offsets)
+        => state?.ToDictionary(entry => offsets[entry.Key], entry => entry.Value);
+
+    private sealed record class Rebasing(int Pc, bool Moved, int WaitedAt, ErrorHandlerState ErrorHandler, IReadOnlyDictionary<int, int> Offsets);
+
+    private FrameRebaseRefusal? Rebased(InstructionList body, InstructionAlignment alignment, bool waits, [NotNullWhen(false)] out Rebasing? rebased)
+    {
+        rebased = null;
+        if (Body is not { } before)
+        {
+            return FrameRebaseRefusal.CallChanged;
+        }
+
+        // the activation the program waits in goes on from where it was moved to, or from after the instruction it stopped at, or from the one it waits
+        // before. Any other goes on from the call it is in the middle of, which must be as it was - and a call made by a statement, not by a condition or
+        // the header of a loop, which go on by their own offsets.
+        int pc;
+        if (waits)
+        {
+            pc = _moved || !WaitsAfterPc ? alignment.Before(Pc) : alignment.After(Pc);
+        }
+        else if (alignment[Pc] is not { } call)
+        {
+            return FrameRebaseRefusal.CallChanged;
+        }
+        else if (before.Items[Pc].Kind is not InstructionKind.Simple)
+        {
+            return FrameRebaseRefusal.InTheMiddleOfAHeader;
+        }
+        else
+        {
+            pc = call;
+        }
+
+        // what is kept by the offset of the block it is of - a With's target, a Select's value, a loop's state, what a block holds - is of a block whose
+        // opening is as it was.
+        var offsets = new Dictionary<int, int>();
+        if (_occasional is { } occasional)
+        {
+            IEnumerable<int> openers = [.. occasional.BlockState?.Keys ?? Enumerable.Empty<int>(), .. occasional.SelectorPayloads?.Keys ?? Enumerable.Empty<int>(),
+                .. occasional.ForLoopState?.Keys ?? Enumerable.Empty<int>(), .. occasional.ForEachState?.Keys ?? Enumerable.Empty<int>(),
+                .. occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>()];
+            foreach (var opener in openers)
+            {
+                if (alignment[opener] is not { } kept)
+                {
+                    return FrameRebaseRefusal.BlockChanged;
+                }
+
+                offsets[opener] = kept;
+            }
+
+            // a GoSub returns to the instruction after it, which is after the GoSub as it now is.
+            if (occasional.GoSubReturns is { } returns && returns.Any(offset => alignment[offset - 1] is null))
+            {
+                return FrameRebaseRefusal.BlockChanged;
+            }
+        }
+
+        // the handler of an On Error GoTo is its label, as it was named or where it was; where an error was raised is where its Resume goes back to.
+        int? Handler(int? offset)
+            => offset is not { } target ? null
+                : before.LabelAt(target) is { } label && body.TryGetLabelOffset(label, out var named) ? named
+                : alignment[target];
+        var handler = ErrorHandler;
+        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null)
+            || (handler.FaultStatementOffset is { } fault && alignment[fault] is null))
+        {
+            return FrameRebaseRefusal.HandlerChanged;
+        }
+
+        handler = handler with
+        {
+            HandlerTarget = Handler(handler.HandlerTarget),
+            HandlerEntry = Handler(handler.HandlerEntry),
+            FaultStatementOffset = handler.FaultStatementOffset is { } faulted ? alignment[faulted] : null,
+        };
+
+        var waitedAt = WaitedAt >= 0 && alignment[WaitedAt] is { } waited ? waited : -1;
+        rebased = new Rebasing(pc, waits, waitedAt, handler, offsets);
+        return null;
     }
 
     /// <inheritdoc/>
