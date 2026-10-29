@@ -643,8 +643,72 @@ public sealed class DocumentLifecycleServiceTests
         await EditedAsync(Declares.Replace("Debug.Print 1", edited));
 
         _refresh.DidNotReceive().Changed();
+        _refresh.DidNotReceive().ReferencesChanged();
         await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+    }
+
+    // a name typed in a body is no declaration: the others are not defined again, and only what is counted of their members' references is refreshed.
+    [TestMethod]
+    [DataRow("Debug.Print Bar", DisplayName = "a new name")]
+    [DataRow("Dim Local As Long", DisplayName = "a local declared")]
+    public async Task AChangeOfTheNamesABodyUses_DefinesNothingAgain_AndRefreshesTheCountsOfReferences(string edited)
+    {
+        await EditedAsync(Declares.Replace("Debug.Print 1", edited));
+
+        await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.Received(1).ReferencesChanged();
+        _refresh.DidNotReceive().Changed();
+    }
+
+    // a line typed, numbered, as in a program of the platform's BASIC: what nothing outside of the procedure can go to is no declaration.
+    [TestMethod]
+    public async Task ALineNumberedTypedInABody_DefinesNothingAgain_AndRefreshesTheCountsOfReferences()
+    {
+        const string Numbered = "Public Sub Main()\r\n10 Show\r\nEnd Sub\r\n";
+        _sut.Opened(Mod1, Numbered, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        _refresh.ClearReceivedCalls();
+        _symbols.ClearReceivedCalls();
+
+        _ = _sut.Changed(Mod1, 2, [Full(Numbered.Replace("10 Show\r\n", "10 Show\r\n20 Show\r\n"))]);
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.Received(1).ReferencesChanged();
+        _refresh.DidNotReceive().Changed();
+    }
+
+    // the others are defined against no one surface while they are defined again: a change of what the code refers to meanwhile defines them again itself,
+    // since what they were defined against is not known to be what the module declares.
+    [TestMethod]
+    public async Task AChangeOfTheNamesABodyUses_WhileTheOthersAreDefinedAgain_DefinesThemAgain()
+    {
+        var syncing = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        SyncingTheWorkspace(async call =>
+        {
+            if (call == 1)
+            {
+                syncing.TrySetResult();
+                await release.Task;
+            }
+        });
+        _refresh.ClearReceivedCalls();
+
+        _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
+        var declared = _sut.WhenRefreshedAsync(Mod1);
+        await syncing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _sut.Changed(Mod1, 3, [Full(Declares.Replace("Foo", "Bar").Replace("Debug.Print 1", "Debug.Print Baz"))]);
+        await _sut.WhenRefreshedAsync(Mod1);
+        release.SetResult();
+        await declared;
+
+        await _symbols.Received(2).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _refresh.DidNotReceive().ReferencesChanged();
     }
 
     // opened before the workspace was parsed: the workspace is defined with it when it is.

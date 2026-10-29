@@ -115,6 +115,48 @@ public sealed class WorkspaceRefreshTests
         Assert.AreEqual(0, clock.Pending, "and nothing more is to be asked");
     }
 
+    // what a module's code refers to is what its code lenses count, and nothing else of another module is of it.
+    [TestMethod]
+    public void AChangeOfWhatCodeRefersTo_AsksForTheCodeLensesAlone_AndLeavesTheGeneration()
+    {
+        var server = ServerFor(Refreshing());
+        using var refresh = new WorkspaceRefresh(TimeSpan.Zero);
+        refresh.Attach(server);
+        var before = refresh.Generation;
+
+        refresh.ReferencesChanged();
+
+        server.Received(1).SendRequest(WorkspaceRefresh.CodeLensRefresh);
+        foreach (var method in Methods.Where(method => method != WorkspaceRefresh.CodeLensRefresh))
+        {
+            server.DidNotReceive().SendRequest(method);
+        }
+
+        Assert.AreEqual(before, refresh.Generation, "the diagnostics of the other modules are what they were");
+    }
+
+    // a burst of both is asked for once, and for every refresh.
+    [TestMethod]
+    public void ABurstOfChangesOfBothKinds_AsksForEachRefreshOnce()
+    {
+        var server = ServerFor(Refreshing());
+        var clock = new ManualClock();
+        using var refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100), clock);
+        refresh.Attach(server);
+
+        refresh.ReferencesChanged();
+        refresh.Changed();
+        refresh.ReferencesChanged();
+        clock.Advance(TimeSpan.FromMilliseconds(100));
+
+        foreach (var method in Methods)
+        {
+            server.Received(1).SendRequest(method);
+        }
+
+        Assert.AreEqual(0, clock.Pending, "and nothing more is to be asked");
+    }
+
     // ---- over an actual connection: OmniSharp 0.19.9's own Send*Refresh write a notification, with no id ----
 
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-refresh-ws");

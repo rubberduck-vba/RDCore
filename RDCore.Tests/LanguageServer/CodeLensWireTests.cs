@@ -62,19 +62,25 @@ public sealed class CodeLensWireTests
 
     private static DocumentUri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName));
 
-    private static RenameService Workspace()
+    // the workspace of the two documents, the program's text as it is when the workspace is composed.
+    private static RenameService Workspace(Func<string>? programText = null)
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
         var helpers = new WorkspaceDocument("Helpers.bas", Root, Helpers, version: 1);
-        var program = new WorkspaceDocument("Main.rdc", Root, Program, version: 1);
-        documents.GetAllDocuments().Returns([helpers, program]);
-        foreach (var document in new[] { helpers, program })
+        var version = 0;
+        WorkspaceDocument Program() => new("Main.rdc", Root, programText?.Invoke() ?? CodeLensWireTests.Program, version: ++version);
+        documents.GetAllDocuments().Returns(_ => [helpers, Program()]);
+        foreach (var fileName in new[] { "Helpers.bas", "Main.rdc" })
         {
-            var uri = document.Id.Uri.ToUri();
+            var uri = new Uri(Path.Combine(Root, fileName));
             parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(document))));
+                .Returns(_ =>
+                {
+                    var document = fileName == "Main.rdc" ? Program() : helpers;
+                    return Task.FromResult(new ModuleParser().Parse(document.Id.Uri.ToUri(), ParsingClientService.ModuleSourceOf(document)));
+                });
         }
 
         var libraries = Substitute.For<IReferencedLibraryService>();
@@ -141,6 +147,23 @@ public sealed class CodeLensWireTests
         Assert.AreEqual(Document("Helpers.bas").ToString(), resolved[4].Command!.Arguments![0].Value<string>());
         Assert.AreEqual(14, resolved[4].Command!.Arguments![1].Value<int>("line"), "the position of the name");
         Assert.AreEqual(11, resolved[4].Command!.Arguments![1].Value<int>("character"));
+    }
+
+    // the count of a lens is found of the text as it is when the lens is resolved, whatever was composed before: a refresh of the client's lenses is all a
+    // change of what another module's code refers to needs (DocumentLifecycleServiceTests, ALineNumberedTypedInABody_DefinesNothingAgain_...).
+    [TestMethod]
+    public async Task TheCountOfALens_IsOfTheTextAsItIsWhenItIsResolved()
+    {
+        var program = "10 Show\r\n";
+        var workspace = Workspace(() => program);
+        var show = new Position(14, 11);
+
+        var before = (await workspace.ComposeAsync(CancellationToken.None))!.LensReferences(Document("Helpers.bas").ToUri(), show).Count;
+        program = "10 Show\r\n20 Show\r\n30 Show\r\n";
+        var after = (await workspace.ComposeAsync(CancellationToken.None))!.LensReferences(Document("Helpers.bas").ToUri(), show).Count;
+
+        Assert.AreEqual(1, before);
+        Assert.AreEqual(3, after);
     }
 
     [TestMethod]
