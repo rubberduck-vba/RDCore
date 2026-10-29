@@ -230,9 +230,21 @@ internal sealed class BenchRunner(
         var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References);
         IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, environment.Is64Bit).ProvideSymbols()];
         var scope = environment.Language.ImplicitDeclarationScope;
+
+        // what host document each document module is the code of, as the language server has it: its code names the members of its host's class, and
+        // they are not taken for variables it declares by naming them.
+        var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
+        foreach (var module in workspace.Modules)
+        {
+            if (workspace.Project.Modules.FirstOrDefault(entry => string.Equals(entry.RelativeUri, module.RelativePath, StringComparison.OrdinalIgnoreCase))?.Super is { } super)
+            {
+                hosts.TryAdd(module.Name, super);
+            }
+        }
+
         var resolver = WorkspaceSymbolResolver.Compose(
             root, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(environment.Is64Bit),
-            workspace.Project.Name, scope, librarySymbols);
+            workspace.Project.Name, scope, librarySymbols, hosts);
 
         // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).
         var define = new DefineSymbolsHandler(provider, messages, loggers.CreateLogger<DefineSymbolsHandler>());

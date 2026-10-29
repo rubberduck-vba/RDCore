@@ -57,6 +57,8 @@ public sealed class SymbolSyncServiceTests
         var document = new WorkspaceDocument("src/Mod1.bas", Root, "content") { Super = super };
         var documents = Substitute.For<IWorkspaceDocumentService>();
         documents.GetAllDocuments().Returns([document]);
+        documents.WorkspaceRoot.Returns(Root);
+        documents.TryGetDocument(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
 
         var parsing = Substitute.For<IParsingClientService>();
         parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
@@ -67,6 +69,16 @@ public sealed class SymbolSyncServiceTests
                     return false;
                 }
                 call[1] = cached;
+                return true;
+            });
+        parsing.TryGetCached(Arg.Any<Uri>(), Arg.Any<int>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                if (cached is null)
+                {
+                    return false;
+                }
+                call[2] = cached;
                 return true;
             });
 
@@ -438,20 +450,48 @@ public sealed class SymbolSyncServiceTests
             => Entries.Add((logLevel, formatter(state, exception)));
     }
 
+    private static int NotLoaded(RecordingLogger logger)
+        => logger.Entries.Count(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning && entry.Message.Contains("was not loaded"));
+
     [TestMethod]
     public async Task AModuleTheHostRefusesTheSameWay_EachTimeItIsSent_IsLoggedOnce()
     {
-        // an editor sends the module it edits at every keystroke: 1,027 identical warnings in one session, before.
+        // an editor sends the module it edits at every keystroke, and the host refuses it the same way each time.
         var logger = new RecordingLogger();
         var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
 
         for (var edit = 0; edit < 3; edit++)
         {
-            await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+            await sut.SyncDocumentAsync(new Uri(Path.Combine(Root, "src", "Mod1.bas")), CancellationToken.None);
         }
 
-        Assert.AreEqual(1, logger.Entries.Count(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning && entry.Message.Contains("was not loaded")),
-            string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+        Assert.AreEqual(1, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task AWorkspaceComposedAnew_SaysAgainWhatAModuleFailsWith()
+    {
+        // the host's session is another - the workspace was reloaded, or the host started again - and a failure it had been told of is news to whoever reads on.
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+        await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        Assert.AreEqual(2, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task AShellsProgram_AndAModuleOfTheWorkspaceOfTheSameName_AreEachKnownOnTheirOwn()
+    {
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await sut.LoadModuleCodeAsync("Mod1", Parse("Public Sub Foo()\r\nEnd Sub"), CancellationToken.None);
+
+        Assert.AreEqual(2, NotLoaded(logger), "the shell's program is not the workspace's module of its name: " + string.Join("\n", logger.Entries.Select(entry => entry.Message)));
     }
 
     [TestMethod]

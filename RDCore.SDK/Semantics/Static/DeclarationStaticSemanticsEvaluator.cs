@@ -325,7 +325,7 @@ public static class DeclarationStaticSemanticsEvaluator
             return;
         }
 
-        // a document module's objects are its host's to make, in its own project too: MS-VBA refuses `Dim s As New Sheet1` (oracle\s49 D07).
+        // a document module's objects are its host's to make, in its own project too: MS-VBA refuses `Dim s As New Sheet1`.
         if (type is VBClassType { Symbol.IsDocument: true } hosted)
         {
             errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, location,

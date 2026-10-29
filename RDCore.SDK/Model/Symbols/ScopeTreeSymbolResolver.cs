@@ -279,8 +279,6 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
-    // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
-    // tier has none, so the caller moves on to the next one.
     // the members of the host's class named so, when the lookup is from a document module (VBClassModuleSymbol.HostClass): its library's class is found by
     // its names, and its members are not the module's - no scope maps them.
     private SymbolResolutionResult? HostMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
@@ -301,6 +299,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
     }
 
+    // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
+    // tier has none, so the caller moves on to the next one.
     private static SymbolResolutionResult? SelectTier(LexicalScope lexicalScope, IEnumerable<Symbol> candidates)
     {
         var matches = candidates.ToArray();

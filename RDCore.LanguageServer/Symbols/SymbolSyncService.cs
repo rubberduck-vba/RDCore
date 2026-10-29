@@ -170,6 +170,10 @@ internal sealed class SymbolSyncService(
             // every module is defined before the code of any is loaded: nothing else is sent to the host in between, or what it would send is overwritten.
             await using var hold = await HoldAsync(token);
 
+            // the workspace is composed anew in the host - it was loaded, reloaded, or the host is another - and what each module's load fails with is
+            // reported again.
+            _loadFailures = new ModuleLoadFailures();
+
             if (host.PlatformInfo?.Provides<DefineSymbols>() != true)
             {
                 LogIfEnabled(LogLevel.Warning,
@@ -391,13 +395,15 @@ internal sealed class SymbolSyncService(
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
-        return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token);
+        return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token,
+            fromShell: true);
     }
 
     // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded - once for as long as
-    // it fails the same way, for the module is sent again at every edit of it (ModuleLoadFailures).
+    // it fails the same way, for the module is sent again at every edit of it (ModuleLoadFailures). A module is known by its address; a shell's program, which
+    // can be named as a module of the workspace is, by its own.
     private async Task SendModuleCodeAsync(
-        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult, CancellationToken token)
+        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult, CancellationToken token, bool fromShell = false)
     {
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams
@@ -412,7 +418,7 @@ internal sealed class SymbolSyncService(
                 CodeOnly = true,
             }, token);
 
-        switch (_loadFailures.Record(moduleName, result.CodeErrors))
+        switch (_loadFailures.Record((fromShell ? "shell " : string.Empty) + moduleUri.AbsoluteUri, result.CodeErrors))
         {
             case ModuleLoadChange.Failed:
                 foreach (var error in result.CodeErrors)
@@ -427,7 +433,8 @@ internal sealed class SymbolSyncService(
         }
     }
 
-    private readonly ModuleLoadFailures _loadFailures = new();
+    // what the loads of the workspace as it was last composed failed with.
+    private volatile ModuleLoadFailures _loadFailures = new();
 
     private void LogIfEnabled(LogLevel level, string message)
     {
