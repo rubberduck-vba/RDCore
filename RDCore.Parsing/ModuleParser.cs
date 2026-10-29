@@ -38,7 +38,11 @@ public interface IModuleParser
     /// ranges and syntax errors alike) is offset by this position, so a non-zero anchor is how a fragment
     /// of a larger document reports positions in that document's coordinates rather than its own.
     /// </param>
-    ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default);
+    /// <param name="token">
+    /// Cancels a parse that is no longer wanted (its text has changed since, or its caller gave up): the parse stops at the next rule it enters, and throws
+    /// <see cref="OperationCanceledException"/> rather than return a result. A request for it is answered as cancelled, not with a failed parse.
+    /// </param>
+    ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default);
 }
 
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/>; optional, the default suits tests.</param>
@@ -50,12 +54,14 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
-    public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default) => Parse(uri, content, anchorOffset, []);
+    public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
+        => Parse(uri, content, anchorOffset, [], token);
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
     // of its own, so that no identity of its nodes is one of the module's.
-    private ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage)
+    private ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var errorListener = new ErrorListener(uri, anchorOffset);
         var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
         DeclarationsParseTreeListener? declarations = null;
@@ -76,7 +82,7 @@ public partial class ModuleParser(
             var sanitized = content;
             if (hasDirectives)
             {
-                precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
+                precompilerTrivia = ParsePrecompilerNodes(content, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset, token);
 
                 // the directive pass reads a directive it cannot place as text: what is wrong with the directives is found on their own lines. The main pass
                 // reads the module with each directive's lines blank.
@@ -95,12 +101,12 @@ public partial class ModuleParser(
                 sanitized = WithoutBranches(sanitized, alternatives);
             }
 
-            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
+            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset, token);
             var ast = listener.BuildModuleNode();
             var trivia = listener.Trivia;
             if (alternatives.Count > 0)
             {
-                ast = WithHeaderAlternatives(uri, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia);
+                ast = WithHeaderAlternatives(uri, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia, token);
             }
 
             // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
@@ -128,7 +134,9 @@ public partial class ModuleParser(
                 Trivia = trivia,
             };
         }
-        catch (Exception exception)
+        // a parse that was cancelled is no failure to degrade from: it throws that it was cancelled (ANTLR's own ParseCanceledException is an OperationCanceledException too,
+        // which is why the token says so, not the exception's type).
+        catch (Exception exception) when (!token.IsCancellationRequested)
         {
             // an exception past both parse attempts on a fresh listener is more likely a listener bug
             // than bad input, so log it — the module still degrades to located errors + trivia +
@@ -179,7 +187,7 @@ public partial class ModuleParser(
     // a whole procedure) is the module's, where it is written, as a declaration written in a branch of any #If block is. What the branch's parse says is
     // wrong is the module's.
     private ModuleNode WithHeaderAlternatives(Uri uri, string content, ModuleNode ast, IReadOnlyList<SplitHeaderScanner.Alternative> alternatives,
-        SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia)
+        SourcePosition anchorOffset, ImmutableArray<int> rootLineage, ErrorListener errorListener, ref ImmutableArray<SyntaxNode> trivia, CancellationToken token)
     {
         var lines = content.Split('\n');
         var children = ast.Children.ToList();
@@ -189,7 +197,7 @@ public partial class ModuleParser(
             var alternative = alternatives[index];
             var branch = string.Join('\n', lines[alternative.StartLine..Math.Min(alternative.EndLine, lines.Length)]);
             var start = new SourcePosition(alternative.StartLine, 0).AnchoredAt(anchorOffset);
-            var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index));
+            var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), token);
             errorListener.AddRange(parsed.SyntaxErrors);
             trivia = trivia.AddRange(parsed.Trivia);
 
@@ -261,7 +269,7 @@ public partial class ModuleParser(
             .Replace('\u2029', '\n');
     }
 
-    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset)
+    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset, CancellationToken token)
     {
         // ignore everything that is NOT a precompiler node,
         // because grammar matches everything as a ccBlock otherwise.
@@ -275,7 +283,7 @@ public partial class ModuleParser(
         {
             // parse to a tree, then walk it: AddParseListener fires Exit before Enter<Op> on a
             // left-recursive ccExpression (`#If A And B`), desyncing the builder stack. A walk doesn't.
-            var tree = ParseDirectives(new string(sanitized), errorListener);
+            var tree = ParseDirectives(new string(sanitized), token);
             AnchorTree(tree, anchorOffset);
             foreach (var listener in listeners)
             {
@@ -283,7 +291,7 @@ public partial class ModuleParser(
             }
             return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!token.IsCancellationRequested)
         {
             // best-effort: a failure here forfeits this module's precompiler trivia, not the module.
             _logger.LogDebug(exception, "Precompiler-trivia pass failed; trivia forfeited for this module.");
@@ -291,33 +299,35 @@ public partial class ModuleParser(
         }
     }
 
-    // the directive pass in two stages, as the main pass is: SLL with a bail-on-first-error strategy, then LL with default recovery and the error listener
-    // when SLL fails. A block's body is a non-greedy loop of lines (ccBlock), and whether a line ends the loop is a decision LL resolves with the full
-    // context of every enclosing block: on a module of many #If blocks that is quadratic in their length - 7 s for the 1,200 lines of a JSON parser - where
-    // SLL takes milliseconds, and gives the tree LL gives whenever it succeeds.
-    private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, ErrorListener errorListener)
+    // the directive pass in SLL, first with a bail-on-first-error strategy, then with default recovery when that fails. A directive's line is a physicalLine
+    // too, and ccBlock's non-greedy loop and the order of its alternatives choose the directive: SLL makes that choice where the alternatives conflict, and
+    // gives the tree LL gives whenever it succeeds. LL reads on to the end of the module to prove each conflict an ambiguity first - 7 s for the 1,200 lines
+    // of a JSON parser, and a stack overflow at a few hundred #If blocks - so a module whose directives do not fit the grammar is recovered from in SLL too,
+    // for its trivia at their best. What is wrong with a directive is the directive scanner's to report, not this pass's. A cancelled parse is told by the
+    // token, never by the exception: SLL's bail is itself an OperationCanceledException.
+    private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, CancellationToken token)
     {
         try
         {
-            return DirectiveParser(sanitized, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null).compilationUnit();
+            return DirectiveParser(sanitized, new BailErrorStrategy(), token).compilationUnit();
         }
-        catch (Exception exception) when (exception is ParseCanceledException or RecognitionException)
+        catch (Exception exception) when ((exception is ParseCanceledException or RecognitionException) && !token.IsCancellationRequested)
         {
-            return DirectiveParser(sanitized, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener).compilationUnit();
+            return DirectiveParser(sanitized, new DefaultErrorStrategy(), token).compilationUnit();
         }
     }
 
-    private static VBAConditionalCompilationParser DirectiveParser(string sanitized, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener)
+    private static VBAConditionalCompilationParser DirectiveParser(string sanitized, IAntlrErrorStrategy errorStrategy, CancellationToken token)
     {
         var parser = new VBAConditionalCompilationParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
         {
             ErrorHandler = errorStrategy,
         };
-        parser.Interpreter.PredictionMode = mode;
+        parser.Interpreter.PredictionMode = PredictionMode.Sll;
         parser.RemoveErrorListeners();
-        if (errorListener is not null)
+        if (token.CanBeCanceled)
         {
-            parser.AddErrorListener(errorListener);
+            parser.AddParseListener(new CancellationListener(token));
         }
 
         return parser;
@@ -328,14 +338,15 @@ public partial class ModuleParser(
     /// recovery — which would desynchronize a stateful parse listener), then LL with default recovery
     /// on a <em>fresh</em> listener if SLL failed.
     /// </summary>
-    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory, SourcePosition anchorOffset)
+    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory, SourcePosition anchorOffset,
+        CancellationToken token)
         where TListener : IParseTreeListener
     {
         try
         {
-            return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory(), anchorOffset);
+            return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory(), anchorOffset, token);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!token.IsCancellationRequested)
         {
             // any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException,
             // but also a listener exception the bail strategy triggered on a half-matched rule. SLL
@@ -346,11 +357,12 @@ public partial class ModuleParser(
                 // a routine SLL bail needs no trace; anything else does, even though LL will retry.
                 _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
             }
-            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory(), anchorOffset);
+            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory(), anchorOffset, token);
         }
     }
 
-    private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener, SourcePosition anchorOffset)
+    private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener,
+        SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
     {
         var stream = new AntlrInputStream(content);
@@ -372,6 +384,11 @@ public partial class ModuleParser(
         // overflow the parser's OWN recursive descent, that point is never reached at all, so a
         // dedicated guard must run live, interleaved with the parse itself.
         parser.AddParseListener(new StackDepthGuardListener());
+        if (token.CanBeCanceled)
+        {
+            parser.AddParseListener(new CancellationListener(token));
+        }
+
         var tree = parser.startRule();
         AnchorTree(tree, anchorOffset);
         ParseTreeWalker.Default.Walk(listener, tree);
@@ -465,6 +482,19 @@ internal sealed class StackDepthGuardListener : VBAParserBaseListener
 {
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
         => System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+}
+
+// a parse that is no longer wanted stops at the next rule it enters: registered live, as StackDepthGuardListener is, on the directive pass and on the main
+// pass alike (it implements the plain IParseTreeListener, as AnchorOffsetListener does).
+internal sealed class CancellationListener(CancellationToken token) : IParseTreeListener
+{
+    public void EnterEveryRule(ParserRuleContext context) => token.ThrowIfCancellationRequested();
+
+    public void ExitEveryRule(ParserRuleContext context) { }
+
+    public void VisitTerminal(ITerminalNode node) { }
+
+    public void VisitErrorNode(IErrorNode node) { }
 }
 
 // grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):

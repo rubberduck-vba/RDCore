@@ -20,12 +20,15 @@ public enum VbpImportNoteKind
     Control,
 
     /// <summary>
-    /// A file outside of the folder of the project (<c>..\Shared\Utils.bas</c>): a module of this project, as in VB6, whose folder is a source folder the client
-    /// adds to the workspace - the platform never takes in a folder outside the workspace folders it is given. Not carried over until source folders are taken in.
+    /// A file outside of the folder of the project (<c>..\Shared\Utils.bas</c>) that is in no folder of the workspace: the platform never takes in a folder outside
+    /// the workspace folders it is given. In one, it is a module of this project, as in VB6, written by its relative path.
     /// </summary>
     OutsideProjectFolder,
 
-    /// <summary>A file named by an absolute path: a <c>.rdproj</c> lists the files under its own folder.</summary>
+    /// <summary>
+    /// A file named by an absolute path that is in no folder of the workspace, nor in the project's own. In one, it is the project's, written by its path relative
+    /// to the project's folder: nothing a project file lists is absolute.
+    /// </summary>
     AbsolutePath,
 
     /// <summary>A UserControl, a PropertyPage, a UserDocument or a Designer, which the platform does not compile: it is listed as a file of the project.</summary>
@@ -232,7 +235,13 @@ public static class VbpProjectImporter
     /// The absolute path of the <c>.vbp</c>'s folder, which a path that climbs out of it and comes back in is resolved against (<c>..\MyProj\Util.bas</c>
     /// from <c>MyProj\MyProj.vbp</c> is <c>Util.bas</c>); <see langword="null"/> when it is not known, and such a path is outside of the folder.
     /// </param>
-    public static VbpImport Import(string vbp, string fileName, ILibrarySource libraries, string? folder = null)
+    /// <param name="inWorkspace">
+    /// Whether an absolute path lies in a folder of the workspace (<see cref="WorkspaceFolders.Contains"/>). A file the <c>.vbp</c> lists outside its own folder -
+    /// <c>..\Shared\Util.bas</c>, or an absolute path - is the project's when it does, as in VB6, and is written relative to the <c>.vbp</c>'s folder
+    /// (<c>../Shared/Util.bas</c>): nothing a project file lists is absolute. <see langword="null"/> where there are no workspace folders (<c>rdc import</c>),
+    /// and only the <c>.vbp</c>'s own folder is in bounds.
+    /// </param>
+    public static VbpImport Import(string vbp, string fileName, ILibrarySource libraries, string? folder = null, Func<string, bool>? inWorkspace = null)
     {
         var notes = new List<VbpImportNote>();
         var modules = new List<RDCoreModule>();
@@ -304,9 +313,10 @@ public static class VbpProjectImporter
             References = [.. references],
             Modules = [.. modules],
             OtherFiles = [.. others],
+            // the folders of the project's own folder: one a file outside it is in belongs to the workspace folder that holds it.
             Folders = [.. modules.Cast<RDCoreFile>().Concat(others)
                 .Select(file => Path.GetDirectoryName(file.RelativeUri)?.Replace('\\', '/'))
-                .OfType<string>().Where(folder => folder.Length > 0)
+                .OfType<string>().Where(folder => folder.Length > 0 && !folder.Split('/').Contains(".."))
                 .Distinct(StringComparer.OrdinalIgnoreCase)],
             PrecompilerConstants = constants,
             SourceProject = Path.GetFileName(fileName),
@@ -322,16 +332,18 @@ public static class VbpProjectImporter
                 return null;
             }
 
-            if (Path.IsPathRooted(path) || path.Contains(':'))
+            var isAbsolute = Path.IsPathRooted(path) || path.Contains(':');
+            var relative = isAbsolute ? null : InFolder(path, folder);
+            if (relative is null)
             {
-                notes.Add(new VbpImportNote(VbpImportNoteKind.AbsolutePath, path));
-                return null;
-            }
-
-            if (InFolder(path, folder) is not { } relative)
-            {
-                notes.Add(new VbpImportNote(VbpImportNoteKind.OutsideProjectFolder, path));
-                return null;
+                // a file outside the .vbp's folder is the project's when a workspace folder holds it - or, for an absolute path, the .vbp's own folder does - and
+                // it is written relative to the .vbp's folder; one that cannot be (another drive) is in none of them.
+                relative = OutsideRelative(path, isAbsolute);
+                if (relative is null)
+                {
+                    notes.Add(new VbpImportNote(isAbsolute ? VbpImportNoteKind.AbsolutePath : VbpImportNoteKind.OutsideProjectFolder, path));
+                    return null;
+                }
             }
 
             if (relative.Length == 0)
@@ -355,6 +367,29 @@ public static class VbpProjectImporter
             }
 
             return relative;
+        }
+
+        // a path outside the .vbp's folder, relative to it with its .. (../Shared/Util.bas), when it is in bounds; null when it is not, or cannot be made relative.
+        string? OutsideRelative(string path, bool isAbsolute)
+        {
+            if (folder is null)
+            {
+                return null;
+            }
+
+            string full;
+            try
+            {
+                full = Path.GetFullPath(isAbsolute ? path.Replace('\\', Path.DirectorySeparatorChar) : Path.Combine(folder, path.Replace('\\', '/')));
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return null;
+            }
+
+            var inBounds = (isAbsolute && InFolder(Path.GetRelativePath(folder, full), folder) is { Length: > 0 }) || inWorkspace?.Invoke(full) == true;
+            var fromFolder = Path.GetRelativePath(folder, full);
+            return inBounds && !Path.IsPathRooted(fromFolder) ? fromFolder.Replace('\\', '/') : null;
         }
 
         // Reference=*\G{GUID}#maj.min#lcid#path#description, or *\A<path> for another project.
