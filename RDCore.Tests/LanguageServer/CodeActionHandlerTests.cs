@@ -100,7 +100,8 @@ public sealed class CodeActionHandlerTests
         Assert.HasCount(2, actions);
         Assert.AreEqual("Rename 'strName' to 'Name'", actions[0].Title);
         Assert.IsTrue(actions[0].IsPreferred);
-        var edits = actions[0].Edit!.DocumentChanges!.Single().TextDocumentEdit!.Edits.Select(edit => edit.Range).ToArray();
+        // a client that has not said it takes documentChanges is sent changes (RefactoringWireTests has both).
+        var edits = actions[0].Edit!.Changes!.Single().Value.Select(edit => edit.Range).ToArray();
         CollectionAssert.AreEqual(new[] { new Range(0, 7, 0, 14), new Range(2, 3, 2, 10), new Range(3, 15, 3, 22) }, edits);
 
         Assert.AreEqual("Rename 'strName'…", actions[1].Title);

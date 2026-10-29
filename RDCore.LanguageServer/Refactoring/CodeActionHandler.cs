@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
@@ -36,6 +37,9 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
     /// <summary>The kind of the action that imports a VB6 project: a source action of the whole workspace (<c>source.rdcore.importProject</c>).</summary>
     public static readonly CodeActionKind SourceImportProject = new("source.rdcore.importProject");
+
+    // what the client said it can do, as it initialized: a rename's edits are sent in the form it applies.
+    private ClientCapabilities? _client;
 
     public override async Task<CommandOrCodeActionContainer?> Handle(CodeActionParams request, CancellationToken cancellationToken)
     {
@@ -71,14 +75,14 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
             foreach (var suggestion in fix.Suggestions)
             {
-                if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion).Value is { } edit)
+                if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion).Value is { } edit && ForTheClient(edit) is { } applicable)
                 {
                     actions.Add(new CodeAction
                     {
                         Title = RefactoringTitles.RenameTo(target.Placeholder, suggestion),
                         Kind = CodeActionKind.QuickFix,
                         Diagnostics = new Container<Diagnostic>(diagnostic),
-                        Edit = edit,
+                        Edit = applicable,
                         IsPreferred = true,
                     });
                 }
@@ -101,6 +105,19 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
             ? actions.Where(action => only.Any(kind => action.Kind.ToString() == kind || action.Kind.ToString().StartsWith(kind + ".", StringComparison.Ordinal)))
             : actions;
         return new CommandOrCodeActionContainer(answered.Select(action => new CommandOrCodeAction(action)));
+    }
+
+    // the edit as the client applies it; an action whose edit the client can't apply is not offered - the rename command, which says why, still is.
+    private WorkspaceEdit? ForTheClient(WorkspaceEdit edit)
+    {
+        try
+        {
+            return edit.For(_client);
+        }
+        catch (WorkspaceEditNotSupportedException)
+        {
+            return null;
+        }
     }
 
     // the action that renames a symbol to a name the client asks its user for.
@@ -149,9 +166,13 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
     public override Task<CodeAction> Handle(CodeAction request, CancellationToken cancellationToken) => Task.FromResult(request);
 
-    protected override CodeActionRegistrationOptions CreateRegistrationOptions(CodeActionCapability capability, ClientCapabilities clientCapabilities) => new()
+    protected override CodeActionRegistrationOptions CreateRegistrationOptions(CodeActionCapability capability, ClientCapabilities clientCapabilities)
     {
-        CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, SourceImportProject),
-        ResolveProvider = false,
-    };
+        _client = clientCapabilities;
+        return new()
+        {
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, SourceImportProject),
+            ResolveProvider = false,
+        };
+    }
 }

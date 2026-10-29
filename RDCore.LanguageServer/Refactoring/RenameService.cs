@@ -220,7 +220,8 @@ internal sealed class RenameWorkspace
             return new(null, Say(part, plan.Refusal!));
         }
 
-        // each document's edits name the version they are edits of, so that a client applies them to that text and to no other.
+        // each document's edits name the version they are edits of, so that a client that takes documentChanges applies them to that text and to no other; one
+        // that does not is sent them as changes, which name no version (WorkspaceEditExtensions.For).
         var changes = plan.Edits
             .GroupBy(edit => edit.Module.AbsoluteUri)
             .Select(group => part.Modules.First(candidate => candidate.Module.AbsoluteUri == group.Key))

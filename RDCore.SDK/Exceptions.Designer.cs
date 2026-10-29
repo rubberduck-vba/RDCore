@@ -2414,5 +2414,23 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("ProjectFile_InvalidJson", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The editor can&apos;t apply this change: it creates, renames or deletes a file, which the editor did not say it can do..
+        /// </summary>
+        public static string WorkspaceEdit_FileOperationNotSupported {
+            get {
+                return ResourceManager.GetString("WorkspaceEdit_FileOperationNotSupported", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The editor can&apos;t apply this change: it edits {0} in more than one step, which the editor did not say it can apply..
+        /// </summary>
+        public static string WorkspaceEdit_DocumentEditedTwice {
+            get {
+                return ResourceManager.GetString("WorkspaceEdit_DocumentEditedTwice", resourceCulture);
+            }
+        }
     }
 }

@@ -40,9 +40,13 @@ public sealed class RefactoringWireTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-refactoring-wire-ws");
     private const string Program = "10 Dim strName As String\r\n20 strName = \"a\"\r\n";
 
+    // a client that says it takes a WorkspaceEdit's documentChanges is sent them, each with the version of the document its edits are of; one that does not
+    // reads changes alone (LSP 3.17 §WorkspaceEdit), and is sent the same edits as changes.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    public async Task AClient_ReadsTheDiagnostics_TheCodeActions_AndTheRename_ItIsAnswered()
+    [DataRow(true, DisplayName = "a client that takes documentChanges")]
+    [DataRow(false, DisplayName = "a client that does not")]
+    public async Task AClient_ReadsTheDiagnostics_TheCodeActions_AndTheRename_ItIsAnswered(bool takesDocumentChanges)
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
@@ -83,7 +87,14 @@ public sealed class RefactoringWireTests
             .AddHandler(new CodeActionHandler(rename, documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem()))
             .AddHandler(new RenameHandler(rename))
             .AddHandler(new PrepareRenameHandler(rename)), timeout.Token);
-        var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);
+        var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer)
+            .WithClientCapabilities(new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                Workspace = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceClientCapabilities
+                {
+                    WorkspaceEdit = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceEditCapability { DocumentChanges = takesDocumentChanges },
+                },
+            }), timeout.Token);
 
         await Task.WhenAll(serving, connecting);
         using var server = await serving;
@@ -102,18 +113,36 @@ public sealed class RefactoringWireTests
         }, timeout.Token);
         var titles = actions!.Select(action => action.CodeAction!.Title).ToArray();
         CollectionAssert.AreEqual(new[] { RefactoringTitles.RenameTo("strName", "Name"), RefactoringTitles.Rename("strName") }, titles);
+        AssertEditsOf(actions!.First().CodeAction!.Edit!, takesDocumentChanges, document.Uri, expected: 2);
 
         var prepared = await languageClient.SendRequest(new PrepareRenameParams { TextDocument = document, Position = new Position(1, 5) }, timeout.Token);
         Assert.AreEqual("strName", prepared?.PlaceholderRange?.Placeholder);
 
         var renamed = await languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(1, 5), NewName = "Title" }, timeout.Token);
-        var edit = renamed!.DocumentChanges!.Single().TextDocumentEdit!;
-        Assert.AreEqual(4, edit.TextDocument.Version);
-        Assert.HasCount(2, edit.Edits);
+        AssertEditsOf(renamed!, takesDocumentChanges, document.Uri, expected: 2);
 
         var refused = await Assert.ThrowsAsync<OmniSharp.Extensions.JsonRpc.Server.JsonRpcException>(
             () => languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(1, 5), NewName = "Next" }, timeout.Token));
         StringAssert.Contains(refused.Message, "Next", "the message of the refusal is the client's to show");
         Assert.AreEqual(-32803, refused.ErrorCode, "RequestFailed: an answer, which a client does not log as a fault");
+    }
+
+    // the edits of the document, in the form the client takes: documentChanges with the version they are edits of, or changes, and not the other.
+    private static void AssertEditsOf(WorkspaceEdit edit, bool takesDocumentChanges, DocumentUri document, int expected)
+    {
+        if (takesDocumentChanges)
+        {
+            var change = edit.DocumentChanges!.Single().TextDocumentEdit!;
+            Assert.AreEqual(4, change.TextDocument.Version);
+            Assert.HasCount(expected, change.Edits);
+            Assert.IsNull(edit.Changes);
+        }
+        else
+        {
+            Assert.IsNull(edit.DocumentChanges, "a client that does not take documentChanges reads changes alone");
+            var (uri, edits) = edit.Changes!.Single();
+            Assert.AreEqual(document, uri);
+            Assert.HasCount(expected, edits);
+        }
     }
 }
