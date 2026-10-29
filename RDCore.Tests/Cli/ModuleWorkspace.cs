@@ -185,18 +185,19 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger: a <c>Stop</c> suspends it, and the first run answers that it waits.</param>
-    /// <param name="cancelAfter">How long the first run has before its request is cancelled, counted from when it starts and not from when the workspace
-    /// began to be composed. Never, when omitted.</param>
+    /// <param name="cancelWhen">When the first run's request is cancelled: as soon as this says the program is where the test wants it (running, in its
+    /// loop, in the procedure it loops in), which is asked of the session as the program runs. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     /// <param name="engine">What runs the program; the interpreter when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null, bool debug = false,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
-        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelAfter: cancelAfter, debug: debug, libraries: libraries,
+        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
 
     /// <summary>
@@ -220,7 +221,8 @@ internal static class ModuleWorkspace
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
@@ -298,13 +300,23 @@ internal static class ModuleWorkspace
                     Debug = debug,
                 }, cancellation);
 
+        // the first run's request is cancelled once the program is seen where the test wants it, and not after a time, which a slower machine would spend
+        // before the program even started. The run is on a thread of its own: without a debugger, a program runs to its end inside the request.
         using var cancellation = new CancellationTokenSource();
-        if (cancelAfter is { } timeout)
+        var running = Task.Run(() => Execute(cancellation.Token));
+        if (cancelWhen is not null)
         {
-            cancellation.CancelAfter(timeout);
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (!running.IsCompleted && !cancelWhen(sessionProvider))
+            {
+                Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen where the test cancels it");
+                await Task.Delay(5);
+            }
+
+            await cancellation.CancelAsync();
         }
 
-        var result = await Execute(cancellation.Token);
+        var result = await running;
         if (inspect is not null)
         {
             await inspect(sessionProvider, result, () => Execute(CancellationToken.None));

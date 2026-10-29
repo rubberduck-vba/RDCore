@@ -52,7 +52,7 @@ public sealed class FrameEvaluationTests
         "End Function");
 
     private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, Task> test)
-        => ModuleWorkspace.InspectAsync([], program, (provider, _, _) => test(provider), cancelAfter: null, debug: true);
+        => ModuleWorkspace.InspectAsync([], program, (provider, _, _) => test(provider), debug: true);
 
     // how the language server turns text into the tree the host evaluates: the right-hand side of an assignment written for the purpose.
     private static string Parsed(string expression)

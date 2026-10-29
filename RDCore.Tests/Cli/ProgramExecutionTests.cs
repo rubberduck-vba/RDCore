@@ -53,8 +53,12 @@ public sealed class ProgramExecutionTests
         }
     }
 
-    private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> test, TimeSpan? cancelAfter = null)
-        => ModuleWorkspace.InspectAsync(NoClasses, program, test, cancelAfter, debug: true);
+    private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> test,
+        Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
+        => ModuleWorkspace.InspectAsync(NoClasses, program, test, cancelWhen, debug: true);
+
+    // the program has started: a cancellation of its request is a break of a program that runs.
+    private static bool Running(EnvironmentSessionProvider provider) => provider.Execution.State is ProgramState.Running;
 
     private static readonly string Stopping = Program(
         "Public Total As Long",
@@ -159,7 +163,7 @@ public sealed class ProgramExecutionTests
             Assert.AreEqual(ExecutionOutcome.Refused, refused.Outcome);
             Assert.IsTrue((await Terminate(provider)).Acted);
             Assert.AreEqual(ExecutionOutcome.Halted, (await running).Outcome);
-        }, cancelAfter: TimeSpan.FromMilliseconds(200));
+        }, cancelWhen: Running);
 
     // ---- pausing ----
 
@@ -178,7 +182,7 @@ public sealed class ProgramExecutionTests
             Assert.AreEqual(ExecutionOutcome.Suspended, paused.Outcome, paused.ErrorMessage);
             Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
             Assert.IsTrue((await Terminate(provider)).Acted);
-        }, cancelAfter: TimeSpan.FromMilliseconds(200));
+        }, cancelWhen: Running);
 
     [TestMethod]
     public async Task APause_WithNoProgram_ActsOnNothing()
