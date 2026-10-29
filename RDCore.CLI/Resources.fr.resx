@@ -509,6 +509,9 @@
   <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
     <value>la signature d'une procédure où se trouve le programme</value>
   </data>
+  <data name="Host_Edit_ActiveProcedureRemoved" xml:space="preserve">
+    <value>une procédure où se trouve le programme, retirée</value>
+  </data>
   <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
     <value>une variable locale d'une procédure où se trouve le programme, dont le type a changé</value>
   </data>

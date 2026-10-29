@@ -310,6 +310,28 @@ public sealed class EditAndContinueTests
     }
 
     [TestMethod]
+    public async Task AProcedureTheProgramIsIn_Removed_IsSaidToBeRemoved_NotItsSignatureChanged()
+    {
+        // the procedure the program is stopped in goes, and its caller no longer calls it: the code compiles, and has nothing to go on in.
+        var edited = LocalConstants
+            .Replace("    Outer = Inner(n) + K", "    Outer = n + K", StringComparison.Ordinal)
+            .Replace("Private Function Inner(ByVal x As Long) As Long\r\n    Const J As Long = 1\r\n    Stop\r\n    Inner = x + J\r\nEnd Function\r\n", "", StringComparison.Ordinal);
+        Assert.IsFalse(edited.Contains("Inner", StringComparison.Ordinal), "Inner, and its call, are removed");
+        HostDebugEditStatusResult? status = null;
+        await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
+            status = provider.Execution.EditStatus();
+        }, debug: true);
+
+        var listed = string.Join("; ", status!.Edits.Select(edit => $"{edit.Name}: {edit.Reason}"));
+        var inner = status.Edits.Single(edit => edit.Name == "Program.Inner");
+        Assert.AreEqual((HostDebugEditKind.Restart, "a procedure the program is in, removed"), (inner.Kind, inner.Reason), listed);
+        Assert.IsFalse(status.Edits.Any(edit => edit.Reason.Contains("signature", StringComparison.Ordinal)), listed);
+    }
+
+    [TestMethod]
     public async Task AConstantOfAProcedureTheProgramIsNotIn_Revalued_IsApplied()
     {
         ExecuteSessionResult? resumed = null;

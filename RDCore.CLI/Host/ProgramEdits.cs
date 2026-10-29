@@ -214,7 +214,7 @@ internal sealed class ProgramEdits
             if ((gone ? inIt : !inIt && current != fingerprint) && !edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
             {
                 edits.Add(gone
-                    ? new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_SignatureOfAnActiveProcedure, declared?.Module, declared?.Range)
+                    ? new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_ActiveProcedureRemoved, declared?.Module, declared?.Range)
                     : new ProgramEdit(name, ProgramEditKind.Applies, Resources.Host_Edit_Applies, declared?.Module, declared?.Range));
             }
         }
@@ -330,7 +330,7 @@ internal sealed class ProgramEdits
         // removed: its storage goes, and code that still names it does not compile. A procedure the program is in can't go, nor a field of an object it holds.
         if (after is null)
         {
-            return active ? Edit(ProgramEditKind.Restart, Resources.Host_Edit_SignatureOfAnActiveProcedure)
+            return active ? Edit(ProgramEditKind.Restart, Resources.Host_Edit_ActiveProcedureRemoved)
                 : kind == SymbolDescriptorKind.ModuleField && before.InClass ? Edit(ProgramEditKind.Restart, Resources.Host_Edit_StoredValue)
                 : Edit(ProgramEditKind.Applies, Resources.Host_Edit_Applies);
         }
