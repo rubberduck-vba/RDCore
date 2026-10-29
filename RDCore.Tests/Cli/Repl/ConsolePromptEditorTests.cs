@@ -256,4 +256,61 @@ public sealed class ConsolePromptEditorTests
 
         Assert.IsTrue(Rows(output).Any(row => row.StartsWith("nt, Length As Long)")), "four characters before the parameter, to the edge of the line");
     }
+
+    // ---- a snippet's tab stops ----
+
+    private static CompletionItem SnippetItem(string label, string snippet)
+        => new() { Label = label, Kind = CompletionItemKind.Snippet, InsertText = snippet, InsertTextFormat = InsertTextFormat.Snippet, SortText = label.ToLowerInvariant() };
+
+    private static Source ForLoop() => new() { Names = [SnippetItem("For", "For ${1:i} = ${2:1} To ${3:10}: Debug.Print $1: Next$0")] };
+
+    [TestMethod]
+    public async Task ASnippet_IsPutInPlace_AndTabGoesFromATabStopToTheNext_WhatIsTypedReplacingItsText()
+        => Assert.AreEqual("For n = 0 To 10: Debug.Print n: Next ' done", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab))
+            .Type("n").Press(Key(ConsoleKey.Tab))
+            .Type("0").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type(" ' done").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task ATabStopInSeveralPlaces_IsChangedInAllOfThem_AsItIsTyped()
+        => Assert.AreEqual("For index = 1 To 10: Debug.Print index: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab))
+            .Type("ind").Press(Key(ConsoleKey.Backspace)).Type("dex").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task ShiftTab_GoesBackToTheTabStopBefore()
+        => Assert.AreEqual("For k = 1 To 10: Debug.Print k: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab), Key(ConsoleKey.Tab, shift: true))
+            .Type("k").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task BackspaceOnASelectedTabStop_ErasesItsText_InEachOfItsPlaces()
+        => Assert.AreEqual("For j = 1 To 10: Debug.Print j: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Backspace)).Type("j").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task Escape_LeavesTheSnippetAsItIs_AndTheLineIsNotCleared()
+        => Assert.AreEqual("For i = 1 To 10: Debug.Print i: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task TheSnippetIsDone_OnceTheCursorLeavesItsTabStop_AndWhatIsTypedThenIsTypedOnce()
+        => Assert.AreEqual("xFor i = 1 To 10: Debug.Print i: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Home)).Type("x").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task ASnippetOfSeveralLines_IsPutInPlaceAsItsName()
+        => Assert.AreEqual("If", await EnterAsync(new ScriptedKeys().Type("I").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("If", "If ${1:x} Then\r\n\t$0\r\nEnd If")] }));
+
+    [TestMethod]
+    public async Task ThePlacesOfTheTabStopTheCursorIsAt_AreUnderlined()
+    {
+        var (editor, output, _) = Editor(new ScriptedKeys().Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)), ForLoop());
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        StringAssert.Contains(output.ToString(), "For \u001b[4mi\u001b[24m = 1 To 10: Debug.Print \u001b[4mi\u001b[24m: Next");
+    }
 }

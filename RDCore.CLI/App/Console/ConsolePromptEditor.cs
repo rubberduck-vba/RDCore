@@ -1,4 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.SDK.Formatting;
 using System.Text;
 
 namespace RDCore.CLI.App.Console;
@@ -37,6 +38,13 @@ public delegate Task<SignatureHelp?> ConsoleSignatureSource(string line, int cur
 /// while the list is on its way, and the list that comes is narrowed to the word as it is by then. While it is open, <kbd>Up</kbd>, <kbd>Down</kbd>,
 /// <kbd>PgUp</kbd> and <kbd>PgDn</kbd> move its selection, <kbd>Tab</kbd> puts the selected name in place of the word, and so does <kbd>Enter</kbd> - which enters
 /// the line instead when the word is the name already. <kbd>Esc</kbd> closes it, and so does typing anything a name does not have in it.
+/// </para>
+/// <para>
+/// An item that is a snippet (<c>insertTextFormat</c> <c>Snippet</c>, <see cref="Snippet"/>) of one line is put in place with its tab stops: the cursor is at the
+/// first, its text selected, and what is typed replaces it - in each of its places at once, drawn as it is typed. <kbd>Tab</kbd> goes to the next tab stop and
+/// <kbd>Shift</kbd>+<kbd>Tab</kbd> back to the one before; the snippet is done at its last, at <kbd>Esc</kbd>, at <kbd>Enter</kbd>, or once the cursor leaves
+/// the tab stop it is at. The places of the tab stop the cursor is at are underlined. A snippet of more lines than one is put in place as its name: the line is
+/// one line.
 /// </para>
 /// <para>
 /// The list is drawn with ANSI escape sequences, under the line, at the column of the word; an output that does not understand them gets no list, and a line
@@ -227,6 +235,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private readonly List<string> _drawn = [];
         private int _reservedRows;
 
+        // the snippet whose tab stops are being filled in, while they are.
+        private ConsoleSnippetSession? _snippet;
+
         private TextWriter Output => editor._output;
 
         private string Text => _text.ToString();
@@ -329,12 +340,35 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     case ConsoleKey.Tab:
                         Commit();
                         return false;
-                    case ConsoleKey.Enter when list.SelectedItem is { } item && !string.Equals(LabelOf(item), Word(), StringComparison.Ordinal):
+                    case ConsoleKey.Enter when list.SelectedItem is { } item && !string.Equals(TextOf(item), Word(), StringComparison.Ordinal):
                         Commit();
                         return false;
                     case ConsoleKey.Escape:
                         Close();
                         return false;
+                }
+            }
+
+            // a snippet's tab stops: Tab goes to the next one, Shift+Tab to the one before; Escape leaves them as they are, and Enter enters the line.
+            if (_snippet is { } snippet && !control)
+            {
+                switch (key.Key)
+                {
+                    case ConsoleKey.Tab:
+                        _cursor = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? snippet.Previous() : snippet.Next();
+                        if (snippet.IsDone)
+                        {
+                            _snippet = null;
+                        }
+
+                        Follow();
+                        return false;
+                    case ConsoleKey.Escape:
+                        _snippet = null;
+                        return false;
+                    case ConsoleKey.Enter:
+                        _snippet = null;
+                        break;
                 }
             }
 
@@ -366,10 +400,12 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     CloseSignature();
                     return false;
                 case ConsoleKey.UpArrow:
+                    _snippet = null;
                     Recall(-1);
                     CloseSignature();
                     return false;
                 case ConsoleKey.DownArrow:
+                    _snippet = null;
                     Recall(+1);
                     CloseSignature();
                     return false;
@@ -377,18 +413,26 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     Ask(WordStart());
                     return false;
                 case ConsoleKey.Backspace:
-                    if (_cursor > 0)
+                    if (_snippet is { IsSelected: true } erased)
                     {
-                        _text.Remove(--_cursor, 1);
+                        Edit(erased.Current.Start, erased.Current.Length, string.Empty);
+                    }
+                    else if (_cursor > 0)
+                    {
+                        Edit(_cursor - 1, 1, string.Empty);
                     }
 
                     Follow();
                     FollowSignature();
                     return false;
                 case ConsoleKey.Delete:
-                    if (_cursor < _text.Length)
+                    if (_snippet is { IsSelected: true } deleted)
                     {
-                        _text.Remove(_cursor, 1);
+                        Edit(deleted.Current.Start, deleted.Current.Length, string.Empty);
+                    }
+                    else if (_cursor < _text.Length)
+                    {
+                        Edit(_cursor, 1, string.Empty);
                     }
 
                     Follow();
@@ -396,21 +440,25 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     return false;
                 case ConsoleKey.LeftArrow:
                     _cursor = control ? PreviousWord() : Math.Max(0, _cursor - 1);
+                    Moved();
                     Follow();
                     FollowSignature();
                     return false;
                 case ConsoleKey.RightArrow:
                     _cursor = control ? NextWord() : Math.Min(_text.Length, _cursor + 1);
+                    Moved();
                     Follow();
                     FollowSignature();
                     return false;
                 case ConsoleKey.Home:
                     _cursor = 0;
+                    Moved();
                     Follow();
                     FollowSignature();
                     return false;
                 case ConsoleKey.End:
                     _cursor = _text.Length;
+                    Moved();
                     Follow();
                     FollowSignature();
                     return false;
@@ -418,9 +466,18 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
             if (key.KeyChar is var typed and not '\0' && !char.IsControl(typed))
             {
+                // what is typed over a snippet's selected tab stop replaces it.
+                if (_snippet is { IsSelected: true } replaced)
+                {
+                    Edit(replaced.Current.Start, replaced.Current.Length, typed.ToString());
+                }
+                else
+                {
+                    Edit(_cursor, 0, typed.ToString());
+                }
+
                 // a word starts with a letter, or with a digit - the line number an argument can be - and the list is asked for once, as it starts.
-                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == 0 || !IsNameCharacter(_text[_cursor - 1]));
-                _text.Insert(_cursor++, typed);
+                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == 1 || !IsNameCharacter(_text[_cursor - 2]));
 
                 // an argument list opens, an argument starts, or one closes: what the call takes is asked for again.
                 if (typed is '(' or ',' or ' ' or ')')
@@ -490,6 +547,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         // text taken from the ghost text is typed at the end of the line.
         private void Take(string taken)
         {
+            _snippet = null;
             _text.Append(taken);
             _cursor = _text.Length;
             Follow();
@@ -655,13 +713,85 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 end++;
             }
 
-            var label = LabelOf(item);
-            _text.Remove(_anchor, end - _anchor).Insert(_anchor, label);
-            _cursor = _anchor + label.Length;
+            // a snippet of one line is put in place with its tab stops, the cursor at the first of them.
+            if (SnippetOf(item) is { } snippet)
+            {
+                _snippet = null;
+                _text.Remove(_anchor, end - _anchor).Insert(_anchor, snippet.Text);
+                var session = ConsoleSnippetSession.Start(snippet, _anchor);
+                _cursor = session.Next();
+                _snippet = session.IsDone ? null : session;
+                Close();
+                return;
+            }
+
+            Edit(_anchor, end - _anchor, TextOf(item));
             Close();
         }
 
-        private static string LabelOf(CompletionItem item) => item.InsertText ?? item.Label;
+        // the snippet an item puts in place, when it is one of a line; a snippet of more lines is put in place as its name.
+        private static Snippet? SnippetOf(CompletionItem item)
+            => item.InsertTextFormat == InsertTextFormat.Snippet && Snippet.Parse(item.InsertText ?? item.Label) is { IsMultiline: false } snippet ? snippet : null;
+
+        // the text an item puts in place of the word.
+        private static string TextOf(CompletionItem item)
+            => item.InsertTextFormat != InsertTextFormat.Snippet ? item.InsertText ?? item.Label
+                : SnippetOf(item) is { } snippet ? snippet.Text
+                : item.Label;
+
+        // an edit of the line: in the tab stop of a snippet the cursor is at, in each of its places; anywhere else, where it is, and the snippet is done.
+        private void Edit(int position, int removed, string inserted)
+        {
+            if (_snippet is { } snippet && snippet.TryEdit(_text, ref _cursor, position, removed, inserted))
+            {
+                return;
+            }
+
+            _snippet = null;
+            _text.Remove(position, removed).Insert(position, inserted);
+            _cursor = position + inserted.Length;
+        }
+
+        // the cursor moved: the snippet's tab stop is not selected any more, and the snippet is done once the cursor is out of it.
+        private void Moved()
+        {
+            if (_snippet is not { } snippet)
+            {
+                return;
+            }
+
+            snippet.Deselect();
+            if (!snippet.IsInCurrent(_cursor))
+            {
+                _snippet = null;
+            }
+        }
+
+        // the line as it is shown, the places of the tab stop of a snippet the cursor is at underlined.
+        private string Marked(string shown)
+        {
+            if (_snippet is not { } snippet)
+            {
+                return shown;
+            }
+
+            var marked = new StringBuilder();
+            var at = 0;
+            foreach (var (start, length) in snippet.CurrentPlaces)
+            {
+                var from = Math.Clamp(start - _start, 0, shown.Length);
+                var to = Math.Clamp(start + length - _start, 0, shown.Length);
+                if (to <= from || from < at)
+                {
+                    continue;
+                }
+
+                marked.Append(shown, at, from - at).Append(Underline).Append(shown, from, to - from).Append(NoUnderline);
+                at = to;
+            }
+
+            return marked.Append(shown, at, shown.Length - at).ToString();
+        }
 
         private void Close()
         {
@@ -741,7 +871,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 var shown = Text.Substring(_start, Math.Min(room, _text.Length - _start));
 
                 Output.Write('\r');
-                Output.Write(shown);
+                Output.Write(entered ? shown : Marked(shown));
 
                 // what the line can go on as, faint after it, in what is left of the line; a line that is entered has none.
                 if (!entered && GhostText() is { Length: > 0 } ghost && room - ConsoleText.WidthOf(shown) > 0)
