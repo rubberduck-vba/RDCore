@@ -63,7 +63,7 @@ public sealed class SnippetTests
         var snippet = Snippet.Parse("${1:Dim ${2:x}} = 1");
 
         Assert.AreEqual("Dim x = 1", snippet.Text);
-        CollectionAssert.AreEqual(new[] { new SnippetTabStop(1, 0, 5), new SnippetTabStop(2, 4, 1) }, snippet.TabStops.ToArray());
+        CollectionAssert.AreEqual(new[] { new SnippetTabStop(1, 0, 5), new SnippetTabStop(2, 4, 1, Parent: 0) }, snippet.TabStops.ToArray(), "the inner place is in the outer one");
     }
 
     [TestMethod]
@@ -89,8 +89,7 @@ public sealed class SnippetTests
         var snippet = Snippet.Parse("${1:a $2 b} ${2:xyz}");
 
         Assert.AreEqual("a xyz b xyz", snippet.Text);
-        CollectionAssert.AreEqual(new[] { new SnippetTabStop(1, 0, 7), new SnippetTabStop(2, 2, 3), new SnippetTabStop(2, 8, 3) },
-            snippet.TabStops.OrderBy(stop => stop.Start).ThenByDescending(stop => stop.Length).ToArray());
+        CollectionAssert.AreEqual(new[] { new SnippetTabStop(1, 0, 7), new SnippetTabStop(2, 2, 3, Parent: 0), new SnippetTabStop(2, 8, 3) }, snippet.TabStops.ToArray());
     }
 
     [TestMethod]
@@ -150,4 +149,45 @@ public sealed class SnippetTests
     [TestMethod]
     public void AVariableTheCallerKnows_IsItsValue()
         => Assert.AreEqual("' Module1: x", Snippet.Parse("' $TM_FILENAME_BASE: ${NAME:y}", name => name switch { "TM_FILENAME_BASE" => "Module1", "NAME" => "x", _ => null }).Text);
+
+    // ---- the time and the size a snippet can take ----
+
+    [TestMethod]
+    public void PlaceholdersThatAreNotClosed_AreReadInOnePass()
+    {
+        var snippet = string.Concat(Enumerable.Repeat("${1:", 2000));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var parsed = Snippet.Parse(snippet);
+
+        Assert.IsLessThan(1000, watch.ElapsedMilliseconds, "a placeholder that is not closed is not read again from where it opened");
+        Assert.AreEqual(snippet, parsed.Text);
+    }
+
+    [TestMethod]
+    public void PlaceholdersThatGrowAsTheyAreShownInOneAnother_AreNoSnippetToInsert()
+    {
+        // ${1:$2$2$2$2$2$2$2$2}${2:$3$3...}...${9:x}: each level shows the next eight times, which is 8^8 places of tab stop 9.
+        var snippet = string.Concat(Enumerable.Range(1, 8).Select(level => $"${{{level}:{string.Concat(Enumerable.Repeat($"${level + 1}", 8))}}}")) + "${9:x}";
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        Assert.IsFalse(Snippet.TryParse(snippet, out var parsed));
+
+        Assert.IsLessThan(1000, watch.ElapsedMilliseconds, "the writing stops once it is larger than a snippet to insert");
+        Assert.IsNull(parsed);
+        Assert.ThrowsExactly<ArgumentException>(() => Snippet.Parse(snippet));
+    }
+
+    [TestMethod]
+    public void AnEmptyPlaceholder_GivesWayToOneThatHasText()
+        => Assert.AreEqual("x x", Snippet.Parse("${1:} ${1:x}").Text);
+
+    [TestMethod]
+    public void ATabStopNumberTooLargeForOne_IsText()
+    {
+        var snippet = Snippet.Parse("$99999999999 $FOO");
+
+        Assert.AreEqual("$99999999999 FOO", snippet.Text);
+        Assert.AreEqual(new SnippetTabStop(1, 13, 3), snippet.TabStops.Single(), "the variable is the first tab stop after the numbered ones, of which there are none");
+    }
 }

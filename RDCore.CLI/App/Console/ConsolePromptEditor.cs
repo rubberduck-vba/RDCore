@@ -1,5 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Formatting;
+using System.Globalization;
 using System.Text;
 
 namespace RDCore.CLI.App.Console;
@@ -240,6 +241,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         // the snippet whose tab stops are being filled in, while they are.
         private ConsoleSnippetSession? _snippet;
 
+        // the first half of a character of two UTF-16 units, typed, until the second is.
+        private char? _highSurrogate;
+
         private TextWriter Output => editor._output;
 
         private string Text => _text.ToString();
@@ -422,7 +426,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     }
                     else if (_cursor > 0)
                     {
-                        Edit(_cursor - 1, 1, string.Empty);
+                        // a character as it is seen: a surrogate pair, an emoji and its selector, a letter and its accent.
+                        var before = PreviousElementLength();
+                        Edit(_cursor - before, before, string.Empty);
                     }
 
                     Follow();
@@ -435,20 +441,20 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     }
                     else if (_cursor < _text.Length)
                     {
-                        Edit(_cursor, 1, string.Empty);
+                        Edit(_cursor, StringInfo.GetNextTextElementLength(Text, _cursor), string.Empty);
                     }
 
                     Follow();
                     FollowSignature();
                     return false;
                 case ConsoleKey.LeftArrow:
-                    _cursor = control ? PreviousWord() : Math.Max(0, _cursor - 1);
+                    _cursor = control ? PreviousWord() : _cursor - PreviousElementLength();
                     Moved();
                     Follow();
                     FollowSignature();
                     return false;
                 case ConsoleKey.RightArrow:
-                    _cursor = control ? NextWord() : Math.Min(_text.Length, _cursor + 1);
+                    _cursor = control ? NextWord() : _cursor < _text.Length ? _cursor + StringInfo.GetNextTextElementLength(Text, _cursor) : _cursor;
                     Moved();
                     Follow();
                     FollowSignature();
@@ -469,18 +475,28 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
             if (key.KeyChar is var typed and not '\0' && !char.IsControl(typed))
             {
+                // a character of two UTF-16 units comes as two keys: the first is held until the second, and the line never has half of it.
+                if (char.IsHighSurrogate(typed))
+                {
+                    _highSurrogate = typed;
+                    return false;
+                }
+
+                var character = _highSurrogate is { } high && char.IsLowSurrogate(typed) ? $"{high}{typed}" : typed.ToString();
+                _highSurrogate = null;
+
                 // what is typed over a snippet's selected tab stop replaces it.
                 if (_snippet is { IsSelected: true } replaced)
                 {
-                    Edit(replaced.Current.Start, replaced.Current.Length, typed.ToString());
+                    Edit(replaced.Current.Start, replaced.Current.Length, character);
                 }
                 else
                 {
-                    Edit(_cursor, 0, typed.ToString());
+                    Edit(_cursor, 0, character);
                 }
 
                 // a word starts with a letter, or with a digit - the line number an argument can be - and the list is asked for once, as it starts.
-                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == 1 || !IsNameCharacter(_text[_cursor - 2]));
+                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == character.Length || !IsNameCharacter(_text[_cursor - character.Length - 1]));
 
                 // an argument list opens, an argument starts, or one closes: what the call takes is asked for again.
                 if (typed is '(' or ',' or ' ' or ')')
@@ -734,7 +750,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
         // the snippet an item puts in place, when it is one of a line; a snippet of more lines is put in place as its name.
         private static Snippet? SnippetOf(CompletionItem item)
-            => item.InsertTextFormat == InsertTextFormat.Snippet && Snippet.Parse(item.InsertText ?? item.Label) is { IsMultiline: false } snippet ? snippet : null;
+            => item.InsertTextFormat == InsertTextFormat.Snippet && Snippet.TryParse(item.InsertText ?? item.Label, out var snippet) && !snippet.IsMultiline ? snippet : null;
 
         // the text an item puts in place of the word.
         private static string TextOf(CompletionItem item)
@@ -770,24 +786,41 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
         }
 
-        // as much of the text as the cells hold, a character at a time - none cut in half.
+        // as much of the text as the cells hold, a character as it is seen at a time - none cut in half, each as wide as the console draws it.
         private static string Fitted(string text, int cells)
         {
             var length = 0;
             var width = 0;
-            foreach (var rune in text.EnumerateRunes())
+            var elements = StringInfo.GetTextElementEnumerator(text);
+            while (elements.MoveNext())
             {
-                var next = ConsoleText.WidthOf(rune.ToString());
+                var element = elements.GetTextElement();
+                var next = ConsoleText.WidthOf(element);
                 if (width + next > cells)
                 {
                     break;
                 }
 
                 width += next;
-                length += rune.Utf16SequenceLength;
+                length += element.Length;
             }
 
             return text[..length];
+        }
+
+        // how long the character as it is seen before the cursor is: one, two for a surrogate pair, more for an emoji and its selector.
+        private int PreviousElementLength()
+        {
+            var text = Text;
+            var at = 0;
+            var last = 0;
+            while (at < _cursor)
+            {
+                last = at;
+                at += Math.Max(1, StringInfo.GetNextTextElementLength(text, at));
+            }
+
+            return _cursor - last;
         }
 
         // the line as it is shown, the places of the tab stop of a snippet the cursor is at underlined.
@@ -895,7 +928,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 _start = Math.Clamp(_start, 0, _cursor);
                 while (_start < _cursor && ConsoleText.WidthOf(text[_start.._cursor]) > room - 1)
                 {
-                    _start++;
+                    _start += Math.Max(1, StringInfo.GetNextTextElementLength(text, _start));
                 }
 
                 var shown = Fitted(text[_start..], room);

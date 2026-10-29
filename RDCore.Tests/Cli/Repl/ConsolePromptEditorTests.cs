@@ -354,4 +354,96 @@ public sealed class ConsolePromptEditorTests
         Assert.AreEqual("For 名 = 1 To 10: Debug.Print 名: Next", await editor.ReadLineAsync(CancellationToken.None));
         StringAssert.Contains(output.ToString(), "For \u001b[4m名\u001b[24m = 1 To 10: Debug.Print \u001b[4m名\u001b[24m: Next");
     }
+
+    // ---- an edit in a tab stop that is in another, and characters that are more than one UTF-16 unit ----
+
+    [TestMethod]
+    public async Task AnEditInATabStopThatIsInAnother_GrowsTheOneAroundIt_InEachOfItsPlaces()
+        => Assert.AreEqual("z = z", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("qq").Press(Key(ConsoleKey.Tab, shift: true))
+            .Type("z").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "${1:Dim ${2:x}} = $1")] }));
+
+    [TestMethod]
+    public async Task ALongerTextInATabStopThatIsInAnother_IsAllOfItTypedOver_WhenTheOneAroundItIs()
+        => Assert.AreEqual("z LONGER", await EnterAsync(new ScriptedKeys()
+            .Type("Pa").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("LONGER").Press(Key(ConsoleKey.Tab, shift: true))
+            .Type("z").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Pair", "${1:a $2 b} ${2:xyz}")] }));
+
+    [TestMethod]
+    public async Task TabStopsThatHoldEachOther_AreEditedWithoutAnError()
+    {
+        var line = await EnterAsync(new ScriptedKeys()
+            .Type("Lo").Press(Key(ConsoleKey.Tab))
+            .Type("q").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("z").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Loop", "${1:a $2} ${2:b $1}")] });
+
+        Assert.IsNotNull(line);
+        StringAssert.StartsWith(line, "q", "the first tab stop, typed over, is what was typed in it");
+        StringAssert.EndsWith(line, "z", "and what is typed at the end of the snippet is there");
+    }
+
+    private static bool HasALoneSurrogate(string text)
+    {
+        for (var index = 0; index < text.Length; index++)
+        {
+            if (char.IsHighSurrogate(text[index]) && (index + 1 >= text.Length || !char.IsLowSurrogate(text[index + 1])))
+            {
+                return true;
+            }
+
+            if (char.IsLowSurrogate(text[index]) && (index == 0 || !char.IsHighSurrogate(text[index - 1])))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [TestMethod]
+    public async Task ALineThatScrolls_IsNeverDrawnFromHalfACharacter()
+    {
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type(string.Concat(Enumerable.Repeat("😀", 100)) + "a").Press(Key(ConsoleKey.Enter)), output, () => 80)
+        {
+            CompleteWords = false,
+        };
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        Assert.IsFalse(HasALoneSurrogate(output.ToString()), "every drawing of the line starts and ends between two characters");
+    }
+
+    [TestMethod]
+    public async Task TheCursor_MovesOverACharacterOfTwoUnits_AndBackspaceErasesAllOfIt()
+    {
+        var keys = new ScriptedKeys().Type("a😀b").Press(Key(ConsoleKey.LeftArrow), Key(ConsoleKey.LeftArrow)).Type("x")
+            .Press(Key(ConsoleKey.End), Key(ConsoleKey.LeftArrow), Key(ConsoleKey.Backspace), Key(ConsoleKey.Enter));
+        var editor = new ConsolePromptEditor(keys, new StringWriter(), () => 80) { CompleteWords = false };
+
+        Assert.AreEqual("axb", await editor.ReadLineAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task AnEmojiAndItsSelector_AreMeasuredTogether_AndTheLineFitsTheConsole()
+    {
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type(string.Concat(Enumerable.Repeat("☺️", 60))).Press(Key(ConsoleKey.Home), Key(ConsoleKey.Enter)), output, () => 80)
+        {
+            CompleteWords = false,
+        };
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        // the line as it is drawn at Home: from its carriage return to the end of the line it clears.
+        var drawn = output.ToString();
+        var home = drawn[..drawn.LastIndexOf("\u001b[1G", StringComparison.Ordinal)];
+        var line = home[(home.LastIndexOf('\r') + 1)..home.LastIndexOf("\u001b[K", StringComparison.Ordinal)];
+        Assert.IsLessThanOrEqualTo(79, RDCore.CLI.App.Console.ConsoleText.WidthOf(line), "each of them is two cells, as the console draws it");
+    }
 }

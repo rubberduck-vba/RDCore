@@ -12,7 +12,11 @@ namespace RDCore.SDK.Formatting;
 /// </param>
 /// <param name="Start">Where it is in <see cref="Snippet.Text"/>.</param>
 /// <param name="Length">How long its placeholder is in <see cref="Snippet.Text"/>.</param>
-public readonly record struct SnippetTabStop(int Index, int Start, int Length);
+/// <param name="Parent">
+/// The place of the placeholder that holds it, by where that one is in <see cref="Snippet.TabStops"/>; <c>-1</c> when it is in none. A place in another is in
+/// its text whatever is typed there, and goes with it when that text is typed over.
+/// </param>
+public readonly record struct SnippetTabStop(int Index, int Start, int Length, int Parent = -1);
 
 /// <summary>
 /// The text a snippet is inserted as, and the places in it an editor's cursor stops at (<strong>LSP 3.17</strong> §Snippet Syntax): what a completion item whose
@@ -48,6 +52,12 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     // how deep placeholders are shown in one another before one shows nothing: ${1:a $2} ${2:b $1} is a loop.
     private const int MostNested = 16;
 
+    /// <summary>The most characters a snippet is written as; one whose placeholders, shown in one another, make more is not a snippet to insert.</summary>
+    public const int MostText = 65_536;
+
+    /// <summary>The most places of tab stops a snippet has once it is written.</summary>
+    public const int MostTabStops = 4_096;
+
     /// <summary>Whether the snippet is more than one line.</summary>
     public bool IsMultiline => Text.Contains('\n') || Text.Contains('\r');
 
@@ -60,22 +70,55 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     /// empty, and the others are not known.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="snippet"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// The snippet, written, is more than <see cref="MostText"/> characters or <see cref="MostTabStops"/> places of tab stops (<see cref="TryParse"/>).
+    /// </exception>
     public static Snippet Parse(string snippet, Func<string, string?>? variables = null)
+        => TryParse(snippet, out var parsed, variables)
+            ? parsed
+            : throw new ArgumentException($"The snippet is more than {MostText} characters, or {MostTabStops} places of tab stops, once it is written.", nameof(snippet));
+
+    /// <summary>
+    /// The text and the tab stops of a snippet, unless it is larger once it is written - its placeholders shown in one another - than a snippet to insert is:
+    /// <see cref="MostText"/> characters, <see cref="MostTabStops"/> places of tab stops.
+    /// </summary>
+    /// <param name="snippet">The snippet, as <strong>LSP 3.17</strong> writes it.</param>
+    /// <param name="parsed">The snippet; <see langword="null"/> when it is larger.</param>
+    /// <param name="variables">The value of a variable by its name, as for <see cref="Parse"/>.</param>
+    /// <returns>Whether the snippet is one to insert.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="snippet"/> is <see langword="null"/>.</exception>
+    public static bool TryParse(string snippet, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Snippet? parsed, Func<string, string?>? variables = null)
     {
         ArgumentNullException.ThrowIfNull(snippet);
+        parsed = null;
         var nodes = new Reader(snippet).ReadAll();
         var placeholders = new Dictionary<int, IReadOnlyList<Node>>();
         var unknown = new List<string>();
         Collect(nodes, placeholders, unknown, variables);
 
         // a variable that is not known is a tab stop of its own, after the numbered ones.
-        var last = Numbered(nodes).DefaultIfEmpty(0).Max();
-        var unknownStops = unknown.Select((name, order) => (name, order)).ToDictionary(each => each.name, each => last + 1 + each.order, StringComparer.Ordinal);
+        // past the largest number a tab stop can have, a variable that is not known is its name and no tab stop.
+        long last = Numbered(nodes).DefaultIfEmpty(0).Max();
+        var unknownStops = unknown.Select((name, order) => (name, index: last + 1 + order)).Where(each => each.index <= int.MaxValue)
+            .ToDictionary(each => each.name, each => (int)each.index, StringComparer.Ordinal);
 
         var text = new StringBuilder();
         var stops = new List<SnippetTabStop>();
-        new Writer(text, stops, placeholders, unknownStops, variables).Write(nodes, []);
-        return new Snippet(text.ToString(), [.. stops.Select((stop, order) => (stop, order)).OrderBy(each => each.stop.Start).ThenBy(each => each.order).Select(each => each.stop)]);
+        if (!new Writer(text, stops, placeholders, unknownStops, variables).Write(nodes, [], parent: -1))
+        {
+            return false;
+        }
+
+        // in the order of the text, a placeholder before the places it holds; each place's parent where that one is now.
+        var ordered = stops.Select((stop, written) => (stop, written)).OrderBy(each => each.stop.Start).ThenBy(each => each.written).ToList();
+        var moved = new int[stops.Count];
+        for (var at = 0; at < ordered.Count; at++)
+        {
+            moved[ordered[at].written] = at;
+        }
+
+        parsed = new Snippet(text.ToString(), [.. ordered.Select(each => each.stop.Parent < 0 ? each.stop : each.stop with { Parent = moved[each.stop.Parent] })]);
+        return true;
     }
 
     // the placeholder each tab stop shows - the first one given, in the order of the text, a variable's default included - and the variables not known, in order.
@@ -86,7 +129,12 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
             switch (node)
             {
                 case StopNode { Content: { } content } stop:
-                    placeholders.TryAdd(stop.Index, content);
+                    // an empty placeholder is none: the text of the tab stop is the one given elsewhere, when one is (${1:} ${1:x} is "x x").
+                    if (content.Count > 0)
+                    {
+                        placeholders.TryAdd(stop.Index, content);
+                    }
+
                     Collect(content, placeholders, unknown, variables);
                     break;
                 case VariableNode { Default: { } fallback }:
@@ -140,7 +188,8 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     private sealed class Writer(StringBuilder text, List<SnippetTabStop> stops, Dictionary<int, IReadOnlyList<Node>> placeholders, Dictionary<string, int> unknown,
         Func<string, string?>? variables)
     {
-        public void Write(IReadOnlyList<Node> nodes, IReadOnlyList<int> showing)
+        // false once the text or its tab stops are more than a snippet to insert has: the writing stops there.
+        public bool Write(IReadOnlyList<Node> nodes, IReadOnlyList<int> showing, int parent)
         {
             foreach (var node in nodes)
             {
@@ -150,13 +199,17 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                         text.Append(plain.Text);
                         break;
                     case StopNode stop:
+                        // the place is written before the places its placeholder holds, which are in it.
                         var start = text.Length;
-                        if (placeholders.TryGetValue(stop.Index, out var placeholder) && !showing.Contains(stop.Index) && showing.Count < MostNested)
+                        var slot = stops.Count;
+                        stops.Add(new SnippetTabStop(stop.Index, start, 0, parent));
+                        if (placeholders.TryGetValue(stop.Index, out var placeholder) && !showing.Contains(stop.Index) && showing.Count < MostNested
+                            && !Write(placeholder, [.. showing, stop.Index], slot))
                         {
-                            Write(placeholder, [.. showing, stop.Index]);
+                            return false;
                         }
 
-                        stops.Add(new SnippetTabStop(stop.Index, start, text.Length - start));
+                        stops[slot] = stops[slot] with { Length = text.Length - start };
                         break;
                     case VariableNode variable:
                         var value = ValueOf(variable.Name, variables);
@@ -166,126 +219,179 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                         }
                         else if (variable.Default is { } fallback)
                         {
-                            Write(fallback, showing);
+                            if (!Write(fallback, showing, parent))
+                            {
+                                return false;
+                            }
                         }
-                        else if (value is null && unknown.TryGetValue(variable.Name, out var index))
+                        else if (value is null)
                         {
-                            stops.Add(new SnippetTabStop(index, text.Length, variable.Name.Length));
+                            if (unknown.TryGetValue(variable.Name, out var index))
+                            {
+                                stops.Add(new SnippetTabStop(index, text.Length, variable.Name.Length, parent));
+                            }
+
                             text.Append(variable.Name);
                         }
 
                         break;
                 }
+
+                if (text.Length > MostText || stops.Count > MostTabStops)
+                {
+                    return false;
+                }
             }
+
+            return true;
         }
     }
 
-    // the grammar of LSP 3.17, read with no more than it says: what does not read as one of its constructs is its text, from its '$'.
+    // the grammar of LSP 3.17, read in one pass: a placeholder or a default is opened, held while what it holds is read, and closed at its brace. One that is
+    // not closed when the snippet ends is its text - its opening as written, then what it holds - in what is around it. A construct that is read whole (a choice,
+    // a transform) and does not read is its text from its '$', and the reading goes on from the character after it.
     private sealed class Reader(string snippet)
     {
-        private int _position;
-
-        public IReadOnlyList<Node> ReadAll()
+        private sealed class Open(int start, int content, int? index, string? name)
         {
-            var nodes = new List<Node>();
-            ReadAny(nodes, nested: false);
-            return Merged(nodes);
+            public int Start { get; } = start;
+            public int Content { get; } = content;
+            public int? Index { get; } = index;
+            public string? Name { get; } = name;
+            public List<Node> Nodes { get; } = [];
         }
 
-        // the nodes up to the end of the snippet or - for a placeholder or a default - to its closing brace, which is taken; false when that brace is not there.
-        private bool ReadAny(List<Node> nodes, bool nested)
+        private readonly Stack<Open> _open = new();
+        private readonly List<Node> _root = [];
+        private int _position;
+
+        private List<Node> Current => _open.Count > 0 ? _open.Peek().Nodes : _root;
+
+        public IReadOnlyList<Node> ReadAll()
         {
             while (_position < snippet.Length)
             {
                 var character = snippet[_position];
                 if (character == '\\' && _position + 1 < snippet.Length && snippet[_position + 1] is '$' or '}' or '\\')
                 {
-                    nodes.Add(new TextNode(snippet[_position + 1].ToString()));
+                    Current.Add(new TextNode(snippet[_position + 1].ToString()));
                     _position += 2;
                 }
-                else if (character == '}' && nested)
+                else if (character == '}' && _open.Count > 0)
                 {
                     _position++;
-                    return true;
+                    var closed = _open.Pop();
+                    Current.Add(closed.Index is { } index ? new StopNode(index, Merged(closed.Nodes)) : new VariableNode(closed.Name!, Merged(closed.Nodes)));
                 }
-                else if (character == '$' && TryReadDollar() is { } construct)
+                else if (character != '$' || !TryReadDollar())
                 {
-                    nodes.Add(construct);
-                }
-                else
-                {
-                    nodes.Add(new TextNode(character.ToString()));
+                    Current.Add(new TextNode(character.ToString()));
                     _position++;
                 }
             }
 
-            return !nested;
+            while (_open.Count > 0)
+            {
+                var unclosed = _open.Pop();
+                Current.Add(new TextNode(snippet[unclosed.Start..unclosed.Content]));
+                Current.AddRange(unclosed.Nodes);
+            }
+
+            return Merged(_root);
         }
 
-        private Node? TryReadDollar()
+        // a construct at the '$': read, or opened; false, with nothing taken, when what follows the '$' is none.
+        private bool TryReadDollar()
         {
             var start = _position;
             _position++;
-            Node? read = null;
             if (At(char.IsAsciiDigit))
             {
-                read = new StopNode(ReadNumber(), null);
+                if (ReadNumber() is { } index)
+                {
+                    Current.Add(new StopNode(index, null));
+                    return true;
+                }
             }
             else if (At(IsNameStart))
             {
-                read = new VariableNode(ReadName(), null);
+                Current.Add(new VariableNode(ReadName(), null));
+                return true;
             }
             else if (Next('{'))
             {
-                read = At(char.IsAsciiDigit) ? ReadBracedStop() : At(IsNameStart) ? ReadBracedVariable() : null;
+                if (At(char.IsAsciiDigit) ? ReadBracedStop(start) : At(IsNameStart) && ReadBracedVariable(start))
+                {
+                    return true;
+                }
             }
 
-            if (read is null)
-            {
-                _position = start;
-            }
-
-            return read;
+            _position = start;
+            return false;
         }
 
-        private StopNode? ReadBracedStop()
+        private bool ReadBracedStop(int start)
         {
-            var index = ReadNumber();
+            if (ReadNumber() is not { } index)
+            {
+                return false;
+            }
+
             if (Next('}'))
             {
-                return new StopNode(index, null);
+                Current.Add(new StopNode(index, null));
+                return true;
             }
 
             if (Next(':'))
             {
-                var content = new List<Node>();
-                return ReadAny(content, nested: true) ? new StopNode(index, Merged(content)) : null;
+                _open.Push(new Open(start, _position, index, null));
+                return true;
             }
 
             if (Next('|'))
             {
-                return ReadChoice() is { } first ? new StopNode(index, [new TextNode(first)]) : null;
+                if (ReadChoice() is { } first)
+                {
+                    Current.Add(new StopNode(index, [new TextNode(first)]));
+                    return true;
+                }
+
+                return false;
             }
 
             // a transform of the tab stop is not made: the tab stop is the one it transforms.
-            return At('/') && SkipTransform() ? new StopNode(index, null) : null;
+            if (At('/') && SkipTransform())
+            {
+                Current.Add(new StopNode(index, null));
+                return true;
+            }
+
+            return false;
         }
 
-        private VariableNode? ReadBracedVariable()
+        private bool ReadBracedVariable(int start)
         {
             var name = ReadName();
             if (Next('}'))
             {
-                return new VariableNode(name, null);
+                Current.Add(new VariableNode(name, null));
+                return true;
             }
 
             if (Next(':'))
             {
-                var content = new List<Node>();
-                return ReadAny(content, nested: true) ? new VariableNode(name, Merged(content)) : null;
+                _open.Push(new Open(start, _position, null, name));
+                return true;
             }
 
-            return At('/') && SkipTransform() ? new VariableNode(name, null) : null;
+            if (At('/') && SkipTransform())
+            {
+                Current.Add(new VariableNode(name, null));
+                return true;
+            }
+
+            return false;
         }
 
         // '/' regex '/' format '/' options '}': read past, its closing brace with it; false when it is not one.
@@ -407,7 +513,8 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
             return false;
         }
 
-        private int ReadNumber()
+        // the digits at the position, as a number; nothing for one larger than a tab stop's number can be, which is text.
+        private int? ReadNumber()
         {
             var start = _position;
             while (At(char.IsAsciiDigit))
@@ -415,7 +522,9 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                 _position++;
             }
 
-            return int.TryParse(snippet.AsSpan(start, _position - start), out var number) ? number : int.MaxValue;
+            return int.TryParse(snippet.AsSpan(start, _position - start), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
+                ? number
+                : null;
         }
 
         private string ReadName()
@@ -435,16 +544,27 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         private static List<Node> Merged(List<Node> nodes)
         {
             var merged = new List<Node>();
+            var run = new StringBuilder();
             foreach (var node in nodes)
             {
-                if (node is TextNode next && merged.Count > 0 && merged[^1] is TextNode last)
+                if (node is TextNode text)
                 {
-                    merged[^1] = new TextNode(last.Text + next.Text);
+                    run.Append(text.Text);
+                    continue;
                 }
-                else
+
+                if (run.Length > 0)
                 {
-                    merged.Add(node);
+                    merged.Add(new TextNode(run.ToString()));
+                    run.Clear();
                 }
+
+                merged.Add(node);
+            }
+
+            if (run.Length > 0)
+            {
+                merged.Add(new TextNode(run.ToString()));
             }
 
             return merged;

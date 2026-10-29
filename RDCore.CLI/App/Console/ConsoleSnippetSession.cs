@@ -20,6 +20,34 @@ internal sealed class ConsoleSnippetSession
         public int Start { get; set; } = start;
         public int Length { get; set; } = length;
         public int End => Start + Length;
+
+        // where the place is among the snippet's, in the order of the text: of two at one point, the one that comes first.
+        public int Order { get; init; }
+
+        // the place of the placeholder that holds it, which it is in whatever is typed.
+        public Place? Parent { get; set; }
+
+        public bool IsIn(Place other)
+        {
+            for (var parent = Parent; parent is not null; parent = parent.Parent)
+            {
+                if (parent == other)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    // where a place is from one being edited: before it, in its text, around it, or after it.
+    private enum Relation
+    {
+        Before,
+        Inside,
+        Around,
+        After,
     }
 
     private readonly List<Place> _places;
@@ -39,10 +67,15 @@ internal sealed class ConsoleSnippetSession
     /// <param name="offset">Where its text starts in the line.</param>
     public static ConsoleSnippetSession Start(Snippet snippet, int offset)
     {
-        var places = snippet.TabStops.Select(stop => new Place(stop.Index, offset + stop.Start, stop.Length)).ToList();
+        var places = snippet.TabStops.Select((stop, order) => new Place(stop.Index, offset + stop.Start, stop.Length) { Order = order }).ToList();
+        for (var at = 0; at < places.Count; at++)
+        {
+            places[at].Parent = snippet.TabStops[at].Parent is >= 0 and var parent && parent < places.Count ? places[parent] : null;
+        }
+
         if (!places.Any(place => place.Index == 0))
         {
-            places.Add(new Place(0, offset + snippet.Text.Length, 0));
+            places.Add(new Place(0, offset + snippet.Text.Length, 0) { Order = places.Count });
         }
 
         int[] order = [.. places.Select(place => place.Index).Where(index => index > 0).Distinct().Order(), 0];
@@ -137,19 +170,33 @@ internal sealed class ConsoleSnippetSession
         var value = text.ToString(primary.Start, primary.Length).Remove(offset, removed).Insert(offset, inserted);
         var index = primary.Index;
 
-        // the places of the tab stop from the last to the first, so that a place's change moves only the places after it, which are done.
-        foreach (var place in _places.Where(place => place.Index == index).OrderByDescending(place => place.Start).ToList())
+        // the places of the tab stop from the last to the first - one inside another before it - so that a place's change moves only the places after it, which
+        // are done. A place in the text of one is typed over with it; one around it, a placeholder that holds it, grows or shrinks with it, in each of its own
+        // places; one after it moves.
+        foreach (var place in _places.Where(place => place.Index == index).OrderByDescending(place => place.Start).ThenBy(place => place.Order).ToList())
         {
-            var (start, end) = (place.Start, place.End);
-            var delta = value.Length - place.Length;
-            text.Remove(start, place.Length).Insert(start, value);
-
-            // a tab stop in this one's text was typed over; one after it moves with the text.
-            _places.RemoveAll(other => other != place && other.Index != index && other.Start >= start && other.End <= end
-                && !(other.Length == 0 && (other.Start == start || other.Start == end)));
-            foreach (var other in _places.Where(other => other != place && other.Start >= end))
+            if (!_places.Contains(place))
             {
-                other.Start += delta;
+                continue;
+            }
+
+            var delta = value.Length - place.Length;
+            var related = _places.Where(other => other != place).Select(other => (other, relation: RelationOf(other, place))).ToList();
+            text.Remove(place.Start, place.Length).Insert(place.Start, value);
+            foreach (var (other, relation) in related)
+            {
+                switch (relation)
+                {
+                    case Relation.Inside:
+                        _places.Remove(other);
+                        break;
+                    case Relation.Around:
+                        other.Length += delta;
+                        break;
+                    case Relation.After:
+                        other.Start += delta;
+                        break;
+                }
             }
 
             place.Length = value.Length;
@@ -158,6 +205,28 @@ internal sealed class ConsoleSnippetSession
         IsSelected = false;
         cursor = primary.Start + offset + inserted.Length;
         return true;
+    }
+
+    // a placeholder that holds the place is around it, one the place holds is in it; any other is before it or after it in the text - at one point, in the
+    // snippet's order.
+    private static Relation RelationOf(Place other, Place place)
+    {
+        if (place.IsIn(other))
+        {
+            return Relation.Around;
+        }
+
+        if (other.IsIn(place))
+        {
+            return Relation.Inside;
+        }
+
+        if (other.Start >= place.End && (other.Start > place.Start || place.Length > 0 || other.Order > place.Order))
+        {
+            return Relation.After;
+        }
+
+        return Relation.Before;
     }
 
     private Place? Primary() => _at < 0 ? null : _places.Where(place => place.Index == _order[_at]).OrderBy(place => place.Start).FirstOrDefault();
