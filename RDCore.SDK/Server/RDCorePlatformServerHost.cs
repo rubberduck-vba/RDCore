@@ -31,6 +31,17 @@ public class RDCorePlatformServerHost<TApp>() : AppHost<TApp>()
     /// </summary>
     public override int ExitCode => HostServices?.GetService<IServerStateProvider>()?.State.ExitCode ?? 1;
 
+    /// <summary>
+    /// A server writes nothing to its console (<see cref="AppHost{TApp}.WritesToConsole"/>): its client is on a pipe, and its log is in its file.
+    /// </summary>
+    protected override bool WritesToConsole => false;
+
+    /// <summary>
+    /// A server logs to a file named for its executable (<c>RDCore.LanguageServer.log</c>, <c>RDCore.ParseServer.log</c>, <c>RDCore.Diagnostics.log</c>), unless
+    /// it names another (<see cref="AppHost{TApp}.LogFileName"/>).
+    /// </summary>
+    protected override string? LogFileName => $"{Info.Name}.log";
+
     protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
         var result = CommandLine.Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args);

@@ -65,10 +65,9 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
         try
         {
-            var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
-
             // RDCORE_MODE=external (set by the environment host when it launches rdc.exe): run as its external host,
             // the process that makes the calls a program makes to the outside world.
             if (string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
@@ -109,7 +108,10 @@ public class Program
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
+            // the environment host and the external host are servers, whose standard output is no one's to read (AppHost.WritesToConsole).
+            var server = string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(mode, RDCoreServerProcess.HostMode, StringComparison.OrdinalIgnoreCase);
+            (server ? Console.Error : Console.Out).WriteLine(exception);
             return -1;
         }
     }
@@ -517,13 +519,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
             .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"),
-            LogLevel.Trace);
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
+    protected override string? LogFileName => "RDCore.EnvironmentHost.log";
 }
 
 /// <summary>
@@ -553,13 +549,7 @@ internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHost
         return new ExternalAutomationService(new ComAutomationServer(apartment), new WindowsFormHost(apartment));
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.ExternalHost.log"),
-            LogLevel.Trace);
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
+    protected override string? LogFileName => "RDCore.ExternalHost.log";
 }
 
 internal class RDCoreConsoleEnvironmentHostApp(
