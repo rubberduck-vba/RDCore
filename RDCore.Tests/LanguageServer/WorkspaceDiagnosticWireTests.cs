@@ -35,6 +35,7 @@ public sealed class WorkspaceDiagnosticWireTests
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly DocumentStateProvider _states = new(NullLogger<DocumentStateProvider>.Instance);
     private readonly IDocumentDiagnosticsService _diagnostics = Substitute.For<IDocumentDiagnosticsService>();
+    private readonly IDocumentLifecycleService _lifecycle = Substitute.For<IDocumentLifecycleService>();
     private readonly IncomingDocumentChanges _incoming = new();
 
     public WorkspaceDiagnosticWireTests()
@@ -96,6 +97,7 @@ public sealed class WorkspaceDiagnosticWireTests
                 .AddSingleton(_documents)
                 .AddSingleton<IDocumentStateProvider>(_states)
                 .AddSingleton(_diagnostics)
+                .AddSingleton(_lifecycle)
                 .AddSingleton<IWorkProgressReporter>(new WorkProgressReporter())
                 .AddSingleton(_incoming))
             .WithHandler<WorkspaceDiagnosticHandler>(), token);
