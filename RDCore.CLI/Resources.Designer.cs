@@ -385,7 +385,52 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} changed while the program waited: run it again to pick the changes up.
+        ///   Looks up a localized string similar to applied.
+        /// </summary>
+        public static string Host_Edit_Applies => ResourceManager.GetString("Host_Edit_Applies", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the code of a procedure the program is in, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_BodyOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_BodyOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_LocalsOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LocalsOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a field added to a class whose objects the program may hold, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_FieldOfAClass => ResourceManager.GetString("Host_Edit_FieldOfAClass", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the signature of a procedure the program is in.
+        /// </summary>
+        public static string Host_Edit_SignatureOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_SignatureOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a local of a procedure the program is in, given another type.
+        /// </summary>
+        public static string Host_Edit_LocalOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LocalOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a variable or a field that holds a value, given another type or removed.
+        /// </summary>
+        public static string Host_Edit_StoredValue => ResourceManager.GetString("Host_Edit_StoredValue", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to what a class implements, or the events it raises.
+        /// </summary>
+        public static string Host_Edit_ClassInterface => ResourceManager.GetString("Host_Edit_ClassInterface", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the code does not compile: {0}.
+        /// </summary>
+        public static string Host_Edit_DoesNotCompile => ResourceManager.GetString("Host_Edit_DoesNotCompile", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} changed while the program waited, in a way that is not applied to it: run it again to pick the changes up, or undo them.
         /// </summary>
         public static string Host_ChangedWhileWaiting_Goto {
             get {

@@ -468,10 +468,37 @@
     <value>aucun programme n'est interrompu</value>
   </data>
   <data name="Host_ChangedWhileWaiting_Resume" xml:space="preserve">
-    <value>{0} a changé pendant l'attente du programme, et un programme reprend avec le code avec lequel il a été interrompu : relancez-le pour prendre les changements en compte</value>
+    <value>{0} a changé pendant l'attente du programme, d'une façon qui ne lui est pas appliquée : relancez-le pour prendre les changements en compte, ou annulez-les</value>
   </data>
   <data name="Host_ChangedWhileWaiting_Goto" xml:space="preserve">
-    <value>{0} a changé pendant l'attente du programme : relancez-le pour prendre les changements en compte</value>
+    <value>{0} a changé pendant l'attente du programme, d'une façon qui ne lui est pas appliquée : relancez-le pour prendre les changements en compte, ou annulez-les</value>
+  </data>
+  <data name="Host_Edit_Applies" xml:space="preserve">
+    <value>appliqué</value>
+  </data>
+  <data name="Host_Edit_BodyOfAnActiveProcedure" xml:space="preserve">
+    <value>le code d'une procédure où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
+    <value>une variable locale ajoutée à une procédure où se trouve le programme, ou retirée, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_FieldOfAClass" xml:space="preserve">
+    <value>un champ ajouté à une classe dont le programme peut détenir des objets, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
+    <value>la signature d'une procédure où se trouve le programme</value>
+  </data>
+  <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
+    <value>une variable locale d'une procédure où se trouve le programme, dont le type a changé</value>
+  </data>
+  <data name="Host_Edit_StoredValue" xml:space="preserve">
+    <value>une variable ou un champ qui détient une valeur, dont le type a changé ou qui a été retiré</value>
+  </data>
+  <data name="Host_Edit_ClassInterface" xml:space="preserve">
+    <value>ce qu'une classe implémente, ou les événements qu'elle déclenche</value>
+  </data>
+  <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
+    <value>le code ne compile pas : {0}</value>
   </data>
   <data name="Host_WaitsInNoProcedure" xml:space="preserve">
     <value>le programme n'attend dans aucune procédure</value>

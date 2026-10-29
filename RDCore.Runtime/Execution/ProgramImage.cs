@@ -198,32 +198,11 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
             Append(hash, $"{instruction.Offset}|{instruction.Kind}|{instruction.Target}|{string.Join(',', instruction.Targets)}|{instruction.Else}|{instruction.End}|{instruction.Matching}|{instruction.EnclosingWith}");
             if (instruction.Node is { } node)
             {
-                Append(hash, System.Text.Json.JsonSerializer.Serialize<RDCore.SDK.Model.AST.Abstract.SyntaxNode>(node, LocationFree));
+                Append(hash, System.Text.Json.JsonSerializer.Serialize<RDCore.SDK.Model.AST.Abstract.SyntaxNode>(node, RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.LocationFreeOptions));
             }
         }
 
         return Convert.ToHexString(hash.GetHashAndReset());
-    }
-
-    // the options a syntax node travels with, less every property that says where in the source it was written.
-    private static readonly System.Text.Json.JsonSerializerOptions LocationFree = CreateLocationFreeOptions();
-
-    private static System.Text.Json.JsonSerializerOptions CreateLocationFreeOptions()
-    {
-        var options = new System.Text.Json.JsonSerializerOptions(RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.Options);
-        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
-        {
-            foreach (var property in typeInfo.Properties.Where(property => IsLocation(property.PropertyType)).ToList())
-            {
-                _ = typeInfo.Properties.Remove(property);
-            }
-        });
-
-        return options;
-
-        static bool IsLocation(Type type)
-            => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
-                && (underlying == typeof(RDCore.SDK.Model.Source.SourceLocation) || underlying == typeof(RDCore.SDK.Model.Source.SourceRange));
     }
 
     private static void Append(System.Security.Cryptography.IncrementalHash hash, string text)

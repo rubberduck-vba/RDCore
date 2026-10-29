@@ -57,6 +57,35 @@ public static class SyntaxNodeJson
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine, OmitRedundantLocation } },
     };
 
+    /// <summary>
+    /// <see cref="Options"/>, less every property that says where in the source something was written (a <see cref="Source.SourceLocation"/>, a
+    /// <see cref="Source.SourceRange"/>): two writings of the same code with these are the same text, however the code moved. A blank line inserted above
+    /// it, or a comment edited, leaves it as it was.
+    /// </summary>
+    /// <remarks>
+    /// For comparing, and so for writing only: what is read with these has no location. The fingerprints of a program image are written with them, and
+    /// so are those of the declarations a program that waits was suspended with.
+    /// </remarks>
+    public static JsonSerializerOptions LocationFreeOptions { get; } = CreateLocationFreeOptions();
+
+    private static JsonSerializerOptions CreateLocationFreeOptions()
+    {
+        var options = new JsonSerializerOptions(Options);
+        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
+        {
+            foreach (var property in typeInfo.Properties.Where(property => IsLocation(property.PropertyType)).ToList())
+            {
+                _ = typeInfo.Properties.Remove(property);
+            }
+        });
+
+        return options;
+
+        static bool IsLocation(Type type)
+            => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
+                && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange));
+    }
+
     // an expression node has its location twice: its own Location, and the SourceLocation of the node it is, which it is constructed with. The second is
     // written only where it differs, and is constructed from the first when it is read.
     private static void OmitRedundantLocation(JsonTypeInfo typeInfo)

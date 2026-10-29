@@ -61,7 +61,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private ProgramState _state;
     private SuspendableExecution? _execution;
     private RuntimeOutputBuffer _output = new();
-    private ImmutableDictionary<string, string> _suspendedWith = ImmutableDictionary<string, string>.Empty;
+    private ProgramEdits? _suspendedWith;
     private bool _terminating;
     private bool _wipeOnTerminate;
     private TaskCompletionSource _idle = Settled();
@@ -771,7 +771,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             }
 
             _state = ProgramState.Suspended;
-            _suspendedWith = provider.Image.ProcedureFingerprints();
+            _suspendedWith = ProgramEdits.Of(session, provider.Image);
             provider.Output.Target = NullRuntimeOutput.Instance;
         }
 
@@ -834,18 +834,15 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         }
     }
 
-    // the procedures the program was suspended with whose code is not what it was, by name. A procedure that was loaded since is of no matter to a program that
-    // could not have called it - the statement typed at a break is one - and a procedure that is gone is a change.
+    // what was edited since the program was suspended that is not applied to it (plan-edit-and-continue §2), each with why, in the user's words. What is
+    // applied - the code of a procedure the program is not in, a declaration added, a value read afresh where it is next used - is of no matter here: the
+    // analysis pass already loaded it, and the program reads it as it goes on.
     private string[] ChangedCode()
-    {
-        var now = provider.Image.ProcedureFingerprints();
-        return
-        [
-            .. _suspendedWith
-                .Where(procedure => !now.TryGetValue(procedure.Key, out var fingerprint) || fingerprint != procedure.Value)
-                .Select(procedure => procedure.Key[(procedure.Key.LastIndexOf('#') + 1)..]),
-        ];
-    }
+        => _suspendedWith is null
+            ? []
+            : [.. ProgramEdits.Since(_suspendedWith, provider.Session, provider.Image)
+                .Where(edit => edit.Kind is not ProgramEditKind.Applies)
+                .Select(edit => $"{edit.Name} ({edit.Reason})")];
 
     private static ExecuteSessionResult Refused(string reason) => new() { Outcome = ExecutionOutcome.Refused, ErrorMessage = reason };
 
