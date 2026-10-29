@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
@@ -86,10 +87,13 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
 
         var nodes = module.Descendants().OfType<ExpressionNode>().GroupBy(node => node.Identity).ToDictionary(group => group.Key, group => group.First());
         var members = nodes.Values.OfType<MemberAccessExpressionNode>().Select(access => access.Member.Identity).ToHashSet();
+        var ofWithMe = new HashSet<SyntaxNodeId>();
+        MembersOfWithMe(module, inWithMe: false, ofWithMe);
         bool IsTheHosts(ExpressionFactDto fact) => nodes.TryGetValue(fact.Node, out var node) && node switch
         {
             SimpleNameExpressionNode name => !members.Contains(name.Identity),
             MemberAccessExpressionNode { Owner: InstanceExpressionNode } => true,
+            MemberAccessExpressionNode { Owner: null } access => ofWithMe.Contains(access.Identity),
             _ => false,
         };
 
@@ -104,6 +108,32 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
                 yield return new RelatedFinding(documentUri, fact.Location.Range,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_HostMember_Message, address[prefix.Length..], hostClass));
             }
+        }
+    }
+
+    // the member accesses written without their object in a With block of Me (.Range in With Me), which are Me's. A With block inside one has an object of its
+    // own, and its accesses are that object's; its expression, written in the outer block, is the outer block's.
+    private static void MembersOfWithMe(SyntaxNode node, bool inWithMe, HashSet<SyntaxNodeId> found)
+    {
+        if (inWithMe && node is MemberAccessExpressionNode { Owner: null } access)
+        {
+            found.Add(access.Identity);
+        }
+
+        if (node is WithStatementNode with)
+        {
+            MembersOfWithMe(with.WithExpression, inWithMe, found);
+            foreach (var statement in with.Body.Children)
+            {
+                MembersOfWithMe(statement, with.WithExpression is InstanceExpressionNode, found);
+            }
+
+            return;
+        }
+
+        foreach (var child in node.ChildNodes())
+        {
+            MembersOfWithMe(child, inWithMe, found);
         }
     }
 

@@ -196,4 +196,27 @@ public sealed class DocumentModuleDiagnosticsTests
         var range = Assert.ContainsSingle(related.Where(information => information.Message.StartsWith("'Range'", StringComparison.Ordinal)));
         Assert.AreEqual(8, range.Location.Range.Start.Line, "Me.Range, and neither ws.Range nor .Range");
     }
+
+    [TestMethod]
+    public async Task AMemberOfMe_InAWithBlockOfMe_IsListed_AndOneOfAWithBlockInsideItOfAnotherObject_IsNot()
+    {
+        var source = Automates.Replace("End Sub\r\n", string.Join("\r\n",
+            "End Sub",
+            "Public Sub Clear(ByVal ws As Excel.Worksheet)",
+            "    With Me",
+            "        .Range(\"A1\").Value = Empty",
+            "        With ws",
+            "            .Range(\"A2\").Value = Empty",
+            "        End With",
+            "    End With",
+            "End Sub",
+            ""));
+
+        var (_, diagnostics) = await DiagnoseAsync("GameSheet", source, DocClassType.ExcelWorksheet, Excel);
+
+        var related = diagnostics.Single(diagnostic => CodeOf(diagnostic) == "RDC01005").RelatedInformation!.ToArray();
+        var range = Assert.ContainsSingle(related.Where(information => information.Message.StartsWith("'Range'", StringComparison.Ordinal)),
+            string.Join("\n", related.Select(information => $"{information.Location.Range.Start.Line}: {information.Message}")));
+        Assert.AreEqual(9, range.Location.Range.Start.Line, ".Range of With Me, and neither ws.Range nor .Range of With ws");
+    }
 }
