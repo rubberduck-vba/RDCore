@@ -47,6 +47,43 @@ public sealed class SessionTurnTests
         Assert.IsFalse(turn.IsRunning);
     }
 
+    // a host of windows that stopped between being looked for and being told: what tells it fails, and the turn is given back all the same.
+    [TestMethod]
+    [DataRow(true, DisplayName = "told the program starts")]
+    [DataRow(false, DisplayName = "told the program ended")]
+    public async Task WhatIsToldOfRunningFailing_GivesTheTurnBack(bool failing)
+    {
+        var turn = new SessionTurn();
+        void Tell(bool running)
+        {
+            if (running == failing)
+            {
+                throw new InvalidOperationException("the host stopped");
+            }
+        }
+
+        turn.Running += Tell;
+        if (failing)
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(turn.Enter);
+        }
+        else
+        {
+            turn.Enter();
+            Assert.ThrowsExactly<InvalidOperationException>(turn.Exit);
+        }
+
+        turn.Running -= Tell;
+        Assert.IsFalse(turn.IsRunning);
+
+        // the next program takes the turn, and gives it back.
+        await Task.Run(() =>
+        {
+            turn.Enter();
+            turn.Exit();
+        }).WaitAsync(Patience);
+    }
+
     [TestMethod]
     public async Task WhenNothingRuns_AnEventIsHandledAsItArrives()
     {

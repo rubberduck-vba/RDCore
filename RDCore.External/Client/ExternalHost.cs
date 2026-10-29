@@ -93,7 +93,18 @@ public sealed class ExternalHost : IDisposable
                 return running;
             }
 
-            var connection = _connections();
+            // a connection that cannot be made is a host that could not be started, as one that fails to come up is.
+            ChildConnection connection;
+            try
+            {
+                connection = _connections();
+            }
+            catch (Exception exception) when (exception is not ExternalHostUnavailableException)
+            {
+                _logger.LogWarning(exception, "🔌 The external host could not be started.");
+                throw new ExternalHostUnavailableException(exception);
+            }
+
             var incarnation = new Incarnation(++_incarnations, connection);
             var pipeName = $"RDCore.{CoreServerComponent.ExternalHost}.Pipe.{Random.Shared.NextInt64()}";
             try
