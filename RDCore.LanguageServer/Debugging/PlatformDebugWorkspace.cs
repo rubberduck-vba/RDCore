@@ -146,6 +146,9 @@ internal sealed class PlatformDebugWorkspace(
         var environment = orchestration.RuntimeEnvironment;
         await environment.WaitForReadyAsync(token);
 
+        // a program run again has the modules as they are named now.
+        _renamed = null;
+
         // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration.
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         return await environment.SendRequestAsync<HostExecuteParams, ExecuteSessionResult>(new HostExecuteParams

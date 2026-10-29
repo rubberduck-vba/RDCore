@@ -242,6 +242,44 @@ public sealed class SymbolSyncServiceTests
         CollectionAssert.AreEqual(new[] { ("Mod1", false), ("Mod2", false), ("Mod1", true), ("Mod2", true) }, requests);
     }
 
+    // a module the host could not be given is told, with why: the host has it as it was, and a program that waits on it does not have its code.
+    [TestMethod]
+    public async Task AModuleTheHostCouldNotBeGiven_IsUnsynced_AndTheOthersAreNot()
+    {
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<DefineSymbolsParams>() is { ModuleName: "Mod2", CodeOnly: true }
+                ? Task.FromException<DefineSymbolsResult>(new InvalidOperationException("the host refused it"))
+                : Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("src/Mod1.bas", Root, "content"), new WorkspaceDocument("src/Mod2.bas", Root, "content")]);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var name = ((Uri)call[0]).AbsolutePath.EndsWith("Mod1.bas", StringComparison.OrdinalIgnoreCase) ? "Mod1" : "Mod2";
+                call[1] = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", $"{name}.bas")), "Public Sub Foo()\r\nEnd Sub");
+                return true;
+            });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.AreEqual("the host refused it", sut.Unsynced.Single(module => module.Key == "Mod2").Value);
+        Assert.IsFalse(sut.Unsynced.ContainsKey("Mod1"));
+
+        // the next sync that loads it says so.
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.IsEmpty(sut.Unsynced);
+    }
+
     private (SymbolSyncService Sut, List<(string Module, bool CodeOnly, bool Replace)> Requests) TwoModuleWorkspace(bool changedParseIsCurrent)
     {
         var requests = new List<(string Module, bool CodeOnly, bool Replace)>();
