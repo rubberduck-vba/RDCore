@@ -1,9 +1,14 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
+using RDCore.Parsing;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.Cli;
 
@@ -929,6 +934,78 @@ public sealed class EditAndContinueTests
         StringAssert.Contains(edit.Reason, "the signature of a procedure the program is in");
         StringAssert.EndsWith(edit.ModuleUri!.AbsoluteUri, "#Program");
         Assert.AreEqual(Program.Split("\r\n").ToList().FindIndex(line => line.StartsWith("Public Sub Callee", StringComparison.Ordinal)), edit.Range!.Value.Start.Line);
+    }
+
+    private static readonly string Child = ModuleWorkspace.ClassModule("Child",
+        "Private Sub Class_Terminate()", "    Debug.Print \"child gone\"", "End Sub");
+
+    private static string Owner(bool adopts, params string[] fields) => ModuleWorkspace.ClassModule("Owner",
+        [.. fields,
+        "Public Sub Adopt()", .. (adopts ? new[] { "    Set mChild = New Child" } : []), "End Sub",
+        "Private Sub Class_Terminate()", "    Debug.Print \"owner gone\"", "End Sub"]);
+
+    private static readonly string Owning = string.Join("\r\n",
+        "Option Explicit",
+        "Public Obj As Owner",
+        "Public Sub Main()",
+        "    Set Obj = New Owner",
+        "    Obj.Adopt",
+        "    Stop",
+        "End Sub") + "\r\n";
+
+    private static readonly string[] Holding = ["Private mChild As Object"];
+
+    // the fields of an object edited while it lives, with what is done with it at the stop or after: the program waits on, refusing to go on.
+    private static async Task<(ExecuteSessionResult Refused, T After)> OwnerEditedAsync<T>(string[] fields, Func<EnvironmentSessionProvider,
+        Func<Task<ExecuteSessionResult>>, Task<T>> then)
+    {
+        ExecuteSessionResult? refused = null;
+        T after = default!;
+        await ModuleWorkspace.InspectAsync([("Child", Child), ("Owner", Owner(true, Holding))], Owning, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Owner"], ("Child", ModuleType.ClassModule, Child),
+                ("Owner", ModuleType.ClassModule, Owner(fields.Contains(Holding[0]), fields)), ("Program", ModuleType.StdModule, Owning));
+            refused = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+            after = await then(provider, runAgain);
+        }, debug: true);
+
+        return (refused!, after);
+    }
+
+    // an object is let go of with the fields it was created with: a field added to its class while it lives has no storage on it, and a field removed from
+    // its class still holds the object it was set to, which goes when it does.
+    [TestMethod]
+    [DataRow(new[] { "Private mChild As Object", "Private mOther As Object" }, DisplayName = "a field added to the class of an object the program holds")]
+    [DataRow(new[] { "Private mKept As Object" }, DisplayName = "the field that holds an object removed from its class")]
+    public async Task AnObjectOfAClassWhoseFieldsWereEdited_LetGoOfAtTheStop_LetsGoOfWhatItHolds(string[] fields)
+    {
+        var (refused, released) = await OwnerEditedAsync(fields, (provider, _) => new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+            .Handle(new HostDebugExecuteParams { FrameId = 0, Json = PlatformJson.Serialize(Statement("Set Obj = Nothing")) }, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(20)));
+
+        Assert.AreEqual(ExecutionOutcome.Refused, refused.Outcome, "the object's layout is not applied to it");
+        Assert.IsTrue(released.Success, released.Error);
+        CollectionAssert.AreEqual(new[] { "owner gone", "child gone" }, released.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "Private mChild As Object", "Private mOther As Object" }, DisplayName = "a field added to the class of an object the program holds")]
+    [DataRow(new[] { "Private mKept As Object" }, DisplayName = "the field that holds an object removed from its class")]
+    public async Task AnObjectOfAClassWhoseFieldsWereEdited_IsLetGoOf_WhenTheProgramIsRunAgain(string[] fields)
+    {
+        var (_, again) = await OwnerEditedAsync(fields, (_, runAgain) => runAgain().WaitAsync(TimeSpan.FromSeconds(20)));
+
+        Assert.AreEqual(ExecutionOutcome.Suspended, again.Outcome, again.ErrorMessage);
+    }
+
+    // how the language server turns text into the statement the host runs at a stop: the one statement of a procedure written for the purpose.
+    private static SyntaxNode Statement(string text)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Execute.bas"), $"Public Sub E()\r\n{text}\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+        return parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<StatementNode>().Single();
     }
 
     [TestMethod]

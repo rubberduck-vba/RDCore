@@ -124,10 +124,17 @@ internal sealed class RuntimeSession(
             return;
         }
 
-        foreach (var field in live.ClassModule.Members.Where(member
-            => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol))
+        // the fields the object holds, which are those of its class as it was when the object was created: a field added to the class since has no storage
+        // on it, and a field removed from it still holds what it was set to.
+        IEnumerable<Symbol> fields = live is ObjectInstance created
+            ? created.Fields
+            : live.ClassModule.Members.Where(member => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol);
+        foreach (var field in fields)
         {
-            ObjectReferences.Release(this, live.GetValue(field));
+            if (live.TryResolve(field, out var value))
+            {
+                ObjectReferences.Release(this, value);
+            }
         }
 
         // the Static locals of its members are the object's too (MS-VBA).
