@@ -174,6 +174,13 @@ internal static class CompiledExecution
         return new Scope(() => _scoped.Value = previous);
     }
 
+    /// <summary>
+    /// Whether every compiled activation is handed to the interpreter at a safepoint chosen at random - any instruction boundary, a different one for each
+    /// activation - whether or not anything asks for it: what the suite runs under to show that what a walk-back writes into the frame is all the
+    /// interpreter needs, wherever it happens. The test assembly sets it from the <c>RDCORE_WALKBACK=random</c> environment variable; nothing else does.
+    /// </summary>
+    public static bool WalksBackAtRandom { get; set; }
+
     private static readonly AsyncLocal<bool> _strict = new();
 
     /// <summary>

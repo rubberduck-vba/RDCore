@@ -235,7 +235,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     private RuntimeExecutionOutcome Run(VBTypeMemberSymbol procedure, CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context)
     {
         if (CompiledExecution.EngineFor(Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
-            || Executor.Observation is not null || Session.Halt.Gate is not null || Session.Errors.Untrappable is not null || Bodies is not ProgramImage image)
+            || Executor.Observation is not null || Session.Halt.WantsInterpreter || Session.Errors.Untrappable is not null || Bodies is not ProgramImage image)
         {
             return Executor.Run(Session, frame, body, context);
         }

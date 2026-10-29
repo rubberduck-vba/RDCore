@@ -43,6 +43,12 @@ public sealed class CompiledActivation
     {
         (_session, _frame, _list, _executor, _context, _body) = (session, frame, list, executor, context, body);
         _halt = session.Halt;
+
+        // the safepoint the activation is handed to the interpreter at, under the random walk-back: one of its first 32, a different one for each activation.
+        if (CompiledExecution.WalksBackAtRandom)
+        {
+            _untilPoll = 1 + (int)(((uint)Interlocked.Increment(ref _activations) * 2654435761u) >> 27);
+        }
     }
 
     // how many polls go by before the next looks: a program is stopped within a few microseconds all the same.
@@ -50,10 +56,12 @@ public sealed class CompiledActivation
 
     private int _untilPoll = PollInterval;
 
+    private static int _activations;
+
     /// <summary>
-    /// Whether the program is to stop, or a debugger is attached: the activation is then handed to the interpreter, which stops it, or runs it under the
-    /// debugger. Polled where the interpreter polls cancellation - at the back edges of loops - which is between two instructions; one poll in
-    /// <c>256</c> looks.
+    /// Whether the program is to stop, or the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>): the activation is then handed to the
+    /// interpreter, which stops it, or runs it under the debugger. Polled where the interpreter polls cancellation - at the back edges of loops - which is
+    /// between two instructions; one poll in <c>256</c> looks.
     /// </summary>
     public bool ShouldWalkBack
     {
@@ -67,7 +75,7 @@ public sealed class CompiledActivation
         _untilPoll = PollInterval;
 
         // a cancellation the program was resumed from is not asked about again: the interpreter would run the activation on without breaking.
-        return _executor.IsCancellationPending || _halt.Gate is not null;
+        return CompiledExecution.WalksBackAtRandom || _executor.IsCancellationPending || _halt.WantsInterpreter;
     }
 
     /// <summary>The payload of the parameter in <paramref name="slot"/>, of an integral kind, when its cell holds one.</summary>

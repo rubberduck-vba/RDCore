@@ -77,6 +77,14 @@ internal sealed class ProcedureEmitter
         foreach (var step in _analysis.Steps)
         {
             _il.MarkLabel(_instructions[step.Offset]);
+
+            // every instruction boundary is a safepoint: under the random walk-back the activation may be handed to the interpreter at any of them, and not only
+            // where it polls for a program to stop - which a step that polls already does, before it.
+            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
+            {
+                EmitPoll(step.Offset);
+            }
+
             EmitStep(step);
         }
 

@@ -82,7 +82,8 @@ public sealed class CompiledExecutionTests
             {
                 Assert.IsGreaterThan(0L, result.Body.WalkBacks, $"{name} ran to its end in compiled code");
             }
-            else
+            // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
+            else if (!CompiledExecution.WalksBackAtRandom)
             {
                 Assert.AreEqual(0L, result.Body.WalkBacks, $"{name} was handed to the interpreter");
             }

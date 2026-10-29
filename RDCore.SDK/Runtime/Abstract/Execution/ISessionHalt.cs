@@ -74,6 +74,12 @@ public interface ISessionHalt
     IExecutionGate? Gate { get; set; }
 
     /// <summary>
+    /// Whether the program's procedures are to run in the interpreter: what compiled code polls between two instructions, to hand its activation to the
+    /// interpreter at the next safepoint, and what a new activation is not compiled under. Set while a debugger is attached (<see cref="Gate"/>).
+    /// </summary>
+    bool WantsInterpreter { get; }
+
+    /// <summary>
     /// Offers the program to the <see cref="Gate"/> to wait at the place it is stopped at.
     /// </summary>
     /// <param name="kind">Why the program is stopped.</param>
