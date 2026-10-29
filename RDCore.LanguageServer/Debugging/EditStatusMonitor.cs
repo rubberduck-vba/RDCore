@@ -16,7 +16,8 @@ namespace RDCore.LanguageServer.Debugging;
 /// </para>
 /// <para>
 /// A change of the list changes the findings of the modules it names, which did not change themselves: the client is asked to refresh what it shows of every
-/// document (<see cref="IWorkspaceRefresh.Changed"/>), and what is pushed to it is pushed again by whoever listens (<see cref="Changed"/>).
+/// document (<see cref="IWorkspaceRefresh.Changed"/>), and what is pushed to it is pushed again by whoever listens (<see cref="Changed"/>). So does a program
+/// that begins or ends waiting in break mode: what comes of evaluating the code is not found out while it waits, and is again once it goes on, ends or is reset.
 /// </para>
 /// </remarks>
 internal interface IEditStatusMonitor
@@ -25,7 +26,7 @@ internal interface IEditStatusMonitor
     HostDebugEditStatusResult Current { get; }
 
     /// <summary>
-    /// The list changed: what it was, and what it is now.
+    /// The list changed, or the program began or ended waiting in break mode: what it was, and what it is now.
     /// </summary>
     event Action<HostDebugEditStatusResult, HostDebugEditStatusResult>? Changed;
 
@@ -84,9 +85,10 @@ internal sealed class EditStatusMonitor(IProgramDebugService debugging, IWorkspa
             }
 
             Volatile.Write(ref _current, status);
-            if (previous.Edits.Length > 0 || status.Edits.Length > 0)
+            if (previous.Edits.Length > 0 || status.Edits.Length > 0 || previous.Suspended != status.Suspended)
             {
-                // the findings of the modules the list names, which did not change themselves, are not what they were.
+                // the findings of the modules the list names, which did not change themselves, are not what they were; nor are any module's, once a program
+                // waits in break mode or no longer does - what comes of evaluating the code is not found out while it waits.
                 refresh.Changed();
                 Changed?.Invoke(previous, status);
             }

@@ -430,6 +430,89 @@ public sealed class DocumentDiagnosticsServiceTests
         await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(default!, default);
     }
 
+    // a monitor of the program the host runs, which says it waits in break mode or not, as the host says when it is asked.
+    private static (EditStatusMonitor Monitor, Func<bool, Task> Say) ProgramThatWaits(WorkspaceRefresh refresh)
+    {
+        var debugging = Substitute.For<IProgramDebugService>();
+        var suspended = false;
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(_ => new HostDebugEditStatusResult { Suspended = suspended });
+        var monitor = new EditStatusMonitor(debugging, refresh, NullLogger<EditStatusMonitor>.Instance);
+        return (monitor, async waits =>
+        {
+            suspended = waits;
+            _ = await monitor.CheckAsync(CancellationToken.None);
+        });
+    }
+
+    // what comes of evaluating the code is not found out while a program waits in break mode: the host holds the redefinitions it would be of until the program
+    // is run again. What the static phase finds is found as ever.
+    [TestMethod]
+    public async Task WhileAProgramWaitsInBreakMode_TheRuntimePhaseIsNeitherAskedOfTheHostNorOfTheProvider()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(new Uri("file://rdcore-test#Mod1"), true, [], [], [])])));
+        var provider = Provider("RDCore.Diagnostics", 1, Diag(1));
+        ProvidersAre(provider);
+        var (monitor, say) = ProgramThatWaits(_refresh);
+        await say(true);
+        var sut = Sut(monitor);
+
+        var all = await sut.GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+        var runtime = await sut.GetPhaseAsync(document.Id.Uri.ToUri(), AnalysisPhase.Runtime, CancellationToken.None);
+
+        Assert.AreEqual(AnalysisPhase.Static, PayloadSentTo(provider).Phase, "the extension is asked for the static phase alone");
+        await host.Received(1).SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.Phase == AnalysisPhase.Static), Arg.Any<CancellationToken>());
+        await host.DidNotReceive().SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            Arg.Is<HostSemanticsParams>(request => request.Phase.HasFlag(AnalysisPhase.Runtime)), Arg.Any<CancellationToken>());
+        Assert.HasCount(1, all.Diagnostics, "the static phase's findings are found");
+        Assert.IsEmpty(runtime.Diagnostics, "the runtime phase alone finds nothing, and asks no one");
+    }
+
+    // break mode begun withdraws what comes of evaluating the code at once - a client that pulls is asked to pull again, and a pull that names the result it had
+    // is answered anew - and break mode ended brings it back the same way.
+    [TestMethod]
+    public async Task BreakModeBegunAndEnded_HasTheClientPullAgain_WithoutTheRuntimePhase_ThenWithIt()
+    {
+        var document = Document();
+        var uri = document.Id.Uri.ToUri();
+        WorkspaceHas(document);
+        ParseYields();
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(new Uri("file://rdcore-test#Mod1"), true, [], [], [])])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 1, Diag(1)));
+        var server = Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>();
+        server.ClientSettings.Returns(new InitializeParams
+        {
+            Capabilities = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                Workspace = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceClientCapabilities
+                {
+                    Diagnostics = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.DiagnosticWorkspaceClientCapabilities { RefreshSupport = true },
+                },
+            },
+        });
+        _refresh.Attach(server);
+        var (monitor, say) = ProgramThatWaits(_refresh);
+        var sut = Sut(monitor);
+        var running = await sut.GetAsync(uri, previousResultId: null, CancellationToken.None);
+
+        await say(true);
+        var waiting = await sut.GetAsync(uri, running.ResultId, CancellationToken.None);
+        var refreshedAtBreak = server.ReceivedCalls().Count(call => call.GetArguments().FirstOrDefault() is "workspace/diagnostic/refresh");
+        await say(false);
+        var resumed = await sut.GetAsync(uri, waiting.ResultId, CancellationToken.None);
+        var refreshedAtResume = server.ReceivedCalls().Count(call => call.GetArguments().FirstOrDefault() is "workspace/diagnostic/refresh");
+
+        Assert.IsFalse(waiting.Unchanged, "a pull at the break is answered anew");
+        Assert.IsFalse(resumed.Unchanged, "and once the program goes on");
+        Assert.AreEqual(1, refreshedAtBreak, "the client is asked to pull again at the break");
+        Assert.AreEqual(2, refreshedAtResume, "and again once the program goes on");
+        var phases = host.ReceivedCalls().Select(call => call.GetArguments().FirstOrDefault()).OfType<HostSemanticsParams>().Select(request => request.Phase).ToArray();
+        CollectionAssert.AreEqual(new[] { AnalysisPhase.All, AnalysisPhase.Static, AnalysisPhase.All }, phases);
+    }
+
     [TestMethod]
     public async Task APhaseThatIsAskedFor_IsAskedOfTheHostAndOfTheProvider_AndOfNoOther()
     {
