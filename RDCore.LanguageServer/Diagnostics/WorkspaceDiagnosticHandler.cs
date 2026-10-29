@@ -30,11 +30,16 @@ namespace RDCore.LanguageServer.Diagnostics;
 /// A change to any document that arrives while the modules are being analyzed ends the pull, answered <c>ContentModified</c> (-32801): the change, and the
 /// client's next request, do not wait for the whole workspace (<see cref="IncomingDocumentChanges.WhileWorkspaceCurrentAsync{T}"/>).
 /// </para>
+/// <para>
+/// What is found of a module is of the text the environment host has: the pull waits for the host to have every document as it is, each refresh that waits
+/// for more edits started at once (<see cref="IDocumentLifecycleService.WhenAllSyncedAsync"/>).
+/// </para>
 /// </remarks>
 internal sealed class WorkspaceDiagnosticHandler(
     IWorkspaceDocumentService documents,
     IDocumentStateProvider states,
     IDocumentDiagnosticsService diagnostics,
+    IDocumentLifecycleService lifecycle,
     IWorkProgressReporter progress,
     IncomingDocumentChanges incoming,
     ILanguageServerFacade server) : WorkspaceDiagnosticHandlerBase
@@ -51,7 +56,8 @@ internal sealed class WorkspaceDiagnosticHandler(
 
         var reports = await incoming.WhileWorkspaceCurrentAsync(cancellationToken, async token =>
         {
-            var modules = documents.GetAllDocuments().OrderBy(document => document.Id.Uri.ToString(), StringComparer.Ordinal).ToList();
+            await lifecycle.WhenAllSyncedAsync(token);
+            var modules =documents.GetAllDocuments().OrderBy(document => document.Id.Uri.ToString(), StringComparer.Ordinal).ToList();
             var answered = new List<WorkspaceDocumentDiagnosticReport>();
             for (var index = 0; index < modules.Count; index++)
             {

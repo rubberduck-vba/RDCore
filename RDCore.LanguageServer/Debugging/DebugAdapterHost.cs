@@ -19,6 +19,10 @@ namespace RDCore.LanguageServer.Debugging;
 /// <param name="transport">What the client is talked to over.</param>
 internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHost<DebugAdapterApp>
 {
+    protected override bool WritesToConsole => false;
+
+    protected override string? LogFileName => "RDCore.DebugAdapter.log";
+
     protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
         var parsed = Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args).Value
@@ -41,15 +45,6 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
             .AddSingleton(transport)
             .AddSingleton<IDebugWorkspace, PlatformDebugWorkspace>()
             .AddSingleton<ProgramDebugAdapter>();
-
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.DebugAdapter.log"),
-            LogLevel.Trace);
-
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
 }
 
 /// <summary>

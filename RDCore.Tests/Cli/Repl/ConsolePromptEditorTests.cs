@@ -256,4 +256,228 @@ public sealed class ConsolePromptEditorTests
 
         Assert.IsTrue(Rows(output).Any(row => row.StartsWith("nt, Length As Long)")), "four characters before the parameter, to the edge of the line");
     }
+
+    // ---- a snippet's tab stops ----
+
+    private static CompletionItem SnippetItem(string label, string snippet)
+        => new() { Label = label, Kind = CompletionItemKind.Snippet, InsertText = snippet, InsertTextFormat = InsertTextFormat.Snippet, SortText = label.ToLowerInvariant() };
+
+    private static Source ForLoop() => new() { Names = [SnippetItem("For", "For ${1:i} = ${2:1} To ${3:10}: Debug.Print $1: Next$0")] };
+
+    [TestMethod]
+    public async Task ASnippet_IsPutInPlace_AndTabGoesFromATabStopToTheNext_WhatIsTypedReplacingItsText()
+        => Assert.AreEqual("For n = 0 To 10: Debug.Print n: Next ' done", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab))
+            .Type("n").Press(Key(ConsoleKey.Tab))
+            .Type("0").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type(" ' done").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task ATabStopInSeveralPlaces_IsChangedInAllOfThem_AsItIsTyped()
+        => Assert.AreEqual("For index = 1 To 10: Debug.Print index: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab))
+            .Type("ind").Press(Key(ConsoleKey.Backspace)).Type("dex").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task ShiftTab_GoesBackToTheTabStopBefore()
+        => Assert.AreEqual("For k = 1 To 10: Debug.Print k: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab), Key(ConsoleKey.Tab, shift: true))
+            .Type("k").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task BackspaceOnASelectedTabStop_ErasesItsText_InEachOfItsPlaces()
+        => Assert.AreEqual("For j = 1 To 10: Debug.Print j: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Backspace)).Type("j").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task Escape_LeavesTheSnippetAsItIs_AndTheLineIsNotCleared()
+        => Assert.AreEqual("For i = 1 To 10: Debug.Print i: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Escape), Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task TheSnippetIsDone_OnceTheCursorLeavesItsTabStop_AndWhatIsTypedThenIsTypedOnce()
+        => Assert.AreEqual("xFor i = 1 To 10: Debug.Print i: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Home)).Type("x").Press(Key(ConsoleKey.Enter)), ForLoop()));
+
+    [TestMethod]
+    public async Task ASnippetOfSeveralLines_IsPutInPlaceAsItsName()
+        => Assert.AreEqual("If", await EnterAsync(new ScriptedKeys().Type("I").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("If", "If ${1:x} Then\r\n\t$0\r\nEnd If")] }));
+
+    [TestMethod]
+    public async Task ThePlacesOfTheTabStopTheCursorIsAt_AreUnderlined()
+    {
+        var (editor, output, _) = Editor(new ScriptedKeys().Type("Fo").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)), ForLoop());
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        StringAssert.Contains(output.ToString(), "For \u001b[4mi\u001b[24m = 1 To 10: Debug.Print \u001b[4mi\u001b[24m: Next");
+    }
+
+    [TestMethod]
+    public async Task TypingOverATabStopThatHeldAnother_ThenTab_GoesOnWithoutIt()
+        => Assert.AreEqual("a = 1", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab)).Type("a").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "${1:Dim ${2:x}} = 1")] }));
+
+    [TestMethod]
+    public async Task WithACompletionListOpenInATabStop_TabPutsTheNameInPlace_AndTheNextTabGoesOn()
+        => Assert.AreEqual("For nCount = 5 To 10: Debug.Print nCount: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab))
+            .Type("n").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("5").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("For", "For ${1:i} = ${2:1} To ${3:10}: Debug.Print $1: Next$0"), Item("nCount")] }));
+
+    [TestMethod]
+    public async Task ATabStopInTheCopyOfAPlaceholder_IsChangedWithTheOneItCopies()
+        => Assert.AreEqual("Dim q = Dim q", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab)).Type("q").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "${1:Dim ${2:x}} = $1")] }));
+
+    [TestMethod]
+    public async Task AWideCharacter_TakesTwoCells_AndTheCursorIsDrawnAfterThem()
+    {
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type("名前").Press(Key(ConsoleKey.Enter)), output, () => 80) { CompleteWords = false };
+
+        Assert.AreEqual("名前", await editor.ReadLineAsync(CancellationToken.None));
+
+        var columns = System.Text.RegularExpressions.Regex.Matches(output.ToString(), "\u001b\\[(\\d+)G").Select(match => int.Parse(match.Groups[1].Value)).ToArray();
+        Assert.AreEqual(5, columns[^1], "two cells for each of the two characters, and the cursor in the fifth");
+    }
+
+    [TestMethod]
+    public async Task AWideCharacterTypedInATabStop_IsMirrored_AndDrawnUnderlined()
+    {
+        var (editor, output, _) = Editor(new ScriptedKeys().Type("Fo").Press(Key(ConsoleKey.Tab)).Type("名").Press(Key(ConsoleKey.Enter)), ForLoop());
+
+        Assert.AreEqual("For 名 = 1 To 10: Debug.Print 名: Next", await editor.ReadLineAsync(CancellationToken.None));
+        StringAssert.Contains(output.ToString(), "For \u001b[4m名\u001b[24m = 1 To 10: Debug.Print \u001b[4m名\u001b[24m: Next");
+    }
+
+    // ---- an edit in a tab stop that is in another, and characters that are more than one UTF-16 unit ----
+
+    [TestMethod]
+    public async Task AnEditInATabStopThatIsInAnother_GrowsTheOneAroundIt_InEachOfItsPlaces()
+        => Assert.AreEqual("z = z", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("qq").Press(Key(ConsoleKey.Tab, shift: true))
+            .Type("z").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "${1:Dim ${2:x}} = $1")] }));
+
+    [TestMethod]
+    public async Task ALongerTextInATabStopThatIsInAnother_IsAllOfItTypedOver_WhenTheOneAroundItIs()
+        => Assert.AreEqual("z LONGER", await EnterAsync(new ScriptedKeys()
+            .Type("Pa").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("LONGER").Press(Key(ConsoleKey.Tab, shift: true))
+            .Type("z").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Pair", "${1:a $2 b} ${2:xyz}")] }));
+
+    [TestMethod]
+    public async Task TabStopsThatHoldEachOther_AreEditedWithoutAnError()
+    {
+        var line = await EnterAsync(new ScriptedKeys()
+            .Type("Lo").Press(Key(ConsoleKey.Tab))
+            .Type("q").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("z").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Loop", "${1:a $2} ${2:b $1}")] });
+
+        Assert.IsNotNull(line);
+        StringAssert.StartsWith(line, "q", "the first tab stop, typed over, is what was typed in it");
+        StringAssert.EndsWith(line, "z", "and what is typed at the end of the snippet is there");
+    }
+
+    private static bool HasALoneSurrogate(string text)
+    {
+        for (var index = 0; index < text.Length; index++)
+        {
+            if (char.IsHighSurrogate(text[index]) && (index + 1 >= text.Length || !char.IsLowSurrogate(text[index + 1])))
+            {
+                return true;
+            }
+
+            if (char.IsLowSurrogate(text[index]) && (index == 0 || !char.IsHighSurrogate(text[index - 1])))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [TestMethod]
+    public async Task ALineThatScrolls_IsNeverDrawnFromHalfACharacter()
+    {
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type(string.Concat(Enumerable.Repeat("😀", 100)) + "a").Press(Key(ConsoleKey.Enter)), output, () => 80)
+        {
+            CompleteWords = false,
+        };
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        Assert.IsFalse(HasALoneSurrogate(output.ToString()), "every drawing of the line starts and ends between two characters");
+    }
+
+    [TestMethod]
+    public async Task TheCursor_MovesOverACharacterOfTwoUnits_AndBackspaceErasesAllOfIt()
+    {
+        var keys = new ScriptedKeys().Type("a😀b").Press(Key(ConsoleKey.LeftArrow), Key(ConsoleKey.LeftArrow)).Type("x")
+            .Press(Key(ConsoleKey.End), Key(ConsoleKey.LeftArrow), Key(ConsoleKey.Backspace), Key(ConsoleKey.Enter));
+        var editor = new ConsolePromptEditor(keys, new StringWriter(), () => 80) { CompleteWords = false };
+
+        Assert.AreEqual("axb", await editor.ReadLineAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task AnEmojiAndItsSelector_AreMeasuredTogether_AndTheLineFitsTheConsole()
+    {
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type(string.Concat(Enumerable.Repeat("☺️", 60))).Press(Key(ConsoleKey.Home), Key(ConsoleKey.Enter)), output, () => 80)
+        {
+            CompleteWords = false,
+        };
+
+        await editor.ReadLineAsync(CancellationToken.None);
+
+        // the line as it is drawn at Home: from its carriage return to the end of the line it clears.
+        var drawn = output.ToString();
+        var home = drawn[..drawn.LastIndexOf("\u001b[1G", StringComparison.Ordinal)];
+        var line = home[(home.LastIndexOf('\r') + 1)..home.LastIndexOf("\u001b[K", StringComparison.Ordinal)];
+        Assert.IsLessThanOrEqualTo(79, RDCore.CLI.App.Console.ConsoleText.WidthOf(line), "each of them is two cells, as the console draws it");
+    }
+
+    [TestMethod]
+    public async Task AnEditOfATabStop_KeepsTheTabStopsInItThatItDoesNotTouch()
+        => Assert.AreEqual("Dim 7 As Lon = ", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.LeftArrow), Key(ConsoleKey.RightArrow), Key(ConsoleKey.Backspace), Key(ConsoleKey.Tab))
+            .Type("7").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "Dim ${1:${2:x} As Long} = $3")] }));
+
+    [TestMethod]
+    public async Task TheSecondHalfOfACharacterTyped_WithNoFirstHalf_IsNotTyped()
+    {
+        var keys = new ScriptedKeys().Type("x").Press(new ConsoleKeyInfo('\uDE00', ConsoleKey.NoName, false, false, false)).Press(Key(ConsoleKey.Enter));
+        var editor = new ConsolePromptEditor(keys, new StringWriter(), () => 80) { CompleteWords = false };
+
+        Assert.AreEqual("x", await editor.ReadLineAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheCursor_MovesBackOverALongLine_InTimeTheLineTakes()
+    {
+        var keys = new ScriptedKeys().Type(new string('x', 20_000));
+        for (var press = 0; press < 20_000; press++)
+        {
+            keys.Press(Key(ConsoleKey.LeftArrow));
+        }
+
+        keys.Type("a").Press(Key(ConsoleKey.Enter));
+        var editor = new ConsolePromptEditor(keys, TextWriter.Null, () => 80) { CompleteWords = false };
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        Assert.AreEqual("a" + new string('x', 20_000), await editor.ReadLineAsync(CancellationToken.None));
+        Assert.IsLessThan(8_000, watch.ElapsedMilliseconds, "a key back reads only back to a character before the cursor, not the line from its start");
+    }
 }
