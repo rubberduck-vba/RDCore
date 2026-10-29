@@ -13,7 +13,11 @@ public sealed class ModuleIndenterTests
     private static string Indented(string text, CodeFormattingOptions? options = null, int first = 0, int last = int.MaxValue)
     {
         var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
-        return ModuleIndenter.Apply(text, ModuleIndenter.Indent(parse, text, options ?? CodeFormattingOptions.Default, first, last));
+        var edits = ModuleIndenter.Indent(parse, text, options ?? CodeFormattingOptions.Default, first, last);
+
+        // whatever a test expects, no edit changes what a literal or a comment says.
+        LiteralText.AssertNoEditIn(text, edits);
+        return ModuleIndenter.Apply(text, edits);
     }
 
     private static string Lines(params string[] lines) => string.Join("\r\n", lines);
@@ -177,8 +181,20 @@ public sealed class ModuleIndenterTests
         DisplayName = "a closer of no block")]
     [DataRow(new[] { "Sub A(", "If x Then", "y = = 1", "Else ' c", "y = = 2", "End If", "End Sub" },
         new[] { "Sub A(", "    If x Then", "        y = = 1", "    Else                                         ' c", "        y = = 2", "    End If", "End Sub" }, DisplayName = "a branch with a comment")]
+    [DataRow(new[] { "Sub A()", "If x Then", "Print \"unterminated", "y = 1", "End If", "End Sub" },
+        new[] { "Sub A()", "    If x Then", "        Print \"unterminated", "        y = 1", "    End If", "End Sub" }, DisplayName = "a string not terminated")]
+    [DataRow(new[] { "Sub A()", "If x Then", "30 Print \"unterminated", "y = 1", "End If", "End Sub" },
+        new[] { "Sub A()", "    If x Then", "30      Print \"unterminated", "        y = 1", "    End If", "End Sub" }, DisplayName = "a string not terminated after a line number")]
+    [DataRow(new[] { "Sub A()", "If x Then", "20 Foo: y = 1", "End If", "End Sub" }, new[] { "Sub A()", "    If x Then", "20      Foo: y = 1", "    End If", "End Sub" },
+        DisplayName = "a call after a line number, which is no label")]
     public void UnfinishedCode_IsIndentedByWhatEnclosesIt(string[] typed, string[] indented)
         => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
+
+    // a closer whose statement is continued closes the block on the line it starts on: the lines it is continued on move with it.
+    [TestMethod]
+    public void ACloserContinuedOnMoreLines_IsAtTheLevelOfTheBlock()
+        => Assert.AreEqual(Lines("Sub A()", "    Do", "        x = 1", "    Loop Until a And _", "               b", "    y = 2", "End Sub"),
+            Indented(Lines("Sub A()", "Do", "x = 1", "Loop Until a And _", "           b", "y = 2", "End Sub")));
 
     // as Rubberduck's indenter has it: the line that closes a block is at the block's level, wherever the closer is on it.
     [TestMethod]
@@ -311,4 +327,79 @@ public sealed class ModuleIndenterTests
     [DataRow(new[] { "Global a As Long, _", "b As Long" }, new[] { "Global a As Long, _", "b As Long" }, DisplayName = "a Global declaration")]
     public void AContinuedLine_LinesUpPastWhatIsOfOneToken(string[] typed, string[] indented)
         => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
+
+    // an As in a string literal, a bracketed name or a comment is none of the declaration's: what the program says stays what it says.
+    [TestMethod]
+    [DataRow("Const c = \"q As r\"", "Const c = \"q As r\"", DisplayName = "in a string literal")]
+    [DataRow("Dim [a As b] As Long", "Dim [a As b]  As Long", DisplayName = "in a bracketed name")]
+    [DataRow("Dim x: Rem a As b", "Dim x: Rem a As b", DisplayName = "in a Rem comment")]
+    public void AnAsThatIsNotOfTheCode_IsNotAligned(string typed, string indented)
+        => Assert.AreEqual(indented, Indented(typed, CodeFormattingOptions.Default with { AlignDims = true, EndOfLineCommentStyle = EndOfLineCommentStyle.SameGap }));
+
+    // a comment is the rest of its line, and what it is continued on: an apostrophe in its text starts no end-of-line comment.
+    [TestMethod]
+    [DataRow(new[] { "Sub A()", "Rem don't panic", "End Sub" }, new[] { "Sub A()", "    Rem don't panic", "End Sub" }, DisplayName = "a Rem alone on its line")]
+    [DataRow(new[] { "Sub A()", "10 Rem don't", "20 ' it's", "End Sub" }, new[] { "Sub A()", "10  Rem don't", "20  ' it's", "End Sub" },
+        DisplayName = "after a line number")]
+    [DataRow(new[] { "Sub A()", "Rem a _", "don't _", "b", "End Sub" }, new[] { "Sub A()", "    Rem a _", "    don't _", "    b", "End Sub" },
+        DisplayName = "a Rem continued")]
+    [DataRow(new[] { "Sub A()", "x = 1 ' a _", "it's", "End Sub" }, new[] { "Sub A()", "    x = 1 ' a _", "          it's", "End Sub" },
+        DisplayName = "an end-of-line comment continued")]
+    public void TheTextOfAComment_IsNoCode(string[] typed, string[] indented)
+        => Assert.AreEqual(Lines(indented), Indented(Lines(typed), CodeFormattingOptions.Default with { EndOfLineCommentStyle = EndOfLineCommentStyle.SameGap }));
+
+    // a Rem that starts a statement after code is the line's end-of-line comment, aligned as one is, its text as it is.
+    [TestMethod]
+    [DataRow("x = 1:", DisplayName = "after a colon")]
+    [DataRow("If x Then", DisplayName = "after a Then")]
+    public void ARemAfterCode_IsAnEndOfLineComment(string code)
+    {
+        var column = CodeFormattingOptions.Default.EndOfLineCommentColumnSpaceAlignment - 1;
+
+        Assert.AreEqual(Lines("Sub A()", "    " + code + new string(' ', column - 4 - code.Length) + "Rem it's", "End Sub"),
+            Indented(Lines("Sub A()", code + " Rem it's", "End Sub")));
+    }
+
+    // the edits are made wherever they are in the list, each where the text as it was has it, two that touch one after the other; two that overlap are refused.
+    [TestMethod]
+    public void Apply_MakesTheEditsInAnyOrder_AndRefusesTwoThatOverlap()
+    {
+        var text = "a\r\nb\nc";
+
+        Assert.AreEqual("a\r\n\r\n b\n  c",
+            ModuleIndenter.Apply(text, [new IndentationEdit(2, 0, 0, "  "), new IndentationEdit(0, 1, 1, 0, "\r\n\r\n"), new IndentationEdit(1, 0, 0, " ")]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => ModuleIndenter.Apply(text, [new IndentationEdit(0, 0, 1, 1, "x"), new IndentationEdit(1, 0, 1, "y")]));
+    }
+
+    // whatever the settings, no edit changes what a literal or a comment says.
+    [TestMethod]
+    [DataRow(EndOfLineCommentStyle.AlignInColumn)]
+    [DataRow(EndOfLineCommentStyle.Absolute)]
+    [DataRow(EndOfLineCommentStyle.SameGap)]
+    [DataRow(EndOfLineCommentStyle.StandardGap)]
+    public void NoEdit_ChangesALiteralOrAComment(EndOfLineCommentStyle style)
+    {
+        var text = Lines(
+            "Option Explicit",
+            "Const c = \"q As r\" ' s As t",
+            "Private Const d As Date = #1/1/2000#",
+            "Sub A()",
+            "Dim s As String: s = \"it's ' a: End If\"",
+            "Rem don't panic: End Sub",
+            "x = 1: Rem it's",
+            "10 Rem don't",
+            "20 ' it's",
+            "If x Then Rem it's",
+            "Rem a _",
+            "don't _",
+            "b",
+            "x = Foo(\"a,  b\", _",
+            "\"c (d\") ' e's _",
+            "f's",
+            "Dim [a As b] As Long",
+            "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        LiteralText.AssertNoEditIn(text, ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default with { AlignDims = true, EndOfLineCommentStyle = style }));
+    }
 }

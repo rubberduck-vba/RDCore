@@ -46,7 +46,9 @@ public sealed class RubberduckIndenterCaseTests
         var text = string.Join("\r\n", item.Code);
         var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
 
-        var indented = ModuleIndenter.Apply(text, ModuleIndenter.Indent(parse, text, options));
+        var edits = ModuleIndenter.Indent(parse, text, options);
+        LiteralText.AssertNoEditIn(text, edits);
+        var indented = ModuleIndenter.Apply(text, edits);
 
         var expected = string.Join("\r\n", item.Expected);
         if (Waiting.TryGetValue(source, out var missing))
@@ -78,5 +80,18 @@ public sealed class RubberduckIndenterCaseTests
         }
 
         Assert.IsEmpty(edits);
+    }
+
+    // with every alignment on, whatever the case sets, no edit changes what a literal or a comment of its input says.
+    [TestMethod]
+    [DynamicData(nameof(AllCases))]
+    public void WithEveryAlignment_NoEditChangesALiteralOrAComment(string source)
+    {
+        var item = Cases.Value.Single(candidate => candidate.Source == source);
+        var options = item.Settings.Deserialize<CodeFormattingOptions>(Json)! with { AlignDims = true, AlignContinuations = true, AlignCommentsWithCode = true };
+        var text = string.Join("\r\n", item.Code);
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        LiteralText.AssertNoEditIn(text, ModuleIndenter.Indent(parse, text, options));
     }
 }
