@@ -446,4 +446,38 @@ public sealed class ConsolePromptEditorTests
         var line = home[(home.LastIndexOf('\r') + 1)..home.LastIndexOf("\u001b[K", StringComparison.Ordinal)];
         Assert.IsLessThanOrEqualTo(79, RDCore.CLI.App.Console.ConsoleText.WidthOf(line), "each of them is two cells, as the console draws it");
     }
+
+    [TestMethod]
+    public async Task AnEditOfATabStop_KeepsTheTabStopsInItThatItDoesNotTouch()
+        => Assert.AreEqual("Dim 7 As Lon = ", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.LeftArrow), Key(ConsoleKey.RightArrow), Key(ConsoleKey.Backspace), Key(ConsoleKey.Tab))
+            .Type("7").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "Dim ${1:${2:x} As Long} = $3")] }));
+
+    [TestMethod]
+    public async Task TheSecondHalfOfACharacterTyped_WithNoFirstHalf_IsNotTyped()
+    {
+        var keys = new ScriptedKeys().Type("x").Press(new ConsoleKeyInfo('\uDE00', ConsoleKey.NoName, false, false, false)).Press(Key(ConsoleKey.Enter));
+        var editor = new ConsolePromptEditor(keys, new StringWriter(), () => 80) { CompleteWords = false };
+
+        Assert.AreEqual("x", await editor.ReadLineAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheCursor_MovesBackOverALongLine_InTimeTheLineTakes()
+    {
+        var keys = new ScriptedKeys().Type(new string('x', 20_000));
+        for (var press = 0; press < 20_000; press++)
+        {
+            keys.Press(Key(ConsoleKey.LeftArrow));
+        }
+
+        keys.Type("a").Press(Key(ConsoleKey.Enter));
+        var editor = new ConsolePromptEditor(keys, TextWriter.Null, () => 80) { CompleteWords = false };
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        Assert.AreEqual("a" + new string('x', 20_000), await editor.ReadLineAsync(CancellationToken.None));
+        Assert.IsLessThan(8_000, watch.ElapsedMilliseconds, "a key back reads only back to a character before the cursor, not the line from its start");
+    }
 }

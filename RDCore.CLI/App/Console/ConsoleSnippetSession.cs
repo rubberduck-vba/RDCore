@@ -181,7 +181,8 @@ internal sealed class ConsoleSnippetSession
             }
 
             var delta = value.Length - place.Length;
-            var related = _places.Where(other => other != place).Select(other => (other, relation: RelationOf(other, place))).ToList();
+            var (editStart, editEnd) = (place.Start + offset, place.Start + offset + removed);
+            var related = _places.Where(other => other != place).Select(other => (other, relation: RelationOf(other, place, editStart, editEnd))).ToList();
             text.Remove(place.Start, place.Length).Insert(place.Start, value);
             foreach (var (other, relation) in related)
             {
@@ -207,9 +208,9 @@ internal sealed class ConsoleSnippetSession
         return true;
     }
 
-    // a placeholder that holds the place is around it, one the place holds is in it; any other is before it or after it in the text - at one point, in the
-    // snippet's order.
-    private static Relation RelationOf(Place other, Place place)
+    // a placeholder that holds the place is around it; one the place holds is where the edit has it - typed over when the edit covers it, around the edit when
+    // the edit is in its text, before or after it otherwise; any other is before the place or after it in the text, at one point in the snippet's order.
+    private static Relation RelationOf(Place other, Place place, int editStart, int editEnd)
     {
         if (place.IsIn(other))
         {
@@ -218,7 +219,7 @@ internal sealed class ConsoleSnippetSession
 
         if (other.IsIn(place))
         {
-            return Relation.Inside;
+            return RelationToEdit(other, editStart, editEnd);
         }
 
         if (other.Start >= place.End && (other.Start > place.Start || place.Length > 0 || other.Order > place.Order))
@@ -227,6 +228,35 @@ internal sealed class ConsoleSnippetSession
         }
 
         return Relation.Before;
+    }
+
+    // a place the edited one holds, from the edit - the characters from editStart to editEnd replaced, or a point where they are inserted.
+    private static Relation RelationToEdit(Place other, int editStart, int editEnd)
+    {
+        var inserting = editStart == editEnd;
+        if (other.Length == 0)
+        {
+            if (other.Start < editStart || (other.Start == editStart && !inserting))
+            {
+                return Relation.Before;
+            }
+
+            return other.Start >= editEnd ? Relation.After : Relation.Inside;
+        }
+
+        if (other.End <= editStart)
+        {
+            return Relation.Before;
+        }
+
+        if (other.Start >= editEnd)
+        {
+            return Relation.After;
+        }
+
+        // an edit of all its text is the place typed over; one inside its text is the place edited, which grows or shrinks with it.
+        var coversItAll = other.Start == editStart && other.End == editEnd && !inserting;
+        return other.Start <= editStart && other.End >= editEnd && !coversItAll ? Relation.Around : Relation.Inside;
     }
 
     private Place? Primary() => _at < 0 ? null : _places.Where(place => place.Index == _order[_at]).OrderBy(place => place.Start).FirstOrDefault();

@@ -155,13 +155,13 @@ public sealed class SnippetTests
     [TestMethod]
     public void PlaceholdersThatAreNotClosed_AreReadInOnePass()
     {
-        var snippet = string.Concat(Enumerable.Repeat("${1:", 2000));
+        // as many as a snippet has open in one another: each is the text it is; more are no snippet to insert, and are not read past that.
+        var snippet = string.Concat(Enumerable.Repeat("${1:", Snippet.MostNested));
+        Assert.AreEqual(snippet, Snippet.Parse(snippet).Text);
+
         var watch = System.Diagnostics.Stopwatch.StartNew();
-
-        var parsed = Snippet.Parse(snippet);
-
+        Assert.IsFalse(Snippet.TryParse(string.Concat(Enumerable.Repeat("${1:", 2000)), out _));
         Assert.IsLessThan(1000, watch.ElapsedMilliseconds, "a placeholder that is not closed is not read again from where it opened");
-        Assert.AreEqual(snippet, parsed.Text);
     }
 
     [TestMethod]
@@ -190,4 +190,48 @@ public sealed class SnippetTests
         Assert.AreEqual("$99999999999 FOO", snippet.Text);
         Assert.AreEqual(new SnippetTabStop(1, 13, 3), snippet.TabStops.Single(), "the variable is the first tab stop after the numbered ones, of which there are none");
     }
+
+    // ---- inputs no snippet to insert is ----
+
+    private static void ReadInTime(string snippet, bool expected, string why)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        Assert.AreEqual(expected, Snippet.TryParse(snippet, out _), why);
+        Assert.IsLessThan(1000, watch.ElapsedMilliseconds, why);
+    }
+
+    [TestMethod]
+    public void PlaceholdersClosedInOneAnother_DeeperThanASnippetHasThem_AreNoSnippet_AndNothingOverflows()
+    {
+        ReadInTime(string.Concat(Enumerable.Repeat("${1:", 10_000)) + new string('}', 10_000), false, "10,000 placeholders in one another");
+        ReadInTime(string.Concat(Enumerable.Repeat("${A:", 10_000)) + new string('}', 10_000), false, "10,000 variable defaults in one another");
+    }
+
+    [TestMethod]
+    public void ASnippetLongerThanOneToInsert_IsNotRead()
+        => ReadInTime(new string('x', Snippet.MostText + 1), false, "the input is longer than a snippet's text can be");
+
+    [TestMethod]
+    public void UnclosedPlaceholders_AndUnfinishedTransforms_AreReadInTimeTheirLengthTakes()
+    {
+        // within the length a snippet can have: each of them is text, read once.
+        ReadInTime(string.Concat(Enumerable.Repeat("${1:x", 13_000)), false, "more open than a snippet has in one another");
+        ReadInTime(string.Concat(Enumerable.Repeat("x ${1/a/", 8_000)), true, "transforms that are not finished");
+        Assert.AreEqual("x ${1/a/x ${1/a/", Snippet.Parse("x ${1/a/x ${1/a/").Text);
+    }
+
+    [TestMethod]
+    public void PlaceholdersShownInOneAnother_DeeperThanASnippetHasThem_AreNoSnippet_RatherThanEmpty()
+    {
+        // ${1:$2} ${2:$3} ... ${17:x}: written flat, shown seventeen deep.
+        var snippet = string.Join(" ", Enumerable.Range(1, 16).Select(level => $"${{{level}:${level + 1}}}")) + " ${17:x}";
+
+        Assert.IsFalse(Snippet.TryParse(snippet, out _), "past the depth a snippet has, no text is dropped: it is not one to insert");
+        Assert.IsTrue(Snippet.TryParse("${1:$2} ${2:$3} ${3:x}", out var shallow));
+        Assert.AreEqual("x x x", shallow.Text);
+    }
+
+    [TestMethod]
+    public void ManyVariablesNotKnown_AreReadInTimeTheirNumberTakes()
+        => ReadInTime(string.Join(" ", Enumerable.Range(1, 4_000).Select(index => $"$V{index}")), true, "each variable not known is a tab stop of its own");
 }

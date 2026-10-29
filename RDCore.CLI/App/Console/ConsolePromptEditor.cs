@@ -246,7 +246,10 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
         private TextWriter Output => editor._output;
 
-        private string Text => _text.ToString();
+        // the line as text, made again only once it is edited: a key that only moves the cursor does not copy a long line.
+        private string Text => _textAsItIs ??= _text.ToString();
+
+        private string? _textAsItIs;
 
         public async Task<string> EditAsync(CancellationToken token)
         {
@@ -402,6 +405,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     return false;
                 case ConsoleKey.Escape:
                     _text.Clear();
+                    _textAsItIs = null;
                     _cursor = 0;
                     Close();
                     CloseSignature();
@@ -479,6 +483,12 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 if (char.IsHighSurrogate(typed))
                 {
                     _highSurrogate = typed;
+                    return false;
+                }
+
+                // the second half of such a character with no first half before it is half of nothing, and is not typed.
+                if (char.IsLowSurrogate(typed) && _highSurrogate is null)
+                {
                     return false;
                 }
 
@@ -568,6 +578,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         {
             _snippet = null;
             _text.Append(taken);
+            _textAsItIs = null;
             _cursor = _text.Length;
             Follow();
         }
@@ -634,6 +645,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
             _history = Math.Clamp(_history + by, 0, history.Count);
             _text.Clear().Append(_history == history.Count ? _draft : history[_history]);
+            _textAsItIs = null;
             _cursor = _text.Length;
             Close();
         }
@@ -737,6 +749,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 _snippet = null;
                 _text.Remove(_anchor, end - _anchor).Insert(_anchor, snippet.Text);
+                _textAsItIs = null;
                 var session = ConsoleSnippetSession.Start(snippet, _anchor);
                 _cursor = session.Next() ?? _anchor + snippet.Text.Length;
                 _snippet = session.IsDone ? null : session;
@@ -761,6 +774,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         // an edit of the line: in the tab stop of a snippet the cursor is at, in each of its places; anywhere else, where it is, and the snippet is done.
         private void Edit(int position, int removed, string inserted)
         {
+            _textAsItIs = null;
             if (_snippet is { } snippet && snippet.TryEdit(_text, ref _cursor, position, removed, inserted))
             {
                 return;
@@ -808,12 +822,48 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             return text[..length];
         }
 
+        // where the character as it is seen that a position is in starts: read from an ASCII character before it, which starts one, or from the line's start.
+        private static int ElementStartAtOrBefore(string text, int position)
+        {
+            var from = position;
+            while (from > 0 && position - from < 256 && !(text[from] < 0x80 && !(text[from] == '\n' && text[from - 1] == '\r')))
+            {
+                from--;
+            }
+
+            if (position - from >= 256)
+            {
+                from = 0;
+            }
+
+            var start = from;
+            for (var at = from; at <= position && at < text.Length; at += Math.Max(1, StringInfo.GetNextTextElementLength(text, at)))
+            {
+                start = at;
+            }
+
+            return start;
+        }
+
         // how long the character as it is seen before the cursor is: one, two for a surrogate pair, more for an emoji and its selector.
         private int PreviousElementLength()
         {
+            // read from the last place before the cursor that a character as it is seen starts at: an ASCII character starts one (but the line feed of a CR LF),
+            // so the line is not read from its start at each key; from its start when none is near.
             var text = Text;
-            var at = 0;
-            var last = 0;
+            var from = _cursor - 1;
+            while (from > 0 && _cursor - from < 256 && !(text[from] < 0x80 && !(text[from] == '\n' && text[from - 1] == '\r')))
+            {
+                from--;
+            }
+
+            if (_cursor - from >= 256)
+            {
+                from = 0;
+            }
+
+            var at = Math.Max(0, from);
+            var last = at;
             while (at < _cursor)
             {
                 last = at;
@@ -926,12 +976,19 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 // in cells, not characters: a wide character (名) takes two of them, and the cursor is drawn after the cells of what is before it.
                 var text = Text;
                 _start = Math.Clamp(_start, 0, _cursor);
+
+                // a cursor far from where the line was drawn from - End on a long line - is caught up with from a character near it, not one at a time.
+                if (_cursor - _start > room * 4)
+                {
+                    _start = ElementStartAtOrBefore(text, _cursor - room * 4);
+                }
+
                 while (_start < _cursor && ConsoleText.WidthOf(text[_start.._cursor]) > room - 1)
                 {
                     _start += Math.Max(1, StringInfo.GetNextTextElementLength(text, _start));
                 }
 
-                var shown = Fitted(text[_start..], room);
+                var shown = Fitted(text.Substring(_start, Math.Min(text.Length - _start, room * 4 + 8)), room);
 
                 Output.Write('\r');
                 Output.Write(entered ? shown : Marked(shown));

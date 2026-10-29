@@ -49,8 +49,14 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         "TM_SELECTED_TEXT", "TM_CURRENT_LINE", "TM_CURRENT_WORD", "TM_LINE_INDEX", "TM_LINE_NUMBER", "TM_FILENAME", "TM_FILENAME_BASE", "TM_DIRECTORY", "TM_FILEPATH",
     ];
 
-    // how deep placeholders are shown in one another before one shows nothing: ${1:a $2} ${2:b $1} is a loop.
-    private const int MostNested = 16;
+    /// <summary>
+    /// The most placeholders a snippet has in one another - written so, or shown so through the tab stops they hold - before it is no snippet to insert. A tab
+    /// stop in a placeholder of its own, at any depth (<c>${1:a $2} ${2:b $1}</c>), shows nothing there.
+    /// </summary>
+    public const int MostNested = 16;
+
+    // the most characters a transform is read through before it is not one: a transform is a few characters of a pattern and a format.
+    private const int MostTransform = 1_024;
 
     /// <summary>The most characters a snippet is written as; one whose placeholders, shown in one another, make more is not a snippet to insert.</summary>
     public const int MostText = 65_536;
@@ -91,10 +97,16 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     {
         ArgumentNullException.ThrowIfNull(snippet);
         parsed = null;
-        var nodes = new Reader(snippet).ReadAll();
+
+        // a snippet longer than one to insert, or with more placeholders in one another than one has, is not read: nothing larger than it is walked.
+        if (snippet.Length > MostText || new Reader(snippet).ReadAll() is not { } nodes)
+        {
+            return false;
+        }
+
         var placeholders = new Dictionary<int, IReadOnlyList<Node>>();
         var unknown = new List<string>();
-        Collect(nodes, placeholders, unknown, variables);
+        Collect(nodes, placeholders, unknown, [], variables);
 
         // a variable that is not known is a tab stop of its own, after the numbered ones.
         // past the largest number a tab stop can have, a variable that is not known is its name and no tab stop.
@@ -122,7 +134,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     }
 
     // the placeholder each tab stop shows - the first one given, in the order of the text, a variable's default included - and the variables not known, in order.
-    private static void Collect(IReadOnlyList<Node> nodes, Dictionary<int, IReadOnlyList<Node>> placeholders, List<string> unknown, Func<string, string?>? variables)
+    private static void Collect(IReadOnlyList<Node> nodes, Dictionary<int, IReadOnlyList<Node>> placeholders, List<string> unknown, HashSet<string> seen, Func<string, string?>? variables)
     {
         foreach (var node in nodes)
         {
@@ -135,12 +147,12 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                         placeholders.TryAdd(stop.Index, content);
                     }
 
-                    Collect(content, placeholders, unknown, variables);
+                    Collect(content, placeholders, unknown, seen, variables);
                     break;
                 case VariableNode { Default: { } fallback }:
-                    Collect(fallback, placeholders, unknown, variables);
+                    Collect(fallback, placeholders, unknown, seen, variables);
                     break;
-                case VariableNode variable when ValueOf(variable.Name, variables) is null && !unknown.Contains(variable.Name):
+                case VariableNode variable when ValueOf(variable.Name, variables) is null && seen.Add(variable.Name):
                     unknown.Add(variable.Name);
                     break;
             }
@@ -203,10 +215,13 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                         var start = text.Length;
                         var slot = stops.Count;
                         stops.Add(new SnippetTabStop(stop.Index, start, 0, parent));
-                        if (placeholders.TryGetValue(stop.Index, out var placeholder) && !showing.Contains(stop.Index) && showing.Count < MostNested
-                            && !Write(placeholder, [.. showing, stop.Index], slot))
+                        if (placeholders.TryGetValue(stop.Index, out var placeholder) && !showing.Contains(stop.Index))
                         {
-                            return false;
+                            // placeholders shown in one another deeper than a snippet has them are no snippet to insert: no text is dropped to show them.
+                            if (showing.Count >= MostNested || !Write(placeholder, [.. showing, stop.Index], slot))
+                            {
+                                return false;
+                            }
                         }
 
                         stops[slot] = stops[slot] with { Length = text.Length - start };
@@ -267,7 +282,8 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
 
         private List<Node> Current => _open.Count > 0 ? _open.Peek().Nodes : _root;
 
-        public IReadOnlyList<Node> ReadAll()
+        // nothing when the snippet has more placeholders or defaults open in one another than a snippet has (MostNested).
+        public IReadOnlyList<Node>? ReadAll()
         {
             while (_position < snippet.Length)
             {
@@ -282,6 +298,10 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                     _position++;
                     var closed = _open.Pop();
                     Current.Add(closed.Index is { } index ? new StopNode(index, Merged(closed.Nodes)) : new VariableNode(closed.Name!, Merged(closed.Nodes)));
+                }
+                else if (_open.Count > MostNested)
+                {
+                    return null;
                 }
                 else if (character != '$' || !TryReadDollar())
                 {
@@ -394,10 +414,12 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
             return false;
         }
 
-        // '/' regex '/' format '/' options '}': read past, its closing brace with it; false when it is not one.
+        // '/' regex '/' format '/' options '}': read past, its closing brace with it; false when it is not one, or not one in MostTransform characters - each
+        // transform is read through no further, and the snippet in no more time than its length.
         private bool SkipTransform()
         {
             _position++;
+            _transformEnd = Math.Min(snippet.Length, _position + MostTransform);
             if (!SkipTo('/') || !SkipFormatTo('/'))
             {
                 return false;
@@ -412,9 +434,11 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         }
 
         // past the next unescaped character that is the one given, which is taken; false at the end of the snippet.
+        private int _transformEnd;
+
         private bool SkipTo(char end)
         {
-            while (_position < snippet.Length)
+            while (_position < _transformEnd)
             {
                 if (snippet[_position] == '\\' && _position + 1 < snippet.Length)
                 {
@@ -435,7 +459,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         private bool SkipFormatTo(char end)
         {
             var depth = 0;
-            while (_position < snippet.Length)
+            while (_position < _transformEnd)
             {
                 var character = snippet[_position];
                 if (character == '\\' && _position + 1 < snippet.Length)
