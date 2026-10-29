@@ -478,14 +478,30 @@ public static partial class ModuleIndenter
     // the first As of a declaration's line, where the column of the setting has it: a space before it at least.
     private static string WithDimAligned(int column, string code, CodeFormattingOptions options)
     {
-        if (CodeWithoutComment(code) is not { } plain || DimAs().Match(plain) is not { Success: true } match)
+        if (FirstAs(code) is not { } at)
         {
             return code;
         }
 
-        var name = match.Groups["name"].Value;
+        var name = code[..at].TrimEnd();
         var gap = Math.Max(options.AlignDimColumn - 1 - column - name.Length, 1);
-        return name + new string(' ', gap) + code[(match.Groups["as"].Index)..];
+        return name + new string(' ', gap) + code[at..];
+    }
+
+    // where the first As of a line's code is, after what it declares: none in a string literal, a bracketed name, a date literal or a comment.
+    private static int? FirstAs(string code)
+    {
+        var (isCode, _) = Lex(code);
+        for (var index = 1; index + 2 < code.Length; index++)
+        {
+            if (isCode[index] && isCode[index + 1] && char.IsWhiteSpace(code[index - 1]) && char.IsWhiteSpace(code[index + 2])
+                && string.Compare(code, index, "As", 0, 2, StringComparison.OrdinalIgnoreCase) == 0 && code[..index].Trim().Length > 0)
+            {
+                return index;
+            }
+        }
+
+        return null;
     }
 
     // an end-of-line comment where the style of the setting has it: at the column it was at, after the gap it had, after a standard gap, or in a column. A
@@ -508,32 +524,94 @@ public static partial class ModuleIndenter
         return line[..now.CodeEnd] + new string(' ', Math.Max(gap, 1)) + line[now.Comment..];
     }
 
-    // where the code of a line ends and its end-of-line comment starts: none for a line with no code before its comment, or no comment. An apostrophe in a string
-    // literal, or in a bracketed name, starts none.
+    // where the code of a line ends and its end-of-line comment starts: none for a line with no code before its comment - nothing, or its line number alone - or
+    // no comment.
     private static (int CodeEnd, int Comment)? CommentAt(string line)
     {
-        var inString = false;
-        var inBracket = false;
-        for (var index = 0; index < line.Length; index++)
+        if (Lex(line).Comment is not { } comment)
         {
-            switch (line[index])
-            {
-                case '"' when !inBracket:
-                    inString = !inString;
-                    break;
-                case '[' when !inString:
-                    inBracket = true;
-                    break;
-                case ']' when !inString:
-                    inBracket = false;
-                    break;
-                case '\'' when !inString && !inBracket:
-                    var codeEnd = line[..index].TrimEnd().Length;
-                    return line[..codeEnd].Trim().Length == 0 ? null : (codeEnd, index);
-            }
+            return null;
         }
 
-        return null;
+        var codeEnd = line[..comment].TrimEnd().Length;
+        var numbered = LineNumber().Match(line[..comment]) is { Success: true } number && number.Length == comment;
+        return codeEnd == 0 || numbered ? null : (codeEnd, comment);
+    }
+
+    // what of a line is code, and where its comment starts. A string literal, a bracketed name and a date literal are of one token: what is in them is none of the
+    // code, and an apostrophe in them starts no comment. A comment is an apostrophe, or a Rem that starts a statement - at the start of the line, after its line
+    // number, after a colon, a Then or an Else - and is the rest of the line: what is in it is no code either.
+    private static (bool[] IsCode, int? Comment) Lex(string line)
+    {
+        var isCode = new bool[line.Length];
+        var index = LineNumber().Match(line) is { Success: true } number ? number.Length : 0;
+        for (var at = 0; at < index; at++)
+        {
+            isCode[at] = true;
+        }
+
+        var startsStatement = true;
+        while (index < line.Length)
+        {
+            var character = line[index];
+            if (character == '\'')
+            {
+                return (isCode, index);
+            }
+
+            if (character == '"')
+            {
+                var close = line.IndexOf('"', index + 1);
+                index = close < 0 ? line.Length : close + 1;
+                startsStatement = false;
+                continue;
+            }
+
+            if (character == '[' || (character == '#' && DateLiteralEnd(line, index) is not null))
+            {
+                var close = line.IndexOf(character == '[' ? ']' : '#', index + 1);
+                index = close < 0 ? line.Length : close + 1;
+                startsStatement = false;
+                continue;
+            }
+
+            if (char.IsLetter(character) || character == '_')
+            {
+                var end = index;
+                while (end < line.Length && (char.IsLetterOrDigit(line[end]) || line[end] == '_'))
+                {
+                    end++;
+                }
+
+                var word = line[index..end];
+                if (startsStatement && word.Equals("Rem", StringComparison.OrdinalIgnoreCase) && (end == line.Length || char.IsWhiteSpace(line[end])))
+                {
+                    return (isCode, index);
+                }
+
+                for (; index < end; index++)
+                {
+                    isCode[index] = true;
+                }
+
+                startsStatement = word.Equals("Then", StringComparison.OrdinalIgnoreCase) || word.Equals("Else", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            isCode[index] = true;
+            if (character == ':')
+            {
+                startsStatement = index + 1 == line.Length || line[index + 1] != '=';
+            }
+            else if (!char.IsWhiteSpace(character))
+            {
+                startsStatement = false;
+            }
+
+            index++;
+        }
+
+        return (isCode, null);
     }
 
     // the code of a line without its end-of-line comment.
@@ -732,17 +810,13 @@ public static partial class ModuleIndenter
         return closer is not null && last > start && HasStatementStartingWith(Keyworded(module.Lines[last]), closer) ? last - 1 : end;
     }
 
-    // whether a statement of a line starts with the words of a keyword: the first, or one after a colon that is not in a string literal.
+    // whether a statement of a line starts with the words of a keyword: the first, or one after a colon of its code - none in a literal or a comment.
     private static bool HasStatementStartingWith(string code, string words)
     {
-        var inString = false;
-        for (var index = 0; index < code.Length; index++)
+        var (isCode, comment) = Lex(code);
+        for (var index = 0; index < (comment ?? code.Length); index++)
         {
-            if (code[index] == '"')
-            {
-                inString = !inString;
-            }
-            else if (!inString && (index == 0 || code[index - 1] == ':') && StartsWithWords(code, index, words))
+            if (isCode[index] && (index == 0 || code[index - 1] == ':') && StartsWithWords(code, index, words))
             {
                 return true;
             }
@@ -976,8 +1050,8 @@ public static partial class ModuleIndenter
                 at = Math.Max(AnchorColumn() - operatorAdjust, 0);
             }
 
-            // what continues a comment is the comment's text, not the declaration's.
-            var wanted = Aligned(text, new string(' ', at), code, isDeclaration && _comment is null, options);
+            // what continues a comment is the comment's text, not the declaration's, and none of it is an end-of-line comment.
+            var wanted = isComment || _comment is not null ? new string(' ', at) + code : Aligned(text, new string(' ', at), code, isDeclaration, options);
             Saw(wanted, next);
             return wanted;
         }
@@ -985,6 +1059,12 @@ public static partial class ModuleIndenter
         // what a line of the statement, as it is to be, says of where its next line goes.
         public void Saw(string line, string? next)
         {
+            // a comment's lines are all of its text: none of them says where the next goes.
+            if (isComment || _comment is not null)
+            {
+                return;
+            }
+
             if (CommentAt(line) is { } eol && line.TrimEnd().EndsWith(" _", StringComparison.Ordinal))
             {
                 // an end-of-line comment continued on the next line: what follows it is where it is.
@@ -1022,35 +1102,16 @@ public static partial class ModuleIndenter
         private void Scan(string code)
         {
             var start = IgnoredStart().Match(code).Length;
-            var inString = false;
+            var (isCode, _) = Lex(code);
             for (var index = start; index < code.Length; index++)
             {
+                // a string literal, a bracketed name and a date literal are of one token: what is in them sets no anchor.
+                if (!isCode[index])
+                {
+                    continue;
+                }
+
                 var character = code[index];
-                if (character == '"')
-                {
-                    inString = !inString;
-                    continue;
-                }
-
-                if (inString)
-                {
-                    continue;
-                }
-
-                // a bracketed name and a date literal are of one token, as a string literal is: what is in them sets no anchor.
-                if (character == '[')
-                {
-                    var close = code.IndexOf(']', index + 1);
-                    index = close < 0 ? code.Length : close;
-                    continue;
-                }
-
-                if (character == '#' && DateLiteralEnd(code, index) is { } end)
-                {
-                    index = end;
-                    continue;
-                }
-
                 switch (character)
                 {
                     case '(':
@@ -1227,9 +1288,6 @@ public static partial class ModuleIndenter
     private static partial Regex NotAVariable();
 
     // what a declaration's line names before its first As, and that As.
-    [GeneratedRegex(@"^(?<name>.*?\S)\s+(?<as>As\s)", RegexOptions.IgnoreCase)]
-    private static partial Regex DimAs();
-
     [GeneratedRegex(@"^As\s", RegexOptions.IgnoreCase)]
     private static partial Regex LeadingAs();
 
