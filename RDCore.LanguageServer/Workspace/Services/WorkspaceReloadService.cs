@@ -442,6 +442,10 @@ internal sealed class WorkspaceReloadService(
         }
 
         var (composed, programRunning) = work.Any(each => each.ComposeHost) ? await ComposeHostAsync(stopping) : (false, false);
+        if (composed)
+        {
+            symbols.SessionComposedAnew();
+        }
 
         foreach (var module in work.SelectMany(each => each.ToDiscard).Distinct())
         {

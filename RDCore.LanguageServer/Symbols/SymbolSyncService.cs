@@ -35,6 +35,12 @@ internal interface ISymbolSyncService
     Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null, bool replace = false);
 
     /// <summary>
+    /// Says that the host's session was composed again - the workspace was loaded into it again - and holds nothing it was sent: what each module's code load
+    /// fails with is reported again by the next sync, as it is by the first sync of a session.
+    /// </summary>
+    void SessionComposedAnew();
+
+    /// <summary>
     /// The modules the last <see cref="SyncWorkspaceAsync"/> did not define or load, by name, and why: none when it defined and loaded each one. A sync that was
     /// cancelled did not load the modules it had not reached.
     /// </summary>
@@ -199,9 +205,13 @@ internal sealed class SymbolSyncService(
             // every module is defined before the code of any is loaded: nothing else is sent to the host in between, or what it would send is overwritten.
             await using var hold = await HoldAsync(token);
 
-            // the workspace is composed anew in the host - it was loaded, reloaded, or the host is another - and what each module's load fails with is
-            // reported again.
-            _loadFailures = new ModuleLoadFailures();
+            // the first sync of a session - the workspace's load into it, or a host started again - reports again what each module's load fails with. A sync an
+            // edit asks for sends the same modules to the same session once more, and a failure it was told of already is not news.
+            if (!replace || !ReferenceEquals(host, _loadFailuresHost))
+            {
+                _loadFailures = new ModuleLoadFailures();
+                _loadFailuresHost = host;
+            }
 
             if (host.PlatformInfo?.Provides<DefineSymbols>() != true)
             {
@@ -490,6 +500,11 @@ internal sealed class SymbolSyncService(
 
     // what the loads of the workspace as it was last composed failed with.
     private volatile ModuleLoadFailures _loadFailures = new();
+
+    // the host the failures were reported to: another one has been told of none of them.
+    private IRDCoreClientApp? _loadFailuresHost;
+
+    public void SessionComposedAnew() => _loadFailures = new ModuleLoadFailures();
 
     private void LogIfEnabled(LogLevel level, string message)
     {

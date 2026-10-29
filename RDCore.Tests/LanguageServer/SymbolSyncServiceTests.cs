@@ -545,14 +545,31 @@ public sealed class SymbolSyncServiceTests
     [TestMethod]
     public async Task AWorkspaceComposedAnew_SaysAgainWhatAModuleFailsWith()
     {
-        // the host's session is another - the workspace was reloaded, or the host started again - and a failure it had been told of is news to whoever reads on.
+        // the host's session is another - the workspace was reloaded into it - and a failure it had been told of is news to whoever reads on.
         var logger = new RecordingLogger();
         var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
 
         await sut.SyncWorkspaceAsync(CancellationToken.None);
+        sut.SessionComposedAnew();
         await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
 
         Assert.AreEqual(2, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task AWorkspaceDefinedAgainForAnEdit_SaysNothingNewOfWhatAModuleFailsWith()
+    {
+        // an edit that changes what a module declares has the whole workspace defined again in the same session, at each refresh while the user types.
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        for (var edit = 0; edit < 3; edit++)
+        {
+            await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+        }
+
+        Assert.AreEqual(1, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
     }
 
     [TestMethod]
