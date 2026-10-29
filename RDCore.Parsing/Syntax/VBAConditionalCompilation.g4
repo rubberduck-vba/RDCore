@@ -7,9 +7,9 @@ options {
  }
 
 // a #Else, #ElseIf or #End If that belongs to no block is a line of the module's own, between its blocks: SLL prediction, which does not know the module's
-// ccBlock from a block's, ends the ccBlock there. A #Else or #End If with text after it is no directive, and is a physicalLine wherever it is.
+// ccBlock from a block's, ends the ccBlock there. One that is not well formed is no directive, and is a physicalLine wherever it is.
 compilationUnit : ccBlock (strayDirective ccBlock)* EOF;
-strayDirective : whiteSpace* (hashElseIf ~(NEWLINE | EOF)* (NEWLINE | EOF) | hashElse ccEol | hashEndIf ccEol);
+strayDirective : ccElseIf | ccElse | ccEndIf;
 
 ccBlock :
     // We use the non-greedy operator so that we stop consuming EOFs as soon as possible.
@@ -26,7 +26,10 @@ ccIfBlock : ccIf ccBlock ccElseIfBlock* ccElseBlock? ccEndIf;
 ccIf : whiteSpace* hashIf whiteSpace* ccExpression whiteSpace* THEN ccEol;
 ccElseIfBlock : ccElseIf ccBlock;
 ccElseIf : whiteSpace* hashElseIf whiteSpace* ccExpression whiteSpace* THEN ccEol;
-ccElseBlock : ccElse ccBlock;
+ccElseBlock : ccElse ccElseBody;
+// what follows a block's #Else is ended by its #End If alone: a #Else or #ElseIf after it is a line of it, which the directive scanner reports. A rule of its
+// own, for the #End If to be all that SLL prediction finds can follow it.
+ccElseBody : (ccConst | ccIfBlock | physicalLine)*?;
 ccElse : whiteSpace* hashElse ccEol;
 ccEndIf : whiteSpace* hashEndIf ccEol;
 ccEol : whiteSpace* comment? (NEWLINE | EOF);

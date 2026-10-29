@@ -25,7 +25,7 @@ internal class PrecompilerNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     public SyntaxNode BuildPrecompilerConstDeclaration(VBAConditionalCompilationParser.CcConstContext context, ConstKind kind)
         => new PrecompilerConstantDeclarationNode(NodeId, context.GetSourceLocation(_rootUri), kind, [.. _children]);
 
-    public SyntaxNode BuildPrecompilerBlock(VBAConditionalCompilationParser.CcBlockContext context)
+    public SyntaxNode BuildPrecompilerBlock(VBABaseParserRuleContext context)
         => new PrecompilerTriviaNode(NodeId, context.GetSourceLocation(_rootUri), [.. _children], context.GetText());
 
     public SyntaxNode BuildConditionalExpression(VBAConditionalCompilationParser.CcExpressionContext context)
@@ -76,6 +76,22 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
         => OnEnterParent();
     public override void ExitCcBlock([NotNull] VBAConditionalCompilationParser.CcBlockContext context)
         => OnExitParent(provider => provider.BuildPrecompilerBlock(context));
+
+    public override void EnterCcElseBody([NotNull] VBAConditionalCompilationParser.CcElseBodyContext context)
+        => OnEnterParent();
+    public override void ExitCcElseBody([NotNull] VBAConditionalCompilationParser.CcElseBodyContext context)
+        => OnExitParent(provider => provider.BuildPrecompilerBlock(context));
+
+    // a #Else, #ElseIf or #End If of no block is no node: what its condition builds goes with it, and takes no id from what is built after it.
+    public override void EnterStrayDirective([NotNull] VBAConditionalCompilationParser.StrayDirectiveContext context)
+        => _builderStack.Push(new(_rootUri, CurrentBuilder.NodeId));
+    public override void ExitStrayDirective([NotNull] VBAConditionalCompilationParser.StrayDirectiveContext context)
+    {
+        if (_builderStack.Count > 1)
+        {
+            _ = _builderStack.Pop();
+        }
+    }
 
     public override void EnterCcIf([NotNull] VBAConditionalCompilationParser.CcIfContext context)
         => OnEnterParent();
