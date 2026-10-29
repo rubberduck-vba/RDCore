@@ -333,4 +333,90 @@ public sealed class PutAndGetStatementTests
         Assert.AreEqual(new DateTime(2020, 1, 15), DateTime.FromOADate(Convert.ToDouble(values["T"])));
         Assert.IsTrue(Convert.ToBoolean(values["B"]));
     }
+
+    // ---- a Currency: a 64-bit integer of ten-thousandths, as MS-VBA and VB6 write it ----
+
+    private static byte[] TenThousandths(long value) => BitConverter.GetBytes(value);
+
+    // the bytes are Excel's (64-bit VBA7) and VB6's: 1.5 is 98 3A 00 00 00 00 00 00, the limits are a 64-bit integer's, and a Variant writes 06 00 first.
+    [TestMethod]
+    [DataRow("1.5", 15_000L, DisplayName = "1.5")]
+    [DataRow("1234.5678", 12_345_678L, DisplayName = "four decimals")]
+    [DataRow("-0.0001", -1L, DisplayName = "the smallest negative")]
+    public void Put_ACurrency_WritesItsTenThousandths(string value, long written)
+    {
+        var (files, outcome, _) = Run([], [("C", VBCurrencyType.TypeInfo)],
+            $"C = {value}",
+            $"Open \"{Path}\" For Binary As #1",
+            "Put #1, 1, C",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreSequenceEqual<byte>(TenThousandths(written), files.File.ReadAllBytes(Path));
+    }
+
+    [TestMethod]
+    public void Put_AVariantHoldingACurrency_WritesItsDescriptorThenItsTenThousandths()
+    {
+        var (files, outcome, _) = Run([], [("C", VBCurrencyType.TypeInfo), ("V", VBVariantType.TypeInfo)],
+            "C = 1.5",
+            "V = C",
+            $"Open \"{Path}\" For Binary As #1",
+            "Put #1, 1, V",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreSequenceEqual<byte>([0x06, 0x00, 0x98, 0x3A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], files.File.ReadAllBytes(Path));
+    }
+
+    [TestMethod]
+    [DataRow(15_000L, "1.5", DisplayName = "1.5, as VB6 writes it")]
+    [DataRow(12_345_678L, "1234.5678", DisplayName = "four decimals")]
+    [DataRow(long.MaxValue, "922337203685477.5807", DisplayName = "the largest")]
+    [DataRow(long.MinValue, "-922337203685477.5808", DisplayName = "the smallest")]
+    public void Get_ACurrency_ReadsItsTenThousandths(long written, string value)
+    {
+        var (_, outcome, values) = Run(TenThousandths(written), [("C", VBCurrencyType.TypeInfo)],
+            $"Open \"{Path}\" For Binary As #1",
+            "Get #1, 1, C");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture), Convert.ToDecimal(values["C"]));
+    }
+
+    [TestMethod]
+    public void Get_AVariant_OfACurrencyDescriptor_IsACurrencyOfItsTenThousandths()
+    {
+        // read as Excel wrote it, and written again: a Variant that holds a Currency writes 06 00 before it.
+        byte[] written = [0x06, 0x00, 0x98, 0x3A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        var (files, outcome, values) = Run(written, [("V", VBVariantType.TypeInfo)],
+            $"Open \"{Path}\" For Binary As #1",
+            "Get #1, 1, V",
+            "Put #1, 11, V",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(1.5m, Convert.ToDecimal(values["V"]));
+        Assert.AreSequenceEqual<byte>([.. written, .. written], files.File.ReadAllBytes(Path));
+    }
+
+    // a Currency at a limit, or with more digits than a Double holds, read as Excel wrote it and written again, alone and in a Variant: no digit is lost either way.
+    [TestMethod]
+    [DataRow(long.MaxValue, "922337203685477.5807", DisplayName = "the largest")]
+    [DataRow(long.MinValue, "-922337203685477.5808", DisplayName = "the smallest")]
+    [DataRow(1_234_567_890_123_456L, "123456789012.3456", DisplayName = "more digits than a Double holds")]
+    public void GetThenPut_KeepsEveryDigitOfACurrency_AtItsLimits(long written, string value)
+    {
+        var (files, outcome, values) = Run(TenThousandths(written), [("C", VBCurrencyType.TypeInfo), ("V", VBVariantType.TypeInfo)],
+            $"Open \"{Path}\" For Binary As #1",
+            "Get #1, 1, C",
+            "V = C",
+            "Put #1, 9, C",
+            "Put #1, 17, V",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture), Convert.ToDecimal(values["C"]));
+        Assert.AreSequenceEqual<byte>([.. TenThousandths(written), .. TenThousandths(written), 0x06, 0x00, .. TenThousandths(written)], files.File.ReadAllBytes(Path));
+    }
 }

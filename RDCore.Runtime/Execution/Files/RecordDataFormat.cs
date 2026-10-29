@@ -60,6 +60,9 @@ internal static class RecordDataFormat
     /// </summary>
     private const short BooleanTrue = -1;
 
+    /// <summary>A <c>Currency</c> is a 64-bit integer of ten-thousandths, in a file as in memory.</summary>
+    private const decimal CurrencyScale = 10000m;
+
     /// <summary>
     /// Writes <paramref name="value"/> at the stream's current position.
     /// </summary>
@@ -215,9 +218,9 @@ internal static class RecordDataFormat
         VBErrorValue error => WriteBytes(stream, BitConverter.GetBytes(Convert.ToInt32(Boxed(error)))),
         VBLongLongValue longLong => WriteBytes(stream, BitConverter.GetBytes(Convert.ToInt64(Boxed(longLong)))),
         VBSingleValue single => WriteBytes(stream, BitConverter.GetBytes(Convert.ToSingle(Boxed(single)))),
-        // Currency and Date are eight bytes each, the one scaled and the other an OLE Automation serial - both
-        // of which the managed representation already is.
-        VBCurrencyValue currency => WriteBytes(stream, BitConverter.GetBytes(Convert.ToDouble(Boxed(currency)))),
+        // Currency and Date are eight bytes each: the one a 64-bit integer of ten-thousandths (1.5 is 98 3A 00 00 00 00 00 00), the other an OLE
+        // Automation serial, a Double.
+        VBCurrencyValue currency => WriteBytes(stream, BitConverter.GetBytes(decimal.ToInt64(Convert.ToDecimal(Boxed(currency)) * CurrencyScale))),
         VBDateValue date => WriteBytes(stream, BitConverter.GetBytes(Convert.ToDouble(Boxed(date)))),
         VBDecimalValue @decimal => WriteBytes(stream, Decimal.GetBits(Convert.ToDecimal(Boxed(@decimal)))
             .SelectMany(BitConverter.GetBytes).ToArray()),
@@ -286,7 +289,7 @@ internal static class RecordDataFormat
             VBErrorType => new VBErrorValue(BitConverter.ToInt32(bytes)),
             VBLongLongType => new VBLongLongValue(BitConverter.ToInt64(bytes)),
             VBSingleType => new VBSingleValue(BitConverter.ToSingle(bytes)),
-            VBCurrencyType => new VBCurrencyValue(Convert.ToDecimal(BitConverter.ToDouble(bytes))),
+            VBCurrencyType => new VBCurrencyValue(BitConverter.ToInt64(bytes) / CurrencyScale),
             VBDateType => new VBDateValue(BitConverter.ToDouble(bytes)),
             VBDecimalType => new VBDecimalValue(new decimal(
                 [BitConverter.ToInt32(bytes, 0), BitConverter.ToInt32(bytes, 4), BitConverter.ToInt32(bytes, 8), BitConverter.ToInt32(bytes, 12)])),
