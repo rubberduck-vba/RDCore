@@ -73,6 +73,9 @@ internal sealed class CoreLanguageServerApp(
     private readonly CancellationTokenSource _componentsCts = new();
     private readonly List<Task> _coreComponentBringUps = [];
 
+    // the workspace as it is brought up, which what the client supplies the host waits for: begun as the server initializes, ended by the bring-up.
+    private IDisposable? _workspaceExpected;
+
     protected override async Task BeforeRunAsync(string[] args)
     {
         var platform = composition.GetManifest();
@@ -214,6 +217,8 @@ internal sealed class CoreLanguageServerApp(
         editStatusPublication.Attach();
         // what the client shows of each document is refreshed once the workspace changed under it, as the client says it is asked to.
         refresh.Attach(server);
+        // what the client sends once it is answered - a program it runs, a document it opens - is given the host once the workspace's modules are.
+        _workspaceExpected = symbolSync.ExpectWorkspace();
         await LoadWorkspaceAsync(server, request);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
@@ -363,7 +368,7 @@ internal sealed class CoreLanguageServerApp(
     private async Task ParseWorkspaceThenSyncSymbolsAsync(CancellationToken token)
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
-        await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, token);
+        await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, _workspaceExpected, token);
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);
@@ -457,6 +462,8 @@ internal sealed class CoreLanguageServerApp(
     protected override async Task OnServerStoppingAsync()
     {
         await _componentsCts.CancelAsync();
+        // a bring-up that never began lets go of what waits for it.
+        _workspaceExpected?.Dispose();
 
         // what a change of the project left to do (composing the host's session, defining the symbols) waits for components that are going away.
         ExternalServices.GetService<IWorkspaceReloadService>()?.Stop();

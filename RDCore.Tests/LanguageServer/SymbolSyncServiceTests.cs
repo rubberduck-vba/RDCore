@@ -638,4 +638,89 @@ public sealed class SymbolSyncServiceTests
             "a name of the workspace is no variable of the program: " + string.Join(", ", defined.Symbols.Select(symbol => symbol.Name)));
         Assert.IsTrue(main.Locals.IsDefaultOrEmpty, "nor a local of Main: " + string.Join(", ", main.Locals.Select(local => local.Name)));
     }
+
+    // ---- what the client supplies waits for the workspace's modules ----
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+
+    // a workspace with Module1, parsed, and a host that records what it is sent, in order.
+    private static (SymbolSyncService Sut, List<DefineSymbolsParams> Sent) WorkspaceWithModule1()
+    {
+        var sent = new List<DefineSymbolsParams>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            lock (sent)
+            {
+                sent.Add(call.Arg<DefineSymbolsParams>());
+            }
+
+            return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
+        });
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        var module = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\nPublic Sub Helper()\r\nEnd Sub\r\n";
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("Module1.bas", Root, module)]);
+        documents.WorkspaceRoot.Returns(Root);
+        var parsed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Module1.bas")), module);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parsed; return true; });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(ImplicitDeclarationScope.Module),
+            NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+        return (sut, sent);
+    }
+
+    // a shell that runs its program while the workspace is brought up has it given the host once the workspace's modules are: a name of one of them is bound to
+    // it there, and is no variable of the program's.
+    [TestMethod]
+    public async Task AProgramRunWhileTheWorkspaceIsBroughtUp_IsGivenTheHost_OnceTheWorkspacesModulesAre()
+    {
+        var (sut, sent) = WorkspaceWithModule1();
+        var program = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Program.bas")), "Public Sub Main()\r\n    Module1.Helper\r\nEnd Sub\r\n");
+        var expected = sut.ExpectWorkspace();
+
+        var running = sut.SyncModuleAsync("Program", program, CancellationToken.None);
+        var heldBack = !running.IsCompleted;
+        bool sentBefore;
+        lock (sent)
+        {
+            sentBefore = sent.Count > 0;
+        }
+
+        // the workspace's own sync does not wait for itself.
+        await sut.SyncWorkspaceAsync(CancellationToken.None).WaitAsync(Patience);
+        expected.Dispose();
+        await running.WaitAsync(Patience);
+
+        Assert.IsTrue(heldBack, "the program waits for the workspace");
+        Assert.IsFalse(sentBefore, "nothing of it is sent before");
+        lock (sent)
+        {
+            var modules = sent.Select(request => request.ModuleName).ToList();
+            Assert.IsLessThan(modules.IndexOf("Program"), modules.LastIndexOf("Module1"), "Module1 is defined, and loaded, before the program");
+        }
+    }
+
+    // a hold - what a client's own module is analyzed under - is taken once the workspace's modules are defined; and nothing waits once the bring-up is over.
+    [TestMethod]
+    public async Task AHold_IsTakenOnceTheWorkspaceIsBroughtUp()
+    {
+        var (sut, _) = WorkspaceWithModule1();
+        var expected = sut.ExpectWorkspace();
+
+        var holding = sut.HoldAsync(CancellationToken.None);
+        var heldBack = !holding.IsCompleted;
+        expected.Dispose();
+        await (await holding.WaitAsync(Patience)).DisposeAsync();
+        var again = sut.HoldAsync(CancellationToken.None);
+        var atOnce = again.IsCompletedSuccessfully;
+        await (await again).DisposeAsync();
+
+        Assert.IsTrue(heldBack, "the hold waits for the workspace");
+        Assert.IsTrue(atOnce, "and nothing waits once it is brought up");
+    }
 }
