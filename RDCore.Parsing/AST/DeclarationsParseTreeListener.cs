@@ -38,6 +38,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public ImmutableArray<SyntaxNode> SyntaxNodes => [BuildModuleNode()];
 
+    /// <summary>
+    /// The number the module's next child id is given: where a part of the module parsed after this one starts numbering its nodes.
+    /// </summary>
+    public int NextModuleChildId
+    {
+        get => _builderStack.Last().NextChildId;
+        set => _builderStack.Last().NextChildId = value;
+    }
+
+    /// <summary>
+    /// Where the text the listener walks starts in the document: what a position read off a token, rather than off a rule the tree was anchored at, is offset by.
+    /// </summary>
+    public SourcePosition Anchor { get; init; }
+
     // pathological nesting recurses through the expression rule to an uncatchable stack overflow;
     // this turns it into a catchable exception the boundary net degrades to a located failure.
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
@@ -898,7 +912,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             && only is not (NamedArgumentNode or MissingArgumentNode or AddressOfExpressionNode)
             && context.lExpression() is VBAParser.IndexExprContext indexContext && indexContext.LPAREN()?.Symbol is { } open)
         {
-            var grouped = new SourceLocation(_rootUri, new SourceRange(new SourcePosition(open.Line - 1, open.Column), index.Location.Range.End));
+            var grouped = new SourceLocation(_rootUri, new SourceRange(new SourcePosition(open.Line - 1, open.Column).AnchoredAt(Anchor), index.Location.Range.End));
             callee = index.Callee;
             arguments = [new VBUnaryOperatorExpressionNode(OperatorSymbolNames.UnaryLetCoerceOp, GetCurrentNodeId(), grouped, [only])];
         }
@@ -909,7 +923,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             // missing, to the grammar, and it is a syntax error in MS-VBA - is an argument list, and without `Call` there is none to write (MS-VBAL 5.4.2.1). It stays in
             // the tree as it is written, as every statement that is a syntax error does.
             _errors.Report(
-                new SourceLocation(_rootUri, new SourceRange(new SourcePosition(strayOpen.Line - 1, strayOpen.Column), stray.Location.Range.End)),
+                new SourceLocation(_rootUri, new SourceRange(new SourcePosition(strayOpen.Line - 1, strayOpen.Column).AnchoredAt(Anchor), stray.Location.Range.End)),
                 VBCompileErrorId.SyntaxError,
                 Exceptions.VBCompileError_CallArgumentsNeedCall_Verbose);
         }

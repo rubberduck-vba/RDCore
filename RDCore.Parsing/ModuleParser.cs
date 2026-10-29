@@ -55,16 +55,19 @@ public partial class ModuleParser(
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
     public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
-        => Parse(uri, content, anchorOffset, [], token);
+        => Parse(uri, content, anchorOffset, [], Statistics, token);
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
-    // of its own, so that no identity of its nodes is one of the module's.
-    private ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage, CancellationToken token)
+    // of its own, so that no identity of its nodes is one of the module's. statistics: where how the module was read is counted; none for such a part, which
+    // is no module of its own.
+    private ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset, ImmutableArray<int> rootLineage, SegmentationStatistics? statistics,
+        CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var errorListener = new ErrorListener(uri, anchorOffset);
         var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
         DeclarationsParseTreeListener? declarations = null;
+        (ModuleNode Tree, ImmutableArray<SyntaxNode> Trivia)? read = null;
 
         try
         {
@@ -101,9 +104,38 @@ public partial class ModuleParser(
                 sanitized = WithoutBranches(sanitized, alternatives);
             }
 
-            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset, token);
-            var ast = listener.BuildModuleNode();
-            var trivia = listener.Trivia;
+            // the module read with the grammar's fast prediction, as a whole; where that fails, each of its segments on its own where it can be, so that a part
+            // the fast prediction can't read is read slowly alone, and not the whole module with it; and the whole module read slowly otherwise. A header
+            // written once in each branch of a #If block has its branches blank in the text the segments are found in, as in the text the main pass reads,
+            // and its alternatives are read the same way after either.
+            ModuleNode ast;
+            ImmutableArray<SyntaxNode> trivia;
+            if (!ForceSegments && TryParseFast(sanitized, errorListener, errors => declarations = new DeclarationsParseTreeListener(uri, node, errors) { Anchor = anchorOffset },
+                anchorOffset, token) is { } fast)
+            {
+                (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
+                statistics?.Count(SegmentationStatistics.Path.Whole);
+            }
+            else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, statistics, token) is { } stitched)
+            {
+                (ast, trivia) = (stitched.Module, stitched.Trivia);
+                errorListener.AddRange(stitched.Errors);
+                statistics?.Count(SegmentationStatistics.Path.Stitched);
+            }
+            else
+            {
+                var slow = ParseSlowly(sanitized, errorListener, declarations = new DeclarationsParseTreeListener(uri, node, errorListener) { Anchor = anchorOffset },
+                    anchorOffset, token);
+                (ast, trivia) = (slow.BuildModuleNode(), slow.Trivia);
+                if (!Segmented)
+                {
+                    statistics?.Count(SegmentationStatistics.Path.NotSegmented);
+                }
+            }
+
+            // what the module was read as is what a failure past this point salvages: a stitched module has no listener of its own, and the one the fast
+            // attempt left behind is a failed one's.
+            read = (ast, trivia);
             if (alternatives.Count > 0)
             {
                 ast = WithHeaderAlternatives(uri, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia, token);
@@ -143,10 +175,10 @@ public partial class ModuleParser(
             // whatever the listener had already built (salvaged below).
             _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
 
-            ModuleNode? salvaged = null;
+            var salvaged = read?.Tree;
             try
             {
-                salvaged = declarations?.BuildModuleNode();
+                salvaged ??= declarations?.BuildModuleNode();
             }
             catch (Exception salvageFailure)
             {
@@ -157,13 +189,95 @@ public partial class ModuleParser(
             {
                 SyntaxTree = salvaged,
                 PrecompilerTrivia = precompilerTrivia,
-                Trivia = declarations?.Trivia ?? [],
+                Trivia = read?.Trivia ?? declarations?.Trivia ?? [],
                 SyntaxErrors = errorListener.Errors.IsEmpty
                     ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
                         SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
                     : errorListener.Errors,
             };
         }
+    }
+
+    /// <summary>
+    /// Whether a module is parsed a segment at a time (<see cref="ModuleSegmentScanner"/>) where it can be. The tree, its trivia and its errors are those a
+    /// parse of the whole module gives; only the time differs.
+    /// </summary>
+    internal bool Segmented { get; init; } = true;
+
+    /// <summary>
+    /// Whether a module is parsed a segment at a time without its fast parse as a whole being tried first: what the equivalence oracle parses under, so that
+    /// every module it is given takes the segmented path where it can.
+    /// </summary>
+    internal bool ForceSegments { get; init; }
+
+    /// <summary>
+    /// How the modules this parser read were read: whole, a segment at a time, or whole after a segmented parse gave up, by why. Each module that has code
+    /// is counted once; the branches of a split header, parsed on their own, are not modules.
+    /// </summary>
+    internal SegmentationStatistics Statistics { get; } = new();
+
+    // the segments of the module, or none - counted by why - when it must be parsed whole.
+    private static IReadOnlyList<ModuleSegmentScanner.Segment>? Segments(string sanitized, SegmentationStatistics? statistics)
+    {
+        var segments = ModuleSegmentScanner.Scan(sanitized, out var giveUp);
+        if (segments is { Count: > 1 })
+        {
+            return segments;
+        }
+
+        statistics?.Count(giveUp ?? SegmentationStatistics.Path.OneSegment);
+        return null;
+    }
+
+    // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
+    // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error - what the grammar says is
+    // wrong, and what the block scanner says instead, is a whole module's to say - or when its parse fails: the module is then parsed whole, as a module
+    // whose parse fails is, its partial tree salvaged.
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, SegmentationStatistics? statistics, CancellationToken token)
+    {
+        try
+        {
+            return ParseEachSegment(uri, node, sanitized, segments, anchorOffset, statistics, token);
+        }
+        catch (Exception exception) when (!token.IsCancellationRequested)
+        {
+            _logger.LogDebug(exception, "A segment of {uri} failed to parse; parsing it whole.", uri);
+            statistics?.Count(SegmentationStatistics.Path.SegmentFailed);
+            return null;
+        }
+    }
+
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, SegmentationStatistics? statistics, CancellationToken token)
+    {
+        var lines = sanitized.Split('\n');
+        var children = ImmutableArray.CreateBuilder<SyntaxNode>();
+        var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
+        var errors = ImmutableArray.CreateBuilder<VBSyntaxErrorInfo>();
+        var next = 0;
+        foreach (var segment in segments)
+        {
+            // the segment's lines, each with the line ending it had in the module.
+            var text = string.Join('\n', lines[segment.StartLine..segment.EndLine]) + (segment.EndLine < lines.Length ? "\n" : string.Empty);
+            var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
+            var segmentErrors = new ErrorListener(uri, start);
+            var first = next;
+            var listener = ParseWithFallback(text, segmentErrors, errors => new DeclarationsParseTreeListener(uri, node, errors) { NextModuleChildId = first, Anchor = start },
+                start, token);
+            if (segmentErrors.HasGrammarErrors)
+            {
+                statistics?.Count(SegmentationStatistics.Path.SegmentHadErrors);
+                return null;
+            }
+
+            next = listener.NextModuleChildId;
+            children.AddRange(listener.BuildModuleNode().Children);
+            trivia.AddRange(listener.Trivia);
+            errors.AddRange(segmentErrors.Errors);
+        }
+
+        return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors.ToImmutable());
     }
 
     // the source with the lines of the alternatives' branches blank, as a directive is: every position stays where it is.
@@ -197,7 +311,7 @@ public partial class ModuleParser(
             var alternative = alternatives[index];
             var branch = string.Join('\n', lines[alternative.StartLine..Math.Min(alternative.EndLine, lines.Length)]);
             var start = new SourcePosition(alternative.StartLine, 0).AnchoredAt(anchorOffset);
-            var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), token);
+            var parsed = Parse(uri, $"{branch}\n{alternative.Closer}\n", start, rootLineage.Add(-1 - index), statistics: null, token);
             errorListener.AddRange(parsed.SyntaxErrors);
             trivia = trivia.AddRange(parsed.Trivia);
 
@@ -338,28 +452,42 @@ public partial class ModuleParser(
     /// recovery — which would desynchronize a stateful parse listener), then LL with default recovery
     /// on a <em>fresh</em> listener if SLL failed.
     /// </summary>
-    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory, SourcePosition anchorOffset,
+    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<ErrorListener, TListener> listenerFactory, SourcePosition anchorOffset,
         CancellationToken token)
-        where TListener : IParseTreeListener
+        where TListener : class, IParseTreeListener
+        => TryParseFast(content, errorListener, listenerFactory, anchorOffset, token) ?? ParseSlowly(content, errorListener, listenerFactory(errorListener), anchorOffset, token);
+
+    // SLL with a bail-on-first-error strategy; none when it fails. Any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException, but
+    // also a listener exception the bail strategy triggered on a half-matched rule. SLL carries no error listener, so nothing located is lost. What the
+    // listener reports goes to errors of its own, which are errorListener's only when the parse succeeds: a walk that bails half-way through has reported
+    // some, which the parse that follows reports again.
+    private TListener? TryParseFast<TListener>(string content, ErrorListener errorListener, Func<ErrorListener, TListener> listenerFactory, SourcePosition anchorOffset,
+        CancellationToken token)
+        where TListener : class, IParseTreeListener
     {
         try
         {
-            return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory(), anchorOffset, token);
+            var reported = errorListener.Fresh();
+            var listener = ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory(reported), anchorOffset, token);
+            errorListener.AddRange(reported.Errors);
+            return listener;
         }
         catch (Exception exception) when (!token.IsCancellationRequested)
         {
-            // any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException,
-            // but also a listener exception the bail strategy triggered on a half-matched rule. SLL
-            // carries no error listener, so nothing located is lost. LL runs default recovery + the
-            // error listener on a fresh listener and produces the located errors.
             if (exception is not (ParseCanceledException or RecognitionException))
             {
                 // a routine SLL bail needs no trace; anything else does, even though LL will retry.
                 _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
             }
-            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory(), anchorOffset, token);
+
+            return null;
         }
     }
+
+    // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
+    private static TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
+        where TListener : IParseTreeListener
+        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listener, anchorOffset, token);
 
     private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener,
         SourcePosition anchorOffset, CancellationToken token)
@@ -523,6 +651,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
     private readonly Uri _uri = uri;
     private readonly List<VBSyntaxErrorInfo> _errors = [];
     public ImmutableArray<VBSyntaxErrorInfo> Errors => [.. _errors];
+
+    // a listener of the same module and anchor, with no error yet.
+    public ErrorListener Fresh() => new(_uri, anchorOffset);
 
     public void SyntaxError([NotNull] IRecognizer recognizer, [Nullable] IToken offendingSymbol, int line, int charPositionInLine, [NotNull] string msg, [Nullable] RecognitionException e)
     {

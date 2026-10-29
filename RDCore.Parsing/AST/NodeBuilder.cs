@@ -23,6 +23,16 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
     private int _nextChildId;
     public SyntaxNodeId AllocateChildId() => nodeId.Add(_nextChildId++);
 
+    /// <summary>
+    /// The number the next child's id is given. A part of the module parsed on its own starts where the parts before it left the module's numbering, so
+    /// its nodes have the ids a parse of the whole module gives them.
+    /// </summary>
+    public int NextChildId
+    {
+        get => _nextChildId;
+        set => _nextChildId = value;
+    }
+
     // parses a `visibility` token to an AccessModifier. VBA keywords are case-insensitive, so any
     // casing binds; anything unrecognized (or null, under recovery) is Implicit.
     internal static AccessModifier ParseAccessModifier(string? visibility)
