@@ -180,15 +180,19 @@ A VB6 project (`.vbp`) is imported as the `RDCoreProject` of its folder ([`VbpPr
 |`Reference` (`*\G{GUID}#version#lcid#path#description`)|A reference to the library the platform ships with that GUID, at the version (written in hexadecimal: `2.a` is 2.10). `VBA`, the standard library, is no reference ([§2.2.3.1](#2231-rdcoreproject)): a `.vbp` line that references VBA's type library adds none.|
 |`CondComp`|The project's `PrecompilerConstants` (`"DEBUG = 1 : TRACE = 0"`): `name = n` arguments separated by colons, spaces optional, each a name and a whole number from -32768 to 32767 with an optional sign. As vb6.exe does, a line with any other argument - a string, `&H10`, `True`, `1.5`, a name without a value, a colon at the end - is refused whole, and the import says so.|
 
-A path is resolved against the `.vbp`'s folder first: `..\MyProj\Util.bas`, from `MyProj\MyProj.vbp`, is the project's own `Util.bas`, and `Sub\..\Util.bas` is too. The project's folders are those of the files it lists. What cannot be carried over is skipped, and the import says what and why, in the language of the user interface:
+A path is resolved against the `.vbp`'s folder first: `..\MyProj\Util.bas`, from `MyProj\MyProj.vbp`, is the project's own `Util.bas`, and `Sub\..\Util.bas` is too. The project's folders are those of the files it lists in its own folder.
+
+A file outside the project's folder (`..\Shared\Util.bas`) is a module of this project, as in VB6, when a folder of the workspace holds it: qualified by the project's name, and a copy of its own in each project that lists it. The project file lists it by its path relative to the project's folder (`../Shared/Util.bas`). Its folder, when it holds no `.rdproj`, is a _source folder_ of the workspace, not a project; a folder that holds one is a project of its own, and the file is a module of each project that lists it. A file at an absolute path is listed the same way, relative to the project's folder, when the project's folder or a folder of the workspace holds it: a project file lists no absolute path. The platform never takes in a folder outside the workspace folders it is given, so `rdc import`, which has none, carries over no file outside the project's folder.
+
+What cannot be carried over is skipped, and the import says what and why, in the language of the user interface:
 
 |Skipped|Why|
 |---|---|
 |A reference to a library the platform has no description of|It cannot be resolved.|
 |A reference to another project (`*\A`)|A project cannot reference another one yet.|
 |A control (`Object`)|The platform hosts no ActiveX controls.|
-|A file outside the project's folder (`..\Shared\Utils.bas`)|It is a module of this project, as in VB6: qualified by the project's name, and a copy of its own in each project that lists it. Its folder, when it holds no `.rdproj`, is a _source folder_ the client adds to the workspace, not a project. The platform never takes in a folder outside the workspace folders it is given. Not carried over yet: the import notes it until the platform takes in source folders.|
-|A file at an absolute path|A project lists the files of its own folder.|
+|A file outside the project's folder and every folder of the workspace (`..\Shared\Utils.bas`)|The platform never takes in a folder outside the workspace folders it is given: open the folder it is in as a workspace folder too, and import the project again.|
+|A file at an absolute path outside the project's folder and every folder of the workspace|A project file lists no absolute path.|
 |The startup object (`Startup`)|A project file does not say it yet.|
 |The project's type (`Type=Exe`, `OleDll`, `OleExe`, `Control`)|A project file does not say it yet: whether the project is run, or used by being referenced.|
 |Conditional compilation arguments VB6 refuses|VB6 refuses the whole line.|
