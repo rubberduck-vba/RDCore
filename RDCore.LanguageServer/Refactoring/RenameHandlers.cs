@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.LanguageServer.Refactoring;
 
@@ -13,11 +14,17 @@ namespace RDCore.LanguageServer.Refactoring;
 /// </remarks>
 internal sealed class RenameHandler(IRenameService rename) : RenameHandlerBase
 {
+    // what the client said it can do, as it initialized: the edits are sent in the form it applies.
+    private ClientCapabilities? _client;
+
     public override async Task<WorkspaceEdit?> Handle(RenameParams request, CancellationToken cancellationToken)
-        => (await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken)).ValueOrRefusal();
+        => (await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken)).ValueOrRefusal()?.For(_client);
 
     protected override RenameRegistrationOptions CreateRegistrationOptions(RenameCapability capability, ClientCapabilities clientCapabilities)
-        => new() { PrepareProvider = true };
+    {
+        _client = clientCapabilities;
+        return new() { PrepareProvider = true };
+    }
 }
 
 /// <summary>

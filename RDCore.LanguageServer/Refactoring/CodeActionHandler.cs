@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
@@ -36,6 +37,9 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
     /// <summary>The kind of the action that imports a VB6 project: a source action of the whole workspace (<c>source.rdcore.importProject</c>).</summary>
     public static readonly CodeActionKind SourceImportProject = new("source.rdcore.importProject");
+
+    // what the client said it can do, as it initialized: a rename's edits are sent in the form it applies.
+    private ClientCapabilities? _client;
 
     public override async Task<CommandOrCodeActionContainer?> Handle(CodeActionParams request, CancellationToken cancellationToken)
     {
@@ -78,7 +82,7 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
                         Title = RefactoringTitles.RenameTo(target.Placeholder, suggestion),
                         Kind = CodeActionKind.QuickFix,
                         Diagnostics = new Container<Diagnostic>(diagnostic),
-                        Edit = edit,
+                        Edit = edit.For(_client),
                         IsPreferred = true,
                     });
                 }
@@ -149,9 +153,13 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
     public override Task<CodeAction> Handle(CodeAction request, CancellationToken cancellationToken) => Task.FromResult(request);
 
-    protected override CodeActionRegistrationOptions CreateRegistrationOptions(CodeActionCapability capability, ClientCapabilities clientCapabilities) => new()
+    protected override CodeActionRegistrationOptions CreateRegistrationOptions(CodeActionCapability capability, ClientCapabilities clientCapabilities)
     {
-        CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, SourceImportProject),
-        ResolveProvider = false,
-    };
+        _client = clientCapabilities;
+        return new()
+        {
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, SourceImportProject),
+            ResolveProvider = false,
+        };
+    }
 }
