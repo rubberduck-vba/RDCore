@@ -4,6 +4,7 @@ using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
@@ -202,19 +203,32 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger: a <c>Stop</c> suspends it, and the first run answers that it waits.</param>
-    /// <param name="cancelAfter">How long the first run has before its request is cancelled, counted from when it starts and not from when the workspace
-    /// began to be composed. Never, when omitted.</param>
+    /// <param name="cancelWhen">When the first run's request is cancelled: as soon as this says the program is where the test wants it (running, in its
+    /// loop, in the procedure it loops in), which is asked of the session as the program runs. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     /// <param name="engine">What runs the program; the interpreter when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null, bool debug = false,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
-        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelAfter: cancelAfter, debug: debug, libraries: libraries,
+        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
+    /// </summary>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
+    /// <param name="debug">Whether the program runs under a debugger.</param>
+    public static Task InspectWithModulesAsync(
+        IReadOnlyList<(string Name, string Source)> modules, string program,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, bool debug = false)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
@@ -225,7 +239,8 @@ internal static class ModuleWorkspace
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
@@ -272,7 +287,114 @@ internal static class ModuleWorkspace
         var workspaceRoot = Wire.FileUri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
-        var parsed = allModules.Select(module =>
+        // the language server binds the workspace's names among the libraries the project references, as the host's session has them.
+        var librarySymbols = libraries is null
+            ? null
+            : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
+                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
+        var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
+            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers);
+
+        foreach (var module in parsed)
+        {
+            if (errorsOnly)
+            {
+                loadErrors.AddRange(module.CodeErrors);
+                continue;
+            }
+
+            Assert.IsEmpty(module.CodeErrors, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
+        }
+
+        if (errorsOnly)
+        {
+            if (afterLoading is not null)
+            {
+                await afterLoading(sessionProvider);
+            }
+
+            return [.. loadErrors];
+        }
+
+        var entry = parsed.Single(module => module.Name == "Program");
+        Task<ExecuteSessionResult> Execute(CancellationToken cancellation)
+            => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
+                    ModuleName = "Program",
+                    EntryPoint = "Main",
+                    Debug = debug,
+                }, cancellation);
+
+        // the first run's request is cancelled once the program is seen where the test wants it, and not after a time, which a slower machine would spend
+        // before the program even started. The run is on a thread of its own: without a debugger, a program runs to its end inside the request.
+        using var cancellation = new CancellationTokenSource();
+        var running = Task.Run(() => Execute(cancellation.Token));
+        if (cancelWhen is not null)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (!running.IsCompleted && !cancelWhen(sessionProvider))
+            {
+                Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen where the test cancels it");
+                await Task.Delay(5);
+            }
+
+            await cancellation.CancelAsync();
+        }
+
+        var result = await running;
+        if (inspect is not null)
+        {
+            await inspect(sessionProvider, result, () => Execute(CancellationToken.None));
+            return [.. result.Output.Select(line => line.Trim())];
+        }
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorMessage} {string.Join("; ", result.Diagnostics ?? [])}");
+        return [.. result.Output.Select(line => line.Trim())];
+    }
+
+    /// <summary>
+    /// Edits modules of a session as the analysis pass does with an edit of their documents: each is parsed again, its symbols are defined again and its
+    /// code is loaded again, while a program may wait. What a program that waits is resumed on, or refused.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads: the names of each are bound among all of them.</param>
+    /// <returns>What each module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadAsync(EnvironmentSessionProvider provider, params (string Name, ModuleType Type, string Source)[] modules)
+    {
+        var defined = await DefineAsync(provider, "Project1",
+            [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null);
+        return [.. defined.SelectMany(module => module.CodeErrors)];
+    }
+
+    /// <summary>
+    /// Edits modules of a session as the language server does with an edit of one document: the names of every module are bound among all of them, as the
+    /// workspace now reads, and only the edited ones are defined again and have their code loaded again. The others are loaded later by the language server,
+    /// after the edited module's diagnostics; until then the host has them as they were.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="only">The names of the modules that are defined and loaded again.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads.</param>
+    /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+        params (string Name, ModuleType Type, string Source)[] modules)
+    {
+        var defined = await DefineAsync(provider, "Project1",
+            [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null,
+            only: only);
+        return [.. defined.SelectMany(module => module.CodeErrors)];
+    }
+
+    // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then the
+    // code of each is sent. The names are bound among every module; only those named, when they are, are defined and loaded.
+    private static async Task<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)[]> DefineAsync(
+        EnvironmentSessionProvider sessionProvider, string projectName, (string Name, string Extension, ModuleType Type, string Source)[] modules,
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols,
+        IReadOnlyCollection<string>? only = null, IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
+    {
+        var workspaceRoot = Wire.FileUri(Root);
+        var parsed = modules.Select(module =>
         {
             var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
             Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
@@ -282,17 +404,14 @@ internal static class ModuleWorkspace
             return (Module: module, Uri: new UriBuilder(workspaceRoot) { Fragment = module.Name }.Uri, Parse: parse);
         }).ToArray();
 
-        // the language server binds the workspace's names among the libraries the project references, as the host's session has them.
-        var librarySymbols = libraries is null
-            ? null
-            : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
-                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
         var resolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), project.ProjectInfo.Name,
-            libraries: librarySymbols, documentHosts: supers);
+            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), projectName,
+            libraries: librarySymbols, documentHosts: documentHosts);
+        if (only is not null)
+        {
+            parsed = [.. parsed.Where(module => only.Contains(module.Module.Name))];
+        }
 
-        // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then
-        // the code of each is sent.
         foreach (var declareTypesOnly in new[] { true, false })
         {
             foreach (var module in parsed)
@@ -315,9 +434,10 @@ internal static class ModuleWorkspace
             }
         }
 
+        var defined = new List<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)>();
         foreach (var module in parsed)
         {
-            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,
@@ -329,51 +449,9 @@ internal static class ModuleWorkspace
                     ParseResultJson = PlatformJson.Serialize(module.Parse),
                     CodeOnly = true,
                 }, CancellationToken.None);
-
-            if (errorsOnly)
-            {
-                loadErrors.AddRange(defined.CodeErrors);
-                continue;
-            }
-
-            Assert.IsEmpty(defined.CodeErrors, $"{module.Module.Name}: {string.Join("; ", defined.CodeErrors)}");
+            defined.Add((module.Module.Name, module.Uri, module.Parse, [.. loaded.CodeErrors]));
         }
 
-        if (errorsOnly)
-        {
-            if (afterLoading is not null)
-            {
-                await afterLoading(sessionProvider);
-            }
-
-            return [.. loadErrors];
-        }
-
-        var entry = parsed.Single(module => module.Module.Name == "Program");
-        Task<ExecuteSessionResult> Execute(CancellationToken cancellation)
-            => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
-                .Handle(new HostExecuteParams
-                {
-                    Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
-                    ModuleName = "Program",
-                    EntryPoint = "Main",
-                    Debug = debug,
-                }, cancellation);
-
-        using var cancellation = new CancellationTokenSource();
-        if (cancelAfter is { } timeout)
-        {
-            cancellation.CancelAfter(timeout);
-        }
-
-        var result = await Execute(cancellation.Token);
-        if (inspect is not null)
-        {
-            await inspect(sessionProvider, result, () => Execute(CancellationToken.None));
-            return [.. result.Output.Select(line => line.Trim())];
-        }
-
-        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorMessage} {string.Join("; ", result.Diagnostics ?? [])}");
-        return [.. result.Output.Select(line => line.Trim())];
+        return [.. defined];
     }
 }

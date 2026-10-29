@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.SDK.Platform.Protocol;
@@ -116,6 +118,70 @@ public record class HostDebugGotoResult
 
     /// <summary>The zero-based column of that statement, or <c>-1</c>.</summary>
     public int Character { get; init; } = -1;
+}
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/editStatus</c>: which edits made while a program waits are not applied to it, and why - what resuming it, stepping it or moving
+/// its point of execution would be refused for.
+/// </summary>
+/// <remarks>
+/// An edit reaches the host as the analysis pass loads it, while the program waits. Most are applied when the program goes on: the code of a procedure it is not in,
+/// a declaration added, a value read afresh where it is next used. Those are not listed. What is listed is either applied by no build of the host yet, or can't
+/// be applied correctly at all - the signature of a procedure the program is in, a variable that holds a value given another type - and is picked up when the
+/// program is run again. A client asks after each edit it sends, to say so of the edit as it is made, before the program is asked to go on.
+/// </remarks>
+[Method(RDCorePlatformProtocol.HostDebugEditStatus, Direction.ClientToServer)]
+public record class HostDebugEditStatusParams : IRequest, IRequest<HostDebugEditStatusResult>;
+
+/// <summary>
+/// The edits made while a program waits that are not applied to it.
+/// </summary>
+public record class HostDebugEditStatusResult
+{
+    /// <summary>Whether a program waits. When none does, there is nothing for an edit to be applied to, and <see cref="Edits"/> is empty.</summary>
+    public bool Suspended { get; init; }
+
+    /// <summary>Each edit that is not applied to the program that waits; empty when the program can go on with every edit made.</summary>
+    public ImmutableArray<HostDebugEdit> Edits { get; init; } = [];
+}
+
+/// <summary>
+/// An edit made while a program waits that is not applied to it.
+/// </summary>
+public record class HostDebugEdit
+{
+    /// <summary>What was edited, as the user names it: <c>Module.Member</c>, or the module.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>What the edit is to the program.</summary>
+    public HostDebugEditKind Kind { get; init; }
+
+    /// <summary>Why, in the user's words.</summary>
+    public string Reason { get; init; } = string.Empty;
+
+    /// <summary>The module the edit is in, as the host addresses it; <see langword="null"/> when it is not known.</summary>
+    public Uri? ModuleUri { get; init; }
+
+    /// <summary>
+    /// Where the edited declaration or procedure is now, zero-based; <see langword="null"/> for an edit of the module as a whole (its options) or of a declaration
+    /// that is gone.
+    /// </summary>
+    public SourceRange? Range { get; init; }
+}
+
+/// <summary>
+/// What an edit made while a program waits is to it, when it is not applied.
+/// </summary>
+public enum HostDebugEditKind
+{
+    /// <summary>Applying it is correct, but no build of the host does it to a program that waits yet: it is picked up when the program is run again.</summary>
+    NotYet,
+
+    /// <summary>Applying it can't be made correct: it is picked up when the program is run again.</summary>
+    Restart,
+
+    /// <summary>The code no longer compiles: there is no program to go on with until it does.</summary>
+    DoesNotCompile,
 }
 
 /// <summary>

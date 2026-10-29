@@ -41,7 +41,7 @@ public sealed class FrameStatementTests
         "End Sub");
 
     private static Task DebugAsync(Func<EnvironmentSessionProvider, Task> test)
-        => ModuleWorkspace.InspectAsync([], Source, (provider, _, _) => test(provider), cancelAfter: null, debug: true);
+        => ModuleWorkspace.InspectAsync([], Source, (provider, _, _) => test(provider), debug: true);
 
     // how the language server turns text into the statement the host runs: the one statement of a procedure written for the purpose.
     private static SyntaxNode Statement(string text)
@@ -190,7 +190,7 @@ public sealed class FrameStatementTests
             Assert.IsFalse(done.Success);
             Assert.AreEqual(string.Format(RDCore.CLI.Resources.Host_VariableNotDefined, "nowhere"), done.Error);
             Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
-        }, cancelAfter: null, debug: true);
+        }, debug: true);
 
     [TestMethod]
     public async Task InBasic_AStatement_WithANameTheProcedureDoesNotSee_DeclaresAVariableOfTheModule()
@@ -204,7 +204,7 @@ public sealed class FrameStatementTests
             Assert.IsTrue(provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Any(variable => variable.Name == "kept"), "a variable of the module");
             var read = await Execute(provider, 1, "Debug.Print KEPT");
             CollectionAssert.AreEqual(new[] { "7" }, read.Output.Select(line => line.Trim()).ToArray(), "the caller's activation sees it too: it is the module's");
-        }, cancelAfter: null, debug: true, language: SupportedLanguages.BASIC);
+        }, debug: true, language: SupportedLanguages.BASIC);
 
     [TestMethod]
     public async Task AnAssignment_ToAFunctionOfTheLibrary_IsRefusedAsTheProceduresOwnCodeWouldBe_AndDoesNotRun()
@@ -232,7 +232,7 @@ public sealed class FrameStatementTests
 
             Assert.IsTrue(assigned.Success, assigned.Error);
             CollectionAssert.AreEqual(new[] { "6" }, read.Output.Select(line => line.Trim()).ToArray());
-        }, cancelAfter: null, debug: true);
+        }, debug: true);
 
     [TestMethod]
     public async Task AnEnd_RunInTheProgram_EndsIt_AndSaysSo()

@@ -284,6 +284,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11022](rdc11022.md)|ReDim of a variable declared implicitly — the specification and VB6 re-dimension it, MS-VBA refuses it (Invalid ReDim)|
 |[RDC11023](rdc11023.md)|Procedure MS-VBA refuses as too large — more than 5,000 statements, which RD-VBA runs and MS-VBA refuses (Procedure too large)|
 |[RDC11024](rdc11024.md)|Implements in a document module — MS-VBAL forbids it in an extension module, MS-VBA compiles it|
+|[RDC20001](rdc20001.md)|Edit not applied to the waiting program — made while it waits in the debugger, which can't go on with it|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

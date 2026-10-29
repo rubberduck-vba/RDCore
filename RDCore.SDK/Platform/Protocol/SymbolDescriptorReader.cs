@@ -215,7 +215,7 @@ public static class SymbolDescriptorReader
                     node.Range, node.SelectionRange, node.AccessModifier);
                 field = WithArrayBounds(field, node.Array);
                 field = node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
-                yield return node.IsAutoInstantiated ? field.With(SymbolProperties.AutoInstantiated, true) : field;
+                yield return LengthNamed(node.IsAutoInstantiated ? field.With(SymbolProperties.AutoInstantiated, true) : field, node.FixedLengthName);
                 break;
             }
 
@@ -270,8 +270,12 @@ public static class SymbolDescriptorReader
         // a field declared As New is an automatic instantiation variable of each record of the type (MS-VBAL §2.5.1), as a module's field is.
         var symbol = WithArrayBounds(new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, field.Name, type, field.Range, field.SelectionRange, field.AccessModifier), field.Array);
-        return field.IsAutoInstantiated ? symbol.With(SymbolProperties.AutoInstantiated, true) : symbol;
+        return LengthNamed(field.IsAutoInstantiated ? symbol.With(SymbolProperties.AutoInstantiated, true) : symbol, field.FixedLengthName);
     }
+
+    // the constant a fixed-length string's length is the value of, as its declaration names it.
+    private static Symbol LengthNamed(Symbol variable, string? lengthName)
+        => lengthName is { } name ? variable.With(SymbolProperties.FixedLengthName, name) : variable;
 
     /// <summary>
     /// Reconstructs a procedure's <c>Dim</c>/<c>Static</c> variables and its <c>Const</c> declarations.
@@ -308,6 +312,8 @@ public static class SymbolDescriptorReader
             {
                 bounded = (BoundTypedSymbol)bounded.With(SymbolProperties.AutoInstantiated, true);
             }
+
+            bounded = (BoundTypedSymbol)LengthNamed(bounded, local.FixedLengthName);
 
             builder.Add(local.UnlessLive.IsDefaultOrEmpty ? bounded : (BoundTypedSymbol)bounded.With(SymbolProperties.UnlessLive, local.UnlessLive));
         }

@@ -492,6 +492,43 @@ public sealed class WorkspaceReloadServiceTests
         Assert.AreEqual(2, syncs, "the second change was not done with the batch that was already defining the workspace");
     }
 
+    // what a program that waits is checked against is the workspace once no change is being made: a batch defining it, and one queued meanwhile, are waited for.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task Idle_IsOnceTheBatchBeingDone_AndTheOneMadeMeanwhile_AreDone()
+    {
+        await LoadAsync("A.bas");
+        _files.AddFile(Path.Combine(Root, "C.bas"), new MockFileData("Attribute VB_Name = \"C\"\r\n"));
+        var syncing = new[] { new TaskCompletionSource(), new TaskCompletionSource() };
+        var release = new[] { new TaskCompletionSource(), new TaskCompletionSource() };
+        var syncs = 0;
+        _symbols.SyncWorkspaceAsync(default, default, default).ReturnsForAnyArgs(async _ =>
+        {
+            var call = Interlocked.Increment(ref syncs) - 1;
+            syncing[call].TrySetResult();
+            await release[call].Task;
+        });
+
+        _ = (await Adding(_sut, "B.cls", []))!;
+        await syncing[0].Task.WaitAsync(TimeSpan.FromSeconds(20));
+        var idle = _sut.WhenIdleAsync(CancellationToken.None);
+        _ = (await Adding(_sut, "C.bas", []))!;
+        release[0].SetResult();
+        await syncing[1].Task.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.IsFalse(idle.IsCompleted, "the change made meanwhile is being done");
+        release[1].SetResult();
+        await idle.WaitAsync(TimeSpan.FromSeconds(20));
+    }
+
+    [TestMethod]
+    public async Task Idle_IsAtOnce_WhenNoChangeIsBeingMade()
+    {
+        await LoadAsync("A.bas");
+
+        await _sut.WhenIdleAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+    }
+
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AModuleTakenOutAndPutBackInOneBatch_IsInTheWorkspace_AndTheHostIsNotToldItIsGone_WhenItComposedAgain()

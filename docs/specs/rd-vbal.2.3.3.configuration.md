@@ -159,7 +159,7 @@ A change that is still being followed when a newer one arrives is dropped, and s
 with `Formatting.IndentSpaces`, and not with the `tabSize` of the options of a request to format ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#textdocumentformatting-and-textdocumentrangeformatting)).
 
 A client that wants its editor to agree with the setting sets one from the other in its own configuration: the platform's shell has no editor, and a client with an
-editor (HexIDE, a VS Code extension) maps `editor.tabSize` for the VBA language to `Formatting.IndentSpaces`, or the other way.
+editor (HexIDE) maps `editor.tabSize` for the VBA language to `Formatting.IndentSpaces`, or the other way.
 
 ## `CONFIG`
 

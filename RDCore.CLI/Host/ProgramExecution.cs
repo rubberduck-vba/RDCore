@@ -61,7 +61,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private ProgramState _state;
     private SuspendableExecution? _execution;
     private RuntimeOutputBuffer _output = new();
-    private ImmutableDictionary<string, string> _suspendedWith = ImmutableDictionary<string, string>.Empty;
+    private ProgramEdits? _suspendedWith;
     private bool _terminating;
     private bool _wipeOnTerminate;
     private TaskCompletionSource _idle = Settled();
@@ -199,6 +199,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                 return Refused(string.Format(Resources.Host_ChangedWhileWaiting_Resume, string.Join(", ", changed)));
             }
 
+            GoOnInTheEditedCode();
             (execution, _state) = (suspended, ProgramState.Running);
             _inspector.Forget();
             _output = NewSegmentOutput();
@@ -208,6 +209,41 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         using var registration = token.Register(() => Pause());
         var stop = await (step is { } kind ? execution.StepAsync(kind) : execution.ResumeAsync());
         return Segment(session, stop);
+    }
+
+    /// <summary>
+    /// The edits made while the program waits that are not applied to it: what resuming it, stepping it or moving its point of execution is refused for.
+    /// </summary>
+    /// <returns>None, and not suspended, when no program waits.</returns>
+    public HostDebugEditStatusResult EditStatus()
+    {
+        lock (_sync)
+        {
+            if (_state is not ProgramState.Suspended || _alongside || _suspendedWith is null)
+            {
+                return new HostDebugEditStatusResult();
+            }
+
+            return new HostDebugEditStatusResult
+            {
+                Suspended = true,
+                Edits = [.. ProgramEdits.Since(_suspendedWith, provider.Session, provider.Image)
+                    .Where(edit => edit.Kind is not ProgramEditKind.Applies)
+                    .Select(edit => new HostDebugEdit
+                    {
+                        Name = edit.Name,
+                        Kind = edit.Kind switch
+                        {
+                            ProgramEditKind.Restart => HostDebugEditKind.Restart,
+                            ProgramEditKind.DoesNotCompile => HostDebugEditKind.DoesNotCompile,
+                            _ => HostDebugEditKind.NotYet,
+                        },
+                        Reason = edit.Reason,
+                        ModuleUri = edit.Module,
+                        Range = edit.Range,
+                    })],
+            };
+        }
     }
 
     /// <summary>
@@ -229,6 +265,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             {
                 return NotMoved(string.Format(Resources.Host_ChangedWhileWaiting_Goto, string.Join(", ", changed)));
             }
+
+            // the line to go on from is a line of the code as it is now.
+            GoOnInTheEditedCode();
 
             if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
             {
@@ -771,7 +810,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             }
 
             _state = ProgramState.Suspended;
-            _suspendedWith = provider.Image.ProcedureFingerprints();
+            _suspendedWith = ProgramEdits.Of(session, provider.Image);
             provider.Output.Target = NullRuntimeOutput.Instance;
         }
 
@@ -834,17 +873,26 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         }
     }
 
-    // the procedures the program was suspended with whose code is not what it was, by name. A procedure that was loaded since is of no matter to a program that
-    // could not have called it - the statement typed at a break is one - and a procedure that is gone is a change.
+    // what was edited since the program was suspended that is not applied to it, each with why, in the user's words. What is
+    // applied - the code of a procedure the program is not in, a declaration added, a value read afresh where it is next used - is of no matter here: the
+    // analysis pass already loaded it, and the program reads it as it goes on.
     private string[] ChangedCode()
+        => _suspendedWith is null
+            ? []
+            : [.. ProgramEdits.Since(_suspendedWith, provider.Session, provider.Image)
+                .Where(edit => edit.Kind is not ProgramEditKind.Applies)
+                .Select(edit => $"{edit.Name} ({edit.Reason})")];
+
+    // the procedures the program is in go on in their code as it was edited, from where they are; what was edited is then what the program waits with.
+    private void GoOnInTheEditedCode()
     {
-        var now = provider.Image.ProcedureFingerprints();
-        return
-        [
-            .. _suspendedWith
-                .Where(procedure => !now.TryGetValue(procedure.Key, out var fingerprint) || fingerprint != procedure.Value)
-                .Select(procedure => procedure.Key[(procedure.Key.LastIndexOf('#') + 1)..]),
-        ];
+        if (_suspendedWith is null)
+        {
+            return;
+        }
+
+        ProgramEdits.Rebase(provider.Session, provider.Image);
+        _suspendedWith = ProgramEdits.Of(provider.Session, provider.Image);
     }
 
     private static ExecuteSessionResult Refused(string reason) => new() { Outcome = ExecutionOutcome.Refused, ErrorMessage = reason };

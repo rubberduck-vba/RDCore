@@ -198,6 +198,10 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         => client.SendRequestAsync<SessionDebugGotoParams, HostDebugGotoResult>(new SessionDebugGotoParams { Label = label }, token);
 
     /// <inheritdoc/>
+    public Task<HostDebugEditStatusResult> GetEditStatusAsync(CancellationToken token)
+        => client.SendRequestAsync<SessionDebugEditStatusParams, HostDebugEditStatusResult>(new SessionDebugEditStatusParams(), token);
+
+    /// <inheritdoc/>
     public Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token)
         => client.SendRequestAsync<SessionDebugBreakpointsParams, HostDebugBreakpointsResult>(
             new SessionDebugBreakpointsParams { ModuleName = moduleName, Breakpoints = breakpoints }, token);

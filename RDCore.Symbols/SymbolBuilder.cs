@@ -175,7 +175,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var asType = AsTypeOf(node);
         var bounds = node.Children.OfType<ArrayBoundsNode>().FirstOrDefault();
         var type = VariableType(ArrayElementType(node.Name, asType, node.TypeHint, moduleUri), asType, bounds);
-        var field = WithArrayBounds(AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
+        var field = WithArrayBounds(AsDeclared(new VBModuleFieldVariableMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, type, range, node.NameRange ?? range, node.AccessModifier), asType), bounds);
 
         // MS-VBAL §5.2.3.1.2: what makes the procedures named for this variable event handlers.
@@ -293,10 +293,16 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     private static Symbol WithArrayBounds(Symbol variable, ArrayBoundsNode? bounds)
         => bounds is { IsResizable: false } ? variable.With(SymbolProperties.ArrayBounds, bounds.Bounds) : variable;
 
-    // MS-VBAL 5.2.3.1.1 / 2.5.1: an <as-auto-object> clause (`As New Foo`) makes the variable it declares - or,
-    // for an array, each of its dependent variables - an automatic instantiation variable.
-    private static Symbol AutoInstantiatedIfDeclaredAsNew(Symbol variable, AsTypeExpressionNode? asType)
-        => asType is { AsAutoObject: true } ? variable.With(SymbolProperties.AutoInstantiated, true) : variable;
+    // what the As clause says of the variable beyond its type. MS-VBAL 5.2.3.1.1 / 2.5.1: an <as-auto-object> clause (`As New Foo`) makes the variable it
+    // declares - or, for an array, each of its dependent variables - an automatic instantiation variable.
+    private static Symbol AsDeclared(Symbol variable, AsTypeExpressionNode? asType)
+        => LengthNamed(asType is { AsAutoObject: true } ? variable.With(SymbolProperties.AutoInstantiated, true) : variable, asType);
+
+    // MS-VBAL 5.2.3.1.4: the constant a `String * n` is declared with the length of, when it is one and not a number.
+    private static Symbol LengthNamed(Symbol variable, AsTypeExpressionNode? asType)
+        => asType?.FixedLength is { } length && !long.TryParse(length, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out _)
+            ? variable.With(SymbolProperties.FixedLengthName, length)
+            : variable;
 
     public Symbol BuildConstant(ConstantDeclarationNode node)
     {
@@ -332,7 +338,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         // MS-VBAL §5.2.3.3: a field is declared as a variable is, an array included - fixed-size or resizable.
         var bounds = node.Children.OfType<ArrayBoundsNode>().FirstOrDefault();
         var type = VariableType(ArrayElementType(node.Name, asType, typeHint: null, userDefinedTypeUri), asType, bounds);
-        return WithArrayBounds(AutoInstantiatedIfDeclaredAsNew(new VBUserDefinedTypeFieldSymbol(
+        return WithArrayBounds(AsDeclared(new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier), asType), bounds);
     }
 
@@ -989,7 +995,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var elementType = ArrayElementType(node.Name, asType, node.TypeHint, procedureUri);
         var bounds = node.Children.OfType<ArrayBoundsNode>().FirstOrDefault();
         var type = VariableType(elementType, asType, bounds);
-        return WithArrayBounds(AutoInstantiatedIfDeclaredAsNew(new VBLocalVariableSymbol(
+        return WithArrayBounds(AsDeclared(new VBLocalVariableSymbol(
             workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, node.NameRange ?? range,
             IsStatic: node.IsStatic, ResolvedType: type), asType), bounds);
     }

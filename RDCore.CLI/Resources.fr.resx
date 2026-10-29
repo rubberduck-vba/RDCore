@@ -468,10 +468,73 @@
     <value>aucun programme n'est interrompu</value>
   </data>
   <data name="Host_ChangedWhileWaiting_Resume" xml:space="preserve">
-    <value>{0} a changé pendant l'attente du programme, et un programme reprend avec le code avec lequel il a été interrompu : relancez-le pour prendre les changements en compte</value>
+    <value>{0} a changé pendant l'attente du programme, d'une façon qui ne lui est pas appliquée : relancez-le pour prendre les changements en compte, ou annulez-les</value>
   </data>
   <data name="Host_ChangedWhileWaiting_Goto" xml:space="preserve">
-    <value>{0} a changé pendant l'attente du programme : relancez-le pour prendre les changements en compte</value>
+    <value>{0} a changé pendant l'attente du programme, d'une façon qui ne lui est pas appliquée : relancez-le pour prendre les changements en compte, ou annulez-les</value>
+  </data>
+  <data name="Host_Edit_Applies" xml:space="preserve">
+    <value>appliqué</value>
+  </data>
+  <data name="Host_Edit_FaultOfAnActiveProcedure" xml:space="preserve">
+    <value>l'instruction d'une procédure où se trouve le programme, où celui-ci s'est arrêté sur une erreur</value>
+  </data>
+  <data name="Host_Edit_UncertainInAnActiveProcedure" xml:space="preserve">
+    <value>une modification près de l'endroit où se trouve le programme, qui ne peut être située avec certitude, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_TooLargeToPlaceInAnActiveProcedure" xml:space="preserve">
+    <value>une modification dans une procédure où se trouve le programme, trop grande pour situer avec certitude l'endroit où il se trouve, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_ValueReset" xml:space="preserve">
+    <value>une variable dont une modification a réinitialisé la valeur, que seule une nouvelle exécution du programme rend</value>
+  </data>
+  <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
+    <value>l'Option Base d'un module dont les tableaux détiennent des valeurs</value>
+  </data>
+  <data name="Host_Edit_CallOfAnActiveProcedure" xml:space="preserve">
+    <value>l'appel qu'une procédure où se trouve le programme est en train de faire</value>
+  </data>
+  <data name="Host_Edit_BlockOfAnActiveProcedure" xml:space="preserve">
+    <value>l'ouverture d'un bloc ou d'un GoSub où se trouve le programme</value>
+  </data>
+  <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
+    <value>le gestionnaire d'erreurs d'une procédure où se trouve le programme, ou l'instruction où son erreur a été levée</value>
+  </data>
+  <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
+    <value>une variable locale ajoutée à une procédure où se trouve le programme, ou retirée, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_FieldOfAClass" xml:space="preserve">
+    <value>un champ ajouté à une classe dont le programme peut détenir des objets, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
+    <value>la signature d'une procédure où se trouve le programme</value>
+  </data>
+  <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
+    <value>une variable locale d'une procédure où se trouve le programme, dont le type a changé</value>
+  </data>
+  <data name="Host_Edit_StoredValue" xml:space="preserve">
+    <value>une variable ou un champ qui détient une valeur, dont le type a changé ou qui a été retiré</value>
+  </data>
+  <data name="Host_Edit_ClassInterface" xml:space="preserve">
+    <value>ce qu'une classe implémente, ou les événements qu'elle déclenche</value>
+  </data>
+  <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
+    <value>le code ne compile pas : {0}</value>
+  </data>
+  <data name="Host_Edit_HeaderOfAnActiveProcedure" xml:space="preserve">
+    <value>le code d'une procédure où se trouve le programme, au milieu d'un appel que fait sa condition ou l'en-tête de son bloc, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
+    <value>une option du module où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_FieldOfAType" xml:space="preserve">
+    <value>un champ ajouté à un Type dont le programme peut détenir des valeurs, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
+    <value>une constante qui dimensionne ce que détient une variable, dont la valeur a changé</value>
+  </data>
+  <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
+    <value>une constante déjà lue par une procédure où se trouve le programme, dont la valeur a changé, ce qui n'est pas encore appliqué à un programme en attente</value>
   </data>
   <data name="Host_WaitsInNoProcedure" xml:space="preserve">
     <value>le programme n'attend dans aucune procédure</value>
@@ -745,5 +808,23 @@
   </data>
   <data name="Repl_Ducky_UnknownCommand" xml:space="preserve">
     <value>« {0} » n'est pas une commande que le shell exécute.</value>
+  </data>
+  <data name="Repl_EditsNotApplied" xml:space="preserve">
+    <value>Des modifications faites pendant que le programme attendait ne lui sont pas appliquées :</value>
+  </data>
+  <data name="Repl_EditNamed" xml:space="preserve">
+    <value>{0} : {1}</value>
+  </data>
+  <data name="Repl_RunToStartAgain" xml:space="preserve">
+    <value>RUN pour recommencer.</value>
+  </data>
+  <data name="Repl_Edits_Summary" xml:space="preserve">
+    <value>Affiche les modifications faites pendant que le programme attend qui ne lui sont pas appliquées, et pourquoi : ce pour quoi CONT et STEP seraient refusés.</value>
+  </data>
+  <data name="Repl_Edits_None" xml:space="preserve">
+    <value>Aucune modification n'attend : CONT poursuit avec toutes les modifications faites.</value>
+  </data>
+  <data name="Repl_Edits_NoProgram" xml:space="preserve">
+    <value>Aucun programme n'attend.</value>
   </data>
 </root>

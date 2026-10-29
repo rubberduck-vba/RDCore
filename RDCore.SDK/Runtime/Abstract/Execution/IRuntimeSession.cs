@@ -211,6 +211,16 @@ public interface ISessionSymbols
     bool TryRedefine(Symbol symbol, ScopeKind scope);
 
     /// <summary>
+    /// The variables whose value <see cref="TryRedefine"/> let go of, oldest first: each was redeclared as another type, or as something that holds no
+    /// value, and what it held is gone - an edit taken back does not bring it back.
+    /// </summary>
+    /// <remarks>
+    /// Only ever added to, for as long as the session lives: what a program that waits was suspended with is told apart by how many there were then. A
+    /// program that goes on after one of them was reset would go on with a value it never had.
+    /// </remarks>
+    IReadOnlyList<Symbol> ValuesReset { get; }
+
+    /// <summary>
     /// Gives every variable of the session the value it was defined with, and discards every object.
     /// </summary>
     /// <remarks>

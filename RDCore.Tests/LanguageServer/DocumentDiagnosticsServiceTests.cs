@@ -5,6 +5,7 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
@@ -15,6 +16,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -32,8 +34,8 @@ public sealed class DocumentDiagnosticsServiceTests
     private readonly ISymbolSyncService _symbols = Substitute.For<ISymbolSyncService>();
     private readonly WorkspaceRefresh _refresh = new(TimeSpan.Zero);
 
-    private DocumentDiagnosticsService Sut()
-        => new(_documents, _parsing, _orchestration, _symbols, _refresh, NullLogger<DocumentDiagnosticsService>.Instance);
+    private DocumentDiagnosticsService Sut(IEditStatusMonitor? editStatus = null)
+        => new(_documents, _parsing, _orchestration, _symbols, _refresh, NullLogger<DocumentDiagnosticsService>.Instance, editStatus);
 
     private static WorkspaceDocument Document(int version = 1)
         => new("src/Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub", version);
@@ -124,6 +126,105 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual("v3.0", result.ResultId);
         Assert.IsTrue(result.Unchanged);
         Assert.IsEmpty(result.Diagnostics);
+    }
+
+    // an edit the program that waits does not have is a finding of the module it is in, where the edited declaration is now - an edit of the module as a whole on
+    // its first line - and none of another's. The list that changed is a workspace that changed: a pull of a document that did not is not answered unchanged.
+    [TestMethod]
+    public async Task AnEditTheProgramThatWaitsDoesNotHave_IsAFindingOfItsModule_WhereTheEditIs()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        {
+            Suspended = true,
+            Edits =
+            [
+                new HostDebugEdit
+                {
+                    Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1"),
+                    Range = new SourceRange(new SourcePosition(0, 0), new SourcePosition(1, 7)),
+                },
+                new HostDebugEdit { Name = "Mod1", Kind = HostDebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") },
+                new HostDebugEdit { Name = "Other.Bar", Kind = HostDebugEditKind.NotYet, Reason = "a local was added", ModuleUri = new Uri("file:///c:/ws#Other") },
+            ],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+        var generation = _refresh.Generation;
+
+        Assert.IsTrue(await editStatus.CheckAsync(CancellationToken.None));
+        var result = await Sut(editStatus).GetAsync(document.Id.Uri.ToUri(), previousResultId: $"v1.{generation}", CancellationToken.None);
+
+        Assert.IsFalse(result.Unchanged, "the findings of the module are not what they were");
+        var edits = result.Diagnostics.Where(diagnostic => diagnostic.Code?.String == "RDC20001").ToArray();
+        Assert.HasCount(2, edits);
+        Assert.IsTrue(edits.All(edit => edit.Severity == DiagnosticSeverity.Information));
+        Assert.AreEqual("Mod1.Foo: a parameter was added", edits[0].Message);
+        Assert.AreEqual(new Range(new Position(0, 0), new Position(1, 7)), edits[0].Range);
+        Assert.AreEqual(new Range(new Position(0, 0), new Position(0, "Public Sub Foo()".Length)), edits[1].Range, "the module as a whole, on its first line");
+    }
+
+    [TestMethod]
+    public async Task NoProgramThatWaits_HasNoEditItDoesNotHave()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+
+        Assert.IsFalse(await editStatus.CheckAsync(CancellationToken.None), "nothing changed");
+        var result = await Sut(editStatus).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.IsFalse(result.Diagnostics.Any(diagnostic => diagnostic.Code?.String == "RDC20001"));
+    }
+
+    private async Task<EditStatusMonitor> OneEditListedAsync()
+    {
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        {
+            Suspended = true,
+            Edits = [new HostDebugEdit { Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+        await editStatus.CheckAsync(CancellationToken.None);
+        return editStatus;
+    }
+
+    // a client pushed to is published the static phase, then the static and runtime phases together: the edits are told by the static phase, once.
+    [TestMethod]
+    [DataRow(AnalysisPhase.Static, 1)]
+    [DataRow(AnalysisPhase.Runtime, 0)]
+    [DataRow(AnalysisPhase.All, 1)]
+    public async Task TheEditsTheProgramThatWaitsDoesNotHave_AreToldByTheStaticPhase(AnalysisPhase phase, int told)
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        var result = await Sut(await OneEditListedAsync()).GetPhaseAsync(document.Id.Uri.ToUri(), phase, CancellationToken.None);
+
+        Assert.AreEqual(told, result.Diagnostics.Count(diagnostic => diagnostic.Code?.String == "RDC20001"));
+    }
+
+    // the edits are the server's own finding: no extension is needed for it.
+    [TestMethod]
+    public async Task TheEditsTheProgramThatWaitsDoesNotHave_AreTold_WithNoExtensionThatFindsAnything()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ProvidersAre(NonProvider());
+
+        var result = await Sut(await OneEditListedAsync()).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(1, result.Diagnostics.Count(diagnostic => diagnostic.Code?.String == "RDC20001"));
     }
 
     // a procedure another module calls, removed: the findings of the module that calls it are not what they were, though its text is.

@@ -40,10 +40,11 @@ internal sealed class ContReplCommand : IReplCommand
                 return ReplCommandResult.Continue;
             }
 
+            // the line is moved to before anything runs, and what refuses it is what would refuse going on: the edits not applied to the program, by name.
             var moved = await context.Platform.GotoAsync(number.ToString(), token);
             if (!moved.Moved)
             {
-                context.Console.WriteMessage(MessageKind.Error, Resources.Repl_CantContinue, moved.Reason);
+                await ReplExecution.RenderRefusalAsync(context, moved.Reason ?? string.Empty, token);
                 return ReplCommandResult.Continue;
             }
         }

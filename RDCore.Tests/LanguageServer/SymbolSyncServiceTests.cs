@@ -255,6 +255,79 @@ public sealed class SymbolSyncServiceTests
         CollectionAssert.AreEqual(new[] { ("Mod1", false), ("Mod2", false), ("Mod1", true), ("Mod2", true) }, requests);
     }
 
+    // a module the host could not be given is told, with why: the host has it as it was, and a program that waits on it does not have its code.
+    [TestMethod]
+    public async Task AModuleTheHostCouldNotBeGiven_IsUnsynced_AndTheOthersAreNot()
+    {
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<DefineSymbolsParams>() is { ModuleName: "Mod2", CodeOnly: true }
+                ? Task.FromException<DefineSymbolsResult>(new InvalidOperationException("the host refused it"))
+                : Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("src/Mod1.bas", Root, "content"), new WorkspaceDocument("src/Mod2.bas", Root, "content")]);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var name = ((Uri)call[0]).AbsolutePath.EndsWith("Mod1.bas", StringComparison.OrdinalIgnoreCase) ? "Mod1" : "Mod2";
+                call[1] = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", $"{name}.bas")), "Public Sub Foo()\r\nEnd Sub");
+                return true;
+            });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.AreEqual("the host refused it", sut.Unsynced.Single(module => module.Key == "Mod2").Value);
+        Assert.IsFalse(sut.Unsynced.ContainsKey("Mod1"));
+
+        // the next sync that loads it says so.
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        Assert.IsEmpty(sut.Unsynced);
+    }
+
+    // a sync stopped before it reached the modules loaded none of them: what the last one did not load is not loaded still.
+    [TestMethod]
+    public async Task ASyncStoppedBeforeItReachedTheModules_LeavesWhatWasNotLoaded_NotLoaded()
+    {
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<DefineSymbolsParams>() is { ModuleName: "Mod2", CodeOnly: true }
+                ? Task.FromException<DefineSymbolsResult>(new InvalidOperationException("the host refused it"))
+                : Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("src/Mod1.bas", Root, "content"), new WorkspaceDocument("src/Mod2.bas", Root, "content")]);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var name = ((Uri)call[0]).AbsolutePath.EndsWith("Mod1.bas", StringComparison.OrdinalIgnoreCase) ? "Mod1" : "Mod2";
+                call[1] = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", $"{name}.bas")), "Public Sub Foo()\r\nEnd Sub");
+                return true;
+            });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        using var stopped = new CancellationTokenSource();
+        await stopped.CancelAsync();
+        host.WaitForReadyAsync(stopped.Token).Returns(Task.FromCanceled(stopped.Token));
+        await sut.SyncWorkspaceAsync(stopped.Token, replace: true);
+
+        Assert.AreEqual("the host refused it", sut.Unsynced.Single().Value);
+        Assert.AreEqual("Mod2", sut.Unsynced.Single().Key);
+    }
+
     private (SymbolSyncService Sut, List<(string Module, bool CodeOnly, bool Replace)> Requests) TwoModuleWorkspace(bool changedParseIsCurrent)
     {
         var requests = new List<(string Module, bool CodeOnly, bool Replace)>();
@@ -510,5 +583,42 @@ public sealed class SymbolSyncServiceTests
             Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod1" && !p.CodeOnly && p.Symbols.Any(symbol => symbol.Name == "Hello"
                 && symbol.Scope == RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Instance)),
             Arg.Any<CancellationToken>());
+    }
+
+    // ---- a shell's program is a module of the project ----
+
+    [TestMethod]
+    [DataRow(ImplicitDeclarationScope.Procedure)]
+    [DataRow(ImplicitDeclarationScope.Module)]
+    public async Task AShellsProgram_CallsASubOfAModuleOfTheWorkspace_QualifiedOrNot_AndDeclaresNoVariableByNamingIt(ImplicitDeclarationScope implicitScope)
+    {
+        var sent = new List<DefineSymbolsParams>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Do<DefineSymbolsParams>(sent.Add), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        // the workspace has a module the program calls into, which the language server has parsed.
+        var module = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\nPublic Sub Helper()\r\nEnd Sub\r\n";
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("Module1.bas", Root, module)]);
+        documents.WorkspaceRoot.Returns(Root);
+        var parsed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Module1.bas")), module);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parsed; return true; });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(implicitScope),
+            NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+
+        var program = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Program.bas")), "Public Sub Main()\r\n    Helper\r\n    Module1.Helper\r\nEnd Sub\r\n");
+        await sut.SyncModuleAsync("Program", program, CancellationToken.None);
+
+        var defined = sent.Single(request => request.ModuleName == "Program");
+        var main = defined.Symbols.Single(symbol => symbol.Name == "Main");
+        Assert.IsFalse(defined.Symbols.Any(symbol => symbol.Name is "Helper" or "Module1"),
+            "a name of the workspace is no variable of the program: " + string.Join(", ", defined.Symbols.Select(symbol => symbol.Name)));
+        Assert.IsTrue(main.Locals.IsDefaultOrEmpty, "nor a local of Main: " + string.Join(", ", main.Locals.Select(local => local.Name)));
     }
 }

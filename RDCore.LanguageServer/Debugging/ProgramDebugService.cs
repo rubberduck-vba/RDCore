@@ -35,6 +35,10 @@ internal interface IProgramDebugService
     /// <param name="token">A token that cancels the request.</param>
     Task<HostDebugGotoResult> GotoAsync(int line, string? label, CancellationToken token);
 
+    /// <summary>Which edits made while the program waits are not applied to it.</summary>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugEditStatusResult> EditStatusAsync(CancellationToken token);
+
     /// <summary>Ends the program that runs or waits.</summary>
     /// <param name="wipe">Whether the session is wiped as well.</param>
     /// <param name="token">A token that cancels the request.</param>
@@ -123,6 +127,18 @@ internal sealed class ProgramDebugService(
 
         await environment.WaitForReadyAsync(token);
         return await environment.SendRequestAsync<HostDebugGotoParams, HostDebugGotoResult>(new HostDebugGotoParams { Line = line, Label = label }, token);
+    }
+
+    public async Task<HostDebugEditStatusResult> EditStatusAsync(CancellationToken token)
+    {
+        if (orchestration.RuntimeEnvironment is not { } environment)
+        {
+            return new HostDebugEditStatusResult();
+        }
+
+        await environment.WaitForReadyAsync(token);
+        return await environment.SendRequestAsync<HostDebugEditStatusParams, HostDebugEditStatusResult>(new HostDebugEditStatusParams(), token)
+            ?? new HostDebugEditStatusResult();
     }
 
     public async Task<HostDebugAck> TerminateAsync(bool wipe, CancellationToken token)

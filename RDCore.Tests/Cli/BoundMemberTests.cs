@@ -34,6 +34,13 @@ public sealed class BoundMemberTests
             "Private mValue As Long",
             "Private Sub ICounter_Increment()", "    mValue = mValue + 10", "End Sub",
             "Private Property Get ICounter_Value() As Long", "    ICounter_Value = mValue", "End Property")),
+        ("Gauge", ClassModule("Gauge",
+            "Private mLevel As Long",
+            "Private mOwner As Object",
+            "Public Property Let Level(ByVal v As Long)", "    mLevel = v", "End Property",
+            "Public Property Get Level() As Long", "    Level = mLevel", "End Property",
+            "Public Property Set Owner(ByVal o As Object)", "    Set mOwner = o", "End Property",
+            "Public Property Get Owner() As Object", "    Set Owner = mOwner", "End Property")),
         ("Named", ClassModule("Named",
             "Public Name As String",
             "Public Items As Variant")),
@@ -47,6 +54,16 @@ public sealed class BoundMemberTests
 
     private static Task<string[]> RunMainAsync(params string[] body)
         => RunAsync(Classes, $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n");
+
+    [TestMethod]
+    public async Task AProperty_WhoseLetOrSetIsDeclaredBeforeItsGet_IsReadThroughItsGet()
+        => CollectionAssert.AreEqual(new[] { "level 5", "6", "True" }, await RunMainAsync(
+            "Dim g As Gauge", "Set g = New Gauge",
+            "g.Level = 5",
+            "Debug.Print \"level \" & g.Level",
+            "Debug.Print g.Level + 1",
+            "Set g.Owner = g",
+            "Debug.Print g.Owner Is g"));
 
     [TestMethod]
     public async Task AMemberOfAClass_IsReadAndCalled()

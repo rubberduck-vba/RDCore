@@ -464,20 +464,21 @@ public sealed class ConsolePromptEditorTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
-    public async Task TheCursor_MovesBackOverALongLine_InTimeTheLineTakes()
+    public async Task TheCursor_MovesBackOverALongLine_ReadingOnlyBackToACharacterBeforeIt()
     {
-        var keys = new ScriptedKeys().Type(new string('x', 20_000));
-        for (var press = 0; press < 20_000; press++)
+        // a key back that read the line from its start read some 200 million characters for these 20,000 keys (23-33 s on the laptop it was found on); one that
+        // reads back to a character before the cursor reads a few each. What is counted is the reading, and not the time it takes.
+        const int Length = 20_000;
+        var keys = new ScriptedKeys().Type(new string('x', Length));
+        for (var press = 0; press < Length; press++)
         {
             keys.Press(Key(ConsoleKey.LeftArrow));
         }
 
         keys.Type("a").Press(Key(ConsoleKey.Enter));
         var editor = new ConsolePromptEditor(keys, TextWriter.Null, () => 80) { CompleteWords = false };
-        var watch = System.Diagnostics.Stopwatch.StartNew();
 
-        Assert.AreEqual("a" + new string('x', 20_000), await editor.ReadLineAsync(CancellationToken.None));
-        Assert.IsLessThan(8_000, watch.ElapsedMilliseconds, "a key back reads only back to a character before the cursor, not the line from its start");
+        Assert.AreEqual("a" + new string('x', Length), await editor.ReadLineAsync(CancellationToken.None));
+        Assert.IsLessThanOrEqualTo(Length * 2L, editor.CharactersReadBack, "a key back reads only back to a character before the cursor, not the line from its start");
     }
 }

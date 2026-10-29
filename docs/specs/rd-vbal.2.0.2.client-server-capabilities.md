@@ -622,7 +622,7 @@ loaded changes nothing, as when the server wrote it. The client is then asked to
 
 The client owns the file system. Only for a client that does not say it watches files - no `workspace.didChangeWatchedFiles` capability at all, with or without
 dynamic registration - does the language server watch the workspace's files itself (`WorkspaceFileSystemWatcher`): its `.rdproj`, and the source files under its
-root, except what a folder whose name starts with a dot holds (`.git`, `.vscode`). What it sees is served as if the client had said it. The events of a moment (a
+root, except what a folder whose name starts with a dot holds (`.git`, `.github`). What it sees is served as if the client had said it. The events of a moment (a
 save is several, a `git checkout` many) are gathered and served together, once none came for 300 ms.
 
 The setting `Workspace.EnableFileSystemWatchers` (default `true`, read when the workspace loads) turns the server's watch off altogether: a file changed outside
@@ -642,7 +642,7 @@ result (`workspace.fileOperations`), with filters for the source files of every 
 |`workspace/didRenameFiles`|What the project lists is listed under its new path, a folder with what it holds; a document module keeps its document class. A module renamed to what is not a source file is no longer a module; a file renamed to a source file is one.|
 |`workspace/didDeleteFiles`|What the project listed is no longer listed, a folder with what it held.|
 
-What is outside the workspace root, and what a folder whose name starts with a dot holds (`.git`, `.vscode`), is nothing of the project. A module name is unique in a
+What is outside the workspace root, and what a folder whose name starts with a dot holds (`.git`, `.github`), is nothing of the project. A module name is unique in a
 project (**RD-VBAL §2.2.3.3**): a file created with the `VB_Name` of a module the project has is not added, and `window/showMessage` says so. The operations are made
 in the order the client sent them: the notification returns once the project file is written and the workspace's documents are what it lists, so that what the
 client sends next (`textDocument/didOpen` of the new path, `didChange`) is read after it. The environment host composing its session again and the symbols being defined
