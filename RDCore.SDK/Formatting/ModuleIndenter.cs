@@ -444,8 +444,9 @@ public static partial class ModuleIndenter
         }
     }
 
-    // the last line of a block's body: the line before its closer, which is at the level of the block wherever it is on its line; the last line of the block
-    // when the parser found no closer, as it is typed.
+    // the last line of a block's body: the line before its closer, which is at the level of the block wherever it is on its line, and starts the statement
+    // that closes it however many lines that statement is continued on (Loop Until a And _); the last line of the block when the parser found no closer, as
+    // it is typed.
     private static int BodyEnd(SyntaxNode node, ModuleLines module, int start, int end)
     {
         var closer = BlockCloser(node);
@@ -453,6 +454,11 @@ public static partial class ModuleIndenter
         // a node the parser recovered from an error may end past its closer, on the empty lines after it.
         var last = end;
         while (last > start && string.IsNullOrWhiteSpace(module.Lines[last]))
+        {
+            last--;
+        }
+
+        while (last > start && module.IsContinuation(last))
         {
             last--;
         }

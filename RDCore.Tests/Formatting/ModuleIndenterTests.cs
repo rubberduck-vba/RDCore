@@ -167,6 +167,12 @@ public sealed class ModuleIndenterTests
     public void UnfinishedCode_IsIndentedByWhatEnclosesIt(string[] typed, string[] indented)
         => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
 
+    // a closer whose statement is continued closes the block on the line it starts on: the lines it is continued on move with it.
+    [TestMethod]
+    public void ACloserContinuedOnMoreLines_IsAtTheLevelOfTheBlock()
+        => Assert.AreEqual(Lines("Sub A()", "    Do", "        x = 1", "    Loop Until a And _", "               b", "    y = 2", "End Sub"),
+            Indented(Lines("Sub A()", "Do", "x = 1", "Loop Until a And _", "           b", "y = 2", "End Sub")));
+
     // as Rubberduck's indenter has it: the line that closes a block is at the block's level, wherever the closer is on it.
     [TestMethod]
     public void ALineWithACloserAfterItsCode_IsAtTheLevelOfTheBlock()
