@@ -33,10 +33,12 @@ public sealed class ReplGhostTextTests
     [DataRow("20 Y", " = 1")]
     public void TheGhost_OfAnIndentedLine_IsTheLineAsItIsTyped(string typed, string expected)
     {
-        // the program stores the statement indented by the block it is in; what is typed after the number is the statement, and storing it indents it again.
-        var program = new ReplProgram(statements => [.. statements.Select((statement, index) => index == 1 ? "    " + statement.TrimStart() : statement.TrimStart())]);
+        // the program stores the statement indented by the block it is in, as the shell indents it; what is typed after the number is the statement, and storing
+        // it indents it again.
+        var program = ReplIndentation.Program(Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions()), liveSettings: null, logger: null);
         program.Store(10, "If X Then");
         program.Store(20, "Y = 1");
+        Assert.AreEqual("    Y = 1", program.Lines().ElementAt(1).Statement);
 
         Assert.AreEqual(expected, new ReplGhostText(program).For(typed));
     }

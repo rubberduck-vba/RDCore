@@ -82,13 +82,16 @@ internal sealed class ReplShell(
 
     private async Task<ReplCommandResult> HandleAsync(ReplCommandContext context, string line, CancellationToken token)
     {
-        // the indentation settings changed since the last line: the program is indented as they say before anything lists it, runs it or edits it.
-        if (program.IndentIfChanged())
+        var input = ReplInputParser.Parse(line, dispatcher.IsCommandName);
+
+        // what the language server holds is the program as it is, before a command or a statement that reads it: an edit of a numbered line is told when the
+        // program is left alone, so that lines pasted at the prompt are told - and indented - once. The indentation settings that changed since the last line are
+        // the program's first.
+        program.IndentIfChanged();
+        if (input.Kind is not (ReplInputKind.StoreLine or ReplInputKind.DeleteLine or ReplInputKind.Empty))
         {
             await SynchronizeDocumentAsync(token);
         }
-
-        var input = ReplInputParser.Parse(line, dispatcher.IsCommandName);
         switch (input.Kind)
         {
             case ReplInputKind.Empty:
@@ -96,7 +99,6 @@ internal sealed class ReplShell(
 
             case ReplInputKind.StoreLine:
                 program.Store(input.LineNumber, input.Text);
-                await SynchronizeDocumentAsync(token);
                 context.Diagnostics.RefreshWhenIdle(context);
                 return ReplCommandResult.Continue;
 
@@ -105,7 +107,7 @@ internal sealed class ReplShell(
                 {
                     console.WriteMessage(MessageKind.Error, Resources.Repl_UndefinedLine, input.LineNumber.ToString());
                 }
-                await SynchronizeDocumentAsync(token);
+
                 context.Diagnostics.RefreshWhenIdle(context);
                 return ReplCommandResult.Continue;
 

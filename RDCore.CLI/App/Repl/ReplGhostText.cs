@@ -25,13 +25,12 @@ internal sealed class ReplGhostText(ReplProgram program)
             digits++;
         }
 
-        if (digits == 0 || !int.TryParse(typed[..digits], out var number) || program.IndexOf(number) < 0)
+        // the statement as it is typed: its indentation is the program's, which storing it gives it again. The ghost is asked at each key, and the program is
+        // not indented for it.
+        if (digits == 0 || !int.TryParse(typed[..digits], out var number) || program.StatementOf(number) is not { } statement)
         {
             return null;
         }
-
-        // the statement as it is typed: its indentation is the program's, which storing it gives it again.
-        var statement = program.Lines(number, number).Single().Statement.TrimStart();
         var rest = typed[digits..];
         if (rest.Length == 0)
         {

@@ -72,6 +72,14 @@ public sealed class ProgramIndenterTests
             Indented(new CodeFormattingOptions { EndOfLineCommentStyle = EndOfLineCommentStyle.SameGap }, "If x Then", "y = 1   ' one", "End If").ToArray());
 
     [TestMethod]
+    public void AStatementWithALineEndInIt_LeavesTheProgramAsItWasGiven()
+    {
+        string[] program = ["If x Then", "y = 1\r\nz = 2", "End If"];
+
+        CollectionAssert.AreEqual(program, Indented(program).ToArray());
+    }
+
+    [TestMethod]
     public void NoStatements_AreNoStatements()
         => Assert.IsEmpty(Indented());
 
