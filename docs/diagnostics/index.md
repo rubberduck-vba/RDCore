@@ -265,6 +265,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00407](rdc00407.md)|Unmatched event handler — a handler of a form control's event that does not match the event, and that nothing calls|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names — a name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation — a name that begins with a prefix that states its type|
+|[RDC01005](rdc01005.md)|Hosted document code — the code of an Excel, Word or Access document, which RD-VBA does not host: move it into a class that automates the application|
+|[RDC01006](rdc01006.md)|Unsupported document module — a document of a host RD-VBA does not know, or a `.doccls` the project says nothing of|
+|[RDC01007](rdc01007.md)|Host library not referenced — a document module whose host's library the project does not reference|
 |[RDC11005](rdc11005.md)|Bitwise operator — a logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation — two String values joined with +|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String — the number is less, whatever the values|
@@ -280,6 +283,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11021](rdc11021.md)|Constant of a procedure valued with Len — MS-VBA accepts it there, and refuses it in a module|
 |[RDC11022](rdc11022.md)|ReDim of a variable declared implicitly — the specification and VB6 re-dimension it, MS-VBA refuses it (Invalid ReDim)|
 |[RDC11023](rdc11023.md)|Procedure MS-VBA refuses as too large — more than 5,000 statements, which RD-VBA runs and MS-VBA refuses (Procedure too large)|
+|[RDC11024](rdc11024.md)|Implements in a document module — MS-VBAL forbids it in an extension module, MS-VBA compiles it|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

@@ -109,4 +109,12 @@ public enum ValueExpressionSemanticFlags
     /// passed on to it), and so can a <c>ParamArray</c> with no elements, as <strong>MS-VBA</strong> has it.
     /// </summary>
     IsMissingAlwaysFalse = 1 << 16,
+
+    /// <summary>
+    /// A name of a document module, written where <strong>MS-VBA</strong>'s host makes it the document (<c>Sheet1.Range</c>, <c>ThisWorkbook.Save</c>, in
+    /// another module): RD-VBA hosts no document, and the name stands for nothing - a variable that is not declared, or one that is declared by being named
+    /// (<strong>MS-VBAL §5.6.10</strong>). Code that works with the document holds it in a variable of the host's class, from an application the program
+    /// automates (<see cref="DocumentModuleFact"/>).
+    /// </summary>
+    HostedDocumentName = 1 << 17,
 }

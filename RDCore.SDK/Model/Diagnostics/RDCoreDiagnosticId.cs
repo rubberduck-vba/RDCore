@@ -75,6 +75,10 @@ public enum RDCoreDiagnosticId
     EmptyIfBlock,
     EmptyCodeBlock,
 
+    HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
+    UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
+    HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
     UnintendedUnconditionalStatement,
@@ -99,4 +103,5 @@ public enum RDCoreDiagnosticId
     ProcedureConstantLength = 11021, // Const K = Len(K0) in a procedure: MS-VBA compiles it there, and refuses it in a module
     ReDimOfAnImplicitVariant = 11022, // y = 5 ... ReDim y(2), y undeclared: MS-VBAL and vb6.exe re-dimension the implicit variable; MS-VBA: Invalid ReDim
     ProcedureTooLarge = 11023, // a procedure of more than 5,000 statements: MS-VBA refuses one past 64K of compiled code (Procedure too large); RD-VBA runs it
+    ImplementsInDocumentModule = 11024, // Implements in a document module: MS-VBAL §5.2.4.2 forbids it in an extension module; MS-VBA compiles and runs it
 }

@@ -233,7 +233,9 @@ directives may or may not be a capability that an LSP client supports.
 Its value is the symbol's `SymbolProperties.Extensible`, read off the module by `ModuleNodeExtensions.IsExtensible`.
 
 An extensible module cannot have an `Implements` directive
-([**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md)): [VBC09328](../diagnostics/vbc09328.md).
+([**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md)): [VBC09328](../diagnostics/vbc09328.md). A document module
+([**RD-VBAL §2.2.3.3**](rd-vbal.2.2.3.projectfile.md)) is extensible too, and MS-VBA compiles and runs the directives of a worksheet's module: RD-VBA
+does the same, and warns that the specification says otherwise ([RDC11024](../diagnostics/rdc11024.md)).
 
 ---
 > ⏮️ [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md) | ⏭️ [**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md)

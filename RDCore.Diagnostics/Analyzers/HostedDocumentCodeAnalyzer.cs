@@ -1,0 +1,123 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.Diagnostics.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Flags;
+
+namespace RDCore.Diagnostics.Analyzers;
+
+/// <summary>
+/// <c>RDC01005</c>: code that presumes it is hosted by the application whose document it belongs to - a document module, and a name of one in another module.
+/// RD-VBA is not hosted: it automates an application from the outside, and the code is to move into a class that holds the document in a <c>WithEvents</c>
+/// variable of the host's class.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A document module is reported once, at its first line, for the one change that fixes it moves the whole module: each place of its code that presumes the
+/// host - a member of the host's class it names (<c>Me.Range</c>, an unqualified <c>Range</c>), a procedure named as a handler of the host's events
+/// (<c>Worksheet_Change</c>), which nothing raises - is its related information. What the module is the host says (<see cref="DocumentModuleFact"/>).
+/// </para>
+/// <para>
+/// A name of a document module in another module (<c>GameSheet.Reset</c>) is reported where it is written: MS-VBA's host makes it the document, and here it
+/// stands for nothing (<see cref="ValueExpressionSemanticFlags.HostedDocumentName"/>). It is what the platform says in place of <em>Variable not defined</em>
+/// at that name.
+/// </para>
+/// </remarks>
+internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
+{
+    public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
+    {
+        if (context.Semantics is not { } semantics)
+        {
+            yield break;
+        }
+
+        if (semantics.Document is { HostClass: { } host } document && context.ParseResult.SyntaxTree is { } module)
+        {
+            var hostClass = $"{host.Library}.{host.ClassName}";
+            yield return new AnalyzerFinding(
+                RDCoreDiagnosticId.HostedDocumentCode,
+                FirstLineOf(module),
+                DiagnosticSeverity.Error,
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Message, NameOf(semantics.Module), hostClass))
+            {
+                Related = [.. HostUsesOf(context.Document, semantics, document, hostClass), .. HandlersOf(context.Document, module, document, hostClass)],
+            };
+        }
+
+        foreach (var fact in References(semantics))
+        {
+            yield return new AnalyzerFinding(
+                RDCoreDiagnosticId.HostedDocumentCode,
+                fact.Location.Range,
+                DiagnosticSeverity.Error,
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Reference_Message, NameAt(context, fact)));
+        }
+    }
+
+    /// <summary>
+    /// The names of document modules written in a module, which the platform reports as <c>RDC01005</c> in place of the compile error of the name.
+    /// </summary>
+    /// <param name="semantics">What the host found out about the module.</param>
+    internal static IEnumerable<ExpressionFactDto> References(ModuleSemanticsDto semantics)
+        => semantics.Procedures.SelectMany(procedure => procedure.Expressions).Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.HostedDocumentName));
+
+    // a member of the host's class is addressed under the class: the same document, and the class's fragment continued with a dot.
+    private static IEnumerable<RelatedFinding> HostUsesOf(Uri documentUri, ModuleSemanticsDto semantics, DocumentModuleFact document, string hostClass)
+    {
+        if (document.HostClassUri is not { } classUri)
+        {
+            yield break;
+        }
+
+        var prefix = classUri.Fragment.TrimStart('#') + ".";
+        foreach (var fact in semantics.Procedures.SelectMany(procedure => procedure.Expressions))
+        {
+            if (fact.Binding is { } binding
+                && binding.GetLeftPart(UriPartial.Path) == classUri.GetLeftPart(UriPartial.Path)
+                && binding.Fragment.TrimStart('#') is var address && address.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && !address[prefix.Length..].Contains('.'))
+            {
+                yield return new RelatedFinding(documentUri, fact.Location.Range,
+                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_HostMember_Message, address[prefix.Length..], hostClass));
+            }
+        }
+    }
+
+    // a procedure named as the handler of an event of the host's class: MS-VBA's host calls it, and here nothing does.
+    private static IEnumerable<RelatedFinding> HandlersOf(Uri documentUri, ModuleNode module, DocumentModuleFact document, string hostClass)
+    {
+        if (document.HandlerPrefix is not { } prefix)
+        {
+            yield break;
+        }
+
+        foreach (var procedure in module.Children.OfType<MemberDeclarationNode>().Where(member => member.MemberKind == MemberKind.Procedure))
+        {
+            if (procedure.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && document.HostEvents.Contains(procedure.Name[prefix.Length..], StringComparer.OrdinalIgnoreCase))
+            {
+                yield return new RelatedFinding(documentUri, procedure.SourceLocation.Range,
+                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Handler_Message, procedure.Name, hostClass));
+            }
+        }
+    }
+
+    // the first line of the module's code: a document module's export has no attribute that names it.
+    private static SourceRange FirstLineOf(ModuleNode module)
+        => module.Children.FirstOrDefault()?.SourceLocation.Range is { } first
+            ? new SourceRange(first.Start, first.Start.Line == first.End.Line ? first.End : first.Start)
+            : SourceRange.Empty;
+
+    private static string NameOf(Uri module) => module.Fragment.TrimStart('#');
+
+    // the name as it is written: the reference is to nothing, and no symbol has the name.
+    private static string NameAt(ModuleAnalysisContext context, ExpressionFactDto fact)
+        => context.ParseResult.SyntaxTree?.Descendants().OfType<SimpleNameExpressionNode>().FirstOrDefault(name => name.Identity == fact.Node)?.IdentifierName
+           ?? string.Empty;
+}

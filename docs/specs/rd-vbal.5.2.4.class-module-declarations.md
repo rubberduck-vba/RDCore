@@ -185,7 +185,9 @@ What is wrong with a directive is reported where the directive is written: the c
 implement completely is reported at the directive that names it. A symbol that was not read from source has no ranges, and is reported at the module.
 
 A directive in an extensible module (`VB_Extensible = True`, [**RD-VBAL §3.1.1.8**](rd-vbal.3.1.1.attributes.md)) is invalid:
-[VBC09328](../diagnostics/vbc09328.md).
+[VBC09328](../diagnostics/vbc09328.md). A document module ([**RD-VBAL §2.2.3.3**](rd-vbal.2.2.3.projectfile.md)) is an extension module too, where
+**MS-VBAL §5.2.4.2** says the directive "cannot occur", and MS-VBA compiles and runs it (recorded in Excel): RD-VBA checks it as any class module's, and
+warns that the specification says otherwise ([RDC11024](../diagnostics/rdc11024.md)).
 
 The environment host learns of the directives from the language server: `DefineSymbolsParams.ImplementedInterfaceNames` carries the
 interface names a module's directives name, and the host composes the module's class symbol from them and from the members it has been

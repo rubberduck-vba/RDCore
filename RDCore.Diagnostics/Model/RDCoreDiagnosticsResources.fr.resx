@@ -330,4 +330,28 @@
   <data name="EmptyLetToArray_Message" xml:space="preserve">
     <value>{0} est assigné à un tableau : MS-VBAL le permet, {0} étant un Variant, mais la valeur qu&apos;il contient lève l&apos;erreur d&apos;exécution 13 (Incompatibilité de type) chaque fois que l&apos;assignation s&apos;exécute. Erase vide un tableau dynamique.</value>
   </data>
+  <data name="HostedDocumentCode_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est le code d&apos;un document de {1}, que RD-VBA n&apos;héberge pas : aucun objet n&apos;en existe, et rien de son code ne s&apos;exécute. Déplacez le code dans une classe qui tient le document dans une variable WithEvents de {1}, obtenu d&apos;une application que le programme automatise.</value>
+  </data>
+  <data name="HostedDocumentCode_Reference_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est le nom d&apos;un document d&apos;une application hôte, que RD-VBA n&apos;héberge pas : ici, il ne désigne rien. Tenez le document dans une variable de la classe de son hôte, obtenu d&apos;une application que le programme automatise.</value>
+  </data>
+  <data name="HostedDocumentCode_HostMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, un membre de {1}, que ce module atteint comme celui de son hôte</value>
+  </data>
+  <data name="HostedDocumentCode_Handler_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, nommé comme gestionnaire d&apos;un événement de {1}, que rien ne déclenche ici</value>
+  </data>
+  <data name="UnsupportedDocumentModule_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est le code d&apos;un document d&apos;une application hôte que RD-VBA ne connaît pas : le projet ne lui nomme aucun hôte pris en charge (Super). Les classeurs et feuilles Excel, les documents Word, et les formulaires et états Access sont pris en charge.</value>
+  </data>
+  <data name="UnsupportedDocumentModule_NoSuper_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; a été exporté du document d&apos;une application hôte (.doccls), et le projet ne dit pas de quel document il est le code (Super) : il est lu comme le module que son texte en fait.</value>
+  </data>
+  <data name="HostLibraryNotReferenced_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est le code d&apos;un document de {1}, et le projet ne référence pas la bibliothèque {2} : les membres de {1} ne sont pas des noms de son code. Ajoutez une référence à {2}.</value>
+  </data>
+  <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
+  </data>
 </root>

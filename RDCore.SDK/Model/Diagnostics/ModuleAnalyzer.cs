@@ -39,7 +39,21 @@ public sealed record class AnalyzerFinding(RDCoreDiagnosticId Id, SourceRange Ra
     /// known to fix it.
     /// </summary>
     public DiagnosticFixes? Fixes { get; init; }
+
+    /// <summary>
+    /// The other places that the finding is about (<strong>LSP 3.17</strong> <c>DiagnosticRelatedInformation</c>): one finding that stands for many of them - each
+    /// line of a module that one change is to move - says where each of them is, and what it is, instead of being reported at each.
+    /// </summary>
+    public IReadOnlyList<RelatedFinding> Related { get; init; } = [];
 }
+
+/// <summary>
+/// A place an <see cref="AnalyzerFinding"/> is about, besides its own range.
+/// </summary>
+/// <param name="Document">The document the place is in.</param>
+/// <param name="Range">Where in the document it is.</param>
+/// <param name="Message">What is there, in the language of the reader.</param>
+public sealed record class RelatedFinding(Uri Document, SourceRange Range, string Message);
 
 /// <summary>
 /// Looks at a module and says what is worth saying about it (<strong>RD-VBAL §2.6.4</strong>).

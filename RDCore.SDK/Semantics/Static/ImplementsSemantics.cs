@@ -36,7 +36,9 @@ namespace RDCore.SDK.Semantics.Static;
 /// <para>
 /// An <c>Implements</c> directive in an extensible module (<c>Attribute VB_Extensible = True</c>,
 /// <see cref="SymbolProperties.Extensible"/>) is invalid, whatever the directive names, and nothing else of the module's
-/// directives is checked then.
+/// directives is checked then. A document module (<see cref="VBClassModuleSymbol.IsDocument"/>) is extensible too, and MS-VBA
+/// compiles and runs the directives of a worksheet's (oracle\s49 D22): they are checked as any class module's, and what the specification
+/// says of them is a warning of its own, not a compile error.
 /// </para>
 /// <para>
 /// 🚧 TODO the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
@@ -54,9 +56,9 @@ public static class ImplementsSemantics
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
 
-        // MS-VBAL §5.2.4.2: "An <implements-directive> cannot occur within an extension module." What a host's document modules
-        // are is extensible, and a directive there would extend the very module the host reaches into.
-        if (module.GetProperty(SymbolProperties.Extensible) && !module.ImplementedInterfaceNames.IsEmpty)
+        // MS-VBAL §5.2.4.2: "An <implements-directive> cannot occur within an extension module." A module that says it is extensible
+        // is one; a document module is too, but MS-VBA compiles its directives (RDC11024 is what the specification says of them).
+        if (module.GetProperty(SymbolProperties.Extensible) && !module.IsDocument && !module.ImplementedInterfaceNames.IsEmpty)
         {
             errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOfDirective(module, 0),
                 $"'{module.Name}' is an extensible module (Attribute VB_Extensible), which cannot have an Implements directive (MS-VBAL §5.2.4.2)."));

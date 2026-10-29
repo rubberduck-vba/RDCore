@@ -698,5 +698,77 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("EmptyLetToArray_Message", resourceCulture);
             }
         }
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the code of a document of {1}, which RD-VBA does not host: no object of it exists, and none of its code runs. Move the code into a class that holds the document in a WithEvents variable of {1}, from an application the program automates..
+        /// </summary>
+        public static string HostedDocumentCode_Message {
+            get {
+                return ResourceManager.GetString("HostedDocumentCode_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the name of a host&apos;s document, which RD-VBA does not host: it stands for nothing here. Hold the document in a variable of its host&apos;s class, from an application the program automates..
+        /// </summary>
+        public static string HostedDocumentCode_Reference_Message {
+            get {
+                return ResourceManager.GetString("HostedDocumentCode_Reference_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos;, a member of {1}, which this module reaches as its host&apos;s.
+        /// </summary>
+        public static string HostedDocumentCode_HostMember_Message {
+            get {
+                return ResourceManager.GetString("HostedDocumentCode_HostMember_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos;, named as a handler of an event of {1}, which nothing raises here.
+        /// </summary>
+        public static string HostedDocumentCode_Handler_Message {
+            get {
+                return ResourceManager.GetString("HostedDocumentCode_Handler_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the code of a host&apos;s document that RD-VBA does not know: the project names no host it supports for it (Super). Excel workbooks and worksheets, Word documents, and Access forms and reports are supported..
+        /// </summary>
+        public static string UnsupportedDocumentModule_Message {
+            get {
+                return ResourceManager.GetString("UnsupportedDocumentModule_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; was exported from a host&apos;s document (.doccls), and the project does not say which document it is the code of (Super): it is read as the module its text makes it..
+        /// </summary>
+        public static string UnsupportedDocumentModule_NoSuper_Message {
+            get {
+                return ResourceManager.GetString("UnsupportedDocumentModule_NoSuper_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the code of a document of {1}, and the project does not reference the {2} library: the members of {1} are no names of its code. Add a reference to {2}..
+        /// </summary>
+        public static string HostLibraryNotReferenced_Message {
+            get {
+                return ResourceManager.GetString("HostLibraryNotReferenced_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA..
+        /// </summary>
+        public static string ImplementsInDocumentModule_Message {
+            get {
+                return ResourceManager.GetString("ImplementsInDocumentModule_Message", resourceCulture);
+            }
+        }
+        
     }
 }
