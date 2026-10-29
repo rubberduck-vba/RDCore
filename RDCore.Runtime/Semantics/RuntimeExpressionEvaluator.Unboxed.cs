@@ -629,6 +629,12 @@ public sealed partial class RuntimeExpressionEvaluator
                 : argumentNodes[i] is NamedArgumentNode or MissingArgumentNode ? null : BoundTreeOf(session, argumentNodes[i], context);
     }
 
+    /// <summary>
+    /// The invoker a call of <paramref name="procedure"/> on nothing is made with when its arguments are payloads (<see cref="RuntimeProcedureInvoker.InvokeScalars"/>):
+    /// what compiled code calls a procedure of the workspace with. None when it is not run by one - when it is something else's to call.
+    /// </summary>
+    internal RuntimeProcedureInvoker? ScalarInvokerOf(VBTypeMemberSymbol procedure) => InvokerOf(procedure);
+
     // the invoker that runs a procedure of the workspace, called on nothing: the one the binding factory binds it to (a member of anything else is bound
     // to something else, which is the factory's decision), or the evaluator's own when there is no factory.
     private RuntimeProcedureInvoker? InvokerOf(VBTypeMemberSymbol procedure)

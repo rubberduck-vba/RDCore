@@ -1434,6 +1434,26 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         return error.Location.Range.Start.Line + 1;
     }
 
+    /// <summary>
+    /// Runs <paramref name="frame"/> on from the instruction at <paramref name="pc"/>, which a caller other than this executor ran and which ended with
+    /// <paramref name="outcome"/> - an error, or the program stopped - as this executor goes on after a statement that did: the error given the activation's
+    /// handler, which catches it or lets it propagate; the program stopped, which stops this activation too. What compiled code hands over when a call it made
+    /// does not return.
+    /// </summary>
+    internal RuntimeExecutionOutcome RunAfter(IRuntimeSession session, CallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int pc,
+        RuntimeExecutionOutcome outcome)
+    {
+        frame.Pc = pc;
+        if (InterceptError(session, frame, list, pc, outcome) is { } unhandled)
+        {
+            return unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+                ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
+                : unhandled;
+        }
+
+        return Run(session, frame, list, context);
+    }
+
     // Central error-handling interception point (MS-VBAL §5.4.4): every instruction dispatch above that
     // could produce an Error outcome routes through here before the executor loop decides whether to
     // actually stop. Returns null when an active handler caught it (activation.Pc/ErrorHandler already

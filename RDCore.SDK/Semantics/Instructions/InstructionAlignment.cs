@@ -56,6 +56,12 @@ public sealed class InstructionAlignment
     /// </summary>
     public bool IsPartial { get; }
 
+    /// <summary>
+    /// Whether the edited body is the body as it was: the same instructions, each kept at its own offset - the module loaded again with no edit of this
+    /// procedure, or with one that moved its lines only.
+    /// </summary>
+    public bool IsIdentity => _placements.Length == _length && _placements.Select((placement, offset) => placement == offset).All(kept => kept);
+
     // what every longest common subsequence says of each instruction. F[i, j] is the length of one of the first i and the first j instructions; B[i, j],
     // of the rest of them. Instruction i is kept at j by some longest one when the two are the same instruction and F[i, j] + 1 + B[i + 1, j + 1] is the
     // longest's length; it is kept by every one when the longest that leaves it out, the most of F[i, j] + B[i + 1, j] for any j, is shorter.

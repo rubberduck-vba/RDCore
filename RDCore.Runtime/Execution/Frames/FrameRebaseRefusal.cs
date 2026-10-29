@@ -28,4 +28,7 @@ public enum FrameRebaseRefusal
     /// as when one of two identical statements was removed.
     /// </summary>
     Uncertain,
+
+    /// <summary>The activation runs compiled code, in the middle of a call it made: it is not moved into an edited body yet.</summary>
+    RunsCompiled,
 }

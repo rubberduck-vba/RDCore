@@ -100,6 +100,73 @@ public sealed class CompiledDebuggingTests
         }, debug: true, engine: VBExecutionEngine.Compiled);
     }
 
+    // Main waits at its Stop, then calls Outer, which runs compiled - no breakpoint is set - and calls Inner, which a Stop keeps interpreted, and which
+    // stops the program at its third call.
+    private static readonly string Calling = Program(
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(5)",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As Long",
+        "    Dim i As Long, t As Long",
+        "    For i = 1 To n",
+        "        t = Inner(i)",
+        "    Next",
+        "    Outer = t",
+        "End Function",
+        "Private Function Inner(ByVal x As Long) As Long",
+        "    If x = 3 Then Stop",
+        "    Inner = x * 10",
+        "End Function");
+
+    // a compiled caller in the middle of its call is on the stack at the call, with its variables as they are; an edit of it is not applied yet.
+    [TestMethod]
+    public async Task ACompiledCaller_OfACalleeThatWaits_IsOnTheStackAtItsCall_WithItsVariables()
+    {
+        await ModuleWorkspace.InspectAsync([], Calling, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);
+            try
+            {
+                var stopped = await Resume(provider);
+                Assert.AreEqual((ExecutionOutcome.Suspended, 12), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+
+                var stack = provider.Execution.Stack().Frames;
+                Assert.AreEqual(("Inner", "Outer", 7), (stack[0].Procedure, stack[1].Procedure, stack[1].Line));
+                var outer = provider.Execution.Variables(stack[1].Id, HostVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name, variable => variable.Value);
+                Assert.AreEqual(("3", "20"), (outer["i"], outer["t"]), "the caller's variables, as they were when it made the call");
+
+                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
+                    ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, Calling.Replace("    Outer = t", "    Outer = t + 1", StringComparison.Ordinal)));
+                var refused = await Resume(provider);
+                Assert.AreEqual(ExecutionOutcome.Refused, refused.Outcome, refused.ErrorMessage);
+                StringAssert.Contains(refused.ErrorMessage, "Program.Outer");
+                StringAssert.Contains(refused.ErrorMessage, "runs compiled");
+            }
+            finally
+            {
+                _ = await Terminate(provider);
+            }
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
+    // the program goes on: the compiled caller reads back its variables, which the debugger could have changed while it waited, and goes on from its call.
+    [TestMethod]
+    public async Task ACompiledCaller_OfACalleeThatWaited_GoesOnFromItsCall()
+    {
+        await ModuleWorkspace.InspectAsync([], Calling, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            var stopped = await Resume(provider);
+            Assert.AreEqual((ExecutionOutcome.Suspended, 12), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+
+            var done = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "50" }, done.Output.Select(line => line.Trim()).ToArray());
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     // a loop paused where it goes round again is shown at its Next, as MS-VBA shows it: the back edge has no statement of its own.
     [TestMethod]
     public async Task ACompiledLoopPaused_IsShownWaitingAtItsNext()

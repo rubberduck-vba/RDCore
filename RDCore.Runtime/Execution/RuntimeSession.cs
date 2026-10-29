@@ -219,7 +219,23 @@ internal sealed class SessionHalt : ISessionHalt
 
     // a program that is already being stopped does not wait again at whatever unwinds it.
     public bool TrySuspend(RuntimeHaltKind kind, SourceLocation? location)
-        => Pending is null && Gate is { } gate && gate.Suspend(kind, location) is SuspensionDecision.Resume;
+    {
+        if (Pending is not null || Gate is not { } gate)
+        {
+            return false;
+        }
+
+        _ = Interlocked.Increment(ref _suspensions);
+        return gate.Suspend(kind, location) is SuspensionDecision.Resume;
+    }
+
+    private int _suspensions;
+
+    /// <summary>
+    /// How many times the program has waited: what compiled code that made a call compares, to know whether a debugger was given the program while the
+    /// callee ran - and may have changed the caller's variables.
+    /// </summary>
+    internal int Suspensions => Volatile.Read(ref _suspensions);
 
     public ErrorBreakMode BreakOnErrors { get; set; }
 

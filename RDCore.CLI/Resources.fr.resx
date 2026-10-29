@@ -488,6 +488,9 @@
   <data name="Host_Edit_ValueReset" xml:space="preserve">
     <value>une variable dont une modification a réinitialisé la valeur, que seule une nouvelle exécution du programme rend</value>
   </data>
+  <data name="Host_Edit_ActiveProcedureRunsCompiled" xml:space="preserve">
+    <value>une procédure où se trouve le programme, qui s'exécute compilée, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
   <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
     <value>l'Option Base d'un module dont les tableaux détiennent des valeurs</value>
   </data>

@@ -285,6 +285,86 @@ public sealed class CompiledExecutionTests
             "End Function"), "Rounded");
     }
 
+    // a compiled procedure calls a procedure of the workspace whose parameters are scalars passed by value: a call statement, and a function's result
+    // assigned whole.
+    [TestMethod]
+    public async Task ACallOfAProcedure_FromCompiledCode_IsMadeAsTheInterpreterMakesIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(10)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim i As Long, t As Long, total As Long",
+            "    For i = 1 To n",
+            "        t = Twice(i)",
+            "        total = total + t",
+            "        Touch i, 2.5",
+            "    Next",
+            "    Outer = total",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function",
+            "Private Sub Touch(ByVal x As Long, ByVal y As Double)",
+            "    Dim z As Double",
+            "    z = x + y",
+            "End Sub"), "Outer", "Twice", "Touch");
+
+    // an error raised in the callee reaches the compiled caller at its call, and the interpreter gives it the handler a caller of it has: the same error,
+    // line and stack.
+    [TestMethod]
+    public async Task AnErrorRaisedInTheCallee_OfACompiledCaller_IsCaughtAsTheInterpreterCatchesIt()
+        => await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    On Error GoTo Caught",
+            "    Debug.Print Outer(2000000000)",
+            "    Exit Sub",
+            "Caught:",
+            "    Debug.Print \"caught \" & Err.Number & \" at \" & Erl",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim t As Long",
+            "    t = Twice(n)",
+            "    Outer = t",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function"), "Outer");
+
+    [TestMethod]
+    public async Task AnErrorRaisedInTheCallee_OfACompiledCaller_ThatNothingCatches_EndsTheProgramAsTheInterpreterEndsIt()
+        => await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(2000000000)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim t As Long",
+            "    t = Twice(n)",
+            "    Outer = t",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function"), "Outer");
+
+    [TestMethod]
+    public async Task AnEndInTheCallee_OfACompiledCaller_EndsTheProgramAsTheInterpreterEndsIt()
+        => await AssertAlikeWalkingBackAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(3)",
+            "    Debug.Print \"never\"",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim i As Long",
+            "    For i = 1 To n",
+            "        Finish i",
+            "    Next",
+            "    Outer = n",
+            "End Function",
+            "Private Sub Finish(ByVal i As Long)",
+            "    Debug.Print \"finish \" & i",
+            "    If i = 2 Then End",
+            "End Sub"), "Outer");
+
     [TestMethod]
     public async Task ADoubleStoredInALong_ThatDoesNotFit_IsAnOverflow_AsTheInterpreterRaisesIt()
     {

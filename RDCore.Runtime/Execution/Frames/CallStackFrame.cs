@@ -116,6 +116,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool WaitsAtAHandledError { get; internal set; }
 
     /// <summary>
+    /// Whether the activation runs compiled code: it keeps its variables, and the state of its loops, in compiled code's own locals, and its frame has them
+    /// only when it is handed to the interpreter - or, under a debugger, as they were when it made the call it is in the middle of. <see cref="Pc"/> is then
+    /// the call's.
+    /// </summary>
+    public bool RunsCompiled { get; internal set; }
+
+    /// <summary>
     /// Why the activation can't go on in <paramref name="body"/>, the edited body of its procedure, from where it is in <see cref="Body"/>; none when it can.
     /// </summary>
     /// <param name="body">The procedure's body, as it was edited.</param>
@@ -145,6 +152,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return false;
         }
 
+        // an activation whose body, edited, has every instruction it had at the offset it had - only its lines moved, or none - is given it, and nothing of
+        // it moves: what it keeps by offset is where it was.
+        if (rebased.Stays)
+        {
+            Body = body;
+            return true;
+        }
+
         (Body, Pc, WaitedAt, ErrorHandler) = (body, rebased.Pc, rebased.WaitedAt, rebased.ErrorHandler);
         _moved = rebased.Moved;
         if (_occasional is { } occasional)
@@ -170,7 +185,11 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private static Dictionary<int, T>? Rekeyed<T>(Dictionary<int, T>? state, IReadOnlyDictionary<int, int> offsets)
         => state?.Where(entry => offsets.ContainsKey(entry.Key)).ToDictionary(entry => offsets[entry.Key], entry => entry.Value);
 
-    private sealed record class Rebasing(int Pc, bool Moved, int WaitedAt, ErrorHandlerState ErrorHandler, IReadOnlyDictionary<int, int> Offsets);
+    private sealed record class Rebasing(int Pc, bool Moved, int WaitedAt, ErrorHandlerState ErrorHandler, IReadOnlyDictionary<int, int> Offsets)
+    {
+        // nothing of the activation is moved: its body, edited, is the one it runs.
+        public bool Stays { get; init; }
+    }
 
     private FrameRebaseRefusal? Rebased(InstructionList body, InstructionAlignment alignment, bool waits, [NotNullWhen(false)] out Rebasing? rebased)
     {
@@ -178,6 +197,19 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         if (Body is not { } before)
         {
             return FrameRebaseRefusal.CallChanged;
+        }
+
+        // an activation running compiled code has its variables and its loops in compiled code's locals, which nothing here can move: it goes on in its body
+        // when that is as it was - its module loaded again with no edit of it - and is not moved otherwise.
+        if (RunsCompiled)
+        {
+            if (!alignment.IsIdentity)
+            {
+                return FrameRebaseRefusal.RunsCompiled;
+            }
+
+            rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Stays = true };
+            return null;
         }
 
         // the activation the program waits in goes on from where it was moved to, or from after the instruction it stopped at, or from the one it waits

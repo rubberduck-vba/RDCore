@@ -142,7 +142,8 @@ internal sealed class ProcedureCompiler
 
         var run = type.CreateType().GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
-        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name);
+        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
+            analysis.Callees);
     }
 }
 

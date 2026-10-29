@@ -490,6 +490,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_ValueReset" xml:space="preserve">
     <value>a variable whose value an edit reset, which only running the program again gives back</value>
   </data>
+  <data name="Host_Edit_ActiveProcedureRunsCompiled" xml:space="preserve">
+    <value>a procedure the program is in, which runs compiled, which is not applied to a program that waits yet</value>
+  </data>
   <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
     <value>the Option Base of a module whose arrays hold values</value>
   </data>
