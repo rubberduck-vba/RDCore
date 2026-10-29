@@ -511,6 +511,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
     <value>the signature of a procedure the program is in</value>
   </data>
+  <data name="Host_Edit_ActiveProcedureRemoved" xml:space="preserve">
+    <value>a procedure the program is in, removed</value>
+  </data>
   <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
     <value>a local of a procedure the program is in, given another type</value>
   </data>

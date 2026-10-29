@@ -445,6 +445,11 @@ namespace RDCore.CLI {
         public static string Host_Edit_SignatureOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_SignatureOfAnActiveProcedure", resourceCulture)!;
 
         /// <summary>
+        ///   Looks up a localized string similar to a procedure the program is in, removed.
+        /// </summary>
+        public static string Host_Edit_ActiveProcedureRemoved => ResourceManager.GetString("Host_Edit_ActiveProcedureRemoved", resourceCulture)!;
+
+        /// <summary>
         ///   Looks up a localized string similar to a local of a procedure the program is in, given another type.
         /// </summary>
         public static string Host_Edit_LocalOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LocalOfAnActiveProcedure", resourceCulture)!;

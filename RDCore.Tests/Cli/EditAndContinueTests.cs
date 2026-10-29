@@ -264,6 +264,89 @@ public sealed class EditAndContinueTests
         StringAssert.Contains(resumed.ErrorMessage, reason);
     }
 
+    // a procedure's own constants are no part of its signature: one revalued is a value its frame already read, as a module's constant is.
+    private static readonly string LocalConstants = Lines(
+        "Option Explicit",
+        "Public Sub Main()",
+        "    Debug.Print \"main:\" & Outer(3)",
+        "    Debug.Print \"other:\" & Other()",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As Long",
+        "    Const K As Long = 5",
+        "    Outer = Inner(n) + K",
+        "End Function",
+        "Private Function Inner(ByVal x As Long) As Long",
+        "    Const J As Long = 1",
+        "    Stop",
+        "    Inner = x + J",
+        "End Function",
+        "Private Function Other() As Long",
+        "    Const L As Long = 7",
+        "    Other = L",
+        "End Function");
+
+    [TestMethod]
+    [DataRow("Const J As Long = 1", "Const J As Long = 2", "a constant a procedure the program is in already read", DisplayName = "a constant of the procedure the program is stopped in")]
+    [DataRow("Const K As Long = 5", "Const K As Long = 6", "a constant a procedure the program is in already read", DisplayName = "a constant of a caller, in the middle of its call")]
+    [DataRow("Private Function Inner(ByVal x As Long) As Long", "Private Function Inner(ByVal x As Long, Optional ByVal y As Long) As Long",
+        "the signature of a procedure the program is in", DisplayName = "the signature of the procedure the program is stopped in, which has a constant")]
+    public async Task AConstantOfAProcedureTheProgramIsIn_Revalued_IsAValueItRead_NotItsSignature(string find, string replace, string reason)
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
+                ("Program", ModuleType.StdModule, LocalConstants.Replace(find, replace, StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed!.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, reason);
+        if (!reason.Contains("signature", StringComparison.Ordinal))
+        {
+            Assert.IsFalse(resumed.ErrorMessage!.Contains("signature", StringComparison.Ordinal), resumed.ErrorMessage);
+        }
+    }
+
+    [TestMethod]
+    public async Task AProcedureTheProgramIsIn_Removed_IsSaidToBeRemoved_NotItsSignatureChanged()
+    {
+        // the procedure the program is stopped in goes, and its caller no longer calls it: the code compiles, and has nothing to go on in.
+        var edited = LocalConstants
+            .Replace("    Outer = Inner(n) + K", "    Outer = n + K", StringComparison.Ordinal)
+            .Replace("Private Function Inner(ByVal x As Long) As Long\r\n    Const J As Long = 1\r\n    Stop\r\n    Inner = x + J\r\nEnd Function\r\n", "", StringComparison.Ordinal);
+        Assert.IsFalse(edited.Contains("Inner", StringComparison.Ordinal), "Inner, and its call, are removed");
+        HostDebugEditStatusResult? status = null;
+        await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
+            status = provider.Execution.EditStatus();
+        }, debug: true);
+
+        var listed = string.Join("; ", status!.Edits.Select(edit => $"{edit.Name}: {edit.Reason}"));
+        var inner = status.Edits.Single(edit => edit.Name == "Program.Inner");
+        Assert.AreEqual((HostDebugEditKind.Restart, "a procedure the program is in, removed"), (inner.Kind, inner.Reason), listed);
+        Assert.IsFalse(status.Edits.Any(edit => edit.Reason.Contains("signature", StringComparison.Ordinal)), listed);
+    }
+
+    [TestMethod]
+    public async Task AConstantOfAProcedureTheProgramIsNotIn_Revalued_IsApplied()
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
+                ("Program", ModuleType.StdModule, LocalConstants.Replace("Const L As Long = 7", "Const L As Long = 8", StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "main:9", "other:8" }, Output(resumed));
+    }
+
     [TestMethod]
     public async Task AnEditOfAPropertyLetTheProgramIsIn_IsApplied_ToTheLet()
     {

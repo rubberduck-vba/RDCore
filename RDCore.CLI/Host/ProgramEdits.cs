@@ -79,8 +79,11 @@ internal sealed class ProgramEdits
             var declared = session.Symbols.DeclaredIn(module.Uri).ToList();
             foreach (var descriptor in SymbolDescriptorProjector.Project(declared, module.Uri))
             {
+                // a procedure's signature is what its frame's arguments and result are laid out by: not its locals, nor its own constants, whose values its
+                // code reads (Classify).
+                var signature = IsProcedure(descriptor.Kind) ? descriptor with { Locals = [], Constants = [] } : descriptor with { Locals = [] };
                 declarations[KeyOf(module.Uri, descriptor)] = new Declaration(
-                    $"{module.Name}.{descriptor.Name}", descriptor.Kind, descriptor, Text(descriptor), Text(descriptor with { Locals = [] }), descriptor.Locals,
+                    $"{module.Name}.{descriptor.Name}", descriptor.Kind, descriptor, Text(descriptor), Text(signature), descriptor.Locals,
                     inClass, module.Uri, descriptor.Range);
             }
 
@@ -211,7 +214,7 @@ internal sealed class ProgramEdits
             if ((gone ? inIt : !inIt && current != fingerprint) && !edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
             {
                 edits.Add(gone
-                    ? new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_SignatureOfAnActiveProcedure, declared?.Module, declared?.Range)
+                    ? new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_ActiveProcedureRemoved, declared?.Module, declared?.Range)
                     : new ProgramEdit(name, ProgramEditKind.Applies, Resources.Host_Edit_Applies, declared?.Module, declared?.Range));
             }
         }
@@ -327,7 +330,7 @@ internal sealed class ProgramEdits
         // removed: its storage goes, and code that still names it does not compile. A procedure the program is in can't go, nor a field of an object it holds.
         if (after is null)
         {
-            return active ? Edit(ProgramEditKind.Restart, Resources.Host_Edit_SignatureOfAnActiveProcedure)
+            return active ? Edit(ProgramEditKind.Restart, Resources.Host_Edit_ActiveProcedureRemoved)
                 : kind == SymbolDescriptorKind.ModuleField && before.InClass ? Edit(ProgramEditKind.Restart, Resources.Host_Edit_StoredValue)
                 : Edit(ProgramEditKind.Applies, Resources.Host_Edit_Applies);
         }
