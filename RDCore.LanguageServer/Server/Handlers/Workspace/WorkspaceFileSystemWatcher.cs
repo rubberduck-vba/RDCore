@@ -20,7 +20,7 @@ namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 /// </para>
 /// <para>
 /// What is watched is the workspace's <c>.rdproj</c> and the source files of every language the platform serves, under the workspace root; what a folder whose
-/// name starts with a dot holds (<c>.git</c>, <c>.vscode</c>) is not. A save is several events of a file system, and a <c>git checkout</c> many: the events
+/// name starts with a dot holds (<c>.git</c>, <c>.github</c>) is not. A save is several events of a file system, and a <c>git checkout</c> many: the events
 /// of a moment are gathered, and said together once none came for <see cref="Settle"/>.
 /// </para>
 /// </remarks>

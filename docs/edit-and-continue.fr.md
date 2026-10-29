@@ -134,13 +134,13 @@ Quand rien ne fait obstacle, ou qu'aucun programme n'attend, il le dit :
   ✅ PRÊT.
 ```
 
-### Dans le débogueur de VS Code
+### Dans le débogueur de HexIDE
 
 - **Enregistrez le fichier** pour qu'une modification soit appliquée. Le débogueur lit ce qui est enregistré quand vous poursuivez, faites un pas ou fixez la
   prochaine instruction, et une modification non enregistrée n'est pas vue.
-- Quand une modification fait obstacle, **Continuer** et les pas sont refusés : le programme reste en pause, et la console de débogage dit quelles
+- Quand une modification fait obstacle, **Continuer** et les pas sont refusés : le programme reste en pause, et la sortie du débogueur dit quelles
   modifications, et pourquoi.
-- Le panneau Problèmes n'affiche pas RDC20001 pour un programme que VS Code débogue. La console de débogage le porte à sa place.
+- La liste des problèmes n'affiche pas RDC20001 pour un programme que HexIDE débogue. La sortie du débogueur le porte à sa place.
 
 ## ⚖️ Comparé à l'éditeur VBA
 

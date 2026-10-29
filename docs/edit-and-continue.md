@@ -127,12 +127,12 @@ With nothing in the way, or with no program waiting, it says so:
   ✅ READY.
 ```
 
-### In VS Code's debugger
+### In HexIDE's debugger
 
 - **Save the file** to have an edit applied. The debugger reads what's saved when you continue, step or set the next statement, and an edit you haven't
   saved isn't seen.
-- When an edit is in the way, **Continue** and the steps are refused: the program stays paused, and the Debug Console says which edits, and why.
-- The Problems panel doesn't show RDC20001 for a program VS Code is debugging. The Debug Console carries it there.
+- When an edit is in the way, **Continue** and the steps are refused: the program stays paused, and the debugger's output says which edits, and why.
+- The list of problems doesn't show RDC20001 for a program HexIDE is debugging. The debugger's output carries it there.
 
 ## ⚖️ Compared with the VBA editor
 

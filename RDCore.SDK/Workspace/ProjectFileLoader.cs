@@ -40,7 +40,7 @@ public interface IProjectFileLoader
     /// <remarks>
     /// <para>
     /// A client that opens a folder - rather than a project - is given the project the folder is. The folder is searched to every depth, except the folders
-    /// whose name starts with a dot (<c>.git</c>, <c>.vscode</c>) and links to other folders. Each folder that holds a module, at any depth, is a folder of the
+    /// whose name starts with a dot (<c>.git</c>, <c>.github</c>) and links to other folders. Each folder that holds a module, at any depth, is a folder of the
     /// project. Paths are relative to the workspace root, separated by <c>/</c>, and in ordinal order, so the language server and the environment host, which
     /// each synthesize the project, make up the same one.
     /// </para>
