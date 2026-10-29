@@ -1468,18 +1468,27 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         session.Errors.Raise(outcome.ErrorInfo!, ErlLineOf(session, list, faultOffset, outcome.ErrorInfo!));
 
         // a program under a debugger that asked to see errors waits here, where the error was raised and nothing has been unwound: the activation is the one that faulted,
-        // at the statement that did. It goes on from here when it is resumed, to be caught or to end the program as it would have.
-        // The code may be edited while it waits: the activation is then moved into its edited body (CallStackFrame.TryRebase), to the statement that raised
-        // the error, and the error is caught from there.
+        // at the statement that did. It goes on from here when it is resumed. An error a handler catches is caught; one nothing catches is not given to the
+        // program, which runs the statement that raised it again - to raise it again, and wait again, unless it was edited (MS-VBA, measured in Excel,
+        // oracle\error-break B1). A program moved while it waits goes on from where it was moved to, the error not given to it either. Err keeps the error
+        // in both (B2, B4). The code may be edited while it waits: the activation is then moved into its edited body (CallStackFrame.TryRebase) - to the
+        // statement that raised the error, as it now is.
         var body = activation.Body;
-        activation.WaitsAtAnError = true;
+        var handled = session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled);
+        (activation.WaitsAtAnError, activation.WaitsAtAHandledError) = (true, handled);
+        bool waited;
         try
         {
-            _ = session.Halt.TrySuspendOnError(outcome.ErrorInfo!, session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
+            waited = session.Halt.TrySuspendOnError(outcome.ErrorInfo!, handled);
         }
         finally
         {
-            activation.WaitsAtAnError = false;
+            (activation.WaitsAtAnError, activation.WaitsAtAHandledError) = (false, false);
+        }
+
+        if (waited && (activation.TakeMove() || (!handled && session.Errors.Untrappable is null)))
+        {
+            return null;
         }
 
         if (!ReferenceEquals(activation.Body, body) && activation.Body is { } rebased)

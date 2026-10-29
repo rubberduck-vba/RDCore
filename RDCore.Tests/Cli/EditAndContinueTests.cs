@@ -784,6 +784,65 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(expected, Output(resumed));
     }
 
+    // a program moved while it waits at an error goes on from where it was moved to, the error not given to it; Err keeps it (MS-VBA, oracle\error-break B2).
+    [TestMethod]
+    [DataRow(false, DisplayName = "and goes on")]
+    [DataRow(true, DisplayName = "its module loaded again, and goes on")]
+    public async Task AProgramMovedWhileItWaitsAtAnError_GoesOnFromWhereItWasMovedTo(bool reloaded)
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Stop", "    On Error GoTo H", "    Err.Raise 5", "    Debug.Print \"after\"",
+            "    Debug.Print \"two \" & Err.Number", "    Exit Sub", "H:", "    Debug.Print \"h\"", "    Resume Next", "End Sub");
+        var two = program.Split("\r\n").ToList().FindIndex(line => line.Contains("\"two \"", StringComparison.Ordinal));
+
+        var resumed = await EditedWhereItWaitsAsync(program, reloaded ? program.Replace("Option Explicit", "Option Explicit\r\n' a comment", StringComparison.Ordinal) : program,
+            async provider =>
+            {
+                var atTheError = await AtTheNextErrorAsync(provider);
+                Assert.IsTrue(provider.Execution.Goto(two, null).Moved);
+                return atTheError;
+            });
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "two 5" }, Output(resumed));
+    }
+
+    // an error nothing catches is not given to the program that waits at it: it runs the statement that raised it again, as it now is (oracle\error-break B1).
+    [TestMethod]
+    public async Task AProgramThatWaitsAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsAgain()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Dim d As Long", "    Dim r As Double", "    Stop", "    r = 10 / d", "    Debug.Print \"r=\" & r", "End Sub");
+        ExecuteSessionResult? first = null, again = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            provider.Execution.SetErrorBreak(ErrorBreakMode.Unhandled);
+            first = await Resume(provider);
+            again = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual((ExecutionOutcome.Suspended, 5), (first!.Outcome, first.ErrorLine), first.ErrorMessage);
+        Assert.AreEqual((ExecutionOutcome.Suspended, 5), (again!.Outcome, again.ErrorLine), again.ErrorMessage);
+    }
+
+    // the statement edited runs edited: MS-VBA goes on after it instead (oracle\error-break B3), which runs no line of what the person wrote.
+    [TestMethod]
+    public async Task TheStatementThatRaisedAnErrorNothingCatches_Edited_RunsEdited_AndErrStillHasTheError()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Dim d As Long", "    Dim r As Double", "    Stop", "    r = 10 / d",
+            "    Debug.Print \"r=\" & r & \" err=\" & Err.Number", "End Sub");
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            provider.Execution.SetErrorBreak(ErrorBreakMode.Unhandled);
+            var atTheError = await Resume(provider);
+            Assert.AreEqual(ExecutionOutcome.Suspended, atTheError.Outcome, atTheError.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, program.Replace("10 / d", "10 / (d + 1)", StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "r=10 err=11" }, Output(resumed));
+    }
+
     [TestMethod]
     public async Task TheStatementTheProgramWaitsAtAnErrorOf_Edited_IsRefused()
     {

@@ -110,6 +110,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool WaitsAtAnError { get; internal set; }
 
     /// <summary>
+    /// Whether the error the activation waits at (<see cref="WaitsAtAnError"/>) has a handler on the call stack to catch it when the program goes on. One
+    /// that has none is not given to the program: it goes on by running the statement that raised it again, as it now is (MS-VBA, measured in Excel).
+    /// </summary>
+    public bool WaitsAtAHandledError { get; internal set; }
+
+    /// <summary>
     /// Why the activation can't go on in <paramref name="body"/>, the edited body of its procedure, from where it is in <see cref="Body"/>; none when it can.
     /// </summary>
     /// <param name="body">The procedure's body, as it was edited.</param>
@@ -175,12 +181,22 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // the activation the program waits in goes on from where it was moved to, or from after the instruction it stopped at, or from the one it waits
-        // before - and one that waits at an error is given the error when it goes on, at the statement that raised it, which must be as it was. Any other
-        // goes on from the call it is in the middle of, which must be as it was - and a call made by a statement, not by a condition or the header of a
-        // loop, which go on by their own offsets. Each is moved only to where every alignment of the edit places it.
+        // before - which is the statement that raised an error no handler catches, run again as it now is. One that waits at an error a handler catches is
+        // given the error when it goes on, at the statement that raised it, which must be as it was. Any other goes on from the call it is in the middle of,
+        // which must be as it was - and a call made by a statement, not by a condition or the header of a loop, which go on by their own offsets. Each is
+        // moved only to where every longest common subsequence of the edit places it.
         int pc;
         var moved = false;
-        if (waits && WaitsAtAnError)
+        if (waits && WaitsAtAnError && (_moved || !WaitsAtAHandledError))
+        {
+            if (alignment.Before(Pc) is not { } next)
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            (pc, moved) = (next, _moved);
+        }
+        else if (waits && WaitsAtAnError)
         {
             if (!alignment.IsCertain(Pc))
             {
