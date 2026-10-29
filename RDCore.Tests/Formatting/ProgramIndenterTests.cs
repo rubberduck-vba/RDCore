@@ -80,6 +80,19 @@ public sealed class ProgramIndenterTests
     }
 
     [TestMethod]
+    public void TheStatements_AreTheLinesOfTheModuleTheIndenterIndents()
+    {
+        // what the indenter would make of the module the program is, line for line: alignment and comments too.
+        string[] program = ["Dim a As Long ' first", "Dim bee As String", "If a Then", "Select Case a", "Case 1", "b = 1   ' one", "End Select", "End If", "Rem done"];
+        var options = CodeFormattingOptions.Default with { IndentCase = true, AlignDims = true };
+        var text = RDCore.SDK.Workspace.BasicProgramText.ToModuleSource(string.Join("\r\n", program) + "\r\n");
+        var module = ModuleIndenter.Apply(text, ModuleIndenter.Indent(new ModuleParser().Parse(Program, text), text,
+            options with { IndentEntireProcedureBody = false, VerticallySpaceProcedures = false }));
+
+        CollectionAssert.AreEqual(module.Split("\r\n")[1..(1 + program.Length)], Indented(options, program).ToArray());
+    }
+
+    [TestMethod]
     public void NoStatements_AreNoStatements()
         => Assert.IsEmpty(Indented());
 

@@ -28,8 +28,8 @@ public static class ProgramIndenter
     /// <param name="parse">Parses the text of a module: the program's statements as the body of its procedure.</param>
     /// <param name="options">How code is indented.</param>
     /// <returns>
-    /// The statements, as many as there are and in their order, each with the indentation it has and its trailing text as it was; a program the indenter cannot
-    /// read as many lines as it has is returned as it was given.
+    /// The statements, as many as there are and in their order, each with the indentation it has and its trailing text as it was; a program whose edits are
+    /// not of its lines as they are - one that spans two lines - is returned as it was given.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="statements"/>, <paramref name="parse"/> or <paramref name="options"/> is <see langword="null"/>.</exception>
     public static IReadOnlyList<string> Indent(IReadOnlyList<string> statements, Func<string, ModuleParseResult> parse, CodeFormattingOptions options)
@@ -48,12 +48,32 @@ public static class ProgramIndenter
             return statements;
         }
 
-        var text = BasicProgramText.ToModuleSource(string.Join(NewLine, statements.Select(statement => statement.TrimStart())) + NewLine);
+        string[] lines = [.. statements.Select(statement => statement.TrimStart())];
+        var text = BasicProgramText.ToModuleSource(string.Join(NewLine, lines) + NewLine);
         var programOptions = options with { IndentEntireProcedureBody = false, VerticallySpaceProcedures = false };
-        var indented = ModuleIndenter.Apply(text, ModuleIndenter.Indent(parse(text), text, programOptions));
+        var edits = ModuleIndenter.Indent(parse(text), text, programOptions);
 
-        var lines = indented.Split(NewLine);
+        // each edit is of one line - none spans lines, with no procedures to space - and is made on the statement it is of, the last of a line first: the
+        // module's text is not written again for them.
         var first = BasicProgramText.HeaderLines;
-        return lines.Length < first + statements.Count ? statements : lines[first..(first + statements.Count)];
+        foreach (var edit in edits.OrderBy(edit => edit.Line).ThenByDescending(edit => edit.Character))
+        {
+            var index = edit.Line - first;
+            if (index < 0 || index >= lines.Length)
+            {
+                continue;
+            }
+
+            var line = lines[index];
+            if (edit.EndLine != edit.Line || edit.Character < 0 || edit.EndCharacter < edit.Character || edit.EndCharacter > line.Length)
+            {
+                // not an edit of this line as it is: the program is given back as it was.
+                return statements;
+            }
+
+            lines[index] = string.Concat(line.AsSpan(0, edit.Character), edit.NewText, line.AsSpan(edit.EndCharacter));
+        }
+
+        return lines;
     }
 }
