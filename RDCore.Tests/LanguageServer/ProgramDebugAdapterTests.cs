@@ -1141,4 +1141,60 @@ public sealed class ProgramDebugAdapterTests
 
         Assert.IsEmpty(session.EditStatus.Current.Edits);
     }
+
+    // no editor tells the adapter of an edit: what is saved is loaded when the program is asked to go on, and checked, before the program is asked.
+    [TestMethod]
+    public async Task GoingOn_LoadsWhatIsSavedFirst_ThenChecksTheEdits_ThenRelays()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var order = new List<string>();
+        session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
+        session.Debugging.When(debugging => debugging.EditStatusAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("check"));
+        session.Debugging.When(debugging => debugging.ResumeAsync(null, Arg.Any<CancellationToken>())).Do(_ => order.Add("resume"));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        _ = await session.NextAsync<StoppedEvent>();
+
+        // the check after the first stop may come in before them: what matters is what comes right before the program is asked.
+        var resumed = order.IndexOf("resume");
+        Assert.IsGreaterThanOrEqualTo(2, resumed, string.Join(", ", order));
+        CollectionAssert.AreEqual(new[] { "reload", "check" }, order.GetRange(resumed - 2, 2).ToArray(), string.Join(", ", order));
+    }
+
+    // an edit saved while the program waits that it can't take, loaded as the program is asked to go on: refused, with the edit, and said.
+    [TestMethod]
+    public async Task GoingOn_WithASavedEditTheProgramCannotTake_IsRefused_WithTheEdit()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            // as the reload does once the host has the saved file: the program that waits is checked against it.
+            Listing(session, CalleeLocalRemoved);
+            await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        });
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
+
+        StringAssert.Contains(refusal.Message, "Prog.Callee: a local was removed");
+        _ = await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.Console && output.Output.Contains("Prog.Callee", StringComparison.Ordinal));
+        await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
+    }
+
+    [TestMethod]
+    public async Task AGoto_LoadsWhatIsSavedFirst()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var order = new List<string>();
+        session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
+        session.Debugging.When(debugging => debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())).Do(_ => order.Add("goto"));
+        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true }));
+
+        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 });
+
+        CollectionAssert.AreEqual(new[] { "reload", "goto" }, order.ToArray());
+    }
 }

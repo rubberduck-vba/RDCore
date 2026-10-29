@@ -365,10 +365,12 @@ internal sealed class ProgramDebugAdapter(
         return new StepOutResponse();
     }
 
-    // a program that waits with edits it does not have is not asked to go on: the client is refused, and told which, and the program waits still. One that has
-    // every edit made goes on with them, and what the client shows of where it was - its frames, its variables - may not be what it is: it is told so.
+    // the edits saved while the program waits are loaded first, and checked against: no editor tells the adapter of them. A program that waits with edits it does
+    // not have is not asked to go on: the client is refused, and told which, and the program waits still. One that has every edit made goes on with them, and
+    // what the client shows of where it was - its frames, its variables - may not be what it is: it is told so.
     private async Task ResumeAsync(StepKind? step, CancellationToken token)
     {
+        await workspace.ReloadChangedAsync(token);
         await editStatus.CheckAsync(token);
         if (editStatus.Current.Edits is { Length: > 0 } edits)
         {
@@ -728,6 +730,8 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<GotoResponse> Handle(GotoArguments request, CancellationToken cancellationToken)
     {
+        // a point moved to is in the code as it is saved, which the host checks the edits against as it does when the program goes on.
+        await workspace.ReloadChangedAsync(cancellationToken);
         var moved = await debugging.GotoAsync(ToLine(request.TargetId), label: null, cancellationToken);
         if (!moved.Moved)
         {

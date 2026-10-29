@@ -25,6 +25,7 @@ internal sealed class PlatformDebugWorkspace(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
     ISymbolSyncService symbols,
+    IWorkspaceReloadService reload,
     IOptions<SdkAppOptions> options,
     ILogger<PlatformDebugWorkspace> logger) : IDebugWorkspace
 {
@@ -143,6 +144,19 @@ internal sealed class PlatformDebugWorkspace(
             Debug = true,
             StreamOutput = true,
         }, token);
+    }
+
+    public async Task ReloadChangedAsync(CancellationToken token)
+    {
+        // the files are read and told apart from what was loaded by their text: one that was saved as it was is nothing changed.
+        Uri[] files = [.. documents.GetAllDocuments().Where(document => document.IsFile).Select(document => document.Id.Uri.ToUri())];
+        if (files.Length == 0 || await reload.ReloadFilesAsync(files, token) is not { IsUnchanged: false })
+        {
+            return;
+        }
+
+        // a module may be named otherwise by its source now.
+        MapDocuments();
     }
 
     public async Task CloseAsync()

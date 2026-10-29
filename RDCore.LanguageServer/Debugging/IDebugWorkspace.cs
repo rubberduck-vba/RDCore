@@ -43,6 +43,17 @@ internal interface IDebugWorkspace
     Task<ExecuteSessionResult> StartAsync(string moduleName, string entryPoint, CancellationToken token);
 
     /// <summary>
+    /// Reads the files of the workspace's modules again, and has the environment host load each one whose text is not what it loaded: the edits saved while the
+    /// program waits, which it is checked against before it goes on.
+    /// </summary>
+    /// <remarks>
+    /// A debug adapter has no editor telling it of edits: what is saved is what it is told, when the program is asked to go on. A file whose text is what was
+    /// loaded is nothing changed, and nothing is loaded.
+    /// </remarks>
+    /// <param name="token">A token that cancels the reading.</param>
+    Task ReloadChangedAsync(CancellationToken token);
+
+    /// <summary>
     /// Lets go of the platform: the components it was brought up with are asked to shut down.
     /// </summary>
     Task CloseAsync();
