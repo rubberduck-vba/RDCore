@@ -14,28 +14,27 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// </para>
 /// <para>
 /// The instructions left as they were are a longest common subsequence of the two bodies: the most instructions of the body that can be kept, in
-/// the order they are in. An instruction that is not among them was edited or removed.
-/// </para>
-/// <para>
-/// The two bodies alone do not always say which instructions were kept: of <c>a, Stop, a, Stop, a</c> edited into <c>a, Stop, a</c>, either pair may have
-/// been removed, and the text says nothing of which. So the alignment is made twice - keeping the earliest of identical instructions, and keeping the
-/// latest - and what the two say alike is <em>certain</em>: it is what every longest common subsequence says. What they say otherwise is a guess, and
-/// an activation is not moved on a guess.
+/// the order they are in. The two bodies alone do not always say which: of <c>a, Stop, a, Stop, a</c> edited into <c>a, Stop, a</c>, either pair may have
+/// been removed, and the text says nothing of which. So what is said of an instruction is what <em>every</em> longest common subsequence says of it:
+/// kept, at the one place they all keep it; removed, by all of them; or neither, and not <see cref="IsCertain">certain</see>. An activation is not
+/// moved on what is not certain.
 /// </para>
 /// </remarks>
 public sealed class InstructionAlignment
 {
-    // the cells of the comparison past which what the edit changed is not compared: an instruction in it is then neither kept nor removed for certain.
-    private const long MostCellsCompared = 4_000_000;
+    // the cells of the comparison past which the bodies are not compared as a whole: only what is as it was at either end, and is written once in each, is
+    // then certain.
+    private const long MostCellsCompared = 2_250_000;
 
-    private readonly Side _earliest;
-    private readonly Side _latest;
+    // what is said of an instruction that is not kept.
+    private const int Removed = -1;
+    private const int Unknown = -2;
+
+    // for each instruction of the body as it was: where every longest common subsequence keeps it, or Removed, or Unknown.
+    private readonly int[] _placements;
     private readonly int _length;
 
-    // one alignment: where each instruction of the body as it was is in the edited body, and which ones were not compared.
-    private sealed record class Side(int?[] Offsets, bool[] Uncompared);
-
-    private InstructionAlignment(Side earliest, Side latest, int length) => (_earliest, _latest, _length) = (earliest, latest, length);
+    private InstructionAlignment(int[] placements, int length, bool isPartial) => (_placements, _length, IsPartial) = (placements, length, isPartial);
 
     /// <summary>
     /// The instructions of <paramref name="before"/> that <paramref name="after"/>, its edited body, has as they were.
@@ -43,101 +42,101 @@ public sealed class InstructionAlignment
     /// <param name="before">The body as it was.</param>
     /// <param name="after">The body as it was edited.</param>
     public static InstructionAlignment Of(InstructionList before, InstructionList after)
-    {
-        var old = before.Items.Select(Fingerprint).ToArray();
-        var now = after.Items.Select(Fingerprint).ToArray();
+        => Of([.. before.Items.Select(Fingerprint)], [.. after.Items.Select(Fingerprint)]);
 
-        // the latest-kept alignment is the earliest-kept one of the two bodies read backwards.
-        var earliest = Align(old, now);
-        var backwards = Align([.. old.Reverse()], [.. now.Reverse()]);
-        var latest = new Side(new int?[old.Length], new bool[old.Length]);
-        for (var index = 0; index < old.Length; index++)
+    // the alignment of two sequences of instructions, each given by what it is.
+    internal static InstructionAlignment Of(string[] old, string[] now)
+        => (long)(old.Length + 1) * (now.Length + 1) > MostCellsCompared
+            ? new InstructionAlignment(PlaceByTheirEnds(old, now), now.Length, isPartial: true)
+            : new InstructionAlignment(Place(old, now), now.Length, isPartial: false);
+
+    /// <summary>
+    /// Whether the bodies were too large to be compared as a whole: what is certain of them is then only what is as it was at the start or at the end of
+    /// the body, and written once in each.
+    /// </summary>
+    public bool IsPartial { get; }
+
+    // what every longest common subsequence says of each instruction. F[i, j] is the length of one of the first i and the first j instructions; B[i, j],
+    // of the rest of them. Instruction i is kept at j by some longest one when the two are the same instruction and F[i, j] + 1 + B[i + 1, j + 1] is the
+    // longest's length; it is kept by every one when the longest that leaves it out, the most of F[i, j] + B[i + 1, j] for any j, is shorter.
+    internal static int[] Place(string[] old, string[] now)
+    {
+        var (n, m) = (old.Length, now.Length);
+        var forward = new int[n + 1, m + 1];
+        for (var i = 0; i < n; i++)
         {
-            var mirrored = old.Length - 1 - index;
-            latest.Offsets[index] = backwards.Offsets[mirrored] is { } kept ? now.Length - 1 - kept : null;
-            latest.Uncompared[index] = backwards.Uncompared[mirrored];
+            for (var j = 0; j < m; j++)
+            {
+                forward[i + 1, j + 1] = old[i] == now[j] ? forward[i, j] + 1 : Math.Max(forward[i, j + 1], forward[i + 1, j]);
+            }
         }
 
-        return new InstructionAlignment(earliest, latest, now.Length);
+        var backward = new int[n + 1, m + 1];
+        for (var i = n - 1; i >= 0; i--)
+        {
+            for (var j = m - 1; j >= 0; j--)
+            {
+                backward[i, j] = old[i] == now[j] ? backward[i + 1, j + 1] + 1 : Math.Max(backward[i + 1, j], backward[i, j + 1]);
+            }
+        }
+
+        var longest = forward[n, m];
+        var placements = new int[n];
+        for (var i = 0; i < n; i++)
+        {
+            var (kept, places, without) = (Removed, 0, 0);
+            for (var j = 0; j <= m; j++)
+            {
+                without = Math.Max(without, forward[i, j] + backward[i + 1, j]);
+                if (j < m && old[i] == now[j] && forward[i, j] + 1 + backward[i + 1, j + 1] == longest)
+                {
+                    (kept, places) = (j, places + 1);
+                }
+            }
+
+            placements[i] = places == 0 ? Removed : places == 1 && without < longest ? kept : Unknown;
+        }
+
+        return placements;
     }
 
-    // a longest common subsequence that keeps the earliest of identical instructions: what is as it was at the start is kept first, then what is as it
-    // was at the end, and in between the first match is taken whenever it is one of the longest.
-    private static Side Align(string[] old, string[] now)
+    // bodies too large to compare as a whole: what is as it was at the start and at the end is kept, and certain where it is written once in each body.
+    private static int[] PlaceByTheirEnds(string[] old, string[] now)
     {
-        var side = new Side(new int?[old.Length], new bool[old.Length]);
+        var placements = Enumerable.Repeat(Unknown, old.Length).ToArray();
+        static HashSet<string> Single(string[] body) => [.. body.GroupBy(fingerprint => fingerprint).Where(group => group.Count() == 1).Select(group => group.Key)];
+        var once = Single(old);
+        once.IntersectWith(Single(now));
         var start = 0;
         while (start < old.Length && start < now.Length && old[start] == now[start])
         {
-            side.Offsets[start] = start;
+            placements[start] = once.Contains(old[start]) ? start : Unknown;
             start++;
         }
 
         var (oldEnd, nowEnd) = (old.Length, now.Length);
         while (oldEnd > start && nowEnd > start && old[oldEnd - 1] == now[nowEnd - 1])
         {
-            side.Offsets[--oldEnd] = --nowEnd;
+            (oldEnd, nowEnd) = (oldEnd - 1, nowEnd - 1);
+            placements[oldEnd] = once.Contains(old[oldEnd]) ? nowEnd : Unknown;
         }
 
-        var (rows, columns) = (oldEnd - start, nowEnd - start);
-        if (rows == 0 || columns == 0)
-        {
-            return side;
-        }
-
-        if ((long)rows * columns > MostCellsCompared)
-        {
-            Array.Fill(side.Uncompared, true, start, rows);
-            return side;
-        }
-
-        // the length of the longest common subsequence of each pair of suffixes, and the subsequence read off from the start.
-        var lengths = new int[rows + 1, columns + 1];
-        for (var i = rows - 1; i >= 0; i--)
-        {
-            for (var j = columns - 1; j >= 0; j--)
-            {
-                lengths[i, j] = old[start + i] == now[start + j] ? lengths[i + 1, j + 1] + 1 : Math.Max(lengths[i + 1, j], lengths[i, j + 1]);
-            }
-        }
-
-        var (row, column) = (0, 0);
-        while (row < rows && column < columns)
-        {
-            if (old[start + row] == now[start + column] && lengths[row, column] == lengths[row + 1, column + 1] + 1)
-            {
-                side.Offsets[start + row] = start + column;
-                (row, column) = (row + 1, column + 1);
-            }
-            else if (lengths[row + 1, column] >= lengths[row, column + 1])
-            {
-                row++;
-            }
-            else
-            {
-                column++;
-            }
-        }
-
-        return side;
+        return placements;
     }
 
     /// <summary>
-    /// Whether what the edit did with the instruction at <paramref name="offset"/> of the body as it was is certain: kept, at the same place of the edited
-    /// body, by every longest common subsequence - or by none.
+    /// Whether what the edit did with the instruction at <paramref name="offset"/> of the body as it was is certain: kept by every longest common
+    /// subsequence of the two bodies, at the same place of the edited body - or removed by every one.
     /// </summary>
     /// <param name="offset">An offset of the body as it was, or its length.</param>
-    public bool IsCertain(int offset)
-        => offset == _earliest.Offsets.Length
-            || (offset >= 0 && offset < _earliest.Offsets.Length && !_earliest.Uncompared[offset] && !_latest.Uncompared[offset]
-                && _earliest.Offsets[offset] == _latest.Offsets[offset]);
+    public bool IsCertain(int offset) => offset == _placements.Length || (offset >= 0 && offset < _placements.Length && _placements[offset] != Unknown);
 
     /// <summary>
     /// Where the instruction at <paramref name="offset"/> of the body as it was is in the edited body; none when it was edited or removed, or when that is
     /// not certain (<see cref="IsCertain"/>). The end of the body, its length, is the end of the edited one.
     /// </summary>
     /// <param name="offset">An offset of the body as it was, or its length.</param>
-    public int? this[int offset] => offset == _earliest.Offsets.Length ? _length : IsCertain(offset) ? _earliest.Offsets[offset] : null;
+    public int? this[int offset] => offset == _placements.Length ? _length : offset >= 0 && offset < _placements.Length && _placements[offset] >= 0 ? _placements[offset] : null;
 
     /// <summary>
     /// Where an activation that waits before the instruction at <paramref name="offset"/> goes on in the edited body: at that instruction, if it is as it
@@ -145,7 +144,11 @@ public sealed class InstructionAlignment
     /// that is not certain.
     /// </summary>
     /// <param name="offset">An offset of the body as it was, or its length.</param>
-    public int? Before(int offset) => Agreed(side => offset == side.Offsets.Length ? _length : side.Offsets[offset] ?? Following(side, offset));
+    public int? Before(int offset)
+        => offset == _placements.Length ? _length
+            : !IsCertain(offset) ? null
+            : _placements[offset] >= 0 ? _placements[offset]
+            : Following(offset);
 
     /// <summary>
     /// Where an activation that waits after the instruction at <paramref name="offset"/> - one that has run, as a <c>Stop</c> has - goes on in the edited
@@ -153,26 +156,25 @@ public sealed class InstructionAlignment
     /// again. None when that is not certain.
     /// </summary>
     /// <param name="offset">An offset of the body as it was.</param>
-    public int? After(int offset) => Agreed(side => side.Offsets[offset] is { } kept ? kept + 1 : Following(side, offset));
+    public int? After(int offset)
+        => !IsCertain(offset) ? null
+            : _placements[offset] >= 0 ? _placements[offset] + 1
+            : Following(offset);
 
-    // what both alignments say, when they say it alike and compared what it rests on.
-    private int? Agreed(Func<Side, int?> place)
-        => place(_earliest) is { } earliest && place(_latest) is { } latest && earliest == latest ? earliest : null;
-
-    // the instruction after the last one before the offset that is as it was: the start of the body, when there is none. None when an instruction it
-    // passes over, or the one at the offset, was not compared.
-    private static int? Following(Side side, int offset)
+    // the instruction after the last one before the offset that is as it was - the start of the body, when there is none - when every one in between was
+    // removed for certain.
+    private int? Following(int offset)
     {
-        for (var before = Math.Min(offset, side.Offsets.Length - 1); before >= 0; before--)
+        for (var before = offset - 1; before >= 0; before--)
         {
-            if (side.Uncompared[before])
+            if (_placements[before] == Unknown)
             {
                 return null;
             }
 
-            if (before < offset && side.Offsets[before] is { } kept)
+            if (_placements[before] >= 0)
             {
-                return kept + 1;
+                return _placements[before] + 1;
             }
         }
 

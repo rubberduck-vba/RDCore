@@ -69,16 +69,42 @@ public sealed class ErrorBreakTests
             await Task.CompletedTask;
         });
 
+    // an error nothing catches is not given to the program: it runs the statement that raised it again, which raises it again (MS-VBA, measured in Excel,
+    // oracle\error-break B1).
     [TestMethod]
-    public async Task AProgramThatWaitedAtAnError_GoesOnToDealWithIt_AndIsNotWaitedAtAgainAsItUnwinds()
+    public async Task AProgramThatWaitedAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsThereAgain()
         => await RunAsync(Unhandled, ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome);
 
             var resumed = await ResumeAsync(provider);
 
-            Assert.AreEqual(ExecutionOutcome.RuntimeError, resumed.Outcome, resumed.ErrorMessage);
-            Assert.AreEqual(11, resumed.ErrorNumber);
+            Assert.AreEqual((ExecutionOutcome.Suspended, 11, 6), (resumed.Outcome, resumed.ErrorNumber, resumed.ErrorLine), resumed.ErrorMessage);
+            Assert.AreEqual("Helper", provider.Execution.Stack().Frames[0].Procedure);
+        });
+
+    // an error a handler of a caller catches is given to the program, and unwinds to the handler without being waited at again.
+    [TestMethod]
+    public async Task AProgramThatWaitedAtAnErrorACallerCatches_GoesOnToTheHandler_AndIsNotWaitedAtAgainAsItUnwinds()
+        => await RunAsync(Program(
+            "Public Sub Main()",
+            "    On Error GoTo Oops",
+            "    Helper",
+            "    Exit Sub",
+            "Oops:",
+            "    Debug.Print \"caught \" & Err.Number",
+            "End Sub",
+            "Private Sub Helper()",
+            "    Dim z As Long",
+            "    Debug.Print 5 \\ z",
+            "End Sub"), ErrorBreakMode.All, debug: true, async (provider, stopped) =>
+        {
+            Assert.AreEqual((ExecutionOutcome.Suspended, 9), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+
+            var resumed = await ResumeAsync(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "caught 11" }, resumed.Output.Select(line => line.Trim()).ToArray());
         });
 
     [TestMethod]
@@ -97,20 +123,18 @@ public sealed class ErrorBreakTests
         });
 
     [TestMethod]
-    public async Task AProgramThatWaitedAtALibraryError_IsNotWaitedAtAgainAsItUnwinds()
+    public async Task AProgramThatWaitedAtALibraryErrorNothingCatches_RunsTheStatementThatCalledTheMemberAgain()
         => await RunAsync(Faulting("Debug.Print CInt(\"x\")"), ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
 
-            // the caller the error unwinds into is given the error that was waited at, which already says where it is.
             var resumed = await ResumeAsync(provider);
 
-            Assert.AreEqual(ExecutionOutcome.RuntimeError, resumed.Outcome, resumed.ErrorMessage);
-            Assert.AreEqual(6, resumed.ErrorLine);
+            Assert.AreEqual((ExecutionOutcome.Suspended, 6), (resumed.Outcome, resumed.ErrorLine), resumed.ErrorMessage);
         });
 
     [TestMethod]
-    public async Task AnErrorAtANext_IsWaitedAtOnce_AndNotAgainAtTheCallAsItUnwinds()
+    public async Task AnErrorAtANextNothingCatches_IsWaitedAtTheFor_AndAgainWhenTheNextRunsAgain()
         => await RunAsync(Program(
             "Public Sub Main()",
             "    Helper",
@@ -131,8 +155,7 @@ public sealed class ErrorBreakTests
 
             var resumed = await ResumeAsync(provider);
 
-            Assert.AreEqual(ExecutionOutcome.RuntimeError, resumed.Outcome, resumed.ErrorMessage);
-            Assert.AreEqual(7, resumed.ErrorLine);
+            Assert.AreEqual((ExecutionOutcome.Suspended, 92, 7), (resumed.Outcome, resumed.ErrorNumber, resumed.ErrorLine), resumed.ErrorMessage);
         });
 
     [TestMethod]
