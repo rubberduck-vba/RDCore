@@ -197,8 +197,124 @@ public sealed class SegmentedParseEquivalenceTests
         var modules = Directory.GetFiles(Path.Combine(root.FullName, "RDCore.CLI", "Bench", "Corpus"));
         Assert.IsNotEmpty(modules);
 
-        // a module of one member, or of none, is one segment: it is parsed whole whichever way, and every other is stitched.
+        // a module of one member, or of none, is one segment, and a module with a syntax error is parsed whole: whichever way it is read, it is a whole
+        // parse's. Most of the corpus is stitched.
         var stitched = modules.Count(module => AssertTheSameAsAWholeParse(File.ReadAllText(module), stitches: null));
         Assert.IsGreaterThan(modules.Length / 2, stitched, "most of the corpus is stitched");
+    }
+
+    // a parenthesized argument of a call statement with no space before it - `Foo(5)` - is a grouping, whose location is read off its token, not off a rule
+    // the tree is anchored at: in a member that is not the first, its segment starts further down the module than the module does.
+    [TestMethod]
+    [DataRow(0, 0, DisplayName = "the module at the document's start")]
+    [DataRow(4, 2, DisplayName = "the module anchored in a larger document")]
+    public void AGroupedArgumentInALaterMember_IsWhereAWholeParseHasIt(int line, int character)
+        => AssertTheSameAsAWholeParse(Lines(
+            "Option Explicit",
+            "Public Sub A()",
+            "End Sub",
+            "Public Sub B()",
+            "    Debug.Print 1",
+            "    Foo(5)",
+            "End Sub",
+            "Public Sub Foo(ByVal x As Long)",
+            "End Sub"), new SourcePosition(line, character));
+
+    // the arguments of a call statement in parentheses, with no Call - `Foo(1, 2)` - are a syntax error the listener reports from the parenthesis' token: in a
+    // module anchored in a larger document, it is where the document has it.
+    [TestMethod]
+    public void ArgumentsInParenthesesWithoutCall_AreReportedWhereTheDocumentHasThem()
+    {
+        var source = Lines(
+            "Option Explicit",
+            "Public Sub A()",
+            "End Sub",
+            "Public Sub B()",
+            "    Debug.Print 1",
+            "    Foo(1, 2)",
+            "End Sub",
+            "Public Sub Foo(ByVal x As Long, ByVal y As Long)",
+            "End Sub");
+        var anchor = new SourcePosition(4, 2);
+
+        var atTheStart = Assert.ContainsSingle(new ModuleParser().Parse(Module, source).SyntaxErrors).Location.Range;
+        var anchored = Assert.ContainsSingle(new ModuleParser().Parse(Module, source, anchor).SyntaxErrors).Location.Range;
+
+        Assert.AreEqual(new SourceRange(atTheStart.Start.AnchoredAt(anchor), atTheStart.End.AnchoredAt(anchor)), anchored);
+        _ = AssertTheSameAsAWholeParse(source, anchor, stitches: false);
+    }
+
+    // a block If around a one-line If whose Then a colon follows: the fast prediction can't read it, and the member that holds it is read slowly on its own.
+    private static readonly string[] SlowMember =
+    [
+        "Public Sub Slow(ByVal a As Boolean, ByVal b As Boolean)",
+        "    Dim c As Long",
+        "    If a Then",
+        "        If b Then: c = -c",
+        "    End If",
+        "End Sub",
+    ];
+
+    // a module the fast prediction can't read as a whole, with a header written once in each branch of a #If block: as the parser parses it - not forced -
+    // it is stitched, and each of its modules is counted once.
+    [TestMethod]
+    public void AModuleTheFastPredictionCantRead_WithASplitHeader_IsStitched()
+    {
+        var source = Lines([
+            "Option Explicit",
+            "#If VBA7 Then",
+            "Private Function Unsigned(ByVal a As LongPtr) As LongPtr",
+            "#Else",
+            "Private Function Unsigned(ByVal a As Long) As Long",
+            "#End If",
+            "    Unsigned = a",
+            "End Function",
+            .. SlowMember,
+            "Public Sub Main()",
+            "    Debug.Print Unsigned(1)",
+            "End Sub"]);
+        var parser = new ModuleParser();
+
+        _ = parser.Parse(Module, source);
+
+        Assert.AreEqual(1L, parser.Statistics[SegmentationStatistics.Path.Stitched], "stitched as the parser parses it");
+        Assert.AreEqual(1L, Enum.GetValues<SegmentationStatistics.Path>().Sum(path => parser.Statistics[path]), "the module counted once, its header's branch not");
+        _ = AssertTheSameAsAWholeParse(source);
+    }
+
+    // an error the listener reports - not the grammar's, which would have the module parsed whole - in a member the fast prediction can't read, which is read
+    // slowly on its own: the stitched module reports it once, where a whole parse does.
+    [TestMethod]
+    public void AnErrorTheListenerReports_InAMemberReadSlowly_IsReportedOnce()
+    {
+        var source = Lines([
+            "Public Sub A()",
+            "End Sub",
+            "Public Sub Overflowing(ByVal a As Boolean, ByVal b As Boolean)",
+            "    Const K = &H1FFFFFFFF",
+            "    Dim c As Variant",
+            "    If a Then",
+            "        If b Then: c = -c",
+            "    End If",
+            "End Sub",
+            .. SlowMember]);
+        var parser = new ModuleParser();
+
+        var errors = parser.Parse(Module, source).SyntaxErrors;
+
+        Assert.AreEqual(1L, parser.Statistics[SegmentationStatistics.Path.Stitched], "stitched as the parser parses it");
+        _ = Assert.ContainsSingle(errors, string.Join("; ", errors.Select(error => error.Verbose)));
+        _ = AssertTheSameAsAWholeParse(source);
+    }
+
+    // a module read without segments is counted, as one that is read whole.
+    [TestMethod]
+    public void AModuleReadWithoutSegments_IsCounted()
+    {
+        var parser = new ModuleParser { Segmented = false };
+
+        _ = parser.Parse(Module, Lines(SlowMember));
+
+        Assert.AreEqual(1L, parser.Statistics[SegmentationStatistics.Path.NotSegmented]);
     }
 }

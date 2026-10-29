@@ -2,7 +2,8 @@ namespace RDCore.Parsing;
 
 /// <summary>
 /// How the modules a <see cref="ModuleParser"/> read were read: whole, with the grammar's fast prediction; a segment at a time; or whole, slowly, after the
-/// segments gave up - each give-up by why. What says how many modules take the slow path, and why.
+/// segments gave up - each give-up by why - or not segmented at all. Each module that has code is counted once, by the path it was read by: what says
+/// how many modules take the slow path, and why.
 /// </summary>
 internal sealed class SegmentationStatistics
 {
@@ -38,6 +39,9 @@ internal sealed class SegmentationStatistics
 
         /// <summary>Whole and slowly: a segment's parse failed.</summary>
         SegmentFailed,
+
+        /// <summary>Whole and slowly: the parser does not segment (<see cref="ModuleParser.Segmented"/> is off).</summary>
+        NotSegmented,
     }
 
     private readonly long[] _counts = new long[Enum.GetValues<Path>().Length];
