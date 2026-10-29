@@ -1169,6 +1169,14 @@ public static partial class ModuleIndenter
         private void Scan(string code)
         {
             var start = IgnoredStart().Match(code).Length;
+
+            // the While or the Until of a Do or a Loop is of its keyword: what follows the two of them is the condition, as what follows an If is.
+            if (_anchors.Count == 0 && LoopCondition().Match(code[start..]) is { Success: true } condition)
+            {
+                start += condition.Length;
+                _anchors.Push(new Anchor(AnchorKind.AfterName, start, _depth));
+            }
+
             var (isCode, _) = Lex(code);
             for (var index = start; index < code.Length; index++)
             {
@@ -1350,6 +1358,9 @@ public static partial class ModuleIndenter
 
     [GeneratedRegex(@"^Stop\s*(?:$|:|')", RegexOptions.IgnoreCase)]
     private static partial Regex StopStatement();
+
+    [GeneratedRegex(@"^(?:Do|Loop)\s+(?:While|Until)\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex LoopCondition();
 
     [GeneratedRegex(@"^(Dim|Const|Static|Public|Private|Global)\s", RegexOptions.IgnoreCase)]
     private static partial Regex Declaration();
