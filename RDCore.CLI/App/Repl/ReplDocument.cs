@@ -12,10 +12,18 @@ namespace RDCore.CLI.App.Repl;
 /// A program that was neither loaded nor saved is not a document. It is lines at a prompt, and what is asked of the server about them is asked with their
 /// text, as the fragment it is.
 /// </para>
+/// <para>
+/// The server is told from more than the shell's thread - what is asked of it once the program is left alone runs on its own - and is told one thing at a time,
+/// in order: a version and the text that is that version (<see cref="ReplProgram.Snapshot"/>), never a version read again after the text was sent.
+/// </para>
 /// </remarks>
 public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platform, ReplWorkspace? scratchWorkspace = null)
 {
+    // the version the server was last told the text of.
     private int _sentVersion;
+
+    // one notification at a time: an open, a change, a save or a close waits for the one before it, and a change sends the program as it is by then.
+    private readonly SemaphoreSlim _telling = new(1, 1);
 
     /// <summary>The URI of the document, or <see langword="null"/> when the program is not one.</summary>
     public Uri? Uri { get; private set; }
@@ -37,20 +45,28 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// <returns><see langword="false"/> when the program is not a document and cannot be: the shell is attached to a workspace of its own, and has no scratch one.</returns>
     public async Task<bool> EnsureOpenAsync(CancellationToken token)
     {
-        if (IsOpen)
+        await _telling.WaitAsync(token);
+        try
         {
-            await SynchronizeAsync(token);
+            if (IsOpen)
+            {
+                await SynchronizeTellingAsync(token);
+                return true;
+            }
+
+            if (scratchWorkspace is null)
+            {
+                return false;
+            }
+
+            await OpenTellingAsync(scratchWorkspace.ListingPath, token);
+            IsScratch = true;
             return true;
         }
-
-        if (scratchWorkspace is null)
+        finally
         {
-            return false;
+            _telling.Release();
         }
-
-        await OpenAsync(scratchWorkspace.ListingPath, token);
-        IsScratch = true;
-        return true;
     }
 
     /// <summary>
@@ -60,12 +76,26 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// <param name="token">A token that cancels the notification.</param>
     public async Task OpenAsync(string path, CancellationToken token)
     {
-        await CloseAsync(token);
+        await _telling.WaitAsync(token);
+        try
+        {
+            await OpenTellingAsync(path, token);
+        }
+        finally
+        {
+            _telling.Release();
+        }
+    }
+
+    private async Task OpenTellingAsync(string path, CancellationToken token)
+    {
+        await CloseTellingAsync(token);
 
         IsScratch = false;
         var uri = new Uri(path);
-        await platform.OpenDocumentAsync(uri, program.ToSourceText(), program.Version, token);
-        _sentVersion = program.Version;
+        var (version, text) = program.Snapshot();
+        await platform.OpenDocumentAsync(uri, text, version, token);
+        _sentVersion = version;
         Uri = uri;
     }
 
@@ -75,13 +105,30 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// <param name="token">A token that cancels the notification.</param>
     public async Task SynchronizeAsync(CancellationToken token)
     {
-        if (Uri is null || _sentVersion == program.Version)
+        await _telling.WaitAsync(token);
+        try
         {
-            return;
+            await SynchronizeTellingAsync(token);
+        }
+        finally
+        {
+            _telling.Release();
+        }
+    }
+
+    // the program's text as the server holds it once this is done.
+    private async Task<string> SynchronizeTellingAsync(CancellationToken token)
+    {
+        // the version is the text's: a line stored while the server is told is the next version's, which the next change sends.
+        var (version, text) = program.Snapshot();
+        if (Uri is not { } uri || version == _sentVersion)
+        {
+            return text;
         }
 
-        await platform.ChangeDocumentAsync(Uri, program.Version, program.ToSourceText(), token);
-        _sentVersion = program.Version;
+        await platform.ChangeDocumentAsync(uri, version, text, token);
+        _sentVersion = version;
+        return text;
     }
 
     /// <summary>
@@ -91,14 +138,23 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// <returns>The text to write.</returns>
     public async Task<string> WillSaveAsync(CancellationToken token)
     {
-        await SynchronizeAsync(token);
-        if (Uri is not null)
+        await _telling.WaitAsync(token);
+        try
         {
-            // TODO(willSaveWaitUntil): the server answers with the edits it would make before the save; it has none today, and the first one it has is applied here.
-            await platform.WillSaveDocumentAsync(Uri, token);
-        }
+            // the text that is saved is the one the server was told of last, in the same turn: a line stored meanwhile is the next change's.
+            var text = await SynchronizeTellingAsync(token);
+            if (Uri is not null)
+            {
+                // TODO(willSaveWaitUntil): the server answers with the edits it would make before the save; it has none today, and the first one it has is applied here.
+                await platform.WillSaveDocumentAsync(Uri, token);
+            }
 
-        return program.ToSourceText();
+            return text;
+        }
+        finally
+        {
+            _telling.Release();
+        }
     }
 
     /// <summary>
@@ -108,9 +164,17 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// <param name="token">A token that cancels the notification.</param>
     public async Task SavedAsync(string text, CancellationToken token)
     {
-        if (Uri is not null)
+        await _telling.WaitAsync(token);
+        try
         {
-            await platform.SaveDocumentAsync(Uri, text, token);
+            if (Uri is not null)
+            {
+                await platform.SaveDocumentAsync(Uri, text, token);
+            }
+        }
+        finally
+        {
+            _telling.Release();
         }
     }
 
@@ -119,6 +183,19 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     /// </summary>
     /// <param name="token">A token that cancels the notification.</param>
     public async Task CloseAsync(CancellationToken token)
+    {
+        await _telling.WaitAsync(token);
+        try
+        {
+            await CloseTellingAsync(token);
+        }
+        finally
+        {
+            _telling.Release();
+        }
+    }
+
+    private async Task CloseTellingAsync(CancellationToken token)
     {
         if (Uri is not { } uri)
         {

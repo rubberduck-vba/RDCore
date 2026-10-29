@@ -56,9 +56,13 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// called, which is in the first run of its case.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
 /// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
+/// <param name="Indent">
+/// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
+/// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
+/// </param>
 internal sealed record class BenchReport(
     BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
-    IReadOnlyList<string> Problems);
+    IReadOnlyList<string> Problems, TimeSpan? Indent = null);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -82,6 +86,9 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
 {
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
+
+    /// <summary>The lines of the shell's program whose indentation is timed: as many as a long paste at the prompt.</summary>
+    public const int ProgramLines = 5000;
 
     /// <summary>The environment the session is composed for: what runs the cases, and how they are built.</summary>
     public IRuntimeEnvironmentProfile Environment => environment;
@@ -113,7 +120,39 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
             cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
         }
 
-        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems);
+        var indent = options.ListOnly ? (TimeSpan?)null : IndentProgram(options.Runs);
+        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems, indent);
+    }
+
+    /// <summary>
+    /// Indents the shell's program of <see cref="ProgramLines"/> lines - a quarter of them the openers of blocks - as the shell does before it lists the program,
+    /// saves it or tells the language server of it: one parse of the program, and the indenter's edits made on its lines.
+    /// </summary>
+    /// <param name="runs">How many times it is indented, after once to have the parser ready.</param>
+    /// <returns>The fastest of the runs.</returns>
+    internal static TimeSpan IndentProgram(int runs)
+    {
+        string[] statements = [.. Enumerable.Range(1, ProgramLines).Select(line => (line % 4) switch
+        {
+            1 => $"If X > {line} Then",
+            2 => $"X = X + {line}",
+            3 => "End If",
+            _ => $"Y = {line}",
+        })];
+        var parser = new ModuleParser();
+        var uri = new Uri($"untitled:{CasePrefix}{SDK.Workspace.BasicProgramText.Extension}");
+        Func<string, ModuleParseResult> parse = text => parser.Parse(uri, text);
+        SDK.Formatting.ProgramIndenter.Indent(statements, parse, SDK.Formatting.CodeFormattingOptions.Default);
+
+        var fastest = TimeSpan.MaxValue;
+        for (var run = 0; run < Math.Max(1, runs); run++)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            SDK.Formatting.ProgramIndenter.Indent(statements, parse, SDK.Formatting.CodeFormattingOptions.Default);
+            fastest = TimeSpan.FromTicks(Math.Min(fastest.Ticks, stopwatch.Elapsed.Ticks));
+        }
+
+        return fastest;
     }
 
     /// <summary>

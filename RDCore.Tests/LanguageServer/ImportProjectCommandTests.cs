@@ -56,9 +56,9 @@ public sealed class ImportProjectCommandTests
         }
     }
 
-    private ImportProjectCommand Sut()
+    private ImportProjectCommand Sut(IWorkspaceProjects? projects = null)
         => new(_documents, _reload, _writer, new ProjectFileLoader(_fileSystem), new InMemoryLibrarySource(), _fileSystem, Options.Create(new SdkAppOptions()), _server,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<ImportProjectCommand>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ImportProjectCommand>.Instance, projects);
 
     private void Write(string path, string text) => _fileSystem.AddFile(path, new MockFileData(Encoding.Latin1.GetBytes(text)));
 
@@ -188,6 +188,29 @@ public sealed class ImportProjectCommandTests
     }
 
     // the workspace an import changes is changed as any change of the project is, which asks the client to refresh what it shows (WorkspaceReloadServiceTests).
+
+    // a file the .vbp lists outside its folder is a module of its project when the client gave the folder that holds it; the project is an import of the .vbp,
+    // and stays one when it is imported again.
+    [TestMethod]
+    public async Task AFileInAnotherWorkspaceFolder_IsAModuleOfTheProject_AndOneInNoneIsNoted()
+    {
+        Write(Path.Combine(Root, "Battleship.vbp"),
+            $"Name=\"Battleship\"\r\nModule=Util; ..\\{Path.GetFileName(Other)}\\Util.bas\r\nModule=Gone; ..\\rdcore-import-elsewhere\\Gone.bas\r\n");
+        var projects = Substitute.For<IWorkspaceProjects>();
+        projects.Folders.Returns(new WorkspaceFolders([Root, Other]));
+
+        var answer = (JObject)(await Sut(projects).ExecuteAsync(Argument(Uri(Path.Combine(Root, "Battleship.vbp"))), _context, CancellationToken.None))!;
+
+        var change = (Func<ProjectFile, ProjectFile>)_reload.ReceivedCalls().Single().GetArguments()[0]!;
+        var imported = change(new ProjectFile(Root)).ProjectInfo;
+        CollectionAssert.AreEqual(new[] { $"../{Path.GetFileName(Other)}/Util.bas" }, imported.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.AreEqual("Battleship.vbp", imported.SourceProject);
+        Assert.AreEqual("Battleship.vbp", change(new ProjectFile(Root, imported)).ProjectInfo.SourceProject);
+        var note = (JObject)answer["notes"]!.Single();
+        Assert.AreEqual(nameof(VbpImportNoteKind.OutsideProjectFolder), note.Value<string>("kind"));
+        Assert.AreEqual(@"..\rdcore-import-elsewhere\Gone.bas", note.Value<string>("subject"));
+    }
+
     [TestMethod]
     public async Task AVbpOfAnotherFolder_IsWrittenThere()
     {
@@ -196,7 +219,8 @@ public sealed class ImportProjectCommandTests
         await Sut().ExecuteAsync(Argument(Uri(Path.Combine(Other, "Battleship.vbp"))), _context, CancellationToken.None);
 
         // the folder is the one of the .vbp's URI, whose drive a file URI spells in lowercase.
-        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => string.Equals(project.Uri, Other, StringComparison.OrdinalIgnoreCase) && project.ProjectInfo.Name == "Battleship"),
+        await _writer.Received(1).SaveAsync(Arg.Is<ProjectFile>(project => string.Equals(project.Uri, Other, StringComparison.OrdinalIgnoreCase) && project.ProjectInfo.Name == "Battleship"
+            && project.ProjectInfo.SourceProject == "Battleship.vbp"),
             Arg.Any<CancellationToken>());
         await _reload.DidNotReceive().ChangeAsync(Arg.Any<Func<ProjectFile, ProjectFile>>(), Arg.Any<CancellationToken>());
     }

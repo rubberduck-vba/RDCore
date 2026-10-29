@@ -2,6 +2,7 @@ using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Formatting;
 using RDCore.SDK.Workspace;
 using System.Diagnostics;
 using System.Globalization;
@@ -27,6 +28,9 @@ internal sealed class BenchCommandOptions
 
     [Option('e', "engine", HelpText = "What runs the cases: Interpreter or Compiled. The configured engine when omitted.")]
     public RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine? Engine { get; set; }
+
+    [Option("format", HelpText = "Time formatting every module instead: its parse, and its indentation from that parse, with the default settings and with every alignment on.")]
+    public bool Format { get; set; }
 }
 
 /// <summary>
@@ -35,7 +39,9 @@ internal sealed class BenchCommandOptions
 /// <remarks>
 /// A case is a <c>Public Sub Bench*()</c> of a standard module (<see cref="BenchRunner"/>). Nothing is asserted: the numbers are for comparing one build with
 /// another, and a case that raises an error says so instead. With no path, the corpus built into <c>rdc</c> is run: arithmetic loops over <c>Long</c>,
-/// <c>Double</c> and <c>Variant</c>, strings, arrays, and calls to procedures, objects and the standard library.
+/// <c>Double</c> and <c>Variant</c>, strings, arrays, and calls to procedures, objects and the standard library. The <c>indent</c> row is the shell's: a program of
+/// <see cref="BenchRunner.ProgramLines"/> numbered lines indented as the shell indents it before it lists it (<see cref="BenchRunner.IndentProgram"/>), the same
+/// whatever the workspace: the fastest of as many runs as the cases have (<c>--runs</c>).
 /// </remarks>
 /// <param name="writer">Writes the platform's messages: what went wrong.</param>
 /// <param name="fileSystem">The file system the workspace is on.</param>
@@ -85,6 +91,12 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             }
 
             WriteHeader(workspace, corpus is not null, options.Engine ?? runner.Environment.ExecutionEngine);
+            if (options.Format)
+            {
+                WriteFormatting(workspace, options.Runs, token);
+                return 0;
+            }
+
             var report = await runner.RunAsync(
                 workspace, new BenchOptions(options.Runs, options.Filter, options.List, options.Engine), name => Output.WriteLine($"  running {name}"), token);
             WriteReport(report, options.List);
@@ -138,6 +150,10 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"{"load",-10}{Milliseconds(report.Load),12}");
         Output.WriteLine($"{"sweep",-10}{Milliseconds(report.Sweep),12}");
         Output.WriteLine($"{"compile",-10}{Milliseconds(report.Compile),12}");
+        if (report.Indent is { } indent)
+        {
+            Output.WriteLine($"{"indent",-10}{Milliseconds(indent),12}  ({BenchRunner.ProgramLines.ToString("N0", CultureInfo.InvariantCulture)} lines)");
+        }
 
         foreach (var problem in report.Problems)
         {
@@ -171,6 +187,32 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
                 : $"{benchCase.Name.PadRight(width)}{benchCase.Runs.Count,6}{Milliseconds(benchCase.Min!.Value),14}{Milliseconds(benchCase.Median!.Value),14}");
         }
     }
+
+    // each module's parse, indentation and edits applied with the default settings, the slowest first; then the totals, and those with every alignment on. The
+    // first time every module is formatted, before the code is compiled to its fastest, is the cold total; what is measured after it is a server's that is warm.
+    private void WriteFormatting(BenchWorkspace workspace, int runs, CancellationToken token)
+    {
+        var aligned = CodeFormattingOptions.Default with { AlignDims = true, AlignContinuations = true, AlignCommentsWithCode = true };
+        var cold = FormattingBench.Run(workspace, aligned, 1, token);
+        var cases = FormattingBench.Run(workspace, CodeFormattingOptions.Default, runs, token);
+        var alignedCases = FormattingBench.Run(workspace, aligned, runs, token);
+
+        var width = Math.Max(30, cases.Max(each => each.Module.RelativePath.Length) + 2);
+        Output.WriteLine();
+        Output.WriteLine($"{"module".PadRight(width)}{"lines",7}{"edits",7}{"parse",12}{"indent",12}{"apply",12}{"both, median",14}");
+        foreach (var each in cases.OrderByDescending(each => each.IndentMin + each.ApplyMin))
+        {
+            Output.WriteLine($"{each.Module.RelativePath.PadRight(width)}{each.Lines,7}{each.Edits,7}{Milliseconds(each.ParseMin),12}{Milliseconds(each.IndentMin),12}{Milliseconds(each.ApplyMin),12}{Milliseconds(each.Median),14}");
+        }
+
+        Output.WriteLine();
+        foreach (var (name, measured) in new[] { ("total", cases), ("every alignment on", alignedCases), ("cold, every alignment on", cold) })
+        {
+            Output.WriteLine($"{name.PadRight(width)}{measured.Sum(each => each.Lines),7}{measured.Sum(each => each.Edits),7}{Milliseconds(Total(measured, each => each.ParseMin)),12}{Milliseconds(Total(measured, each => each.IndentMin)),12}{Milliseconds(Total(measured, each => each.ApplyMin)),12}{Milliseconds(Total(measured, each => each.Median)),14}");
+        }
+    }
+
+    private static TimeSpan Total(IEnumerable<FormattingCase> cases, Func<FormattingCase, TimeSpan> time) => cases.Aggregate(TimeSpan.Zero, (sum, each) => sum + time(each));
 
     private static string Milliseconds(TimeSpan time) => time.TotalMilliseconds.ToString("0.0", CultureInfo.InvariantCulture) + " ms";
 }

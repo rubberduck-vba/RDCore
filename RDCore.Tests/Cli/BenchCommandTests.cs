@@ -227,6 +227,26 @@ public sealed class BenchCommandTests
         writer.ReceivedWithAnyArgs().WriteMessage(default!);
     }
 
+    // formatting is timed instead of the cases: a line for each module, with its lines and its edits, then the totals.
+    [TestMethod]
+    public async Task Formatting_IsAModuleALine_ThenTheTotals()
+    {
+        var fileSystem = Files(("Cases.bas", Cases), ("Tally.cls", Tally));
+        var (command, output, _) = Command(fileSystem);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--format", "--runs", "1"], CancellationToken.None));
+
+        var lines = output.ToString().Split(Environment.NewLine);
+        Assert.AreEqual(1, lines.Count(line => line.StartsWith("Cases.bas", StringComparison.Ordinal)));
+        Assert.AreEqual(1, lines.Count(line => line.StartsWith("Tally.cls", StringComparison.Ordinal)));
+        foreach (var total in new[] { "total", "every alignment on", "cold, every alignment on" })
+        {
+            Assert.IsTrue(lines.Any(line => line.StartsWith(total + " ", StringComparison.Ordinal)), total);
+        }
+
+        Assert.IsFalse(lines.Any(line => line.Contains("Cases.BenchCount", StringComparison.Ordinal)), "no case is run");
+    }
+
     [TestMethod]
     public async Task RunsThatAreNotPositive_AreRefused()
         => Assert.AreEqual(2, await Command(Files()).Command.ExecuteAsync([Root, "--runs", "0"], CancellationToken.None));

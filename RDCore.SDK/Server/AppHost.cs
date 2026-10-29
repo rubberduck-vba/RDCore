@@ -70,6 +70,27 @@ public abstract class AppHost<TApp>() : IDisposable
     public virtual int ExitCode => 0;
 
     /// <summary>
+    /// Whether the application writes to its console: its log, and what it says as it ends.
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation is <see langword="true"/>: a client's console is the user's. A server's is no one's to read. A server talks to its client
+    /// over a pipe and keeps its log in a file, and the process that starts it may redirect its standard output and never read it. A pipe nobody reads
+    /// fills, and a console logger then blocks every thread that logs. A server answers <see langword="false"/>: it logs nothing to its console, and
+    /// what it has to say as it fails goes to its standard error.
+    /// </remarks>
+    protected virtual bool WritesToConsole => true;
+
+    /// <summary>
+    /// The name of the file the application logs to, in the platform's logs directory (<see cref="PlatformEnvironment.LogsDirectory"/>), at every level the
+    /// live log level lets through; <see langword="null"/> for no file.
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation is <see langword="null"/>: a client logs where its user sees it. A server's log is its file, which the server host gives
+    /// every server role by default, so that no role is left without one.
+    /// </remarks>
+    protected virtual string? LogFileName => null;
+
+    /// <summary>
     /// 🧩 A method that runs after configuration but before the application is resolved and actually started.<br/>
     /// Base implementation returns a <see cref="Task.CompletedTask"/>
     /// </summary>
@@ -234,12 +255,15 @@ public abstract class AppHost<TApp>() : IDisposable
         catch (Exception exception)
         {
             // something went wrong:
-            Console.WriteLine(exception.ToString());
+            (WritesToConsole ? Console.Out : Console.Error).WriteLine(exception.ToString());
             return -1;
         }
         finally
         {
-            Console.WriteLine("V I V A T  ♥  C U C U M I S ™\n©Copyright 2026 9562-7303 Québec inc.");
+            if (WritesToConsole)
+            {
+                Console.WriteLine("V I V A T  ♥  C U C U M I S ™\n©Copyright 2026 9562-7303 Québec inc.");
+            }
         }
 
         return _unhandledFault is null ? ExitCode : Math.Max(ExitCode, 1);
@@ -301,7 +325,32 @@ public abstract class AppHost<TApp>() : IDisposable
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()
             .AddSingleton<IExtensionManifestValidationService, ExtensionManifestValidationService>()
-            .AddLogging(builder => ConfigureExternalLogging(services, builder, configuration));
+            .AddLogging(builder =>
+            {
+                if (LogFileName is { } file)
+                {
+                    builder.AddFile(Path.Combine(PlatformEnvironment.Default.LogsDirectory, file), LogLevel.Trace);
+                }
+
+                ConfigureExternalLogging(services, builder, configuration);
+
+                // after what the application configures, and not in what it overrides: an application that does not write to its console has no console
+                // logger, whether or not its override calls the base.
+                if (!WritesToConsole)
+                {
+                    RemoveConsoleLogger(services);
+                }
+            });
+    }
+
+    // the console logger the generic host adds by default.
+    private static void RemoveConsoleLogger(IServiceCollection services)
+    {
+        foreach (var console in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
+            && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider)).ToList())
+        {
+            _ = services.Remove(console);
+        }
     }
 
     /// <summary>
@@ -333,6 +382,8 @@ public abstract class AppHost<TApp>() : IDisposable
     /// <item>Sets the effective <em>minimum log level</em> as per the supplied <see cref="SdkServerOptions.TraceLevel"/>.</item>
     /// <item>Adds a <c>Debug</c> logger in debug builds.</item>
     /// </list>
+    /// Whatever an override does, the application's file log (<see cref="LogFileName"/>) is added before it, and an application that does not write to its
+    /// console (<see cref="WritesToConsole"/>) has the generic host's console logger removed after it.
     /// </remarks>
     protected virtual void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {

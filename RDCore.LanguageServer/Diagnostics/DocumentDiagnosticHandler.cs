@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Progress;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 
@@ -14,14 +15,23 @@ namespace RDCore.LanguageServer.Diagnostics;
 /// <see cref="IDocumentDiagnosticsService"/> and returns the aggregated diagnostics — already LSP
 /// <see cref="Diagnostic"/>s, projected by the provider — as a related full or unchanged report.
 /// </summary>
-internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diagnostics, IWorkProgressReporter progress, IncomingDocumentChanges incoming) : DocumentDiagnosticHandlerBase
+/// <remarks>
+/// What is found of a document is of the text the environment host has: a pull that comes as the document is edited waits for the host to have the edit,
+/// which it is told of at once (<see cref="IDocumentLifecycleService.WhenSyncedAsync"/>) - one analysis, of the text that is there.
+/// </remarks>
+internal sealed class DocumentDiagnosticHandler(
+    IDocumentDiagnosticsService diagnostics, IDocumentLifecycleService lifecycle, IWorkProgressReporter progress, IncomingDocumentChanges incoming) : DocumentDiagnosticHandlerBase
 {
     public override async Task<RelatedDocumentDiagnosticReport> Handle(DocumentDiagnosticParams request, CancellationToken cancellationToken)
     {
         var documentUri = request.TextDocument.Uri.ToUri();
         using var work = progress.BeginFor(request, string.Format(ProgressMessages.Analyzing, Path.GetFileNameWithoutExtension(documentUri.AbsolutePath)));
         // a change to the document that arrives meanwhile ends the pull, answered ContentModified: the change, and the client's next request, don't wait for it.
-        var result = await incoming.WhileCurrentAsync(documentUri, cancellationToken, token => diagnostics.GetAsync(documentUri, request.PreviousResultId, token, work));
+        var result = await incoming.WhileCurrentAsync(documentUri, cancellationToken, async token =>
+        {
+            await lifecycle.WhenSyncedAsync(documentUri, token);
+            return await diagnostics.GetAsync(documentUri, request.PreviousResultId, token, work);
+        });
 
         if (result.Unchanged)
         {
