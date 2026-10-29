@@ -317,11 +317,30 @@ internal static class ModuleWorkspace
         return [.. defined.SelectMany(module => module.CodeErrors)];
     }
 
+    /// <summary>
+    /// Edits modules of a session as the language server does with an edit of one document: the names of every module are bound among all of them, as the
+    /// workspace now reads, and only the edited ones are defined again and have their code loaded again. The others are loaded later by the language server,
+    /// after the edited module's diagnostics; until then the host has them as they were.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="only">The names of the modules that are defined and loaded again.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads.</param>
+    /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+        params (string Name, ModuleType Type, string Source)[] modules)
+    {
+        var defined = await DefineAsync(provider, "Project1",
+            [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null,
+            only: only);
+        return [.. defined.SelectMany(module => module.CodeErrors)];
+    }
+
     // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then the
-    // code of each is sent.
+    // code of each is sent. The names are bound among every module; only those named, when they are, are defined and loaded.
     private static async Task<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)[]> DefineAsync(
         EnvironmentSessionProvider sessionProvider, string projectName, (string Name, string Extension, ModuleType Type, string Source)[] modules,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols,
+        IReadOnlyCollection<string>? only = null)
     {
         var workspaceRoot = Wire.FileUri(Root);
         var parsed = modules.Select(module =>
@@ -337,6 +356,10 @@ internal static class ModuleWorkspace
         var resolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), projectName,
             libraries: librarySymbols);
+        if (only is not null)
+        {
+            parsed = [.. parsed.Where(module => only.Contains(module.Module.Name))];
+        }
 
         foreach (var declareTypesOnly in new[] { true, false })
         {

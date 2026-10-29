@@ -502,6 +502,21 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
     <value>the code does not compile: {0}</value>
   </data>
+  <data name="Host_Edit_LinesOfAnActiveProcedure" xml:space="preserve">
+    <value>the lines of a procedure the program is in moved, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
+    <value>an option of the module the program is in, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_FieldOfAType" xml:space="preserve">
+    <value>a field added to a Type whose values the program may hold, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
+    <value>a constant that sizes what a variable holds, given another value</value>
+  </data>
+  <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
+    <value>a constant a procedure the program is in already read, given another value, which is not applied to a program that waits yet</value>
+  </data>
   <data name="Host_WaitsInNoProcedure" xml:space="preserve">
     <value>the program waits in no procedure</value>
   </data>

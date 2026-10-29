@@ -500,6 +500,21 @@
   <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
     <value>le code ne compile pas : {0}</value>
   </data>
+  <data name="Host_Edit_LinesOfAnActiveProcedure" xml:space="preserve">
+    <value>les lignes d'une procédure où se trouve le programme ont bougé, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
+    <value>une option du module où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_FieldOfAType" xml:space="preserve">
+    <value>un champ ajouté à un Type dont le programme peut détenir des valeurs, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
+  <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
+    <value>une constante qui dimensionne ce que détient une variable, dont la valeur a changé</value>
+  </data>
+  <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
+    <value>une constante déjà lue par une procédure où se trouve le programme, dont la valeur a changé, ce qui n'est pas encore appliqué à un programme en attente</value>
+  </data>
   <data name="Host_WaitsInNoProcedure" xml:space="preserve">
     <value>le programme n'attend dans aucune procédure</value>
   </data>

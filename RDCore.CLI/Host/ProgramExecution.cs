@@ -869,7 +869,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         }
     }
 
-    // what was edited since the program was suspended that is not applied to it (plan-edit-and-continue §2), each with why, in the user's words. What is
+    // what was edited since the program was suspended that is not applied to it, each with why, in the user's words. What is
     // applied - the code of a procedure the program is not in, a declaration added, a value read afresh where it is next used - is of no matter here: the
     // analysis pass already loaded it, and the program reads it as it goes on.
     private string[] ChangedCode()

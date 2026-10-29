@@ -430,6 +430,31 @@ namespace RDCore.CLI {
         public static string Host_Edit_DoesNotCompile => ResourceManager.GetString("Host_Edit_DoesNotCompile", resourceCulture)!;
 
         /// <summary>
+        ///   Looks up a localized string similar to the lines of a procedure the program is in moved, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_LinesOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LinesOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to an option of the module the program is in, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_OptionOfAnActiveModule => ResourceManager.GetString("Host_Edit_OptionOfAnActiveModule", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a field added to a Type whose values the program may hold, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_FieldOfAType => ResourceManager.GetString("Host_Edit_FieldOfAType", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a constant that sizes what a variable holds, given another value.
+        /// </summary>
+        public static string Host_Edit_ValueThatSizesStoredData => ResourceManager.GetString("Host_Edit_ValueThatSizesStoredData", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a constant a procedure the program is in already read, given another value, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_ValueAnActiveProcedureRead => ResourceManager.GetString("Host_Edit_ValueAnActiveProcedureRead", resourceCulture)!;
+
+        /// <summary>
         ///   Looks up a localized string similar to {0} changed while the program waited, in a way that is not applied to it: run it again to pick the changes up, or undo them.
         /// </summary>
         public static string Host_ChangedWhileWaiting_Goto {

@@ -7,14 +7,16 @@ using RDCore.SDK.Platform.Protocol;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// An edit made while a program waits at a <c>Stop</c>: applied when the program goes on, or refused with what it is (plan-edit-and-continue §2). The program,
-/// its edits and what MS-VBA does with each are those of the Excel grid the plan was measured with; where RD-VBA applies an edit MS-VBA resets the project for,
-/// the test says so.
+/// An edit made while a program waits at a <c>Stop</c>: applied when the program goes on, or refused with what it is. The program, its edits and what MS-VBA
+/// does with each are those of the Excel grid edit-and-continue was measured with. Where RD-VBA applies an edit MS-VBA resets the project for, the test says
+/// so. Each edit reaches the host as the language server sends it: the edited module is defined and loaded again, and the others are as they were.
 /// </summary>
 [TestClass]
 [TestCategory("Edit and continue")]
 public sealed class EditAndContinueTests
 {
+    private const string LinesMoved = "the lines of a procedure the program is in, moved by an edit above it, are not followed yet";
+
     private static readonly string Class = ModuleWorkspace.ClassModule("C",
         "Option Explicit",
         "Private mValue As Long",
@@ -31,6 +33,8 @@ public sealed class EditAndContinueTests
         "Option Explicit",
         "Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long",
         "Private Const K As Long = 1",
+        "Private Const OtherK As Long = 1",
+        "Private Const N As Long = 3",
         "Public Type T",
         "    X As Long",
         "End Type",
@@ -40,9 +44,11 @@ public sealed class EditAndContinueTests
         "Public G As Long",
         "Public H As Long",
         "Public Obj As C",
+        "Private arr(1 To N) As Long",
         "",
         "Public Sub Main()",
         "    G = 1",
+        "    arr(1) = 7",
         "    Set Obj = New C",
         "    Obj.Bump",
         "    Debug.Print \"main:start\"",
@@ -71,11 +77,15 @@ public sealed class EditAndContinueTests
         "End Sub",
         "",
         "Public Sub Other()",
-        "    Debug.Print \"other:1 obj=\" & Obj.Value",
+        "    Debug.Print \"other:1 obj=\" & Obj.Value & \" k=\" & OtherK & \" ub=\" & UBound(arr)",
         "End Sub");
 
     // what the program prints after the Stop, as MS-VBA prints it with no edit.
-    private static readonly string[] AsItWas = ["callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10", "main:end"];
+    private static readonly string[] AsItWas =
+        ["callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end"];
+
+    // as it was, with the line Other prints in place of its own.
+    private static string[] OtherPrints(params string[] lines) => [.. AsItWas[..3], .. lines, AsItWas[4]];
 
     private static string Lines(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
@@ -113,21 +123,26 @@ public sealed class EditAndContinueTests
         return string.Join("\r\n", lines);
     }
 
-    // the program run to its Stop, the edits made as the analysis pass makes them, and the program resumed.
+    // the program run to its Stop, the edits sent as the language server sends them - only the edited modules defined and loaded again - and the program resumed.
     private static async Task<ExecuteSessionResult> EditedAtTheStopAsync(params string[] edits)
     {
         ExecuteSessionResult? resumed = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
-            _ = await ModuleWorkspace.ReloadAsync(provider,
-                ("C", ModuleType.ClassModule, Edited(Class, edits, "C")), ("Program", ModuleType.StdModule, Edited(Program, edits, "Program")));
-            resumed = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
-                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+            var (classSource, programSource) = (Edited(Class, edits, "C"), Edited(Program, edits, "Program"));
+            string[] edited = [.. (classSource != Class ? ["C"] : Array.Empty<string>()), .. (programSource != Program ? ["Program"] : Array.Empty<string>())];
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, edited,
+                ("C", ModuleType.ClassModule, classSource), ("Program", ModuleType.StdModule, programSource));
+            resumed = await Resume(provider);
         }, debug: true);
 
         return resumed!;
     }
+
+    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider)
+        => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
 
     private static string[] Output(ExecuteSessionResult result) => [.. result.Output.Select(line => line.Trim())];
 
@@ -140,66 +155,107 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(AsItWas, Output(resumed));
     }
 
-    // what MS-VBA applies and goes on with, and RD-VBA does in this slice: every edit that leaves the program's frames alone.
     [TestMethod]
-    [DataRow(new[] { "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:EDITED obj=\" & Obj.Value" },
-        new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:EDITED obj=10", "main:end" },
+    public async Task EveryModuleDefinedAgain_WithNoEdit_TheProgramGoesOnWithWhatItHeld()
+    {
+        // a class's symbol is a new one each time its module is defined: a variable of the class still holds the object it held.
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
+        {
+            _ = await ModuleWorkspace.ReloadAsync(provider, ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, Program));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(AsItWas, Output(resumed));
+    }
+
+    // what MS-VBA applies and goes on with, and RD-VBA does: the program runs the edited code where it next reaches it.
+    [TestMethod]
+    [DataRow(new[] { "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:EDITED obj=\" & Obj.Value" }, new[] { "other:EDITED obj=10" },
         DisplayName = "a statement of a procedure the program is not in")]
-    [DataRow(new[] { "Program|InsertAfter|Private Const K|Private Const K2 As Long = 2" }, null, DisplayName = "a Const added")]
-    [DataRow(new[] { "Program|InsertAfter|Private Declare PtrSafe|Private Declare PtrSafe Function GetCurrentProcessId Lib \"kernel32\" () As Long" }, null,
-        DisplayName = "a Declare added")]
-    [DataRow(new[] { "Program|InsertAfter|Public H As Long|Private J As Long" }, null, DisplayName = "a Private module variable added")]
-    [DataRow(new[] { "C|Replace|Value = mValue * 10|    Value = mValue * 100" },
-        new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=100", "other:1 obj=100", "main:end" },
-        DisplayName = "a method of a class whose object the program holds")]
-    public async Task AnEditMsVbaApplies_IsApplied(string[] edits, string[]? expected)
+    [DataRow(new[] { "C|Replace|Value = mValue * 10|    Value = mValue * 100" }, null, DisplayName = "a method of a class whose object the program holds")]
+    public async Task AnEditMsVbaApplies_IsApplied(string[] edits, string[]? other)
     {
         var resumed = await EditedAtTheStopAsync(edits);
 
         Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
-        CollectionAssert.AreEqual(expected ?? AsItWas, Output(resumed));
+        CollectionAssert.AreEqual(other is null ? ["callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=100", "other:1 obj=100 k=1 ub=3", "main:end"]
+            : OtherPrints(other), Output(resumed));
     }
 
-    // what MS-VBA resets the project for, and RD-VBA applies: the program reads it afresh where it next uses it.
+    // what MS-VBA resets the project for, and RD-VBA applies: the program reads it afresh where it next uses it, and runs it.
     [TestMethod]
-    [DataRow(new[] { "Program|InsertAfter|Public H As Long|Public J As Long" }, null, DisplayName = "a Public module variable added")]
-    [DataRow(new[] { "Program|Delete|Public H As Long" }, null, DisplayName = "a module variable nothing uses removed")]
-    [DataRow(new[] { "Program|Replace|Private Const K|Private Const K As Long = 2" },
-        new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=2 obj=10", "other:1 obj=10", "main:end" },
-        DisplayName = "a Const revalued, read where it is next used")]
-    [DataRow(new[] { "Program|InsertAfter|End Type|Public Type T2\\n    Y As Long\\nEnd Type" }, null, DisplayName = "a Type added")]
-    [DataRow(new[] { "Program|InsertAfter|End Enum|Public Enum E2\\n    F1 = 1\\nEnd Enum" }, null, DisplayName = "an Enum added")]
-    [DataRow(new[] { "Program|InsertAfter|E1 = 1|    E2m = 2" }, null, DisplayName = "an Enum member added")]
-    [DataRow(new[] { "Program|Replace|E1 = 1|    E1 = 3" },
-        new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=3", "main:after G=2 K=1 obj=10", "other:1 obj=10", "main:end" },
-        DisplayName = "an Enum member revalued, read where it is next used")]
-    [DataRow(new[] { "Program|InsertAfter|Debug.Print \"other:1|End Sub\\n\\nPublic Sub Added()\\n    Debug.Print \"added\"" }, null, DisplayName = "a procedure added")]
-    [DataRow(new[] { "Program|Replace|Public Sub Other()|Public Sub Other(Optional ByVal q As Long)" }, null,
-        DisplayName = "the signature of a procedure the program is not in")]
+    [DataRow(new[] { "C|InsertAfter|End Property|\\nPublic Function Extra() As String\\n    Extra = \"extra\"\\nEnd Function",
+        "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:\" & Obj.Extra" }, new[] { "other:extra" },
+        DisplayName = "a method added to a class whose object the program holds, and called")]
+    [DataRow(new[] { "C|InsertAfter|Option Explicit|Option Compare Text", "C|InsertAfter|End Property|\\nPublic Function Same() As Boolean\\n    Same = (\"a\" = \"A\")\\nEnd Function",
+        "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:same=\" & Obj.Same" }, new[] { "other:same=True" },
+        DisplayName = "Option Compare Text added to a module the program is not in, and a comparison it makes")]
+    [DataRow(new[] { "Program|Replace|Private Const OtherK|Private Const OtherK As Long = 2" }, new[] { "other:1 obj=10 k=2 ub=3" },
+        DisplayName = "a Const revalued that only a procedure the program is not in reads")]
+    [DataRow(new[] { "Program|Replace|Public Sub Other()|Public Sub Other(Optional ByVal q As Long = 4)", "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:q=\" & q" },
+        new[] { "other:q=4" }, DisplayName = "the signature of a procedure the program is not in, and the parameter it gained")]
+    [DataRow(new[] { "Program|InsertAfter|Debug.Print \"other:1|End Sub\\n\\nPublic Sub Added()\\n    Debug.Print \"added\"", "Program|Replace|Debug.Print \"other:1|    Added" },
+        new[] { "added" }, DisplayName = "a procedure added, and called")]
     [DataRow(new[] { "Program|Replace|Private Declare PtrSafe|Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As LongPtr" }, null,
-        DisplayName = "a Declare changed")]
-    [DataRow(new[] { "Program|InsertBefore|Private Declare PtrSafe|Option Compare Text" }, null, DisplayName = "an Option added")]
-    [DataRow(new[] { "C|InsertAfter|End Property|\\nPublic Sub Extra()\\nEnd Sub" }, null, DisplayName = "a method added to a class whose object the program holds")]
-    public async Task AnEditMsVbaResetsFor_ThatCanBeAppliedCorrectly_IsApplied(string[] edits, string[]? expected)
+        DisplayName = "a Declare changed (not called: its library is the machine's)")]
+    public async Task AnEditMsVbaResetsFor_ThatCanBeAppliedCorrectly_IsApplied(string[] edits, string[]? other)
     {
         var resumed = await EditedAtTheStopAsync(edits);
 
         Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
-        CollectionAssert.AreEqual(expected ?? AsItWas, Output(resumed));
+        CollectionAssert.AreEqual(other is null ? AsItWas : OtherPrints(other), Output(resumed));
     }
 
-    // what can't be applied correctly: the program waits as it was, and picks the edit up when it is run again.
+    // declarations added at the top of the module, above the procedures the program is in, and used: applied once the lines of an active procedure follow the edit.
+    [TestMethod]
+    [Ignore(LinesMoved)]
+    [DataRow(new[] { "Program|InsertAfter|Public H As Long|Public J As Long", "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:j=\" & J" }, new[] { "other:j=0" },
+        DisplayName = "a Public module variable added, and read")]
+    [DataRow(new[] { "Program|Delete|Public H As Long" }, null, DisplayName = "a module variable nothing uses removed")]
+    [DataRow(new[] { "Program|InsertAfter|Private Const K |Private Const K2 As Long = 2", "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:k2=\" & K2" },
+        new[] { "other:k2=2" }, DisplayName = "a Const added, and read")]
+    [DataRow(new[] { "Program|InsertAfter|End Type|Public Type T2\\n    Y As Long\\nEnd Type",
+        "Program|Replace|Debug.Print \"other:1|    Dim t2 As T2: t2.Y = 4: Debug.Print \"other:y=\" & t2.Y" }, new[] { "other:y=4" },
+        DisplayName = "a Type added, and used")]
+    [DataRow(new[] { "Program|InsertAfter|End Enum|Public Enum E2\\n    F1 = 1\\nEnd Enum", "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:f1=\" & F1" },
+        new[] { "other:f1=1" }, DisplayName = "an Enum added, and read")]
+    [DataRow(new[] { "Program|InsertAfter|E1 = 1|    E2m = 2", "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:e2m=\" & E2m" }, new[] { "other:e2m=2" },
+        DisplayName = "an Enum member added, and read")]
+    public async Task ADeclarationAddedAboveTheProcedureTheProgramIsIn_IsApplied(string[] edits, string[]? other)
+    {
+        var resumed = await EditedAtTheStopAsync(edits);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(other is null ? AsItWas : OtherPrints(other), Output(resumed));
+    }
+
+    // what can't be applied correctly, or is not applied to a program that waits yet: the program waits as it was, and picks the edit up when it is run again.
     [TestMethod]
     [DataRow(new[] { "Program|Replace|Dim a As Long|    Dim a As Integer" }, "a local of a procedure the program is in, given another type",
         DisplayName = "a local of a procedure the program is in, retyped")]
     [DataRow(new[] { "Program|Replace|Public G As Long|Public G As Integer" }, "a variable or a field that holds a value", DisplayName = "a module variable that holds a value, retyped")]
-    [DataRow(new[] { "Program|InsertAfter|    X As Long|    Z As Long" }, "a variable or a field that holds a value", DisplayName = "a field added to a Type a local holds")]
+    [DataRow(new[] { "Program|Replace|    X As Long|    X As Integer" }, "a variable or a field that holds a value", DisplayName = "a field of a Type a local holds, retyped")]
     [DataRow(new[] { "Program|Replace|Public Sub Callee(ByVal p As Long)|Public Sub Callee(ByVal p As Long, Optional ByVal q As Long)" },
         "the signature of a procedure the program is in", DisplayName = "the signature of the procedure the program is in")]
     [DataRow(new[] { "Program|Replace|Static S As Long|    Static S As Integer" }, "a variable or a field that holds a value", DisplayName = "a Static retyped")]
     [DataRow(new[] { "Program|Replace|Debug.Print \"other:1|    Debug.Print \"other:1 obj=\" & Undeclared" }, "does not compile",
         DisplayName = "an edit that makes the code not compile")]
-    public async Task AnEditThatCannotBeAppliedCorrectly_IsRefused_AndTheProgramStillWaits(string[] edits, string reason)
+    [DataRow(new[] { "Program|Replace|Private Const N |Private Const N As Long = 5" }, "a constant that sizes what a variable holds",
+        DisplayName = "a Const that sizes an array the program holds, revalued")]
+    [DataRow(new[] { "Program|Replace|Private Const K |Private Const K As Long = 2" }, "a constant a procedure the program is in already read",
+        DisplayName = "a Const a procedure the program is in reads, revalued")]
+    [DataRow(new[] { "Program|Replace|E1 = 1|    E1 = 3" }, "a constant a procedure the program is in already read",
+        DisplayName = "an Enum member a procedure the program is in reads, revalued")]
+    [DataRow(new[] { "Program|InsertBefore|Private Declare PtrSafe|Option Compare Text" }, "an option of the module the program is in",
+        DisplayName = "an Option added to the module the program is in")]
+    [DataRow(new[] { "Program|InsertAfter|    X As Long|    Z As Long" }, "a field added to a Type", DisplayName = "a field added to a Type a local holds")]
+    [DataRow(new[] { "Program|Replace|a = a + 1|    a = a + 5" }, "the code of a procedure the program is in", DisplayName = "the code of the procedure the program is in")]
+    [DataRow(new[] { "Program|Replace|    Callee 5|    Callee 6" }, "the code of a procedure the program is in", DisplayName = "the call a caller is in the middle of")]
+    [DataRow(new[] { "Program|InsertAfter|Private Const K |Private Const K2 As Long = 2" }, "the lines of a procedure the program is in moved",
+        DisplayName = "a line added above the procedures the program is in")]
+    public async Task AnEditThatIsNotApplied_IsRefused_AndTheProgramStillWaits(string[] edits, string reason)
     {
         var resumed = await EditedAtTheStopAsync(edits);
 
@@ -207,22 +263,55 @@ public sealed class EditAndContinueTests
         StringAssert.Contains(resumed.ErrorMessage, reason);
     }
 
-    // the edits of the procedures the program is in, and of their layout: applied in later slices (S2, S3). Each is what MS-VBA does with it, where it goes on.
     [TestMethod]
-    [Ignore("Edit and continue S2: the body of a procedure the program is in, its Pc remapped")]
+    public async Task AnEditOfAPropertyLetTheProgramIsIn_IsSeenAsAnEditOfAProcedureTheProgramIsIn()
+    {
+        // a Property Get, Let and Set share a name and are three procedures: the program waits in the Let.
+        var program = Lines(
+            "Option Explicit",
+            "Private mV As Long",
+            "Public Property Let Value(ByVal v As Long)",
+            "    mV = v",
+            "    Stop",
+            "    Debug.Print \"let:\" & mV",
+            "End Property",
+            "Public Property Get Value() As Long",
+            "    Value = mV",
+            "End Property",
+            "Public Sub Main()",
+            "    Value = 5",
+            "    Debug.Print \"main:\" & Value",
+            "End Sub");
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
+                ("Program", ModuleType.StdModule, program.Replace("\"let:\" & mV", "\"let:EDITED \" & mV", StringComparison.Ordinal)));
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed!.Outcome, string.Join(" | ", resumed.Output));
+        StringAssert.Contains(resumed.ErrorMessage, "Value");
+        StringAssert.Contains(resumed.ErrorMessage, "the code of a procedure the program is in");
+    }
+
+    // the edits of the procedures the program is in, and of their layout: applied once the program follows them. Each is what MS-VBA does with it.
+    [TestMethod]
+    [Ignore("the code of a procedure the program is in is not applied to it yet")]
     [DataRow(new[] { "Program|Replace|a = 10|    a = 20" }, null, DisplayName = "a statement above the yellow line")]
     [DataRow(new[] { "Program|Replace|Debug.Print \"callee:after-stop|    Debug.Print \"callee:after-stop-EDITED a=\" & a" },
-        new[] { "callee:after-stop-EDITED a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10", "main:end" },
+        new[] { "callee:after-stop-EDITED a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
         DisplayName = "the statement after the yellow line")]
     [DataRow(new[] { "Program|Replace|a = a + 1|    a = a + 5" },
-        new[] { "callee:after-stop a=10", "callee:done a=15 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10", "main:end" },
+        new[] { "callee:after-stop a=10", "callee:done a=15 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
         DisplayName = "a statement further down")]
     [DataRow(new[] { "Program|Delete|    Stop" }, null, DisplayName = "the yellow line deleted")]
     [DataRow(new[] { "Program|InsertAfter|    Stop|    Debug.Print \"callee:inserted-below\"" },
-        new[] { "callee:inserted-below", "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10", "main:end" },
+        new[] { "callee:inserted-below", "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
         DisplayName = "a line inserted right below the yellow line")]
     [DataRow(new[] { "Program|Replace|Debug.Print \"main:after|    Debug.Print \"main:after-EDITED G=\" & G & \" K=\" & K & \" obj=\" & Obj.Value" },
-        new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after-EDITED G=2 K=1 obj=10", "other:1 obj=10", "main:end" },
+        new[] { "callee:after-stop a=10", "callee:done a=11 S=1 G=2 E1=1", "main:after-EDITED G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
         DisplayName = "a statement of a caller, below its call")]
     [DataRow(new[] { "Program|Replace|Done:|Done2:", "Program|Replace|GoTo Done|    GoTo Done2" }, null, DisplayName = "a label renamed with its GoTo")]
     public async Task AnEditOfAProcedureTheProgramIsIn_IsApplied_AsMsVbaAppliesIt(string[] edits, string[]? expected)
@@ -234,9 +323,9 @@ public sealed class EditAndContinueTests
     }
 
     [TestMethod]
-    [Ignore("Edit and continue S3: the layout of a frame the program is in, and the fields of live objects")]
+    [Ignore("a local added to or removed from a procedure the program is in, and a field added to an object it holds, are not applied to it yet")]
     [DataRow(new[] { "Program|InsertAfter|Dim tt As T|    Dim b As Long", "Program|Replace|Debug.Print \"callee:after-stop|    b = 7: Debug.Print \"callee:after-stop b=\" & b" },
-        new[] { "callee:after-stop b=7", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10", "main:end" },
+        new[] { "callee:after-stop b=7", "callee:done a=11 S=1 G=2 E1=1", "main:after G=2 K=1 obj=10", "other:1 obj=10 k=1 ub=3", "main:end" },
         DisplayName = "a local added to the procedure the program is in, and used")]
     [DataRow(new[] { "Program|InsertAfter|Public Sub Main()|    Dim m As Long" }, null, DisplayName = "a local added to a caller")]
     [DataRow(new[] { "C|InsertAfter|Private mValue As Long|Private mOther As Long" }, null, DisplayName = "a field added to a class whose object the program holds")]
@@ -256,23 +345,22 @@ public sealed class EditAndContinueTests
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             clean = provider.Execution.EditStatus();
-            _ = await ModuleWorkspace.ReloadAsync(provider, ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule,
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule,
                 Edited(Program, ["Program|Replace|Public Sub Callee(ByVal p As Long)|Public Sub Callee(ByVal p As Long, Optional ByVal q As Long)",
-                    "Program|InsertAfter|Private Const K|Private Const K2 As Long = 2"], "Program")));
+                    "Program|Replace|Private Const OtherK|Private Const OtherK As Long = 2"], "Program")));
             edited = provider.Execution.EditStatus();
         }, debug: true);
 
         Assert.IsTrue(clean!.Suspended);
         Assert.IsEmpty(clean.Edits);
 
-        // the Const added applies, and is not listed; the signature of the procedure the program is in can't be applied.
+        // the Const revalued applies, and is not listed; the signature of the procedure the program is in can't be applied.
         Assert.IsTrue(edited!.Suspended);
         var edit = Assert.ContainsSingle(edited.Edits);
         Assert.AreEqual(("Program.Callee", HostDebugEditKind.Restart), (edit.Name, edit.Kind));
         StringAssert.Contains(edit.Reason, "the signature of a procedure the program is in");
         StringAssert.EndsWith(edit.ModuleUri!.AbsoluteUri, "#Program");
-        Assert.AreEqual(Program.Split("\r\n").ToList().FindIndex(line => line.StartsWith("Public Sub Callee", StringComparison.Ordinal)) + 1,
-            edit.Range!.Value.Start.Line, "where the procedure is now: a line was added above it");
+        Assert.AreEqual(Program.Split("\r\n").ToList().FindIndex(line => line.StartsWith("Public Sub Callee", StringComparison.Ordinal)), edit.Range!.Value.Start.Line);
     }
 
     [TestMethod]
@@ -287,16 +375,5 @@ public sealed class EditAndContinueTests
 
         Assert.IsFalse(status!.Suspended);
         Assert.IsEmpty(status.Edits);
-    }
-
-    [TestMethod]
-    public async Task AnEditOfAProcedureTheProgramIsIn_IsRefusedForNow_NamedSo()
-    {
-        // S1: the program is not resumed on it, and the refusal says that it is the code of a procedure the program is in, which is not applied yet.
-        var resumed = await EditedAtTheStopAsync("Program|Replace|a = a + 1|    a = a + 5");
-
-        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome);
-        StringAssert.Contains(resumed.ErrorMessage, "Callee");
-        StringAssert.Contains(resumed.ErrorMessage, "not applied to a program that waits yet");
     }
 }
