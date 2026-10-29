@@ -1084,6 +1084,45 @@ public sealed class ProgramDebugAdapterTests
         await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
     }
 
+    private static readonly HostDebugEdit CallerDoesNotCompile = new()
+    {
+        Name = "Prog.Caller",
+        Kind = HostDebugEditKind.DoesNotCompile,
+        Reason = "Variable not defined",
+        ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
+        Range = new RDCore.SDK.Model.Source.SourceRange(new(7, 4), new(7, 14)),
+    };
+
+    // what the user is told to do depends on the edits: code that does not compile is corrected to go on; any other edit needs the program run again. The
+    // console line and the refusal say the same.
+    [TestMethod]
+    [DataRow(true, false, nameof(DebuggerMessages.EditsAdviceCorrect), DisplayName = "compile errors only")]
+    [DataRow(false, true, nameof(DebuggerMessages.EditsAdviceRunAgain), DisplayName = "restarts only")]
+    [DataRow(true, true, nameof(DebuggerMessages.EditsAdviceCorrectOrRunAgain), DisplayName = "both")]
+    public async Task TheEditsTheProgramDoesNotHave_AreSaidWithWhatToDoAboutThem(bool uncompiled, bool restart, string adviceKey)
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var edits = new[] { (uncompiled, CallerDoesNotCompile), (restart, CalleeLocalRemoved) }.Where(edit => edit.Item1).Select(edit => edit.Item2).ToArray();
+        Listing(session, edits);
+        var advice = DebuggerMessages.ResourceManager.GetString(adviceKey)!;
+        var others = new[] { DebuggerMessages.EditsAdviceCorrect, DebuggerMessages.EditsAdviceRunAgain, DebuggerMessages.EditsAdviceCorrectOrRunAgain }.Where(text => text != advice);
+
+        await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        var said = await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.Console);
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
+
+        foreach (var text in new[] { said.Output, refusal.Message })
+        {
+            StringAssert.Contains(text, advice);
+            Assert.IsFalse(others.Any(other => text.Contains(other, StringComparison.Ordinal)), $"one advice only: {text}");
+            foreach (var edit in edits)
+            {
+                StringAssert.Contains(text, $"{edit.Name}: {edit.Reason}");
+            }
+        }
+    }
+
     // the program goes on with the edits loaded while it waited: where it was, and what it held, may not be what the client shows.
     [TestMethod]
     public async Task GoingOnAfterAnEditWasLoaded_SaysTheFramesAndTheVariablesAreNotWhatTheyWere()

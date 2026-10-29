@@ -141,7 +141,7 @@ internal sealed class ProgramDebugAdapter(
         {
             if (previous.Edits.Length == 0 && current.Edits.Length > 0)
             {
-                Say(string.Format(DebuggerMessages.EditsNotApplied, Listed(current.Edits)) + "\n", OutputEventCategory.Console);
+                Say(Told(DebuggerMessages.EditsNotApplied, current.Edits) + "\n", OutputEventCategory.Console);
             }
         };
         editStatus.LoadedWhileSuspended += () =>
@@ -381,7 +381,7 @@ internal sealed class ProgramDebugAdapter(
             await editStatus.CheckAsync(token);
             if (editStatus.Current.Edits is { Length: > 0 } edits)
             {
-                Refuse(string.Format(DebuggerMessages.ResumeRefusedForEdits, Listed(edits)));
+                Refuse(Told(DebuggerMessages.ResumeRefusedForEdits, edits));
             }
 
             // where the program next waits is told as not what the client showed of it before, when the code it goes on with is not the code it waited in.
@@ -424,6 +424,19 @@ internal sealed class ProgramDebugAdapter(
     {
         Say(refused + "\n", OutputEventCategory.StandardError);
         throw Refusal(refused);
+    }
+
+    // the edits the program does not have, then what the user does about them: code that does not compile is corrected, and the program goes on; any other edit is
+    // picked up when the program is run again.
+    private static string Told(string format, IReadOnlyCollection<HostDebugEdit> edits)
+    {
+        var uncompiled = edits.Count(edit => edit.Kind == HostDebugEditKind.DoesNotCompile);
+        var advice = uncompiled == 0
+            ? DebuggerMessages.EditsAdviceRunAgain
+            : uncompiled == edits.Count
+                ? DebuggerMessages.EditsAdviceCorrect
+                : DebuggerMessages.EditsAdviceCorrectOrRunAgain;
+        return string.Format(format, Listed(edits), advice);
     }
 
     // each edit on a line of its own, as the user names it, and why.

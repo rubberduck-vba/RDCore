@@ -118,12 +118,23 @@
     <value>Le programme n'est pas interrompu sur une erreur.</value>
   </data>
   <data name="EditsNotApplied" xml:space="preserve">
-    <value>Non appliquées au programme interrompu, qui en tiendra compte à sa prochaine exécution :
-{0}</value>
+    <value>Non appliquées au programme interrompu :
+{0}
+{1}</value>
   </data>
   <data name="ResumeRefusedForEdits" xml:space="preserve">
-    <value>Le programme ne peut pas continuer avec les modifications faites pendant son interruption ; exécutez-le de nouveau pour en tenir compte :
-{0}</value>
+    <value>Le programme ne peut pas continuer avec les modifications faites pendant son interruption :
+{0}
+{1}</value>
+  </data>
+  <data name="EditsAdviceRunAgain" xml:space="preserve">
+    <value>Exécutez le programme de nouveau pour en tenir compte.</value>
+  </data>
+  <data name="EditsAdviceCorrect" xml:space="preserve">
+    <value>Corrigez le code pour continuer.</value>
+  </data>
+  <data name="EditsAdviceCorrectOrRunAgain" xml:space="preserve">
+    <value>Corrigez le code qui ne compile pas ; exécutez le programme de nouveau pour le reste.</value>
   </data>
   <data name="EditNamed" xml:space="preserve">
     <value>{0} : {1}</value>

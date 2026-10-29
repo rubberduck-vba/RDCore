@@ -118,12 +118,23 @@
     <value>The program does not wait at an error.</value>
   </data>
   <data name="EditsNotApplied" xml:space="preserve">
-    <value>Not applied to the program that waits, which picks them up when it is run again:
-{0}</value>
+    <value>Not applied to the program that waits:
+{0}
+{1}</value>
   </data>
   <data name="ResumeRefusedForEdits" xml:space="preserve">
-    <value>The program can't go on with the edits made while it waits; run it again to pick them up:
-{0}</value>
+    <value>The program can't go on with the edits made while it waits:
+{0}
+{1}</value>
+  </data>
+  <data name="EditsAdviceRunAgain" xml:space="preserve">
+    <value>Run the program again to pick them up.</value>
+  </data>
+  <data name="EditsAdviceCorrect" xml:space="preserve">
+    <value>Correct the code to go on.</value>
+  </data>
+  <data name="EditsAdviceCorrectOrRunAgain" xml:space="preserve">
+    <value>Correct the code that does not compile; run the program again for the rest.</value>
   </data>
   <data name="EditNamed" xml:space="preserve">
     <value>{0}: {1}</value>
