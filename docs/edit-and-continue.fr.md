@@ -73,9 +73,10 @@ pour l'avoir.
 
 ### Dans l'éditeur
 
-Dès que vous faites une modification qui ne s'appliquera pas, l'éditeur affiche une information sur la déclaration ou la procédure modifiée :
-[**RDC20001** Modification appliquée à la prochaine exécution du programme](diagnostics/rdc20001.md) (en anglais). Elle dit pourquoi, et disparaît quand
-vous annulez la modification, ou quand le programme se termine.
+Dès que vous faites une modification qui ne s'appliquera pas, l'éditeur affiche une information :
+[**RDC20001** Modification appliquée à la prochaine exécution du programme](diagnostics/rdc20001.md) (en anglais). Elle se trouve sur la déclaration ou la
+procédure modifiée, là où elle est maintenant, ou, quand le code ne compile plus, là où il ne compile pas. Elle dit pourquoi, et disparaît quand vous annulez
+la modification, ou quand le programme se termine.
 
 ### Dans le REPL
 
