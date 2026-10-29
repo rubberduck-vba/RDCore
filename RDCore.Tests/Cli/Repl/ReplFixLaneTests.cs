@@ -149,13 +149,16 @@ public sealed class ReplFixLaneTests
     [TestMethod]
     public async Task AFindingIsAskedForOnceTheProgramWasLeftAlone_AndNotForEveryLineOfAPastedOne()
     {
-        var diagnostics = new ReplDiagnostics { Idle = TimeSpan.FromMilliseconds(80) };
+        // the program is left alone when the test says so: each edit drops the wait of the one before, and the last is the one that asks.
+        var leftAlone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var diagnostics = new ReplDiagnostics { Delay = (_, token) => leftAlone.Task.WaitAsync(token) };
         ServerFinds(Finding(0));
 
         diagnostics.RefreshWhenIdle(_context);
         diagnostics.RefreshWhenIdle(_context);
         diagnostics.RefreshWhenIdle(_context);
-        await Task.Delay(500);
+        leftAlone.SetResult();
+        await diagnostics.Pending.WaitAsync(TimeSpan.FromSeconds(20));
 
         await _platform.Received(1).PullDiagnosticReportAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         Assert.HasCount(1, diagnostics.Items);
