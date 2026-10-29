@@ -66,7 +66,7 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
             _fields.Add(field);
         }
 
-        // a field of a scalar type (or a Variant holding one) is held as a payload, as a local is (IR lowering S1.4c, Frames.CallStackFrame.CellFor): what
+        // a field of a scalar type (or a Variant holding one) is held as a payload, as a local is (Frames.CallStackFrame.CellFor): what
         // the code of the class evaluates its fields on.
         _ = _addresses.TryAllocate(field, value.Size, Frames.CallStackFrame.CellFor(value), out _);
     }
