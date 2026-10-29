@@ -73,7 +73,10 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
         }
 
         var memberName = memberAccess.Member.IdentifierName;
-        var found = CurrentMembersOf(context, ownerType).FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
+        // MS-VBAL §5.6.2.1: a property is evaluated as a data value through its Property Get, which a Property Let or Set of the same name declared before it
+        // is not.
+        var named = CurrentMembersOf(context, ownerType).Where(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var found = named.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() ?? named.FirstOrDefault();
         if (found is not null)
         {
             return StaticSemanticsEvaluationResult.Success(found.ResolvedType);
