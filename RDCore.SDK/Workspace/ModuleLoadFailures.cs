@@ -8,7 +8,8 @@ namespace RDCore.SDK.Workspace;
 /// sends a module to load again at every edit - is not reported again, and one that loads after it failed is reported once to load again.
 /// </summary>
 /// <remarks>
-/// A module is known by its name, without regard to case; a failure, by its errors in the order they were reported. Each component that loads modules and logs
+/// A module is known by the key its component gives it, without regard to case - the language server keys a module by its address, and a shell's program
+/// apart from the module of the workspace that has its name; a failure, by its errors in the order they were reported. Each component that loads modules and logs
 /// their failures - the environment host, the language server that sends them - keeps one of these for each session it loads them in, so that a session
 /// composed anew reports each failure again.
 /// </remarks>
@@ -19,7 +20,7 @@ public sealed class ModuleLoadFailures
     /// <summary>
     /// Records what a load of <paramref name="module"/> ended with, and says what of it is news.
     /// </summary>
-    /// <param name="module">The name of the module.</param>
+    /// <param name="module">The key of the module.</param>
     /// <param name="errors">What the load failed with; empty when the module loaded.</param>
     public ModuleLoadChange Record(string module, IReadOnlyList<string> errors)
     {
