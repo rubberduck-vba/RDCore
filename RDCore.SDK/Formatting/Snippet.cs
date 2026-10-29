@@ -67,6 +67,15 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     /// <summary>Whether the snippet is more than one line.</summary>
     public bool IsMultiline => Text.Contains('\n') || Text.Contains('\r');
 
+    [ThreadStatic]
+    private static long t_steps;
+
+    /// <summary>
+    /// The work the last <see cref="TryParse"/> of this thread did: each character the reading moved past, as many times as it was read, each node it walked,
+    /// and each character it wrote. What a guard of the parse's work counts, where a clock would count the machine.
+    /// </summary>
+    internal static long StepsOfLastParse => t_steps;
+
     /// <summary>
     /// The text and the tab stops of a snippet.
     /// </summary>
@@ -97,6 +106,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     {
         ArgumentNullException.ThrowIfNull(snippet);
         parsed = null;
+        t_steps = 0;
 
         // a snippet longer than one to insert, or with more placeholders in one another than one has, is not read: nothing larger than it is walked.
         if (snippet.Length > MostText || new Reader(snippet).ReadAll() is not { } nodes)
@@ -138,6 +148,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     {
         foreach (var node in nodes)
         {
+            t_steps++;
             switch (node)
             {
                 case StopNode { Content: { } content } stop:
@@ -163,6 +174,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
     {
         foreach (var node in nodes)
         {
+            t_steps++;
             switch (node)
             {
                 case StopNode stop:
@@ -205,9 +217,11 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         {
             foreach (var node in nodes)
             {
+                t_steps++;
                 switch (node)
                 {
                     case TextNode plain:
+                        t_steps += plain.Text.Length;
                         text.Append(plain.Text);
                         break;
                     case StopNode stop:
@@ -230,6 +244,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                         var value = ValueOf(variable.Name, variables);
                         if (value is { Length: > 0 })
                         {
+                            t_steps += value.Length;
                             text.Append(value);
                         }
                         else if (variable.Default is { } fallback)
@@ -246,6 +261,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                                 stops.Add(new SnippetTabStop(index, text.Length, variable.Name.Length, parent));
                             }
 
+                            t_steps += variable.Name.Length;
                             text.Append(variable.Name);
                         }
 
@@ -280,22 +296,37 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         private readonly List<Node> _root = [];
         private int _position;
 
+        // where the reading is: each character it moves past is a step of the parse (StepsOfLastParse), as many times as it is read.
+        private int Position
+        {
+            get => _position;
+            set
+            {
+                if (value > _position)
+                {
+                    t_steps += value - _position;
+                }
+
+                _position = value;
+            }
+        }
+
         private List<Node> Current => _open.Count > 0 ? _open.Peek().Nodes : _root;
 
         // nothing when the snippet has more placeholders or defaults open in one another than a snippet has (MostNested).
         public IReadOnlyList<Node>? ReadAll()
         {
-            while (_position < snippet.Length)
+            while (Position < snippet.Length)
             {
-                var character = snippet[_position];
-                if (character == '\\' && _position + 1 < snippet.Length && snippet[_position + 1] is '$' or '}' or '\\')
+                var character = snippet[Position];
+                if (character == '\\' && Position + 1 < snippet.Length && snippet[Position + 1] is '$' or '}' or '\\')
                 {
-                    Current.Add(new TextNode(snippet[_position + 1].ToString()));
-                    _position += 2;
+                    Current.Add(new TextNode(snippet[Position + 1].ToString()));
+                    Position += 2;
                 }
                 else if (character == '}' && _open.Count > 0)
                 {
-                    _position++;
+                    Position++;
                     var closed = _open.Pop();
                     Current.Add(closed.Index is { } index ? new StopNode(index, Merged(closed.Nodes)) : new VariableNode(closed.Name!, Merged(closed.Nodes)));
                 }
@@ -306,13 +337,14 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                 else if (character != '$' || !TryReadDollar())
                 {
                     Current.Add(new TextNode(character.ToString()));
-                    _position++;
+                    Position++;
                 }
             }
 
             while (_open.Count > 0)
             {
                 var unclosed = _open.Pop();
+                t_steps += unclosed.Nodes.Count;
                 Current.Add(new TextNode(snippet[unclosed.Start..unclosed.Content]));
                 Current.AddRange(unclosed.Nodes);
             }
@@ -323,8 +355,8 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         // a construct at the '$': read, or opened; false, with nothing taken, when what follows the '$' is none.
         private bool TryReadDollar()
         {
-            var start = _position;
-            _position++;
+            var start = Position;
+            Position++;
             if (At(char.IsAsciiDigit))
             {
                 if (ReadNumber() is { } index)
@@ -346,7 +378,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                 }
             }
 
-            _position = start;
+            Position = start;
             return false;
         }
 
@@ -365,7 +397,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
 
             if (Next(':'))
             {
-                _open.Push(new Open(start, _position, index, null));
+                _open.Push(new Open(start, Position, index, null));
                 return true;
             }
 
@@ -401,7 +433,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
 
             if (Next(':'))
             {
-                _open.Push(new Open(start, _position, null, name));
+                _open.Push(new Open(start, Position, null, name));
                 return true;
             }
 
@@ -418,8 +450,8 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         // transform is read through no further, and the snippet in no more time than its length.
         private bool SkipTransform()
         {
-            _position++;
-            _transformEnd = Math.Min(snippet.Length, _position + MostTransform);
+            Position++;
+            _transformEnd = Math.Min(snippet.Length, Position + MostTransform);
             if (!SkipTo('/') || !SkipFormatTo('/'))
             {
                 return false;
@@ -427,7 +459,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
 
             while (At(char.IsAsciiLetter))
             {
-                _position++;
+                Position++;
             }
 
             return Next('}');
@@ -438,15 +470,15 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
 
         private bool SkipTo(char end)
         {
-            while (_position < _transformEnd)
+            while (Position < _transformEnd)
             {
-                if (snippet[_position] == '\\' && _position + 1 < snippet.Length)
+                if (snippet[Position] == '\\' && Position + 1 < snippet.Length)
                 {
-                    _position += 2;
+                    Position += 2;
                     continue;
                 }
 
-                if (snippet[_position++] == end)
+                if (snippet[Position++] == end)
                 {
                     return true;
                 }
@@ -459,19 +491,19 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         private bool SkipFormatTo(char end)
         {
             var depth = 0;
-            while (_position < _transformEnd)
+            while (Position < _transformEnd)
             {
-                var character = snippet[_position];
-                if (character == '\\' && _position + 1 < snippet.Length)
+                var character = snippet[Position];
+                if (character == '\\' && Position + 1 < snippet.Length)
                 {
-                    _position += 2;
+                    Position += 2;
                     continue;
                 }
 
-                _position++;
+                Position++;
                 if (character == '$' && At('{'))
                 {
-                    _position++;
+                    Position++;
                     depth++;
                 }
                 else if (character == '}' && depth > 0)
@@ -491,19 +523,19 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         private string? ReadChoice()
         {
             var options = new List<StringBuilder> { new() };
-            while (_position < snippet.Length)
+            while (Position < snippet.Length)
             {
-                var character = snippet[_position];
-                if (character == '\\' && _position + 1 < snippet.Length && snippet[_position + 1] is '$' or '}' or '\\' or ',' or '|')
+                var character = snippet[Position];
+                if (character == '\\' && Position + 1 < snippet.Length && snippet[Position + 1] is '$' or '}' or '\\' or ',' or '|')
                 {
-                    options[^1].Append(snippet[_position + 1]);
-                    _position += 2;
+                    options[^1].Append(snippet[Position + 1]);
+                    Position += 2;
                     continue;
                 }
 
                 if (character == '|')
                 {
-                    _position++;
+                    Position++;
                     return Next('}') ? options[0].ToString() : null;
                 }
 
@@ -516,21 +548,21 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
                     options[^1].Append(character);
                 }
 
-                _position++;
+                Position++;
             }
 
             return null;
         }
 
-        private bool At(Func<char, bool> test) => _position < snippet.Length && test(snippet[_position]);
+        private bool At(Func<char, bool> test) => Position < snippet.Length && test(snippet[Position]);
 
-        private bool At(char character) => _position < snippet.Length && snippet[_position] == character;
+        private bool At(char character) => Position < snippet.Length && snippet[Position] == character;
 
         private bool Next(char character)
         {
             if (At(character))
             {
-                _position++;
+                Position++;
                 return true;
             }
 
@@ -540,26 +572,26 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
         // the digits at the position, as a number; nothing for one larger than a tab stop's number can be, which is text.
         private int? ReadNumber()
         {
-            var start = _position;
+            var start = Position;
             while (At(char.IsAsciiDigit))
             {
-                _position++;
+                Position++;
             }
 
-            return int.TryParse(snippet.AsSpan(start, _position - start), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
+            return int.TryParse(snippet.AsSpan(start, Position - start), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
                 ? number
                 : null;
         }
 
         private string ReadName()
         {
-            var start = _position;
+            var start = Position;
             while (At(character => char.IsAsciiLetterOrDigit(character) || character == '_'))
             {
-                _position++;
+                Position++;
             }
 
-            return snippet[start.._position];
+            return snippet[start..Position];
         }
 
         private static bool IsNameStart(char character) => char.IsAsciiLetter(character) || character == '_';
@@ -571,6 +603,7 @@ public sealed record class Snippet(string Text, IReadOnlyList<SnippetTabStop> Ta
             var run = new StringBuilder();
             foreach (var node in nodes)
             {
+                t_steps++;
                 if (node is TextNode text)
                 {
                     run.Append(text.Text);
