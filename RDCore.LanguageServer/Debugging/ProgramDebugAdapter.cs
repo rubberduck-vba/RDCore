@@ -43,6 +43,7 @@ internal sealed class ProgramDebugAdapter(
     IDebugWorkspace workspace,
     IProgramDebugService debugging,
     IHostOutputRelay output,
+    IEditStatusMonitor editStatus,
     ILogger<ProgramDebugAdapter> logger) :
     ILaunchHandler<ProgramLaunchRequestArguments>,
     IConfigurationDoneHandler,
@@ -105,6 +106,10 @@ internal sealed class ProgramDebugAdapter(
     private ExecuteSessionResult? _stoppedError;
     private ErrorBreakMode _errorBreak;
 
+    // an edit was loaded while the program waited, which it goes on with; and whether the client is told that what it shows of where the program was is not so.
+    private bool _editedWhileWaiting;
+    private bool _invalidatedSupported;
+
     private sealed record VariableScope(int Frame, HostVariableScope Scope, int Reference);
 
     /// <summary>Completes when the client has disconnected, or the adapter has nothing left to debug.</summary>
@@ -126,6 +131,23 @@ internal sealed class ProgramDebugAdapter(
                 Say(line + "\n", OutputEventCategory.StandardOutput);
             }
         };
+
+        // an edit the program that waits does not have is said as soon as there is one, which is as close to the edit as the client can be told: once, until the
+        // program has every edit again.
+        editStatus.Changed += (previous, current) =>
+        {
+            if (previous.Edits.Length == 0 && current.Edits.Length > 0)
+            {
+                Say(string.Format(DebuggerMessages.EditsNotApplied, Listed(current.Edits)) + "\n", OutputEventCategory.Console);
+            }
+        };
+        editStatus.LoadedWhileSuspended += () =>
+        {
+            lock (_sync)
+            {
+                _editedWhileWaiting = true;
+            }
+        };
     }
 
     /// <summary>
@@ -136,6 +158,7 @@ internal sealed class ProgramDebugAdapter(
     {
         _linesStartAt1 = request.LinesStartAt1;
         _columnsStartAt1 = request.ColumnsStartAt1;
+        _invalidatedSupported = request.SupportsInvalidatedEvent;
     }
 
     /// <summary>
@@ -318,29 +341,61 @@ internal sealed class ProgramDebugAdapter(
 
     // ---- running ----
 
-    public Task<ContinueResponse> Handle(ContinueArguments request, CancellationToken cancellationToken)
+    public async Task<ContinueResponse> Handle(ContinueArguments request, CancellationToken cancellationToken)
     {
-        Resume(step: null);
-        return Task.FromResult(new ContinueResponse { AllThreadsContinued = true });
+        await ResumeAsync(step: null, cancellationToken);
+        return new ContinueResponse { AllThreadsContinued = true };
     }
 
-    public Task<NextResponse> Handle(NextArguments request, CancellationToken cancellationToken)
+    public async Task<NextResponse> Handle(NextArguments request, CancellationToken cancellationToken)
     {
-        Resume(StepKind.Over);
-        return Task.FromResult(new NextResponse());
+        await ResumeAsync(StepKind.Over, cancellationToken);
+        return new NextResponse();
     }
 
-    public Task<StepInResponse> Handle(StepInArguments request, CancellationToken cancellationToken)
+    public async Task<StepInResponse> Handle(StepInArguments request, CancellationToken cancellationToken)
     {
-        Resume(StepKind.Into);
-        return Task.FromResult(new StepInResponse());
+        await ResumeAsync(StepKind.Into, cancellationToken);
+        return new StepInResponse();
     }
 
-    public Task<StepOutResponse> Handle(StepOutArguments request, CancellationToken cancellationToken)
+    public async Task<StepOutResponse> Handle(StepOutArguments request, CancellationToken cancellationToken)
     {
-        Resume(StepKind.Out);
-        return Task.FromResult(new StepOutResponse());
+        await ResumeAsync(StepKind.Out, cancellationToken);
+        return new StepOutResponse();
     }
+
+    // a program that waits with edits it does not have is not asked to go on: the client is refused, and told which, and the program waits still. One that has
+    // every edit made goes on with them, and what the client shows of where it was - its frames, its variables - may not be what it is: it is told so.
+    private async Task ResumeAsync(StepKind? step, CancellationToken token)
+    {
+        await editStatus.CheckAsync(token);
+        if (editStatus.Current.Edits is { Length: > 0 } edits)
+        {
+            var refused = string.Format(DebuggerMessages.ResumeRefusedForEdits, Listed(edits));
+            Say(refused + "\n", OutputEventCategory.StandardError);
+            throw Refusal(refused);
+        }
+
+        bool edited;
+        lock (_sync)
+        {
+            (edited, _editedWhileWaiting) = (_editedWhileWaiting, false);
+        }
+
+        Resume(step);
+        if (edited && _invalidatedSupported)
+        {
+            _server!.SendInvalidated(new InvalidatedEvent
+            {
+                Areas = new Container<InvalidatedAreas>(InvalidatedAreas.Stacks, InvalidatedAreas.Variables),
+                ThreadId = ThreadId,
+            });
+        }
+    }
+
+    // each edit on a line of its own, as the user names it, and why.
+    private static string Listed(IEnumerable<HostDebugEdit> edits) => string.Join("\n", edits.Select(edit => $"  {edit.Name}: {edit.Reason}"));
 
     public async Task<PauseResponse> Handle(PauseArguments request, CancellationToken cancellationToken)
     {
@@ -416,6 +471,9 @@ internal sealed class ProgramDebugAdapter(
                 await TerminateAsync(exitCode: 1);
                 break;
         }
+
+        // the program waits elsewhere, or is over: what it does not have of the edits is not what it was.
+        await editStatus.CheckAsync(_lifetime.Token);
     }
 
     private static string Describe(ExecuteSessionResult result) => result.Outcome switch
@@ -691,6 +749,9 @@ internal sealed class ProgramDebugAdapter(
     public async Task<TerminateResponse> Handle(TerminateArguments request, CancellationToken cancellationToken)
     {
         _ = await debugging.TerminateAsync(wipe: true, cancellationToken);
+
+        // a program that is over has no edits it does not have.
+        await editStatus.CheckAsync(cancellationToken);
         await TerminateAsync(exitCode: 0);
         return new TerminateResponse();
     }

@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.LanguageServer.Debugging;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services;
@@ -11,13 +12,22 @@ namespace RDCore.LanguageServer.Runtime;
 /// Handles <c>rdcore/session/debug/resume</c>: relays a client's request to go on with the program it ran under a debugger to the component that owns the runtime
 /// session, and answers what that answers - where the program waits next, or how it ended.
 /// </summary>
-internal sealed class SessionDebugResumeHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+/// <remarks>
+/// The program is checked against the edits made while it waited, which the host has once the workspace is loaded as the documents are now: the request is
+/// relayed then (<see cref="IDocumentLifecycleService.WhenAllLoadedAsync"/>), lest a module the edit changed be checked against what the others were. Once it is
+/// answered - the program went on, is over, or was refused - what it does not have of the edits is asked again.
+/// </remarks>
+internal sealed class SessionDebugResumeHandler(
+    IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus, IDocumentLifecycleService lifecycle)
     : RDCoreRequestHandler<SessionDebugResumeParams, ExecuteSessionResult>
 {
-    protected override Task<ExecuteSessionResult> HandleAsync(SessionDebugResumeParams request, CancellationToken token)
+    protected override async Task<ExecuteSessionResult> HandleAsync(SessionDebugResumeParams request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
-        return debugging.ResumeAsync(request.Step, token);
+        await lifecycle.WhenAllLoadedAsync(token);
+        var result = await debugging.ResumeAsync(request.Step, token);
+        await editStatus.CheckAsync(token);
+        return result;
     }
 }
 
@@ -37,39 +47,56 @@ internal sealed class SessionDebugPauseHandler(IProgramDebugService debugging, I
 /// <summary>
 /// Handles <c>rdcore/session/debug/goto</c>: relays a client's request to move the point the program that waits goes on from.
 /// </summary>
-internal sealed class SessionDebugGotoHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+/// <remarks>
+/// A point moved to applies the edits made while the program waited, as going on does: the request is relayed once the workspace is loaded as the documents are
+/// now, and what the program does not have of the edits is asked again once it is answered.
+/// </remarks>
+internal sealed class SessionDebugGotoHandler(
+    IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus, IDocumentLifecycleService lifecycle)
     : RDCoreRequestHandler<SessionDebugGotoParams, HostDebugGotoResult>
 {
-    protected override Task<HostDebugGotoResult> HandleAsync(SessionDebugGotoParams request, CancellationToken token)
+    protected override async Task<HostDebugGotoResult> HandleAsync(SessionDebugGotoParams request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
-        return debugging.GotoAsync(request.Line, request.Label, token);
+        await lifecycle.WhenAllLoadedAsync(token);
+        var result = await debugging.GotoAsync(request.Line, request.Label, token);
+        await editStatus.CheckAsync(token);
+        return result;
     }
 }
 
 /// <summary>
 /// Handles <c>rdcore/session/debug/editStatus</c>: relays a client's question of which edits made while the program waits are not applied to it.
 /// </summary>
-internal sealed class SessionDebugEditStatusHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+/// <remarks>
+/// The edits are those of the workspace loaded as the documents are now, which the question waits for; what the host answers is what the diagnostics of the
+/// edited modules are of, too (<see cref="IEditStatusMonitor"/>).
+/// </remarks>
+internal sealed class SessionDebugEditStatusHandler(IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus, IDocumentLifecycleService lifecycle)
     : RDCoreRequestHandler<SessionDebugEditStatusParams, HostDebugEditStatusResult>
 {
-    protected override Task<HostDebugEditStatusResult> HandleAsync(SessionDebugEditStatusParams request, CancellationToken token)
+    protected override async Task<HostDebugEditStatusResult> HandleAsync(SessionDebugEditStatusParams request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
-        return debugging.EditStatusAsync(token);
+        await lifecycle.WhenAllLoadedAsync(token);
+        await editStatus.CheckAsync(token);
+        return editStatus.Current;
     }
 }
 
 /// <summary>
 /// Handles <c>rdcore/session/debug/terminate</c>: relays a client's request to end the program that is running or waits.
 /// </summary>
-internal sealed class SessionDebugTerminateHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+/// <remarks>A program that is over has no edits it does not have: what is said of them is cleared once it is answered.</remarks>
+internal sealed class SessionDebugTerminateHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus)
     : RDCoreRequestHandler<SessionDebugTerminateParams, HostDebugAck>
 {
-    protected override Task<HostDebugAck> HandleAsync(SessionDebugTerminateParams request, CancellationToken token)
+    protected override async Task<HostDebugAck> HandleAsync(SessionDebugTerminateParams request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
-        return debugging.TerminateAsync(request.Wipe, token);
+        var result = await debugging.TerminateAsync(request.Wipe, token);
+        await editStatus.CheckAsync(token);
+        return result;
     }
 }
 

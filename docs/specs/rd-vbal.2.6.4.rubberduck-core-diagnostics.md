@@ -72,6 +72,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11017`](../diagnostics/rdc11017.md)|Like pattern MS-VBA matches otherwise than specified|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.LikePatternHasEmptyCharList` and `LikePatternIsInvalid` of the `ComparisonOperatorFact`s|
 |[`RDC11020`](../diagnostics/rdc11020.md)|Variant String that is no number, compared with a number|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked` of the `ComparisonOperatorFact`s|
 |[`RDC11023`](../diagnostics/rdc11023.md)|Procedure MS-VBA refuses as too large|Warning|the syntax tree: the statements of a procedure|
+|[`RDC20001`](../diagnostics/rdc20001.md)|Edit that applies when the program is run again|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same
 extension, from the same model. Likewise, a run-time error that evaluating the code finds an instruction raises *whenever it runs* (`RuntimeFacts.Errors`) is reported

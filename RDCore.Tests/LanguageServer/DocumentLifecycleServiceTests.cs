@@ -355,6 +355,87 @@ public sealed class DocumentLifecycleServiceTests
         await synced.WaitAsync(Patience);
     }
 
+    // a program that waits is checked against the whole workspace as the documents are: the module edited is loaded first, and the others are defined again
+    // against what it declares after it - which is waited for too, the refresh that waits for more edits started at once.
+    [TestMethod]
+    public async Task TheWorkspaceLoaded_IsWaitedFor_UntilTheOthersAreDefinedAgainstTheEdit()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, Declares, 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (syncing, release) = (new TaskCompletionSource(), new TaskCompletionSource());
+        SyncingTheWorkspace(async _ =>
+        {
+            syncing.TrySetResult();
+            await release.Task;
+        });
+
+        _ = sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
+        var loaded = sut.WhenAllLoadedAsync(CancellationToken.None);
+        await syncing.Task.WaitAsync(Patience);
+
+        Assert.IsFalse(loaded.IsCompleted, "the others are being defined again against what the module declares now");
+        release.SetResult();
+        await loaded.WaitAsync(Patience);
+    }
+
+    // a newer edit's load supersedes the one waited for, and the wait goes on to it.
+    [TestMethod]
+    public async Task TheWorkspaceLoaded_IsWaitedFor_AsANewerEditHasItLoaded()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, Declares, 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (syncing, release) = (new[] { new TaskCompletionSource(), new TaskCompletionSource() }, new[] { new TaskCompletionSource(), new TaskCompletionSource() });
+        SyncingTheWorkspace(async call =>
+        {
+            syncing[call - 1].TrySetResult();
+            await release[call - 1].Task;
+        });
+
+        _ = sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
+        var loaded = sut.WhenAllLoadedAsync(CancellationToken.None);
+        await syncing[0].Task.WaitAsync(Patience);
+        var first = sut.WhenRefreshedAsync(Mod1);
+        _ = sut.Changed(Mod1, 3, [Full(Declares.Replace("Foo", "Baz"))]);
+        _ = sut.WhenAllSyncedAsync(CancellationToken.None);
+        release[0].SetResult();
+        await first.WaitAsync(Patience);
+        await syncing[1].Task.WaitAsync(Patience);
+
+        Assert.IsFalse(loaded.IsCompleted, "the newer edit's others are being defined again");
+        release[1].SetResult();
+        await loaded.WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task TheWorkspaceLoaded_IsNotWaitedFor_WhenNothingIsBeingLoaded()
+    {
+        _sut.Opened(Mod1, Declares, 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        await _sut.WhenAllLoadedAsync(CancellationToken.None).WaitAsync(Patience);
+    }
+
+    // an edit loaded while a program waits is checked at once: what is found of the document after it is of what the program does not have.
+    [TestMethod]
+    public async Task AnEditLoaded_HasTheProgramThatWaitsCheckedAgainstIt_BeforeItsFindingsAre()
+    {
+        var editStatus = Substitute.For<RDCore.LanguageServer.Debugging.IEditStatusMonitor>();
+        var sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance,
+            TimeSpan.Zero, editStatus: editStatus);
+
+        sut.Opened(Mod1, Declares, 1);
+        await sut.WhenRefreshedAsync(Mod1);
+
+        Received.InOrder(() =>
+        {
+            _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+            editStatus.CheckAsync(Arg.Any<CancellationToken>(), true);
+            _diagnostics.GetPhaseAsync(Mod1, AnalysisPhase.Static, Arg.Any<CancellationToken>());
+        });
+    }
+
     [TestMethod]
     public async Task AChangeThatIsOutOfDate_IsIgnored_AndNothingFollowsFromIt()
     {

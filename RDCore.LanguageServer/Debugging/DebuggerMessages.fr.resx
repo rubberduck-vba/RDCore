@@ -117,4 +117,12 @@
   <data name="NoErrorToExplain" xml:space="preserve">
     <value>Le programme n'est pas interrompu sur une erreur.</value>
   </data>
+  <data name="EditsNotApplied" xml:space="preserve">
+    <value>Non appliquées au programme interrompu, qui en tiendra compte à sa prochaine exécution :
+{0}</value>
+  </data>
+  <data name="ResumeRefusedForEdits" xml:space="preserve">
+    <value>Le programme ne peut pas continuer avec les modifications faites pendant son interruption; exécutez-le de nouveau pour en tenir compte :
+{0}</value>
+  </data>
 </root>

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
@@ -87,6 +88,14 @@ internal interface IDocumentLifecycleService
     /// </summary>
     /// <param name="token">A token that cancels the wait, and not the refreshes.</param>
     Task WhenAllSyncedAsync(CancellationToken token);
+
+    /// <summary>
+    /// A task that completes once the environment host has every document as it is now, and the rest of the workspace defined again against what each declares:
+    /// what a program that waits is checked against when it is asked to go on. Every refresh that waits for more edits starts at once, and one that a newer edit
+    /// supersedes hands the wait on to the newer one.
+    /// </summary>
+    /// <param name="token">A token that cancels the wait, and not the refreshes.</param>
+    Task WhenAllLoadedAsync(CancellationToken token);
 }
 
 /// <param name="documents">The documents of the workspace.</param>
@@ -99,6 +108,8 @@ internal interface IDocumentLifecycleService
 /// <param name="editDelay">How long a refresh waits after an edit for another one, which supersedes it: a burst of typing is refreshed once
 /// (<see cref="EditDelay"/> when not said).</param>
 /// <param name="wait">How the refresh waits for that long; <see cref="Task.Delay(TimeSpan, CancellationToken)"/> when not said.</param>
+/// <param name="editStatus">What the program that waits does not have of the edits made while it waits: asked once the host has an edit, before what is found
+/// of the document is.</param>
 internal sealed class DocumentLifecycleService(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
@@ -108,13 +119,15 @@ internal sealed class DocumentLifecycleService(
     IWorkspaceRefresh refresh,
     ILogger<DocumentLifecycleService> logger,
     TimeSpan? editDelay = null,
-    Func<TimeSpan, CancellationToken, Task>? wait = null) : IDocumentLifecycleService
+    Func<TimeSpan, CancellationToken, Task>? wait = null,
+    IEditStatusMonitor? editStatus = null) : IDocumentLifecycleService
 {
     /// <summary>How long a refresh waits after an edit for another one when nothing else is said: a quarter of a second, a pause in typing.</summary>
     public static readonly TimeSpan EditDelay = TimeSpan.FromMilliseconds(250);
 
     private readonly TimeSpan _editDelay = editDelay ?? EditDelay;
     private readonly Func<TimeSpan, CancellationToken, Task> _wait = wait ?? Task.Delay;
+
 
     // a refresh in flight: what cancels it, what has it start without waiting for more edits, and what is over once the host has its text or once it ends
     // without it - which of the two, it says.
@@ -287,6 +300,32 @@ internal sealed class DocumentLifecycleService(
         return Task.WhenAll(pending.Select(documentUri => WhenSyncedAsync(documentUri, token)));
     }
 
+    public async Task WhenAllLoadedAsync(CancellationToken token)
+    {
+        // a refresh that ends superseded leaves its document to the one that superseded it, which is waited for in turn: the wait is over once every document's
+        // latest refresh is.
+        while (true)
+        {
+            Refresh[] pending;
+            lock (_refreshGate)
+            {
+                pending = [.. _refreshes.Values.Where(refresh => !refresh.Done.IsCompleted)];
+            }
+
+            if (pending.Length == 0)
+            {
+                return;
+            }
+
+            foreach (var refresh in pending)
+            {
+                refresh.Hurry.TrySetResult();
+            }
+
+            await Task.WhenAll(pending.Select(refresh => refresh.Done)).WaitAsync(token);
+        }
+    }
+
     private Refresh? RefreshOf(Uri documentUri)
     {
         lock (_refreshGate)
@@ -309,7 +348,9 @@ internal sealed class DocumentLifecycleService(
     private void ScheduleRefresh(Uri documentUri, bool publish, TimeSpan delay = default)
     {
         // the refresh that supersedes another takes its place before the other is cancelled: what waits for the host to have the document always finds one.
+        // it is what it runs before anything can wait for it: the refresh yields first, and reads nothing of the others.
         var current = new Refresh();
+        current.Done = RefreshAsync(documentUri, publish, delay, current);
         Refresh? previous;
         lock (_refreshGate)
         {
@@ -318,7 +359,6 @@ internal sealed class DocumentLifecycleService(
         }
 
         previous?.Cancellation.Cancel();
-        current.Done = RefreshAsync(documentUri, publish, delay, current);
     }
 
     private async Task RefreshAsync(Uri documentUri, bool publish, TimeSpan delay, Refresh current)
@@ -356,6 +396,12 @@ internal sealed class DocumentLifecycleService(
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 logger.LogWarning(exception, "❌ The environment host could not be brought up to date with {uri} v{version}.", documentUri, version);
+            }
+
+            // a program that waits may not have the edit: what is found of the document says so, and a request that waits for the host waits for that too.
+            if (editStatus is not null)
+            {
+                await editStatus.CheckAsync(token, afterLoad: true);
             }
 
             if (!IsSuperseded(documentUri, version, token))

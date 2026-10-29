@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Symbols;
@@ -9,6 +10,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
@@ -88,7 +90,8 @@ internal sealed class DocumentDiagnosticsService(
     IPlatformOrchestrationService orchestration,
     ISymbolSyncService symbols,
     IWorkspaceRefresh refresh,
-    ILogger<DocumentDiagnosticsService> logger) : IDocumentDiagnosticsService
+    ILogger<DocumentDiagnosticsService> logger,
+    IEditStatusMonitor? editStatus = null) : IDocumentDiagnosticsService
 {
     public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
@@ -177,9 +180,9 @@ internal sealed class DocumentDiagnosticsService(
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         // the host runs the primary project only: a module of another project has the static diagnostics, and none of what running it would find out - and its
         // name is never asked for, since the host may hold a module by that name that is another. A document that is no file is the client's alone, and none of the host's.
-        var semantics = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)))
-            ? await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token)
-            : null;
+        var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+        var isHostModule = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)));
+        var semantics = isHostModule ? await SemanticsOfAsync(moduleName, phase, token) : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
 
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
@@ -193,8 +196,30 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)), generation);
+        IReadOnlyList<Diagnostic> found = isHostModule ? [.. Aggregate(reports), .. EditsNotApplied(document, moduleName)] : Aggregate(reports);
+        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
+
+    // RDC20001: each edit of the module the program that waits does not have, where the edited declaration is now - an edit of the module as a whole, or of a
+    // declaration that is gone, on its first line.
+    private IEnumerable<Diagnostic> EditsNotApplied(WorkspaceDocument document, string moduleName)
+    {
+        if (editStatus is null)
+        {
+            yield break;
+        }
+
+        foreach (var edit in editStatus.Current.Edits.Where(edit => string.Equals(edit.ModuleUri?.Fragment.TrimStart('#'), moduleName, StringComparison.OrdinalIgnoreCase)))
+        {
+            var firstLine = document.Text.Split('\n', 2)[0].TrimEnd('\r').Length;
+            var range = edit.Range ?? new SourceRange(new SourcePosition(0, 0), new SourcePosition(0, firstLine));
+            // the reason is the host's, in the language of the user interface.
+            yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(RDCoreDiagnosticId.EditAppliesOnRestart, range, DiagnosticSeverity.Information,
+                $"{edit.Name}: {edit.Reason}"));
+        }
+    }
+
+    private static readonly DiagnosticFactory Findings = new();
 
     // puts a module the host does not have where the host can analyze it, and asks it for what it found out: nothing when the host does not run the pass,
     // and nothing when it could not be told of the module.

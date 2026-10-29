@@ -154,7 +154,8 @@ internal sealed class WorkspaceReloadService(
     IPlatformOrchestrationService orchestration,
     System.IO.Abstractions.IPath ioPath,
     IWorkspaceRefresh refresh,
-    ILogger<WorkspaceReloadService> logger) : IWorkspaceReloadService
+    ILogger<WorkspaceReloadService> logger,
+    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null) : IWorkspaceReloadService
 {
     // one reload at a time: a client that writes the project file twice in a row is told about it twice, and the second reload reads what the second write
     // left.
@@ -425,6 +426,12 @@ internal sealed class WorkspaceReloadService(
 
         // every module is defined again, in the three phases: a class the project gained is a type another module's declarations name.
         await symbols.SyncWorkspaceAsync(stopping, progress: null, replace: true);
+
+        // a program that waits may not have what the batch changed: it is said, before the batch is done.
+        if (editStatus is not null)
+        {
+            await editStatus.CheckAsync(stopping, afterLoad: true);
+        }
 
         // the definition of the symbols ends quietly when the server stops: it is not a definition that was made. The last check and the completing are one step with
         // Stop, so that nothing is reported after the server stopped.

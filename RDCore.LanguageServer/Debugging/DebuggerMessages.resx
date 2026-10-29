@@ -117,4 +117,12 @@
   <data name="NoErrorToExplain" xml:space="preserve">
     <value>The program does not wait at an error.</value>
   </data>
+  <data name="EditsNotApplied" xml:space="preserve">
+    <value>Not applied to the program that waits, which picks them up when it is run again:
+{0}</value>
+  </data>
+  <data name="ResumeRefusedForEdits" xml:space="preserve">
+    <value>The program can't go on with the edits made while it waits; run it again to pick them up:
+{0}</value>
+  </data>
 </root>

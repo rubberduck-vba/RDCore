@@ -374,5 +374,23 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("NoErrorToExplain", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Not applied to the program that waits, which picks them up when it is run again: {0}.
+        /// </summary>
+        internal static string EditsNotApplied {
+            get {
+                return ResourceManager.GetString("EditsNotApplied", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on with the edits made while it waits; run it again to pick them up: {0}.
+        /// </summary>
+        internal static string ResumeRefusedForEdits {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForEdits", resourceCulture);
+            }
+        }
     }
 }
