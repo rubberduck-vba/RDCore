@@ -167,7 +167,6 @@ internal sealed class ProgramEdits
                     FrameRebaseRefusal.InTheMiddleOfAHeader => (ProgramEditKind.NotYet, Resources.Host_Edit_HeaderOfAnActiveProcedure),
                     FrameRebaseRefusal.BlockChanged => (ProgramEditKind.Restart, Resources.Host_Edit_BlockOfAnActiveProcedure),
                     FrameRebaseRefusal.FaultChanged => (ProgramEditKind.Restart, Resources.Host_Edit_FaultOfAnActiveProcedure),
-                    FrameRebaseRefusal.RunsCompiled => (ProgramEditKind.NotYet, Resources.Host_Edit_ActiveProcedureRunsCompiled),
                     FrameRebaseRefusal.Uncertain => (ProgramEditKind.NotYet, alignment.IsPartial
                         ? Resources.Host_Edit_TooLargeToPlaceInAnActiveProcedure
                         : Resources.Host_Edit_UncertainInAnActiveProcedure),

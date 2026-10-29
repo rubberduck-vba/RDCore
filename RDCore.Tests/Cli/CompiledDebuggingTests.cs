@@ -119,7 +119,7 @@ public sealed class CompiledDebuggingTests
         "    Inner = x * 10",
         "End Function");
 
-    // a compiled caller in the middle of its call is on the stack at the call, with its variables as they are; an edit of it is not applied yet.
+    // a compiled caller in the middle of its call is on the stack at the call, with its variables as they are.
     [TestMethod]
     public async Task ACompiledCaller_OfACalleeThatWaits_IsOnTheStackAtItsCall_WithItsVariables()
     {
@@ -135,13 +135,6 @@ public sealed class CompiledDebuggingTests
                 Assert.AreEqual(("Inner", "Outer", 7), (stack[0].Procedure, stack[1].Procedure, stack[1].Line));
                 var outer = provider.Execution.Variables(stack[1].Id, HostVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name, variable => variable.Value);
                 Assert.AreEqual(("3", "20"), (outer["i"], outer["t"]), "the caller's variables, as they were when it made the call");
-
-                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"],
-                    ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, Calling.Replace("    Outer = t", "    Outer = t + 1", StringComparison.Ordinal)));
-                var refused = await Resume(provider);
-                Assert.AreEqual(ExecutionOutcome.Refused, refused.Outcome, refused.ErrorMessage);
-                StringAssert.Contains(refused.ErrorMessage, "Program.Outer");
-                StringAssert.Contains(refused.ErrorMessage, "runs compiled");
             }
             finally
             {
@@ -165,6 +158,133 @@ public sealed class CompiledDebuggingTests
             Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
             CollectionAssert.AreEqual(new[] { "50" }, done.Output.Select(line => line.Trim()).ToArray());
         }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
+    // the program run to the Stop in Inner, at stopLine, while Outer, compiled, is in the middle of its call; edited; and resumed.
+    private static async Task<ExecuteSessionResult> EditedWhileACompiledCallerWaitsAsync(string program, string edited, int stopLine)
+    {
+        ExecuteSessionResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var stopped = await Resume(provider);
+                Assert.AreEqual((ExecutionOutcome.Suspended, stopLine), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+                Assert.AreEqual("Outer", provider.Execution.Stack().Frames[1].Procedure);
+
+                // under the random walk-back Outer may have been handed to the interpreter before it made the call, and is edited as any frame is.
+                if (!RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom)
+                {
+                    Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
+                        "Outer is running compiled, in the middle of its call");
+                }
+
+                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, edited));
+                resumed = await Resume(provider);
+            }
+            finally
+            {
+                _ = await Terminate(provider);
+            }
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+
+        return resumed!;
+    }
+
+    // the compiled caller's procedure edited while the program waits in its callee: the caller goes on in the edited code once its call returns, from the
+    // instruction after its call, with its variables and its loop as they are.
+    [TestMethod]
+    [DataRow("    Outer = t|    Outer = t + 1", "51", DisplayName = "a line below the call")]
+    [DataRow("    Dim i As Long, t As Long|    Dim i As Long, t As Long\r\n    n = n", "50", DisplayName = "a line added above the loop the call is in")]
+    [DataRow("    Next|    Next\r\n    t = t * 2", "100", DisplayName = "a line added after the loop the call is in")]
+    public async Task AnEditOfACompiledCallerInTheMiddleOfItsCall_IsApplied_WhenTheCallReturns(string edit, string expected)
+    {
+        var (find, replace) = (edit.Split('|')[0], edit.Split('|')[1]);
+
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(Calling, Calling.Replace(find, replace, StringComparison.Ordinal), 12);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // where the call it is in the middle of goes can't be told, or there is none: the edit is refused, never guessed.
+    [TestMethod]
+    [DataRow("        t = Inner(i)|        t = Inner(i + 0)", DisplayName = "the call edited")]
+    [DataRow("        t = Inner(i)\r\n|", DisplayName = "the call removed")]
+    [DataRow("    For i = 1 To n|    For i = 1 To n + 1", DisplayName = "the loop the call is in, its opening edited")]
+    public async Task AnEditOfTheCallACompiledCallerIsInTheMiddleOf_IsRefused(string edit)
+    {
+        var (find, replace) = (edit.Split('|')[0], edit.Split('|')[1]);
+
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(Calling, Calling.Replace(find, replace, StringComparison.Ordinal), 12);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Program.Outer");
+    }
+
+    // the call moved out of its loop into another: its loop's state is of a loop it is no longer in.
+    [TestMethod]
+    public async Task TheCallACompiledCallerIsInTheMiddleOf_MovedIntoAnotherLoop_IsRefused()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print Outer(5)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim i As Long, j As Long, t As Long",
+            "    For i = 1 To n",
+            "        t = Inner(i)",
+            "    Next",
+            "    For j = 1 To 2",
+            "        t = t + 1",
+            "    Next",
+            "    Outer = t",
+            "End Function",
+            "Private Function Inner(ByVal x As Long) As Long",
+            "    If x = 3 Then Stop",
+            "    Inner = x * 10",
+            "End Function");
+        var edited = program.Replace("        t = Inner(i)\r\n", "", StringComparison.Ordinal)
+            .Replace("        t = t + 1\r\n", "        t = t + 1\r\n        t = Inner(i)\r\n", StringComparison.Ordinal);
+
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(program, edited, 15);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Program.Outer");
+    }
+
+    // the callee raises an error after the edit: it is the call's, where the call now is in the edited code, and the caller's caller catches it.
+    [TestMethod]
+    public async Task AnErrorTheCalleeRaises_AfterAnEditOfTheCompiledCaller_IsTheCallsWhereItNowIs()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    On Error GoTo Caught",
+            "    Stop",
+            "    Debug.Print Outer(5)",
+            "    Exit Sub",
+            "Caught:",
+            "    Debug.Print \"caught \" & Err.Number",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim i As Long, t As Long",
+            "    For i = 1 To n",
+            "        t = Inner(i)",
+            "    Next",
+            "    Outer = t",
+            "End Function",
+            "Private Function Inner(ByVal x As Long) As Long",
+            "    If x = 3 Then Stop",
+            "    Inner = x * 1000000000",
+            "End Function");
+        var edited = program.Replace("    Dim i As Long, t As Long\r\n", "    Dim i As Long, t As Long\r\n    n = n\r\n", StringComparison.Ordinal);
+
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(program, edited, 16);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "caught 6" }, resumed.Output.Select(line => line.Trim()).ToArray());
     }
 
     // a loop paused where it goes round again is shown at its Next, as MS-VBA shows it: the back edge has no statement of its own.

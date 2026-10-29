@@ -410,11 +410,6 @@ namespace RDCore.CLI {
         public static string Host_Edit_ValueReset => ResourceManager.GetString("Host_Edit_ValueReset", resourceCulture)!;
 
         /// <summary>
-        ///   Looks up a localized string similar to a procedure the program is in, which runs compiled, which is not applied to a program that waits yet.
-        /// </summary>
-        public static string Host_Edit_ActiveProcedureRunsCompiled => ResourceManager.GetString("Host_Edit_ActiveProcedureRunsCompiled", resourceCulture)!;
-
-        /// <summary>
         ///   Looks up a localized string similar to the Option Base of a module whose arrays hold values.
         /// </summary>
         public static string Host_Edit_OptionBaseOfStoredArrays => ResourceManager.GetString("Host_Edit_OptionBaseOfStoredArrays", resourceCulture)!;

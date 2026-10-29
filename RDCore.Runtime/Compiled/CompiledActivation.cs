@@ -164,11 +164,12 @@ public sealed class CompiledActivation
     private readonly ScopeTree _scopes;
 
     /// <summary>
-    /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>),
+    /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
+    /// the procedure was edited while the program waited in the callee, and the activation goes on in its edited body (<see cref="CallStackFrame.HasPendingRebase"/>);
     /// or the session's symbols were defined again while the callee ran - an edit made while the program waited - and what compiled code calls, and how,
     /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call.
     /// </summary>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
+    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _frame.HasPendingRebase || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
@@ -178,6 +179,13 @@ public sealed class CompiledActivation
     public RuntimeExecutionOutcome AfterFailedCall(int pc)
     {
         _frame.RunsCompiled = false;
+
+        // the procedure edited while the program waited in the callee: the error is the call's, where the call now is.
+        if (_frame.ApplyPendingRebase(atTheCall: true))
+        {
+            pc = _frame.Pc;
+        }
+
         var list = Body;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
         if (_failed is not { } outcome)
@@ -275,8 +283,11 @@ public sealed class CompiledActivation
     /// </summary>
     public RuntimeExecutionOutcome Interpret(int pc)
     {
+        // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body.
         (_frame.Pc, _frame.RunsCompiled) = (pc, false);
+        _ = _frame.ApplyPendingRebase(atTheCall: false);
         var list = Body;
+        pc = _frame.Pc;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
         return _executor.Run(_session, _frame, list, _context);
     }

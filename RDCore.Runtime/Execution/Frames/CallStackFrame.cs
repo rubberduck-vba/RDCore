@@ -160,6 +160,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return true;
         }
 
+        // an activation running compiled code is moved when its call returns, and its variables and its loops are in its frame (ApplyPendingRebase).
+        if (rebased.Deferred)
+        {
+            _pendingRebase = (body, alignment, Pc);
+            return true;
+        }
+
         (Body, Pc, WaitedAt, ErrorHandler) = (body, rebased.Pc, rebased.WaitedAt, rebased.ErrorHandler);
         _moved = rebased.Moved;
         if (_occasional is { } occasional)
@@ -189,6 +196,86 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     {
         // nothing of the activation is moved: its body, edited, is the one it runs.
         public bool Stays { get; init; }
+
+        // the activation runs compiled code, and is moved when the call it is in the middle of returns.
+        public bool Deferred { get; init; }
+    }
+
+    // the edited body an activation running compiled code goes on in once its call returns, how it aligns with the body it runs, and the call.
+    private (InstructionList Body, InstructionAlignment Alignment, int Call)? _pendingRebase;
+
+    /// <summary>
+    /// Whether the activation, running compiled code, is to go on in an edited body once the call it is in the middle of returns
+    /// (<see cref="ApplyPendingRebase"/>): an edit made while the program waited in the callee.
+    /// </summary>
+    public bool HasPendingRebase => _pendingRebase is not null;
+
+    /// <summary>
+    /// Moves the activation into the edited body it is to go on in (<see cref="HasPendingRebase"/>), once compiled code has written its variables and the
+    /// state of its loops into its frame: <see cref="Pc"/> is the instruction after its call in that body - or, when the call did not return, the call
+    /// itself, where the error it raised is given to its handler.
+    /// </summary>
+    /// <param name="atTheCall">Whether the call did not return.</param>
+    /// <returns>Whether there was an edited body to move into.</returns>
+    public bool ApplyPendingRebase(bool atTheCall)
+    {
+        if (_pendingRebase is not var (body, alignment, call))
+        {
+            return false;
+        }
+
+        // the call and the loops around it are as they were: TryRebase found it so.
+        var kept = alignment[call]!.Value;
+        (Body, Pc, _pendingRebase) = (body, atTheCall ? kept : kept + 1, null);
+        if (_occasional is { ForLoopState: { } loops } occasional)
+        {
+            occasional.ForLoopState = loops.Where(loop => alignment[loop.Key] is not null).ToDictionary(loop => alignment[loop.Key]!.Value, loop => loop.Value);
+        }
+
+        return true;
+    }
+
+    // an activation running compiled code, in the middle of a call: the call, and the For loops around it, are kept, for certain, and around it still - no
+    // loop of the edited body is around it that was not - so that its loops' state, which compiled code writes into the frame when the call returns, is of
+    // the loops it is in. Compiled code has no other block, no GoSub and no handler. Its variables are its layout's, as any frame's.
+    private FrameRebaseRefusal? CompiledRebased(InstructionList before, InstructionList body, InstructionAlignment alignment, [NotNullWhen(false)] out Rebasing? rebased)
+    {
+        rebased = null;
+        if (!alignment.IsCertain(Pc))
+        {
+            return FrameRebaseRefusal.Uncertain;
+        }
+
+        if (alignment[Pc] is not { } call)
+        {
+            return FrameRebaseRefusal.CallChanged;
+        }
+
+        static bool Opens(Instruction instruction) => instruction.Kind is InstructionKind.ForOpener or InstructionKind.ForEachOpener;
+        static bool Encloses(Instruction opener, int offset) => opener.Offset <= offset && opener.End is { } end && offset < end;
+        var around = new HashSet<int>();
+        foreach (var opener in before.Items.Where(item => Opens(item) && Encloses(item, Pc)))
+        {
+            if (!alignment.IsCertain(opener.Offset))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[opener.Offset] is not { } kept || !Encloses(body.Items[kept], call))
+            {
+                return FrameRebaseRefusal.BlockChanged;
+            }
+
+            _ = around.Add(kept);
+        }
+
+        if (body.Items.Any(item => Opens(item) && Encloses(item, call) && !around.Contains(item.Offset)))
+        {
+            return FrameRebaseRefusal.BlockChanged;
+        }
+
+        rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Deferred = true };
+        return null;
     }
 
     private FrameRebaseRefusal? Rebased(InstructionList body, InstructionAlignment alignment, bool waits, [NotNullWhen(false)] out Rebasing? rebased)
@@ -199,19 +286,19 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return FrameRebaseRefusal.CallChanged;
         }
 
-        // an activation running compiled code has its variables and its loops in compiled code's locals, which nothing here can move: it goes on when its
-        // edited body has the same instructions at the same offsets, and is not moved otherwise. The same instructions can bind differently once the module
-        // is defined again - a callee's header edited - so the activation is handed to the interpreter as soon as its call returns, and goes on in the
-        // edited body from the next instruction (CompiledActivation.WantsInterpreterAfterCall).
+        // an activation running compiled code has its variables and its loops in compiled code's locals, which nothing here can move while its call runs:
+        // it stays where it is when its edited body has the same instructions at the same offsets, and is moved when its call returns otherwise. Either
+        // way it is handed to the interpreter as soon as its call returns: the same instructions can bind differently once the module is defined again - a
+        // callee's header edited - and it goes on in the edited body from the next instruction (CompiledActivation.WantsInterpreterAfterCall).
         if (RunsCompiled)
         {
-            if (!alignment.IsIdentity)
+            if (alignment.IsIdentity)
             {
-                return FrameRebaseRefusal.RunsCompiled;
+                rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Stays = true };
+                return null;
             }
 
-            rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Stays = true };
-            return null;
+            return CompiledRebased(before, body, alignment, out rebased);
         }
 
         // the activation the program waits in goes on from where it was moved to, or from after the instruction it stopped at, or from the one it waits
