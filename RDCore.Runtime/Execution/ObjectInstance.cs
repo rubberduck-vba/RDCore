@@ -25,6 +25,7 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
     private readonly SymbolAddressTable _addresses = new(storage);
     private readonly HashSet<SemanticId> _declared = [];
     private readonly List<Symbol> _staticLocals = [];
+    private readonly List<Symbol> _fields = [];
     private readonly SymbolTable? _table;
 
     internal ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule, ISessionStorage storage, SymbolTable table)
@@ -44,6 +45,10 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
     /// <inheritdoc/>
     public IReadOnlyCollection<Symbol> StaticLocals => _staticLocals;
 
+    // the fields the object was given storage for: those of its class as it was when the object was created, which a field added to the class while the
+    // object lives is not one of, and a field removed from it still is.
+    internal IReadOnlyCollection<Symbol> Fields => _fields;
+
     /// <inheritdoc/>
     public void Push(Symbol field, VBTypedValue value)
     {
@@ -55,6 +60,10 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
         if (field is VBLocalVariableSymbol { IsStatic: true })
         {
             _staticLocals.Add(field);
+        }
+        else
+        {
+            _fields.Add(field);
         }
 
         // a field of a scalar type (or a Variant holding one) is held as a payload, as a local is (IR lowering S1.4c, Frames.CallStackFrame.CellFor): what
