@@ -249,6 +249,10 @@ internal sealed class PlatformDebugWorkspace(
             _loadFailed = false;
         }
 
+        // the documents as the load left them: a file that was saved changed is another version of its document.
+        var read = files.Select(FullPath).ToHashSet(PathComparer);
+        files = [.. ProgramFiles().Where(file => read.Contains(FullPath(file)))];
+
         // what the host could not define or load since, as its text is now, holds the code it had - and so does what a load that failed or was stopped did not
         // reach: it is loaded again, since nothing else would.
         var unloaded = Unloaded(files);

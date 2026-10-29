@@ -56,10 +56,11 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
             call[1] = Parse((Uri)call[0]);
             return true;
         });
+        // a parse is of the version of the document it was made of: the text a load gave the document is parsed as the load makes it.
         _parsing.TryGetCached(Arg.Any<Uri>(), Arg.Any<int>(), out Arg.Any<ModuleParseResult>()).Returns(call =>
         {
             call[2] = Parse((Uri)call[0]);
-            return _parsed;
+            return _parsed && _listed.Any(document => document.Id.Uri.ToUri() == (Uri)call[0] && document.Version == (int)call[1]);
         });
         _symbols.Unsynced.Returns(new Dictionary<string, string>());
         _reload.ReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>()).Returns(WorkspaceReloadResult.Unchanged);
@@ -181,6 +182,20 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         StringAssert.Contains(refused, "Renamed");
         Assert.AreEqual(refused, refusedAgain, "nothing saved since: the program still does not have it");
         Assert.IsNull(runAgain, "run again, the program has the module as it is named now");
+    }
+
+    // an edit saved and loaded is a new version of the document, which is what is parsed: the program goes on with it.
+    [TestMethod]
+    public async Task AnEditSavedAndLoaded_IsGoneOnWith()
+    {
+        var workspace = await OpenedAsync();
+        _reload.ReloadFilesAsync(Arg.Any<IReadOnlyList<Uri>>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            _listed[0] = _listed[0].WithText(_listed[0].Text + "' saved\r\n");
+            return new WorkspaceReloadResult(0, 0, false, false, Reread: 1);
+        });
+
+        Assert.IsNull(await workspace.ReloadChangedAsync(CancellationToken.None));
     }
 
     // ---- what was so as the program started is no edit ----
