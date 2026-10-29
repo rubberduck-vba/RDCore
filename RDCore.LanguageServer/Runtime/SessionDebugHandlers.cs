@@ -48,6 +48,19 @@ internal sealed class SessionDebugGotoHandler(IProgramDebugService debugging, IP
 }
 
 /// <summary>
+/// Handles <c>rdcore/session/debug/editStatus</c>: relays a client's question of which edits made while the program waits are not applied to it.
+/// </summary>
+internal sealed class SessionDebugEditStatusHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<SessionDebugEditStatusParams, HostDebugEditStatusResult>
+{
+    protected override Task<HostDebugEditStatusResult> HandleAsync(SessionDebugEditStatusParams request, CancellationToken token)
+    {
+        SessionDebugRelay.RequireCapability(clientCapabilities);
+        return debugging.EditStatusAsync(token);
+    }
+}
+
+/// <summary>
 /// Handles <c>rdcore/session/debug/terminate</c>: relays a client's request to end the program that is running or waits.
 /// </summary>
 internal sealed class SessionDebugTerminateHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)

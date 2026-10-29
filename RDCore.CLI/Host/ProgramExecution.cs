@@ -211,6 +211,41 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     }
 
     /// <summary>
+    /// The edits made while the program waits that are not applied to it: what resuming it, stepping it or moving its point of execution is refused for.
+    /// </summary>
+    /// <returns>None, and not suspended, when no program waits.</returns>
+    public HostDebugEditStatusResult EditStatus()
+    {
+        lock (_sync)
+        {
+            if (_state is not ProgramState.Suspended || _alongside || _suspendedWith is null)
+            {
+                return new HostDebugEditStatusResult();
+            }
+
+            return new HostDebugEditStatusResult
+            {
+                Suspended = true,
+                Edits = [.. ProgramEdits.Since(_suspendedWith, provider.Session, provider.Image)
+                    .Where(edit => edit.Kind is not ProgramEditKind.Applies)
+                    .Select(edit => new HostDebugEdit
+                    {
+                        Name = edit.Name,
+                        Kind = edit.Kind switch
+                        {
+                            ProgramEditKind.Restart => HostDebugEditKind.Restart,
+                            ProgramEditKind.DoesNotCompile => HostDebugEditKind.DoesNotCompile,
+                            _ => HostDebugEditKind.NotYet,
+                        },
+                        Reason = edit.Reason,
+                        ModuleUri = edit.Module,
+                        Range = edit.Range,
+                    })],
+            };
+        }
+    }
+
+    /// <summary>
     /// Moves the point the program that waits goes on from, within the activation it waits in.
     /// </summary>
     /// <param name="line">The zero-based line of the source to go on from. Ignored when <paramref name="label"/> is given.</param>

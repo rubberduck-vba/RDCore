@@ -248,6 +248,47 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(expected ?? AsItWas, Output(resumed));
     }
 
+    // what a client asks after each edit it sends, to mark it as it is made: only what is not applied, each with what it is, why, and where it now is.
+    [TestMethod]
+    public async Task TheEditStatus_ListsWhatIsNotApplied_WithWhereItIs()
+    {
+        HostDebugEditStatusResult? clean = null, edited = null;
+        await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
+        {
+            clean = provider.Execution.EditStatus();
+            _ = await ModuleWorkspace.ReloadAsync(provider, ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule,
+                Edited(Program, ["Program|Replace|Public Sub Callee(ByVal p As Long)|Public Sub Callee(ByVal p As Long, Optional ByVal q As Long)",
+                    "Program|InsertAfter|Private Const K|Private Const K2 As Long = 2"], "Program")));
+            edited = provider.Execution.EditStatus();
+        }, debug: true);
+
+        Assert.IsTrue(clean!.Suspended);
+        Assert.IsEmpty(clean.Edits);
+
+        // the Const added applies, and is not listed; the signature of the procedure the program is in can't be applied.
+        Assert.IsTrue(edited!.Suspended);
+        var edit = Assert.ContainsSingle(edited.Edits);
+        Assert.AreEqual(("Program.Callee", HostDebugEditKind.Restart), (edit.Name, edit.Kind));
+        StringAssert.Contains(edit.Reason, "the signature of a procedure the program is in");
+        StringAssert.EndsWith(edit.ModuleUri!.AbsoluteUri, "#Program");
+        Assert.AreEqual(Program.Split("\r\n").ToList().FindIndex(line => line.StartsWith("Public Sub Callee", StringComparison.Ordinal)) + 1,
+            edit.Range!.Value.Start.Line, "where the procedure is now: a line was added above it");
+    }
+
+    [TestMethod]
+    public async Task TheEditStatus_OfNoProgramThatWaits_IsNotSuspended()
+    {
+        HostDebugEditStatusResult? status = null;
+        await ModuleWorkspace.InspectAsync([("C", Class)], Program.Replace("    Stop\r\n", string.Empty), (provider, _, _) =>
+        {
+            status = provider.Execution.EditStatus();
+            return Task.CompletedTask;
+        }, debug: true);
+
+        Assert.IsFalse(status!.Suspended);
+        Assert.IsEmpty(status.Edits);
+    }
+
     [TestMethod]
     public async Task AnEditOfAProcedureTheProgramIsIn_IsRefusedForNow_NamedSo()
     {

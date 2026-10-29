@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
@@ -32,7 +33,9 @@ internal enum ProgramEditKind
 /// <param name="Name">What was edited, as the user names it.</param>
 /// <param name="Kind">What it is to the program.</param>
 /// <param name="Reason">Why, in the user's words.</param>
-internal sealed record class ProgramEdit(string Name, ProgramEditKind Kind, string Reason);
+/// <param name="Module">The module it is in, as the host addresses it.</param>
+/// <param name="Range">Where the edited declaration is now; none for the module as a whole, or a declaration that is gone.</param>
+internal sealed record class ProgramEdit(string Name, ProgramEditKind Kind, string Reason, Uri? Module = null, SourceRange? Range = null);
 
 /// <summary>
 /// The code and the declarations a program was suspended with, and what was edited since (plan-edit-and-continue §2, §5): each procedure's lowered body,
@@ -47,7 +50,7 @@ internal sealed class ProgramEdits
 
     // a declaration of a module, by what it is and where: its whole text, its signature less its locals, its locals, and whether its module is a class.
     private sealed record class Declaration(string Name, SymbolDescriptorKind Kind, string Whole, string Signature, ImmutableArray<LocalDescriptor> Locals,
-        bool InClass);
+        bool InClass, Uri Module, SourceRange Range);
 
     private ProgramEdits(ImmutableDictionary<string, string> bodies, ImmutableDictionary<string, Declaration> declarations,
         ImmutableDictionary<string, string> modules, ImmutableHashSet<string> active)
@@ -65,7 +68,8 @@ internal sealed class ProgramEdits
             foreach (var descriptor in SymbolDescriptorProjector.Project(session.Symbols.DeclaredIn(module.Uri), module.Uri))
             {
                 declarations[KeyOf(module.Uri, descriptor)] = new Declaration(
-                    $"{module.Name}.{descriptor.Name}", descriptor.Kind, Text(descriptor), Text(descriptor with { Locals = [] }), descriptor.Locals, inClass);
+                    $"{module.Name}.{descriptor.Name}", descriptor.Kind, Text(descriptor), Text(descriptor with { Locals = [] }), descriptor.Locals, inClass,
+                    module.Uri, descriptor.Range);
             }
         }
 
@@ -121,7 +125,7 @@ internal sealed class ProgramEdits
             {
                 var isClass = text.StartsWith("class", StringComparison.Ordinal);
                 edits.Add(new ProgramEdit(NameOf(module), isClass ? ProgramEditKind.Restart : ProgramEditKind.Applies,
-                    isClass ? Resources.Host_Edit_ClassInterface : Resources.Host_Edit_Applies));
+                    isClass ? Resources.Host_Edit_ClassInterface : Resources.Host_Edit_Applies, new Uri(module)));
             }
         }
 
@@ -132,8 +136,10 @@ internal sealed class ProgramEdits
             var changed = now._bodies.TryGetValue(procedure, out var current) ? current != fingerprint : inIt;
             if (changed && !edits.Any(edit => edit.Name == NameOfProcedure(procedure) && edit.Kind is not ProgramEditKind.Applies))
             {
+                // where the procedure is now: its declaration, as the host defined it again.
+                var declared = now._declarations.FirstOrDefault(declaration => SameProcedure(declaration.Key, procedure)).Value;
                 edits.Add(new ProgramEdit(NameOfProcedure(procedure), inIt ? ProgramEditKind.NotYet : ProgramEditKind.Applies,
-                    inIt ? Resources.Host_Edit_BodyOfAnActiveProcedure : Resources.Host_Edit_Applies));
+                    inIt ? Resources.Host_Edit_BodyOfAnActiveProcedure : Resources.Host_Edit_Applies, declared?.Module, declared?.Range));
             }
         }
 
@@ -142,8 +148,9 @@ internal sealed class ProgramEdits
         {
             if (image.IsLoaded(new Uri(module)) && image.Semantics.TryGet(new Uri(module), out var model) && !model.IsValid)
             {
-                var first = model.CompileErrors.FirstOrDefault()?.Description ?? string.Empty;
-                edits.Add(new ProgramEdit(NameOf(module), ProgramEditKind.DoesNotCompile, string.Format(Resources.Host_Edit_DoesNotCompile, first)));
+                var first = model.CompileErrors.FirstOrDefault();
+                edits.Add(new ProgramEdit(NameOf(module), ProgramEditKind.DoesNotCompile, string.Format(Resources.Host_Edit_DoesNotCompile, first?.Description ?? string.Empty),
+                    new Uri(module), first?.Location.Range));
             }
         }
 
@@ -155,7 +162,7 @@ internal sealed class ProgramEdits
     {
         var name = (after ?? before)!.Name;
         var kind = (after ?? before)!.Kind;
-        ProgramEdit Edit(ProgramEditKind editKind, string reason) => new(name, editKind, reason);
+        ProgramEdit Edit(ProgramEditKind editKind, string reason) => new(name, editKind, reason, (after ?? before)!.Module, after?.Range);
 
         // A3: added. A field of a class may be one of an object the program holds, which has no cell for it yet (A10, S3).
         if (before is null)
