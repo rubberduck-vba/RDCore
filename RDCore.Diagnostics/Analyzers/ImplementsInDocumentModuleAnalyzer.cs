@@ -10,8 +10,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <strong>MS-VBA</strong> compiles and runs in a worksheet's.
 /// </summary>
 /// <remarks>
-/// A document module is an extension module of its host's extensible module (<strong>MS-VBAL §4.2.1</strong>). RD-VBA does as MS-VBA does (recorded in Excel:
-/// oracle\s49 D22, D23): the directive is checked as any class module's, and this stands for what the specification says of it.
+/// A document module is an extension module of its host's extensible module (<strong>MS-VBAL §4.2.1</strong>). RD-VBA does as MS-VBA does (recorded in Excel):
+/// the directive is checked as any class module's, and this stands for what the specification says of it.
 /// </remarks>
 internal sealed class ImplementsInDocumentModuleAnalyzer : IModuleAnalyzer
 {

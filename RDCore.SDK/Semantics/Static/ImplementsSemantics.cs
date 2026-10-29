@@ -37,7 +37,7 @@ namespace RDCore.SDK.Semantics.Static;
 /// An <c>Implements</c> directive in an extensible module (<c>Attribute VB_Extensible = True</c>,
 /// <see cref="SymbolProperties.Extensible"/>) is invalid, whatever the directive names, and nothing else of the module's
 /// directives is checked then. A document module (<see cref="VBClassModuleSymbol.IsDocument"/>) is extensible too, and MS-VBA
-/// compiles and runs the directives of a worksheet's (oracle\s49 D22): they are checked as any class module's, and what the specification
+/// compiles and runs the directives of a worksheet's: they are checked as any class module's, and what the specification
 /// says of them is a warning of its own, not a compile error.
 /// </para>
 /// <para>

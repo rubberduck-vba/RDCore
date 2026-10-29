@@ -143,7 +143,7 @@ public sealed class DocumentModuleDiagnosticsTests
     [TestMethod]
     public async Task AnImplementsDirectiveOfADocumentModule_IsAWarning_AndNoCompileError()
     {
-        // MS-VBA compiles and runs it (oracle\s49 D22).
+        // MS-VBA compiles and runs it, in a worksheet's module.
         var iface = ("IGridView", "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"IGridView\"\r\nPublic Sub Refresh()\r\nEnd Sub\r\n");
         var source = "Option Explicit\r\nImplements IGridView\r\nPrivate Sub IGridView_Refresh()\r\nEnd Sub\r\n";
 
@@ -154,5 +154,46 @@ public sealed class DocumentModuleDiagnosticsTests
         Assert.AreEqual(1, warning.Range.Start.Line);
         Assert.IsFalse(diagnostics.Any(diagnostic => CodeOf(diagnostic) == ((int)VBCompileErrorId.InvalidImplementsDirective).ToString("VBC00000", System.Globalization.CultureInfo.InvariantCulture)),
             string.Join("\n", diagnostics.Select(diagnostic => $"{CodeOf(diagnostic)} {diagnostic.Message}")));
+    }
+
+    [TestMethod]
+    public async Task ADocumentModuleWhoseCodePresumesNothingOfItsHost_IsNotReported()
+    {
+        // the ThisWorkbook and the Sheet1 of every export: nothing in them is code to move.
+        var (_, diagnostics) = await DiagnoseAsync("Sheet1", "Option Explicit\r\n", DocClassType.ExcelWorksheet, Excel);
+
+        Assert.IsFalse(diagnostics.Any(diagnostic => CodeOf(diagnostic) == "RDC01005"), string.Join("\n", diagnostics.Select(diagnostic => $"{CodeOf(diagnostic)} {diagnostic.Message}")));
+    }
+
+    // the code as RDC01005 says to write it: a sheet of an application the program automates, held in a variable of the host's class.
+    private static readonly string Automates = string.Join("\r\n",
+        "Option Explicit",
+        "Public Sub Paint(ByVal ws As Excel.Worksheet)",
+        "    ws.Range(\"A1\").Value = 1",
+        "    With ws",
+        "        .Range(\"A2\").Value = 2",
+        "    End With",
+        "End Sub",
+        "");
+
+    [TestMethod]
+    public async Task ADocumentModuleThatOnlyAutomatesAnApplication_IsNotReported()
+    {
+        var (_, diagnostics) = await DiagnoseAsync("GameSheet", Automates, DocClassType.ExcelWorksheet, Excel);
+
+        Assert.IsFalse(diagnostics.Any(diagnostic => CodeOf(diagnostic) == "RDC01005"), "ws.Range is a sheet the code holds, not its host's: "
+            + string.Join("\n", diagnostics.Select(diagnostic => $"{CodeOf(diagnostic)} {diagnostic.Message}")));
+    }
+
+    [TestMethod]
+    public async Task WhatADocumentModuleReachesAsItsHosts_IsListed_AndWhatItAutomates_IsNot()
+    {
+        var source = Automates.Replace("End Sub\r\n", "End Sub\r\nPublic Sub Clear()\r\n    Me.Range(\"A1\").Value = Empty\r\nEnd Sub\r\n");
+
+        var (_, diagnostics) = await DiagnoseAsync("GameSheet", source, DocClassType.ExcelWorksheet, Excel);
+
+        var related = diagnostics.Single(diagnostic => CodeOf(diagnostic) == "RDC01005").RelatedInformation!.ToArray();
+        var range = Assert.ContainsSingle(related.Where(information => information.Message.StartsWith("'Range'", StringComparison.Ordinal)));
+        Assert.AreEqual(8, range.Location.Range.Start.Line, "Me.Range, and neither ws.Range nor .Range");
     }
 }

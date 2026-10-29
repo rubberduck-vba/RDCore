@@ -20,7 +20,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <para>
 /// A document module is reported once, at its first line, for the one change that fixes it moves the whole module: each place of its code that presumes the
 /// host - a member of the host's class it names (<c>Me.Range</c>, an unqualified <c>Range</c>), a procedure named as a handler of the host's events
-/// (<c>Worksheet_Change</c>), which nothing raises - is its related information. What the module is the host says (<see cref="DocumentModuleFact"/>).
+/// (<c>Worksheet_Change</c>), which nothing raises - is its related information. What the module is the host says (<see cref="DocumentModuleFact"/>). A
+/// module with no such place is not reported: an object of the host's class the code holds, from an application it automates, presumes no host.
 /// </para>
 /// <para>
 /// A name of a document module in another module (<c>GameSheet.Reset</c>) is reported where it is written: MS-VBA's host makes it the document, and here it
@@ -37,17 +38,23 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
             yield break;
         }
 
+        // a document module whose code presumes nothing of its host - the ThisWorkbook and the Sheet1 of every export, with nothing in them - is not reported:
+        // what is reported is code to move, and it has none.
         if (semantics.Document is { HostClass: { } host } document && context.ParseResult.SyntaxTree is { } module)
         {
             var hostClass = $"{host.Library}.{host.ClassName}";
-            yield return new AnalyzerFinding(
-                RDCoreDiagnosticId.HostedDocumentCode,
-                FirstLineOf(module),
-                DiagnosticSeverity.Error,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Message, NameOf(semantics.Module), hostClass))
+            RelatedFinding[] presumes = [.. HostUsesOf(context.Document, module, semantics, document, hostClass), .. HandlersOf(context.Document, module, document, hostClass)];
+            if (presumes.Length > 0)
             {
-                Related = [.. HostUsesOf(context.Document, semantics, document, hostClass), .. HandlersOf(context.Document, module, document, hostClass)],
-            };
+                yield return new AnalyzerFinding(
+                    RDCoreDiagnosticId.HostedDocumentCode,
+                    FirstLineOf(module),
+                    DiagnosticSeverity.Error,
+                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Message, NameOf(semantics.Module), hostClass))
+                {
+                    Related = presumes,
+                };
+            }
         }
 
         foreach (var fact in References(semantics))
@@ -67,16 +74,27 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
     internal static IEnumerable<ExpressionFactDto> References(ModuleSemanticsDto semantics)
         => semantics.Procedures.SelectMany(procedure => procedure.Expressions).Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.HostedDocumentName));
 
-    // a member of the host's class is addressed under the class: the same document, and the class's fragment continued with a dot.
-    private static IEnumerable<RelatedFinding> HostUsesOf(Uri documentUri, ModuleSemanticsDto semantics, DocumentModuleFact document, string hostClass)
+    // a member of the host's class the module's code reaches as its host's: by its name alone, or as a member of Me. A member of an object of the host's class
+    // that the code holds (ws.Range, of a worksheet an application the program automates gave it) is no presuming of the host, and is not one. A member of the
+    // host's class is addressed under the class: the same document, and the class's fragment continued with a dot.
+    private static IEnumerable<RelatedFinding> HostUsesOf(Uri documentUri, ModuleNode module, ModuleSemanticsDto semantics, DocumentModuleFact document, string hostClass)
     {
         if (document.HostClassUri is not { } classUri)
         {
             yield break;
         }
 
+        var nodes = module.Descendants().OfType<ExpressionNode>().GroupBy(node => node.Identity).ToDictionary(group => group.Key, group => group.First());
+        var members = nodes.Values.OfType<MemberAccessExpressionNode>().Select(access => access.Member.Identity).ToHashSet();
+        bool IsTheHosts(ExpressionFactDto fact) => nodes.TryGetValue(fact.Node, out var node) && node switch
+        {
+            SimpleNameExpressionNode name => !members.Contains(name.Identity),
+            MemberAccessExpressionNode { Owner: InstanceExpressionNode } => true,
+            _ => false,
+        };
+
         var prefix = classUri.Fragment.TrimStart('#') + ".";
-        foreach (var fact in semantics.Procedures.SelectMany(procedure => procedure.Expressions))
+        foreach (var fact in semantics.Procedures.SelectMany(procedure => procedure.Expressions).Where(IsTheHosts))
         {
             if (fact.Binding is { } binding
                 && binding.GetLeftPart(UriPartial.Path) == classUri.GetLeftPart(UriPartial.Path)
