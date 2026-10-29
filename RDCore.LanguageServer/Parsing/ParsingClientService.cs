@@ -173,6 +173,81 @@ internal sealed class ParsingClientService(
             return cached;
         }
 
+        // a parse of this version already asked for is waited for, not asked for again: the refresh of a keystroke and the client's pull and tokens requests
+        // after it each want the same one. A parse of a later version supersedes it (the parser is told to stop), and so does every one of its callers giving
+        // up.
+        InFlightParse parse;
+        InFlightParse? superseded = null;
+        lock (_inFlight)
+        {
+            if (_inFlight.TryGetValue(documentUri, out var running) && running.Version == document.Version)
+            {
+                parse = running;
+            }
+            else
+            {
+                if (running is not null && running.Version < document.Version)
+                {
+                    superseded = running;
+                }
+
+                parse = new InFlightParse(document.Version);
+                parse.Answer = ParseVersionAsync(documentUri, document, parse.Cancellation.Token);
+                _inFlight[documentUri] = parse;
+            }
+
+            parse.Waiting++;
+        }
+
+        if (superseded is not null)
+        {
+            await superseded.Cancellation.CancelAsync();
+        }
+
+        try
+        {
+            return await parse.Answer.WaitAsync(token);
+        }
+        finally
+        {
+            var abandoned = false;
+            lock (_inFlight)
+            {
+                if (--parse.Waiting == 0)
+                {
+                    abandoned = !parse.Answer.IsCompleted;
+                    if (_inFlight.TryGetValue(documentUri, out var current) && ReferenceEquals(current, parse))
+                    {
+                        _inFlight.Remove(documentUri);
+                    }
+                }
+            }
+
+            if (abandoned)
+            {
+                await parse.Cancellation.CancelAsync();
+            }
+        }
+    }
+
+    // a parse asked of the parser, and how many callers wait for it.
+    private sealed class InFlightParse(int version)
+    {
+        public int Version { get; } = version;
+
+        public CancellationTokenSource Cancellation { get; } = new();
+
+        public Task<ModuleParseResult> Answer { get; set; } = Task.FromResult<ModuleParseResult>(null!);
+
+        public int Waiting { get; set; }
+    }
+
+    private readonly Dictionary<Uri, InFlightParse> _inFlight = [];
+
+    private async Task<ModuleParseResult> ParseVersionAsync(Uri documentUri, WorkspaceDocument document, CancellationToken token)
+    {
+        // not under the lock it is asked for in: the request is sent once the caller has let go of it.
+        await Task.Yield();
         await orchestration.ParsingService.WaitForReadyAsync(token);
 
         var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(

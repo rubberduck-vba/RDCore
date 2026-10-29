@@ -35,7 +35,8 @@ public class ParseFullDocumentHandler(
         logger.LogInformation("📥 {method}: {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
         try
         {
-            var result = moduleParser.Parse(uri, content, request.AnchorOffset);
+            // a parse the client no longer waits for (it cancelled the request: the text has changed since) stops, and is not answered.
+            var result = moduleParser.Parse(uri, content, request.AnchorOffset, token);
             logger.LogInformation("📤 {uri}: {status}", uri,
                 result.IsSuccess ? "ok" : $"{result.SyntaxErrors.Length} syntax error(s)");
 
@@ -43,7 +44,7 @@ public class ParseFullDocumentHandler(
             // System.Text.Json string the transport carries verbatim.
             return PlatformJsonEnvelope.Of(result);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!token.IsCancellationRequested)
         {
             // a parser or serialization failure on one module degrades to a failed result carrying the
             // detail, rather than a bare JSON-RPC "-32603 Internal error" the caller can't act on.
