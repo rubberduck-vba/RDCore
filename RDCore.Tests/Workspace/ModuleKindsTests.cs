@@ -84,6 +84,8 @@ public sealed class ModuleKindsTests
     [TestMethod]
     [DataRow("\"PowerPointSlide\"")]
     [DataRow("\"2\"")]
+    [DataRow("\"ExcelWorkbook, ExcelWorksheet\"")]
+    [DataRow("\" ExcelWorksheet\"")]
     [DataRow("\"\"")]
     [DataRow("42")]
     public void ASuperRDVBADoesNotKnow_IsReadAsUnknown_AndTheProjectStillLoads(string written)

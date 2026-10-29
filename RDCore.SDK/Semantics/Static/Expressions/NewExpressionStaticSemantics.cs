@@ -56,7 +56,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
                 $"'{typeName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.ParentUri.Fragment.TrimStart('#')))}"));
         }
 
-        // a document module's objects are its host's to make, in its own project too (MS-VBA: Invalid use of New keyword, oracle\s49 D07).
+        // a document module's objects are its host's to make, in its own project too (MS-VBA: Invalid use of New keyword).
         if (result.Symbol is VBClassModuleSymbol { IsDocument: true } document)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, expression.Location,

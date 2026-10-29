@@ -266,11 +266,9 @@ public sealed class DocClassTypeJsonConverter : JsonConverter<DocClassType>
 
         if (reader.TokenType == JsonTokenType.String)
         {
-            // a name only: "2" is no name, and Enum.TryParse would take it for the number.
+            // one of the names, and nothing else: Enum.TryParse would take "2" for the number, and "ExcelWorkbook, ExcelWorksheet" for the two OR'ed together.
             var name = reader.GetString();
-            return name is { Length: > 0 } && char.IsLetter(name[0]) && Enum.TryParse<DocClassType>(name, ignoreCase: true, out var named) && Enum.IsDefined(named)
-                ? named
-                : DocClassType.Unknown;
+            return Enum.GetValues<DocClassType>().FirstOrDefault(value => string.Equals(value.ToString(), name, StringComparison.OrdinalIgnoreCase));
         }
 
         throw new JsonException($"A {nameof(DocClassType)} is a name or a number, not a {reader.TokenType}.");

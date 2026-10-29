@@ -103,8 +103,7 @@ public sealed class DocumentModuleTests
         // no name, no extension and no handler makes a module a document module: only the project does.
         var errors = await LoadDocumentsAsync([("GameSheet", GameSheet, null)], Program, Excel);
 
-        Assert.IsNotEmpty(errors);
-        Assert.IsTrue(errors.Any(error => error.Contains("Me", StringComparison.Ordinal)), string.Join("\n", errors));
+        Assert.IsTrue(errors.Any(error => error.StartsWith("Invalid use of Me keyword", StringComparison.Ordinal)), string.Join("\n", errors));
     }
 
     [TestMethod]
@@ -121,7 +120,7 @@ public sealed class DocumentModuleTests
     [DataRow("    Dim sheet As Object\r\n    Set sheet = New GameSheet")]
     public async Task ADocumentModule_IsNoClassThatAProgramCreates_InItsOwnProjectEither(string creates)
     {
-        // MS-VBA: Invalid use of New keyword, of a worksheet's module (oracle\s49 D07).
+        // MS-VBA: Invalid use of New keyword, of a worksheet's module.
         var errors = await LoadDocumentsAsync([("GameSheet", GameSheet, DocClassType.ExcelWorksheet)], ProgramThat(creates), Excel);
 
         Assert.IsTrue(errors.Any(error => error.Contains("GameSheet", StringComparison.Ordinal) && error.Contains("host", StringComparison.Ordinal)),
@@ -134,6 +133,6 @@ public sealed class DocumentModuleTests
         // MS-VBA's host makes the document the module's default instance; RD-VBA hosts none.
         var errors = await LoadDocumentsAsync([("GameSheet", GameSheet, DocClassType.ExcelWorksheet)], ProgramThat("    GameSheet.Reset"), Excel);
 
-        Assert.IsNotEmpty(errors);
+        Assert.IsTrue(errors.Any(error => error == "Variable not defined: GameSheet"), string.Join("\n", errors));
     }
 }
