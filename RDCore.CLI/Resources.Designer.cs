@@ -400,6 +400,11 @@ namespace RDCore.CLI {
         public static string Host_Edit_UncertainInAnActiveProcedure => ResourceManager.GetString("Host_Edit_UncertainInAnActiveProcedure", resourceCulture)!;
 
         /// <summary>
+        ///   Looks up a localized string similar to an edit in a procedure the program is in that is too large to place where the program is for certain, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_TooLargeToPlaceInAnActiveProcedure => ResourceManager.GetString("Host_Edit_TooLargeToPlaceInAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
         ///   Looks up a localized string similar to a variable whose value an edit reset, which only running the program again gives back.
         /// </summary>
         public static string Host_Edit_ValueReset => ResourceManager.GetString("Host_Edit_ValueReset", resourceCulture)!;

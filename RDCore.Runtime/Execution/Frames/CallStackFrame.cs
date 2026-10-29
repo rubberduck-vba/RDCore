@@ -240,7 +240,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 .. occasional.ForLoopState?.Keys ?? Enumerable.Empty<int>(), .. occasional.ForEachState?.Keys ?? Enumerable.Empty<int>()];
             foreach (var opener in openers.Concat(occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
             {
-                // what a block holds is let go of when the activation is past it, or is: it is moved, or the edit is refused.
+                // what a block holds is let go of only once the activation is past the block, so it moves with the block, or the edit is refused.
                 var holds = occasional.BlockHolders?.ContainsKey(opener) ?? false;
                 if (!holds && !IsIn(opener))
                 {

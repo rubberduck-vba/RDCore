@@ -706,6 +706,35 @@ public sealed class EditAndContinueTests
         StringAssert.Contains(resumed.ErrorMessage, "can't be placed for certain");
     }
 
+    // a second edit elsewhere in the procedure says no more of which statement the first one removed.
+    [TestMethod]
+    public async Task OneOfTwoIdenticalStatementsRemoved_AndAnotherLineEdited_IsStillRefusedForNow()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Dim x As Long",
+            "    x = x + 1", "    Stop", "    x = x + 1", "    Stop", "    x = x + 1", "    Debug.Print \"x=\" & x", "End Sub");
+        var edited = Lines("Option Explicit", "Public Sub Main()", "    Dim x As Long",
+            "    x = x + 1", "    Stop", "    x = x + 1", "    Debug.Print \"x is \" & x", "End Sub");
+
+        var resumed = await EditedWhereItWaitsAsync(program, edited, Resume);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "can't be placed for certain");
+    }
+
+    [TestMethod]
+    public async Task OneOfTwoIdenticalCalls_TheOneACallerIsInTheMiddleOf_Removed_AndALineAddedAtTheEnd_IsStillRefusedForNow()
+    {
+        var program = Lines("Option Explicit", "Public Sub Callee()", "    Static n As Long", "    n = n + 1", "    If n = 1 Then Stop", "    Debug.Print \"callee \" & n",
+            "End Sub", "Public Sub Main()", "    Callee", "    Debug.Print \"between\"", "    Callee", "End Sub");
+        var edited = program.Replace("    Callee\r\n    Debug.Print \"between\"\r\n", "", StringComparison.Ordinal)
+            .Replace("    Callee\r\nEnd Sub", "    Callee\r\n    Debug.Print \"end\"\r\nEnd Sub", StringComparison.Ordinal);
+
+        var resumed = await ProgramEditedAtItsStopAsync(program, edited);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "can't be placed for certain");
+    }
+
     [TestMethod]
     public async Task OneOfTwoIdenticalStatementsRemoved_AtTheBreakpointTheProgramWaitsAt_IsRefusedForNow()
     {

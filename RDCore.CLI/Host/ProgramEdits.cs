@@ -167,7 +167,9 @@ internal sealed class ProgramEdits
                     FrameRebaseRefusal.InTheMiddleOfAHeader => (ProgramEditKind.NotYet, Resources.Host_Edit_HeaderOfAnActiveProcedure),
                     FrameRebaseRefusal.BlockChanged => (ProgramEditKind.Restart, Resources.Host_Edit_BlockOfAnActiveProcedure),
                     FrameRebaseRefusal.FaultChanged => (ProgramEditKind.Restart, Resources.Host_Edit_FaultOfAnActiveProcedure),
-                    FrameRebaseRefusal.Uncertain => (ProgramEditKind.NotYet, Resources.Host_Edit_UncertainInAnActiveProcedure),
+                    FrameRebaseRefusal.Uncertain => (ProgramEditKind.NotYet, alignment.IsPartial
+                        ? Resources.Host_Edit_TooLargeToPlaceInAnActiveProcedure
+                        : Resources.Host_Edit_UncertainInAnActiveProcedure),
                     _ => (ProgramEditKind.Restart, Resources.Host_Edit_HandlerOfAnActiveProcedure),
                 };
                 edits.Add(new ProgramEdit(name, kind, reason, declared?.Module, declared?.Range));
@@ -261,9 +263,26 @@ internal sealed class ProgramEdits
         {
             if (frame is { Procedure: { } procedure, Body: { } body } && image.TryGetValue(procedure.SemanticId, out var now) && !ReferenceEquals(now, body))
             {
-                yield return (frame, now, InstructionAlignment.Of(body, now), ReferenceEquals(frame, current));
+                yield return (frame, now, AlignmentOf(body, now), ReferenceEquals(frame, current));
             }
         }
+    }
+
+    // a body and its edited body are aligned once, however often what was edited is asked: by each edit status, and again by the resume.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<InstructionList, Aligned> Alignments = new();
+
+    private sealed record class Aligned(InstructionList Edited, InstructionAlignment Alignment);
+
+    private static InstructionAlignment AlignmentOf(InstructionList body, InstructionList edited)
+    {
+        if (Alignments.TryGetValue(body, out var aligned) && ReferenceEquals(aligned.Edited, edited))
+        {
+            return aligned.Alignment;
+        }
+
+        var alignment = InstructionAlignment.Of(body, edited);
+        Alignments.AddOrUpdate(body, new Aligned(edited, alignment));
+        return alignment;
     }
 
     // whether the module holds a fixed-size array a dimension of which was declared with no lower bound: a module variable, or a Static of its procedures.
