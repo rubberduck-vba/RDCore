@@ -39,14 +39,15 @@ public sealed class CompiledExecutionTests
         }
     }
 
-    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
+    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        (string Name, string Source)[]? classes = null)
     {
         ExecuteSessionResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
 
         // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two.
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync(NoClasses, program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync(classes ?? NoClasses, program, (provider, run, _) =>
         {
             result = run;
             compiled = provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result);
@@ -309,6 +310,43 @@ public sealed class CompiledExecutionTests
             "    Dim z As Double",
             "    z = x + y",
             "End Sub"), "Outer", "Twice", "Touch");
+
+    // a function returning an object, called as a statement: what it returns is let go of when the statement is over, which compiled code holds nothing
+    // of - the caller is not compiled, and says why.
+    [TestMethod]
+    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsNotCalledFromCompiledCode()
+    {
+        RequirePayloads();
+        var program = Program(
+            "Public Sub Main()",
+            "    Outer",
+            "    Debug.Print \"after outer\"",
+            "End Sub",
+            "Private Sub Outer()",
+            "    Dim i As Long",
+            "    For i = 1 To 2",
+            "        MakeOne i",
+            "        Report i",
+            "    Next",
+            "End Sub",
+            "Private Function MakeOne(ByVal x As Long) As Class1",
+            "    Set MakeOne = New Class1",
+            "    MakeOne.Id = x",
+            "End Function",
+            "Private Sub Report(ByVal x As Long)",
+            "    Debug.Print \"report \" & x",
+            "End Sub");
+        (string Name, string Source)[] classes =
+            [("Class1", ModuleWorkspace.ClassModule("Class1", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"terminate \" & Id", "End Sub"))];
+
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes: classes);
+        var run = await RunAsync(program, VBExecutionEngine.Compiled, classes: classes);
+
+        Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
+        CollectionAssert.AreEqual(new[] { "terminate 1", "report 1", "terminate 2", "report 2", "after outer" }, run.Result.Output.Select(line => line.Trim()).ToArray());
+        var reason = Assert.ContainsSingle(run.Compiled["Outer"].Reasons);
+        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (reason.Kind, reason.Detail));
+    }
 
     // an error raised in the callee reaches the compiled caller at its call, and the interpreter gives it the handler a caller of it has: the same error,
     // line and stack.

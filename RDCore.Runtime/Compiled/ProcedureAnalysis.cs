@@ -34,7 +34,8 @@ namespace RDCore.Runtime.Compiled;
 /// <para>
 /// Compiled code does a procedure of a standard module whose parameters are scalars passed by value and whose variables are scalars: literals,
 /// constants, arithmetic, comparisons and the logical operators; <c>Let</c>; <c>If</c>, <c>Do</c>, <c>While</c> and <c>For</c>; <c>Exit</c>; and calls of
-/// procedures of the workspace whose parameters are scalars passed by value - a call statement, or a function's result assigned whole.
+/// procedures of the workspace whose parameters are scalars passed by value - a call statement that gives arguments (a bare <c>Foo</c> binds as a name,
+/// which is not compiled), or a function's result assigned whole; a function called as a statement returns a scalar.
 /// </para>
 /// </remarks>
 internal sealed class ProcedureAnalysis
@@ -289,8 +290,10 @@ internal sealed class ProcedureAnalysis
     /// <summary>The procedures the body calls, by the number its call steps know each by.</summary>
     public List<CompiledCallee> Callees { get; } = [];
 
-    // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar passed by value and given an argument of
-    // its kind; of a function returning resultKind when what it returns is read. RuntimeExpressionEvaluator.TryInvokeScalars makes the same call.
+    // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind passed by value, none a
+    // Variant, and given an argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what
+    // it returns is let go of as a temporary of the statement, which compiled code holds none of. It is made with RuntimeProcedureInvoker.InvokeScalars,
+    // as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
@@ -306,8 +309,10 @@ internal sealed class ProcedureAnalysis
             return null;
         }
 
-        // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call.
-        if (resultKind is { } read && (procedure is not VBFunctionMemberSymbol { ResolvedType: var returned } || ScalarKinds.Of(returned) != read))
+        // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
+        // Function called as a statement returns a scalar: an object it returned would be held by the statement until it ends.
+        if (resultKind is { } read && (procedure is not VBFunctionMemberSymbol { ResolvedType: var returned } || ScalarKinds.Of(returned) != read)
+            || resultKind is null && procedure is VBFunctionMemberSymbol { ResolvedType: var discarded } && ScalarKinds.Of(discarded) is null)
         {
             return null;
         }

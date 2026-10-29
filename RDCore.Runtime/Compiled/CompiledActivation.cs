@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -43,6 +44,7 @@ public sealed class CompiledActivation
     {
         (_session, _frame, _list, _executor, _context, _body) = (session, frame, list, executor, context, body);
         _halt = session.Halt;
+        _scopes = session.Symbols.Scopes;
         frame.RunsCompiled = true;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
@@ -157,8 +159,16 @@ public sealed class CompiledActivation
     /// </summary>
     public bool WaitedDuringCall => Suspensions != _suspensionsBeforeCall;
 
-    /// <summary>Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>).</summary>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter;
+    // the symbols compiled code was compiled against: a procedure it calls, defined again since - its parameters retyped, passed another way, one added - is
+    // another call than the one compiled.
+    private readonly ScopeTree _scopes;
+
+    /// <summary>
+    /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>),
+    /// or the session's symbols were defined again while the callee ran - an edit made while the program waited - and what compiled code calls, and how,
+    /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call.
+    /// </summary>
+    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
@@ -203,6 +213,22 @@ public sealed class CompiledActivation
 
         value = payload.Floating;
         return true;
+    }
+
+    /// <summary>The payload of the function result variable, of an integral kind, when it holds one: what a debugger may have assigned it while the program waited.</summary>
+    public bool TryReadResultIntegral(out long value)
+    {
+        var read = _frame.TryReadResult(out var payload);
+        value = read ? payload.Integral : 0;
+        return read;
+    }
+
+    /// <summary>The payload of the function result variable, of a floating-point kind, when it holds one.</summary>
+    public bool TryReadResultFloating(out double value)
+    {
+        var read = _frame.TryReadResult(out var payload);
+        value = read ? payload.Floating : 0;
+        return read;
     }
 
     /// <summary>Writes the variable in <paramref name="slot"/>, of an integral kind, into its cell.</summary>

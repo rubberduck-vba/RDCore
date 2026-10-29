@@ -57,8 +57,9 @@ public sealed class InstructionAlignment
     public bool IsPartial { get; }
 
     /// <summary>
-    /// Whether the edited body is the body as it was: the same instructions, each kept at its own offset - the module loaded again with no edit of this
-    /// procedure, or with one that moved its lines only.
+    /// Whether the edited body has the same instructions as the body as it was, each kept at its own offset - as when the procedure itself was not edited.
+    /// The same instructions are not the same program: an edit elsewhere in the module, as of the header of a procedure they call, can bind them
+    /// differently.
     /// </summary>
     public bool IsIdentity => _placements.Length == _length && _placements.Select((placement, offset) => placement == offset).All(kept => kept);
 

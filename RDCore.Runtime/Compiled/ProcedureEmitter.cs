@@ -171,10 +171,10 @@ internal sealed class ProcedureEmitter
     }
 
     // the arguments evaluated - where one fails, nothing was called, and the interpreter makes the instruction from its start - then the call. Under a
-    // debugger the activation's variables are written into its frame before it, which a debugger shows while the program waits in the callee; when the
-    // program waited, what the debugger may have changed of them is read back after it. A call that does not return - an error, the program stopped, a
-    // callee compiled code can't call - is the interpreter's at the call (CompiledActivation.AfterFailedCall). After a call returns, the activation is the
-    // interpreter's at the next instruction when the interpreter is wanted.
+    // debugger the activation's variables and its function result are written into its frame before it, which a debugger shows while the program waits in
+    // the callee; when the program waited, what the debugger may have changed of them is read back after it. A call that does not return - an error, the
+    // program stopped, a callee compiled code can't call - is the interpreter's at the call (CompiledActivation.AfterFailedCall). After a call returns, the
+    // activation is the interpreter's at the next instruction when the interpreter is wanted, or the symbols it was compiled against were defined again.
     private void EmitCall(CallStep call)
     {
         var failure = FailureAt(call.Offset);
@@ -265,6 +265,17 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, _slots[slot]);
             _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
+            _il.Emit(OpCodes.Pop);
+        }
+
+        // the function result variable too, which the spill before the call wrote.
+        if (_result is { } result)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldloca, result);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(_analysis.ResultKind!.Value)
+                ? nameof(CompiledActivation.TryReadResultIntegral)
+                : nameof(CompiledActivation.TryReadResultFloating))!);
             _il.Emit(OpCodes.Pop);
         }
     }

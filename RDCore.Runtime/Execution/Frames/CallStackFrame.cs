@@ -152,8 +152,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return false;
         }
 
-        // an activation whose body, edited, has every instruction it had at the offset it had - only its lines moved, or none - is given it, and nothing of
-        // it moves: what it keeps by offset is where it was.
+        // an activation whose body, edited, has every instruction it had at the offset it had is given it, and nothing of it moves: what it keeps by offset
+        // is where it was. What the instructions bind to is bound again as they are made.
         if (rebased.Stays)
         {
             Body = body;
@@ -199,8 +199,10 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return FrameRebaseRefusal.CallChanged;
         }
 
-        // an activation running compiled code has its variables and its loops in compiled code's locals, which nothing here can move: it goes on in its body
-        // when that is as it was - its module loaded again with no edit of it - and is not moved otherwise.
+        // an activation running compiled code has its variables and its loops in compiled code's locals, which nothing here can move: it goes on when its
+        // edited body has the same instructions at the same offsets, and is not moved otherwise. The same instructions can bind differently once the module
+        // is defined again - a callee's header edited - so the activation is handed to the interpreter as soon as its call returns, and goes on in the
+        // edited body from the next instruction (CompiledActivation.WantsInterpreterAfterCall).
         if (RunsCompiled)
         {
             if (!alignment.IsIdentity)
