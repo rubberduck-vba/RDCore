@@ -228,7 +228,7 @@ public sealed class WorkspaceRefreshTests
             diagnostics.GetPhaseAsync(Arg.Any<Uri>(), Arg.Any<AnalysisPhase>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(DocumentDiagnosticsResult.Fresh(1, [])));
             Documents = new DocumentLifecycleService(documents, parsing, Substitute.For<ISymbolSyncService>(), diagnostics, Substitute.For<IDiagnosticsPublisher>(),
-                _refresh, NullLogger<DocumentLifecycleService>.Instance);
+                _refresh, NullLogger<DocumentLifecycleService>.Instance, editDelay: TimeSpan.Zero);
         }
 
         public string Wire

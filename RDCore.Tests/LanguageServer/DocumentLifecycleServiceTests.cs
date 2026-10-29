@@ -49,8 +49,35 @@ public sealed class DocumentLifecycleServiceTests
         _diagnostics.GetPhaseAsync(Arg.Any<Uri>(), AnalysisPhase.Runtime, Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(DocumentDiagnosticsResult.Fresh(1, [])));
 
-        _sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance);
+        // a client that is pushed to; one that pulls is told nothing (ForAClientThatPulls_NothingIsFoundOutOrPublished).
+        _publisher.IsEnabled.Returns(true);
+        _sut = Lifecycle(TimeSpan.Zero);
     }
+
+    private DocumentLifecycleService Lifecycle(TimeSpan? editDelay, Func<TimeSpan, CancellationToken, Task>? wait = null)
+        => new(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance, editDelay, wait);
+
+    // a lifecycle whose refresh of an edit waits until it is hurried or superseded: no burst of edits is ever over on its own.
+    private DocumentLifecycleService WaitingForMoreEdits()
+        => Lifecycle(DocumentLifecycleService.EditDelay, (_, token) => Task.Delay(Timeout.Infinite, token));
+
+    // each sync of the module with the host: when it starts, and what lets it finish, in the order they are asked for.
+    private (TaskCompletionSource[] Started, TaskCompletionSource[] Released) GatedSyncs(int count)
+    {
+        var started = Enumerable.Range(0, count).Select(_ => new TaskCompletionSource()).ToArray();
+        var released = Enumerable.Range(0, count).Select(_ => new TaskCompletionSource()).ToArray();
+        var calls = -1;
+        _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            var call = Interlocked.Increment(ref calls);
+            started[call].TrySetResult();
+            await released[call].Task;
+        });
+
+        return (started, released);
+    }
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(5);
 
     private static Diagnostic Diagnostic() => new() { Message = "wrong", Range = new Range(new Position(0, 0), new Position(0, 1)) };
 
@@ -139,6 +166,193 @@ public sealed class DocumentLifecycleServiceTests
 
         Assert.AreEqual(DocumentChangeOutcome.Applied, outcome);
         _publisher.Received(1).Publish(Mod1, 2, Arg.Any<IReadOnlyList<Diagnostic>>());
+    }
+
+    // a client that pulls asks for what it shows itself: the refresh finds out nothing for it, and pushes nothing. The host is told of the text all the same.
+    [TestMethod]
+    public async Task ForAClientThatPulls_NothingIsFoundOutOrPublished()
+    {
+        _publisher.IsEnabled.Returns(false);
+
+        _sut.Opened(Mod1, "a", 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        _ = _sut.Changed(Mod1, 2, [Full("b")]);
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        await _symbols.Received(2).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _diagnostics.DidNotReceiveWithAnyArgs().GetPhaseAsync(default!, default, default);
+        _publisher.DidNotReceiveWithAnyArgs().Publish(default!, default, default!);
+    }
+
+    // as the user types: each edit supersedes the one before while the refresh waits for more, and only the text that is there at the end is refreshed.
+    [TestMethod]
+    public async Task ABurstOfEdits_IsRefreshedOnce_AtTheLastVersion()
+    {
+        var pause = new TaskCompletionSource();
+        var sut = Lifecycle(DocumentLifecycleService.EditDelay, (_, token) => pause.Task.WaitAsync(token));
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        _parsing.ClearReceivedCalls();
+        _symbols.ClearReceivedCalls();
+        _publisher.ClearReceivedCalls();
+
+        for (var version = 2; version <= 6; version++)
+        {
+            _ = sut.Changed(Mod1, version, [Full("x" + version)]);
+        }
+
+        pause.SetResult();
+        await sut.WhenRefreshedAsync(Mod1);
+
+        await _parsing.Received(1).ParseDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        _publisher.Received(1).Publish(Mod1, 6, Arg.Any<IReadOnlyList<Diagnostic>>());
+        _publisher.DidNotReceive().Publish(Mod1, Arg.Is<int?>(version => version < 6), Arg.Any<IReadOnlyList<Diagnostic>>());
+    }
+
+    [TestMethod]
+    public async Task TheRefreshOfAnEdit_WaitsAQuarterOfASecond_WhenNothingElseIsSaid()
+    {
+        var asked = new TaskCompletionSource<TimeSpan>();
+        var sut = Lifecycle(editDelay: null, (span, _) =>
+        {
+            asked.TrySetResult(span);
+            return Task.CompletedTask;
+        });
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+
+        Assert.AreEqual(TimeSpan.FromMilliseconds(250), await asked.Task.WaitAsync(Patience));
+        Assert.AreEqual(TimeSpan.FromMilliseconds(250), DocumentLifecycleService.EditDelay);
+    }
+
+    // what is found of a document is of what the host has of it: a request for it does not wait for more edits, and waits for the host to have this one.
+    [TestMethod]
+    public async Task ARequestWhileTheRefreshWaits_StartsItAtOnce_AndWaitsForTheHost()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (started, released) = GatedSyncs(1);
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+        var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
+        await started[0].Task.WaitAsync(Patience);
+
+        Assert.IsFalse(synced.IsCompleted, "the host does not have the edit yet");
+        released[0].SetResult();
+        await synced.WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task ARequestForADocumentWithNoRefresh_DoesNotWait()
+        => await _sut.WhenSyncedAsync(Mod1, CancellationToken.None).WaitAsync(Patience);
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "the parse")]
+    [DataRow(false, DisplayName = "the sync with the host")]
+    public async Task ARefreshThatFails_DoesNotKeepARequestWaiting(bool parse)
+    {
+        _sut.Opened(Mod1, "a", 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        if (parse)
+        {
+            _parsing.ParseDocumentAsync(Mod1, Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("no parse"));
+        }
+        else
+        {
+            _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("no host"));
+        }
+
+        _ = _sut.Changed(Mod1, 2, [Full("b")]);
+
+        await _sut.WhenSyncedAsync(Mod1, CancellationToken.None).WaitAsync(Patience);
+    }
+
+    // a refresh another edit supersedes hands the wait on: what is waited for is the host having the text there is.
+    [TestMethod]
+    public async Task ARequestWaitingForARefreshThatIsSuperseded_WaitsForTheOneThatSupersedesIt()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (started, released) = GatedSyncs(2);
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+        var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
+        await started[0].Task.WaitAsync(Patience);
+        var superseded = sut.WhenRefreshedAsync(Mod1);
+        _ = sut.Changed(Mod1, 3, [Full("c")]);
+        _ = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
+        await started[1].Task.WaitAsync(Patience);
+        released[0].SetResult();
+        await superseded.WaitAsync(Patience);
+        await Task.WhenAny(synced, Task.Delay(100));
+
+        Assert.IsFalse(synced.IsCompleted, "the host does not have the text there is yet");
+        released[1].SetResult();
+        await synced.WaitAsync(Patience);
+    }
+
+    // a save as the edit is brought to the host refreshes the same version again: what waits for the host waits for that refresh, whose parse is the one the
+    // host is given.
+    [TestMethod]
+    public async Task ARequestWaitingForAnEdit_ThatASaveSupersedes_WaitsForTheSavesRefresh()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (started, released) = GatedSyncs(2);
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+        var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
+        await started[0].Task.WaitAsync(Patience);
+        var edited = sut.WhenRefreshedAsync(Mod1);
+        sut.Saved(Mod1, text: null);
+        await started[1].Task.WaitAsync(Patience);
+        released[0].SetResult();
+        await edited.WaitAsync(Patience);
+        await Task.WhenAny(synced, Task.Delay(100));
+
+        Assert.IsFalse(synced.IsCompleted, "the save's refresh has not brought the host up to date yet");
+        released[1].SetResult();
+        await synced.WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task ARequestWaitingForTheHost_IsDoneWaiting_WhenTheDocumentIsClosed()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (started, released) = GatedSyncs(1);
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+        var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
+        await started[0].Task.WaitAsync(Patience);
+        await sut.ClosedAsync(Mod1);
+        released[0].SetResult();
+
+        await synced.WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task ARequestForEveryDocument_StartsEachRefreshThatWaits_AndWaitsForEach()
+    {
+        var sut = WaitingForMoreEdits();
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (started, released) = GatedSyncs(1);
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+        var synced = sut.WhenAllSyncedAsync(CancellationToken.None);
+        await started[0].Task.WaitAsync(Patience);
+
+        Assert.IsFalse(synced.IsCompleted);
+        released[0].SetResult();
+        await synced.WaitAsync(Patience);
     }
 
     [TestMethod]

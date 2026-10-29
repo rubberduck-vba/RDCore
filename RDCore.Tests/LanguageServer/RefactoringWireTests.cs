@@ -79,7 +79,7 @@ public sealed class RefactoringWireTests
             .WithOutput(toClient.Writer)
             // as the platform's servers write a pull diagnostic report (RDCoreServerApp).
             .WithSerializer(new PullDiagnosticsLspSerializer())
-            .AddHandler(new DocumentDiagnosticHandler(diagnostics, new WorkProgressReporter(), new IncomingDocumentChanges()))
+            .AddHandler(new DocumentDiagnosticHandler(diagnostics, Substitute.For<IDocumentLifecycleService>(), new WorkProgressReporter(), new IncomingDocumentChanges()))
             .AddHandler(new CodeActionHandler(rename, documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem()))
             .AddHandler(new RenameHandler(rename))
             .AddHandler(new PrepareRenameHandler(rename)), timeout.Token);
