@@ -320,7 +320,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// written in, which only the client knows, and which the server needs to know before it builds anything.
     /// </summary>
     protected virtual RDCoreInitializationOptions CreateInitializationOptions()
-        => new() { Language = _options.Value.Workspace.Language };
+        => new() { Language = _options.Value.Workspace.Language, Locale = Server.ClientLocale.TagOf(Thread.CurrentThread.CurrentUICulture) };
 
     /// <summary>
     /// Applies the app-specific parts of the language client configuration. The transport (input/output)

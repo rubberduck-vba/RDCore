@@ -457,13 +457,14 @@ public abstract class RDCoreServerApp(
         // what the client says of itself comes before everything that is built from it: the capabilities below, and whatever an
         // application brings up in its own handler - the children a language server starts are told the same locale.
         ApplyInitializationOptions(request);
-        if (ClientLocale.Apply(request.Locale) is { } culture)
+        var locale = ClientLocale.Of(request.Locale, ReadInitializationOptions(request.InitializationOptions));
+        if (ClientLocale.Apply(locale) is { } culture)
         {
             LogIfEnabled(LogLevel.Information, $"🌐 The client's user interface is in '{culture.Name}'.");
         }
-        else if (!string.IsNullOrWhiteSpace(request.Locale))
+        else if (!string.IsNullOrWhiteSpace(locale))
         {
-            LogIfEnabled(LogLevel.Warning, $"The client's locale '{request.Locale}' is not a culture the platform knows; '{System.Globalization.CultureInfo.CurrentUICulture.Name}' stands.");
+            LogIfEnabled(LogLevel.Warning, $"The client's locale '{locale}' is not a culture the platform knows; '{System.Globalization.CultureInfo.CurrentUICulture.Name}' stands.");
         }
 
         var clientProcessId = ResolveClientProcessId(request);
