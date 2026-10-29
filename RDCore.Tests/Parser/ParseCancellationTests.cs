@@ -1,6 +1,10 @@
+using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
+using Antlr4.Runtime.Tree;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RDCore.Parsing;
+using RDCore.Parsing.Syntax;
 using RDCore.ParseServer.Handlers;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
@@ -30,22 +34,44 @@ public sealed class ParseCancellationTests
         _ = Assert.ThrowsExactly<OperationCanceledException>(() => new ModuleParser().Parse(Uri, "Public Sub Foo()\r\nEnd Sub\r\n", token: cancelled.Token));
     }
 
-    [TestMethod]
-    public void AParse_CancelledAsItRuns_StopsBeforeItsEnd()
+    // counts the rules the parser enters, and cancels the token as it enters the one it is told of.
+    private sealed class CancellingAtRule(int rule, CancellationTokenSource cancellation) : IParseTreeListener
     {
-        var source = LongModule();
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        _ = new ModuleParser().Parse(Uri, source);
-        var whole = watch.Elapsed;
+        public int Entered { get; private set; }
 
+        public void EnterEveryRule(ParserRuleContext context)
+        {
+            if (++Entered == rule)
+            {
+                cancellation.Cancel();
+            }
+        }
+
+        public void ExitEveryRule(ParserRuleContext context) { }
+
+        public void VisitTerminal(ITerminalNode node) { }
+
+        public void VisitErrorNode(IErrorNode node) { }
+    }
+
+    // a parse cancelled as it runs stops at the next rule it enters. The token is cancelled at a rule the parse is known to reach, by a listener that counts
+    // them, rather than after a time: what a clock would decide differs from one machine to the next, and a warm parse can end before a timer fires.
+    [TestMethod]
+    public void AParse_CancelledAsItRuns_StopsAtTheRuleItIsCancelledAt()
+    {
+        const int Rule = 1_000;
         using var cancellation = new CancellationTokenSource();
-        cancellation.CancelAfter(whole / 10);
-        watch.Restart();
-        var thrown = Assert.Throws<OperationCanceledException>(() => new ModuleParser().Parse(Uri, source, token: cancellation.Token));
-        watch.Stop();
+        var counting = new CancellingAtRule(Rule, cancellation);
+        var parser = new VBAParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(LongModule()))));
+        parser.Interpreter.PredictionMode = PredictionMode.Sll;
+        parser.RemoveErrorListeners();
+        parser.AddParseListener(counting);
+        parser.AddParseListener(new CancellationListener(cancellation.Token));
+
+        var thrown = Assert.Throws<OperationCanceledException>(() => parser.startRule());
 
         Assert.AreEqual(cancellation.Token, thrown.CancellationToken);
-        Assert.IsLessThan(whole, watch.Elapsed, "stopped before the parse it was would have ended");
+        Assert.AreEqual(Rule, counting.Entered, "the parse stopped at the rule its token was cancelled at, not at its end");
     }
 
     [TestMethod]
