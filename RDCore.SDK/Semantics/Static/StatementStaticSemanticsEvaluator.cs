@@ -1185,7 +1185,9 @@ public static class StatementStaticSemanticsEvaluator
     // returns, as its target is evaluated.
     private static VBType DeclaredTypeOfTarget(StaticEvaluationContext context, AssignmentStatementNode assignment, VBType evaluated)
     {
-        if (evaluated is not VBVoidType || AccessorsOf(context, assignment.Target) is not { } members || members.OfType<VBPropertyGetMemberSymbol>().Any())
+        // a property with parameters is named with its arguments, `w.Item(1)`: the accessors are those of the property they are given to.
+        var property = assignment.Target is IndexExpressionNode { Callee: var called } ? called : assignment.Target;
+        if (evaluated is not VBVoidType || AccessorsOf(context, property) is not { } members || members.OfType<VBPropertyGetMemberSymbol>().Any())
         {
             return evaluated;
         }

@@ -138,20 +138,40 @@ public sealed class AssignmentTargetTests
     // MS-VBAL §5.4.3.9: a Set statement assigns a property through its Property Set, whether the property can be read or not - and a Let statement
     // through its Property Let.
     [TestMethod]
-    [DataRow("Set w.Thing = w", DisplayName = "Set, through a variable of the class")]
-    [DataRow("With w\r\nSet .Thing = w\r\nEnd With", DisplayName = "Set, through a With block")]
-    [DataRow("Dim o As Object\r\nSet o = w\r\nSet o.Thing = w", DisplayName = "Set, through an Object")]
-    [DataRow("w.Size = 3", DisplayName = "Let, through a variable of the class")]
-    public async Task AnAssignment_ToAPropertyThatCannotBeRead_IsAssignedThroughItsSetter(string body)
+    [DataRow("Set w.Thing = w", "Widget 0", DisplayName = "Set, through a variable of the class")]
+    [DataRow("With w\r\nSet .Thing = w\r\nEnd With", "Widget 0", DisplayName = "Set, through a With block")]
+    [DataRow("Dim o As Object\r\nSet o = w\r\nSet o.Thing = w", "Widget 0", DisplayName = "Set, through an Object")]
+    [DataRow("w.Size = 3", "Nothing 3", DisplayName = "Let, through a variable of the class")]
+    [DataRow("Set w.Item(1) = w", "Widget 0", DisplayName = "Set, of a property with parameters")]
+    [DataRow("w.Slot(2) = 3", "Nothing 3", DisplayName = "Let, of a property with parameters")]
+    public async Task AnAssignment_ToAPropertyThatCannotBeRead_IsAssignedThroughItsSetter(string body, string expected)
     {
         var widget = ("Widget", ClassModule("Widget", "Option Explicit", "Private m As Object", "Private n As Long",
             "Public Property Set Thing(ByVal value As Object)", "Set m = value", "End Property",
             "Public Property Let Size(ByVal value As Long)", "n = value", "End Property",
+            "Public Property Set Item(ByVal i As Long, ByVal value As Object)", "Set m = value", "End Property",
+            "Public Property Let Slot(ByVal i As Long, ByVal value As Long)", "n = value", "End Property",
             "Public Function Held() As String", "Held = TypeName(m) & \" \" & n", "End Function"));
 
         var output = await RunAsync([widget], Program("Private w As New Widget", body + "\r\nDebug.Print w.Held"));
 
-        CollectionAssert.AreEqual(new[] { body.StartsWith("w.Size", StringComparison.Ordinal) ? "Nothing 3" : "Widget 0" }, output);
+        CollectionAssert.AreEqual(new[] { expected }, output);
+    }
+
+    // a Let of a property that can't be read is coerced to its Property Let's value parameter: an object with no default member, given to a Long, compiles
+    // as it does for a variable declared Long, and fails only when it runs.
+    [TestMethod]
+    [DataRow("w.Size = w", DisplayName = "Let, an object")]
+    [DataRow("w.Slot(2) = w", DisplayName = "Let, an object, of a property with parameters")]
+    public async Task ALet_OfAnObject_ToAPropertyThatCannotBeRead_Compiles(string body)
+    {
+        var widget = ("Widget", ClassModule("Widget", "Option Explicit", "Private n As Long",
+            "Public Property Let Size(ByVal value As Long)", "n = value", "End Property",
+            "Public Property Let Slot(ByVal i As Long, ByVal value As Long)", "n = value", "End Property"));
+
+        var errors = await LoadErrorsAsync([widget], Program("Private w As New Widget", body));
+
+        Assert.IsEmpty(errors, string.Join(" | ", errors));
     }
 
     // what is assigned is coerced to the value parameter of the accessor that is called: a number is no object for a Property Set to be given, as it is none
