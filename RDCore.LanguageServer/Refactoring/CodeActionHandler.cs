@@ -75,14 +75,14 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
             foreach (var suggestion in fix.Suggestions)
             {
-                if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion).Value is { } edit)
+                if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion).Value is { } edit && ForTheClient(edit) is { } applicable)
                 {
                     actions.Add(new CodeAction
                     {
                         Title = RefactoringTitles.RenameTo(target.Placeholder, suggestion),
                         Kind = CodeActionKind.QuickFix,
                         Diagnostics = new Container<Diagnostic>(diagnostic),
-                        Edit = edit.For(_client),
+                        Edit = applicable,
                         IsPreferred = true,
                     });
                 }
@@ -105,6 +105,19 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
             ? actions.Where(action => only.Any(kind => action.Kind.ToString() == kind || action.Kind.ToString().StartsWith(kind + ".", StringComparison.Ordinal)))
             : actions;
         return new CommandOrCodeActionContainer(answered.Select(action => new CommandOrCodeAction(action)));
+    }
+
+    // the edit as the client applies it; an action whose edit the client can't apply is not offered - the rename command, which says why, still is.
+    private WorkspaceEdit? ForTheClient(WorkspaceEdit edit)
+    {
+        try
+        {
+            return edit.For(_client);
+        }
+        catch (WorkspaceEditNotSupportedException)
+        {
+            return null;
+        }
     }
 
     // the action that renames a symbol to a name the client asks its user for.

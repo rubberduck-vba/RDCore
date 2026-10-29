@@ -299,8 +299,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     {
         // said either way: the language client says it supports progress unless it is told otherwise, and a server would create tokens for nothing.
         Window = new WindowClientCapabilities { WorkDoneProgress = SupportsWorkDoneProgress },
-        // the server asks for the live settings, and is told when they change; an edit it sends names the version of each document it edits, which a client
-        // checks against the text it has (the shell's DUCKY does).
+        // the server asks for the live settings, and is told when they change; an edit it sends as documentChanges names the version of each document it edits,
+        // which a client checks against the text it has (the shell's DUCKY does) - an edit sent as changes names none.
         Workspace = new WorkspaceClientCapabilities
         {
             Configuration = true,
