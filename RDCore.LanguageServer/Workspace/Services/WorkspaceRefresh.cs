@@ -36,8 +36,8 @@ internal interface IWorkspaceRefresh
     void Attach(ILanguageServerFacade server);
 }
 
-// a burst of no time asks the client at once, at each change.
-internal sealed class WorkspaceRefresh(TimeSpan burst) : IWorkspaceRefresh, IDisposable
+// a burst of no time asks the client at once, at each change. The burst is timed by the clock given, the system's when none is.
+internal sealed class WorkspaceRefresh(TimeSpan burst, TimeProvider? clock = null) : IWorkspaceRefresh, IDisposable
 {
     /// <summary>How long after a change the client is asked to refresh, unless another change comes first.</summary>
     public static readonly TimeSpan Burst = TimeSpan.FromMilliseconds(300);
@@ -60,7 +60,7 @@ internal sealed class WorkspaceRefresh(TimeSpan burst) : IWorkspaceRefresh, IDis
     ];
 
     private readonly object _sync = new();
-    private Timer? _timer;
+    private ITimer? _timer;
     private long _generation;
     private ILanguageServerFacade? _server;
 
@@ -80,7 +80,7 @@ internal sealed class WorkspaceRefresh(TimeSpan burst) : IWorkspaceRefresh, IDis
         // a change that comes before the burst is over puts the request off: the client is asked once, for all of them.
         lock (_sync)
         {
-            _timer ??= new Timer(_ => Send());
+            _timer ??= (clock ?? TimeProvider.System).CreateTimer(_ => Send(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             _timer.Change(burst, Timeout.InfiniteTimeSpan);
         }
     }

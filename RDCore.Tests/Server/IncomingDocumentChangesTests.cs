@@ -28,7 +28,8 @@ public sealed class IncomingDocumentChangesTests
     [Method("textDocument/didChange", Direction.ClientToServer)]
     public sealed record class ChangeParams(Document TextDocument) : IRequest;
 
-    // a server whose request about a document takes five seconds (heeding its token or not), and that applies a change to a document in order, as didChange is.
+    // a server whose request about a document goes on until it is let go (heeding its token or not), and that applies a change to a document in order, as
+    // didChange is. A change that waited for the request would never be applied before the test let it go.
     private sealed class Wire : IAsyncDisposable
     {
         private readonly CancellationTokenSource _timeout = new(TimeSpan.FromSeconds(30));
@@ -37,6 +38,7 @@ public sealed class IncomingDocumentChangesTests
         public IncomingDocumentChanges Incoming { get; } = new();
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Applied { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public LanguageClient Client { get; private set; } = default!;
 
         public static async Task<Wire> StartAsync(bool answerHeedsItsToken)
@@ -51,7 +53,7 @@ public sealed class IncomingDocumentChangesTests
                 .OnRequest<AboutDocumentParams, int>("test/aboutDocument", (request, token) => wire.Incoming.WhileCurrentAsync(new Uri(request.TextDocument.Uri), token, async answering =>
                 {
                     wire.Started.TrySetResult();
-                    await Task.Delay(TimeSpan.FromSeconds(5), answerHeedsItsToken ? answering : CancellationToken.None);
+                    await wire.Release.Task.WaitAsync(answerHeedsItsToken ? answering : CancellationToken.None);
                     return 42;
                 }), new JsonRpcHandlerOptions { RequestProcessType = RequestProcessType.Parallel })
                 .OnNotification<ChangeParams>("textDocument/didChange", change =>
@@ -69,6 +71,7 @@ public sealed class IncomingDocumentChangesTests
 
         public async ValueTask DisposeAsync()
         {
+            Release.TrySetResult();
             Client.Dispose();
             _server?.Dispose();
             _timeout.Dispose();
@@ -83,13 +86,12 @@ public sealed class IncomingDocumentChangesTests
         await using var wire = await Wire.StartAsync(answerHeedsItsToken: true);
 
         var answer = wire.Client.SendRequest(new AboutDocumentParams(new Document(DocumentA)), CancellationToken.None);
-        await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        var changed = DateTime.UtcNow;
+        await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.Client.SendNotification(new ChangeParams(new Document(DocumentA)));
 
-        await Assert.ThrowsExactlyAsync<ContentModifiedException>(() => answer.WaitAsync(TimeSpan.FromSeconds(10)));
-        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.IsLessThan(TimeSpan.FromSeconds(3), DateTime.UtcNow - changed, "the change didn't wait for the request's five seconds");
+        await Assert.ThrowsExactlyAsync<ContentModifiedException>(() => answer.WaitAsync(TimeSpan.FromSeconds(20)));
+        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.IsFalse(wire.Release.Task.IsCompleted, "the change was applied while the request still went on");
     }
 
     [TestMethod]
@@ -99,10 +101,13 @@ public sealed class IncomingDocumentChangesTests
         await using var wire = await Wire.StartAsync(answerHeedsItsToken: true);
 
         var answer = wire.Client.SendRequest(new AboutDocumentParams(new Document(DocumentA)), CancellationToken.None);
-        await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        // the change, which is applied in order, waits for the request that runs meanwhile: the request is let go once the change is sent.
         wire.Client.SendNotification(new ChangeParams(new Document(DocumentB)));
+        wire.Release.SetResult();
 
-        Assert.AreEqual(42, await answer.WaitAsync(TimeSpan.FromSeconds(15)));
+        Assert.AreEqual(42, await answer.WaitAsync(TimeSpan.FromSeconds(20)));
+        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(20));
     }
 
     [TestMethod]
@@ -112,13 +117,12 @@ public sealed class IncomingDocumentChangesTests
         await using var wire = await Wire.StartAsync(answerHeedsItsToken: false);
 
         var answer = wire.Client.SendRequest(new AboutDocumentParams(new Document(DocumentA)), CancellationToken.None);
-        await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        var changed = DateTime.UtcNow;
+        await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.Client.SendNotification(new ChangeParams(new Document(DocumentA)));
 
-        await Assert.ThrowsExactlyAsync<ContentModifiedException>(() => answer.WaitAsync(TimeSpan.FromSeconds(10)));
-        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.IsLessThan(TimeSpan.FromSeconds(3), DateTime.UtcNow - changed, "the change didn't wait for the request's five seconds");
+        await Assert.ThrowsExactlyAsync<ContentModifiedException>(() => answer.WaitAsync(TimeSpan.FromSeconds(20)));
+        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.IsFalse(wire.Release.Task.IsCompleted, "the change was applied while the request, which does not heed its token, still went on");
     }
 
     [TestMethod]
@@ -131,12 +135,11 @@ public sealed class IncomingDocumentChangesTests
         var answer = wire.Client.SendRequest(new AboutDocumentParams(new Document(DocumentA)), cancel.Token);
         await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
         cancel.Cancel();
-        var changed = DateTime.UtcNow;
         wire.Client.SendNotification(new ChangeParams(new Document(DocumentA)));
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => answer.WaitAsync(TimeSpan.FromSeconds(10)));
-        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.IsLessThan(TimeSpan.FromSeconds(3), DateTime.UtcNow - changed, "the change didn't wait for the cancelled request's five seconds");
+        await Assert.ThrowsAsync<OperationCanceledException>(() => answer.WaitAsync(TimeSpan.FromSeconds(20)));
+        await wire.Applied.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.IsFalse(wire.Release.Task.IsCompleted, "the change was applied while the cancelled request, which does not heed its token, still went on");
     }
 
     [TestMethod]
