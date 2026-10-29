@@ -274,6 +274,13 @@ public interface IReplPlatformClient
     Task<HostDebugGotoResult> GotoAsync(string label, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server which edits made while the program waits are not applied to it: what going on with it, stepping it or moving the point it goes on
+    /// from is refused for.
+    /// </summary>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugEditStatusResult> GetEditStatusAsync(CancellationToken token);
+
+    /// <summary>
     /// Asks the language server to set the lines of a module that a program under a debugger waits at.
     /// </summary>
     /// <param name="moduleName">The module's programmatic name.</param>

@@ -1023,4 +1023,184 @@ public sealed class ReplDebuggingTests
         StringAssert.Contains(output, foreground);
         Assert.IsFalse(output.Contains("38;2;62;97;255", StringComparison.Ordinal), "the keyword's blue is not written on the marking");
     }
+
+    // ---- edits made while the program waits ----
+
+    private static readonly HostDebugEdit[] Pending =
+    [
+        new() { Name = "Program.Callee", Kind = HostDebugEditKind.Restart, Reason = "the signature of a procedure the program is in changed" },
+        new() { Name = "Program.Main", Kind = HostDebugEditKind.NotYet, Reason = "the code of a procedure the program is in is not applied to a program that waits yet" },
+        new() { Name = "Program", Kind = HostDebugEditKind.DoesNotCompile, Reason = "'y' is not defined" },
+    ];
+
+    private void EditStatusReturns(bool suspended, params HostDebugEdit[] edits)
+        => _platform.GetEditStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugEditStatusResult { Suspended = suspended, Edits = [.. edits] }));
+
+    private async Task WaitAtTheStopAsync()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+    }
+
+    private void SaysTheEditsAreNotApplied(string headline)
+    {
+        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, headline, Resources.Repl_EditsNotApplied);
+        foreach (var edit in Pending)
+        {
+            _console.Received(1).WriteLine($"  {edit.Name}: {edit.Reason}");
+        }
+
+        _console.Received(1).WriteLine(Resources.Repl_RunToStartAgain);
+        Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State, "the program waits where it did");
+        Assert.AreEqual(20, _context.Debugger.StoppedAt);
+    }
+
+    [TestMethod]
+    public async Task ACont_RefusedForTheEditsMadeWhileTheProgramWaited_NamesEachWithWhy_AndSaysRunStartsAgain()
+    {
+        await WaitAtTheStopAsync();
+        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee, Program.Main, Program" });
+        EditStatusReturns(suspended: true, Pending);
+
+        await CommandAsync(new ContReplCommand());
+
+        SaysTheEditsAreNotApplied(Resources.Repl_CantContinue);
+        await _platform.Received(1).GetEditStatusAsync(Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("INTO")]
+    [DataRow("OUT")]
+    public async Task AStep_RefusedForTheEditsMadeWhileTheProgramWaited_NamesEachWithWhy(string arguments)
+    {
+        await WaitAtTheStopAsync();
+        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee, Program.Main, Program" });
+        EditStatusReturns(suspended: true, Pending);
+
+        await CommandAsync(new StepReplCommand(), arguments);
+
+        SaysTheEditsAreNotApplied(Resources.Repl_CantContinue);
+    }
+
+    [TestMethod]
+    public async Task AContFromALine_RefusedForTheEditsMadeWhileTheProgramWaited_NamesEachWithWhy_AndDoesNotGoOn()
+    {
+        await WaitAtTheStopAsync();
+        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = false, Reason = "Program.Callee changed" }));
+        EditStatusReturns(suspended: true, Pending);
+
+        await CommandAsync(new ContReplCommand(), "30");
+
+        SaysTheEditsAreNotApplied(Resources.Repl_CantContinue);
+        await _platform.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
+    }
+
+    [TestMethod]
+    public async Task ACont_RefusedForAnythingButEdits_SaysWhatThePlatformSaid()
+    {
+        await WaitAtTheStopAsync();
+        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" });
+        EditStatusReturns(suspended: true);
+
+        await CommandAsync(new ContReplCommand());
+
+        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "the program is running");
+        _console.DidNotReceive().WriteLine(Resources.Repl_RunToStartAgain);
+    }
+
+    [TestMethod]
+    public async Task ACont_ThatGoesOn_AsksNothingOfTheEdits()
+    {
+        await WaitAtTheStopAsync();
+        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+
+        await CommandAsync(new ContReplCommand());
+
+        await _platform.DidNotReceive().GetEditStatusAsync(Arg.Any<CancellationToken>());
+        Assert.AreEqual(ReplDebugState.Idle, _context.Debugger.State);
+    }
+
+    [TestMethod]
+    public async Task Edits_OfAProgramThatWaits_AreEachNamedWithWhy()
+    {
+        await WaitAtTheStopAsync();
+        EditStatusReturns(suspended: true, Pending);
+
+        await CommandAsync(new EditsReplCommand());
+
+        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, Resources.Repl_EditsNotApplied);
+        foreach (var edit in Pending)
+        {
+            _console.Received(1).WriteLine($"  {edit.Name}: {edit.Reason}");
+        }
+
+        _console.Received(1).WriteLine(Resources.Repl_RunToStartAgain);
+        Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State, "EDITS goes on with nothing");
+    }
+
+    [TestMethod]
+    public async Task Edits_WhenEveryEditApplies_SaysNoneWaits()
+    {
+        await WaitAtTheStopAsync();
+        EditStatusReturns(suspended: true);
+
+        await CommandAsync(new EditsReplCommand());
+
+        _console.Received(1).WriteLine(Resources.Repl_Edits_None);
+    }
+
+    [TestMethod]
+    public async Task Edits_WhenNoProgramWaits_SaysSo()
+    {
+        EditStatusReturns(suspended: false);
+
+        await CommandAsync(new EditsReplCommand());
+
+        _console.Received(1).WriteLine(Resources.Repl_Edits_NoProgram);
+    }
+
+    [TestMethod]
+    public async Task Edits_OfAPlatformThatDebugsNothing_SaysNoProgramWaits_AndAsksNothing()
+    {
+        _platform.Provides<ProgramDebugging>().Returns(false);
+
+        await CommandAsync(new EditsReplCommand());
+
+        _console.Received(1).WriteLine(Resources.Repl_Edits_NoProgram);
+        await _platform.DidNotReceive().GetEditStatusAsync(Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ARefusal_IsSaidInTheSessionsLanguage()
+    {
+        var culture = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo("fr-CA");
+        try
+        {
+            await WaitAtTheStopAsync();
+            ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee" });
+            EditStatusReturns(suspended: true, Pending);
+
+            await CommandAsync(new ContReplCommand());
+
+            _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, "IMPOSSIBLE DE POURSUIVRE",
+                "Des modifications faites pendant que le programme attendait ne lui sont pas appliquées :");
+            _console.Received(1).WriteLine("RUN pour recommencer.");
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = culture;
+        }
+    }
+
+    [TestMethod]
+    public void Edits_IsAVerbOfTheShell_WithItsHelp()
+    {
+        var command = new EditsReplCommand();
+
+        Assert.AreEqual("EDITS", command.Name);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(command.Summary));
+    }
 }

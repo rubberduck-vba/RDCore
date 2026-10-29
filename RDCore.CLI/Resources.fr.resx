@@ -773,4 +773,19 @@
   <data name="Repl_Ducky_UnknownCommand" xml:space="preserve">
     <value>« {0} » n'est pas une commande que le shell exécute.</value>
   </data>
+  <data name="Repl_EditsNotApplied" xml:space="preserve">
+    <value>Des modifications faites pendant que le programme attendait ne lui sont pas appliquées :</value>
+  </data>
+  <data name="Repl_RunToStartAgain" xml:space="preserve">
+    <value>RUN pour recommencer.</value>
+  </data>
+  <data name="Repl_Edits_Summary" xml:space="preserve">
+    <value>Affiche les modifications faites pendant que le programme attend qui ne lui sont pas appliquées, et pourquoi : ce pour quoi CONT et STEP seraient refusés.</value>
+  </data>
+  <data name="Repl_Edits_None" xml:space="preserve">
+    <value>Aucune modification n'attend : CONT poursuit avec toutes les modifications faites.</value>
+  </data>
+  <data name="Repl_Edits_NoProgram" xml:space="preserve">
+    <value>Aucun programme n'attend.</value>
+  </data>
 </root>

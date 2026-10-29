@@ -775,4 +775,19 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Ducky_UnknownCommand" xml:space="preserve">
     <value>'{0}' is no command the shell runs.</value>
   </data>
+  <data name="Repl_EditsNotApplied" xml:space="preserve">
+    <value>Edits made while the program waited are not applied to it:</value>
+  </data>
+  <data name="Repl_RunToStartAgain" xml:space="preserve">
+    <value>RUN to start again.</value>
+  </data>
+  <data name="Repl_Edits_Summary" xml:space="preserve">
+    <value>Shows the edits made while the program waits that are not applied to it, and why: what CONT and STEP would be refused for.</value>
+  </data>
+  <data name="Repl_Edits_None" xml:space="preserve">
+    <value>No edit is waiting: CONT goes on with every edit made.</value>
+  </data>
+  <data name="Repl_Edits_NoProgram" xml:space="preserve">
+    <value>No program is waiting.</value>
+  </data>
 </root>

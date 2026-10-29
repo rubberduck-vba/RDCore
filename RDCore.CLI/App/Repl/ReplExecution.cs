@@ -124,17 +124,71 @@ internal static class ReplExecution
         try
         {
             var result = await context.Platform.ResumeAsync(step, CancellationToken.None);
-            Render(context, result);
             if (result.Outcome is ExecutionOutcome.Refused)
             {
-                // a program that cannot be gone on with is still where it was.
+                // a program that cannot be gone on with is still where it was, and why is said: the edits that are not applied to it, when they are why.
                 context.Debugger.Suspended(waitedBefore);
+                await RenderRefusalAsync(context, result.ErrorMessage, CancellationToken.None);
+                return;
             }
+
+            Render(context, result);
         }
         catch
         {
             context.Debugger.Idle();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Says why the program that waits cannot be gone on with, stepped or moved: each edit made while it waited that is not applied to it, by its name and why,
+    /// and that <c>RUN</c> starts it again; or what the platform said, when it is refused for anything else.
+    /// </summary>
+    /// <remarks>
+    /// What is not applied is asked of the platform once, after the refusal: the reasons are its words, in the session's language, and are said as given. A
+    /// platform that cannot say is taken at the refusal's word.
+    /// </remarks>
+    /// <param name="context">The live session.</param>
+    /// <param name="reason">What the platform said the refusal was for.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    public static async Task RenderRefusalAsync(ReplCommandContext context, string reason, CancellationToken token)
+    {
+        var console = context.Console;
+        if (await EditStatusOrNoneAsync(context, token) is not { Edits.IsDefaultOrEmpty: false } status)
+        {
+            console.WriteMessage(MessageKind.Error, Resources.Repl_CantContinue, reason);
+            return;
+        }
+
+        console.WriteMessage(MessageKind.Error, Resources.Repl_CantContinue, Resources.Repl_EditsNotApplied);
+        WriteEdits(console, status.Edits);
+        console.WriteLine(Resources.Repl_RunToStartAgain);
+    }
+
+    /// <summary>
+    /// Writes each edit made while the program waits that is not applied to it: its name and why, as the platform says them.
+    /// </summary>
+    /// <param name="console">Where they are written.</param>
+    /// <param name="edits">The edits.</param>
+    public static void WriteEdits(IReplConsole console, IEnumerable<HostDebugEdit> edits)
+    {
+        foreach (var edit in edits)
+        {
+            console.WriteLine($"  {edit.Name}: {edit.Reason}");
+        }
+    }
+
+    // the edits the platform says are not applied, or nothing when it cannot say: a language server that has no such request is no reason to say less of a refusal.
+    private static async Task<HostDebugEditStatusResult?> EditStatusOrNoneAsync(ReplCommandContext context, CancellationToken token)
+    {
+        try
+        {
+            return await context.Platform.GetEditStatusAsync(token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
         }
     }
 

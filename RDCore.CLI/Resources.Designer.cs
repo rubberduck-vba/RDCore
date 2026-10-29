@@ -1725,5 +1725,50 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Ducky_UnknownCommand", resourceCulture);
             }
         }
+        /// <summary>
+        ///   Looks up a localized string similar to Edits made while the program waited are not applied to it:.
+        /// </summary>
+        public static string Repl_EditsNotApplied {
+            get {
+                return ResourceManager.GetString("Repl_EditsNotApplied", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RUN to start again..
+        /// </summary>
+        public static string Repl_RunToStartAgain {
+            get {
+                return ResourceManager.GetString("Repl_RunToStartAgain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Shows the edits made while the program waits that are not applied to it, and why: what CONT and STEP would be refused for..
+        /// </summary>
+        public static string Repl_Edits_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Edits_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No edit is waiting: CONT goes on with every edit made..
+        /// </summary>
+        public static string Repl_Edits_None {
+            get {
+                return ResourceManager.GetString("Repl_Edits_None", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No program is waiting..
+        /// </summary>
+        public static string Repl_Edits_NoProgram {
+            get {
+                return ResourceManager.GetString("Repl_Edits_NoProgram", resourceCulture);
+            }
+        }
+        
     }
 }
