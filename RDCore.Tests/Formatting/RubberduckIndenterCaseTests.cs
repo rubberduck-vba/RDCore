@@ -1,0 +1,156 @@
+using RDCore.Parsing;
+using RDCore.SDK.Formatting;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+
+namespace RDCore.Tests.Formatting;
+
+/// <summary>
+/// Rubberduck's indenter test cases, as expectations: each input, the settings it sets over the defaults, and the lines it expects, indented by the engine.
+/// </summary>
+/// <remarks>
+/// The cases are data (<c>Data\rubberduck-indenter-cases.json</c>, from RubberduckTests\SmartIndenter): what the expected lines are is what Rubberduck's indenter
+/// was tested to write, and nothing of its code is in the engine. A case whose expectation is of what the indenter does not do yet - the alignment of
+/// continuations, comments and declarations, empty lines, the spacing of procedures - is said so, with what the engine does not do yet.
+/// </remarks>
+[TestClass]
+public sealed class RubberduckIndenterCaseTests
+{
+    private sealed record class IndenterCase(string Source, JsonObject Settings, string[] Code, string[] Expected);
+
+    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter() } };
+
+    private static readonly Lazy<IReadOnlyList<IndenterCase>> Cases = new(() =>
+    {
+        using var stream = typeof(RubberduckIndenterCaseTests).Assembly.GetManifestResourceStream("RubberduckIndenterCases")!;
+        var document = JsonNode.Parse(stream)!;
+        return [.. document["cases"]!.AsArray().Select(item => item.Deserialize<IndenterCase>(Json)!)];
+    });
+
+    public static IEnumerable<object[]> AllCases => Cases.Value.Select(item => new object[] { item.Source });
+
+    // the cases of what the engine does not do yet: each is left out, and said so, until it does.
+    private static readonly Dictionary<string, string> Waiting = new(StringComparer.Ordinal)
+    {
+        ["EndOfLineCommentTests#AbsolutePositionWorks"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#StandardGapWorks"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#AlignInColumnWorks"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#AbsoluteFallsBackToOneSpace"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#WorksOutsideOfProcedures"] = "end-of-line comments are not aligned yet",
+        ["EndOfLineCommentTests#WorksInsideEnums"] = "end-of-line comments are not aligned yet",
+        ["LineContinuationTests#DeclarationLineAlignsCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#DeclarationPtrSafeLineAlignsCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#FunctionParametersAlignCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#NamedParametersAlignCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#IgnoreOperatorsInContinuationsOnWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#IgnoreOperatorsInContinuationsOffWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuedEndOfLineCommentAligned"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#DoWhileOnTwoLinesWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuedIfThenWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultipleFunctionCallsWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCall"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParam"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineFunctionCallsWorksWithSubFunctionCallUnderScoreInParamString"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#UncontinuedNestedFunctionWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuedNestedFunctionWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultiLineContinuedFunctionWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationsInProcedureDeclarationsWithAlignWorksBareType"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#ContinuationWithOnlyCommentWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#TrailingMultiLineCommentFirstWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#TrailingMultiLineCommentSecondWorks"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#SplitNamedParameterAlignsCorrectly"] = "continuation lines are not aligned yet",
+        ["LineContinuationTests#MultipleSplitNamedParametersAlignCorrectly"] = "continuation lines are not aligned yet",
+        ["MiscAndCornerCaseTests#HexLineNumbersWork"] = "a line is not listed from its compiled form yet, which lists a hex line number in decimal",
+        ["MiscAndCornerCaseTests#MultiLineDimWithCommasAlignDimsWorks"] = "declarations are not aligned yet",
+        ["MiscAndCornerCaseTests#MultiLineDimWithCommasDontIndentFirstBlockWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["MiscAndCornerCaseTests#SingleQuoteInEndOfLineCommentWorks"] = "end-of-line comments are not aligned yet",
+        ["MiscAndCornerCaseTests#BracketsInEndOfLineCommentsWork"] = "end-of-line comments are not aligned yet",
+        ["MiscAndCornerCaseTests#AlignmentAnchorsInStringLiteralsAreIgnored"] = "continuation lines are not aligned yet",
+        ["MiscAndCornerCaseTests#LineNumbersInsideContinuationsWork"] = "continuation lines are not aligned yet",
+        ["SpecificSettingTests#IndentFirstCommentBlockOffWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentEnumTypeCommentBlockOnWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstCommentBlockOffOnlyOnFirst"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstCommentBlockOffIgnoreEmptyOnlyOnFirst"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationBlockOffWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationBlockOffIgnoreEmptyWorks"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationCommentBlockOffWorksIntermingled"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationCommentBlockOffIgnoreEmptyWorksIntermingled"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#IndentFirstDeclarationBlockOffOnlyOnFirst"] = "the first comment and declaration blocks of a procedure are not set apart yet",
+        ["SpecificSettingTests#ForceDebugPrintInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceDebugAssertInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceStopInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceOnlyDebugPrintInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceOnlyDebugAssertInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#ForceOnlyStopInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#AlignCommentsWithCodeOffWorks"] = "a comment that is not aligned with the code is not kept where it is yet",
+        ["SpecificSettingTests#ForceCompilerDirectivesInColumn1OnWorks"] = "Debug statements, Stop and directives are not forced into column 1 yet",
+        ["SpecificSettingTests#AlignDimsOnWorks"] = "declarations are not aligned yet",
+        ["SpecificSettingTests#AlignDimsFallsBackToOneSpace"] = "declarations are not aligned yet",
+        ["SpecificSettingTests#AlignDimColumnWorksVariedSpacing"] = "declarations are not aligned yet",
+        ["SpecificSettingTests#RemoveEmptyLinesWorks"] = "empty lines are not removed or indented yet",
+        ["SpecificSettingTests#IndentEmptyLinesWorks"] = "empty lines are not removed or indented yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_RemoveExtraLinesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_RemoveAllExtraLinesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_MixedInsertsAndDeletesWorks"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithProperties"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_GroupSingleProperty"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_GroupMultipleProperties"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithTypes"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_InsertBlankLinesWorksWithEnums"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_CommentsDoNotEffectSpacing"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_DimBlocksStayIntact"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_IgnoresDeclareFunctions"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInProcedures"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_DoesNotChangeSpacingInEnumsOrTypes"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_MaintainsSpacingAboveFirstProcedure"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_MaintainsIgnoresCommentAboveFirstProcedure"] = "the lines between procedures are not spaced yet",
+        ["VerticalSpacingTests#VerticalSpacing_RemovesExtraSpacingAboveFirstProcedure"] = "the lines between procedures are not spaced yet",
+    };
+
+    [TestMethod]
+    [DynamicData(nameof(AllCases))]
+    public void TheEngine_IndentsAsTheCaseExpects(string source)
+    {
+        var item = Cases.Value.Single(candidate => candidate.Source == source);
+        var options = item.Settings.Deserialize<CodeFormattingOptions>(Json)!;
+        var text = string.Join("\r\n", item.Code);
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var indented = ModuleIndenter.Apply(text, ModuleIndenter.Indent(parse, text, options));
+
+        var expected = string.Join("\r\n", item.Expected);
+        if (Waiting.TryGetValue(source, out var missing))
+        {
+            // a case that waits is run all the same, and says so once it passes: it waits no longer than it has to.
+            Assert.AreNotEqual(expected, indented, $"{source} now passes: remove it from the waiting list.");
+            Assert.Inconclusive($"{source}: {missing}.");
+        }
+
+        Assert.AreEqual(expected, indented);
+    }
+
+    // formatting formatted code changes nothing.
+    [TestMethod]
+    [DynamicData(nameof(AllCases))]
+    public void WhatTheCaseExpects_IsGivenNoEdit(string source)
+    {
+        var item = Cases.Value.Single(candidate => candidate.Source == source);
+        var options = item.Settings.Deserialize<CodeFormattingOptions>(Json)!;
+        var text = string.Join("\r\n", item.Expected);
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, options);
+
+        // what a waiting case expects may be given no edit before the engine writes it from the input: the case waits only while this fails.
+        if (edits.Count > 0 && Waiting.TryGetValue(source, out var missing))
+        {
+            Assert.Inconclusive($"{source}: {missing}.");
+        }
+
+        Assert.IsEmpty(edits);
+    }
+}

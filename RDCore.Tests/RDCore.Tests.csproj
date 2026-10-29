@@ -31,6 +31,8 @@
   <ItemGroup>
     <!-- form designer fixtures: binary .frx/storage files, read as bytes on every platform -->
     <EmbeddedResource Include="Workspace\Forms\Fixtures\**" />
+    <!-- Rubberduck's indenter test cases (GPLv3), as data: input, settings, expected output -->
+    <EmbeddedResource Include="Formatting\Data\rubberduck-indenter-cases.json" LogicalName="RubberduckIndenterCases" />
   </ItemGroup>
 
   <ItemGroup>
