@@ -65,13 +65,7 @@ public class RDCoreParserAppHost : RDCorePlatformServerHost<RDCoreParserApp>
         base.ConfigureAdditionalExternalServices(services, configuration);
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            System.IO.Path.Combine(RDCore.SDK.Platform.PlatformEnvironment.Default.LogsDirectory, "RDCore.ParseServer.log"),
-            LogLevel.Trace);
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
+    protected override string? LogFileName => "RDCore.ParseServer.log";
 }
 
 public class RDCoreParserApp(

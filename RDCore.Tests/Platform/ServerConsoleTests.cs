@@ -16,8 +16,12 @@ public sealed class ServerConsoleTests
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(60);
 
+    // what is tested is the invariant: not one byte on the standard output, through the server's start, its work and its end, and its log in its file
+    // instead. The hang itself needed the language server's flood, with its children and the published platform, which a test run does not have: it was
+    // reproduced and checked end to end with C:\Dev\Claude\oracle\keystroke-cost. Every read from the server is bounded, so that a server that stops
+    // answering fails the test rather than hang it.
     [TestMethod]
-    public async Task AServer_WhoseStandardOutputNobodyReads_AnswersRequestAfterRequest_AndWritesNothingToIt()
+    public async Task AServer_WhoseStandardOutputNobodyReads_WritesNothingToIt_AndLogsToItsFile()
     {
         var root = Path.Combine(Path.GetTempPath(), "RDCore", "server-console", Guid.NewGuid().ToString("N"));
         var workspace = Path.Combine(root, "Workspace");
@@ -45,13 +49,12 @@ public sealed class ServerConsoleTests
             await connection.ConnectAsync((int)Bound.TotalMilliseconds);
             var rpc = new JsonRpc(connection);
 
-            var watch = Stopwatch.StartNew();
             _ = await rpc.RequestAsync("initialize", new JsonObject { ["processId"] = Environment.ProcessId, ["rootUri"] = new Uri(workspace).AbsoluteUri, ["capabilities"] = new JsonObject() });
             await rpc.NotifyAsync("initialized", new JsonObject());
 
-            // each parse is logged as it is asked for and as it is answered: 400 of them are many times what a pipe holds before its writer blocks.
+            // some work, which the server logs (its handlers to its file only, through OmniSharp's own container; its host's narration to every provider it has).
             var module = new Uri(Path.Combine(workspace, "Module1.bas")).AbsoluteUri;
-            for (var i = 0; i < 400; i++)
+            for (var i = 0; i < 3; i++)
             {
                 var answer = await rpc.RequestAsync("rdcore/parser/document", new JsonObject
                 {
@@ -61,14 +64,14 @@ public sealed class ServerConsoleTests
                 Assert.IsNull(answer["error"], $"parse {i}: {answer["error"]}");
             }
 
-            watch.Stop();
-            Assert.IsLessThan(Bound, watch.Elapsed, "400 parses, each answered in milliseconds");
-
-            // and nothing of it reached the console: not the host's narration as it started, not what it logged, not its footer as it ended.
             _ = await rpc.RequestAsync("shutdown", new JsonObject());
             await rpc.NotifyAsync("exit", new JsonObject());
             await process.WaitForExitAsync().WaitAsync(Bound);
+
+            // nothing reached the console: not the host's narration as it started, not its footer as it ended (on main, 2,041 bytes of them). Its log is in
+            // its file, which every server role has by default.
             Assert.AreEqual(string.Empty, await process.StandardOutput.ReadToEndAsync());
+            Assert.IsNotEmpty(Directory.EnumerateFiles(root, "RDCore.ParseServer*.log", SearchOption.AllDirectories), "the server's file log");
         }
         finally
         {
@@ -81,7 +84,7 @@ public sealed class ServerConsoleTests
             {
                 Directory.Delete(root, recursive: true);
             }
-            catch (IOException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 // the server's log may still be held as it goes: the folder is a temporary one.
             }

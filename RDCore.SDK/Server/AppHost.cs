@@ -81,6 +81,16 @@ public abstract class AppHost<TApp>() : IDisposable
     protected virtual bool WritesToConsole => true;
 
     /// <summary>
+    /// The name of the file the application logs to, in the platform's logs directory (<see cref="PlatformEnvironment.LogsDirectory"/>), at every level the
+    /// live log level lets through; <see langword="null"/> for no file.
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation is <see langword="null"/>: a client logs where its user sees it. A server's log is its file, which the server host gives
+    /// every server role by default, so that no role is left without one.
+    /// </remarks>
+    protected virtual string? LogFileName => null;
+
+    /// <summary>
     /// 🧩 A method that runs after configuration but before the application is resolved and actually started.<br/>
     /// Base implementation returns a <see cref="Task.CompletedTask"/>
     /// </summary>
@@ -315,7 +325,32 @@ public abstract class AppHost<TApp>() : IDisposable
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()
             .AddSingleton<IExtensionManifestValidationService, ExtensionManifestValidationService>()
-            .AddLogging(builder => ConfigureExternalLogging(services, builder, configuration));
+            .AddLogging(builder =>
+            {
+                if (LogFileName is { } file)
+                {
+                    builder.AddFile(Path.Combine(PlatformEnvironment.Default.LogsDirectory, file), LogLevel.Trace);
+                }
+
+                ConfigureExternalLogging(services, builder, configuration);
+
+                // after what the application configures, and not in what it overrides: an application that does not write to its console has no console
+                // logger, whether or not its override calls the base.
+                if (!WritesToConsole)
+                {
+                    RemoveConsoleLogger(services);
+                }
+            });
+    }
+
+    // the console logger the generic host adds by default.
+    private static void RemoveConsoleLogger(IServiceCollection services)
+    {
+        foreach (var console in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
+            && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider)).ToList())
+        {
+            _ = services.Remove(console);
+        }
     }
 
     /// <summary>
@@ -346,21 +381,12 @@ public abstract class AppHost<TApp>() : IDisposable
     /// <list type="bullet">
     /// <item>Sets the effective <em>minimum log level</em> as per the supplied <see cref="SdkServerOptions.TraceLevel"/>.</item>
     /// <item>Adds a <c>Debug</c> logger in debug builds.</item>
-    /// <item>Removes the console logger the generic host adds by default, for an application that does not write to its console
-    /// (<see cref="WritesToConsole"/>).</item>
     /// </list>
+    /// Whatever an override does, the application's file log (<see cref="LogFileName"/>) is added before it, and an application that does not write to its
+    /// console (<see cref="WritesToConsole"/>) has the generic host's console logger removed after it.
     /// </remarks>
     protected virtual void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        if (!WritesToConsole)
-        {
-            foreach (var console in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
-                && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider)).ToList())
-            {
-                _ = services.Remove(console);
-            }
-        }
-
         // the level is a live setting: every provider writes what the level is now, which the filter reads for each message.
         var level = new LiveLogLevel(ResolveTraceLevel(configuration));
         services.AddSingleton(level);

@@ -519,13 +519,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
             .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"),
-            LogLevel.Trace);
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
+    protected override string? LogFileName => "RDCore.EnvironmentHost.log";
 }
 
 /// <summary>
@@ -555,13 +549,7 @@ internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHost
         return new ExternalAutomationService(new ComAutomationServer(apartment), new WindowsFormHost(apartment));
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
-    {
-        builder.AddFile(
-            System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.ExternalHost.log"),
-            LogLevel.Trace);
-        base.ConfigureExternalLogging(services, builder, configuration);
-    }
+    protected override string? LogFileName => "RDCore.ExternalHost.log";
 }
 
 internal class RDCoreConsoleEnvironmentHostApp(
