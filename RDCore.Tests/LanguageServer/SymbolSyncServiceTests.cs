@@ -494,4 +494,41 @@ public sealed class SymbolSyncServiceTests
             done,
             string.Join(" | ", done) + ": the scaffold's code is not loaded over the client's text while the client is between defining it and asking about it");
     }
+
+    // ---- a shell's program is a module of the project ----
+
+    [TestMethod]
+    [DataRow(ImplicitDeclarationScope.Procedure)]
+    [DataRow(ImplicitDeclarationScope.Module)]
+    public async Task AShellsProgram_CallsASubOfAModuleOfTheWorkspace_QualifiedOrNot_AndDeclaresNoVariableByNamingIt(ImplicitDeclarationScope implicitScope)
+    {
+        var sent = new List<DefineSymbolsParams>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Do<DefineSymbolsParams>(sent.Add), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        // the workspace has a module the program calls into, which the language server has parsed.
+        var module = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\nPublic Sub Helper()\r\nEnd Sub\r\n";
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("Module1.bas", Root, module)]);
+        documents.WorkspaceRoot.Returns(Root);
+        var parsed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Module1.bas")), module);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parsed; return true; });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(implicitScope),
+            NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+
+        var program = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Program.bas")), "Public Sub Main()\r\n    Helper\r\n    Module1.Helper\r\nEnd Sub\r\n");
+        await sut.SyncModuleAsync("Program", program, CancellationToken.None);
+
+        var defined = sent.Single(request => request.ModuleName == "Program");
+        var main = defined.Symbols.Single(symbol => symbol.Name == "Main");
+        Assert.IsFalse(defined.Symbols.Any(symbol => symbol.Name is "Helper" or "Module1"),
+            "a name of the workspace is no variable of the program: " + string.Join(", ", defined.Symbols.Select(symbol => symbol.Name)));
+        Assert.IsTrue(main.Locals.IsDefaultOrEmpty, "nor a local of Main: " + string.Join(", ", main.Locals.Select(local => local.Name)));
+    }
 }

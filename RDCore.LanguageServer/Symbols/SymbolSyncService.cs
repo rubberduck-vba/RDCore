@@ -160,9 +160,19 @@ internal sealed class SymbolSyncService(
 
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
+
+        // the module is one of the project's, and its names are bound among the others' as a module of the workspace binds its own: a shell's program calls a
+        // Sub of a module of the workspace, qualified or not, and a name of one is no variable the program declares by naming it. What the project has of a
+        // module of the same name is the module as it was: this is the one that is synchronized.
+        var (_, others) = CollectModules(token);
         var workspaceResolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope,
-            libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
+            workspaceRoot,
+            [
+                .. others.Where(other => !string.Equals(other.Name, moduleName, StringComparison.OrdinalIgnoreCase))
+                    .Select(other => (SymbolUri.Module(workspaceRoot, other.Name), other.Kind, other.Parse)),
+                (moduleUri, ModuleType.StdModule, parseResult),
+            ],
+            resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 
         // a module the client keeps editing is defined again every time it is run, so the newest
         // definition has to win rather than being skipped as a duplicate. Its parse result travels with the request to
