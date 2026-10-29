@@ -179,7 +179,9 @@ internal sealed class SessionHalt : ISessionHalt
 
     public IExecutionGate? Gate { get; set; }
 
-    public bool WantsInterpreter => Gate is not null;
+    // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step. A pause is a
+    // cancellation, which compiled code polls for itself.
+    public bool WantsInterpreter => Gate is not null && (Breakpoints.HasAny || _step is not null);
 
     public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
 
