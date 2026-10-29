@@ -38,6 +38,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public ImmutableArray<SyntaxNode> SyntaxNodes => [BuildModuleNode()];
 
+    /// <summary>
+    /// The number the module's next child id is given: where a part of the module parsed after this one starts numbering its nodes.
+    /// </summary>
+    public int NextModuleChildId
+    {
+        get => _builderStack.Last().NextChildId;
+        set => _builderStack.Last().NextChildId = value;
+    }
+
     // pathological nesting recurses through the expression rule to an uncatchable stack overflow;
     // this turns it into a catchable exception the boundary net degrades to a located failure.
     public override void EnterEveryRule([NotNull] ParserRuleContext context)

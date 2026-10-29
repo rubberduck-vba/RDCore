@@ -101,9 +101,27 @@ public partial class ModuleParser(
                 sanitized = WithoutBranches(sanitized, alternatives);
             }
 
-            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset, token);
-            var ast = listener.BuildModuleNode();
-            var trivia = listener.Trivia;
+            // the module read with the grammar's fast prediction, as a whole; where that fails, each of its segments on its own where it can be, so that a part
+            // the fast prediction can't read is read slowly alone, and not the whole module with it; and the whole module read slowly otherwise.
+            ModuleNode ast;
+            ImmutableArray<SyntaxNode> trivia;
+            var newListener = () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener);
+            if (TryParseFast(sanitized, newListener, anchorOffset, token) is { } fast)
+            {
+                (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
+            }
+            else if (Segmented && alternatives.Count == 0 && ModuleSegmentScanner.Scan(sanitized) is { Count: > 1 } segments
+                && ParseSegments(uri, node, sanitized, segments, anchorOffset, token) is { } stitched)
+            {
+                (ast, trivia) = (stitched.Module, stitched.Trivia);
+                errorListener.AddRange(stitched.Errors);
+            }
+            else
+            {
+                var slow = ParseSlowly(sanitized, errorListener, newListener(), anchorOffset, token);
+                (ast, trivia) = (slow.BuildModuleNode(), slow.Trivia);
+            }
+
             if (alternatives.Count > 0)
             {
                 ast = WithHeaderAlternatives(uri, content, ast, alternatives, anchorOffset, rootLineage, errorListener, ref trivia, token);
@@ -164,6 +182,45 @@ public partial class ModuleParser(
                     : errorListener.Errors,
             };
         }
+    }
+
+    /// <summary>
+    /// Whether a module is parsed a segment at a time (<see cref="ModuleSegmentScanner"/>) where it can be. The tree, its trivia and its errors are those a
+    /// parse of the whole module gives; only the time differs.
+    /// </summary>
+    internal bool Segmented { get; init; } = true;
+
+    // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
+    // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error: what the grammar says is
+    // wrong, and what the block scanner says instead, is a whole module's to say, and the module is parsed whole.
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, CancellationToken token)
+    {
+        var lines = sanitized.Split('\n');
+        var children = ImmutableArray.CreateBuilder<SyntaxNode>();
+        var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
+        var errors = ImmutableArray.CreateBuilder<VBSyntaxErrorInfo>();
+        var next = 0;
+        foreach (var segment in segments)
+        {
+            // the segment's lines, each with the line ending it had in the module.
+            var text = string.Join('\n', lines[segment.StartLine..segment.EndLine]) + (segment.EndLine < lines.Length ? "\n" : string.Empty);
+            var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
+            var segmentErrors = new ErrorListener(uri, start);
+            var first = next;
+            var listener = ParseWithFallback(text, segmentErrors, () => new DeclarationsParseTreeListener(uri, node, segmentErrors) { NextModuleChildId = first }, start, token);
+            if (segmentErrors.HasGrammarErrors)
+            {
+                return null;
+            }
+
+            next = listener.NextModuleChildId;
+            children.AddRange(listener.BuildModuleNode().Children);
+            trivia.AddRange(listener.Trivia);
+            errors.AddRange(segmentErrors.Errors);
+        }
+
+        return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors.ToImmutable());
     }
 
     // the source with the lines of the alternatives' branches blank, as a directive is: every position stays where it is.
@@ -340,7 +397,13 @@ public partial class ModuleParser(
     /// </summary>
     private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory, SourcePosition anchorOffset,
         CancellationToken token)
-        where TListener : IParseTreeListener
+        where TListener : class, IParseTreeListener
+        => TryParseFast(content, listenerFactory, anchorOffset, token) ?? ParseSlowly(content, errorListener, listenerFactory(), anchorOffset, token);
+
+    // SLL with a bail-on-first-error strategy; none when it fails. Any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException, but
+    // also a listener exception the bail strategy triggered on a half-matched rule. SLL carries no error listener, so nothing located is lost.
+    private TListener? TryParseFast<TListener>(string content, Func<TListener> listenerFactory, SourcePosition anchorOffset, CancellationToken token)
+        where TListener : class, IParseTreeListener
     {
         try
         {
@@ -348,18 +411,20 @@ public partial class ModuleParser(
         }
         catch (Exception exception) when (!token.IsCancellationRequested)
         {
-            // any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException,
-            // but also a listener exception the bail strategy triggered on a half-matched rule. SLL
-            // carries no error listener, so nothing located is lost. LL runs default recovery + the
-            // error listener on a fresh listener and produces the located errors.
             if (exception is not (ParseCanceledException or RecognitionException))
             {
                 // a routine SLL bail needs no trace; anything else does, even though LL will retry.
                 _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
             }
-            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory(), anchorOffset, token);
+
+            return null;
         }
     }
+
+    // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
+    private static TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
+        where TListener : IParseTreeListener
+        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listener, anchorOffset, token);
 
     private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener,
         SourcePosition anchorOffset, CancellationToken token)
