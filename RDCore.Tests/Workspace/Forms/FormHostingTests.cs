@@ -515,6 +515,56 @@ public sealed class FormHostingTests
         }, actual, string.Join(" | ", actual));
     }
 
+    // the forms of a world, which let its external host start when the first one is created, and not before.
+    private sealed class StartedByTheFirstForm(RDCore.External.Forms.IFormHost forms, Action starting) : RDCore.External.Forms.IFormHost
+    {
+        public bool IsAvailable => forms.IsAvailable;
+
+        public object Create(RDCore.External.Forms.FormDefinition form)
+        {
+            starting();
+            return forms.Create(form);
+        }
+
+        public void Show(object form, bool modal) => forms.Show(form, modal);
+
+        public void Hide(object form) => forms.Hide(form);
+
+        public bool IsShown(object form) => forms.IsShown(form);
+
+        public string GetCaption(object form) => forms.GetCaption(form);
+
+        public void SetCaption(object form, string caption) => forms.SetCaption(form, caption);
+
+        public void Leave(object form) => forms.Leave(form);
+
+        public void Destroy(object form) => forms.Destroy(form);
+
+        public void Hold(bool running) => forms.Hold(running);
+
+        public void DoEvents() => forms.DoEvents();
+    }
+
+    [TestMethod]
+    public async Task AChangeNothingPumped_ThroughAnExternalHostTheFirstFormStarts_IsTheNextUpdate()
+    {
+        // the host the session got ready as it was composed is not up when the program creates its first form, which starts it: the program runs, and the forms'
+        // messages wait all the same.
+        RequireMicrosoftForms();
+        using var canStart = new ManualResetEventSlim(false);
+        using var host = ExternalHosts.New(() => canStart.IsSet);
+
+        var world = ExternalHosts.WorldOf(host, servers => new StartedByTheFirstForm(servers, canStart.Set));
+        var actual = await RunWithCodeAsync(world, Focus, "On Error Resume Next", "ExampleView.Show vbModeless", "ExampleView.Go \"ComboBox1\"",
+            "ExampleView.AmountBox.Text = \"7\"", "ExampleView.Go \"AmountBox\"", "ExampleView.Go \"ComboBox1\"", "Unload ExampleView");
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Initialize", "AmountEnter", "Activate", "AmountExit", "ComboEnter", "AmountChange", "ComboExit", "AmountEnter", "AmountBeforeUpdate",
+            "AmountAfterUpdate", "AmountExit", "ComboEnter", "QueryClose 1", "ComboExit", "Terminate",
+        }, actual, string.Join(" | ", actual));
+    }
+
     [TestMethod]
     public async Task TheExtendersEvents_ThroughAnExternalHost_AreCancelled()
     {

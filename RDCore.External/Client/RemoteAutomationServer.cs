@@ -37,6 +37,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     private readonly ExternalHost _host;
     private readonly ConcurrentDictionary<(int Incarnation, long Handle), RemoteObject> _objects = new();
     private readonly ConcurrentDictionary<(int Incarnation, long Handle), IAutomationEventSink> _sinks = new();
+    private readonly object _holdGate = new();
+
+    // whether a program runs, as it was last said (Hold), and the incarnation that was told it.
+    private bool _running;
+    private Incarnation? _told;
 
     [ThreadStatic]
     private static long _handlingEvent;
@@ -127,7 +132,10 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     /// <inheritdoc/>
     public object Create(Forms.FormDefinition form)
     {
+        // a host the form starts - the session got it ready in the background, and it was not up yet when the program ran - is told first that a program runs,
+        // so that what Microsoft Forms posts as it creates the form waits as it would in a host that was up.
         var incarnation = Connect();
+        TellHold(incarnation, onlyIfUntold: true);
         var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
         return ObjectOf(incarnation, created.Handle);
     }
@@ -175,14 +183,37 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
         _ = Send<FormParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormLeave, new FormParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
     }
 
-    // an external host that is not running hosts no form to hold the messages of: it is not started for that.
+    // an external host that is not running hosts no form to hold the messages of: it is not started for that, and is told when a form starts it (Create).
     /// <inheritdoc/>
     public void Hold(bool running)
     {
+        lock (_holdGate)
+        {
+            _running = running;
+        }
+
         if (_host.Running is { } incarnation)
         {
-            _ = Send<FormHoldParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormHold, new FormHoldParams { Running = running, HandlingEvent = _handlingEvent });
+            TellHold(incarnation, onlyIfUntold: false);
         }
+    }
+
+    // says to an incarnation whether a program runs; one that was told already is not told again when only the untold are.
+    private void TellHold(Incarnation incarnation, bool onlyIfUntold)
+    {
+        bool running;
+        lock (_holdGate)
+        {
+            if (onlyIfUntold && ReferenceEquals(_told, incarnation))
+            {
+                return;
+            }
+
+            running = _running;
+            _told = incarnation;
+        }
+
+        _ = Send<FormHoldParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormHold, new FormHoldParams { Running = running, HandlingEvent = _handlingEvent });
     }
 
     /// <inheritdoc/>
