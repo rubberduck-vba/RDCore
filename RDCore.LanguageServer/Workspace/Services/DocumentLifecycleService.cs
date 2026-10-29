@@ -304,6 +304,13 @@ internal sealed class DocumentLifecycleService(
 
     public async Task WhenAllLoadedAsync(CancellationToken token)
     {
+        // a file of the project another editor saved is the document as it is now, whether the watcher has said so yet or not: the files the client has not
+        // opened are read, and those whose text is not what was loaded are loaded - one that is open is the client's, and is not read.
+        if (reload is not null && documents.GetProjectDocuments(documents.WorkspaceRoot).Where(document => document.IsFile).Select(document => document.Id.Uri.ToUri()).ToArray() is { Length: > 0 } files)
+        {
+            _ = await reload.ReloadFilesAsync(files, token);
+        }
+
         // a refresh that ends superseded leaves its document to the one that superseded it, which is waited for in turn; and a change of the workspace's files or
         // of its project - what the client did not edit - is loaded too. The wait is over once every document's latest refresh is, and no change is being made.
         while (true)
