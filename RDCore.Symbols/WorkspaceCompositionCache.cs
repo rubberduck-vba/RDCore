@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Symbols;
 
@@ -46,11 +47,13 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
     /// <param name="projectName">The project's name, when it is known.</param>
     /// <param name="implicitScope">Where a name that is not declared is declared.</param>
     /// <param name="libraries">The symbols of the libraries the project references.</param>
+    /// <param name="documentHosts">What host document each document module is the code of, by its name.</param>
     public WorkspaceComposition GetOrCompose(
         Uri workspaceRoot, IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules, ISymbolResolver fallback,
-        string? projectName = null, ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null)
+        string? projectName = null, ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null,
+        IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
     {
-        var key = new Key(workspaceRoot.AbsoluteUri, projectName, implicitScope, fallback, libraries, modules);
+        var key = new Key(workspaceRoot.AbsoluteUri, projectName, implicitScope, fallback, libraries, modules, documentHosts);
         lock (_sync)
         {
             for (var node = _recent.First; node is not null; node = node.Next)
@@ -65,7 +68,7 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
         }
 
         // a workspace is composed outside the lock: two requests that miss compose it each, and the one stored last is kept.
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(workspaceRoot, modules, fallback, projectName, implicitScope, libraries);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(workspaceRoot, modules, fallback, projectName, implicitScope, libraries, documentHosts);
         lock (_sync)
         {
             Composed++;
@@ -82,12 +85,13 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
     // what a composition is made of; the parses, the libraries and the resolver are compared as the objects they are.
     private sealed record class Key(
         string Root, string? ProjectName, ImplicitDeclarationScope ImplicitScope, ISymbolResolver Fallback, IReadOnlyList<Symbol>? Libraries,
-        IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> Modules)
+        IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> Modules, IReadOnlyDictionary<string, DocClassType>? DocumentHosts)
     {
         public bool IsMadeOfTheSame(Key other)
         {
             if (Root != other.Root || ProjectName != other.ProjectName || ImplicitScope != other.ImplicitScope
-                || !ReferenceEquals(Fallback, other.Fallback) || !ReferenceEquals(Libraries, other.Libraries) || Modules.Count != other.Modules.Count)
+                || !ReferenceEquals(Fallback, other.Fallback) || !ReferenceEquals(Libraries, other.Libraries) || Modules.Count != other.Modules.Count
+                || !SameHosts(DocumentHosts, other.DocumentHosts))
             {
                 return false;
             }
@@ -104,5 +108,10 @@ public sealed class WorkspaceCompositionCache(int capacity = WorkspaceCompositio
 
             return true;
         }
+
+        // the hosts are compared by what they say: each request builds its own.
+        private static bool SameHosts(IReadOnlyDictionary<string, DocClassType>? hosts, IReadOnlyDictionary<string, DocClassType>? other)
+            => (hosts?.Count ?? 0) == (other?.Count ?? 0)
+                && (hosts ?? new Dictionary<string, DocClassType>()).All(entry => other is not null && other.TryGetValue(entry.Key, out var super) && super == entry.Value);
     }
 }

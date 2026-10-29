@@ -303,7 +303,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     private async Task LoadWorkspaceFilesAsync()
     {
         // each project's files: a path that climbs out of its folder (..\Shared\Util.bas) or is absolute is one only if a folder of the workspace holds it.
-        var listed = new List<(string Root, TextDocumentIdentifier Id, bool IsOther)>();
+        var listed = new List<(string Root, TextDocumentIdentifier Id, bool IsOther, DocClassType? Super)>();
         foreach (var project in _projects.Projects)
         {
             var info = project.Project.ProjectInfo;
@@ -322,7 +322,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
                     }
                 }
 
-                listed.Add((project.Root, new TextDocumentIdentifier(path), isOther));
+                listed.Add((project.Root, new TextDocumentIdentifier(path), isOther, (file as RDCoreModule)?.Super));
             }
         }
 
@@ -334,6 +334,13 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
         // what a project lists as other files is loaded and tracked, and never parsed as code: a resource file, a README.
         documentService.SetOtherFiles(listed.Where(entry => entry.IsOther).Select(entry => entry.Id).Except(listed.Where(entry => !entry.IsOther).Select(entry => entry.Id)));
+
+        // what the projects say their document modules are, before any is loaded: the first project that lists a file says it.
+        foreach (var project in listed.GroupBy(entry => entry.Root))
+        {
+            documentService.SetDocumentModules(project.Key, project.Where(entry => !entry.IsOther && entry.Super is not null)
+                .Select(entry => KeyValuePair.Create(entry.Id, entry.Super!.Value)));
+        }
 
         // the projects load their files one after the other, so that the project that lists a file first is the one the document belongs to; the files of one
         // project load together.

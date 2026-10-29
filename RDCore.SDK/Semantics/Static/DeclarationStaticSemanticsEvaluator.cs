@@ -325,6 +325,14 @@ public static class DeclarationStaticSemanticsEvaluator
             return;
         }
 
+        // a document module's objects are its host's to make, in its own project too: MS-VBA refuses `Dim s As New Sheet1`.
+        if (type is VBClassType { Symbol.IsDocument: true } hosted)
+        {
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, location,
+                string.Format(Exceptions.VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose, hosted.Symbol.Name)));
+            return;
+        }
+
         // MS-VBAL §5.2.3.1.4: "The instancing mode of the specified type of an <as-auto-object> MUST NOT be Public Not Creatable unless that type is defined in
         // the same project" - a class of a library that cannot be created. MS-VBA reports it when the variable is first referred to, as "Class not registered"
         // (Excel-verified, oracle\s19 N26-N27); the specification says it is invalid, and so does RD-VBA, before the code runs.

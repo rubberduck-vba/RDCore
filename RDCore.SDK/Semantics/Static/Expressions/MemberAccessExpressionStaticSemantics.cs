@@ -99,11 +99,13 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     // member is typed as the class itself - or two classes typed after each other - cannot be built by
     // value at all: some members of that snapshot hold types that were not bound yet. The declaration is
     // the source of truth, so the members are read from it, by the type's own identity, through the
-    // resolver; the snapshot is what remains only when the declaration cannot be found.
+    // resolver; the snapshot is what remains only when the declaration cannot be found. A document module's
+    // members are its host's class's too (VBProjectSymbol.InterfaceMembersOf).
     internal static ImmutableArray<VBTypeMemberSymbol> CurrentMembersOf(StaticEvaluationContext context, IVBMemberOwnerType ownerType)
         => ownerType switch
         {
-            VBClassType classType when VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) is { } current => current.DefaultInterfaceMembers,
+            VBClassType classType when VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) is { } current
+                => current.HostClass is null ? current.DefaultInterfaceMembers : [.. VBProjectSymbol.InterfaceMembersOf(context.Resolver, current)],
             VBUserDefinedType udtType when context.Resolver.ResolveType(udtType.Symbol.Name, ScopeKind.Global, udtType.Symbol.ParentUri).Symbol
                 is VBUserDefinedTypeMemberSymbol current => current.Members,
             _ => ownerType.Members,

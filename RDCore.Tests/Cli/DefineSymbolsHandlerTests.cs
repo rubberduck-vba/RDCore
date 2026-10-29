@@ -17,7 +17,7 @@ public sealed class DefineSymbolsHandlerTests
 {
     private static readonly Uri WorkspaceRoot = new("file:///c:/ws/");
 
-    private static DefineSymbolsHandler NewHandler(bool compose = true)
+    private static DefineSymbolsHandler NewHandler(bool compose = true, Microsoft.Extensions.Logging.ILogger<DefineSymbolsHandler>? logger = null)
     {
         var provider = new EnvironmentSessionProvider(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
@@ -29,7 +29,7 @@ public sealed class DefineSymbolsHandlerTests
             provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
         }
 
-        return new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        return new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), logger ?? NullLogger<DefineSymbolsHandler>.Instance);
     }
 
     private static DefineSymbolsParams Request(params SymbolDescriptor[] symbols) => new()
@@ -100,5 +100,44 @@ public sealed class DefineSymbolsHandlerTests
 
         Assert.AreEqual(0, result.Defined);
         Assert.AreEqual(0, result.Skipped.Count);
+    }
+
+    private sealed class RecordingLogger : Microsoft.Extensions.Logging.ILogger<DefineSymbolsHandler>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
+
+    [TestMethod]
+    public async Task AModuleItRefusesTheSameWay_EachTimeItIsSent_IsLoggedOnce_AndOnceAgainWhenItLoads()
+    {
+        // a standard module that names Me, sent as an editor sends it - at every edit.
+        var logger = new RecordingLogger();
+        var handler = NewHandler(logger: logger);
+        await handler.Handle(Request(Procedure("Foo")), CancellationToken.None);
+
+        DefineSymbolsParams Code(string body) => Request() with
+        {
+            CodeOnly = true,
+            ParseResultJson = PlatformJson.Serialize(new RDCore.Parsing.ModuleParser().Parse(new Uri("file:///c:/ws/src/Mod1.bas"), $"Public Sub Foo()\r\n{body}\r\nEnd Sub\r\n")),
+        };
+
+        for (var edit = 0; edit < 3; edit++)
+        {
+            Assert.AreNotEqual(0, (await handler.Handle(Code("    Debug.Print TypeName(Me)"), CancellationToken.None)).CodeErrors.Count);
+        }
+
+        Assert.AreEqual(1, logger.Entries.Count(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning && entry.Message.Contains("was not loaded")),
+            string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+
+        Assert.AreEqual(0, (await handler.Handle(Code("    Debug.Print 1"), CancellationToken.None)).CodeErrors.Count);
+        Assert.AreEqual(1, logger.Entries.Count(entry => entry.Message.Contains("loads again")));
     }
 }

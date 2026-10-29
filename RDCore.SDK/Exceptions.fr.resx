@@ -747,6 +747,9 @@
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
     <value>'{0}' est déclaré As New {1}, une classe de la bibliothèque {2} qui ne peut pas être créée. MS-VBA le compile, et lève « Classe non enregistrée » à la première référence à la variable.</value>
   </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose" xml:space="preserve">
+    <value>'{0}' est le code d'un document d'une application hôte, que seul son hôte crée : aucun programme n'en crée un. RD-VBA n'héberge aucun document; le code qui en manipule un le tient dans une variable de la classe de l'hôte, obtenu d'une application que le programme automatise.</value>
+  </data>
   <data name="VBCompileError_CantChangeDataTypesOfArrayElements" xml:space="preserve">
     <value>Impossible de modifier les types de données des éléments de tableau</value>
   </data>

@@ -1138,6 +1138,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the code of a host&apos;s document, which only its host makes: no program creates one. RD-VBA hosts no document; code that works with one holds it in a variable of the host&apos;s class, from an application the program automates..
+        /// </summary>
+        public static string VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Can&apos;t change data types of array elements.
         /// </summary>
         public static string VBCompileError_CantChangeDataTypesOfArrayElements {
