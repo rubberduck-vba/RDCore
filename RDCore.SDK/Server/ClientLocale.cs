@@ -19,6 +19,25 @@ namespace RDCore.SDK.Server;
 public static class ClientLocale
 {
     /// <summary>
+    /// The language tag a client says the language of its user interface by (<c>fr-CA</c>); <see langword="null"/> for the invariant culture, which has none.
+    /// </summary>
+    /// <param name="culture">The language of the client's user interface: its <see cref="CultureInfo.CurrentUICulture"/>.</param>
+    public static string? TagOf(CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(culture);
+        return culture.Name.Length > 0 ? culture.Name : null;
+    }
+
+    /// <summary>
+    /// The language a client says it shows, in an <c>initialize</c> request: the request's own <c>locale</c>, which a client of the protocol says, and
+    /// otherwise what a platform's own client says in its <c>initializationOptions</c> (<see cref="Platform.Protocol.RDCoreInitializationOptions.Locale"/>).
+    /// </summary>
+    /// <param name="locale">The request's <c>locale</c>.</param>
+    /// <param name="initializationOptions">What the client says in its <c>initializationOptions</c>, if it is a platform's.</param>
+    public static string? Of(string? locale, Platform.Protocol.RDCoreInitializationOptions? initializationOptions)
+        => !string.IsNullOrWhiteSpace(locale) ? locale : initializationOptions?.Locale;
+
+    /// <summary>
     /// Makes the language a client says it shows the language of the user interface.
     /// </summary>
     /// <param name="locale">The client's <c>locale</c>: a language tag such as <c>fr-CA</c>, <c>en</c> or <c>de-ch</c>.</param>

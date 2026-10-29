@@ -86,28 +86,33 @@ public sealed class WorkspaceRefreshTests
         Assert.AreNotEqual(before, refresh.Generation, "a pull that comes before the request is not answered unchanged");
     }
 
+    // each change comes before the burst of the one before it is over: the client is asked once, when the last one's is.
     [TestMethod]
-    public async Task ABurstOfChanges_AsksForEachRefreshOnce()
+    public void ABurstOfChanges_AsksForEachRefreshOnce()
     {
         var server = ServerFor(Refreshing());
-        using var refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100));
+        var clock = new ManualClock();
+        using var refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100), clock);
         refresh.Attach(server);
 
         for (var change = 0; change < 5; change++)
         {
             refresh.Changed();
+            clock.Advance(TimeSpan.FromMilliseconds(99));
         }
 
-        for (var attempt = 0; attempt < 50 && server.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "SendRequest") < Methods.Length; attempt++)
+        foreach (var method in Methods)
         {
-            await Task.Delay(50);
+            server.DidNotReceive().SendRequest(method);
         }
 
-        await Task.Delay(300);
+        clock.Advance(TimeSpan.FromMilliseconds(1));
         foreach (var method in Methods)
         {
             server.Received(1).SendRequest(method);
         }
+
+        Assert.AreEqual(0, clock.Pending, "and nothing more is to be asked");
     }
 
     // what a module's code refers to is what its code lenses count, and nothing else of another module is of it.
@@ -132,25 +137,24 @@ public sealed class WorkspaceRefreshTests
 
     // a burst of both is asked for once, and for every refresh.
     [TestMethod]
-    public async Task ABurstOfChangesOfBothKinds_AsksForEachRefreshOnce()
+    public void ABurstOfChangesOfBothKinds_AsksForEachRefreshOnce()
     {
         var server = ServerFor(Refreshing());
-        using var refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100));
+        var clock = new ManualClock();
+        using var refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100), clock);
         refresh.Attach(server);
 
         refresh.ReferencesChanged();
         refresh.Changed();
         refresh.ReferencesChanged();
-
-        for (var attempt = 0; attempt < 50 && server.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "SendRequest") < Methods.Length; attempt++)
-        {
-            await Task.Delay(50);
-        }
+        clock.Advance(TimeSpan.FromMilliseconds(100));
 
         foreach (var method in Methods)
         {
             server.Received(1).SendRequest(method);
         }
+
+        Assert.AreEqual(0, clock.Pending, "and nothing more is to be asked");
     }
 
     // ---- over an actual connection: OmniSharp 0.19.9's own Send*Refresh write a notification, with no id ----
@@ -170,6 +174,9 @@ public sealed class WorkspaceRefreshTests
         private WorkspaceRefresh? _refresh;
 
         public DocumentLifecycleService Documents { get; private set; } = null!;
+
+        // what the burst of the refresh is timed by: the client is asked only once the test moves it past the burst.
+        public ManualClock Clock { get; } = new();
 
         public static async Task<Connection> OpenAsync(CancellationToken token)
         {
@@ -215,7 +222,7 @@ public sealed class WorkspaceRefreshTests
             _server = await serverTask;
             _client = await clientTask;
 
-            _refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100));
+            _refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100), Clock);
             _refresh.Attach(_server);
 
             var documents = new WorkspaceDocumentService(
@@ -246,9 +253,10 @@ public sealed class WorkspaceRefreshTests
         public IReadOnlyList<string> MessagesOf(string method)
             => [.. Regex.Split(Wire, "Content-Length: \\d+\\r\\n\\r\\n").Where(message => message.Contains($"\"method\":\"{method}\"", StringComparison.Ordinal))];
 
+        // what the server wrote comes as the transport delivers it: it is looked for until it has come, as long as a loaded machine takes.
         public async Task WaitForAsync(Func<bool> condition)
         {
-            for (var attempt = 0; attempt < 50 && !condition(); attempt++)
+            for (var attempt = 0; attempt < 200 && !condition(); attempt++)
             {
                 await Task.Delay(100);
             }
@@ -274,6 +282,7 @@ public sealed class WorkspaceRefreshTests
         // the procedure another module calls is gone.
         connection.Documents.Changed(ModuleA, 2, [new TextDocumentContentChangeEvent { Text = A.Replace("Twice", "Thrice") }]);
         await connection.Documents.WhenRefreshedAsync(ModuleA);
+        connection.Clock.Advance(TimeSpan.FromMilliseconds(100));
         await connection.WaitForAsync(() => Methods.All(method => connection.MessagesOf(method).Count == 1));
 
         foreach (var method in Methods)
@@ -293,13 +302,15 @@ public sealed class WorkspaceRefreshTests
         await connection.Documents.WhenRefreshedAsync(ModuleA);
         connection.Documents.Changed(ModuleA, 2, [new TextDocumentContentChangeEvent { Text = thrice }]);
         await connection.Documents.WhenRefreshedAsync(ModuleA);
+        connection.Clock.Advance(TimeSpan.FromMilliseconds(100));
         await connection.WaitForAsync(() => Methods.All(method => connection.MessagesOf(method).Count == 1));
         Assert.AreEqual(Methods.Length, Methods.Sum(method => connection.MessagesOf(method).Count), "a change the other modules can tell asks once for each");
 
         connection.Documents.Changed(ModuleA, 3, [new TextDocumentContentChangeEvent { Text = thrice.Replace("Value * 2", "Value * 3 ' thrice") }]);
         await connection.Documents.WhenRefreshedAsync(ModuleA);
-        await Task.Delay(500);
 
-        Assert.AreEqual(Methods.Length, Methods.Sum(method => connection.MessagesOf(method).Count), "a literal and a comment in a function's body are its own");
+        // a refresh that asked for one would have its burst to wait out: none is.
+        Assert.AreEqual(0, connection.Clock.Pending, "a literal and a comment in a function's body are its own");
+        Assert.AreEqual(Methods.Length, Methods.Sum(method => connection.MessagesOf(method).Count));
     }
 }

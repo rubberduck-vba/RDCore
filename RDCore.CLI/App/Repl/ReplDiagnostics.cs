@@ -37,6 +37,12 @@ public sealed class ReplDiagnostics
     /// <summary>How long the program is left alone at the prompt before the shell asks about it.</summary>
     internal TimeSpan Idle { get; init; } = TimeSpan.FromMilliseconds(400);
 
+    /// <summary>What waits for <see cref="Idle"/>: the clock, or what a test opens when it says the program was left alone.</summary>
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
+
+    /// <summary>The last question <see cref="RefreshWhenIdle"/> made, or is waiting to make: over once it is answered, or was dropped for a later one.</summary>
+    internal Task Pending { get; private set; } = Task.CompletedTask;
+
     /// <summary>The findings of the last answer.</summary>
     public IReadOnlyList<Diagnostic> Items => _items;
 
@@ -102,11 +108,11 @@ public sealed class ReplDiagnostics
     {
         CancelWaiting();
         var waiting = _waiting = new CancellationTokenSource();
-        _ = Task.Run(async () =>
+        Pending = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(Idle, waiting.Token);
+                await Delay(Idle, waiting.Token);
                 await RefreshAsync(context, waiting.Token);
             }
             catch (OperationCanceledException)

@@ -95,5 +95,14 @@ namespace RDCore.LanguageServer.Workspace {
                 return ResourceManager.GetString("ProjectReloadedProgramRunning", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to it was not loaded before the loading was stopped.
+        /// </summary>
+        internal static string SyncCancelled {
+            get {
+                return ResourceManager.GetString("SyncCancelled", resourceCulture);
+            }
+        }
     }
 }

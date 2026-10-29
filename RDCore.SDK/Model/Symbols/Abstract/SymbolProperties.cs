@@ -148,6 +148,14 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<string> ExternalTarget = new(nameof(ExternalTarget));
     /// <summary>
+    /// The constant a fixed-length <c>String * n</c> variable or field is declared with the length of, as written (<strong>MS-VBAL §5.2.3.1.4</strong>,
+    /// <c>&lt;constant-name&gt;</c>): its type has the length the constant had when it was declared. Absent when the length is written as a number.
+    /// </summary>
+    /// <remarks>
+    /// What says that a variable's storage is sized by the constant, when the constant is given another value while the variable holds one.
+    /// </remarks>
+    public static readonly SymbolProperty<string> FixedLengthName = new(nameof(FixedLengthName));
+    /// <summary>
     /// Whether an optional <c>Compare</c> parameter that a call omits takes the <c>Option Compare</c> of the calling module rather than
     /// its declared default (<strong>MS-VBAL §6.1.2.11</strong>: "if omitted, it uses the &lt;option-compare-directive&gt; of the calling
     /// module").

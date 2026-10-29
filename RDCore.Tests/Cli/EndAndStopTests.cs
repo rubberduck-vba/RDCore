@@ -413,7 +413,7 @@ public sealed class EndAndStopTests
         {
             result = outcome;
             return Task.CompletedTask;
-        }, cancelAfter: TimeSpan.FromMilliseconds(300));
+        }, cancelWhen: provider => provider.Session.CallStack.Current is RDCore.Runtime.Execution.Frames.CallStackFrame { Pc: > 0 });
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result!.Outcome, result.ErrorMessage);
         Assert.IsGreaterThanOrEqualTo(3, result.ErrorLine, "it stopped in the loop, and says which line it was on");
