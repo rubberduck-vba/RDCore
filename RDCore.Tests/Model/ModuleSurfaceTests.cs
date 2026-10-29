@@ -112,10 +112,11 @@ public sealed class ModuleSurfaceTests
     [DataRow("#Const A = 1", "#Const A = 0", DisplayName = "a #Const's value")]
     [DataRow("#If A Then", "#If Not A Then", DisplayName = "an #If's condition")]
     [DataRow("    #Const B = 1", "    #Const B = 2", DisplayName = "a #Const in a procedure")]
+    [DataRow("        #Const C = 1", "        #Const C = 2", DisplayName = "a #Const in an #If of a procedure")]
     public void TheDirectivesThatSayWhichDeclarationsAreLive_AreDeclarations(string written, string edited)
     {
         var module = string.Join("\r\n", "#Const A = 1", "#If A Then", "Public Sub Bar()", "End Sub", "#End If", "Public Sub Foo()", "    #Const B = 1", "    #If B Then",
-            "    Debug.Print 1", "    #End If", "End Sub", "");
+            "    Debug.Print 1", "        #Const C = 1", "    #End If", "End Sub", "");
 
         Assert.Contains(written, module);
         Assert.AreNotEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
