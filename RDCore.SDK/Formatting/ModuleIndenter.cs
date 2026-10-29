@@ -227,33 +227,51 @@ public static partial class ModuleIndenter
     /// <param name="edits">The edits, none of them overlapping; in any order.</param>
     /// <returns>The text with the edits made, the line ends it keeps as they were.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> or <paramref name="edits"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have, or two edits
+    /// overlap.</exception>
+    /// <remarks>The text is read once, from the first edit to the last: the time it takes grows with the text and the edits, and not with the one times the other.</remarks>
     public static string Apply(string text, IReadOnlyList<IndentationEdit> edits)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(edits);
-        var parts = LineEnd().Split(text);
+        if (edits.Count == 0)
+        {
+            return text;
+        }
 
-        // where a position is in the text: the lines before it, with what ends them, and its character in its line.
+        // where each line starts in the text, and how long it is without what ends it.
+        var starts = new List<int> { 0 };
+        var lengths = new List<int>();
+        foreach (Match end in LineEnd().Matches(text))
+        {
+            lengths.Add(end.Index - starts[^1]);
+            starts.Add(end.Index + end.Length);
+        }
+
+        lengths.Add(text.Length - starts[^1]);
+
         int OffsetOf(int line, int character)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(line);
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(line * 2, parts.Length);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(line, starts.Count);
             ArgumentOutOfRangeException.ThrowIfNegative(character);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(character, parts[line * 2].Length);
-            return parts.Take(line * 2).Sum(part => part.Length) + character;
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(character, lengths[line]);
+            return starts[line] + character;
         }
 
-        // the edits from the last to the first: each is where the text before it puts it.
-        var edited = new System.Text.StringBuilder(text);
-        foreach (var edit in edits.OrderByDescending(edit => edit.Line).ThenByDescending(edit => edit.Character))
+        // the edits from the first to the last: the text between them is copied as it is.
+        var edited = new System.Text.StringBuilder(text.Length);
+        var copied = 0;
+        foreach (var (start, end, newText) in edits.Select(edit => (Start: OffsetOf(edit.Line, edit.Character), End: OffsetOf(edit.EndLine, edit.EndCharacter), edit.NewText))
+            .OrderBy(edit => edit.Start).ThenBy(edit => edit.End))
         {
-            var (start, end) = (OffsetOf(edit.Line, edit.Character), OffsetOf(edit.EndLine, edit.EndCharacter));
             ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
-            edited.Remove(start, end - start).Insert(start, edit.NewText);
+            ArgumentOutOfRangeException.ThrowIfLessThan(start, copied);
+            edited.Append(text, copied, start - copied).Append(newText);
+            copied = end;
         }
 
-        return edited.ToString();
+        return edited.Append(text, copied, text.Length - copied).ToString();
     }
 
     // what ends a line, kept by a split: a carriage return and a line feed, or either alone.
@@ -478,14 +496,30 @@ public static partial class ModuleIndenter
     // the first As of a declaration's line, where the column of the setting has it: a space before it at least.
     private static string WithDimAligned(int column, string code, CodeFormattingOptions options)
     {
-        if (CodeWithoutComment(code) is not { } plain || DimAs().Match(plain) is not { Success: true } match)
+        if (FirstAs(code) is not { } at)
         {
             return code;
         }
 
-        var name = match.Groups["name"].Value;
+        var name = code[..at].TrimEnd();
         var gap = Math.Max(options.AlignDimColumn - 1 - column - name.Length, 1);
-        return name + new string(' ', gap) + code[(match.Groups["as"].Index)..];
+        return name + new string(' ', gap) + code[at..];
+    }
+
+    // where the first As of a line's code is, after what it declares: none in a string literal, a bracketed name, a date literal or a comment.
+    private static int? FirstAs(string code)
+    {
+        var (isCode, _) = Lex(code);
+        for (var index = 1; index + 2 < code.Length; index++)
+        {
+            if (isCode[index] && isCode[index + 1] && char.IsWhiteSpace(code[index - 1]) && char.IsWhiteSpace(code[index + 2])
+                && string.Compare(code, index, "As", 0, 2, StringComparison.OrdinalIgnoreCase) == 0 && code[..index].Trim().Length > 0)
+            {
+                return index;
+            }
+        }
+
+        return null;
     }
 
     // an end-of-line comment where the style of the setting has it: at the column it was at, after the gap it had, after a standard gap, or in a column. A
@@ -508,32 +542,94 @@ public static partial class ModuleIndenter
         return line[..now.CodeEnd] + new string(' ', Math.Max(gap, 1)) + line[now.Comment..];
     }
 
-    // where the code of a line ends and its end-of-line comment starts: none for a line with no code before its comment, or no comment. An apostrophe in a string
-    // literal, or in a bracketed name, starts none.
+    // where the code of a line ends and its end-of-line comment starts: none for a line with no code before its comment - nothing, or its line number alone - or
+    // no comment.
     private static (int CodeEnd, int Comment)? CommentAt(string line)
     {
-        var inString = false;
-        var inBracket = false;
-        for (var index = 0; index < line.Length; index++)
+        if (Lex(line).Comment is not { } comment)
         {
-            switch (line[index])
-            {
-                case '"' when !inBracket:
-                    inString = !inString;
-                    break;
-                case '[' when !inString:
-                    inBracket = true;
-                    break;
-                case ']' when !inString:
-                    inBracket = false;
-                    break;
-                case '\'' when !inString && !inBracket:
-                    var codeEnd = line[..index].TrimEnd().Length;
-                    return line[..codeEnd].Trim().Length == 0 ? null : (codeEnd, index);
-            }
+            return null;
         }
 
-        return null;
+        var codeEnd = line[..comment].TrimEnd().Length;
+        var numbered = LineNumber().Match(line[..comment]) is { Success: true } number && number.Length == comment;
+        return codeEnd == 0 || numbered ? null : (codeEnd, comment);
+    }
+
+    // what of a line is code, and where its comment starts. A string literal, a bracketed name and a date literal are of one token: what is in them is none of the
+    // code, and an apostrophe in them starts no comment. A comment is an apostrophe, or a Rem that starts a statement - at the start of the line, after its line
+    // number, after a colon, a Then or an Else - and is the rest of the line: what is in it is no code either.
+    private static (bool[] IsCode, int? Comment) Lex(string line)
+    {
+        var isCode = new bool[line.Length];
+        var index = LineNumber().Match(line) is { Success: true } number ? number.Length : 0;
+        for (var at = 0; at < index; at++)
+        {
+            isCode[at] = true;
+        }
+
+        var startsStatement = true;
+        while (index < line.Length)
+        {
+            var character = line[index];
+            if (character == '\'')
+            {
+                return (isCode, index);
+            }
+
+            if (character == '"')
+            {
+                var close = line.IndexOf('"', index + 1);
+                index = close < 0 ? line.Length : close + 1;
+                startsStatement = false;
+                continue;
+            }
+
+            if (character == '[' || (character == '#' && DateLiteralEnd(line, index) is not null))
+            {
+                var close = line.IndexOf(character == '[' ? ']' : '#', index + 1);
+                index = close < 0 ? line.Length : close + 1;
+                startsStatement = false;
+                continue;
+            }
+
+            if (char.IsLetter(character) || character == '_')
+            {
+                var end = index;
+                while (end < line.Length && (char.IsLetterOrDigit(line[end]) || line[end] == '_'))
+                {
+                    end++;
+                }
+
+                var word = line[index..end];
+                if (startsStatement && word.Equals("Rem", StringComparison.OrdinalIgnoreCase) && (end == line.Length || char.IsWhiteSpace(line[end])))
+                {
+                    return (isCode, index);
+                }
+
+                for (; index < end; index++)
+                {
+                    isCode[index] = true;
+                }
+
+                startsStatement = word.Equals("Then", StringComparison.OrdinalIgnoreCase) || word.Equals("Else", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            isCode[index] = true;
+            if (character == ':')
+            {
+                startsStatement = index + 1 == line.Length || line[index + 1] != '=';
+            }
+            else if (!char.IsWhiteSpace(character))
+            {
+                startsStatement = false;
+            }
+
+            index++;
+        }
+
+        return (isCode, null);
     }
 
     // the code of a line without its end-of-line comment.
@@ -588,13 +684,22 @@ public static partial class ModuleIndenter
         {
             var range = label.SourceLocation.Range;
             var text = module.Lines[range.Start.Line];
-            if (range.Start.Line == range.End.Line && range.Start.Character == text.Length - text.TrimStart().Length && range.End.Character <= text.Length)
+            if (range.Start.Line == range.End.Line && range.Start.Character == text.Length - text.TrimStart().Length && IsLabel(label, module))
             {
                 labels[range.Start.Line] = range.End.Character;
             }
         }
 
         return labels;
+    }
+
+    // a label is a name and its colon: what the parser recovered from an error as one - a statement it could not read - is none.
+    private static bool IsLabel(LineLabelNode label, ModuleLines module)
+    {
+        var range = label.SourceLocation.Range;
+        var text = module.Lines[range.Start.Line];
+        return label is LineNumberNode
+            || (range.Start.Line == range.End.Line && range.End.Character <= text.Length && LabelText().IsMatch(text[range.Start.Character..range.End.Character]));
     }
 
     private static int[] LevelsOf(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options, IReadOnlyList<DirectiveBlock> blocks,
@@ -620,10 +725,25 @@ public static partial class ModuleIndenter
                 }
             }
 
-            foreach (var node in tree.Descendants())
+            var lastCode = Array.FindLastIndex(module.Lines, line => !string.IsNullOrWhiteSpace(line));
+            void Visit(SyntaxNode node)
             {
+                if (IsCutShort(node, module, lastCode))
+                {
+                    return;
+                }
+
                 Cover(covered, node, module);
                 IndentBodiesOf(node, module, options, splitHeaders, Indent);
+                foreach (var child in node.ChildNodes())
+                {
+                    Visit(child);
+                }
+            }
+
+            foreach (var node in tree.ChildNodes())
+            {
+                Visit(node);
             }
         }
 
@@ -647,7 +767,8 @@ public static partial class ModuleIndenter
     // what is in it covers its own lines: a body the parser built nothing of is indented by its keywords.
     private static void Cover(bool[] covered, SyntaxNode node, ModuleLines module)
     {
-        if (node is not (StatementNode or MemberDeclarationNode or VariableDeclarationNode or ConstantDeclarationNode or DirectiveNode))
+        if (node is not (StatementNode or MemberDeclarationNode or VariableDeclarationNode or ConstantDeclarationNode or DirectiveNode)
+            || (node is LineLabelNode label && !IsLabel(label, module)))
         {
             return;
         }
@@ -657,6 +778,20 @@ public static partial class ModuleIndenter
         {
             covered[line] = true;
         }
+    }
+
+    // a block the parser cut short, recovering from an error: it has no closer, and code follows it - a block not closed yet, as it is typed, is open to the last
+    // line. Neither it nor what is in it says where a line is: its lines are indented by their keywords.
+    private static bool IsCutShort(SyntaxNode node, ModuleLines module, int lastCode)
+    {
+        if (node is not (StatementNode or MemberDeclarationNode) || BlockCloser(node) is null)
+        {
+            return false;
+        }
+
+        var range = node.SourceLocation.Range;
+        var (start, end) = (range.Start.Line, module.LastLineOf(range));
+        return end < lastCode && BodyEnd(node, module, start, end) == end;
     }
 
     private static void IndentBodiesOf(SyntaxNode node, ModuleLines module, CodeFormattingOptions options, IReadOnlyDictionary<int, DirectiveBlock> splitHeaders,
@@ -702,11 +837,31 @@ public static partial class ModuleIndenter
         }
     }
 
-    // the last line of a block's body: the line before its closer, which is at the level of the block wherever it is on its line; the last line of the block
-    // when the parser found no closer, as it is typed.
+    // the last line of a block's body: the line before its closer, which is at the level of the block wherever it is on its line, and starts the statement
+    // that closes it however many lines that statement is continued on (Loop Until a And _); the last line of the block when the parser found no closer, as
+    // it is typed.
     private static int BodyEnd(SyntaxNode node, ModuleLines module, int start, int end)
     {
-        string? closer = node switch
+        var closer = BlockCloser(node);
+
+        // a node the parser recovered from an error may end past its closer, on the empty lines after it.
+        var last = end;
+        while (last > start && string.IsNullOrWhiteSpace(module.Lines[last]))
+        {
+            last--;
+        }
+
+        while (last > start && module.IsContinuation(last))
+        {
+            last--;
+        }
+
+        return closer is not null && last > start && HasStatementStartingWith(Keyworded(module.Lines[last]), closer) ? last - 1 : end;
+    }
+
+    // the keyword that closes a block: none for a node that is no block.
+    private static string? BlockCloser(SyntaxNode node)
+        => node switch
         {
             MemberDeclarationNode { MemberKind: MemberKind.Procedure } => "End Sub",
             MemberDeclarationNode { MemberKind: MemberKind.Function } => "End Function",
@@ -722,27 +877,13 @@ public static partial class ModuleIndenter
             _ => null,
         };
 
-        // a node the parser recovered from an error may end past its closer, on the empty lines after it.
-        var last = end;
-        while (last > start && string.IsNullOrWhiteSpace(module.Lines[last]))
-        {
-            last--;
-        }
-
-        return closer is not null && last > start && HasStatementStartingWith(Keyworded(module.Lines[last]), closer) ? last - 1 : end;
-    }
-
-    // whether a statement of a line starts with the words of a keyword: the first, or one after a colon that is not in a string literal.
+    // whether a statement of a line starts with the words of a keyword: the first, or one after a colon of its code - none in a literal or a comment.
     private static bool HasStatementStartingWith(string code, string words)
     {
-        var inString = false;
-        for (var index = 0; index < code.Length; index++)
+        var (isCode, comment) = Lex(code);
+        for (var index = 0; index < (comment ?? code.Length); index++)
         {
-            if (code[index] == '"')
-            {
-                inString = !inString;
-            }
-            else if (!inString && (index == 0 || code[index - 1] == ':') && StartsWithWords(code, index, words))
+            if (isCode[index] && (index == 0 || code[index - 1] == ':') && StartsWithWords(code, index, words))
             {
                 return true;
             }
@@ -976,8 +1117,8 @@ public static partial class ModuleIndenter
                 at = Math.Max(AnchorColumn() - operatorAdjust, 0);
             }
 
-            // what continues a comment is the comment's text, not the declaration's.
-            var wanted = Aligned(text, new string(' ', at), code, isDeclaration && _comment is null, options);
+            // what continues a comment is the comment's text, not the declaration's, and none of it is an end-of-line comment.
+            var wanted = isComment || _comment is not null ? new string(' ', at) + code : Aligned(text, new string(' ', at), code, isDeclaration, options);
             Saw(wanted, next);
             return wanted;
         }
@@ -985,6 +1126,12 @@ public static partial class ModuleIndenter
         // what a line of the statement, as it is to be, says of where its next line goes.
         public void Saw(string line, string? next)
         {
+            // a comment's lines are all of its text: none of them says where the next goes.
+            if (isComment || _comment is not null)
+            {
+                return;
+            }
+
             if (CommentAt(line) is { } eol && line.TrimEnd().EndsWith(" _", StringComparison.Ordinal))
             {
                 // an end-of-line comment continued on the next line: what follows it is where it is.
@@ -1022,35 +1169,24 @@ public static partial class ModuleIndenter
         private void Scan(string code)
         {
             var start = IgnoredStart().Match(code).Length;
-            var inString = false;
+
+            // the While or the Until of a Do or a Loop is of its keyword: what follows the two of them is the condition, as what follows an If is.
+            if (_anchors.Count == 0 && LoopCondition().Match(code[start..]) is { Success: true } condition)
+            {
+                start += condition.Length;
+                _anchors.Push(new Anchor(AnchorKind.AfterName, start, _depth));
+            }
+
+            var (isCode, _) = Lex(code);
             for (var index = start; index < code.Length; index++)
             {
+                // a string literal, a bracketed name and a date literal are of one token: what is in them sets no anchor.
+                if (!isCode[index])
+                {
+                    continue;
+                }
+
                 var character = code[index];
-                if (character == '"')
-                {
-                    inString = !inString;
-                    continue;
-                }
-
-                if (inString)
-                {
-                    continue;
-                }
-
-                // a bracketed name and a date literal are of one token, as a string literal is: what is in them sets no anchor.
-                if (character == '[')
-                {
-                    var close = code.IndexOf(']', index + 1);
-                    index = close < 0 ? code.Length : close;
-                    continue;
-                }
-
-                if (character == '#' && DateLiteralEnd(code, index) is { } end)
-                {
-                    index = end;
-                    continue;
-                }
-
                 switch (character)
                 {
                     case '(':
@@ -1208,6 +1344,9 @@ public static partial class ModuleIndenter
     [GeneratedRegex(@"^\s*(?<number>(?:-?\d+|&H[0-9A-F]{1,8}):?)(?:\s+|$)", RegexOptions.IgnoreCase)]
     private static partial Regex LineNumber();
 
+    [GeneratedRegex(@"^[\p{L}_][\p{L}\p{N}_]*\s*:$")]
+    private static partial Regex LabelText();
+
     [GeneratedRegex(@"^\s*(?:'|Rem(?:\s|$))", RegexOptions.IgnoreCase)]
     private static partial Regex CommentLine();
 
@@ -1220,15 +1359,14 @@ public static partial class ModuleIndenter
     [GeneratedRegex(@"^Stop\s*(?:$|:|')", RegexOptions.IgnoreCase)]
     private static partial Regex StopStatement();
 
+    [GeneratedRegex(@"^(?:Do|Loop)\s+(?:While|Until)\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex LoopCondition();
+
     [GeneratedRegex(@"^(Dim|Const|Static|Public|Private|Global)\s", RegexOptions.IgnoreCase)]
     private static partial Regex Declaration();
 
     [GeneratedRegex(@"^((Public|Private|Friend|Global)\s+)?(Declare|Enum|Type|Event|Implements)\b", RegexOptions.IgnoreCase)]
     private static partial Regex NotAVariable();
-
-    // what a declaration's line names before its first As, and that As.
-    [GeneratedRegex(@"^(?<name>.*?\S)\s+(?<as>As\s)", RegexOptions.IgnoreCase)]
-    private static partial Regex DimAs();
 
     [GeneratedRegex(@"^As\s", RegexOptions.IgnoreCase)]
     private static partial Regex LeadingAs();
