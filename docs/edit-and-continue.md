@@ -19,7 +19,6 @@ the edit back and go on, or run the program again.
 - The body of a procedure the program isn't in. Its next call runs the new code. This holds for a method of a class too, even while objects of the class
   are alive.
 
-<!-- S2: the four bullets below depend on the active-frame body remap. -->
 **The procedure you're stopped in, and the procedures that called it:**
 - Edit any statement of the procedure you're stopped in. A line you edit above the stop isn't run again. A line you edit, insert or delete below it is run
   as it is now, when the program gets there.
@@ -33,14 +32,13 @@ the edit back and go on, or run the program again.
 - A module variable (`Public` or `Private`), a `Const`, a `Declare`.
 - A `Type` or an `Enum`, or a member added to an `Enum`.
 
-<!-- S2: the changes below are applied in S1 only where they touch no procedure the program is in; where they reach one (a Const or an Option line its body
-uses), applying them needs the active-frame body remap. -->
 **Other changes the program reads afresh:**
 - A procedure, variable, `Const` or `Type` removed, when nothing the program is running still uses it.
-- The value of a `Const` or of an `Enum` member, except a `Const` that sizes an array that already exists (see below).
+- The value of a `Const` or of an `Enum` member, except one that sizes an array or a fixed-length `String * N` that already exists, directly or through
+  another `Const` written in terms of it, and except one a procedure the program is in has already read (see below).
 - The parameters of a procedure the program isn't in, and its callers, which are checked again.
 - A `Declare` statement changed.
-- An `Option` line: `Option Compare`, `Option Base`, `Option Explicit`, `Option Private Module`.
+- An `Option` line in a module the program isn't in. `Option Base` waits when that module holds an array declared without a lower bound.
 
 Variables keep their values across every edit that applies. That includes module-level variables, `Static` variables and the fields of your objects.
 
@@ -55,11 +53,14 @@ with its reason. Take the edit back and go on, or run the program again to have 
 | A local variable added to, or removed from, a procedure the program is in | The procedure's variables are laid out already. Applying it is planned for a later version. |
 | A field added to a class whose objects the program may hold | Objects made before the edit would have no room for it. Applying it is planned for a later version. |
 | A local's type, or a variable's type, while it holds a value | The value would have to be converted under the program. |
-| A `Const` that sizes an array, given another value | The array exists already, at its old size. |
+| A `Const` (or `Enum` member) that sizes an array or a `String * N`, given another value, directly or through another `Const` | What it sizes exists already, at its old size. |
+| A `Const` or `Enum` member that a procedure the program is in reads | That procedure read the old value already. |
+| An `Option` line of a module the program is in | The running procedure keeps the setting it started with. |
 | The parameters of a procedure the program is in | Its arguments were passed already, by the old parameter list. |
 | The line a calling procedure is in the middle of (its call line) | Half of it has run already. |
+| Any edit of a calling procedure whose call is in a condition or a loop header (`If F() Then`, `For i = 1 To F()`) | The program is in the middle of that line; for now, only a caller on a plain call line takes edits. |
 | The opening or closing line of a block you're inside: a `For`, a `For Each`, a `With`, a `Select Case`, a `Do` | The loop's counter, the `With` object or the `Select` value was made by the old line. |
-| A `GoSub` the program will return from, or the point a `Resume` goes back to | They point into the code as it was. |
+| A `GoSub` the program will return from, or the point a `Resume` goes back to, when that line itself was edited | They point into the code as it was. |
 | What a class `Implements`, or its `Event`s, while objects of it are alive | Those objects are reached through what the class implements. |
 
 **Code that doesn't compile:** a typo, a renamed procedure that something still calls, a variable that isn't declared under `Option Explicit`. There's no
@@ -132,8 +133,8 @@ Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit:
 | Kind of edit | VBA editor | RD-VBA |
 |---|---|---|
 | A procedure you're not in | goes on | goes on |
-| Statements of the procedure you're stopped in, above, at or below the stop | goes on | goes on <!-- S2 --> |
-| Statements of a caller, away from its call line | goes on | goes on <!-- S2 --> |
+| Statements of the procedure you're stopped in, above, at or below the stop | goes on | goes on |
+| Statements of a caller, away from its call line | goes on | goes on |
 | A caller's call line | **resets** | waits, and names the edit |
 | A local added (`Dim`) | goes on | waits, and names the edit (for now) |
 | A local removed; a `Static` added | **resets** | waits, and names the edit (for now) |
@@ -142,10 +143,10 @@ Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit:
 | A `Public` module variable added | **resets** | goes on |
 | A procedure added, in a module or a class | **resets** | goes on |
 | A `Type` or an `Enum` added, or a member added to an `Enum` | **resets** | goes on |
-| A `Const`'s value changed | **resets** | goes on, unless it sizes an array (waits) |
+| A `Const`'s value changed | **resets** | goes on, unless it sizes what a variable holds, or a running procedure read it (waits) |
 | A procedure's parameters changed, for one you're not in | **resets** | goes on |
 | The same, for the one you're in | **resets** | waits, and names the edit |
-| A `Declare` changed; an `Option` line added or removed | **resets** | goes on |
+| A `Declare` changed; an `Option` line added or removed | **resets** | goes on (an `Option` line: in a module the program isn't in) |
 | A method body of a class with live objects | goes on | goes on |
 | A field added to a class with live objects | goes on | waits, and names the edit (for now) |
 
