@@ -107,8 +107,9 @@ internal sealed class DocumentDiagnosticsService(
         // a module the client supplied has no code in the host until it is put there: defined, and loaded - which is not run - so that the host's pass
         // analyzes it and has the facts to answer for it, as it has for a module of the workspace.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
-        var semantics = await AnalyzeInHostAsync(documentUri.Fragment.TrimStart('#'), parseResult, token);
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics));
+        var phase = PhaseNow(AnalysisPhase.All);
+        var semantics = await AnalyzeInHostAsync(documentUri.Fragment.TrimStart('#'), parseResult, phase, token);
+        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase));
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
         return (Aggregate(reports), providers.Length);
@@ -166,6 +167,12 @@ internal sealed class DocumentDiagnosticsService(
         // the findings are of the workspace as it is when they are looked for: one that changes while they are is another result.
         var generation = refresh.Generation;
 
+        phase = PhaseNow(phase);
+        if (phase == 0)
+        {
+            return DocumentDiagnosticsResult.Fresh(version, [], generation);
+        }
+
         // the edits a program that waits does not have are the server's own finding, which no extension is needed for; they are told once, by the static phase,
         // which a client pushed to has published before the runtime phase adds to it.
         var isHostModule = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)));
@@ -205,6 +212,12 @@ internal sealed class DocumentDiagnosticsService(
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 
+    // the phases of the analysis that are of the code as it runs: none of what comes of evaluating it while a program waits in break mode - the host holds the
+    // redefinitions that would free what the program holds, and applies them when it is run again, so the code the evaluation would be of is neither the code
+    // that runs nor the code that will. A pull answers without them, and a client that was told them is told again once the program goes on, ends or is reset
+    // (IEditStatusMonitor.Changed).
+    private AnalysisPhase PhaseNow(AnalysisPhase phase) => editStatus?.Current.Suspended == true ? phase & ~AnalysisPhase.Runtime : phase;
+
     // RDC20001: each edit of the module the program that waits does not have, where the edited declaration is now - an edit of the module as a whole, or of a
     // declaration that is gone, on its first line.
     private IEnumerable<Diagnostic> EditsNotApplied(WorkspaceDocument document, string moduleName)
@@ -228,7 +241,7 @@ internal sealed class DocumentDiagnosticsService(
 
     // puts a module the host does not have where the host can analyze it, and asks it for what it found out: nothing when the host does not run the pass,
     // and nothing when it could not be told of the module.
-    private async Task<ModuleSemanticsDto?> AnalyzeInHostAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    private async Task<ModuleSemanticsDto?> AnalyzeInHostAsync(string moduleName, ModuleParseResult parseResult, AnalysisPhase phase, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment?.PlatformInfo?.Provides<SemanticAnalysis>() != true)
         {
@@ -253,7 +266,7 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        return await SemanticsOfAsync(moduleName, AnalysisPhase.All, token);
+        return await SemanticsOfAsync(moduleName, phase, token);
     }
 
     // what the environment host's semantic analysis pass found out about the module, which is what an analyzer decides what to say of; nothing when the host
