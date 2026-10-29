@@ -1,4 +1,6 @@
 using NSubstitute;
+using OmniSharp.Extensions.JsonRpc;
+using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
@@ -19,23 +21,50 @@ public sealed class DocumentDiagnosticHandlerTests
     private readonly IDocumentDiagnosticsService _service = Substitute.For<IDocumentDiagnosticsService>();
     private readonly IDocumentLifecycleService _lifecycle = Substitute.For<IDocumentLifecycleService>();
 
-    private DocumentDiagnosticHandler Sut() => new(_service, _lifecycle, new WorkProgressReporter(), new IncomingDocumentChanges());
+    private readonly IncomingDocumentChanges _incoming = new();
+
+    private DocumentDiagnosticHandler Sut() => new(_service, _lifecycle, new WorkProgressReporter(), _incoming);
 
     // what is found is of the text the host has: the pull waits for the host to have the document as it is, then analyzes it.
     [TestMethod]
     public async Task APull_WaitsForTheHostToHaveTheDocument_ThenAnalyzesIt()
     {
+        var waiting = new TaskCompletionSource();
         var synced = new TaskCompletionSource();
-        _lifecycle.WhenSyncedAsync(DocUri, Arg.Any<CancellationToken>()).Returns(synced.Task);
+        _lifecycle.WhenSyncedAsync(DocUri, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            waiting.TrySetResult();
+            return synced.Task;
+        });
         _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(DocumentDiagnosticsResult.Fresh(2, []));
 
         var pull = Sut().Handle(Request(), CancellationToken.None);
-        await Task.Delay(50);
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
         synced.SetResult();
         await pull.WaitAsync(TimeSpan.FromSeconds(5));
         await _service.Received(1).GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>());
+    }
+
+    // an edit that arrives while the pull waits for the host ends it, as one that arrives while it analyzes does.
+    [TestMethod]
+    public async Task AnEditWhileThePullWaitsForTheHost_EndsIt_ContentModified()
+    {
+        var waiting = new TaskCompletionSource();
+        _lifecycle.WhenSyncedAsync(DocUri, Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            waiting.TrySetResult();
+            return Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+        });
+
+        var pull = Sut().Handle(Request(), CancellationToken.None);
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _incoming.Arrived(DocUri);
+
+        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual(ErrorCodes.ContentModified, refused.Code);
+        await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
     }
 
     private static DocumentDiagnosticParams Request(string? previousResultId = null) => new()
