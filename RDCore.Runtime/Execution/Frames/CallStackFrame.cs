@@ -145,6 +145,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return false;
         }
 
+        // an activation that only unwinds runs none of its code again: it unwinds from where it is, and lets go of what its blocks hold as it does.
+        if (rebased.Unwinds)
+        {
+            return true;
+        }
+
         (Body, Pc, WaitedAt, ErrorHandler) = (body, rebased.Pc, rebased.WaitedAt, rebased.ErrorHandler);
         _moved = rebased.Moved;
         if (_occasional is { } occasional)
@@ -170,7 +176,11 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private static Dictionary<int, T>? Rekeyed<T>(Dictionary<int, T>? state, IReadOnlyDictionary<int, int> offsets)
         => state?.Where(entry => offsets.ContainsKey(entry.Key)).ToDictionary(entry => offsets[entry.Key], entry => entry.Value);
 
-    private sealed record class Rebasing(int Pc, bool Moved, int WaitedAt, ErrorHandlerState ErrorHandler, IReadOnlyDictionary<int, int> Offsets);
+    private sealed record class Rebasing(int Pc, bool Moved, int WaitedAt, ErrorHandlerState ErrorHandler, IReadOnlyDictionary<int, int> Offsets)
+    {
+        // the activation goes on in no body of its own: it only unwinds.
+        public bool Unwinds { get; init; }
+    }
 
     private FrameRebaseRefusal? Rebased(InstructionList body, InstructionAlignment alignment, bool waits, [NotNullWhen(false)] out Rebasing? rebased)
     {
@@ -178,6 +188,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         if (Body is not { } before)
         {
             return FrameRebaseRefusal.CallChanged;
+        }
+
+        // one that waits at an error it has no handler for, and that a caller's handler catches, is unwound by it when the program goes on: nothing of its
+        // code runs again, whatever was edited of it.
+        if (waits && WaitsAtAnError && WaitsAtAHandledError && !_moved && ErrorHandler.Mode is ErrorHandlingMode.Disabled)
+        {
+            rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Unwinds = true };
+            return null;
         }
 
         // the activation the program waits in goes on from where it was moved to, or from after the instruction it stopped at, or from the one it waits

@@ -859,6 +859,26 @@ public sealed class EditAndContinueTests
         StringAssert.Contains(resumed.ErrorMessage, "stopped at an error of");
     }
 
+    // a procedure that waits at an error its caller's handler catches is unwound by it: what was edited of it - the error its own handler was handling
+    // included - never runs again.
+    [TestMethod]
+    public async Task AnErrorRaisedInAHandler_ThatACallerCatches_WithTheErrorTheHandlerHandlesEdited_IsApplied()
+    {
+        var program = Lines("Option Explicit", "Public Sub Main()", "    Stop", "    On Error GoTo MainHandler", "    Helper", "    Exit Sub", "MainHandler:",
+            "    Debug.Print \"main caught \" & Err.Number", "End Sub", "Private Sub Helper()", "    On Error GoTo H", "    Err.Raise 5", "    Exit Sub", "H:",
+            "    Err.Raise 6", "End Sub");
+
+        var resumed = await EditedWhereItWaitsAsync(program, program.Replace("Err.Raise 5", "Err.Raise 7", StringComparison.Ordinal), async provider =>
+        {
+            var atTheFirst = await AtTheNextErrorAsync(provider);
+            Assert.AreEqual(ExecutionOutcome.Suspended, atTheFirst.Outcome, atTheFirst.ErrorMessage);
+            return await Resume(provider);
+        });
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "main caught 6" }, Output(resumed));
+    }
+
     // what a block the program has left behind kept is of no use to it: the opening of that block, edited, is applied.
     [TestMethod]
     [DataRow("    For i = 1 To 2|        Debug.Print i|    Next", "For i = 1 To 2|For i = 1 To 3", DisplayName = "a For")]
