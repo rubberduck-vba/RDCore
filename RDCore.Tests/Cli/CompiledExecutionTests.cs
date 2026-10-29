@@ -39,7 +39,7 @@ public sealed class CompiledExecutionTests
         }
     }
 
-    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, TimeSpan? cancelAfter = null)
+    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
     {
         ExecuteSessionResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
@@ -51,7 +51,7 @@ public sealed class CompiledExecutionTests
             result = run;
             compiled = provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result);
             return Task.CompletedTask;
-        }, cancelAfter, engine: engine);
+        }, cancelWhen, engine: engine);
 
         return new Run(result!, compiled);
     }
@@ -373,8 +373,9 @@ public sealed class CompiledExecutionTests
             "End Sub");
         RequirePayloads();
 
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, TimeSpan.FromMilliseconds(300));
-        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, TimeSpan.FromMilliseconds(300));
+        // cancelled once the program is in Forever: its activation on the stack, under Main's.
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, provider => provider.Session.CallStack.Depth >= 2);
+        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, provider => provider.Session.CallStack.Depth >= 2);
 
         Assert.AreEqual(interpreted.Result.Outcome, compiled.Result.Outcome);
         Assert.IsNotNull(compiled.Compiled["Forever"].Body);

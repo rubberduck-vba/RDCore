@@ -117,4 +117,42 @@
   <data name="NoErrorToExplain" xml:space="preserve">
     <value>The program does not wait at an error.</value>
   </data>
+  <data name="EditsNotApplied" xml:space="preserve">
+    <value>Not applied to the program that waits:
+{0}
+{1}</value>
+  </data>
+  <data name="ResumeRefusedForEdits" xml:space="preserve">
+    <value>The program can't go on with the edits made while it waits:
+{0}
+{1}</value>
+  </data>
+  <data name="EditsAdviceRunAgain" xml:space="preserve">
+    <value>Run the program again to pick them up.</value>
+  </data>
+  <data name="EditsAdviceCorrect" xml:space="preserve">
+    <value>Correct the code to go on.</value>
+  </data>
+  <data name="EditsAdviceCorrectOrRunAgain" xml:space="preserve">
+    <value>Correct the code that does not compile; run the program again for the rest.</value>
+  </data>
+  <data name="EditNamed" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="ModuleNotParsed" xml:space="preserve">
+    <value>it could not be parsed</value>
+  </data>
+  <data name="ResumeRefusedForUnloaded" xml:space="preserve">
+    <value>The program can't go on: the saved code of these modules could not be loaded, and it waits on the code it had:
+{0}</value>
+  </data>
+  <data name="ResumeRefusedForUnreadable" xml:space="preserve">
+    <value>The program can't go on: {0} can't be read ({1}), and it waits on the code it had.</value>
+  </data>
+  <data name="ResumeRefusedForRenamed" xml:space="preserve">
+    <value>The program can't go on: module {0} is named {1} now; run it again to pick that up.</value>
+  </data>
+  <data name="ResumeRefusedForReload" xml:space="preserve">
+    <value>The program can't go on: the saved code could not be loaded ({0}), and it waits on the code it had.</value>
+  </data>
 </root>

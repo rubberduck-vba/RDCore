@@ -24,4 +24,7 @@
   <data name="ProjectReloadedProgramRunning" xml:space="preserve">
     <value>The project file changed while a program runs: the files it lists are loaded, and the program keeps the modules it started with. A class module the project gained is a type once the program ends and the project file is saved again.</value>
   </data>
+  <data name="SyncCancelled" xml:space="preserve">
+    <value>it was not loaded before the loading was stopped</value>
+  </data>
 </root>

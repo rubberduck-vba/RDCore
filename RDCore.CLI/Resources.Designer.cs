@@ -385,7 +385,112 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} changed while the program waited: run it again to pick the changes up.
+        ///   Looks up a localized string similar to applied.
+        /// </summary>
+        public static string Host_Edit_Applies => ResourceManager.GetString("Host_Edit_Applies", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the statement a procedure the program is in stopped at an error of.
+        /// </summary>
+        public static string Host_Edit_FaultOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_FaultOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to an edit near where the program is that can't be placed for certain, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_UncertainInAnActiveProcedure => ResourceManager.GetString("Host_Edit_UncertainInAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to an edit in a procedure the program is in that is too large to place where the program is for certain, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_TooLargeToPlaceInAnActiveProcedure => ResourceManager.GetString("Host_Edit_TooLargeToPlaceInAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a variable whose value an edit reset, which only running the program again gives back.
+        /// </summary>
+        public static string Host_Edit_ValueReset => ResourceManager.GetString("Host_Edit_ValueReset", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the Option Base of a module whose arrays hold values.
+        /// </summary>
+        public static string Host_Edit_OptionBaseOfStoredArrays => ResourceManager.GetString("Host_Edit_OptionBaseOfStoredArrays", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the call a procedure the program is in is in the middle of.
+        /// </summary>
+        public static string Host_Edit_CallOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_CallOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the opening of a block or a GoSub the program is in.
+        /// </summary>
+        public static string Host_Edit_BlockOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_BlockOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the error handler of a procedure the program is in, or the statement its error was raised at.
+        /// </summary>
+        public static string Host_Edit_HandlerOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_HandlerOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_LocalsOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LocalsOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a field added to a class whose objects the program may hold, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_FieldOfAClass => ResourceManager.GetString("Host_Edit_FieldOfAClass", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the signature of a procedure the program is in.
+        /// </summary>
+        public static string Host_Edit_SignatureOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_SignatureOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a local of a procedure the program is in, given another type.
+        /// </summary>
+        public static string Host_Edit_LocalOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LocalOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a variable or a field that holds a value, given another type or removed.
+        /// </summary>
+        public static string Host_Edit_StoredValue => ResourceManager.GetString("Host_Edit_StoredValue", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to what a class implements, or the events it raises.
+        /// </summary>
+        public static string Host_Edit_ClassInterface => ResourceManager.GetString("Host_Edit_ClassInterface", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the code does not compile: {0}.
+        /// </summary>
+        public static string Host_Edit_DoesNotCompile => ResourceManager.GetString("Host_Edit_DoesNotCompile", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to the code of a procedure the program is in, in the middle of a call its condition or the header of its block makes, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_HeaderOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_HeaderOfAnActiveProcedure", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to an option of the module the program is in, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_OptionOfAnActiveModule => ResourceManager.GetString("Host_Edit_OptionOfAnActiveModule", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a field added to a Type whose values the program may hold, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_FieldOfAType => ResourceManager.GetString("Host_Edit_FieldOfAType", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a constant that sizes what a variable holds, given another value.
+        /// </summary>
+        public static string Host_Edit_ValueThatSizesStoredData => ResourceManager.GetString("Host_Edit_ValueThatSizesStoredData", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to a constant a procedure the program is in already read, given another value, which is not applied to a program that waits yet.
+        /// </summary>
+        public static string Host_Edit_ValueAnActiveProcedureRead => ResourceManager.GetString("Host_Edit_ValueAnActiveProcedureRead", resourceCulture)!;
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} changed while the program waited, in a way that is not applied to it: run it again to pick the changes up, or undo them.
         /// </summary>
         public static string Host_ChangedWhileWaiting_Goto {
             get {
@@ -1680,5 +1785,59 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Ducky_UnknownCommand", resourceCulture);
             }
         }
+        /// <summary>
+        ///   Looks up a localized string similar to Edits made while the program waited are not applied to it:.
+        /// </summary>
+        public static string Repl_EditsNotApplied {
+            get {
+                return ResourceManager.GetString("Repl_EditsNotApplied", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: {1}.
+        /// </summary>
+        public static string Repl_EditNamed {
+            get {
+                return ResourceManager.GetString("Repl_EditNamed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RUN to start again..
+        /// </summary>
+        public static string Repl_RunToStartAgain {
+            get {
+                return ResourceManager.GetString("Repl_RunToStartAgain", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Shows the edits made while the program waits that are not applied to it, and why: what CONT and STEP would be refused for..
+        /// </summary>
+        public static string Repl_Edits_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Edits_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No edit is waiting: CONT goes on with every edit made..
+        /// </summary>
+        public static string Repl_Edits_None {
+            get {
+                return ResourceManager.GetString("Repl_Edits_None", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No program is waiting..
+        /// </summary>
+        public static string Repl_Edits_NoProgram {
+            get {
+                return ResourceManager.GetString("Repl_Edits_NoProgram", resourceCulture);
+            }
+        }
+        
     }
 }

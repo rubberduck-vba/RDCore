@@ -35,6 +35,16 @@ internal interface ISymbolSyncService
     Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null, bool replace = false);
 
     /// <summary>
+    /// The modules the last <see cref="SyncWorkspaceAsync"/> did not define or load, by name, and why: none when it defined and loaded each one. A sync that was
+    /// cancelled did not load the modules it had not reached.
+    /// </summary>
+    /// <remarks>
+    /// A sync goes on with the other modules when one fails, and the host has the failed one as it was: the code of a program that waits on it is not the code
+    /// of its document.
+    /// </remarks>
+    IReadOnlyDictionary<string, string> Unsynced { get; }
+
+    /// <summary>
     /// Sends the symbols of one parsed module to the environment host.
     /// </summary>
     /// <remarks>
@@ -119,6 +129,10 @@ internal sealed class SymbolSyncService(
     // one at a time: what goes to the host to change what it holds, and what is asked of it in the same breath.
     private readonly SemaphoreSlim _hold = new(1, 1);
 
+    private IReadOnlyDictionary<string, string> _unsynced = new Dictionary<string, string>();
+
+    public IReadOnlyDictionary<string, string> Unsynced => Volatile.Read(ref _unsynced);
+
     public async Task<IAsyncDisposable> HoldAsync(CancellationToken token)
     {
         await _hold.WaitAsync(token).ConfigureAwait(false);
@@ -147,9 +161,20 @@ internal sealed class SymbolSyncService(
 
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
+
+        // the module is one of the project's, and its names are bound among the others' as a module of the workspace binds its own: a shell's program calls a
+        // Sub of a module of the workspace, qualified or not, and a name of one is no variable the program declares by naming it. What the project has of a
+        // module of the same name is the module as it was: this is the one that is synchronized.
+        var (_, others, hosts) = CollectModules(token);
         var workspaceResolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope,
-            libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
+            workspaceRoot,
+            [
+                .. others.Where(other => !string.Equals(other.Name, moduleName, StringComparison.OrdinalIgnoreCase))
+                    .Select(other => (SymbolUri.Module(workspaceRoot, other.Name), other.Kind, other.Parse)),
+                (moduleUri, ModuleType.StdModule, parseResult),
+            ],
+            resolver, projectName: referencedLibraries.ProjectName, implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot),
+            documentHosts: hosts);
 
         // a module the client keeps editing is defined again every time it is run, so the newest
         // definition has to win rather than being skipped as a duplicate. Its parse result travels with the request to
@@ -162,6 +187,10 @@ internal sealed class SymbolSyncService(
 
     public async Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null, bool replace = false)
     {
+        // what this sync did not define or load, and the modules whose code it loaded: those it did not reach, when it is cancelled, are not loaded either.
+        var failed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var loaded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<string> collected = [];
         try
         {
             var host = orchestration.RuntimeEnvironment;
@@ -184,6 +213,7 @@ internal sealed class SymbolSyncService(
             // collect every parsed module first: the resolver is composed over the whole workspace, so
             // one module's `As SomeType` can bind to a sibling module's Type / Enum declaration.
             var (workspaceRoot, modules, hosts) = CollectModules(token);
+            collected = [.. modules.Select(module => module.Name)];
 
             if (workspaceRoot is null)
             {
@@ -215,6 +245,7 @@ internal sealed class SymbolSyncService(
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     logger.LogError(exception, "❌ Declaring the types of module {module} failed; continuing with the remaining workspace modules.", module.Name);
+                    failed.TryAdd(module.Name, exception.Message);
                 }
             }
 
@@ -233,6 +264,7 @@ internal sealed class SymbolSyncService(
                     // not re-run on didOpen/didChange, so an unguarded throw here used to make it
                     // permanent instead of degrading to "this one module didn't get defined."
                     logger.LogError(exception, "❌ Symbol sync failed for module {module}; continuing with the remaining workspace modules.", module.Name);
+                    failed.TryAdd(module.Name, exception.Message);
                 }
             }
 
@@ -245,10 +277,12 @@ internal sealed class SymbolSyncService(
                 try
                 {
                     await SendModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, token);
+                    loaded.Add(module.Name);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     logger.LogError(exception, "❌ Loading the code of module {module} failed; continuing with the remaining workspace modules.", module.Name);
+                    failed.TryAdd(module.Name, exception.Message);
                 }
             }
 
@@ -256,11 +290,32 @@ internal sealed class SymbolSyncService(
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            LogIfEnabled(LogLevel.Information, "Symbol sync was cancelled; language server is shutting down.");
+            LogIfEnabled(LogLevel.Information, "Symbol sync was cancelled.");
+            Unfinished(failed, loaded, collected, WorkspaceMessages.SyncCancelled);
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "❌ Symbol sync failed.");
+            Unfinished(failed, loaded, collected, exception.Message);
+        }
+        finally
+        {
+            Volatile.Write(ref _unsynced, failed);
+        }
+    }
+
+    // a sync that did not finish loaded only some of what it collected, and may not have reached the collecting at all: what the last sync did not load is not
+    // loaded either, unless this one loaded it.
+    private void Unfinished(Dictionary<string, string> failed, HashSet<string> loaded, IReadOnlyList<string> collected, string reason)
+    {
+        foreach (var name in collected.Where(name => !loaded.Contains(name)))
+        {
+            failed.TryAdd(name, reason);
+        }
+
+        foreach (var (name, why) in Unsynced.Where(module => !loaded.Contains(module.Key)))
+        {
+            failed.TryAdd(name, why);
         }
     }
 

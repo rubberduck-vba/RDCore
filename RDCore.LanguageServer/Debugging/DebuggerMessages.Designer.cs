@@ -374,5 +374,104 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("NoErrorToExplain", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Not applied to the program that waits: {0} {1}.
+        /// </summary>
+        internal static string EditsNotApplied {
+            get {
+                return ResourceManager.GetString("EditsNotApplied", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on with the edits made while it waits: {0} {1}.
+        /// </summary>
+        internal static string ResumeRefusedForEdits {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForEdits", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Run the program again to pick them up..
+        /// </summary>
+        internal static string EditsAdviceRunAgain {
+            get {
+                return ResourceManager.GetString("EditsAdviceRunAgain", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Correct the code to go on..
+        /// </summary>
+        internal static string EditsAdviceCorrect {
+            get {
+                return ResourceManager.GetString("EditsAdviceCorrect", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Correct the code that does not compile; run the program again for the rest..
+        /// </summary>
+        internal static string EditsAdviceCorrectOrRunAgain {
+            get {
+                return ResourceManager.GetString("EditsAdviceCorrectOrRunAgain", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: {1}.
+        /// </summary>
+        internal static string EditNamed {
+            get {
+                return ResourceManager.GetString("EditNamed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to it could not be parsed.
+        /// </summary>
+        internal static string ModuleNotParsed {
+            get {
+                return ResourceManager.GetString("ModuleNotParsed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: the saved code of these modules could not be loaded, and it waits on the code it had: {0}.
+        /// </summary>
+        internal static string ResumeRefusedForUnloaded {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForUnloaded", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: {0} can't be read ({1}), and it waits on the code it had..
+        /// </summary>
+        internal static string ResumeRefusedForUnreadable {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForUnreadable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: module {0} is named {1} now; run it again to pick that up..
+        /// </summary>
+        internal static string ResumeRefusedForRenamed {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForRenamed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: the saved code could not be loaded ({0}), and it waits on the code it had..
+        /// </summary>
+        internal static string ResumeRefusedForReload {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForReload", resourceCulture);
+            }
+        }
     }
 }

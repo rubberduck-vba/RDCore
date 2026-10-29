@@ -29,10 +29,12 @@ public sealed class EveryRequestAnsweredTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var notified = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var toServer = new Pipe();
         var toClient = new Pipe();
 
-        // a request the server runs in parallel, which takes a while; and a notification it runs in order, as didOpen is, which arrives meanwhile.
+        // a request the server runs in parallel, which goes on until the notification is sent; and a notification it runs in order, as didOpen is, which
+        // arrives meanwhile - and which runs once the request is done, since one in order waits for what runs in parallel.
         var serving = OmniSharpLanguageServer.From(server => server
             .WithInput(toServer.Reader)
             .WithOutput(toClient.Writer)
@@ -40,7 +42,7 @@ public sealed class EveryRequestAnsweredTests
             .OnRequest<SlowParams, int>("test/slow", async (_, token) =>
             {
                 started.TrySetResult();
-                await Task.Delay(TimeSpan.FromSeconds(1), token);
+                await sent.Task.WaitAsync(TimeSpan.FromSeconds(20), token);
                 return 42;
             }, new JsonRpcHandlerOptions { RequestProcessType = RequestProcessType.Parallel })
             .OnNotification<InOrderParams>("test/inOrder", _ => notified.TrySetResult(), new JsonRpcHandlerOptions { RequestProcessType = RequestProcessType.Serial }),
@@ -53,6 +55,7 @@ public sealed class EveryRequestAnsweredTests
         var answer = client.SendRequest(new SlowParams(), timeout.Token);
         await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
         client.SendNotification(new InOrderParams());
+        sent.SetResult();
 
         Assert.AreEqual(42, await answer.WaitAsync(TimeSpan.FromSeconds(10)));
         await notified.Task.WaitAsync(TimeSpan.FromSeconds(10));

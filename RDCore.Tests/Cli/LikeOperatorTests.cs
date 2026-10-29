@@ -125,8 +125,19 @@ public sealed class LikeOperatorTests
             "ChrW(230) Like 'a?' ;; ChrW(230) Like 'ae' ;; ChrW(223) Like 'ss' ;; ChrW(65313) Like 'A' ;; 'a' & ChrW(173) & 'b' Like 'ab'"));
 
     [TestMethod]
-    [Timeout(10_000, CooperativeCancellation = true)]
-    // F14: a matcher that tries every way the stars can split the text takes about 1000^3 steps here; MS-VBA answers at once.
+    // a matcher that tries every way the stars can split the text takes about 1000^3 steps here; MS-VBA answers at once.
     public async Task Like_IsNotExponentialInTheStarsOfThePattern()
-        => CollectionAssert.AreEqual(new[] { "False" }, await RunAsync("Binary", "String(1000, 'a') Like '*a*a*a*b'"));
+    {
+        CollectionAssert.AreEqual(new[] { "False" }, await RunAsync("Binary", "String(1000, 'a') Like '*a*a*a*b'"));
+
+        // the matcher alone, timed apart from composing and running the workspace: milliseconds, where trying every split would take minutes. Two seconds
+        // leaves hundreds of times the margin.
+        var pattern = RDCore.Runtime.Semantics.Operators.Relational.LikePattern.Get("*a*a*a*b");
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var matched = pattern.IsMatch(new string('a', 1000), new RDCore.SDK.Runtime.StringComparisonRules());
+        watch.Stop();
+
+        Assert.IsFalse(matched);
+        Assert.IsLessThan(2.0, watch.Elapsed.TotalSeconds, $"{watch.Elapsed.TotalMilliseconds:n1} ms");
+    }
 }

@@ -13,7 +13,7 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// <para>
 /// The server is the project file's only writer: a client tells it what it did to the file system, and does not write the project file itself. A source file of
 /// the workspace's language is a module of the project, and a folder that holds one is a folder of the project; what a folder whose name starts with a dot holds
-/// (<c>.git</c>, <c>.vscode</c>) is not, and neither is anything outside the workspace root.
+/// (<c>.git</c>, <c>.github</c>) is not, and neither is anything outside the workspace root.
 /// </para>
 /// <para>
 /// A module name is unique in a project (<strong>RD-VBAL §2.2.3.3</strong>): a file created with the <c>VB_Name</c> of a module the project has is not added

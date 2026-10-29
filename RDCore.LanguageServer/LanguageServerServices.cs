@@ -81,6 +81,8 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWatchedFileChanges, RDCore.LanguageServer.Server.Handlers.Workspace.WatchedFileChanges>()
             .AddSingleton<RDCore.LanguageServer.Server.Handlers.Workspace.IWorkspaceFileSystemWatcher, RDCore.LanguageServer.Server.Handlers.Workspace.WorkspaceFileSystemWatcher>()
             .AddSingleton<IProgramDebugService, ProgramDebugService>()
+            .AddSingleton<RDCore.LanguageServer.Debugging.IEditStatusMonitor, RDCore.LanguageServer.Debugging.EditStatusMonitor>()
+            .AddSingleton<RDCore.LanguageServer.Debugging.EditStatusPublication>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>()
             // the indenter settings of Rubberduck, offered once and imported on demand (rdcore.importIndenterSettings).

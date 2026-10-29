@@ -2,6 +2,8 @@
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
+- name: Edit and Continue
+  href: edit-and-continue.md
 - name: RD-VBAL
   href: specs/rd-vbal.md
 - name: Diagnostics
