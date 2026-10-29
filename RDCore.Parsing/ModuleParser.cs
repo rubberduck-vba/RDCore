@@ -82,7 +82,7 @@ public partial class ModuleParser(
             var sanitized = content;
             if (hasDirectives)
             {
-                precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset, token);
+                precompilerTrivia = ParsePrecompilerNodes(content, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset, token);
 
                 // the directive pass reads a directive it cannot place as text: what is wrong with the directives is found on their own lines. The main pass
                 // reads the module with each directive's lines blank.
@@ -269,8 +269,7 @@ public partial class ModuleParser(
             .Replace('\u2029', '\n');
     }
 
-    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset,
-        CancellationToken token)
+    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset, CancellationToken token)
     {
         // ignore everything that is NOT a precompiler node,
         // because grammar matches everything as a ccBlock otherwise.
@@ -284,7 +283,7 @@ public partial class ModuleParser(
         {
             // parse to a tree, then walk it: AddParseListener fires Exit before Enter<Op> on a
             // left-recursive ccExpression (`#If A And B`), desyncing the builder stack. A walk doesn't.
-            var tree = ParseDirectives(new string(sanitized), errorListener, token);
+            var tree = ParseDirectives(new string(sanitized), token);
             AnchorTree(tree, anchorOffset);
             foreach (var listener in listeners)
             {
@@ -300,36 +299,32 @@ public partial class ModuleParser(
         }
     }
 
-    // the directive pass in two stages, as the main pass is: SLL with a bail-on-first-error strategy, then LL with default recovery and the error listener
-    // when SLL fails. A block's body is a non-greedy loop of lines (ccBlock), and whether a line ends the loop is a decision LL resolves with the full
-    // context of every enclosing block: on a module of many #If blocks that is quadratic in their length - 7 s for the 1,200 lines of a JSON parser - where
-    // SLL takes milliseconds, and gives the tree LL gives whenever it succeeds.
-    private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, ErrorListener errorListener, CancellationToken token)
+    // the directive pass in SLL, first with a bail-on-first-error strategy, then with default recovery when that fails. A directive's line is a physicalLine
+    // too, and ccBlock's non-greedy loop and the order of its alternatives choose the directive: SLL makes that choice where the alternatives conflict, and
+    // gives the tree LL gives whenever it succeeds. LL reads on to the end of the module to prove each conflict an ambiguity first - 7 s for the 1,200 lines
+    // of a JSON parser, and a stack overflow at a few hundred #If blocks - so a module whose directives do not fit the grammar is recovered from in SLL too,
+    // for its trivia at their best. What is wrong with a directive is the directive scanner's to report, not this pass's. A cancelled parse is told by the
+    // token, never by the exception: SLL's bail is itself an OperationCanceledException.
+    private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, CancellationToken token)
     {
         try
         {
-            return DirectiveParser(sanitized, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, token).compilationUnit();
+            return DirectiveParser(sanitized, new BailErrorStrategy(), token).compilationUnit();
         }
         catch (Exception exception) when ((exception is ParseCanceledException or RecognitionException) && !token.IsCancellationRequested)
         {
-            return DirectiveParser(sanitized, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, token).compilationUnit();
+            return DirectiveParser(sanitized, new DefaultErrorStrategy(), token).compilationUnit();
         }
     }
 
-    private static VBAConditionalCompilationParser DirectiveParser(string sanitized, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener,
-        CancellationToken token)
+    private static VBAConditionalCompilationParser DirectiveParser(string sanitized, IAntlrErrorStrategy errorStrategy, CancellationToken token)
     {
         var parser = new VBAConditionalCompilationParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
         {
             ErrorHandler = errorStrategy,
         };
-        parser.Interpreter.PredictionMode = mode;
+        parser.Interpreter.PredictionMode = PredictionMode.Sll;
         parser.RemoveErrorListeners();
-        if (errorListener is not null)
-        {
-            parser.AddErrorListener(errorListener);
-        }
-
         if (token.CanBeCanceled)
         {
             parser.AddParseListener(new CancellationListener(token));
