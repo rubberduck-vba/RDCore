@@ -117,6 +117,19 @@ internal interface ISymbolSyncService
     /// <param name="token">A token that cancels the wait for the hold.</param>
     /// <returns>The hold, which is released when it is disposed.</returns>
     Task<IAsyncDisposable> HoldAsync(CancellationToken token);
+
+    /// <summary>
+    /// Says that the workspace is being brought up: until the scope is disposed, what the client supplies - a module it runs or has analyzed
+    /// (<see cref="SyncModuleAsync"/>), a document it opened or edited (<see cref="SyncDocumentAsync"/>), a hold (<see cref="HoldAsync"/>) - waits, and is sent
+    /// once the workspace's own modules are defined in the host (<see cref="SyncWorkspaceAsync"/>).
+    /// </summary>
+    /// <remarks>
+    /// A module the host is given before the modules of the workspace are has its names bound without them: a shell's program that calls <c>Module1.Helper</c>
+    /// declares <c>Module1</c> a variable of its own, where implicit declarations are allowed, and the program fails with error 424 when it calls through it -
+    /// however the workspace is synced afterwards, since the first sync of a workspace does not define again a module the host has.
+    /// </remarks>
+    /// <returns>The scope of the bring-up: disposed once the workspace is synced, or once the bring-up ends without it, which lets what waits go.</returns>
+    IDisposable ExpectWorkspace();
 }
 
 internal sealed class SymbolSyncService(
@@ -139,7 +152,39 @@ internal sealed class SymbolSyncService(
 
     public IReadOnlyDictionary<string, string> Unsynced => Volatile.Read(ref _unsynced);
 
+    // the workspace as it is brought up: what the client supplies waits for its modules to be defined, before it takes the hold - the sync of the workspace
+    // takes the hold too, and a caller that held it while it waited would keep the workspace from being synced.
+    private TaskCompletionSource _workspaceDefined = Defined();
+
+    private static TaskCompletionSource Defined()
+    {
+        var defined = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        defined.SetResult();
+        return defined;
+    }
+
+    public IDisposable ExpectWorkspace()
+    {
+        var expected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Volatile.Write(ref _workspaceDefined, expected);
+        return new Expectation(expected);
+    }
+
+    private sealed class Expectation(TaskCompletionSource expected) : IDisposable
+    {
+        public void Dispose() => expected.TrySetResult();
+    }
+
+    private Task WorkspaceDefinedAsync(CancellationToken token) => Volatile.Read(ref _workspaceDefined).Task.WaitAsync(token);
+
     public async Task<IAsyncDisposable> HoldAsync(CancellationToken token)
+    {
+        await WorkspaceDefinedAsync(token).ConfigureAwait(false);
+        return await TakeHoldAsync(token).ConfigureAwait(false);
+    }
+
+    // the hold, whatever is being brought up: the sync that brings the workspace up takes it so.
+    private async Task<IAsyncDisposable> TakeHoldAsync(CancellationToken token)
     {
         await _hold.WaitAsync(token).ConfigureAwait(false);
         return new Hold(_hold);
@@ -162,6 +207,8 @@ internal sealed class SymbolSyncService(
 
     public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
+        // what the client supplies is bound among the workspace's modules, which the host is given first. A caller that holds the hold waited for them already.
+        await WorkspaceDefinedAsync(token);
         var host = orchestration.RuntimeEnvironment;
         await host.WaitForReadyAsync(token);
 
@@ -202,8 +249,9 @@ internal sealed class SymbolSyncService(
             var host = orchestration.RuntimeEnvironment;
             await host.WaitForReadyAsync(token);
 
-            // every module is defined before the code of any is loaded: nothing else is sent to the host in between, or what it would send is overwritten.
-            await using var hold = await HoldAsync(token);
+            // every module is defined before the code of any is loaded: nothing else is sent to the host in between, or what it would send is overwritten. The
+            // workspace's own sync is what the client's modules wait for: it does not wait for itself.
+            await using var hold = await TakeHoldAsync(token);
 
             // the first sync of a session - the workspace's load into it, or a host started again - reports again what each module's load fails with. A sync an
             // edit asks for sends the same modules to the same session once more, and a failure it was told of already is not news.

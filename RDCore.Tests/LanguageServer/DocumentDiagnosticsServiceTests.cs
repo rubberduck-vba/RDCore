@@ -155,7 +155,7 @@ public sealed class DocumentDiagnosticsServiceTests
         _parsing.ParseWorkspaceAsync(Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(parsed.Task);
         var sut = Sut();
 
-        var loading = WorkspaceBringUp.LoadAsync(_parsing, _symbols, _refresh, Substitute.For<IWorkProgressReporter>(), CancellationToken.None);
+        var loading = WorkspaceBringUp.LoadAsync(_parsing, _symbols, _refresh, Substitute.For<IWorkProgressReporter>(), expected: null, CancellationToken.None);
         var first = await sut.GetAsync(uri, previousResultId: null, CancellationToken.None);
         var whileLoading = await sut.GetAsync(uri, first.ResultId, CancellationToken.None);
 
@@ -169,6 +169,34 @@ public sealed class DocumentDiagnosticsServiceTests
 
         server.Received(1).SendRequest("workspace/diagnostic/refresh");
         Assert.IsFalse(loaded.Unchanged, "what was found before the workspace was loaded is not what is found now");
+    }
+
+    // what the client's modules wait for is let go once the workspace is synced, and when its sync fails too: nothing waits for a bring-up that is over.
+    [TestMethod]
+    [DataRow(false, DisplayName = "the workspace is synced")]
+    [DataRow(true, DisplayName = "its sync fails")]
+    public async Task TheBringUp_LetsGoOfWhatWaitsForIt_OnceTheWorkspaceIsSynced_OrItsSyncFails(bool fails)
+    {
+        var order = new List<string>();
+        var expected = Substitute.For<IDisposable>();
+        expected.When(scope => scope.Dispose()).Do(_ => order.Add("let go"));
+        _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>(), Arg.Any<bool>()).Returns(_ =>
+        {
+            order.Add("synced");
+            return fails ? Task.FromException(new InvalidOperationException("no host")) : Task.CompletedTask;
+        });
+
+        var loading = WorkspaceBringUp.LoadAsync(_parsing, _symbols, _refresh, Substitute.For<IWorkProgressReporter>(), expected, CancellationToken.None);
+        if (fails)
+        {
+            _ = await Assert.ThrowsAsync<InvalidOperationException>(() => loading);
+        }
+        else
+        {
+            await loading;
+        }
+
+        CollectionAssert.AreEqual(new[] { "synced", "let go" }, order);
     }
 
     // an edit the program that waits does not have is a finding of the module it is in, where the edited declaration is now - an edit of the module as a whole on
