@@ -478,6 +478,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_Applies" xml:space="preserve">
     <value>applied</value>
   </data>
+  <data name="Host_Edit_ValueReset" xml:space="preserve">
+    <value>a variable whose value an edit reset, which only running the program again gives back</value>
+  </data>
   <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
     <value>the Option Base of a module whose arrays hold values</value>
   </data>

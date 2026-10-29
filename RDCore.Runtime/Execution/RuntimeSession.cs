@@ -434,6 +434,22 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private CallStackAwareSymbolResolver? _bindingsField;
     private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings, this);
 
+    // a module is defined again by one request while a program that waits is asked what was edited by another.
+    private readonly Lock _resetLock = new();
+    private ImmutableArray<Symbol> _valuesReset = [];
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> ValuesReset
+    {
+        get
+        {
+            lock (_resetLock)
+            {
+                return _valuesReset;
+            }
+        }
+    }
+
     public bool TryDefine(Symbol symbol, ScopeKind scope)
     {
         if (!table.TryAdd(symbol, scope))
@@ -509,7 +525,22 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             && SessionBindings.TryGetAddress(existing, out _);
         if (!sameDeclaration)
         {
-            return TryUndefine(existing, scope) && TryDefine(symbol, scope);
+            // what the variable held is let go of with its storage.
+            var held = existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _);
+            if (!(TryUndefine(existing, scope) && TryDefine(symbol, scope)))
+            {
+                return false;
+            }
+
+            if (held)
+            {
+                lock (_resetLock)
+                {
+                    _valuesReset = _valuesReset.Add(existing);
+                }
+            }
+
+            return true;
         }
 
         // storage is keyed by the symbol's semantic identity, which the newest definition shares, so replacing the

@@ -51,6 +51,10 @@ internal sealed class ProgramEdits
     private readonly ImmutableDictionary<string, ModuleText> _modules;
     private readonly ImmutableHashSet<string> _active;
 
+    // how many variables had had their value reset by a definition when the program was suspended: any reset after is a value the program would go on
+    // without.
+    private int _reset;
+
     // a declaration of a module, by what it is and where: its whole text, its signature less its locals, its locals, and whether its module is a class.
     private sealed record class Declaration(string Name, SymbolDescriptorKind Kind, SymbolDescriptor Descriptor, string Whole, string Signature,
         ImmutableArray<LocalDescriptor> Locals, bool InClass, Uri Module, SourceRange Range);
@@ -100,7 +104,10 @@ internal sealed class ProgramEdits
             }
         }
 
-        return new ProgramEdits(image.ProcedureFingerprints(), declarations.ToImmutable(), procedures.ToImmutable(), modules.ToImmutable(), active.ToImmutable());
+        return new ProgramEdits(image.ProcedureFingerprints(), declarations.ToImmutable(), procedures.ToImmutable(), modules.ToImmutable(), active.ToImmutable())
+        {
+            _reset = session.Symbols.ValuesReset.Count,
+        };
     }
 
     /// <summary>
@@ -202,6 +209,16 @@ internal sealed class ProgramEdits
                 edits.Add(gone
                     ? new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_SignatureOfAnActiveProcedure, declared?.Module, declared?.Range)
                     : new ProgramEdit(name, ProgramEditKind.Applies, Resources.Host_Edit_Applies, declared?.Module, declared?.Range));
+            }
+        }
+
+        // a variable whose value a definition reset since the program was suspended: the edit that did it may be taken back, and the value is still gone.
+        foreach (var reset in session.Symbols.ValuesReset.Skip(suspended._reset))
+        {
+            var name = $"{NameOf(reset.ParentUri.AbsoluteUri)}.{reset.Name}";
+            if (!edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
+            {
+                edits.Add(new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_ValueReset, reset.ParentUri));
             }
         }
 

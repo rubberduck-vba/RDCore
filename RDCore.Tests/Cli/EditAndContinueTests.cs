@@ -3,6 +3,7 @@ using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Tests.Cli;
 
@@ -608,6 +609,64 @@ public sealed class EditAndContinueTests
             Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
             CollectionAssert.AreEqual(new[] { expected }, Output(resumed));
         }
+    }
+
+    // a variable retyped while the program waits is defined again, and what it held is gone: taking the edit back gives it another variable of the type
+    // it had, not the value. Only running the program again gives the value back.
+    [TestMethod]
+    public async Task AModuleVariableRetypedWhileTheProgramWaits_ThenTheEditTakenBack_IsStillRefused_UntilTheProgramIsRunAgain()
+    {
+        var retyped = Edited(Program, ["Program|Replace|Public G As Long|Public G As Integer"], "Program");
+        ExecuteSessionResult? whileRetyped = null, takenBack = null, again = null;
+        await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
+        {
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, retyped));
+            whileRetyped = await Resume(provider);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, Program));
+            takenBack = await Resume(provider);
+            again = await runAgain();
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, whileRetyped!.Outcome, whileRetyped.ErrorMessage);
+        Assert.AreEqual(ExecutionOutcome.Refused, takenBack!.Outcome, takenBack.ErrorMessage);
+        StringAssert.Contains(takenBack.ErrorMessage, "Program.G (a variable whose value an edit reset");
+        Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, again.ErrorMessage);
+    }
+
+    // the object a variable of a class held, retyped, is gone from it: the program can't go on without it, and its Class_Terminate does not run while the
+    // program waits - what is let go of by a program that is reset runs none, as an End runs none - and the object is discarded when the program is run again.
+    [TestMethod]
+    public async Task AVariableOfAClassRetypedWhileTheProgramWaits_LosesItsObject_AndIsStillRefusedOnceTakenBack()
+    {
+        var owned = ModuleWorkspace.ClassModule("D",
+            "Option Explicit",
+            "Private Sub Class_Terminate()",
+            "    Terminated = Terminated + 1",
+            "End Sub");
+        var program = Lines(
+            "Option Explicit",
+            "Public Terminated As Long",
+            "Public Held As D",
+            "Public Sub Main()",
+            "    Set Held = New D",
+            "    Stop",
+            "    Debug.Print \"main:end\"",
+            "End Sub");
+        string? whileWaiting = null;
+        ExecuteSessionResult? takenBack = null;
+        await ModuleWorkspace.InspectAsync([("D", owned)], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("D", ModuleType.ClassModule, owned),
+                ("Program", ModuleType.StdModule, program.Replace("Held As D", "Held As Object", StringComparison.Ordinal)));
+            whileWaiting = provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Single(variable => variable.Name == "Terminated").Value;
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("D", ModuleType.ClassModule, owned), ("Program", ModuleType.StdModule, program));
+            takenBack = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual("0", whileWaiting);
+        Assert.AreEqual(ExecutionOutcome.Refused, takenBack!.Outcome, takenBack.ErrorMessage);
+        StringAssert.Contains(takenBack.ErrorMessage, "Program.Held (a variable whose value an edit reset");
     }
 
     private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
