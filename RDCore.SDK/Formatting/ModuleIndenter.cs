@@ -8,14 +8,30 @@ using System.Text.RegularExpressions;
 namespace RDCore.SDK.Formatting;
 
 /// <summary>
-/// An edit of the whitespace of a line: the <paramref name="Length"/> characters at <paramref name="Character"/> of line <paramref name="Line"/> are replaced by
-/// <paramref name="NewText"/>. What is replaced is a run of whitespace, or none at all, and what replaces it is whitespace, or nothing.
+/// An edit of the whitespace of a module: what is from <paramref name="Character"/> of line <paramref name="Line"/> to <paramref name="EndCharacter"/> of line
+/// <paramref name="EndLine"/> is replaced by <paramref name="NewText"/>. What is replaced is whitespace, or nothing, and so is what replaces it: a run of it
+/// within a line, or the empty lines between two procedures, from the end of the line before them.
 /// </summary>
-/// <param name="Line">The line, from 0.</param>
-/// <param name="Character">Where what is replaced starts, in UTF-16 code units from the start of the line.</param>
-/// <param name="Length">How many characters are replaced.</param>
-/// <param name="NewText">What replaces them.</param>
-public readonly record struct IndentationEdit(int Line, int Character, int Length, string NewText);
+/// <param name="Line">The line where what is replaced starts, from 0.</param>
+/// <param name="Character">Where what is replaced starts, in UTF-16 code units from the start of its line.</param>
+/// <param name="EndLine">The line where what is replaced ends.</param>
+/// <param name="EndCharacter">Where what is replaced ends, in UTF-16 code units from the start of its line: the character after it.</param>
+/// <param name="NewText">What replaces it.</param>
+public readonly record struct IndentationEdit(int Line, int Character, int EndLine, int EndCharacter, string NewText)
+{
+    /// <summary>
+    /// An edit within a line: the <paramref name="length"/> characters at <paramref name="character"/> of line <paramref name="line"/> are replaced by
+    /// <paramref name="newText"/>.
+    /// </summary>
+    /// <param name="line">The line, from 0.</param>
+    /// <param name="character">Where what is replaced starts.</param>
+    /// <param name="length">How many characters are replaced.</param>
+    /// <param name="newText">What replaces them.</param>
+    public IndentationEdit(int line, int character, int length, string newText)
+        : this(line, character, line, character + length, newText)
+    {
+    }
+}
 
 /// <summary>
 /// Indents the lines of a module by what encloses them in its syntax tree (<see cref="CodeFormattingOptions"/>): a line is indented one level for each body it
@@ -24,24 +40,29 @@ public readonly record struct IndentationEdit(int Line, int Character, int Lengt
 /// </summary>
 /// <remarks>
 /// <para>
-/// A level is <see cref="CodeFormattingOptions.IndentSpaces"/> spaces: the code of a module is indented with spaces, as VBA code is, and a tab is replaced by
-/// the spaces up to its tab stop. A block's opener and its closer, and the <c>ElseIf</c>, <c>Else</c> and <c>Case</c> lines between them, are at the level of
-/// the block, and so is a line that has its closer after other code (<c>x = 1: End If</c>); what they guard is a level further in. A procedure's body is
-/// indented when <see cref="CodeFormattingOptions.IndentEntireProcedureBody"/> says so, the <c>Case</c> lines of a <c>Select Case</c> when
+/// A level is <see cref="CodeFormattingOptions.IndentSpaces"/> spaces: the code of a module is indented with spaces, as VBA code is. A block's opener and its
+/// closer, and the <c>ElseIf</c>, <c>Else</c> and <c>Case</c> lines between them, are at the level of the block, and so is a line that has its closer after
+/// other code (<c>x = 1: End If</c>); what they guard is a level further in. A procedure's body is indented when
+/// <see cref="CodeFormattingOptions.IndentEntireProcedureBody"/> says so, the <c>Case</c> lines of a <c>Select Case</c> when
 /// <see cref="CodeFormattingOptions.IndentCase"/> does, and what an <c>#If</c> guards when <see cref="CodeFormattingOptions.IndentCompilerDirectives"/> does.
 /// A procedure whose header is written once in each branch of an <c>#If</c> has the <c>#If</c> block as its header: its lines are at the procedure's level,
 /// and the body after the <c>#End If</c> is indented once.
 /// </para>
 /// <para>
-/// A line the syntax tree has no statement of - a branch of an <c>#If</c> that is not compiled, code the parser could not build as you type - is indented by its
-/// keywords instead, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A block the parser could not find
-/// the closer of is open to its last line. The indenter never refuses to indent.
+/// A line the syntax tree has no statement of - code the parser could not build as you type - is indented by its keywords instead, from the level of where it
+/// is: a block's opener indents the lines after it, and its closer ends that. A block the parser could not find the closer of is open to its last line. The
+/// indenter never refuses to indent.
 /// </para>
 /// <para>
 /// A line number stays at the start of its line, and so does a line label, as the VBE has it: the code after either is where the line's level has it, a space
-/// after the number or the label at least. A line continued from the one before (<c>_</c>) moves with the first line of its statement, as far as it does. A
-/// comment alone on its line is at the level of the code around it; a blank line is left as it is. The header of a class or a form module
-/// (<c>VERSION</c>, <c>BEGIN</c> ... <c>END</c>) and its <c>Attribute</c> lines are left as they are written.
+/// after the number or the label at least. A line continued from the one before (<c>_</c>) lines up with the lines of its statement before it. A comment
+/// alone on its line is at the level of the code around it. The header of a class or a form module (<c>VERSION</c>, <c>BEGIN</c> ... <c>END</c>) and its
+/// <c>Attribute</c> lines are left as they are written.
+/// </para>
+/// <para>
+/// Between procedures - a <c>Sub</c>, a <c>Function</c>, a <c>Property</c>, an <c>Enum</c> or a <c>Type</c>, with the comments right above it - there are
+/// <see cref="CodeFormattingOptions.LinesBetweenProcedures"/> empty lines when <see cref="CodeFormattingOptions.VerticallySpaceProcedures"/> says so, and as many
+/// after what is above the first; none between the accessors of a property when <see cref="CodeFormattingOptions.GroupRelatedProperties"/> groups them.
 /// </para>
 /// </remarks>
 public static partial class ModuleIndenter
@@ -67,11 +88,15 @@ public static partial class ModuleIndenter
 
         var lines = LinesOf(text);
         var module = new ModuleLines(lines);
+        var blocks = DirectiveBlocks(module);
+        var splitHeaders = parse.SyntaxTree is { } tree ? SplitHeadersOf(tree, module, blocks).ToDictionary() : [];
         var asWritten = WrittenAsTheyAre(parse, module);
         var labels = LabelsOf(parse, module);
-        var levels = LevelsOf(parse, module, options);
+        var levels = LevelsOf(parse, module, options, blocks, splitHeaders);
+        var firstBlocks = FirstBlocksAtColumn1(parse, module, options, splitHeaders);
+        var members = EnumOrTypeMembers(parse, module);
 
-        // a range never splits a statement: its continued lines move with its first.
+        // a range never splits a statement: its lines are aligned together.
         while (firstLine > 0 && firstLine < lines.Length && module.IsContinuation(firstLine))
         {
             firstLine--;
@@ -82,57 +107,172 @@ public static partial class ModuleIndenter
             lastLine = module.HeaderEnd(lastLine);
         }
 
+        // the empty lines between procedures, as many as the setting says: those of a gap that has more or fewer are written again, from the end of the line
+        // before them, with its line end, each as an empty line at its level is. A range spaces only the gaps it takes in whole, from the line before them to
+        // the procedure after them: it changes no line outside of it.
         var edits = new List<IndentationEdit>();
-        var shift = 0;
+        var spaced = new bool[lines.Length];
+        if (options.VerticallySpaceProcedures && parse.SyntaxTree is { } procedures)
+        {
+            var ends = LineEnd().Split(text).Where((_, index) => index % 2 == 1).ToArray();
+            foreach (var gap in GapsBetweenProcedures(procedures, module, options, splitHeaders, asWritten))
+            {
+                if (gap.Block - gap.Above - 1 == gap.EmptyLines || gap.Above < firstLine || gap.Block > lastLine)
+                {
+                    continue;
+                }
+
+                var empty = options.EmptyLineHandlingMethod == EmptyLineHandlingMethod.Indent ? new string(' ', levels[gap.Block] * options.IndentSpaces) : string.Empty;
+                edits.Add(new IndentationEdit(gap.Above, lines[gap.Above].Length, gap.Block, 0,
+                    ends[gap.Above] + string.Concat(Enumerable.Repeat(empty + ends[gap.Above], gap.EmptyLines))));
+                for (var line = gap.Above + 1; line < gap.Block; line++)
+                {
+                    spaced[line] = true;
+                }
+            }
+        }
+
+        Continuation? statement = null;
+        var keep = false;
         for (var line = 0; line < lines.Length; line++)
         {
+            var next = line + 1 < lines.Length ? lines[line + 1] : null;
             string wanted;
-            if (asWritten[line])
+            if (module.IsContinuation(line) && statement is not null)
             {
-                (wanted, shift) = (lines[line], 0);
+                wanted = keep ? lines[line] : statement.Place(lines[line], next);
             }
             else
             {
-                wanted = module.IsContinuation(line) ? Continued(lines[line], shift, options) : Started(module, line, levels[line], labels, options, out shift);
+                var isDeclaration = IsDeclaration(lines[line]);
+                var level = firstBlocks[line] || IsForcedToColumn1(lines[line], options) ? 0 : levels[line];
+                var column = 0;
+                keep = asWritten[line];
+                wanted = keep ? lines[line] : StartedText(module, line, level, labels, isDeclaration, options, out column);
+                statement = new Continuation(options, column, IsComment(lines[line]), members[line], isDeclaration);
+                statement.Saw(wanted, next);
             }
 
-            if (line >= firstLine && line <= lastLine)
+            if (line >= firstLine && line <= lastLine && !spaced[line])
             {
                 edits.AddRange(WhitespaceEdits(line, lines[line], wanted));
             }
         }
 
-        return edits;
+        return [.. edits.OrderBy(edit => edit.Line).ThenBy(edit => edit.Character)];
     }
+
+    // the empty lines between two procedures, or before the first after what is above it: from the line above them to the first line of the procedure, its
+    // comments right above it, which are of it. A procedure is a Sub, a Function, a Property, an Enum or a Type; what is in a procedure is not spaced, nor what
+    // follows a directive that opens a branch, the module's header or its attributes.
+    private readonly record struct Gap(int Above, int Block, int EmptyLines);
+
+    private static IEnumerable<Gap> GapsBetweenProcedures(ModuleNode tree, ModuleLines module, CodeFormattingOptions options, IReadOnlyDictionary<int, DirectiveBlock> splitHeaders,
+        bool[] asWritten)
+    {
+        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(member => member.MemberKind is MemberKind.Procedure or MemberKind.Function
+            or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet or MemberKind.Enum or MemberKind.UserDefinedType).ToList();
+        var endingOn = new Dictionary<int, MemberDeclarationNode>();
+        foreach (var procedure in procedures)
+        {
+            endingOn.TryAdd(module.LastLineOf(procedure.SourceLocation.Range), procedure);
+        }
+
+        var emptyLines = Math.Clamp(options.LinesBetweenProcedures, 0, CodeFormattingOptions.MaximumLinesBetweenProcedures);
+        foreach (var procedure in procedures)
+        {
+            var start = procedure.SourceLocation.Range.Start.Line;
+            var block = splitHeaders.TryGetValue(start, out var header) ? header.If : start;
+            for (var line = block - 1; line >= 0; line--)
+            {
+                var first = line;
+                while (first > 0 && module.IsContinuation(first))
+                {
+                    first--;
+                }
+
+                if (!IsComment(module.Lines[first]))
+                {
+                    break;
+                }
+
+                (block, line) = (first, first);
+            }
+
+            var above = block - 1;
+            while (above >= 0 && string.IsNullOrWhiteSpace(module.Lines[above]))
+            {
+                above--;
+            }
+
+            var code = above < 0 ? string.Empty : module.Lines[above].TrimStart();
+            if (above < 0 || asWritten[above] || DirectiveIf().IsMatch(code) || DirectiveBranch().IsMatch(code))
+            {
+                continue;
+            }
+
+            // the accessors of a property together, when the setting groups them.
+            var grouped = options.GroupRelatedProperties && IsProperty(procedure) && endingOn.TryGetValue(above, out var before) && IsProperty(before)
+                && string.Equals(before.Name, procedure.Name, StringComparison.OrdinalIgnoreCase);
+            yield return new Gap(above, block, grouped ? 0 : emptyLines);
+        }
+    }
+
+    private static bool IsProperty(MemberDeclarationNode member) => member.MemberKind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
 
     /// <summary>
     /// The text of a module with indentation edits made to it (<see cref="Indent"/>).
     /// </summary>
     /// <param name="text">The text.</param>
-    /// <param name="edits">The edits, none of them overlapping, each within its line; in any order.</param>
-    /// <returns>The text with the edits made, its line ends as they were.</returns>
+    /// <param name="edits">The edits, none of them overlapping; in any order.</param>
+    /// <returns>The text with the edits made, the line ends it keeps as they were.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> or <paramref name="edits"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have, or two edits
+    /// overlap.</exception>
+    /// <remarks>The text is read once, from the first edit to the last: the time it takes grows with the text and the edits, and not with the one times the other.</remarks>
     public static string Apply(string text, IReadOnlyList<IndentationEdit> edits)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(edits);
-        var parts = LineEnd().Split(text);
-
-        // the edits of a line, from its last to its first: each is where the text before it puts it.
-        foreach (var edit in edits.OrderByDescending(edit => edit.Line).ThenByDescending(edit => edit.Character))
+        if (edits.Count == 0)
         {
-            ArgumentOutOfRangeException.ThrowIfNegative(edit.Line);
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(edit.Line * 2, parts.Length);
-            var line = parts[edit.Line * 2];
-            parts[edit.Line * 2] = line[..edit.Character] + edit.NewText + line[(edit.Character + edit.Length)..];
+            return text;
         }
 
-        return string.Concat(parts);
-    }
+        // where each line starts in the text, and how long it is without what ends it.
+        var starts = new List<int> { 0 };
+        var lengths = new List<int>();
+        foreach (Match end in LineEnd().Matches(text))
+        {
+            lengths.Add(end.Index - starts[^1]);
+            starts.Add(end.Index + end.Length);
+        }
 
-    // the lines of the text, without what ends them.
-    private static string[] LinesOf(string text) => [.. LineEnd().Split(text).Where((_, index) => index % 2 == 0)];
+        lengths.Add(text.Length - starts[^1]);
+
+        int OffsetOf(int line, int character)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(line);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(line, starts.Count);
+            ArgumentOutOfRangeException.ThrowIfNegative(character);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(character, lengths[line]);
+            return starts[line] + character;
+        }
+
+        // the edits from the first to the last: the text between them is copied as it is.
+        var edited = new System.Text.StringBuilder(text.Length);
+        var copied = 0;
+        foreach (var (start, end, newText) in edits.Select(edit => (Start: OffsetOf(edit.Line, edit.Character), End: OffsetOf(edit.EndLine, edit.EndCharacter), edit.NewText))
+            .OrderBy(edit => edit.Start).ThenBy(edit => edit.End))
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
+            ArgumentOutOfRangeException.ThrowIfLessThan(start, copied);
+            edited.Append(text, copied, start - copied).Append(newText);
+            copied = end;
+        }
+
+        return edited.Append(text, copied, text.Length - copied).ToString();
+    }
 
     // what ends a line, kept by a split: a carriage return and a line feed, or either alone.
     [GeneratedRegex(@"(\r\n|\r|\n)")]
@@ -187,18 +327,109 @@ public static partial class ModuleIndenter
         return edits;
     }
 
-    // the first line of a statement: indented to its level, a line number or a label kept at the start of it, then the code a space after it at least. How far
-    // its code moved is what its continuations move.
-    private static string Started(ModuleLines module, int line, int level, IReadOnlyDictionary<int, int> labels, CodeFormattingOptions options, out int shift)
+    // the lines of the text, without what ends them.
+    private static string[] LinesOf(string text) => [.. LineEnd().Split(text).Where((_, index) => index % 2 == 0)];
+
+    // a comment alone on its line: an apostrophe, or Rem.
+    private static bool IsComment(string line) => CommentLine().IsMatch(line);
+
+    // a line its setting puts in column 1, whatever its level: a directive, a bare Debug.Print, Debug.Assert or Stop.
+    private static bool IsForcedToColumn1(string line, CodeFormattingOptions options)
     {
-        shift = 0;
+        var code = Keyworded(line);
+        return (options.ForceCompilerDirectivesInColumn1 && code.StartsWith('#'))
+            || (options.ForcesDebugPrintInColumn1 && DebugPrint().IsMatch(code))
+            || (options.ForcesDebugAssertInColumn1 && DebugAssert().IsMatch(code))
+            || (options.ForcesStopInColumn1 && StopStatement().IsMatch(code));
+    }
+
+    // the first blocks of a procedure that are not indented: what comes right after its header, its comments and its declarations in any order, up to the
+    // first line that is neither - or an empty one, unless empty lines are ignored there. The first comments of an Enum or a Type too, when it is indented as a
+    // procedure is.
+    private static bool[] FirstBlocksAtColumn1(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options, IReadOnlyDictionary<int, DirectiveBlock> splitHeaders)
+    {
+        var atColumn1 = new bool[module.Lines.Length];
+        if (parse.SyntaxTree is not { } tree || (options.IndentFirstCommentBlock && options.IndentFirstDeclarationBlock))
+        {
+            return atColumn1;
+        }
+
+        foreach (var member in tree.Descendants().OfType<MemberDeclarationNode>())
+        {
+            var range = member.SourceLocation.Range;
+            var end = module.LastLineOf(range);
+            var isProcedure = member.MemberKind is MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
+            var isEnumOrType = member.MemberKind is MemberKind.Enum or MemberKind.UserDefinedType;
+            if (!isProcedure && !(isEnumOrType && options.IndentEnumTypeAsProcedure && !options.IndentFirstCommentBlock))
+            {
+                continue;
+            }
+
+            var headerEnd = splitHeaders.TryGetValue(range.Start.Line, out var header) ? header.End : module.HeaderEnd(range.Start.Line);
+            for (var line = headerEnd + 1; line < end; line++)
+            {
+                var text = module.Lines[line];
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    if (!options.IgnoreEmptyLinesInFirstBlocks)
+                    {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (IsComment(text))
+                {
+                    atColumn1[line] = !options.IndentFirstCommentBlock;
+                    continue;
+                }
+
+                if (!isProcedure || !Declaration().IsMatch(Keyworded(text)))
+                {
+                    break;
+                }
+
+                // a declaration and the lines it is continued on.
+                var last = module.HeaderEnd(line);
+                for (; line <= last; line++)
+                {
+                    atColumn1[line] = !options.IndentFirstDeclarationBlock;
+                }
+
+                line = last;
+            }
+        }
+
+        return atColumn1;
+    }
+
+    // the first line of a statement: indented to its level, a line number or a label kept at the start of it, its declaration and its end-of-line comment
+    // aligned. The column its code starts at is the statement's.
+    private static string StartedText(ModuleLines module, int line, int level, IReadOnlyDictionary<int, int> labels, bool isDeclaration, CodeFormattingOptions options,
+        out int column)
+    {
         var text = module.Lines[line];
+        var indentation = level * options.IndentSpaces;
+        column = indentation;
         if (string.IsNullOrWhiteSpace(text))
+        {
+            // an empty line is left as it is, emptied, or indented to its level, as the setting says.
+            return options.EmptyLineHandlingMethod switch
+            {
+                EmptyLineHandlingMethod.Remove => string.Empty,
+                EmptyLineHandlingMethod.Indent => new string(' ', indentation),
+                _ => text,
+            };
+        }
+
+        // a comment alone on its line that is not aligned with the code is where it is written.
+        if (!options.AlignCommentsWithCode && IsComment(text))
         {
             return text;
         }
 
-        var indentation = level * options.IndentSpaces;
+        // a line number or a label in column 1, and the code where the level has it: one space after it at least, and nothing after it when there is no code.
         string prefix;
         int codeAt;
         if (LineNumber().Match(text) is { Success: true } number)
@@ -208,43 +439,207 @@ public static partial class ModuleIndenter
         else if (labels.TryGetValue(line, out var labelEnd))
         {
             var labelAt = text.Length - text.TrimStart().Length;
-            (prefix, codeAt) = (text[labelAt..labelEnd], labelEnd + (text[labelEnd..].Length - text[labelEnd..].TrimStart().Length));
+            (prefix, codeAt) = (text[labelAt..labelEnd], text.Length - text[labelEnd..].TrimStart().Length);
         }
         else
         {
             (prefix, codeAt) = (string.Empty, text.Length - text.TrimStart().Length);
         }
 
-        var code = text[codeAt..];
         var head = prefix.Length == 0 ? new string(' ', indentation)
-            : code.Length == 0 ? prefix
+            : codeAt == text.Length ? prefix
             : prefix + new string(' ', Math.Max(indentation, prefix.Length + 1) - prefix.Length);
-        shift = head.Length - Width(text[..codeAt], options);
-        return head + code;
+        column = head.Length;
+        return Aligned(text, head, text[codeAt..], isDeclaration, options);
     }
 
-    // a line continued from the one before: as far as the first line of its statement moved.
-    private static string Continued(string text, int shift, CodeFormattingOptions options)
+    // a line as it is to be: its head - its indentation, or its line number and what follows it - then its code, with the As of a declaration and an end-of-line
+    // comment where the settings have them. A declaration's line that starts with its As has it in the column of the setting.
+    private static string Aligned(string text, string head, string code, bool isDeclaration, CodeFormattingOptions options)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (options.AlignDims && isDeclaration)
         {
-            return text;
+            if (LeadingAs().IsMatch(code))
+            {
+                head = new string(' ', Math.Max(options.AlignDimColumn - 1, head.Length));
+            }
+            else
+            {
+                code = WithDimAligned(head.Length, code, options);
+            }
         }
 
-        var leading = text.Length - text.TrimStart().Length;
-        return new string(' ', Math.Max(0, Width(text[..leading], options) + shift)) + text[leading..];
+        return WithCommentAligned(text, head + code, options);
     }
 
-    // how many columns text takes: a tab to its next tab stop, every level of spaces.
-    private static int Width(string text, CodeFormattingOptions options)
+    // what the lines inside an Enum or a Type are: their members, whose continued lines are where they start.
+    private static bool[] EnumOrTypeMembers(ModuleParseResult parse, ModuleLines module)
     {
-        var width = 0;
-        foreach (var character in text)
+        var members = new bool[module.Lines.Length];
+        if (parse.SyntaxTree is not { } tree)
         {
-            width = character == '\t' ? (width / options.IndentSpaces + 1) * options.IndentSpaces : width + 1;
+            return members;
         }
 
-        return width;
+        foreach (var member in tree.Descendants().OfType<MemberDeclarationNode>().Where(member => member.MemberKind is MemberKind.Enum or MemberKind.UserDefinedType))
+        {
+            var range = member.SourceLocation.Range;
+            for (var line = module.HeaderEnd(range.Start.Line) + 1; line < module.LastLineOf(range) && line < members.Length; line++)
+            {
+                members[line] = true;
+            }
+        }
+
+        return members;
+    }
+
+    // the first As of a declaration's line, where the column of the setting has it: a space before it at least.
+    private static string WithDimAligned(int column, string code, CodeFormattingOptions options)
+    {
+        if (FirstAs(code) is not { } at)
+        {
+            return code;
+        }
+
+        var name = code[..at].TrimEnd();
+        var gap = Math.Max(options.AlignDimColumn - 1 - column - name.Length, 1);
+        return name + new string(' ', gap) + code[at..];
+    }
+
+    // where the first As of a line's code is, after what it declares: none in a string literal, a bracketed name, a date literal or a comment.
+    private static int? FirstAs(string code)
+    {
+        var (isCode, _) = Lex(code);
+        for (var index = 1; index + 2 < code.Length; index++)
+        {
+            if (isCode[index] && isCode[index + 1] && char.IsWhiteSpace(code[index - 1]) && char.IsWhiteSpace(code[index + 2])
+                && string.Compare(code, index, "As", 0, 2, StringComparison.OrdinalIgnoreCase) == 0 && code[..index].Trim().Length > 0)
+            {
+                return index;
+            }
+        }
+
+        return null;
+    }
+
+    // an end-of-line comment where the style of the setting has it: at the column it was at, after the gap it had, after a standard gap, or in a column. A
+    // space after the code at least.
+    private static string WithCommentAligned(string text, string line, CodeFormattingOptions options)
+    {
+        if (CommentAt(text) is not { } written || CommentAt(line) is not { } now)
+        {
+            return line;
+        }
+
+        var gap = options.EndOfLineCommentStyle switch
+        {
+            EndOfLineCommentStyle.Absolute => written.Comment - now.CodeEnd,
+            EndOfLineCommentStyle.SameGap => written.Comment - written.CodeEnd,
+            EndOfLineCommentStyle.StandardGap => 2 * options.IndentSpaces,
+            _ => options.EndOfLineCommentColumnSpaceAlignment - 1 - now.CodeEnd,
+        };
+
+        return line[..now.CodeEnd] + new string(' ', Math.Max(gap, 1)) + line[now.Comment..];
+    }
+
+    // where the code of a line ends and its end-of-line comment starts: none for a line with no code before its comment - nothing, or its line number alone - or
+    // no comment.
+    private static (int CodeEnd, int Comment)? CommentAt(string line)
+    {
+        if (Lex(line).Comment is not { } comment)
+        {
+            return null;
+        }
+
+        var codeEnd = line[..comment].TrimEnd().Length;
+        var numbered = LineNumber().Match(line[..comment]) is { Success: true } number && number.Length == comment;
+        return codeEnd == 0 || numbered ? null : (codeEnd, comment);
+    }
+
+    // what of a line is code, and where its comment starts. A string literal, a bracketed name and a date literal are of one token: what is in them is none of the
+    // code, and an apostrophe in them starts no comment. A comment is an apostrophe, or a Rem that starts a statement - at the start of the line, after its line
+    // number, after a colon, a Then or an Else - and is the rest of the line: what is in it is no code either.
+    private static (bool[] IsCode, int? Comment) Lex(string line)
+    {
+        var isCode = new bool[line.Length];
+        var index = LineNumber().Match(line) is { Success: true } number ? number.Length : 0;
+        for (var at = 0; at < index; at++)
+        {
+            isCode[at] = true;
+        }
+
+        var startsStatement = true;
+        while (index < line.Length)
+        {
+            var character = line[index];
+            if (character == '\'')
+            {
+                return (isCode, index);
+            }
+
+            if (character == '"')
+            {
+                var close = line.IndexOf('"', index + 1);
+                index = close < 0 ? line.Length : close + 1;
+                startsStatement = false;
+                continue;
+            }
+
+            if (character == '[' || (character == '#' && DateLiteralEnd(line, index) is not null))
+            {
+                var close = line.IndexOf(character == '[' ? ']' : '#', index + 1);
+                index = close < 0 ? line.Length : close + 1;
+                startsStatement = false;
+                continue;
+            }
+
+            if (char.IsLetter(character) || character == '_')
+            {
+                var end = index;
+                while (end < line.Length && (char.IsLetterOrDigit(line[end]) || line[end] == '_'))
+                {
+                    end++;
+                }
+
+                var word = line[index..end];
+                if (startsStatement && word.Equals("Rem", StringComparison.OrdinalIgnoreCase) && (end == line.Length || char.IsWhiteSpace(line[end])))
+                {
+                    return (isCode, index);
+                }
+
+                for (; index < end; index++)
+                {
+                    isCode[index] = true;
+                }
+
+                startsStatement = word.Equals("Then", StringComparison.OrdinalIgnoreCase) || word.Equals("Else", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            isCode[index] = true;
+            if (character == ':')
+            {
+                startsStatement = index + 1 == line.Length || line[index + 1] != '=';
+            }
+            else if (!char.IsWhiteSpace(character))
+            {
+                startsStatement = false;
+            }
+
+            index++;
+        }
+
+        return (isCode, null);
+    }
+
+    // the code of a line without its end-of-line comment.
+    private static string? CodeWithoutComment(string code) => CommentAt(code) is { } at ? code[..at.CodeEnd] : code;
+
+    // a line that starts a declaration: Dim, Const, Static, or an access modifier that is not a procedure's, a Declare's, an Enum's, a Type's or an Event's.
+    private static bool IsDeclaration(string line)
+    {
+        var code = Keyworded(line);
+        return Declaration().IsMatch(code) && !ProcedureKeyword().IsMatch(code) && !NotAVariable().IsMatch(code);
     }
 
     // the lines the indenter leaves as they are written: a module's header, and its Attribute lines.
@@ -307,7 +702,8 @@ public static partial class ModuleIndenter
             || (range.Start.Line == range.End.Line && range.End.Character <= text.Length && LabelText().IsMatch(text[range.Start.Character..range.End.Character]));
     }
 
-    private static int[] LevelsOf(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options)
+    private static int[] LevelsOf(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options, IReadOnlyList<DirectiveBlock> blocks,
+        IReadOnlyDictionary<int, DirectiveBlock> splitHeaders)
     {
         var levels = new int[module.Lines.Length];
         var covered = new bool[module.Lines.Length];
@@ -319,13 +715,10 @@ public static partial class ModuleIndenter
             }
         }
 
-        var blocks = DirectiveBlocks(module);
-        var splitHeaders = new Dictionary<int, DirectiveBlock>();
         if (parse.SyntaxTree is { } tree)
         {
-            foreach (var (member, block) in SplitHeadersOf(tree, module, blocks))
+            foreach (var block in splitHeaders.Values)
             {
-                splitHeaders[member] = block;
                 for (var line = block.If; line <= block.End; line++)
                 {
                     covered[line] = true;
@@ -356,7 +749,7 @@ public static partial class ModuleIndenter
 
         if (options.IndentCompilerDirectives)
         {
-            foreach (var block in blocks.Where(block => !splitHeaders.ContainsValue(block)))
+            foreach (var block in blocks.Except(splitHeaders.Values))
             {
                 int[] heads = [block.If, .. block.Branches, block.End];
                 for (var index = 0; index + 1 < heads.Length; index++)
@@ -484,17 +877,13 @@ public static partial class ModuleIndenter
             _ => null,
         };
 
-    // whether a statement of a line starts with the words of a keyword: the first, or one after a colon that is not in a string literal.
+    // whether a statement of a line starts with the words of a keyword: the first, or one after a colon of its code - none in a literal or a comment.
     private static bool HasStatementStartingWith(string code, string words)
     {
-        var inString = false;
-        for (var index = 0; index < code.Length; index++)
+        var (isCode, comment) = Lex(code);
+        for (var index = 0; index < (comment ?? code.Length); index++)
         {
-            if (code[index] == '"')
-            {
-                inString = !inString;
-            }
-            else if (!inString && (index == 0 || code[index - 1] == ':') && StartsWithWords(code, index, words))
+            if (isCode[index] && (index == 0 || code[index - 1] == ':') && StartsWithWords(code, index, words))
             {
                 return true;
             }
@@ -622,34 +1011,7 @@ public static partial class ModuleIndenter
     private static string Keyworded(string line)
     {
         var code = LineNumber().Match(line) is { Success: true } number ? line[number.Length..] : line.TrimStart();
-        return code.StartsWith('\'') ? code.TrimEnd() : code[..CodeEnd(code)].TrimEnd();
-    }
-
-    // where the code of a line ends: at the apostrophe that starts its end-of-line comment, or at its end. An apostrophe in a string literal, or in a bracketed
-    // name, starts no comment.
-    private static int CodeEnd(string code)
-    {
-        var inString = false;
-        var inBracket = false;
-        for (var index = 0; index < code.Length; index++)
-        {
-            switch (code[index])
-            {
-                case '"' when !inBracket:
-                    inString = !inString;
-                    break;
-                case '[' when !inString:
-                    inBracket = true;
-                    break;
-                case ']' when !inString:
-                    inBracket = false;
-                    break;
-                case '\'' when !inString && !inBracket:
-                    return index;
-            }
-        }
-
-        return code.Length;
+        return (CodeWithoutComment(code) ?? code).TrimEnd();
     }
 
     // how many levels a line ends before it, and how many it starts after it.
@@ -689,6 +1051,265 @@ public static partial class ModuleIndenter
         return (0, 0);
     }
 
+    // where what a continued line starts with is to be: the anchors of the lines of its statement before it.
+    private enum AnchorKind
+    {
+        // the first argument of an argument list, the one after a comma, a named argument's value: where an argument starts.
+        Argument,
+
+        // what an argument list opens on: where it is, once the arguments after a comma are let go.
+        ArgumentList,
+
+        // the value an assignment is of.
+        Value,
+
+        // what follows the name a statement starts with: a call's arguments.
+        AfterName,
+    }
+
+    private readonly record struct Anchor(AnchorKind Kind, int Column, int Depth);
+
+    // the lines a statement is continued on, each where what it starts with lines up with the lines before it: with the arguments of the argument list that is
+    // open, with the value of an assignment, with what follows the statement's first name - a level further in when there is none of them. A line that starts
+    // with an operator has the operator before that column, so that the operands line up, when the setting says so. A declaration's lines are where the
+    // declaration starts, and a comment's - the statement's own, a member of an Enum or a Type, or a statement whose lines are not aligned - are too; what a comment
+    // is continued on is where the comment is.
+    private sealed class Continuation(CodeFormattingOptions options, int column, bool isComment, bool isMember, bool isDeclaration)
+    {
+        private readonly Stack<Anchor> _anchors = new();
+        private int _depth;
+        private int? _comment;
+
+        public string Place(string text, string? next)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return options.EmptyLineHandlingMethod switch
+                {
+                    EmptyLineHandlingMethod.Remove => string.Empty,
+                    EmptyLineHandlingMethod.Indent => new string(' ', column),
+                    _ => text,
+                };
+            }
+
+            var code = text.TrimStart();
+            int at;
+            if (!options.AlignContinuations || isComment || isMember)
+            {
+                at = column;
+            }
+            else if (_comment is { } comment)
+            {
+                at = comment;
+            }
+            else if (IsComment(code))
+            {
+                at = AnchorColumn();
+                _comment = at;
+            }
+            else if (isDeclaration)
+            {
+                at = column;
+            }
+            else
+            {
+                var operatorAdjust = options.IgnoreOperatorsInContinuations && LeadingOperator().IsMatch(code) ? 2 : 0;
+                at = Math.Max(AnchorColumn() - operatorAdjust, 0);
+            }
+
+            // what continues a comment is the comment's text, not the declaration's, and none of it is an end-of-line comment.
+            var wanted = isComment || _comment is not null ? new string(' ', at) + code : Aligned(text, new string(' ', at), code, isDeclaration, options);
+            Saw(wanted, next);
+            return wanted;
+        }
+
+        // what a line of the statement, as it is to be, says of where its next line goes.
+        public void Saw(string line, string? next)
+        {
+            // a comment's lines are all of its text: none of them says where the next goes.
+            if (isComment || _comment is not null)
+            {
+                return;
+            }
+
+            if (CommentAt(line) is { } eol && line.TrimEnd().EndsWith(" _", StringComparison.Ordinal))
+            {
+                // an end-of-line comment continued on the next line: what follows it is where it is.
+                _comment ??= eol.Comment;
+            }
+
+            if (IsComment(line) || !options.AlignContinuations)
+            {
+                return;
+            }
+
+            var code = CodeWithoutComment(line) ?? line;
+            Scan(code);
+
+            // a line that ends with a comma, or with a named argument's :=, or is followed by one that starts with :=, starts the next argument: where the argument
+            // list is. A line that ends with an opening parenthesis starts the list's first argument where the line before it says.
+            var ending = code.TrimEnd().TrimEnd('_').TrimEnd();
+            if (ending.EndsWith(',') || ending.EndsWith(":=", StringComparison.Ordinal) || (next?.TrimStart().StartsWith(":=", StringComparison.Ordinal) ?? false))
+            {
+                while (_anchors.Count > 0 && _anchors.Peek().Kind == AnchorKind.Argument)
+                {
+                    _anchors.Pop();
+                }
+            }
+            else if (ending.EndsWith('('))
+            {
+                for (var pop = 0; pop < 2 && _anchors.Count > 0; pop++)
+                {
+                    _anchors.Pop();
+                }
+            }
+        }
+
+        // the anchors a line's code sets, from after what it starts with that sets none: its line number, its Set, Let or Declare, its indentation.
+        private void Scan(string code)
+        {
+            var start = IgnoredStart().Match(code).Length;
+
+            // the While or the Until of a Do or a Loop is of its keyword: what follows the two of them is the condition, as what follows an If is.
+            if (_anchors.Count == 0 && LoopCondition().Match(code[start..]) is { Success: true } condition)
+            {
+                start += condition.Length;
+                _anchors.Push(new Anchor(AnchorKind.AfterName, start, _depth));
+            }
+
+            var (isCode, _) = Lex(code);
+            for (var index = start; index < code.Length; index++)
+            {
+                // a string literal, a bracketed name and a date literal are of one token: what is in them sets no anchor.
+                if (!isCode[index])
+                {
+                    continue;
+                }
+
+                var character = code[index];
+                switch (character)
+                {
+                    case '(':
+                        _depth++;
+                        _anchors.Push(new Anchor(AnchorKind.ArgumentList, index + 1, _depth));
+                        _anchors.Push(new Anchor(AnchorKind.Argument, index + 1, _depth));
+                        break;
+                    case ')':
+                        // the list is closed: its anchors, and those of what was in it, are let go.
+                        while (_anchors.Count > 0 && _anchors.Peek().Depth >= _depth && _depth > 0)
+                        {
+                            _anchors.Pop();
+                        }
+
+                        _depth = Math.Max(_depth - 1, 0);
+                        break;
+                    case ',':
+                        _anchors.Push(new Anchor(AnchorKind.Argument, NextToken(code, index + 1), _depth));
+                        break;
+                    case ':' when index + 1 < code.Length && code[index + 1] == '=':
+                        _anchors.Push(new Anchor(AnchorKind.Argument, NextToken(code, index + 2), _depth));
+                        index++;
+                        break;
+                    case ':':
+                        // another statement on the line: nothing of the one before it is an anchor.
+                        _anchors.Clear();
+                        _depth = 0;
+                        break;
+                    case ' ' when string.CompareOrdinal(code, index, " = ", 0, 3) == 0:
+                        if (!_anchors.Any(anchor => anchor.Kind is AnchorKind.Value or AnchorKind.AfterName))
+                        {
+                            _anchors.Push(new Anchor(AnchorKind.Value, index + 3, _depth));
+                        }
+
+                        break;
+                    case ' ' when index >= 5 && string.Compare(code, index - 5, " Then ", 0, 6, StringComparison.OrdinalIgnoreCase) == 0:
+                        // what follows the Then of an If is where the If's condition was.
+                        while (_anchors.Count > 1)
+                        {
+                            _anchors.Pop();
+                        }
+
+                        break;
+                    case ' ' when _anchors.Count == 0 && index < code.Length - 3:
+                        _anchors.Push(new Anchor(AnchorKind.AfterName, index + 1, _depth));
+                        break;
+                }
+            }
+        }
+
+        // where the next line starts: the innermost argument, argument list or value; what follows the statement's name; or a level in.
+        private int AnchorColumn()
+        {
+            int? anchored = null;
+            int? afterName = null;
+            foreach (var anchor in _anchors.Reverse())
+            {
+                if (anchor.Kind == AnchorKind.AfterName)
+                {
+                    afterName = anchor.Column;
+                }
+                else
+                {
+                    anchored = anchor.Column;
+                }
+            }
+
+            return anchored ?? afterName ?? column + options.IndentSpaces;
+        }
+
+        private static int NextToken(string code, int index)
+        {
+            while (index < code.Length && code[index] == ' ')
+            {
+                index++;
+            }
+
+            return index;
+        }
+    }
+
+    // where a date literal that starts at a # ends: at the # that closes it on the line. A # right after a name is its type hint (x#), and one after the
+    // keyword of a file statement is a file number (Print #1, Open ... As #1).
+    private static int? DateLiteralEnd(string code, int at)
+    {
+        var before = at - 1;
+        if (before >= 0 && (char.IsLetterOrDigit(code[before]) || code[before] is '_' or ')' or ']'))
+        {
+            return null;
+        }
+
+        while (before >= 0 && char.IsWhiteSpace(code[before]))
+        {
+            before--;
+        }
+
+        var wordStart = before;
+        while (wordStart >= 0 && (char.IsLetterOrDigit(code[wordStart]) || code[wordStart] == '_'))
+        {
+            wordStart--;
+        }
+
+        if (FileStatementKeywords.Contains(code[(wordStart + 1)..(before + 1)]))
+        {
+            return null;
+        }
+
+        var close = code.IndexOf('#', at + 1);
+        return close < 0 ? null : close;
+    }
+
+    private static readonly HashSet<string> FileStatementKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Print", "Write", "Input", "Get", "Put", "Close", "As", "Lock", "Unlock", "Seek", "Width",
+    };
+
+    [GeneratedRegex(@"^[+&]\s")]
+    private static partial Regex LeadingOperator();
+
+    // what a line starts with that sets no anchor: its indentation and line number, a Set or a Let, a Declare up to its name.
+    [GeneratedRegex(@"^\s*(?:(?:-?\d+|&H[0-9A-F]{1,8}):?\s+)?(?:[LR]?Set\s+|Let\s+|(?:(?:Public|Private)\s+)?Declare\s+(?:PtrSafe\s+)?(?:Function|Sub))?", RegexOptions.IgnoreCase)]
+    private static partial Regex IgnoredStart();
+
     // the lines of a module, and which of them continue the one before.
     private sealed class ModuleLines(string[] lines)
     {
@@ -725,6 +1346,30 @@ public static partial class ModuleIndenter
 
     [GeneratedRegex(@"^[\p{L}_][\p{L}\p{N}_]*\s*:$")]
     private static partial Regex LabelText();
+
+    [GeneratedRegex(@"^\s*(?:'|Rem(?:\s|$))", RegexOptions.IgnoreCase)]
+    private static partial Regex CommentLine();
+
+    [GeneratedRegex(@"^Debug\.Print\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DebugPrint();
+
+    [GeneratedRegex(@"^Debug\.Assert\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DebugAssert();
+
+    [GeneratedRegex(@"^Stop\s*(?:$|:|')", RegexOptions.IgnoreCase)]
+    private static partial Regex StopStatement();
+
+    [GeneratedRegex(@"^(?:Do|Loop)\s+(?:While|Until)\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex LoopCondition();
+
+    [GeneratedRegex(@"^(Dim|Const|Static|Public|Private|Global)\s", RegexOptions.IgnoreCase)]
+    private static partial Regex Declaration();
+
+    [GeneratedRegex(@"^((Public|Private|Friend|Global)\s+)?(Declare|Enum|Type|Event|Implements)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex NotAVariable();
+
+    [GeneratedRegex(@"^As\s", RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingAs();
 
     [GeneratedRegex(@"^#If\s.+\sThen\b", RegexOptions.IgnoreCase)]
     private static partial Regex DirectiveIf();

@@ -39,7 +39,7 @@ internal sealed class CodeFormattingService(IWorkspaceDocumentService documents,
         var (first, last) = lines ?? (0, int.MaxValue);
         return [.. ModuleIndenter.Indent(parse, text, formatting, first, last).Select(edit => new TextEdit
         {
-            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(edit.Line, edit.Character, edit.Line, edit.Character + edit.Length),
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(edit.Line, edit.Character, edit.EndLine, edit.EndCharacter),
             NewText = edit.NewText,
         })];
     }
