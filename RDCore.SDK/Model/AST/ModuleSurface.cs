@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Semantics;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
@@ -21,21 +22,23 @@ namespace RDCore.SDK.Model.AST;
 /// <para>
 /// <see cref="Declarations"/> is what the other modules are bound against: the module's options and attributes, its module-level declarations, and the
 /// signature of each of its procedures - its name, its parameters, the type it returns, its attributes - with every value written in them (a constant, an
-/// <c>Optional</c> parameter's default, an <c>Enum</c> member's value, an array's bounds); and its directives that say which of the declarations written in
-/// <c>#If</c> branches are its own (<strong>MS-VBAL §3.4</strong>): each <c>#Const</c>, wherever it is written, and each <c>#If</c>, <c>#ElseIf</c> and
-/// <c>#Else</c> outside of a procedure. What is found out about another module - what its names mean, what its code does, what is wrong with it - is of what
-/// this one declares, and of nothing its procedures do.
+/// <c>Optional</c> parameter's default, an <c>Enum</c> member's value, an array's bounds); which branch of which <c>#If</c> outside of a procedure each of them
+/// is written in, by ordinal; and the directives that say which of those branches are compiled (<strong>MS-VBAL §3.4</strong>): each <c>#Const</c>, wherever
+/// it is written, and each <c>#If</c>, <c>#ElseIf</c> and <c>#Else</c> outside of a procedure. What is found out about another module - what its names mean,
+/// what its code does, what is wrong with it - is of what this one declares, and of nothing its procedures do.
 /// </para>
 /// <para>
 /// <see cref="References"/> is what the code of the module's procedures refers to: the names its bodies use, and what they declare, which decides what those
-/// names mean - not a local constant's value, which no other module sees - and their labels and line numbers.
+/// names mean - not a local constant's value, which no other module sees. A body's labels and line numbers are in neither part: nothing outside of the
+/// procedure can go to them.
 /// It is what makes the module reference a member of another, which a count of that member's references is made of (a code lens), and nothing that is found
 /// out about the other module. An <c>Attribute</c> line written inside a statement of a body is in neither: a member's attributes are those that follow its
 /// header, and the platform reads no other.
 /// </para>
 /// <para>
-/// None of it is where it is written: an edit that moves a declaration leaves both parts as they were, and so does one to a comment, to whitespace, or to a
-/// body that declares and names nothing it did not before - a literal, an operator, a statement that uses the same names.
+/// None of it is where it is written: an edit that moves a declaration within the branch it is in leaves both parts as they were, and so does one to a
+/// comment, to whitespace, or to a body that declares and names nothing it did not before - a literal, an operator, a statement that uses the same names. One
+/// that moves a declaration into a branch, out of one or to another changes <see cref="Declarations"/>: which constants compile it is not what it was.
 /// </para>
 /// </remarks>
 /// <param name="Declarations">What the module declares, as the other modules see it.</param>
@@ -62,18 +65,23 @@ public sealed record class ModuleSurface(string Declarations, string References)
             return null;
         }
 
+        // which branch of which #If outside of a procedure each declaration is written in: one #If inside a procedure says which of its statements are compiled,
+        // which is its body's.
+        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(IsProcedure).Select(member => member.SourceLocation.Range).ToArray();
+        var branches = new Branches(ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia),
+            block => !procedures.Any(range => range.Start < block.Start && block.Start <= range.End));
+
         var (declarations, references) = (new StringBuilder(), new StringBuilder());
-        Append(declarations, references, tree, inBody: false);
+        Append(declarations, references, tree, inBody: false, branches);
 
         // an annotation is trivia, and what a module says of itself: '@PredeclaredId, '@Exposed.
         foreach (var annotation in parse.Trivia.OfType<AnnotationTriviaNode>())
         {
-            Append(declarations, references, annotation, inBody: false);
+            Append(declarations, references, annotation, inBody: false, branches);
         }
 
         // the directives say which of the declarations written in #If branches are the module's: each #Const, wherever it is, sets a constant of the whole module,
-        // and each #If outside of a procedure says which branch is live. One inside a procedure says which of its statements are, which is its body's.
-        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(IsProcedure).Select(member => member.SourceLocation.Range).ToArray();
+        // and each #If outside of a procedure says which branch is live - of the branches each declaration is told to be written in.
         foreach (var directive in parse.PrecompilerTrivia)
         {
             AppendDirective(declarations, directive, procedures, inProcedure: false);
@@ -106,11 +114,20 @@ public sealed record class ModuleSurface(string Declarations, string References)
         }
     }
 
-    private static void Append(StringBuilder declarations, StringBuilder references, SyntaxNode node, bool inBody)
+    // the #If blocks of the module that are counted, and the branches of them a declaration is written in: the ordinal of each, and not where it is.
+    private sealed record class Branches(ConditionalCompilationBlocks Blocks, Func<SourceRange, bool> Counted)
+    {
+        public string At(SyntaxNode node)
+            => Blocks.BranchesAt(node.SourceLocation.Range.Start, Counted) is { Count: > 0 } path
+                ? " @" + string.Join("/", path.Select(branch => $"{branch.Block}.{branch.Branch}"))
+                : string.Empty;
+    }
+
+    private static void Append(StringBuilder declarations, StringBuilder references, SyntaxNode node, bool inBody, Branches branches)
     {
         if (!inBody)
         {
-            Describe(declarations, node);
+            Describe(declarations, node, branches.At(node));
         }
         else if (node is SimpleNameExpressionNode name)
         {
@@ -129,7 +146,7 @@ public sealed record class ModuleSurface(string Declarations, string References)
             // the statements of a procedure, the variables and constants it declares and its labels and line numbers, which nothing outside of it can go to, are
             // its body; its parameters, the type it returns and its attributes are its signature.
             Append(declarations, references, child,
-                inBody || (isProcedure && child is StatementNode or VariableDeclarationNode or ConstantDeclarationNode or LineLabelNode));
+                inBody || (isProcedure && child is StatementNode or VariableDeclarationNode or ConstantDeclarationNode or LineLabelNode), branches);
         }
     }
 
@@ -170,10 +187,10 @@ public sealed record class ModuleSurface(string Declarations, string References)
         => value is not (null or SyntaxNode or SourceRange or SourceLocation or SyntaxNodeId)
             && value.GetType().Namespace?.StartsWith(typeof(ModuleSurface).Namespace!, StringComparison.Ordinal) == true;
 
-    // what the node is, and what it says that is not a node of its own.
-    private static void Describe(StringBuilder surface, SyntaxNode node)
+    // what the node is, and what it says that is not a node of its own - and of a declaration, the branches it is written in.
+    private static void Describe(StringBuilder surface, SyntaxNode node, string branches = "")
     {
-        surface.Append(node.GetType().Name).Append(Told(node)).Append('\n');
+        surface.Append(node.GetType().Name).Append(Told(node)).Append(branches).Append('\n');
     }
 
     // what a value of the tree says, its nodes and where it is written left out: " Name=value" for each of what it says.

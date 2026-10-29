@@ -204,4 +204,41 @@ public sealed class ModuleSurfaceTests
         Assert.AreNotEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
         Assert.AreEqual(SurfaceOf(module), SurfaceOf("\r\n" + module), "and not with where it is");
     }
+
+    // which constants compile a declaration is which branch it is written in (MS-VBAL §3.4): a declaration moved into a branch, out of one or to another is
+    // compiled when it was not, and another module's name may mean it, or no longer.
+    [TestMethod]
+    [DataRow("#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\n#End If\r\nPublic Sub Bar()\r\nEnd Sub\r\n",
+        "#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\nPublic Sub Bar()\r\nEnd Sub\r\n#End If\r\n", DisplayName = "a procedure moved into a branch")]
+    [DataRow("#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\nPublic Sub Bar()\r\nEnd Sub\r\n#End If\r\n",
+        "#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\n#End If\r\nPublic Sub Bar()\r\nEnd Sub\r\n", DisplayName = "a procedure moved out of a branch")]
+    [DataRow("#If A Then\r\nPublic X As Long\r\n#Else\r\nPublic Y As Long\r\n#End If\r\n",
+        "#If A Then\r\n#Else\r\nPublic X As Long\r\nPublic Y As Long\r\n#End If\r\n", DisplayName = "a variable moved to another branch")]
+    [DataRow("#If A Then\r\n#If B Then\r\nPublic X As Long\r\n#End If\r\n#End If\r\n",
+        "#If A Then\r\nPublic X As Long\r\n#If B Then\r\n#End If\r\n#End If\r\n", DisplayName = "a variable moved out of a nested branch")]
+    public void Declarations_ChangeWithTheBranchADeclarationIsWrittenIn(string written, string edited)
+        => Assert.AreNotEqual(SurfaceOf("Option Explicit\r\n" + written)!.Declarations, SurfaceOf("Option Explicit\r\n" + edited)!.Declarations);
+
+    // a declaration's branch is told by ordinal, not by where it is: one that moves down its branch is in the same one; and an #If inside a procedure is its
+    // body's, which counts nothing of the branches the module's declarations are in.
+    [TestMethod]
+    [DataRow("#If A Then\r\nPublic X As Long\r\n#End If\r\n", "#If A Then\r\n\r\n' a comment\r\nPublic X As Long\r\n#End If\r\n",
+        DisplayName = "a declaration moved down within its branch")]
+    [DataRow("Public Sub Foo()\r\nEnd Sub\r\n#If A Then\r\nPublic X As Long\r\n#End If\r\n",
+        "Public Sub Foo()\r\n#If B Then\r\nDebug.Print 1\r\n#End If\r\nEnd Sub\r\n#If A Then\r\nPublic X As Long\r\n#End If\r\n",
+        DisplayName = "an #If added inside a procedure before the module's")]
+    public void Declarations_DoNotChangeWithWhatLeavesTheirBranches(string written, string edited)
+        => Assert.AreEqual(SurfaceOf("Option Explicit\r\n" + written)!.Declarations, SurfaceOf("Option Explicit\r\n" + edited)!.Declarations);
+
+    // an #If that starts inside one procedure and ends after its End Sub holds what follows it in a branch: it is not counted, since it starts in a procedure,
+    // and what follows is told as if no #If held it.
+    [TestMethod]
+    [Ignore("an #If that straddles a procedure's End Sub is not told as a branch of what follows it (pathological, valid VBA)")]
+    public void Declarations_ChangeWithABranchThatStraddlesAProcedure()
+    {
+        const string written = "Option Explicit\r\nPublic Sub Foo()\r\n#If A Then\r\nEnd Sub\r\nPublic Sub Bar()\r\n#End If\r\nEnd Sub\r\n";
+        const string edited = "Option Explicit\r\nPublic Sub Foo()\r\n#If A Then\r\n#End If\r\nEnd Sub\r\nPublic Sub Bar()\r\nEnd Sub\r\n";
+
+        Assert.AreNotEqual(SurfaceOf(written)!.Declarations, SurfaceOf(edited)!.Declarations);
+    }
 }
