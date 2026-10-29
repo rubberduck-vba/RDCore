@@ -20,6 +20,11 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// a later one is cancelled, and one that finds the document at another version than the one it started with stops, so that nothing is ever published for text
 /// that is not there any more.
 /// <para>
+/// An edit is followed by more as the user types: its refresh waits a moment for the next one, which supersedes it, so that a burst of typing is parsed and
+/// brought to the host once. A request whose answer is of what the host has (<see cref="WhenSyncedAsync"/>) has the refresh start at once. The diagnostics
+/// are found out and pushed for a client that is pushed to; one that pulls them asks for them itself, and is not given them twice over.
+/// </para>
+/// <para>
 /// A module whose text changed what the other modules can be told by it (<see cref="ModuleSurface"/>) changes what is found out about them: once the host has
 /// it, the workspace is defined again against it (<see cref="ISymbolSyncService.SyncWorkspaceAsync"/>), and the client is asked to refresh what it shows of
 /// every document (<see cref="IWorkspaceRefresh"/>). The same goes for a module that is gone. An edit that changes no other module's findings - inside
@@ -66,8 +71,25 @@ internal interface IDocumentLifecycleService
     /// </summary>
     /// <param name="documentUri">The document.</param>
     Task WhenRefreshedAsync(Uri documentUri);
+
+    /// <summary>
+    /// A task that completes once the environment host has the text of a document as it is now, which is what its findings are to be of: a refresh that waits
+    /// for more edits starts at once.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="token">A token that cancels the wait, and not the refresh.</param>
+    Task WhenSyncedAsync(Uri documentUri, CancellationToken token);
 }
 
+/// <param name="documents">The documents of the workspace.</param>
+/// <param name="parsing">Parses a document.</param>
+/// <param name="symbols">Tells the environment host what a document declares and what its code is.</param>
+/// <param name="diagnostics">What is found of a document, for a client that is pushed to.</param>
+/// <param name="publisher">Pushes what is found to the client, when it is pushed to.</param>
+/// <param name="refresh">Asks the client to refresh what it shows of every document.</param>
+/// <param name="logger">The log.</param>
+/// <param name="editDelay">How long a refresh waits after an edit for another one, which supersedes it: a burst of typing is refreshed once. A quarter of a
+/// second when not said.</param>
 internal sealed class DocumentLifecycleService(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
@@ -75,10 +97,19 @@ internal sealed class DocumentLifecycleService(
     IDocumentDiagnosticsService diagnostics,
     IDiagnosticsPublisher publisher,
     IWorkspaceRefresh refresh,
-    ILogger<DocumentLifecycleService> logger) : IDocumentLifecycleService
+    ILogger<DocumentLifecycleService> logger,
+    TimeSpan? editDelay = null) : IDocumentLifecycleService
 {
-    // the refresh in flight for each document, and what cancels it: a later notification about the document supersedes it.
-    private readonly ConcurrentDictionary<Uri, (CancellationTokenSource Cancellation, Task Refresh)> _refreshes = new();
+    private readonly TimeSpan _editDelay = editDelay ?? TimeSpan.FromMilliseconds(250);
+
+    // a refresh in flight: what cancels it, what has it start without waiting for more edits, and what says the host has its text.
+    private sealed record class Refresh(CancellationTokenSource Cancellation, TaskCompletionSource Hurry, TaskCompletionSource Synced)
+    {
+        public Task Done { get; set; } = Task.CompletedTask;
+    }
+
+    // the refresh in flight for each document: a later notification about the document supersedes it.
+    private readonly ConcurrentDictionary<Uri, Refresh> _refreshes = new();
 
     // what the other modules were last defined against of each module, in the host, and the version of the text that was: compared, and changed, under the gate.
     private readonly Dictionary<Uri, (int Version, string? Surface)> _surfaces = [];
@@ -111,7 +142,7 @@ internal sealed class DocumentLifecycleService(
         var outcome = documents.Change(documentUri, version, changes);
         if (outcome == DocumentChangeOutcome.Applied)
         {
-            ScheduleRefresh(documentUri, publish: true);
+            ScheduleRefresh(documentUri, publish: true, delay: _editDelay);
         }
 
         return outcome;
@@ -208,33 +239,53 @@ internal sealed class DocumentLifecycleService(
     }
 
     public Task WhenRefreshedAsync(Uri documentUri)
-        => _refreshes.TryGetValue(documentUri, out var current) ? current.Refresh : Task.CompletedTask;
+        => _refreshes.TryGetValue(documentUri, out var current) ? current.Done : Task.CompletedTask;
+
+    public Task WhenSyncedAsync(Uri documentUri, CancellationToken token)
+    {
+        if (!_refreshes.TryGetValue(documentUri, out var current))
+        {
+            return Task.CompletedTask;
+        }
+
+        current.Hurry.TrySetResult();
+        return current.Synced.Task.WaitAsync(token);
+    }
 
     private void Supersede(Uri documentUri)
     {
         if (_refreshes.TryRemove(documentUri, out var previous))
         {
             previous.Cancellation.Cancel();
+            previous.Synced.TrySetResult();
         }
     }
 
-    private void ScheduleRefresh(Uri documentUri, bool publish)
+    private void ScheduleRefresh(Uri documentUri, bool publish, TimeSpan delay = default)
     {
         Supersede(documentUri);
 
-        var cancellation = new CancellationTokenSource();
-        var refresh = RefreshAsync(documentUri, publish, cancellation.Token);
-        _refreshes[documentUri] = (cancellation, refresh);
+        var current = new Refresh(new CancellationTokenSource(), new TaskCompletionSource(), new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        _refreshes[documentUri] = current;
+        current.Done = RefreshAsync(documentUri, publish, delay, current);
     }
 
-    private async Task RefreshAsync(Uri documentUri, bool publish, CancellationToken token)
+    private async Task RefreshAsync(Uri documentUri, bool publish, TimeSpan delay, Refresh current)
     {
         // runs in the background, off the notification that scheduled it.
         await Task.Yield();
+        var token = current.Cancellation.Token;
 
         try
         {
-            if (!documents.TryGetDocument(documentUri, out var document))
+            // an edit is followed by more as the user types: what the next one supersedes before the wait is over is never begun. A request that needs what the
+            // host has of the text does not wait for it.
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.WhenAny(Task.Delay(delay, token), current.Hurry.Task);
+            }
+
+            if (!documents.TryGetDocument(documentUri, out var document) || token.IsCancellationRequested)
             {
                 return;
             }
@@ -256,12 +307,14 @@ internal sealed class DocumentLifecycleService(
                 logger.LogWarning(exception, "❌ The environment host could not be brought up to date with {uri} v{version}.", documentUri, version);
             }
 
+            current.Synced.TrySetResult();
             if (IsSuperseded(documentUri, version, token))
             {
                 return;
             }
 
-            if (publish)
+            // a client that pulls asks for what it shows itself: nothing is found out for it here, which it would only find out again.
+            if (publish && publisher.IsEnabled)
             {
                 // what is ready is not held back for what is not: the phases of the analysis are asked for in turn, and what each finds is published as soon as it
                 // is there, together with what the earlier ones found - a publication replaces the one before it. The static findings reach the client while the
@@ -335,6 +388,11 @@ internal sealed class DocumentLifecycleService(
         catch (Exception exception)
         {
             logger.LogWarning(exception, "❌ Refreshing {uri} failed.", documentUri);
+        }
+        finally
+        {
+            // whatever became of the refresh, nothing waits for the host any longer than it does.
+            current.Synced.TrySetResult();
         }
     }
 

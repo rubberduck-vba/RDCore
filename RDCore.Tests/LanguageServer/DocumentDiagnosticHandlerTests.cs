@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -16,8 +17,26 @@ public sealed class DocumentDiagnosticHandlerTests
     private static readonly Uri DocUri = new("file:///c:/ws/src/Mod1.bas");
 
     private readonly IDocumentDiagnosticsService _service = Substitute.For<IDocumentDiagnosticsService>();
+    private readonly IDocumentLifecycleService _lifecycle = Substitute.For<IDocumentLifecycleService>();
 
-    private DocumentDiagnosticHandler Sut() => new(_service, new WorkProgressReporter(), new IncomingDocumentChanges());
+    private DocumentDiagnosticHandler Sut() => new(_service, _lifecycle, new WorkProgressReporter(), new IncomingDocumentChanges());
+
+    // what is found is of the text the host has: the pull waits for the host to have the document as it is, then analyzes it.
+    [TestMethod]
+    public async Task APull_WaitsForTheHostToHaveTheDocument_ThenAnalyzesIt()
+    {
+        var synced = new TaskCompletionSource();
+        _lifecycle.WhenSyncedAsync(DocUri, Arg.Any<CancellationToken>()).Returns(synced.Task);
+        _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(DocumentDiagnosticsResult.Fresh(2, []));
+
+        var pull = Sut().Handle(Request(), CancellationToken.None);
+        await Task.Delay(50);
+
+        await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
+        synced.SetResult();
+        await pull.WaitAsync(TimeSpan.FromSeconds(5));
+        await _service.Received(1).GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>());
+    }
 
     private static DocumentDiagnosticParams Request(string? previousResultId = null) => new()
     {

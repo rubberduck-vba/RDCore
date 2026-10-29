@@ -49,8 +49,13 @@ public sealed class DocumentLifecycleServiceTests
         _diagnostics.GetPhaseAsync(Arg.Any<Uri>(), AnalysisPhase.Runtime, Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(DocumentDiagnosticsResult.Fresh(1, [])));
 
-        _sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance);
+        // a client that is pushed to; one that pulls is told nothing (ForAClientThatPulls_NothingIsFoundOutOrPublished).
+        _publisher.IsEnabled.Returns(true);
+        _sut = Lifecycle(TimeSpan.Zero);
     }
+
+    private DocumentLifecycleService Lifecycle(TimeSpan editDelay)
+        => new(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance, editDelay);
 
     private static Diagnostic Diagnostic() => new() { Message = "wrong", Range = new Range(new Position(0, 0), new Position(0, 1)) };
 
@@ -140,6 +145,74 @@ public sealed class DocumentLifecycleServiceTests
         Assert.AreEqual(DocumentChangeOutcome.Applied, outcome);
         _publisher.Received(1).Publish(Mod1, 2, Arg.Any<IReadOnlyList<Diagnostic>>());
     }
+
+    // a client that pulls asks for what it shows itself: the refresh finds out nothing for it, and pushes nothing. The host is told of the text all the same.
+    [TestMethod]
+    public async Task ForAClientThatPulls_NothingIsFoundOutOrPublished()
+    {
+        _publisher.IsEnabled.Returns(false);
+
+        _sut.Opened(Mod1, "a", 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        _ = _sut.Changed(Mod1, 2, [Full("b")]);
+        await _sut.WhenRefreshedAsync(Mod1);
+
+        await _symbols.Received(2).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _diagnostics.DidNotReceiveWithAnyArgs().GetPhaseAsync(default!, default, default);
+        _publisher.DidNotReceiveWithAnyArgs().Publish(default!, default, default!);
+    }
+
+    // as the user types: each edit supersedes the one before while the refresh waits for more, and only the text that is there at the end is refreshed.
+    [TestMethod]
+    public async Task ABurstOfEdits_IsRefreshedOnce_AtTheLastVersion()
+    {
+        var sut = Lifecycle(TimeSpan.FromMilliseconds(300));
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        _parsing.ClearReceivedCalls();
+        _symbols.ClearReceivedCalls();
+        _publisher.ClearReceivedCalls();
+
+        for (var version = 2; version <= 6; version++)
+        {
+            _ = sut.Changed(Mod1, version, [Full("x" + version)]);
+        }
+
+        await sut.WhenRefreshedAsync(Mod1);
+
+        await _parsing.Received(1).ParseDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _symbols.Received(1).SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        _publisher.Received(1).Publish(Mod1, 6, Arg.Any<IReadOnlyList<Diagnostic>>());
+        _publisher.DidNotReceive().Publish(Mod1, Arg.Is<int?>(version => version < 6), Arg.Any<IReadOnlyList<Diagnostic>>());
+    }
+
+    // what is found of a document is of what the host has of it: a request for it does not wait for more edits, and waits for the host to have this one.
+    [TestMethod]
+    public async Task ARequestWhileTheRefreshWaits_StartsItAtOnce_AndWaitsForTheHost()
+    {
+        var sut = Lifecycle(TimeSpan.FromMinutes(10));
+        sut.Opened(Mod1, "a", 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var syncStarted = new TaskCompletionSource();
+        var releaseSync = new TaskCompletionSource();
+        _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            syncStarted.TrySetResult();
+            await releaseSync.Task;
+        });
+
+        _ = sut.Changed(Mod1, 2, [Full("b")]);
+        var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
+        await syncStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.IsFalse(synced.IsCompleted, "the host does not have the edit yet");
+        releaseSync.SetResult();
+        await synced.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [TestMethod]
+    public async Task ARequestForADocumentWithNoRefresh_DoesNotWait()
+        => await _sut.WhenSyncedAsync(Mod1, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
 
     [TestMethod]
     public async Task AChangeThatIsOutOfDate_IsIgnored_AndNothingFollowsFromIt()
