@@ -35,21 +35,39 @@ internal sealed class SessionTurn : ISessionTurn
     {
         _baton.Wait();
         _held = true;
-        if (Interlocked.Increment(ref _programs) == 1)
+        if (Interlocked.Increment(ref _programs) != 1)
+        {
+            return;
+        }
+
+        // what is told fails - a host of windows that stopped - and the program does not start: the turn is given back, or nothing ever takes it again.
+        try
         {
             Running?.Invoke(true);
+        }
+        catch
+        {
+            _ = Interlocked.Decrement(ref _programs);
+            Release();
+            throw;
         }
     }
 
     /// <inheritdoc/>
     public void Exit()
     {
-        if (Interlocked.Decrement(ref _programs) == 0)
+        // the turn is given back whatever being told the program ended does, or nothing ever takes it again.
+        try
         {
-            Running?.Invoke(false);
+            if (Interlocked.Decrement(ref _programs) == 0)
+            {
+                Running?.Invoke(false);
+            }
         }
-
-        Release();
+        finally
+        {
+            Release();
+        }
     }
 
     /// <inheritdoc/>

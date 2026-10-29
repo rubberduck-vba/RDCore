@@ -39,7 +39,8 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     private readonly ConcurrentDictionary<(int Incarnation, long Handle), IAutomationEventSink> _sinks = new();
     private readonly object _holdGate = new();
 
-    // whether a program runs, as it was last said (Hold), and the incarnation that was told it.
+    // whether a program runs, as it was last said (Hold), and the incarnation last told it - once the telling succeeded. Two sessions that share this server can
+    // have their tellings cross on the way (one's true sent after the other's false): each is sent outside the gate, as it was before there was one.
     private bool _running;
     private Incarnation? _told;
 
@@ -132,8 +133,8 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     /// <inheritdoc/>
     public object Create(Forms.FormDefinition form)
     {
-        // a host the form starts - the session got it ready in the background, and it was not up yet when the program ran - is told first that a program runs,
-        // so that what Microsoft Forms posts as it creates the form waits as it would in a host that was up.
+        // an incarnation not told yet - one the form starts, the session having got it ready in the background too late, or one that is up and was never told - is
+        // told first whether a program runs, false as well as true, so that what Microsoft Forms posts as it creates the form waits as it would in a host told.
         var incarnation = Connect();
         TellHold(incarnation, onlyIfUntold: true);
         var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
@@ -210,10 +211,14 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
             }
 
             running = _running;
-            _told = incarnation;
         }
 
+        // an incarnation the telling failed for is not told: the next form tells it again.
         _ = Send<FormHoldParams, ExternalDoneResult>(incarnation, ExternalProtocol.FormHold, new FormHoldParams { Running = running, HandlingEvent = _handlingEvent });
+        lock (_holdGate)
+        {
+            _told = incarnation;
+        }
     }
 
     /// <inheritdoc/>

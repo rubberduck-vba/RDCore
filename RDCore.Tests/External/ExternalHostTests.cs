@@ -28,6 +28,21 @@ public sealed class ExternalHostTests
     }
 
     [TestMethod]
+    public void AnExternalHostWhoseConnectionCannotBeMade_IsOneThatCouldNotBeStarted_AndTheNextCallTriesAgain()
+    {
+        var canStart = false;
+        using var host = ExternalHosts.New(() => canStart);
+
+        Assert.IsFalse(host.TryConnect(out var none), "a host that could not be started is none, and nothing is thrown");
+        Assert.IsNull(none);
+        Assert.ThrowsExactly<ExternalHostUnavailableException>(() => host.Connect());
+
+        canStart = true;
+        Assert.IsTrue(host.TryConnect(out var started));
+        Assert.AreEqual(1, started!.Number, "a start that failed before its connection was made is no incarnation");
+    }
+
+    [TestMethod]
     public void AnExternalHostThatIsGotReady_IsTheOneTheFirstCallFinds()
     {
         using var host = NewHost();
