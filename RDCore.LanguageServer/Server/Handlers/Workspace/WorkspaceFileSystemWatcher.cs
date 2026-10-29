@@ -20,7 +20,7 @@ namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 /// </para>
 /// <para>
 /// What is watched is the workspace's <c>.rdproj</c> and the source files of every language the platform serves, under the workspace root; what a folder whose
-/// name starts with a dot holds (<c>.git</c>, <c>.vscode</c>) is not. A save is several events of a file system, and a <c>git checkout</c> many: the events
+/// name starts with a dot holds (<c>.git</c>, <c>.github</c>) is not. A save is several events of a file system, and a <c>git checkout</c> many: the events
 /// of a moment are gathered, and said together once none came for <see cref="Settle"/>.
 /// </para>
 /// </remarks>
@@ -59,6 +59,9 @@ internal sealed class WorkspaceFileSystemWatcher(
 
     /// <summary>How long no event comes before the events gathered are said.</summary>
     internal TimeSpan Settle { get; init; } = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>What waits for <see cref="Settle"/>: the clock, or what a test opens when it says the events settled.</summary>
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
 
     /// <summary>What was last said, for a test to wait on.</summary>
     internal Task Said { get; private set; } = Task.CompletedTask;
@@ -136,7 +139,7 @@ internal sealed class WorkspaceFileSystemWatcher(
     {
         try
         {
-            await Task.Delay(Settle, settled);
+            await Delay(Settle, settled);
         }
         catch (OperationCanceledException)
         {

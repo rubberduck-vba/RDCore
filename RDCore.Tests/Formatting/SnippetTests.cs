@@ -152,6 +152,14 @@ public sealed class SnippetTests
 
     // ---- the time and the size a snippet can take ----
 
+    // the most steps a parse takes for each character of its snippet (Snippet.StepsOfLastParse): each is read, merged, collected and written, a few times. A
+    // parse that read a part again for each character after it would take thousands for each of these; a count of the work, unlike a clock, is the same on
+    // any machine.
+    private const int StepsPerCharacter = 16;
+
+    private static void TakesSteps(long most, string why)
+        => Assert.IsLessThanOrEqualTo(most, Snippet.StepsOfLastParse, $"{why}: {Snippet.StepsOfLastParse} steps, of at most {most}");
+
     [TestMethod]
     public void PlaceholdersThatAreNotClosed_AreReadInOnePass()
     {
@@ -159,9 +167,9 @@ public sealed class SnippetTests
         var snippet = string.Concat(Enumerable.Repeat("${1:", Snippet.MostNested));
         Assert.AreEqual(snippet, Snippet.Parse(snippet).Text);
 
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        Assert.IsFalse(Snippet.TryParse(string.Concat(Enumerable.Repeat("${1:", 2000)), out _));
-        Assert.IsLessThan(1000, watch.ElapsedMilliseconds, "a placeholder that is not closed is not read again from where it opened");
+        var unclosed = string.Concat(Enumerable.Repeat("${1:", 2000));
+        Assert.IsFalse(Snippet.TryParse(unclosed, out _));
+        TakesSteps((long)StepsPerCharacter * unclosed.Length, "a placeholder that is not closed is not read again from where it opened");
     }
 
     [TestMethod]
@@ -169,11 +177,9 @@ public sealed class SnippetTests
     {
         // ${1:$2$2$2$2$2$2$2$2}${2:$3$3...}...${9:x}: each level shows the next eight times, which is 8^8 places of tab stop 9.
         var snippet = string.Concat(Enumerable.Range(1, 8).Select(level => $"${{{level}:{string.Concat(Enumerable.Repeat($"${level + 1}", 8))}}}")) + "${9:x}";
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-
         Assert.IsFalse(Snippet.TryParse(snippet, out var parsed));
 
-        Assert.IsLessThan(1000, watch.ElapsedMilliseconds, "the writing stops once it is larger than a snippet to insert");
+        TakesSteps((long)StepsPerCharacter * Snippet.MostText, "the writing stops once it is larger than a snippet to insert");
         Assert.IsNull(parsed);
         Assert.ThrowsExactly<ArgumentException>(() => Snippet.Parse(snippet));
     }
@@ -193,11 +199,10 @@ public sealed class SnippetTests
 
     // ---- inputs no snippet to insert is ----
 
-    private static void ReadInTime(string snippet, bool expected, string why)
+    private static void ReadInTime(string snippet, bool expected, string why, int stepsPerCharacter = StepsPerCharacter)
     {
-        var watch = System.Diagnostics.Stopwatch.StartNew();
         Assert.AreEqual(expected, Snippet.TryParse(snippet, out _), why);
-        Assert.IsLessThan(1000, watch.ElapsedMilliseconds, why);
+        TakesSteps((long)stepsPerCharacter * snippet.Length, why);
     }
 
     [TestMethod]
@@ -216,7 +221,8 @@ public sealed class SnippetTests
     {
         // within the length a snippet can have: each of them is text, read once.
         ReadInTime(string.Concat(Enumerable.Repeat("${1:x", 13_000)), false, "more open than a snippet has in one another");
-        ReadInTime(string.Concat(Enumerable.Repeat("x ${1/a/", 8_000)), true, "transforms that are not finished");
+        // a transform that is not finished is read through to the most characters one has, past each of its '$': 1,024 steps for every eight characters.
+        ReadInTime(string.Concat(Enumerable.Repeat("x ${1/a/", 8_000)), true, "transforms that are not finished", stepsPerCharacter: 1_024 / 8 + StepsPerCharacter);
         Assert.AreEqual("x ${1/a/x ${1/a/", Snippet.Parse("x ${1/a/x ${1/a/").Text);
     }
 

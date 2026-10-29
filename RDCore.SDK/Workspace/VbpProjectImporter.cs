@@ -432,9 +432,51 @@ public static class VbpProjectImporter
                 Guid = guid,
                 Major = major,
                 Minor = minor,
-                AbsolutePath = parts.Length > 3 && parts[3].Trim().Length > 0 ? parts[3].Trim() : null,
+                AbsolutePath = parts.Length > 3 ? LibraryPath(parts[3].Trim(), folder) : null,
             });
         }
+    }
+
+    // the file of a library a reference names, written absolute (RD-VBAL §2.2.3): VB6 writes it relative to the .vbp's folder when it is on the folder's drive
+    // (..\..\Windows\System32\FM20.DLL), which names another file - or none - once the project is at another depth. It is resolved against the folder, and
+    // written with the folder's separators; one whose folder is not known, or that climbs out past the folder's drive, is written as the .vbp has it.
+    private static string? LibraryPath(string path, string? folder)
+    {
+        if (path.Length == 0)
+        {
+            return null;
+        }
+
+        if (folder is null || path.Contains(':') || path.StartsWith('\\') || path.StartsWith('/'))
+        {
+            return path;
+        }
+
+        // the root a resolved path keeps: a drive (C:), a share (\\server\share), or a Unix root.
+        var root = folder.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\" : folder.StartsWith('/') ? "/" : string.Empty;
+        var resolved = folder.Split('/', '\\').Where(segment => segment.Length > 0).ToList();
+        var floor = root == @"\\" ? 2 : root.Length == 0 && resolved is [var drive, ..] && drive.EndsWith(':') ? 1 : 0;
+        foreach (var segment in path.Split('/', '\\'))
+        {
+            switch (segment)
+            {
+                case "" or ".":
+                    continue;
+                case "..":
+                    if (resolved.Count <= floor)
+                    {
+                        return path;
+                    }
+
+                    resolved.RemoveAt(resolved.Count - 1);
+                    break;
+                default:
+                    resolved.Add(segment);
+                    break;
+            }
+        }
+
+        return root + string.Join(folder.Contains('\\') ? '\\' : '/', resolved);
     }
 
     // a path the .vbp writes, relative to its folder, with its . and .. resolved: the folder is climbed out of only to come back in when its own name is named

@@ -196,4 +196,83 @@ public sealed class AutomationEndToEndTests
             "On Error Resume Next",
             "d.Add \"a\", 2",
             "Debug.Print Err.Number"));
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    /// <summary>
+    /// The code of a worksheet's module, moved out of its host as RDC01005 says to move it: a class holds a sheet of an Excel the program started in a
+    /// <c>WithEvents</c> variable of <c>Excel.Worksheet</c>, and its <c>AutomationSheet_Change</c> handles what <c>Worksheet_Change</c> handled. Skipped on a
+    /// machine that does not have Excel. Excel is quit by the program, also when it fails; the one it started is stopped after if it did not quit, and no other.
+    /// </summary>
+    [TestMethod]
+    public async Task ASheetOfAnExcelTheProgramStarted_HeldInAWithEventsVariable_HasItsChangesHandled()
+    {
+        if (Type.GetTypeFromProgID("Excel.Application") is null)
+        {
+            Assert.Inconclusive("Excel is not installed on this machine.");
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+        var view = ClassModule(
+            "GameSheetView",
+            "Private WithEvents AutomationSheet As Excel.Worksheet",
+            "Public Sub Attach(ByVal sheet As Excel.Worksheet)",
+            "    Set AutomationSheet = sheet",
+            "End Sub",
+            "Public Sub Detach()",
+            "    Set AutomationSheet = Nothing",
+            "End Sub",
+            "Private Sub AutomationSheet_Change(ByVal Target As Excel.Range)",
+            "    Debug.Print \"changed \" & Target.Address",
+            "End Sub");
+
+        string[] output = [];
+        try
+        {
+            output = await RunAsync([("GameSheetView", view)], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n",
+                "Dim app As Excel.Application",
+                "Set app = New Excel.Application",
+                "Debug.Print app.Hwnd",
+                "On Error GoTo Done",
+                "Dim book As Excel.Workbook",
+                "Set book = app.Workbooks.Add",
+                "Dim view As GameSheetView",
+                "Set view = New GameSheetView",
+                "view.Attach book.Worksheets(1)",
+                "book.Worksheets(1).Range(\"A1\").Value = 5",
+                "view.Detach",
+                "book.Close False",
+                "Done:",
+                "app.Quit") + "\r\nEnd Sub\r\n", libraries);
+
+            CollectionAssert.AreEqual(new[] { "changed $A$1" }, output.Skip(1).ToArray(), string.Join("\n", output));
+        }
+        finally
+        {
+            // the Excel this test started, by its window, if it is still there: never another, which another program may be using.
+            if (output.FirstOrDefault() is { } hwnd && long.TryParse(hwnd.Trim(), out var handle)
+                && GetWindowThreadProcessId(new IntPtr(handle), out var processId) != 0 && processId != 0)
+            {
+                try
+                {
+                    using var excel = System.Diagnostics.Process.GetProcessById((int)processId);
+                    if (!excel.WaitForExit(10_000) && excel.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase))
+                    {
+                        excel.Kill();
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    // it has quit.
+                }
+            }
+        }
+    }
 }

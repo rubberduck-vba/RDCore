@@ -72,8 +72,9 @@ public sealed class BenchCommandTests
     private static Task<BenchWorkspace> Load(MockFileSystem fileSystem, string? path = null)
         => BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), path ?? Root);
 
-    private static BenchRunner Runner(MockFileSystem fileSystem)
-        => new(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance);
+    private static BenchRunner Runner(MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
+        => new(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+            libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
 
     // ---- the workspace ----
 
@@ -115,6 +116,28 @@ public sealed class BenchCommandTests
         => await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => Load(Files(), Path.Combine(Root, "nothing")));
 
     // ---- the runner ----
+
+    [TestMethod]
+    public async Task AWorkspaceThatReferencesALibrary_IsBenchedWithTheLibrarysTypes()
+    {
+        // the platform's libraries, as the environment host has them: a project that references one names its types.
+        var library = new RDCore.SDK.Runtime.Libraries.LibraryDescription
+        {
+            Name = "Rig",
+            Classes = [new RDCore.SDK.Runtime.Libraries.ClassDescription { Name = "Valve", Members = [new RDCore.SDK.Runtime.Libraries.MemberDescription { Name = "Gate" }] }],
+        };
+        var fileSystem = Files(("Uses.bas", StandardModule("Uses", "Private Valve As Rig.Valve", "Public Sub Gate()", "    Valve.Gate", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName), JsonSerializer.Serialize(new ProjectFile(Root, new RDCoreProject
+        {
+            Name = "Rig",
+            Modules = [new RDCoreModule { RelativeUri = "Uses.bas" }],
+            References = [new RDCoreReference { Name = "Rig" }],
+        })));
+
+        var report = await Runner(fileSystem, new RDCore.Tests.Runtime.Libraries.InMemoryLibrarySource(library)).RunAsync(await Load(fileSystem), new BenchOptions(ListOnly: true));
+
+        Assert.IsEmpty(report.Problems, string.Join("\n", report.Problems));
+    }
 
     [TestMethod]
     public async Task TheCases_AreThePublicParameterlessBenchSubsOfStandardModules_InTheOrderTheyAreDeclared()
@@ -258,7 +281,8 @@ public sealed class BenchCommandTests
         var fileSystem = new System.IO.Abstractions.FileSystem();
         var output = new StringWriter();
         var command = new BenchCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem),
-            new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance), output);
+            new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+                new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty)), output);
 
         Assert.AreEqual(0, await command.ExecuteAsync(["--list"], CancellationToken.None), output.ToString());
 

@@ -128,6 +128,49 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.IsEmpty(result.Diagnostics);
     }
 
+    // a pull that comes while the workspace loads is answered with what is known then - what a module names of another that is not parsed yet is not - and
+    // nothing changes for it while the load goes on. Once the workspace is loaded, a client that says it is asked to refresh its diagnostics is, and a pull
+    // that names the result it had is answered anew.
+    [TestMethod]
+    public async Task APullBeforeTheWorkspaceIsLoaded_IsAnswered_AndTheClientIsAskedToPullAgainOnceItIs()
+    {
+        var document = Document();
+        var uri = document.Id.Uri.ToUri();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1, Diag(1)));
+        var server = Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>();
+        server.ClientSettings.Returns(new InitializeParams
+        {
+            Capabilities = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                Workspace = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceClientCapabilities
+                {
+                    Diagnostics = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.DiagnosticWorkspaceClientCapabilities { RefreshSupport = true },
+                },
+            },
+        });
+        _refresh.Attach(server);
+        var parsed = new TaskCompletionSource();
+        _parsing.ParseWorkspaceAsync(Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(parsed.Task);
+        var sut = Sut();
+
+        var loading = WorkspaceBringUp.LoadAsync(_parsing, _symbols, _refresh, Substitute.For<IWorkProgressReporter>(), CancellationToken.None);
+        var first = await sut.GetAsync(uri, previousResultId: null, CancellationToken.None);
+        var whileLoading = await sut.GetAsync(uri, first.ResultId, CancellationToken.None);
+
+        Assert.IsFalse(first.Unchanged, "a pull before the workspace is loaded is answered");
+        Assert.IsTrue(whileLoading.Unchanged, "nothing changed while the workspace loads");
+        server.DidNotReceive().SendRequest("workspace/diagnostic/refresh");
+
+        parsed.SetResult();
+        await loading.WaitAsync(TimeSpan.FromSeconds(20));
+        var loaded = await sut.GetAsync(uri, first.ResultId, CancellationToken.None);
+
+        server.Received(1).SendRequest("workspace/diagnostic/refresh");
+        Assert.IsFalse(loaded.Unchanged, "what was found before the workspace was loaded is not what is found now");
+    }
+
     // an edit the program that waits does not have is a finding of the module it is in, where the edited declaration is now - an edit of the module as a whole on
     // its first line - and none of another's. The list that changed is a workspace that changed: a pull of a document that did not is not answered unchanged.
     [TestMethod]

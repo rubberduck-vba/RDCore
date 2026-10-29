@@ -156,6 +156,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                 symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri)),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
+            Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
         };
 
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by

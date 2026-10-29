@@ -117,6 +117,47 @@ public sealed class VbpProjectImporterTests
         Assert.AreEqual(@"C:\Windows\System32\scrrun.dll", scripting.AbsolutePath);
     }
 
+    // VB6 writes a library's file relative to the .vbp's folder when they are on one drive: the project file has it resolved, so that it names the same file
+    // wherever the project is moved to.
+    [TestMethod]
+    [DataRow(@"C:\Users\me\Documents\Projects\Battleship", @"..\..\..\..\..\Windows\System32\FM20.DLL", @"C:\Windows\System32\FM20.DLL", DisplayName = "a system library, out to the drive")]
+    [DataRow(@"C:\Projects\Battleship", @"Libraries\.\custom.tlb", @"C:\Projects\Battleship\Libraries\custom.tlb", DisplayName = "a library of the project's folder")]
+    [DataRow(@"\\server\share\Battleship", @"..\Libraries\custom.tlb", @"\\server\share\Libraries\custom.tlb", DisplayName = "a share")]
+    [DataRow("/home/me/Battleship", @"..\Libraries\custom.tlb", "/home/me/Libraries/custom.tlb", DisplayName = "a Unix folder")]
+    [DataRow(@"C:\Projects\Battleship", @"C:\Windows\System32\FM20.DLL", @"C:\Windows\System32\FM20.DLL", DisplayName = "an absolute path, as it is")]
+    [DataRow(@"C:\Projects", @"..\..\FM20.DLL", @"..\..\FM20.DLL", DisplayName = "out past the drive, as it is")]
+    [DataRow(@"\\server\share", @"..\FM20.DLL", @"..\FM20.DLL", DisplayName = "out past the share, as it is")]
+    [DataRow(null, @"..\..\Windows\System32\FM20.DLL", @"..\..\Windows\System32\FM20.DLL", DisplayName = "a folder that is not known, as it is")]
+    public void ALibrarysFile_IsWrittenResolvedAgainstTheVbpsFolder(string? folder, string path, string expected)
+    {
+        var import = VbpProjectImporter.Import($@"Reference=*\G{{420B2830-E718-11CF-893D-00A0C9054228}}#1.0#0#{path}#Microsoft Scripting Runtime", "Battleship.vbp",
+            Libraries, folder);
+
+        Assert.AreEqual(expected, import.Project.References.Single().AbsolutePath);
+    }
+
+    [TestMethod]
+    public async Task AProjectFileThatReferencesASystemLibrary_LoadsWithItsAbsolutePath_FromAFolderAtAnotherDepth()
+    {
+        const string forms = "{0D452EE1-E08F-101A-852E-02608C4D0BB4}";
+        var libraries = new InMemoryLibrarySource(new LibraryDescription { Name = "MSForms", Origin = new LibraryOrigin { Guid = forms } });
+        var import = VbpProjectImporter.Import($@"Reference=*\G{forms}#2.0#0#..\..\..\..\Windows\System32\FM20.DLL#Microsoft Forms 2.0 Object Library",
+            "Battleship.vbp", libraries, @"C:\Users\me\Projects\Battleship");
+
+        // the project file, written where the import made it, read from a folder one level deeper.
+        var moved = Path.Combine(Path.GetTempPath(), "rdcore-import-moved", "Archive", "Battleship");
+        var written = System.Text.Json.JsonSerializer.Serialize(new ProjectFile(moved, import.Project));
+        var fileSystem = new System.IO.Abstractions.TestingHelpers.MockFileSystem(new Dictionary<string, System.IO.Abstractions.TestingHelpers.MockFileData>
+        {
+            [Path.Combine(moved, ProjectFile.FileName)] = new(written),
+        });
+        var loaded = await new ProjectFileLoader(fileSystem).LoadAsync(moved);
+
+        var reference = loaded.ProjectInfo.References.Single();
+        Assert.AreEqual("MSForms", reference.Name);
+        Assert.AreEqual(@"C:\Windows\System32\FM20.DLL", reference.AbsolutePath);
+    }
+
     // the standard library is every project's own: no project file lists it, and a .vbp line that references VBA's type library adds none.
     [TestMethod]
     public void TheStandardLibrary_IsNoReference_EvenOfAVbpThatReferencesIt()

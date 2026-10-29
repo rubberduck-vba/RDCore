@@ -58,6 +58,15 @@ internal interface IWorkspaceDocumentService
     void SetOtherFiles(IEnumerable<TextDocumentIdentifier> ids);
 
     /// <summary>
+    /// Says which documents of a project are document modules, and of what host document (<c>Super</c> of a module of the <c>.rdproj</c>): each document has it
+    /// as its <see cref="WorkspaceDocument.Super"/>, the ones loaded already and those loaded or opened after. Whoever applies a project says so, each time it
+    /// does; of a file several projects list, the project that said it first says it of the document.
+    /// </summary>
+    /// <param name="projectRoot">The folder of the project.</param>
+    /// <param name="modules">Every document module of the project, with its host document: one it said before and not now is a module of the kind its text says.</param>
+    void SetDocumentModules(string projectRoot, IEnumerable<KeyValuePair<TextDocumentIdentifier, DocClassType>> modules);
+
+    /// <summary>
     /// A document the server tracks, by the address the client gives it.
     /// </summary>
     /// <remarks>
@@ -201,6 +210,54 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void SetOtherFiles(IEnumerable<TextDocumentIdentifier> ids) => _otherFiles = new HashSet<TextDocumentIdentifier>(ids);
 
+    // the document modules each project lists, by document, in the order the projects said them: one project's are replaced whole each time it is applied,
+    // and what they say is stamped on each document as it is written.
+    private readonly List<(string Root, IReadOnlyDictionary<TextDocumentIdentifier, DocClassType> Modules)> _supers = [];
+
+    public void SetDocumentModules(string projectRoot, IEnumerable<KeyValuePair<TextDocumentIdentifier, DocClassType>> modules)
+    {
+        var said = new Dictionary<TextDocumentIdentifier, DocClassType>();
+        foreach (var (id, super) in modules)
+        {
+            said.TryAdd(id, super);
+        }
+
+        lock (_sync)
+        {
+            var index = _supers.FindIndex(entry => WorkspacePaths.Same(entry.Root, projectRoot));
+            if (index < 0)
+            {
+                _supers.Add((projectRoot, said));
+            }
+            else
+            {
+                _supers[index] = (projectRoot, said);
+            }
+
+            foreach (var (id, document) in _documents.ToList())
+            {
+                if (document.Super != SuperOf(id))
+                {
+                    _documents[id] = document with { Super = SuperOf(id) };
+                }
+            }
+        }
+    }
+
+    // read with the lock held: every caller writes a document under it.
+    private DocClassType? SuperOf(TextDocumentIdentifier id)
+    {
+        foreach (var (_, modules) in _supers)
+        {
+            if (modules.TryGetValue(id, out var super))
+            {
+                return super;
+            }
+        }
+
+        return null;
+    }
+
     // a document is keyed by its identifier, whose address is the document's however it is spelled: an identifier compares its DocumentUri, which is the
     // client's address normalized, where a Uri compares the spelling.
     public bool TryGetDocument(Uri documentUri, out WorkspaceDocument document)
@@ -273,7 +330,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
             if (failure is not null)
             {
-                var broken = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
+                var broken = new WorkspaceDocument(relativeUri, owner) { Projects = projects, Super = SuperOf(id) };
                 _documents[broken.Id] = broken;
 
                 logger.LogWarning(failure, "❌ Workspace document '{uri}' could not be loaded.", relativeUri);
@@ -283,7 +340,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
             if (content is not null)
             {
-                var document = new WorkspaceDocument(relativeUri, owner, content) { Projects = projects, Companion = companion };
+                var document = new WorkspaceDocument(relativeUri, owner, content) { Projects = projects, Companion = companion, Super = SuperOf(id) };
                 document = document with { Version = NextVersion(document.Id, content) };
                 _documents[document.Id] = document;
 
@@ -293,7 +350,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 return true;
             }
 
-            var missing = new WorkspaceDocument(relativeUri, owner) { Projects = projects };
+            var missing = new WorkspaceDocument(relativeUri, owner) { Projects = projects, Super = SuperOf(id) };
             missing = missing with { Version = NextVersion(missing.Id, string.Empty) };
             _documents[missing.Id] = missing;
 
@@ -426,6 +483,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 IsDirty = document.IsDirty,
                 Companion = document.Companion,
                 Projects = document.Projects,
+                Super = document.Super,
             };
 
             // a client closes the old path and opens the new one before it says the file was renamed: a document the client has open at the new path is the client's - its text,
@@ -616,6 +674,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 {
                     Projects = existing?.Projects ?? [owner],
                     Companion = companion,
+                    Super = SuperOf(id),
                 };
             }
             else
@@ -728,7 +787,12 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                         return current;
                     }
 
-                    var reloaded = new WorkspaceDocument(current.RelativePath, current.WorkspaceRoot, content, current.Version + 1) { Projects = current.Projects, Companion = companion };
+                    var reloaded = new WorkspaceDocument(current.RelativePath, current.WorkspaceRoot, content, current.Version + 1)
+                    {
+                        Projects = current.Projects,
+                        Companion = companion,
+                        Super = current.Super,
+                    };
                     _documents[id] = reloaded;
                     if (!documentStateProvider.IsTracked(id) || documentStateProvider.GetCurrentState(id) is not LoadedDocumentState)
                     {

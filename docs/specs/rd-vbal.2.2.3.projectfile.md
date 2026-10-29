@@ -7,7 +7,7 @@ RD-VBA discovers a _file system folder_ as a _workspace folder_ when the folder 
 
 A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes one in memory ([`IProjectFileLoader.LoadOrSynthesizeAsync`](../api/RDCore.SDK.Workspace.IProjectFileLoader.html)), and opening the folder writes nothing into it.
 
-- Every source file of the workspace's language (**RD-VBAL §2.0.2.1.1**) under the folder, at any depth, is a module. A folder whose name starts with a dot (`.git`, `.vscode`) is not searched, nor a link to another folder.
+- Every source file of the workspace's language (**RD-VBAL §2.0.2.1.1**) under the folder, at any depth, is a module. A folder whose name starts with a dot (`.git`, `.github`) is not searched, nor a link to another folder.
 - Each folder that holds a module, at any depth, is a folder of the project.
 - Paths are relative to the root, separated by `/`, in ordinal order. Of two files that declare the same `VB_Name`, the first in that order is the module (**RD-VBAL §2.2.3.3**).
 - The project is named after the folder when the folder's name is a valid _identifier name_ other than `VBA`, and `VBAProject` otherwise, as the VBE names a new project.
@@ -81,7 +81,7 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |---|---|---|
 |`Name`|`string`|The _identifier name_ (token) used in workspace source code to reference this library.|
 |`Guid`|`string`|A _Globally Unique Identifier_ optionally identifying the referenced library in a _host-defined application registry_.|
-|`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists.|
+|`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists. An import of a `.vbp` resolves the path VB6 writes relative to the `.vbp`'s folder (`..\..\Windows\System32\FM20.DLL`), so that it names the same file wherever the project is moved.|
 |`Major`|number (`0`)|The _major_ version number of the referenced library, if available.|
 |`Minor`|number (`0`)|The _minor_ version number of the referenced library, if available.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
@@ -110,7 +110,9 @@ The order in which project references appear in the `.rdproj` file of a _workspa
 |Member|Description|
 |---|---|
 |`Name`|The _identifier name_ (token) used in workspace source code to reference this module.|
-|`DocClassType`|A `string` value that can be parsed as a member of the [`DocClassType`](#22331-docclasstype-enum) enumeration.|
+|`Super`|A `string` value that can be parsed as a member of the [`DocClassType`](#22331-docclasstype-enum) enumeration: `"ExcelWorksheet"`. A number (`2`), which earlier project files wrote, is read the same; it is written as the name. `null` for a standard or class module.|
+
+A module whose `Super` is not `null` is a _document module_, whatever its text and its file name say: its export (a `.doccls`, or a `.cls` from the VBE) has no header that would say so. Any other module is a class module when its text has a `VERSION` header, and a standard module otherwise. The environment host and the language server decide it the same way ([`ModuleKinds.Of`](../api/RDCore.SDK.Workspace.ModuleKinds.html)).
 
 > [!IMPORTANT]
 > The value of the `Name` property of an `RDCoreModule` **must** be unique within its _project_. A project is its own namespace: two projects of a _workspace_ can each have a `Module1`.
@@ -124,30 +126,31 @@ The `Name` of an `RDCoreModule` is always supplied by a `VB_Name` _attribute_ (s
 > [!NOTE]
 > 🧩 This `enum` type is an extension point: it is intended to be extended as additional _document modules_ are explicitly supported.
 
-The [`DocClassType`](../api/RDCore.SDK.Workspace.DocClassType.html) enumeration defines constants that internally map _extensible_ (document) modules to certain specific class types:
+The [`DocClassType`](../api/RDCore.SDK.Workspace.DocClassType.html) enumeration defines constants that map _document modules_ to the class of the host library their document is an object of ([`ModuleKinds.HostClassOf`](../api/RDCore.SDK.Workspace.ModuleKinds.html)):
 
-|Name|Value|
-|---|---|
-|`Unknown`|0|
-|`ExcelWorkbook`|1|
-|`ExcelWorksheet`|2|
-|`AccessForm`|3|
-|`AccessReport`|4|
+|Name|Value|Host class|
+|---|---|---|
+|`Unknown`|0|none: a host RD-VBA does not know|
+|`ExcelWorkbook`|1|`Excel.Workbook`|
+|`ExcelWorksheet`|2|`Excel.Worksheet`|
+|`AccessForm`|3|`Access.Form`|
+|`AccessReport`|4|`Access.Report`|
+|`WordDocument`|5|`Word.Document`|
 
-_Document modules_ can only be added to a VBA project via the _host application_ that defines them. Exporting a document module from an MS-VBA project via the _VBIDE Extensibility API_ produces a `.cls` file, which would then re-import as a _class module_.
+A name or a number the enumeration does not have reads as `Unknown`: the project still loads.
 
-Rubberduck (the VBE add-in) exported document modules with a `.doccls` extension, to distinguish the two class types. Document modules are distinguished from class modules because a document module's base class metadata is externally defined.
+_Document modules_ can only be added to a VBA project via the _host application_ that defines them: in MS-VBA, the project lives inside the host's document, and a document module belongs to the host. The _VBIDE Extensibility API_ exports one as a `.cls` file, which would re-import as a _class module_. Rubberduck (the VBE add-in) exported what the code pane shows of one, with no attributes, to a `.doccls` file. Neither says what the module is; the project file does (`Super`), and nothing else - no module name, file extension or event handler makes a module a document module.
 
-RD-VBA can load the necessary symbols for document module interfaces, but their implementation belongs to their respective _host application_.
+RD-VBA is not hosted: it runs VBA outside of any host application, and automates an application from the outside. A document module is therefore loaded **for analysis only**:
+
+- It is a class module, so `Me` is valid in it. Its code names the members of its host's class: `Me.Range("A1")` and an unqualified `Range("A1")` in a worksheet's module bind to `Excel.Worksheet.Range`, after the module's own members, when the project references the host's library. Those members are found through the library's class; none is declared again as a member of the module.
+- No program creates one of its objects (`New Sheet1` is _Invalid use of New keyword_, as in MS-VBA), it has no default instance (`Sheet1.Foo` in another module names nothing), and no event of its host is raised for it. Its code never runs.
+- RD-VBA never starts or attaches to the host application on a document module's behalf. An application process starts only when workspace code creates one.
 
 > [!NOTE]
 > RD-VBA cannot create a `Workbook` host document, nor a `Worksheet` module in its `Sheets` collection, because that is the responsibility of _Microsoft Excel_.
 
-Instead, RD-VBA identifies the interfaces a document module requires using the `DocClassType` enum. This allows _static semantics_ to correctly identify all the members and available events of a document module.
-
-Workspace source code that is directly dependent on a _host document_ necessarily requires an appropriate _host_ to evaluate correctly. In such cases, the RD-VBA runtime implementation may start an _automation host_ process as needed, if such a host exists in the runtime environment.
-
-> 🎯 A more portable approach is to refactor MS-VBA legacy code so that any host-dependent calls are decoupled from the logic. RDCore semantic analysis capabilities should support all the diagnostics and refactoring tools needed to do this.
+> 🎯 Code that handles a document's events holds the document in a `WithEvents` variable of the host's class (`Private WithEvents AutomationSheet As Excel.Worksheet`), from an application the workspace code automates, and handles `AutomationSheet_Change` instead of `Worksheet_Change`.
 
 ## 2.2.3.4 RDCoreFile
 

@@ -26,10 +26,12 @@ namespace RDCore.LanguageServer.Workspace.Services;
 /// are found out and pushed for a client that is pushed to; one that pulls them asks for them itself, and is not given them twice over.
 /// </para>
 /// <para>
-/// A module whose text changed what the other modules can be told by it (<see cref="ModuleSurface"/>) changes what is found out about them: once the host has
-/// it, the workspace is defined again against it (<see cref="ISymbolSyncService.SyncWorkspaceAsync"/>), and the client is asked to refresh what it shows of
-/// every document (<see cref="IWorkspaceRefresh"/>). The same goes for a module that is gone. An edit that changes no other module's findings - inside
-/// a procedure, of a literal, a comment - does neither.
+/// A module whose text changed what it declares to the other modules (<see cref="ModuleSurface.Declarations"/>) changes what is found out about them: once the
+/// host has it, the workspace is defined again against it (<see cref="ISymbolSyncService.SyncWorkspaceAsync"/>), and the client is asked to refresh what it
+/// shows of every document (<see cref="IWorkspaceRefresh.Changed"/>). The same goes for a module that is gone. One whose code refers to other names, and
+/// declares nothing new (<see cref="ModuleSurface.References"/>), changes only what is counted of the references to their members: the client is asked to
+/// refresh its code lenses (<see cref="IWorkspaceRefresh.ReferencesChanged"/>), and nothing is defined again. An edit that changes neither - of a literal, a
+/// comment, a statement that uses the same names - does nothing more.
 /// </para>
 /// </remarks>
 internal interface IDocumentLifecycleService
@@ -147,8 +149,9 @@ internal sealed class DocumentLifecycleService(
     private readonly Dictionary<Uri, Refresh> _refreshes = [];
     private readonly object _refreshGate = new();
 
-    // what the other modules were last defined against of each module, in the host, and the version of the text that was: compared, and changed, under the gate.
-    private readonly Dictionary<Uri, (int Version, string? Surface)> _surfaces = [];
+    // what the other modules were last defined against of each module, in the host, and what its code referred to then, and the version of the text that was:
+    // compared, and changed, under the gate.
+    private readonly Dictionary<Uri, (int Version, string? Declarations, string? References)> _surfaces = [];
     private readonly object _surfaceGate = new();
 
     // what the other modules are defined against while a sync of them is under way, or when one did not finish: no surface, so that the next change syncs them
@@ -163,9 +166,10 @@ internal sealed class DocumentLifecycleService(
         // on disk is what the client's is told apart from.
         if (parsing.TryGetCached(documentUri, out var parsed))
         {
+            var surface = ModuleSurface.Of(parsed);
             lock (_surfaceGate)
             {
-                _surfaces[documentUri] = (0, ModuleSurface.Of(parsed));
+                _surfaces[documentUri] = (0, surface?.Declarations, surface?.References);
             }
         }
 
@@ -455,27 +459,37 @@ internal sealed class DocumentLifecycleService(
                 }
             }
 
-            // what the other modules are told by this one changed: the host has them defined again against it, and then what the client shows of them is
-            // refreshed. A refresh that is superseded before the sync starts leaves it to the next one, which the host's others are still as they were for.
+            // what the other modules are told by this one changed: the host has them defined again against what it declares, and then what the client shows of
+            // them is refreshed; what its code refers to changed, and nothing it declares: the counts of their members' references are. A refresh that is
+            // superseded before the sync starts leaves it to the next one, which the host's others are still as they were for.
             var surface = ModuleSurface.Of(parse);
+            var (declarations, references) = (surface?.Declarations, surface?.References);
             lock (_surfaceGate)
             {
                 if (!_surfaces.TryGetValue(documentUri, out var previous))
                 {
                     // a module the server has had no text of yet - opened before the workspace was parsed, or of no workspace - is what the workspace is defined
                     // with when it is: what it tells is kept, for its next change.
-                    _surfaces[documentUri] = (version, surface);
+                    _surfaces[documentUri] = (version, declarations, references);
                     return;
                 }
 
-                if (previous.Surface == surface || IsSuperseded(documentUri, version, token))
+                if (IsSuperseded(documentUri, version, token) || (previous.Declarations == declarations && previous.References == references))
                 {
+                    return;
+                }
+
+                if (previous.Declarations == declarations)
+                {
+                    // nothing is defined again: the host's others are bound against what this one declares, which is what it was.
+                    _surfaces[documentUri] = (version, declarations, references);
+                    refresh.ReferencesChanged();
                     return;
                 }
 
                 // the others are being defined again: until they all are, against no one surface. A refresh of a later version that compares meanwhile syncs
                 // them again itself.
-                _surfaces[documentUri] = (version, Unsynced);
+                _surfaces[documentUri] = (version, Unsynced, references);
             }
 
             // once a sync is under way the host is not what it was, whatever becomes of this refresh: what the others are defined against is kept, and the
@@ -492,7 +506,7 @@ internal sealed class DocumentLifecycleService(
                     // a later version that has synced them since is what they are defined against.
                     if (!_surfaces.TryGetValue(documentUri, out var recorded) || recorded.Version <= version)
                     {
-                        _surfaces[documentUri] = (version, synced ? surface : Unsynced);
+                        _surfaces[documentUri] = (version, synced ? declarations : Unsynced, references);
                     }
                 }
 

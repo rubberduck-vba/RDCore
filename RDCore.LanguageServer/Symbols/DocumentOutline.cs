@@ -45,7 +45,7 @@ internal static class DocumentOutline
         var moduleName = module.GetDeclaredName() ?? ModuleName.FromFileName(document.RelativePath);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
         var moduleType = ParsingClientService.ModuleTypeOf(document);
-        var moduleKind = moduleType == ModuleType.ClassModule ? SymbolKindExt.Class : SymbolKindExt.Module;
+        var moduleKind = moduleType.IsClass() ? SymbolKindExt.Class : SymbolKindExt.Module;
 
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, resolver,

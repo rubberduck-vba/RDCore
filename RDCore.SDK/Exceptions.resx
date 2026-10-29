@@ -747,6 +747,9 @@
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
     <value>'{0}' is declared As New {1}, a class of the {2} library that cannot be created. MS-VBA compiles it, and raises 'Class not registered' when the variable is first referred to.</value>
   </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose" xml:space="preserve">
+    <value>'{0}' is the code of a host's document, which only its host makes: no program creates one. RD-VBA hosts no document; code that works with one holds it in a variable of the host's class, from an application the program automates.</value>
+  </data>
   <data name="VBCompileError_CantChangeDataTypesOfArrayElements" xml:space="preserve">
     <value>Can't change data types of array elements</value>
   </data>

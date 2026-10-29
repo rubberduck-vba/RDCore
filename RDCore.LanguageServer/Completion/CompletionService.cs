@@ -155,7 +155,7 @@ internal sealed class CompletionService(
     public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null)
     {
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
+        var kind = ModuleKinds.Of((RDCoreModule?)null, source);
         return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token, IsArgumentTrigger(triggerCharacter));
     }
 
@@ -312,7 +312,7 @@ internal sealed class CompletionService(
         var candidates = context.Kind switch
         {
             CompletionSiteKind.Name => CompletionRules.At(tree, origin, context, placement,
-                new CompletionLanguage(kind == ModuleType.ClassModule, options.Value.Workspace.SupportedLanguage.HasBarePrint)),
+                new CompletionLanguage(kind.IsClass(), options.Value.Workspace.SupportedLanguage.HasBarePrint)),
             CompletionSiteKind.Type or CompletionSiteKind.NewType => TypesOf(composition, origin, context),
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
@@ -365,7 +365,7 @@ internal sealed class CompletionService(
     public Task<SignatureHelp?> SignatureHelpFragmentAsync(string moduleName, string source, Position position, CancellationToken token)
     {
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        var kind = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
+        var kind = ModuleKinds.Of((RDCoreModule?)null, source);
         return SignatureHelpAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token);
     }
 
@@ -446,9 +446,26 @@ internal sealed class CompletionService(
             workspaceRoot, [.. isOwnProject ? [] : OtherModules(root, workspaceRoot, moduleName), (moduleUri, kind, parse)], resolver,
             projectName: primary ? referencedLibraries.ProjectName : workspaceProjects.Projects.FirstOrDefault(project => WorkspacePaths.Same(project.Root, root))?.Project.ProjectInfo.Name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null);
+            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
+            documentHosts: isOwnProject ? null : DocumentHostsOf(root));
 
         return (composition, syntaxTree, workspaceRoot, moduleUri);
+    }
+
+    // what host document each document module of a project is the code of, by the module's name: its code names the members of the host's class.
+    private Dictionary<string, SDK.Workspace.DocClassType> DocumentHostsOf(string root)
+    {
+        var hosts = new Dictionary<string, SDK.Workspace.DocClassType>(StringComparer.OrdinalIgnoreCase);
+        foreach (var document in documents.GetProjectDocuments(root))
+        {
+            if (document.Super is { } super)
+            {
+                var name = (parsing.TryGetCached(document.Id.Uri.ToUri(), out var parse) ? parse.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
+                hosts.TryAdd(name, super);
+            }
+        }
+
+        return hosts;
     }
 
     private ModuleParseResult WithDesigner(ModuleParseResult parse, FormDescriptor designer)

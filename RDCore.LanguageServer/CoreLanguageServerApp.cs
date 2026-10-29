@@ -363,15 +363,7 @@ internal sealed class CoreLanguageServerApp(
     private async Task ParseWorkspaceThenSyncSymbolsAsync(CancellationToken token)
     {
         // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
-        using (var parsingWork = progress.Begin(ProgressMessages.ParsingWorkspace))
-        {
-            await parsing.ParseWorkspaceAsync(token, parsingWork);
-        }
-
-        using (var composingWork = progress.Begin(ProgressMessages.ComposingProject))
-        {
-            await symbolSync.SyncWorkspaceAsync(token, composingWork);
-        }
+        await WorkspaceBringUp.LoadAsync(parsing, symbolSync, refresh, progress, token);
 
         using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
         await RunDiagnosticsBringUpAsync(token, analyzingWork);

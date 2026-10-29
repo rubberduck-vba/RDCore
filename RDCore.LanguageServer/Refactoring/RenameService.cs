@@ -142,7 +142,10 @@ internal sealed class RenameService(
             workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Parse))], resolver,
             projectName: primary || string.IsNullOrEmpty(name) ? null : name,
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null);
+            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
+            documentHosts: modules.Where(module => module.Document.Super is not null)
+                .GroupBy(module => module.Module.Fragment.TrimStart('#'), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Document.Super!.Value, StringComparer.OrdinalIgnoreCase));
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
             [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source))],

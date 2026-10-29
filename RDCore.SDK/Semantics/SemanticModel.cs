@@ -89,6 +89,11 @@ public sealed record class ModuleSemanticModel(
     public Flags.ClassModuleSemanticFlags? Class { get; init; }
 
     /// <summary>
+    /// What the module is the code of, for a document module (<see cref="DocumentModuleFact"/>); <see langword="null"/> for any other module.
+    /// </summary>
+    public DocumentModuleFact? Document { get; init; }
+
+    /// <summary>
     /// How each declaration of the module is used by the module's own code (<see cref="Static.DeclarationUsage"/>): its variables, constants, parameters,
     /// procedures, properties and events, and the variables that were never declared. Empty when the pass had no workspace to resolve names in.
     /// </summary>

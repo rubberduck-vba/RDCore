@@ -80,4 +80,38 @@ public sealed class ClientLocaleTests
         Assert.IsNull(ClientLocale.Apply(locale));
         Assert.AreEqual("en-US", CultureInfo.CurrentUICulture.Name);
     }
+
+    // ---- what a platform's client says ----
+
+    [TestMethod]
+    public void APlatformsClient_SaysTheLanguageOfItsUserInterface_ByItsTag_AndTheInvariantCultureSaysNone()
+    {
+        Assert.AreEqual("fr-CA", ClientLocale.TagOf(CultureInfo.GetCultureInfo("fr-CA")));
+        Assert.IsNull(ClientLocale.TagOf(CultureInfo.InvariantCulture));
+    }
+
+    [TestMethod]
+    public void TheRequestsOwnLocale_IsReadFirst_AndThePlatformsInitializationOptionsOtherwise()
+    {
+        var options = new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "fr-CA" };
+
+        Assert.AreEqual("de-CH", ClientLocale.Of("de-CH", options), "a client of the protocol says it in the request");
+        Assert.AreEqual("fr-CA", ClientLocale.Of(null, options), "a platform's client, whose language client cannot say it there");
+        Assert.AreEqual("fr-CA", ClientLocale.Of("  ", options));
+        Assert.IsNull(ClientLocale.Of(null, null));
+    }
+
+    [TestMethod]
+    public async Task WhatAPlatformsClientInFrenchSays_IsWhatTheHostAnswersIn_OnAThreadItBeginsLater()
+    {
+        // the initializationOptions as they travel, read by the server as it reads them; the environment host's refusals are its own resources, read on whatever
+        // thread a request is answered on.
+        var sent = Newtonsoft.Json.Linq.JToken.FromObject(new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = ClientLocale.TagOf(CultureInfo.GetCultureInfo("fr-CA")) });
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+
+        Assert.IsNotNull(ClientLocale.Apply(ClientLocale.Of(null, RDCore.SDK.Server.RDCoreServerApp.ReadInitializationOptions(sent))));
+        var answered = await Task.Run(() => RDCore.CLI.Resources.Host_ChangedWhileWaiting_Resume);
+
+        StringAssert.StartsWith(answered, "{0} a changé pendant l'attente du programme");
+    }
 }

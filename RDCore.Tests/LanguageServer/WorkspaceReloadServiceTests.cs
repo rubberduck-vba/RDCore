@@ -150,6 +150,7 @@ public sealed class WorkspaceReloadServiceTests
         Assert.IsFalse(_documents.TryGetDocument(UriOf("B.cls"), out _));
         Assert.IsFalse(_documentStates.IsTracked(new TextDocumentIdentifier(UriOf("B.cls"))));
         await _symbols.DidNotReceiveWithAnyArgs().DiscardModuleAsync(default!, default);
+        _symbols.Received(1).SessionComposedAnew();
     }
 
     [TestMethod]
@@ -164,6 +165,7 @@ public sealed class WorkspaceReloadServiceTests
         Assert.AreEqual(new WorkspaceReloadResult(Added: 0, Removed: 1, IsHostComposed: false, IsProgramRunning: true), result);
         await _symbols.Received(1).DiscardModuleAsync("B", Arg.Any<CancellationToken>(), false);
         await _symbols.Received(1).SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+        _symbols.DidNotReceive().SessionComposedAnew();
     }
 
     [TestMethod]

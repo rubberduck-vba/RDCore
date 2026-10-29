@@ -4,8 +4,8 @@ using RDCore.SDK.Model.AST;
 namespace RDCore.Tests.Model;
 
 /// <summary>
-/// The surface of a module is what the other modules can be told by it: what it declares, and the names its procedures use; not where any of it is written,
-/// nor what a procedure does with the names it uses.
+/// The surface of a module is what the other modules can be told by it: what it declares, and apart from it the names its procedures use and what they
+/// declare; not where any of it is written, nor what a procedure does with the names it uses.
 /// </summary>
 [TestClass]
 public sealed class ModuleSurfaceTests
@@ -30,13 +30,13 @@ public sealed class ModuleSurfaceTests
         End Sub
         """;
 
-    private static string? SurfaceOf(string source) => ModuleSurface.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), source));
+    private static ModuleSurface? SurfaceOf(string source) => ModuleSurface.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), source));
 
     private static void AssertSame(string edited)
         => Assert.AreEqual(SurfaceOf(Module), SurfaceOf(edited), "no other module can tell the two apart");
 
-    private static void AssertChanged(string edited)
-        => Assert.AreNotEqual(SurfaceOf(Module), SurfaceOf(edited));
+    private static void AssertDeclarationsChanged(string edited)
+        => Assert.AreNotEqual(SurfaceOf(Module)!.Declarations, SurfaceOf(edited)!.Declarations);
 
     [TestMethod]
     public void IsTheSame_ForTheSameText()
@@ -69,15 +69,71 @@ public sealed class ModuleSurfaceTests
     public void Changes_WithWhatTheModuleDeclares(string written, string edited)
     {
         Assert.Contains(written, Module.ReplaceLineEndings("\n"));
-        AssertChanged(Module.ReplaceLineEndings("\n").Replace(written, edited));
+        AssertDeclarationsChanged(Module.ReplaceLineEndings("\n").Replace(written, edited));
     }
 
+    // what a body refers to is what the counts of the other modules' references are made of, and nothing they are bound against.
     [TestMethod]
     [DataRow("Debug.Print \"Reported\"; Twice(1)", "Debug.Print \"Reported\"; Other.Twice(1)", DisplayName = "a member of another module")]
     [DataRow("mCount = mCount + 1", "mCount = mCount + Size", DisplayName = "another name")]
     [DataRow("mCount = mCount + 1", "Dim Local As Long", DisplayName = "a declaration")]
-    public void Changes_WithTheNamesABodyUses_AndWhatItDeclares(string written, string edited)
-        => AssertChanged(Module.Replace(written, edited));
+    public void TheReferencesChange_WithTheNamesABodyUses_AndWhatItDeclares_AndTheDeclarationsDoNot(string written, string edited)
+    {
+        var (before, after) = (SurfaceOf(Module)!, SurfaceOf(Module.Replace(written, edited))!);
+
+        Assert.AreNotEqual(before.References, after.References);
+        Assert.AreEqual(before.Declarations, after.Declarations);
+    }
+
+    // what a body is made of, besides its statements: nothing outside of the procedure can go to a label or a line number of it, nor see what it declares.
+    [TestMethod]
+    [DataRow("10 Show\r\n", "10 Show\r\n20 Show\r\n", DisplayName = "a line numbered")]
+    [DataRow("10 Show\r\n", "Again: Show\r\n10 Show\r\n", DisplayName = "a label")]
+    [DataRow("10 Show\r\n", "Static Count As Long\r\n10 Show\r\n", DisplayName = "a Static local")]
+    [DataRow("Const K = 1\r\n10 Show\r\n", "Const K = 2\r\n10 Show\r\n", DisplayName = "a local constant's value")]
+    public void WhatABodyIsMadeOf_IsNoDeclaration(string body, string edited)
+    {
+        const string Header = "Option Explicit\r\nPublic Sub Main()\r\n";
+        var (before, after) = (SurfaceOf(Header + body + "End Sub\r\n")!, SurfaceOf(Header + edited + "End Sub\r\n")!);
+
+        Assert.AreEqual(before.Declarations, after.Declarations);
+    }
+
+    [TestMethod]
+    public void AMembersAttribute_IsADeclaration()
+    {
+        const string Module = "Public Function Twice()\r\nAttribute Twice.VB_Description = \"Doubles\"\r\nEnd Function\r\n";
+
+        Assert.AreNotEqual(SurfaceOf(Module)!.Declarations, SurfaceOf(Module.Replace("Doubles", "Halves"))!.Declarations);
+    }
+
+    // which of the declarations written in #If branches are the module's: what a #Const sets, wherever it is, and what an #If outside of a procedure says.
+    [TestMethod]
+    [DataRow("#Const A = 1", "#Const A = 0", DisplayName = "a #Const's value")]
+    [DataRow("#If A Then", "#If Not A Then", DisplayName = "an #If's condition")]
+    [DataRow("    #Const B = 1", "    #Const B = 2", DisplayName = "a #Const in a procedure")]
+    [DataRow("        #Const C = 1", "        #Const C = 2", DisplayName = "a #Const in an #If of a procedure")]
+    public void TheDirectivesThatSayWhichDeclarationsAreLive_AreDeclarations(string written, string edited)
+    {
+        var module = string.Join("\r\n", "#Const A = 1", "#If A Then", "Public Sub Bar()", "End Sub", "#End If", "Public Sub Foo()", "    #Const B = 1", "    #If B Then",
+            "    Debug.Print 1", "        #Const C = 1", "    #End If", "End Sub", "");
+
+        Assert.Contains(written, module);
+        Assert.AreNotEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
+    }
+
+    // what an #If in a procedure says is which of its statements are compiled, and what a branch holds is the syntax tree's.
+    [TestMethod]
+    [DataRow("    #If B Then", "    #If Not B Then", DisplayName = "an #If's condition in a procedure")]
+    [DataRow("Debug.Print 1", "Debug.Print 2", DisplayName = "a literal in a branch")]
+    public void WhatADirectiveInAProcedureSays_AndWhatABranchHolds_AreNoDeclaration(string written, string edited)
+    {
+        var module = string.Join("\r\n", "#Const A = 1", "#If A Then", "Public Sub Bar()", "Debug.Print 1", "End Sub", "#End If", "Public Sub Foo()", "    #Const B = 1",
+            "    #If B Then", "    Debug.Print 3", "    #End If", "End Sub", "");
+
+        Assert.Contains(written, module);
+        Assert.AreEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
+    }
 
     [TestMethod]
     public void IsNull_ForAModuleWithNoSyntaxTree()
@@ -145,7 +201,44 @@ public sealed class ModuleSurfaceTests
     {
         var module = $"Option Explicit\r\n{written}\r\nPublic Sub Foo()\r\nEnd Sub\r\n";
 
-        Assert.AreNotEqual(SurfaceOf(module), SurfaceOf(module.Replace(written, edited)));
+        Assert.AreNotEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
         Assert.AreEqual(SurfaceOf(module), SurfaceOf("\r\n" + module), "and not with where it is");
+    }
+
+    // which constants compile a declaration is which branch it is written in (MS-VBAL §3.4): a declaration moved into a branch, out of one or to another is
+    // compiled when it was not, and another module's name may mean it, or no longer.
+    [TestMethod]
+    [DataRow("#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\n#End If\r\nPublic Sub Bar()\r\nEnd Sub\r\n",
+        "#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\nPublic Sub Bar()\r\nEnd Sub\r\n#End If\r\n", DisplayName = "a procedure moved into a branch")]
+    [DataRow("#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\nPublic Sub Bar()\r\nEnd Sub\r\n#End If\r\n",
+        "#If A Then\r\nPublic Sub Foo()\r\nEnd Sub\r\n#End If\r\nPublic Sub Bar()\r\nEnd Sub\r\n", DisplayName = "a procedure moved out of a branch")]
+    [DataRow("#If A Then\r\nPublic X As Long\r\n#Else\r\nPublic Y As Long\r\n#End If\r\n",
+        "#If A Then\r\n#Else\r\nPublic X As Long\r\nPublic Y As Long\r\n#End If\r\n", DisplayName = "a variable moved to another branch")]
+    [DataRow("#If A Then\r\n#If B Then\r\nPublic X As Long\r\n#End If\r\n#End If\r\n",
+        "#If A Then\r\nPublic X As Long\r\n#If B Then\r\n#End If\r\n#End If\r\n", DisplayName = "a variable moved out of a nested branch")]
+    public void Declarations_ChangeWithTheBranchADeclarationIsWrittenIn(string written, string edited)
+        => Assert.AreNotEqual(SurfaceOf("Option Explicit\r\n" + written)!.Declarations, SurfaceOf("Option Explicit\r\n" + edited)!.Declarations);
+
+    // a declaration's branch is told by ordinal, not by where it is: one that moves down its branch is in the same one; and an #If inside a procedure is its
+    // body's, which counts nothing of the branches the module's declarations are in.
+    [TestMethod]
+    [DataRow("#If A Then\r\nPublic X As Long\r\n#End If\r\n", "#If A Then\r\n\r\n' a comment\r\nPublic X As Long\r\n#End If\r\n",
+        DisplayName = "a declaration moved down within its branch")]
+    [DataRow("Public Sub Foo()\r\nEnd Sub\r\n#If A Then\r\nPublic X As Long\r\n#End If\r\n",
+        "Public Sub Foo()\r\n#If B Then\r\nDebug.Print 1\r\n#End If\r\nEnd Sub\r\n#If A Then\r\nPublic X As Long\r\n#End If\r\n",
+        DisplayName = "an #If added inside a procedure before the module's")]
+    public void Declarations_DoNotChangeWithWhatLeavesTheirBranches(string written, string edited)
+        => Assert.AreEqual(SurfaceOf("Option Explicit\r\n" + written)!.Declarations, SurfaceOf("Option Explicit\r\n" + edited)!.Declarations);
+
+    // an #If that starts inside one procedure and ends after its End Sub holds what follows it in a branch: it is not counted, since it starts in a procedure,
+    // and what follows is told as if no #If held it.
+    [TestMethod]
+    [Ignore("an #If that straddles a procedure's End Sub is not told as a branch of what follows it (pathological, valid VBA)")]
+    public void Declarations_ChangeWithABranchThatStraddlesAProcedure()
+    {
+        const string written = "Option Explicit\r\nPublic Sub Foo()\r\n#If A Then\r\nEnd Sub\r\nPublic Sub Bar()\r\n#End If\r\nEnd Sub\r\n";
+        const string edited = "Option Explicit\r\nPublic Sub Foo()\r\n#If A Then\r\n#End If\r\nEnd Sub\r\nPublic Sub Bar()\r\nEnd Sub\r\n";
+
+        Assert.AreNotEqual(SurfaceOf(written)!.Declarations, SurfaceOf(edited)!.Declarations);
     }
 }

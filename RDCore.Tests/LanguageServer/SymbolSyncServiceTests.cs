@@ -39,7 +39,8 @@ public sealed class SymbolSyncServiceTests
 
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) Build(
         ModuleParseResult? cached, bool providesCapability = true, DefineSymbolsResult? response = null,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure,
+        Microsoft.Extensions.Logging.ILogger<SymbolSyncService>? logger = null, DocClassType? super = null)
     {
         var host = Substitute.For<IRDCoreClientApp>();
         host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -53,9 +54,11 @@ public sealed class SymbolSyncServiceTests
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(host);
 
-        var document = new WorkspaceDocument("src/Mod1.bas", Root, "content");
+        var document = new WorkspaceDocument("src/Mod1.bas", Root, "content") { Super = super };
         var documents = Substitute.For<IWorkspaceDocumentService>();
         documents.GetAllDocuments().Returns([document]);
+        documents.WorkspaceRoot.Returns(Root);
+        documents.TryGetDocument(Arg.Any<Uri>(), out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
 
         var parsing = Substitute.For<IParsingClientService>();
         parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
@@ -68,10 +71,20 @@ public sealed class SymbolSyncServiceTests
                 call[1] = cached;
                 return true;
             });
+        parsing.TryGetCached(Arg.Any<Uri>(), Arg.Any<int>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                if (cached is null)
+                {
+                    return false;
+                }
+                call[2] = cached;
+                return true;
+            });
 
         var sut = new SymbolSyncService(
             orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(implicitScope),
-            NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+            logger ?? NullLogger<SymbolSyncService>.Instance, new NoLibraries());
         return (sut, host);
     }
 
@@ -493,5 +506,136 @@ public sealed class SymbolSyncServiceTests
             new[] { "workspace symbols", "workspace code", "fragment symbols", "fragment code" },
             done,
             string.Join(" | ", done) + ": the scaffold's code is not loaded over the client's text while the client is between defining it and asking about it");
+    }
+
+    // ---- what a load failed with is said once ----
+
+    private sealed class RecordingLogger : Microsoft.Extensions.Logging.ILogger<SymbolSyncService>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
+
+    private static int NotLoaded(RecordingLogger logger)
+        => logger.Entries.Count(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning && entry.Message.Contains("was not loaded"));
+
+    [TestMethod]
+    public async Task AModuleTheHostRefusesTheSameWay_EachTimeItIsSent_IsLoggedOnce()
+    {
+        // an editor sends the module it edits at every keystroke, and the host refuses it the same way each time.
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        for (var edit = 0; edit < 3; edit++)
+        {
+            await sut.SyncDocumentAsync(new Uri(Path.Combine(Root, "src", "Mod1.bas")), CancellationToken.None);
+        }
+
+        Assert.AreEqual(1, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task AWorkspaceComposedAnew_SaysAgainWhatAModuleFailsWith()
+    {
+        // the host's session is another - the workspace was reloaded into it - and a failure it had been told of is news to whoever reads on.
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+        sut.SessionComposedAnew();
+        await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+
+        Assert.AreEqual(2, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task AWorkspaceDefinedAgainForAnEdit_SaysNothingNewOfWhatAModuleFailsWith()
+    {
+        // an edit that changes what a module declares has the whole workspace defined again in the same session, at each refresh while the user types.
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        for (var edit = 0; edit < 3; edit++)
+        {
+            await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+        }
+
+        Assert.AreEqual(1, NotLoaded(logger), string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task AShellsProgram_AndAModuleOfTheWorkspaceOfTheSameName_AreEachKnownOnTheirOwn()
+    {
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await sut.LoadModuleCodeAsync("Mod1", Parse("Public Sub Foo()\r\nEnd Sub"), CancellationToken.None);
+
+        Assert.AreEqual(2, NotLoaded(logger), "the shell's program is not the workspace's module of its name: " + string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task ADocumentModule_IsSentAsAClassModule_ThatNoneCreates_AndThatHasNoDefaultInstance()
+    {
+        // what legacy Rubberduck exported of a worksheet: the code pane's text, no header and no attribute. Me is valid in it, for it is a class module.
+        var (sut, host) = Build(Parse("Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = TypeName(Me)\r\nEnd Function"), super: DocClassType.ExcelWorksheet);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await host.Received().SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod1" && p.CodeOnly
+                && p.Directives.Explicit && !p.Directives.Creatable && p.Directives.Extensible && !p.Directives.PredeclaredId),
+            Arg.Any<CancellationToken>());
+        await host.Received().SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod1" && !p.CodeOnly && p.Symbols.Any(symbol => symbol.Name == "Hello"
+                && symbol.Scope == RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Instance)),
+            Arg.Any<CancellationToken>());
+    }
+
+    // ---- a shell's program is a module of the project ----
+
+    [TestMethod]
+    [DataRow(ImplicitDeclarationScope.Procedure)]
+    [DataRow(ImplicitDeclarationScope.Module)]
+    public async Task AShellsProgram_CallsASubOfAModuleOfTheWorkspace_QualifiedOrNot_AndDeclaresNoVariableByNamingIt(ImplicitDeclarationScope implicitScope)
+    {
+        var sent = new List<DefineSymbolsParams>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Do<DefineSymbolsParams>(sent.Add), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DefineSymbolsResult { Defined = 1 }));
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        // the workspace has a module the program calls into, which the language server has parsed.
+        var module = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\nPublic Sub Helper()\r\nEnd Sub\r\n";
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("Module1.bas", Root, module)]);
+        documents.WorkspaceRoot.Returns(Root);
+        var parsed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Module1.bas")), module);
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parsed; return true; });
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(implicitScope),
+            NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+
+        var program = new ModuleParser().Parse(new Uri(Path.Combine(Root, "Program.bas")), "Public Sub Main()\r\n    Helper\r\n    Module1.Helper\r\nEnd Sub\r\n");
+        await sut.SyncModuleAsync("Program", program, CancellationToken.None);
+
+        var defined = sent.Single(request => request.ModuleName == "Program");
+        var main = defined.Symbols.Single(symbol => symbol.Name == "Main");
+        Assert.IsFalse(defined.Symbols.Any(symbol => symbol.Name is "Helper" or "Module1"),
+            "a name of the workspace is no variable of the program: " + string.Join(", ", defined.Symbols.Select(symbol => symbol.Name)));
+        Assert.IsTrue(main.Locals.IsDefaultOrEmpty, "nor a local of Main: " + string.Join(", ", main.Locals.Select(local => local.Name)));
     }
 }

@@ -11,6 +11,7 @@ internal static class ReplCommandNames
     public const string Config = "CONFIG";
     public const string Configure = "CONFIGURE"; // alias for CONFIG
     public const string Ducky = "DUCKY";
+    public const string Edits = "EDITS";
     public const string Cont = "CONT";
     public const string Frame = "FRAME";
     public const string Fold = "FOLD";

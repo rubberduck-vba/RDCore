@@ -103,6 +103,23 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries);
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with document modules: <c>.doccls</c> files the
+    /// project says are the code of a host's document (<c>Super</c>), loaded as the platform loads them; for a project that references libraries, or only the
+    /// standard library when <paramref name="libraries"/> is <see langword="null"/>.
+    /// </summary>
+    public static Task<string[]> LoadDocumentsAsync(
+        IReadOnlyList<(string Name, string Source, DocClassType? Super)> documents, string program, WorkspaceLibraries? libraries)
+        => RunCoreAsync([], program, errorsOnly: true, libraries: libraries, documents: documents);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, in a workspace that has document modules
+    /// (<see cref="LoadDocumentsAsync"/>).
+    /// </summary>
+    public static Task<string[]> RunWithDocumentsAsync(
+        IReadOnlyList<(string Name, string Source, DocClassType? Super)> documents, string program, WorkspaceLibraries? libraries)
+        => RunCoreAsync([], program, errorsOnly: false, libraries: libraries, documents: documents);
+
+    /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, for a project that references libraries.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
@@ -133,17 +150,18 @@ internal static class ModuleWorkspace
     /// <param name="language">The language the code is written in; RD-VBA unless said otherwise.</param>
     /// <param name="libraries">The libraries the project references, and the source they and others are found in; only the standard library when omitted.</param>
     /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="documents">The document modules of the workspace (<see cref="LoadDocumentsAsync"/>).</param>
     public static async Task<SemanticsPayload> SemanticsAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null,
-        IReadOnlyList<(string Name, string Source)>? modules = null)
+        IReadOnlyList<(string Name, string Source)>? modules = null, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
     {
         SemanticsPayload? payload = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
             var result = await new HostSemanticsHandler(sessionProvider).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
-        }, language: language, libraries: libraries, forms: forms, modules: modules);
+        }, language: language, libraries: libraries, forms: forms, modules: modules, documents: documents);
 
         return payload!;
     }
@@ -185,19 +203,32 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger: a <c>Stop</c> suspends it, and the first run answers that it waits.</param>
-    /// <param name="cancelAfter">How long the first run has before its request is cancelled, counted from when it starts and not from when the workspace
-    /// began to be composed. Never, when omitted.</param>
+    /// <param name="cancelWhen">When the first run's request is cancelled: as soon as this says the program is where the test wants it (running, in its
+    /// loop, in the procedure it loops in), which is asked of the session as the program runs. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     /// <param name="engine">What runs the program; the interpreter when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null, bool debug = false,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
-        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelAfter: cancelAfter, debug: debug, libraries: libraries,
+        => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
+    /// </summary>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
+    /// <param name="debug">Whether the program runs under a debugger.</param>
+    public static Task InspectWithModulesAsync(
+        IReadOnlyList<(string Name, string Source)> modules, string program,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, bool debug = false)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
@@ -208,16 +239,22 @@ internal static class ModuleWorkspace
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
-        bool releaseDropsDebugStatements = false)
+        bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
     {
         var loadErrors = new List<string>();
+
+        // the kind of a document module is what the project says, as the platform reads it: one it gives no Super is what its text says.
+        var supers = (documents ?? []).Where(document => document.Super is not null)
+            .ToDictionary(document => document.Name, document => document.Super!.Value, StringComparer.OrdinalIgnoreCase);
         (string Name, string Extension, ModuleType Type, string Source)[] others =
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
+            .. (documents ?? []).Select(module => (module.Name, "doccls", ModuleKinds.Of(module.Super, module.Source), module.Source)),
             .. (forms ?? []).Select(module => (module.Name, "frm", ModuleType.ClassModule, module.Source)),
             .. (modules ?? []).Select(module => (module.Name, "bas", ModuleType.StdModule, module.Source)),
         ];
@@ -227,7 +264,11 @@ internal static class ModuleWorkspace
         var project = new ProjectFile(Root, new RDCoreProject
         {
             Name = "Project1",
-            Modules = [.. allModules.Select(module => new RDCoreModule { RelativeUri = $"{module.Name}.{module.Extension}" })],
+            Modules = [.. allModules.Select(module => new RDCoreModule
+            {
+                RelativeUri = $"{module.Name}.{module.Extension}",
+                Super = supers.TryGetValue(module.Name, out var super) ? super : null,
+            })],
             References = [.. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
         });
         var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };
@@ -252,7 +293,7 @@ internal static class ModuleWorkspace
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
                 workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
-            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols);
+            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers);
 
         foreach (var module in parsed)
         {
@@ -286,13 +327,23 @@ internal static class ModuleWorkspace
                     Debug = debug,
                 }, cancellation);
 
+        // the first run's request is cancelled once the program is seen where the test wants it, and not after a time, which a slower machine would spend
+        // before the program even started. The run is on a thread of its own: without a debugger, a program runs to its end inside the request.
         using var cancellation = new CancellationTokenSource();
-        if (cancelAfter is { } timeout)
+        var running = Task.Run(() => Execute(cancellation.Token));
+        if (cancelWhen is not null)
         {
-            cancellation.CancelAfter(timeout);
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (!running.IsCompleted && !cancelWhen(sessionProvider))
+            {
+                Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen where the test cancels it");
+                await Task.Delay(5);
+            }
+
+            await cancellation.CancelAsync();
         }
 
-        var result = await Execute(cancellation.Token);
+        var result = await running;
         if (inspect is not null)
         {
             await inspect(sessionProvider, result, () => Execute(CancellationToken.None));
@@ -317,11 +368,30 @@ internal static class ModuleWorkspace
         return [.. defined.SelectMany(module => module.CodeErrors)];
     }
 
+    /// <summary>
+    /// Edits modules of a session as the language server does with an edit of one document: the names of every module are bound among all of them, as the
+    /// workspace now reads, and only the edited ones are defined again and have their code loaded again. The others are loaded later by the language server,
+    /// after the edited module's diagnostics; until then the host has them as they were.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="only">The names of the modules that are defined and loaded again.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads.</param>
+    /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+        params (string Name, ModuleType Type, string Source)[] modules)
+    {
+        var defined = await DefineAsync(provider, "Project1",
+            [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null,
+            only: only);
+        return [.. defined.SelectMany(module => module.CodeErrors)];
+    }
+
     // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then the
-    // code of each is sent.
+    // code of each is sent. The names are bound among every module; only those named, when they are, are defined and loaded.
     private static async Task<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)[]> DefineAsync(
         EnvironmentSessionProvider sessionProvider, string projectName, (string Name, string Extension, ModuleType Type, string Source)[] modules,
-        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols)
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols,
+        IReadOnlyCollection<string>? only = null, IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
     {
         var workspaceRoot = Wire.FileUri(Root);
         var parsed = modules.Select(module =>
@@ -336,7 +406,11 @@ internal static class ModuleWorkspace
 
         var resolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), projectName,
-            libraries: librarySymbols);
+            libraries: librarySymbols, documentHosts: documentHosts);
+        if (only is not null)
+        {
+            parsed = [.. parsed.Where(module => only.Contains(module.Module.Name))];
+        }
 
         foreach (var declareTypesOnly in new[] { true, false })
         {
@@ -350,7 +424,7 @@ internal static class ModuleWorkspace
                         ModuleUri = module.Uri,
                         ModuleName = module.Module.Name,
                         Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
-                        Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                        Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree!.GetModuleDirectives()),
                         ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
                         ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                         PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
@@ -369,7 +443,7 @@ internal static class ModuleWorkspace
                     WorkspaceRoot = workspaceRoot,
                     ModuleUri = module.Uri,
                     ModuleName = module.Module.Name,
-                    Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                    Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree.GetModuleDirectives()),
                     ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),

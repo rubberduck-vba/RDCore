@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
@@ -67,6 +68,36 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     /// <returns>The class as it is now, or <see langword="null"/> when the composition no longer has it.</returns>
     public static VBClassModuleSymbol? ResolveClass(ISymbolResolver resolver, VBClassModuleSymbol declared)
         => ResolveQualifiedType(resolver, declared.GetProperty(SymbolProperties.Library), declared.Name, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol;
+
+    /// <summary>
+    /// Gets the class of a referenced library whose object a document module's document is (<see cref="VBClassModuleSymbol.HostClass"/>), by the name of
+    /// its library and its own.
+    /// </summary>
+    /// <param name="resolver">The resolver names are bound by.</param>
+    /// <param name="module">The class module.</param>
+    /// <returns>The host's class, or <see langword="null"/> for a module that is no document module, and when the project does not reference its library.</returns>
+    public static VBClassModuleSymbol? ResolveHostClass(ISymbolResolver resolver, VBClassModuleSymbol module)
+        => module.HostClass is { } host
+            ? ResolveQualifiedType(resolver, host.Library, host.ClassName, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol
+            : null;
+
+    /// <summary>
+    /// The members of the interface of a class, as its declaration is now: its default interface, and, for a document module, the members of its host's class
+    /// that it does not declare itself (<see cref="ResolveHostClass"/>) - an event is no member a name reaches.
+    /// </summary>
+    /// <param name="resolver">The resolver names are bound by.</param>
+    /// <param name="declared">The class module a type holds.</param>
+    public static IReadOnlyList<VBTypeMemberSymbol> InterfaceMembersOf(ISymbolResolver resolver, VBClassModuleSymbol declared)
+    {
+        var current = ResolveClass(resolver, declared) ?? declared;
+        if (ResolveHostClass(resolver, current) is not { } host)
+        {
+            return current.DefaultInterfaceMembers;
+        }
+
+        var own = current.DefaultInterfaceMembers.Select(member => member.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return [.. current.DefaultInterfaceMembers, .. host.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol && !own.Contains(member.Name))];
+    }
 
     // MS-VBAL §5.6.12: "<l-expression> is classified as a procedural module or a type referencing a class defined in a class module", and the module has an
     // accessible UDT or Enum definition of the name. The type is the module's own: a type that the module's scope reaches by being the project's is not the

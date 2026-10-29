@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.Errors;
@@ -79,6 +80,13 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
             Range = finding.Range.ToLsp(),
             Tags = finding.Tags.Count == 0 ? null : new Container<DiagnosticTag>(finding.Tags),
             Data = finding.Fixes?.ToData(),
+            RelatedInformation = finding.Related.Count == 0
+                ? null
+                : new Container<DiagnosticRelatedInformation>(finding.Related.Select(related => new DiagnosticRelatedInformation
+                {
+                    Location = new Location { Uri = DocumentUri.From(related.Document), Range = related.Range.ToLsp() },
+                    Message = related.Message,
+                })),
         };
     }
 

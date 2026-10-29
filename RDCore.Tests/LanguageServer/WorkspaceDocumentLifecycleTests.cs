@@ -297,4 +297,45 @@ public sealed class WorkspaceDocumentLifecycleTests
 
         Assert.IsNull(await sut.CloseAsync(UriOf("Untitled.bas")));
     }
+
+    // ---- what the project says of a document ----
+
+    [TestMethod]
+    public async Task WhatTheProjectSaysADocumentModuleIs_IsTheDocuments_LoadedBeforeOrAfter_AndAnEditKeepsIt()
+    {
+        var sut = Sut();
+        var sheet = new TextDocumentIdentifier(UriOf("GameSheet.doccls"));
+        var book = new TextDocumentIdentifier(UriOf("ThisWorkbook.doccls"));
+        _files.AddFile(sheet.Uri.GetFileSystemPath(), new MockFileData("Option Explicit\r\n"));
+        _state.Initialize([sheet]);
+        await sut.TryLoadAsync(sheet);
+
+        sut.SetDocumentModules(Root, [KeyValuePair.Create(sheet, RDCore.SDK.Workspace.DocClassType.ExcelWorksheet), KeyValuePair.Create(book, RDCore.SDK.Workspace.DocClassType.ExcelWorkbook)]);
+        var opened = sut.Open(book.Uri.ToUri(), "Option Explicit\r\n", version: 1);
+        sut.Change(book.Uri.ToUri(), 2, [Full("Option Explicit\r\n' edited\r\n")]);
+
+        Assert.IsTrue(sut.TryGetDocument(sheet.Uri.ToUri(), out var loaded));
+        Assert.AreEqual(RDCore.SDK.Workspace.DocClassType.ExcelWorksheet, loaded.Super, "a document loaded before the project said it");
+        Assert.AreEqual(RDCore.SDK.Workspace.DocClassType.ExcelWorkbook, opened.Super, "a document the client opens after");
+        Assert.IsTrue(sut.TryGetDocument(book.Uri.ToUri(), out var edited));
+        Assert.AreEqual("Option Explicit\r\n' edited\r\n", edited.Text);
+        Assert.AreEqual(RDCore.SDK.Workspace.DocClassType.ExcelWorkbook, edited.Super, "an edit of the text");
+
+        sut.SetDocumentModules(Root, []);
+        Assert.IsTrue(sut.TryGetDocument(sheet.Uri.ToUri(), out var unsaid));
+        Assert.IsNull(unsaid.Super, "a project that no longer says it");
+    }
+
+    [TestMethod]
+    public void OfAFileTwoProjectsList_TheProjectThatSaidItFirst_SaysWhatItIs()
+    {
+        var sut = Sut();
+        var shared = new TextDocumentIdentifier(UriOf("Shared.doccls"));
+
+        sut.SetDocumentModules(Root, [KeyValuePair.Create(shared, RDCore.SDK.Workspace.DocClassType.ExcelWorksheet)]);
+        sut.SetDocumentModules(Path.Combine(Root, "Other"), [KeyValuePair.Create(shared, RDCore.SDK.Workspace.DocClassType.WordDocument)]);
+        sut.SetDocumentModules(Root, [KeyValuePair.Create(shared, RDCore.SDK.Workspace.DocClassType.ExcelWorkbook)]);
+
+        Assert.AreEqual(RDCore.SDK.Workspace.DocClassType.ExcelWorkbook, sut.Open(shared.Uri.ToUri(), string.Empty, version: 1).Super);
+    }
 }

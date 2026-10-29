@@ -330,4 +330,28 @@
   <data name="EmptyLetToArray_Message" xml:space="preserve">
     <value>{0} is assigned to an array: MS-VBAL allows it, {0} being a Variant, but the value it holds raises run-time error 13 (Type mismatch) whenever the assignment runs. Erase empties a dynamic array.</value>
   </data>
+  <data name="HostedDocumentCode_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is the code of a document of {1}, which RD-VBA does not host: no object of it exists, and none of its code runs. Move the code into a class that holds the document in a WithEvents variable of {1}, from an application the program automates.</value>
+  </data>
+  <data name="HostedDocumentCode_Reference_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is the name of a host&apos;s document, which RD-VBA does not host: it stands for nothing here. Hold the document in a variable of its host&apos;s class, from an application the program automates.</value>
+  </data>
+  <data name="HostedDocumentCode_HostMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, a member of {1}, which this module reaches as its host&apos;s</value>
+  </data>
+  <data name="HostedDocumentCode_Handler_Message" xml:space="preserve">
+    <value>&apos;{0}&apos;, named as a handler of an event of {1}, which nothing raises here</value>
+  </data>
+  <data name="UnsupportedDocumentModule_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is the code of a host&apos;s document that RD-VBA does not know: the project names no host it supports for it (Super). Excel workbooks and worksheets, Word documents, and Access forms and reports are supported.</value>
+  </data>
+  <data name="UnsupportedDocumentModule_NoSuper_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; was exported from a host&apos;s document (.doccls), and the project does not say which document it is the code of (Super): it is read as the module its text makes it.</value>
+  </data>
+  <data name="HostLibraryNotReferenced_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is the code of a document of {1}, and the project does not reference the {2} library: the members of {1} are no names of its code. Add a reference to {2}.</value>
+  </data>
+  <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
+  </data>
 </root>

@@ -43,7 +43,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
         {
             var root = fileSystem.Path.GetDirectoryName(full)!;
             var name = fileSystem.Path.GetFileNameWithoutExtension(full);
-            return Compose(fileSystem, root, new RDCoreProject { Name = name }, [fileSystem.Path.GetFileName(full)]);
+            return Compose(fileSystem, root, new RDCoreProject { Name = name }, [new RDCoreModule { RelativeUri = fileSystem.Path.GetFileName(full) }]);
         }
 
         if (!fileSystem.Directory.Exists(full))
@@ -54,7 +54,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
         if (projects.TryLocate(full, out _))
         {
             var project = (await projects.LoadAsync(full, token)).ProjectInfo;
-            return Compose(fileSystem, full, project, [.. project.Modules.Select(module => module.RelativeUri)]);
+            return Compose(fileSystem, full, project, project.Modules);
         }
 
         var files = ModuleExtensions
@@ -62,24 +62,25 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             .Select(file => fileSystem.Path.GetRelativePath(full, file))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        return Compose(fileSystem, full, new RDCoreProject { Name = fileSystem.Path.GetFileName(full.TrimEnd(fileSystem.Path.DirectorySeparatorChar)) }, files);
+        return Compose(fileSystem, full, new RDCoreProject { Name = fileSystem.Path.GetFileName(full.TrimEnd(fileSystem.Path.DirectorySeparatorChar)) },
+            [.. files.Select(file => new RDCoreModule { RelativeUri = file })]);
     }
 
-    // the project lists the modules by where they are; the session reads the same files, and the standard library is referenced first, as it always is.
-    private static BenchWorkspace Compose(IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<string> relativePaths)
+    // the project lists the modules by where they are, and says which are document modules; the session reads the same files, and the standard library is
+    // referenced first, as it always is.
+    private static BenchWorkspace Compose(IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed)
     {
-        var modules = relativePaths.Select(relative =>
+        var modules = listed.Select(module =>
         {
-            var source = fileSystem.File.ReadAllText(fileSystem.Path.Combine(root, relative));
-            var type = ModuleHeader.IsClassModule(source) ?? false ? ModuleType.ClassModule : ModuleType.StdModule;
-            return new BenchModule(ModuleName.Resolve(source, relative), type, relative, source);
+            var source = fileSystem.File.ReadAllText(fileSystem.Path.Combine(root, module.RelativeUri));
+            return new BenchModule(ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source), module.RelativeUri, source);
         }).ToArray();
 
         // the standard library is every project's own, and no reference of it.
         return new BenchWorkspace(root, project with
         {
             Name = project.Name is { Length: > 0 } ? project.Name : "Bench",
-            Modules = [.. relativePaths.Select(relative => new RDCoreModule { RelativeUri = relative })],
+            Modules = [.. listed.Select(module => new RDCoreModule { RelativeUri = module.RelativeUri, Super = module.Super })],
             References = [.. project.References.Where(reference => !reference.IsStandardLibrary)],
         }, modules);
     }

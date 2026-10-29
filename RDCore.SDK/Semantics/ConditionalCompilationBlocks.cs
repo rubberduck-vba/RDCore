@@ -71,6 +71,41 @@ public sealed class ConditionalCompilationBlocks
     /// <param name="position">Where it is written.</param>
     public bool IsConditional(SourcePosition position) => _blocks.Any(branches => BranchAt(branches, position) >= 0);
 
+    /// <summary>
+    /// The branches that hold what is written at <paramref name="position"/>, the outermost first: for each block that holds it, which block it is and which of
+    /// its branches. Neither says where the block is written, only how many blocks come before it and how many branches before the one that holds it.
+    /// </summary>
+    /// <param name="position">Where it is written.</param>
+    /// <param name="counted">Which blocks are counted, by the range from the start of the first branch to the end of the last: a block that is not counted
+    /// holds nothing, and is not counted in the ordinal of those after it.</param>
+    /// <returns>For each block that holds the position, its ordinal among the blocks counted, in the order they are written, and the ordinal of the branch -
+    /// the <c>#If</c>, each <c>#ElseIf</c>, then the <c>#Else</c>; nothing when no counted block holds it.</returns>
+    /// <remarks>
+    /// Two declarations with the same branches are compiled together, whatever the constants are; a declaration moved into a branch, out of one or to another
+    /// is compiled when other constants say so (<strong>MS-VBAL §3.4</strong>).
+    /// </remarks>
+    public IReadOnlyList<(int Block, int Branch)> BranchesAt(SourcePosition position, Func<SourceRange, bool> counted)
+    {
+        var branchesAt = new List<(int Block, int Branch)>();
+        var ordinal = 0;
+        foreach (var branches in _blocks)
+        {
+            if (branches.IsDefaultOrEmpty || !counted(new SourceRange(branches[0].Start, branches[^1].End)))
+            {
+                continue;
+            }
+
+            if (BranchAt(branches, position) is var branch and >= 0)
+            {
+                branchesAt.Add((ordinal, branch));
+            }
+
+            ordinal++;
+        }
+
+        return branchesAt;
+    }
+
     // the range of a branch ends at the start of its last token, and is inclusive of it.
     private static int BranchAt(ImmutableArray<SourceRange> branches, SourcePosition position)
     {
