@@ -313,4 +313,45 @@ public sealed class ConsolePromptEditorTests
 
         StringAssert.Contains(output.ToString(), "For \u001b[4mi\u001b[24m = 1 To 10: Debug.Print \u001b[4mi\u001b[24m: Next");
     }
+
+    [TestMethod]
+    public async Task TypingOverATabStopThatHeldAnother_ThenTab_GoesOnWithoutIt()
+        => Assert.AreEqual("a = 1", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab)).Type("a").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "${1:Dim ${2:x}} = 1")] }));
+
+    [TestMethod]
+    public async Task WithACompletionListOpenInATabStop_TabPutsTheNameInPlace_AndTheNextTabGoesOn()
+        => Assert.AreEqual("For nCount = 5 To 10: Debug.Print nCount: Next", await EnterAsync(new ScriptedKeys()
+            .Type("Fo").Press(Key(ConsoleKey.Tab))
+            .Type("n").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab))
+            .Type("5").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("For", "For ${1:i} = ${2:1} To ${3:10}: Debug.Print $1: Next$0"), Item("nCount")] }));
+
+    [TestMethod]
+    public async Task ATabStopInTheCopyOfAPlaceholder_IsChangedWithTheOneItCopies()
+        => Assert.AreEqual("Dim q = Dim q", await EnterAsync(new ScriptedKeys()
+            .Type("Di").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Tab)).Type("q").Press(Key(ConsoleKey.Enter)),
+            new Source { Names = [SnippetItem("Dim", "${1:Dim ${2:x}} = $1")] }));
+
+    [TestMethod]
+    public async Task AWideCharacter_TakesTwoCells_AndTheCursorIsDrawnAfterThem()
+    {
+        var output = new StringWriter();
+        var editor = new ConsolePromptEditor(new ScriptedKeys().Type("名前").Press(Key(ConsoleKey.Enter)), output, () => 80) { CompleteWords = false };
+
+        Assert.AreEqual("名前", await editor.ReadLineAsync(CancellationToken.None));
+
+        var columns = System.Text.RegularExpressions.Regex.Matches(output.ToString(), "\u001b\\[(\\d+)G").Select(match => int.Parse(match.Groups[1].Value)).ToArray();
+        Assert.AreEqual(5, columns[^1], "two cells for each of the two characters, and the cursor in the fifth");
+    }
+
+    [TestMethod]
+    public async Task AWideCharacterTypedInATabStop_IsMirrored_AndDrawnUnderlined()
+    {
+        var (editor, output, _) = Editor(new ScriptedKeys().Type("Fo").Press(Key(ConsoleKey.Tab)).Type("名").Press(Key(ConsoleKey.Enter)), ForLoop());
+
+        Assert.AreEqual("For 名 = 1 To 10: Debug.Print 名: Next", await editor.ReadLineAsync(CancellationToken.None));
+        StringAssert.Contains(output.ToString(), "For \u001b[4m名\u001b[24m = 1 To 10: Debug.Print \u001b[4m名\u001b[24m: Next");
+    }
 }

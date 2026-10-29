@@ -80,4 +80,74 @@ public sealed class SnippetTests
         Assert.IsTrue(Snippet.Parse("If ${1:x} Then\r\n\t$0\r\nEnd If").IsMultiline);
         Assert.IsFalse(Snippet.Parse("x = ${1:1}").IsMultiline);
     }
+
+    // ---- mirrors, invalid syntax, transforms and variables, as LSP 3.17 has them ----
+
+    [TestMethod]
+    public void ATabStopInAPlaceholder_ShowsThePlaceholderGivenElsewhere()
+    {
+        var snippet = Snippet.Parse("${1:a $2 b} ${2:xyz}");
+
+        Assert.AreEqual("a xyz b xyz", snippet.Text);
+        CollectionAssert.AreEqual(new[] { new SnippetTabStop(1, 0, 7), new SnippetTabStop(2, 2, 3), new SnippetTabStop(2, 8, 3) },
+            snippet.TabStops.OrderBy(stop => stop.Start).ThenByDescending(stop => stop.Length).ToArray());
+    }
+
+    [TestMethod]
+    public void APlaceOfATabStopBeforeItsPlaceholder_ShowsItToo()
+        => Assert.AreEqual("abab", Snippet.Parse("$1${1:ab}").Text);
+
+    [TestMethod]
+    public void EachPlaceOfATabStop_HasTheTabStopsItsPlaceholderHolds()
+    {
+        var snippet = Snippet.Parse("${1:Dim ${2:x}} = $1");
+
+        Assert.AreEqual("Dim x = Dim x", snippet.Text);
+        CollectionAssert.AreEqual(new[] { 4, 12 }, snippet.TabStops.Where(stop => stop.Index == 2).Select(stop => stop.Start).ToArray());
+    }
+
+    [TestMethod]
+    public void PlaceholdersThatShowEachOther_AreShownToADepth_AndTheSnippetIsRead()
+        => StringAssert.StartsWith(Snippet.Parse("${1:a $2} ${2:b $1}").Text, "a b");
+
+    [TestMethod]
+    [DataRow("${1:foo", "${1:foo")]
+    [DataRow("x ${1:a ${2:b} c", "x ${1:a b c")]
+    [DataRow("${1|a|b|}", "${1|a|b|}")]
+    [DataRow("${1|a,b", "${1|a,b")]
+    [DataRow("${1/(.*)/x", "${1/(.*)/x")]
+    public void WhatDoesNotParse_IsText(string written, string text)
+        => Assert.AreEqual(text, Snippet.Parse(written).Text);
+
+    [TestMethod]
+    public void AnUnclosedPlaceholder_IsNoTabStop()
+        => Assert.IsEmpty(Snippet.Parse("${1:foo").TabStops);
+
+    [TestMethod]
+    public void AVariablesTransform_IsNotMade_AndMakesNoTabStop()
+    {
+        Assert.AreEqual(string.Empty, Snippet.Parse("${TM_SELECTED_TEXT/(.*)/$1/}").Text);
+        Assert.IsEmpty(Snippet.Parse("${TM_SELECTED_TEXT/(.*)/$1/}").TabStops);
+
+        var inPlaceholder = Snippet.Parse("${1:x ${TM_SELECTED_TEXT/(.*)/${1:/upcase}/g} y}");
+        Assert.AreEqual("x  y", inPlaceholder.Text, "the transform's braces are its own: the placeholder ends at its own");
+        Assert.AreEqual(new SnippetTabStop(1, 0, 4), inPlaceholder.TabStops.Single());
+    }
+
+    [TestMethod]
+    public void ATabStopsTransform_IsNotMade_TheTabStopIs()
+        => Assert.AreEqual(new SnippetTabStop(2, 2, 0), Snippet.Parse("a ${2/(.*)/[$1]/}").TabStops.Single());
+
+    [TestMethod]
+    public void AVariableThatIsNotKnown_IsItsName_ATabStopAfterTheNumberedOnes()
+    {
+        var snippet = Snippet.Parse("$UNKNOWN_VAR x $1");
+
+        Assert.AreEqual("UNKNOWN_VAR x ", snippet.Text);
+        CollectionAssert.AreEqual(new[] { new SnippetTabStop(2, 0, 11), new SnippetTabStop(1, 14, 0) }, snippet.TabStops.ToArray());
+    }
+
+    [TestMethod]
+    public void AVariableTheCallerKnows_IsItsValue()
+        => Assert.AreEqual("' Module1: x", Snippet.Parse("' $TM_FILENAME_BASE: ${NAME:y}", name => name switch { "TM_FILENAME_BASE" => "Module1", "NAME" => "x", _ => null }).Text);
 }

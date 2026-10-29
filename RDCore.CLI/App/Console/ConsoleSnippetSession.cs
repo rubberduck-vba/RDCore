@@ -50,7 +50,10 @@ internal sealed class ConsoleSnippetSession
     }
 
     /// <summary>Whether the cursor is at the end of the snippet: there is no tab stop left to go to.</summary>
-    public bool IsDone => _at >= 0 && _order[_at] == 0;
+    public bool IsDone => _ended || (_at >= 0 && _order[_at] == 0);
+
+    // no tab stop is left to go to: the ones after the cursor's were in the text of one that was typed over.
+    private bool _ended;
 
     /// <summary>Whether the text of the tab stop the cursor is at is selected, as it is when the cursor gets there: what is typed then replaces it.</summary>
     public bool IsSelected { get; private set; }
@@ -62,13 +65,41 @@ internal sealed class ConsoleSnippetSession
     public IEnumerable<(int Start, int Length)> CurrentPlaces
         => _at < 0 ? [] : _places.Where(place => place.Index == _order[_at]).OrderBy(place => place.Start).Select(place => (place.Start, place.Length));
 
-    /// <summary>Goes to the next tab stop; at the last one, the end of the snippet.</summary>
-    /// <returns>Where the cursor is: at the end of the stop's text, which is selected.</returns>
-    public int Next() => Go(Math.Min(_at + 1, _order.Length - 1));
+    /// <summary>Goes to the next tab stop that is still in the line; at the last one, the end of the snippet.</summary>
+    /// <returns>
+    /// Where the cursor is: at the end of the stop's text, which is selected; <see langword="null"/> when no tab stop is left - the ones after were in the
+    /// text of one that was typed over - and the snippet is done where the cursor is.
+    /// </returns>
+    public int? Next()
+    {
+        for (var at = _at + 1; at < _order.Length; at++)
+        {
+            if (Has(_order[at]))
+            {
+                return Go(at);
+            }
+        }
 
-    /// <summary>Goes back to the tab stop before the one the cursor is at; at the first, the cursor stays there.</summary>
-    /// <returns>Where the cursor is.</returns>
-    public int Previous() => Go(Math.Max(0, _at - 1));
+        _ended = true;
+        return null;
+    }
+
+    /// <summary>Goes back to the tab stop before the one the cursor is at that is still in the line; at the first, the cursor stays where it is.</summary>
+    /// <returns>Where the cursor is; <see langword="null"/> when it stays.</returns>
+    public int? Previous()
+    {
+        for (var at = _at - 1; at >= 0; at--)
+        {
+            if (Has(_order[at]))
+            {
+                return Go(at);
+            }
+        }
+
+        return null;
+    }
+
+    private bool Has(int index) => _places.Any(place => place.Index == index);
 
     private int Go(int at)
     {

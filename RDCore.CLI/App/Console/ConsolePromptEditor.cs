@@ -42,7 +42,9 @@ public delegate Task<SignatureHelp?> ConsoleSignatureSource(string line, int cur
 /// <para>
 /// An item that is a snippet (<c>insertTextFormat</c> <c>Snippet</c>, <see cref="Snippet"/>) of one line is put in place with its tab stops: the cursor is at the
 /// first, its text selected, and what is typed replaces it - in each of its places at once, drawn as it is typed. <kbd>Tab</kbd> goes to the next tab stop and
-/// <kbd>Shift</kbd>+<kbd>Tab</kbd> back to the one before; the snippet is done at its last, at <kbd>Esc</kbd>, at <kbd>Enter</kbd>, or once the cursor leaves
+/// <kbd>Shift</kbd>+<kbd>Tab</kbd> back to the one before - unless a completion list is open, as one opens on a word typed in a tab stop: <kbd>Tab</kbd> then
+/// puts the selected name in place, in the tab stop and its other places, and the next <kbd>Tab</kbd> goes on, as an editor has it. The snippet is done at its
+/// last tab stop, at <kbd>Esc</kbd>, at <kbd>Enter</kbd>, or once the cursor leaves
 /// the tab stop it is at. The places of the tab stop the cursor is at are underlined. A snippet of more lines than one is put in place as its name: the line is
 /// one line.
 /// </para>
@@ -355,7 +357,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 switch (key.Key)
                 {
                     case ConsoleKey.Tab:
-                        _cursor = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? snippet.Previous() : snippet.Next();
+                        var moved = key.Modifiers.HasFlag(ConsoleModifiers.Shift) ? snippet.Previous() : snippet.Next();
+                        _cursor = moved ?? _cursor;
                         if (snippet.IsDone)
                         {
                             _snippet = null;
@@ -719,7 +722,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 _snippet = null;
                 _text.Remove(_anchor, end - _anchor).Insert(_anchor, snippet.Text);
                 var session = ConsoleSnippetSession.Start(snippet, _anchor);
-                _cursor = session.Next();
+                _cursor = session.Next() ?? _anchor + snippet.Text.Length;
                 _snippet = session.IsDone ? null : session;
                 Close();
                 return;
@@ -765,6 +768,26 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 _snippet = null;
             }
+        }
+
+        // as much of the text as the cells hold, a character at a time - none cut in half.
+        private static string Fitted(string text, int cells)
+        {
+            var length = 0;
+            var width = 0;
+            foreach (var rune in text.EnumerateRunes())
+            {
+                var next = ConsoleText.WidthOf(rune.ToString());
+                if (width + next > cells)
+                {
+                    break;
+                }
+
+                width += next;
+                length += rune.Utf16SequenceLength;
+            }
+
+            return text[..length];
         }
 
         // the line as it is shown, the places of the tab stop of a snippet the cursor is at underlined.
@@ -867,8 +890,15 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
                 // the line scrolls to keep the cursor in it, when it is longer than the console is wide.
                 var room = columns - 1;
-                _start = Math.Clamp(_start, Math.Max(0, _cursor - room + 1), _cursor);
-                var shown = Text.Substring(_start, Math.Min(room, _text.Length - _start));
+                // in cells, not characters: a wide character (名) takes two of them, and the cursor is drawn after the cells of what is before it.
+                var text = Text;
+                _start = Math.Clamp(_start, 0, _cursor);
+                while (_start < _cursor && ConsoleText.WidthOf(text[_start.._cursor]) > room - 1)
+                {
+                    _start++;
+                }
+
+                var shown = Fitted(text[_start..], room);
 
                 Output.Write('\r');
                 Output.Write(entered ? shown : Marked(shown));
@@ -883,7 +913,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
                 Output.Write(ClearToEnd);
                 DrawUnder(columns, entered);
-                Output.Write(ToColumn(_cursor - _start + 1));
+                Output.Write(ToColumn(ConsoleText.WidthOf(text[_start.._cursor]) + 1));
                 Output.Flush();
             }
         }
@@ -908,7 +938,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 // a list can have a thousand items, and is drawn at each key: only the ones in view are written, and its width is the list's to know.
                 var border = editor._border;
                 var inner = Math.Clamp(list.LongestLabel + 4, 16, Math.Max(16, Math.Min(48, columns - 2)));
-                var column = Math.Clamp(_anchor - _start, 0, Math.Max(0, columns - inner - 2));
+                var column = Math.Clamp(_anchor < _start ? 0 : ConsoleText.WidthOf(Text[_start..Math.Min(_anchor, _text.Length)]), 0, Math.Max(0, columns - inner - 2));
                 var margin = ToColumn(column + 1);
 
                 var more = list.Top > 0 ? " ▲ " : string.Empty;
