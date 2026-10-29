@@ -304,6 +304,19 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// The program's version and its text as a <c>.rdc</c> file (<see cref="ToSourceText"/>), read together: the text is that version's, whatever is stored
+    /// meanwhile from another thread.
+    /// </summary>
+    public (int Version, string Text) Snapshot()
+    {
+        lock (_gate)
+        {
+            var text = ToSourceText();
+            return (Version, text);
+        }
+    }
+
+    /// <summary>
     /// Replaces the buffer with the program in the text of a <c>.rdc</c> file.
     /// </summary>
     /// <param name="text">The text: numbered lines, in any order; a line that is blank is skipped.</param>

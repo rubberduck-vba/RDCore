@@ -128,7 +128,8 @@ internal sealed class ReplShell(
         }
     }
 
-    // the server is told of an edit as it is made; a server that is gone costs the shell its diagnostics and nothing it needs to run a program.
+    // the server is told of the edits before a command or a statement reads the program, and when the program is left alone (ReplDiagnostics); a server that
+    // is gone costs the shell its diagnostics and nothing it needs to run a program.
     private async Task SynchronizeDocumentAsync(CancellationToken token)
     {
         try
