@@ -34,7 +34,8 @@ internal sealed class SessionExecuteHandler(
     IParsingClientService parsing,
     ISymbolSyncService symbols,
     IOptions<SdkAppOptions> options,
-    ILogger<SessionExecuteHandler> logger)
+    ILogger<SessionExecuteHandler> logger,
+    IEditStatusMonitor? editStatus = null)
     : RDCoreRequestHandler<ExecuteSessionParams, ExecuteSessionResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
@@ -85,6 +86,13 @@ internal sealed class SessionExecuteHandler(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("▶️ {module}.{entryPoint}: {outcome}", request.ModuleName, request.EntryPoint, result.Outcome);
+        }
+
+        // a program run again ends the one that waited, and has every edit: what was said of the edits that one did not have is not so any more. The host has
+        // answered: a request cancelled now is not one whose answer is lost.
+        if (editStatus is not null)
+        {
+            await editStatus.CheckAsync(CancellationToken.None);
         }
 
         return result;

@@ -56,6 +56,7 @@ internal sealed class CoreLanguageServerApp(
     ISymbolSyncService symbolSync,
     IDocumentDiagnosticsService diagnostics,
     IDiagnosticsPublisher publisher,
+    Debugging.EditStatusPublication editStatusPublication,
     IClientInteractionRelay interaction,
     IWorkProgressReporter progress,
     IWorkspaceRefresh refresh,
@@ -209,6 +210,8 @@ internal sealed class CoreLanguageServerApp(
     {
         // a client that pulls diagnostics is not pushed them as well: it would show each finding twice.
         publisher.Attach(server, enabled: request.Capabilities?.TextDocument?.Diagnostic is null);
+        // the findings of the modules a waiting program has edits it can't take in are pushed again whenever those edits change.
+        editStatusPublication.Attach();
         // what the client shows of each document is refreshed once the workspace changed under it, as the client says it is asked to.
         refresh.Attach(server);
         await LoadWorkspaceAsync(server, request);

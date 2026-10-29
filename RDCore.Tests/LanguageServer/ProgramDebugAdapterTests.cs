@@ -8,6 +8,7 @@ using OmniSharp.Extensions.DebugAdapter.Protocol.Requests;
 using OmniSharp.Extensions.DebugAdapter.Server;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.LanguageServer.Debugging;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Concurrent;
@@ -33,6 +34,9 @@ public sealed class ProgramDebugAdapterTests
         public IDebugWorkspace Workspace { get; } = Substitute.For<IDebugWorkspace>();
         public IProgramDebugService Debugging { get; } = Substitute.For<IProgramDebugService>();
         public HostOutputRelay Relay { get; } = new();
+
+        // what the program that waits does not have of the edits, as the host says it: nothing, unless a test says otherwise.
+        public EditStatusMonitor EditStatus { get; }
         public ProgramDebugAdapter Adapter { get; }
         public DebugAdapterServer Server { get; private set; } = default!;
         public DebugAdapterClient Client { get; private set; } = default!;
@@ -58,10 +62,15 @@ public sealed class ProgramDebugAdapterTests
                 {
                     Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint => new HostBreakpoint(breakpoint.Line, true))],
                 }));
-            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, NullLogger<ProgramDebugAdapter>.Instance);
+            Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+            Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
+            EditStatus = new EditStatusMonitor(Debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
+            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, NullLogger<ProgramDebugAdapter>.Instance);
         }
 
-        public async Task StartAsync(bool linesStartAt1 = true)
+        // OmniSharp 0.19.9's client does not send supportsInvalidatedEvent, whatever its options say: a client that takes the event is one that initializes
+        // the adapter saying so, as the adapter's host does with what a client sends.
+        public async Task StartAsync(bool linesStartAt1 = true, bool supportsInvalidated = true)
         {
             var toServer = new Pipe();
             var toClient = new Pipe();
@@ -73,12 +82,17 @@ public sealed class ProgramDebugAdapterTests
                 options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
                 options.LinesStartAt1 = linesStartAt1;
                 options.ColumnsStartAt1 = linesStartAt1;
+                options.OnInvalidated(invalidated => _events.Enqueue(invalidated));
                 options.OnStopped(stopped => _events.Enqueue(stopped));
                 options.OnOutput(output => _events.Enqueue(output));
                 options.OnExited(exited => _events.Enqueue(exited));
                 options.OnTerminated(terminated => _events.Enqueue(terminated));
             });
             Server = await starting.WaitAsync(Patience);
+            Adapter.Initialize(new InitializeRequestArguments
+            {
+                AdapterId = "rdcore", LinesStartAt1 = linesStartAt1, ColumnsStartAt1 = linesStartAt1, SupportsInvalidatedEvent = supportsInvalidated,
+            });
         }
 
         public Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request)
@@ -1006,5 +1020,296 @@ public sealed class ProgramDebugAdapterTests
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 }));
 
         StringAssert.Contains(refusal.Message, "another procedure");
+    }
+
+    // ---- edit and continue ----
+
+
+    private static readonly HostDebugEdit CalleeLocalRemoved = new()
+    {
+        Name = "Prog.Callee",
+        Kind = HostDebugEditKind.Restart,
+        Reason = "a local was removed",
+        ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
+        Range = new RDCore.SDK.Model.Source.SourceRange(new(3, 0), new(5, 7)),
+    };
+
+    private static void Listing(Session session, params HostDebugEdit[] edits)
+        => session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult { Suspended = true, Edits = [.. edits] });
+
+    // what the adapter wrote before it answered a request it answers at once has come.
+    private static async Task FlushedAsync(Session session) => _ = await session.SendAsync(new ThreadsArguments());
+
+    // the edit is said as soon as it is loaded, which is the closest to the edit the client can be told: once, and not again while it is still listed.
+    [TestMethod]
+    public async Task AnEditTheProgramThatWaitsDoesNotHave_IsSaidOnce_AsSoonAsItIsLoaded()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Listing(session, CalleeLocalRemoved);
+
+        await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        var said = await session.NextAsync<OutputEvent>(output => output.Output.Contains("Prog.Callee", StringComparison.Ordinal));
+        await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        await FlushedAsync(session);
+
+        Assert.AreEqual(OutputEventCategory.Console, said.Category);
+        StringAssert.Contains(said.Output, "a local was removed");
+        Assert.IsFalse(session.Pending<OutputEvent>().Any(output => output.Output.Contains("Prog.Callee", StringComparison.Ordinal)), "said once");
+    }
+
+    // a program that waits with an edit it does not have is not asked to go on: the client is refused, with the edit, and told it too.
+    [TestMethod]
+    [DataRow("continue")]
+    [DataRow("next")]
+    [DataRow("stepIn")]
+    [DataRow("stepOut")]
+    public async Task GoingOnWithAnEditTheProgramDoesNotHave_IsRefused_WithTheEdit(string request)
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Listing(session, CalleeLocalRemoved);
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => request switch
+        {
+            "continue" => session.SendAsync(new ContinueArguments { ThreadId = 1 }),
+            "next" => session.SendAsync(new NextArguments { ThreadId = 1 }),
+            "stepIn" => session.SendAsync(new StepInArguments { ThreadId = 1 }),
+            _ => session.SendAsync(new StepOutArguments { ThreadId = 1 }),
+        });
+
+        StringAssert.Contains(refusal.Message, "Prog.Callee: a local was removed");
+        var said = await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.StandardError);
+        StringAssert.Contains(said.Output, "Prog.Callee");
+        await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
+    }
+
+    private static readonly HostDebugEdit CallerDoesNotCompile = new()
+    {
+        Name = "Prog.Caller",
+        Kind = HostDebugEditKind.DoesNotCompile,
+        Reason = "Variable not defined",
+        ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
+        Range = new RDCore.SDK.Model.Source.SourceRange(new(7, 4), new(7, 14)),
+    };
+
+    // what the user is told to do depends on the edits: code that does not compile is corrected to go on; any other edit needs the program run again. The
+    // console line and the refusal say the same.
+    [TestMethod]
+    [DataRow(true, false, nameof(DebuggerMessages.EditsAdviceCorrect), DisplayName = "compile errors only")]
+    [DataRow(false, true, nameof(DebuggerMessages.EditsAdviceRunAgain), DisplayName = "restarts only")]
+    [DataRow(true, true, nameof(DebuggerMessages.EditsAdviceCorrectOrRunAgain), DisplayName = "both")]
+    public async Task TheEditsTheProgramDoesNotHave_AreSaidWithWhatToDoAboutThem(bool uncompiled, bool restart, string adviceKey)
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var edits = new[] { (uncompiled, CallerDoesNotCompile), (restart, CalleeLocalRemoved) }.Where(edit => edit.Item1).Select(edit => edit.Item2).ToArray();
+        Listing(session, edits);
+        var advice = DebuggerMessages.ResourceManager.GetString(adviceKey)!;
+        var others = new[] { DebuggerMessages.EditsAdviceCorrect, DebuggerMessages.EditsAdviceRunAgain, DebuggerMessages.EditsAdviceCorrectOrRunAgain }.Where(text => text != advice);
+
+        await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        var said = await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.Console);
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
+
+        foreach (var text in new[] { said.Output, refusal.Message })
+        {
+            StringAssert.Contains(text, advice);
+            Assert.IsFalse(others.Any(other => text.Contains(other, StringComparison.Ordinal)), $"one advice only: {text}");
+            foreach (var edit in edits)
+            {
+                StringAssert.Contains(text, $"{edit.Name}: {edit.Reason}");
+            }
+        }
+    }
+
+    // the program goes on with the edits loaded while it waited: where it was, and what it held, may not be what the client shows.
+    [TestMethod]
+    public async Task GoingOnAfterAnEditWasLoaded_SaysTheFramesAndTheVariablesAreNotWhatTheyWere()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Listing(session);
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+
+        await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+
+        var invalidated = await session.NextAsync<InvalidatedEvent>();
+        CollectionAssert.AreEquivalent(new[] { InvalidatedAreas.Stacks, InvalidatedAreas.Variables }, invalidated.Areas!.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(false, true, DisplayName = "no edit was loaded")]
+    [DataRow(true, false, DisplayName = "a client that does not say it takes it")]
+    public async Task GoingOn_IsNotSaidToInvalidateAnything_WhenNothingIs_OrTheClientDoesNotTakeIt(bool loaded, bool supportsInvalidated)
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(Suspended()));
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 12)));
+        await session.StartAsync(supportsInvalidated: supportsInvalidated);
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+        _ = await session.NextAsync<StoppedEvent>();
+        Listing(session);
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+        if (loaded)
+        {
+            await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        }
+
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        _ = await session.NextAsync<StoppedEvent>();
+        await FlushedAsync(session);
+
+        Assert.AreEqual(0, session.Pending<InvalidatedEvent>().Count);
+    }
+
+    // the program is over: it has no edits it does not have, and what was said of them is not so any more.
+    [TestMethod]
+    public async Task AProgramThatIsEnded_HasNoEditItDoesNotHave()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Listing(session, CalleeLocalRemoved);
+        await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+        Assert.HasCount(1, session.EditStatus.Current.Edits);
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck()));
+        session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+
+        _ = await session.SendAsync(new TerminateArguments());
+
+        Assert.IsEmpty(session.EditStatus.Current.Edits);
+    }
+
+    // no editor tells the adapter of an edit: what is saved is loaded when the program is asked to go on, and checked, before the program is asked.
+    [TestMethod]
+    public async Task GoingOn_LoadsWhatIsSavedFirst_ThenChecksTheEdits_ThenRelays()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var order = new List<string>();
+        session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
+        session.Debugging.When(debugging => debugging.EditStatusAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("check"));
+        session.Debugging.When(debugging => debugging.ResumeAsync(null, Arg.Any<CancellationToken>())).Do(_ => order.Add("resume"));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        _ = await session.NextAsync<StoppedEvent>();
+
+        // the check after the first stop may come in before them: what matters is what comes right before the program is asked.
+        var resumed = order.IndexOf("resume");
+        Assert.IsGreaterThanOrEqualTo(2, resumed, string.Join(", ", order));
+        CollectionAssert.AreEqual(new[] { "reload", "check" }, order.GetRange(resumed - 2, 2).ToArray(), string.Join(", ", order));
+    }
+
+    // an edit saved while the program waits that it can't take, loaded as the program is asked to go on: refused, with the edit, and said.
+    [TestMethod]
+    public async Task GoingOn_WithASavedEditTheProgramCannotTake_IsRefused_WithTheEdit()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            // as the reload does once the host has the saved file: the program that waits is checked against it.
+            Listing(session, CalleeLocalRemoved);
+            await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+            return (string?)null;
+        });
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
+
+        StringAssert.Contains(refusal.Message, "Prog.Callee: a local was removed");
+        _ = await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.Console && output.Output.Contains("Prog.Callee", StringComparison.Ordinal));
+        await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
+    }
+
+    [TestMethod]
+    public async Task AGoto_LoadsWhatIsSavedFirst()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var order = new List<string>();
+        session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
+        session.Debugging.When(debugging => debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())).Do(_ => order.Add("goto"));
+        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true }));
+
+        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 });
+
+        CollectionAssert.AreEqual(new[] { "reload", "goto" }, order.ToArray());
+    }
+
+    // what is saved can't be gone on with - a file that can't be read, a module the host could not load, one renamed - or could not be loaded at all: the client
+    // is refused, with why, and told it, and the program waits on the code it had.
+    [TestMethod]
+    [DataRow(false, DisplayName = "what the reload says")]
+    [DataRow(true, DisplayName = "a reload that fails")]
+    public async Task GoingOn_WithSavedCodeThatCannotBeLoaded_IsRefused_WithWhy(bool throws)
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        if (throws)
+        {
+            session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns<Task<string?>>(_ => throw new IOException("the disk is gone"));
+        }
+        else
+        {
+            session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns("Prog.bas can't be read");
+        }
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
+
+        var why = throws ? "the disk is gone" : "Prog.bas can't be read";
+        StringAssert.Contains(refusal.Message, why);
+        StringAssert.Contains((await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.StandardError)).Output, why);
+        await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
+    }
+
+    // two requests to go on, the second while the first is loading what is saved: the second loads, checks and goes on once the first has started the program.
+    // The handlers are asked directly, so that the second is in the adapter before the first is let go: what a request does before it waits is done by the time
+    // its handler returns the task.
+    [TestMethod]
+    public async Task TwoRequestsToGoOn_LoadCheckAndGoOn_OneAfterTheOther()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var order = new List<string>();
+        var release = new TaskCompletionSource();
+        session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            bool first;
+            lock (order)
+            {
+                order.Add("reload");
+                first = order.Count == 1;
+            }
+
+            if (first)
+            {
+                await release.Task;
+            }
+
+            return (string?)null;
+        });
+        session.Debugging.ResumeAsync(Arg.Any<StepKind?>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+
+        var first = session.Adapter.Handle(new ContinueArguments { ThreadId = 1 }, CancellationToken.None);
+        var second = session.Adapter.Handle(new NextArguments { ThreadId = 1 }, CancellationToken.None);
+        string[] whileHeld;
+        lock (order)
+        {
+            whileHeld = [.. order];
+        }
+
+        var secondWaited = !second.IsCompleted;
+        release.SetResult();
+        await Task.WhenAll(first, second).WaitAsync(Patience);
+
+        CollectionAssert.AreEqual(new[] { "reload" }, whileHeld, "the second does not load while the first is loading");
+        Assert.IsTrue(secondWaited, "the second waits for the first");
+        lock (order)
+        {
+            Assert.HasCount(2, order, "the second loads once the first is done with its own");
+        }
     }
 }

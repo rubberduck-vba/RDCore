@@ -24,4 +24,7 @@
   <data name="ProjectReloadedProgramRunning" xml:space="preserve">
     <value>Le fichier de projet a changé pendant qu'un programme s'exécute : les fichiers qu'il liste sont chargés, et le programme garde les modules avec lesquels il a démarré. Un module de classe que le projet a gagné devient un type une fois le programme terminé et le fichier de projet enregistré de nouveau.</value>
   </data>
+  <data name="SyncCancelled" xml:space="preserve">
+    <value>il n'a pas été chargé avant que le chargement soit interrompu</value>
+  </data>
 </root>
