@@ -317,7 +317,12 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         var opening = new TaskCompletionSource();
-        session.Workspace.OpenAsync(Arg.Any<CancellationToken>()).Returns(opening.Task);
+        var opened = new TaskCompletionSource();
+        session.Workspace.OpenAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            opened.TrySetResult();
+            return opening.Task;
+        });
         await session.StartAsync();
 
         var launching = session.LaunchAsync();
@@ -326,8 +331,8 @@ public sealed class ProgramDebugAdapterTests
             Source = new Source { Path = Path },
             Breakpoints = new Container<SourceBreakpoint>(new SourceBreakpoint { Line = 2 }),
         });
-        await Task.Delay(200);
-        Assert.IsFalse(setting.IsCompleted, "there is no workspace to set a breakpoint in yet");
+        await opened.Task.WaitAsync(Patience);
+        Assert.IsFalse(setting.IsCompleted, "the workspace is being opened, and there is none to set a breakpoint in yet");
 
         opening.SetResult();
         await launching;
@@ -365,7 +370,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await session.StartAsync();
 
-        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ConfigurationDoneArguments()).WaitAsync(TimeSpan.FromMilliseconds(500)));
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ConfigurationDoneArguments()));
     }
 
     [TestMethod]
@@ -625,8 +630,9 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
         _ = await session.NextAsync<TerminatedEvent>();
         _ = await session.SendAsync(new TerminateArguments());
-        await Task.Delay(200);
 
+        // what the adapter sent before it answered a request it answers at once has come.
+        _ = await session.SendAsync(new ThreadsArguments());
         Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
         Assert.AreEqual(0, session.Pending<ExitedEvent>().Count - 1, "the one exit that was not asked for yet");
     }
@@ -643,7 +649,9 @@ public sealed class ProgramDebugAdapterTests
 
         var output = await session.NextAsync<OutputEvent>();
         StringAssert.Contains(output.Output, "the program is running");
-        await Task.Delay(200);
+
+        // what the adapter sent before it answered a request it answers at once has come.
+        _ = await session.SendAsync(new ThreadsArguments());
         Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
     }
 

@@ -1,11 +1,13 @@
 ﻿using System.IO.Pipelines;
 using MediatR;
+using NSubstitute;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server.WorkDone;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.SDK.Client.Progress;
 using RDCore.SDK.Server.Progress;
@@ -29,12 +31,22 @@ public sealed class WorkProgressIntegrationTests
         public bool Throws { get; init; }
     }
 
+    // a request the server answers at once: once it is answered, whatever the server wrote before it is on the wire.
+    [Method("test/ping", Direction.ClientToServer)]
+    public sealed record class PingParams : IRequest<int>;
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+
     private sealed class Connected : IAsyncDisposable
     {
         public required ILanguageServer Server { get; init; }
         public required ILanguageClient Client { get; init; }
         public required WorkProgressTracker Tracker { get; init; }
         public required List<WorkProgressState> Seen { get; init; }
+
+        // the client saw work begin, and saw it end.
+        public required TaskCompletionSource Begun { get; init; }
+        public required TaskCompletionSource Ended { get; init; }
 
         // everything the server sent the client, as it was sent
         public required System.Text.StringBuilder Wire { get; init; }
@@ -48,7 +60,7 @@ public sealed class WorkProgressIntegrationTests
     }
 
     // a server whose request does its work in steps, reporting each to the reporter; and a client that tracks what it is reported.
-    private static async Task<Connected> ConnectAsync(IWorkProgressReporter reporter, bool clientSupportsProgress = true)
+    private static async Task<Connected> ConnectAsync(IWorkProgressReporter reporter)
     {
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
@@ -81,6 +93,21 @@ public sealed class WorkProgressIntegrationTests
             }
         });
 
+        var tracker = new WorkProgressTracker();
+        var seen = new List<WorkProgressState>();
+        var begun = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        tracker.Changed += state =>
+        {
+            lock (seen)
+            {
+                seen.Add(state);
+            }
+
+            (state.IsDone ? ended : begun).TrySetResult();
+        };
+
+        // the work goes on until the client has seen it begin - it was worth reporting, however long that took - and then reports its next step.
         var serverTask = OmniSharpLanguageServer.From(options => options
             .WithInput(clientToServer.Reader)
             .WithOutput(serverToClient.Writer)
@@ -88,7 +115,7 @@ public sealed class WorkProgressIntegrationTests
             {
                 using var work = reporter.BeginFor(request, "Working");
                 work.Report(new WorkProgressStep("first", 25));
-                await Task.Delay(reporter.Threshold + TimeSpan.FromMilliseconds(150), token);
+                await begun.Task.WaitAsync(Patience, token);
                 work.Report(new WorkProgressStep("second", 75));
                 if (request.Throws)
                 {
@@ -96,11 +123,8 @@ public sealed class WorkProgressIntegrationTests
                 }
 
                 return 1;
-            }), connecting.Token);
-
-        var tracker = new WorkProgressTracker();
-        var seen = new List<WorkProgressState>();
-        tracker.Changed += state => { lock (seen) { seen.Add(state); } };
+            })
+            .OnRequest<PingParams, int>("test/ping", (_, _) => Task.FromResult(0)), connecting.Token);
 
         ILanguageClient? client = null;
         var clientTask = LanguageClient.From(options =>
@@ -108,58 +132,45 @@ public sealed class WorkProgressIntegrationTests
             options
                 .WithInput(toClient.Reader)
                 .WithOutput(clientToServer.Writer)
-                .WithClientCapabilities(new ClientCapabilities { Window = new WindowClientCapabilities { WorkDoneProgress = clientSupportsProgress } });
-            if (clientSupportsProgress)
-            {
-                options
-                    .OnWorkDoneProgressCreate((request, _) =>
-                    {
-                        tracker.Track(request.Token!, client!.WorkDoneManager.Monitor(request.Token!), WorkProgressOrigin.Server);
-                        return Task.CompletedTask;
-                    });
-            }
+                .WithClientCapabilities(new ClientCapabilities { Window = new WindowClientCapabilities { WorkDoneProgress = true } })
+                .OnWorkDoneProgressCreate((request, _) =>
+                {
+                    tracker.Track(request.Token!, client!.WorkDoneManager.Monitor(request.Token!), WorkProgressOrigin.Server);
+                    return Task.CompletedTask;
+                });
         }, connecting.Token);
 
         var server = await serverTask;
         client = await clientTask;
         reporter.Attach(server.WorkDoneManager);
-        return new Connected { Server = server, Client = client, Tracker = tracker, Seen = seen, Wire = wire };
+        return new Connected { Server = server, Client = client, Tracker = tracker, Seen = seen, Begun = begun, Ended = ended, Wire = wire };
     }
 
-    private static async Task<WorkProgressState[]> SettledAsync(Connected connected)
+    // what the server wrote before it answers a request it answers at once is on the wire: it writes in order.
+    private static async Task FlushedAsync(Connected connected)
+        => await connected.Client.SendRequest(new PingParams(), CancellationToken.None).WaitAsync(Patience);
+
+    // what the server wrote of progress: whether it asked the client to create a token, or sent a notification to one - a message of either method, and not the
+    // words anywhere, as the capabilities it answered initialize with have them.
+    private static bool WroteProgress(Connected connected)
     {
-        // the notifications are asynchronous: the last of them is given time to arrive.
-        await Task.Delay(300);
+        lock (connected.Wire)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(connected.Wire.ToString(),
+                "\"method\"\\s*:\\s*\"(?:window/workDoneProgress/create|\\$/progress)\"");
+        }
+    }
+
+    // work that is to end: the client is waited for to see it end, and then whatever the server wrote after the end - a second one, which is what some tests
+    // count - is on the wire too.
+    private static async Task<WorkProgressState[]> EndedAsync(Connected connected)
+    {
+        await connected.Ended.Task.WaitAsync(Patience);
+        await FlushedAsync(connected);
         lock (connected.Seen)
         {
             return [.. connected.Seen];
         }
-    }
-
-    // work that is to end: its end is waited for, as long as a loaded machine takes to deliver it (a full suite running alongside took longer than a settle),
-    // and then whatever would follow it - a second end, which is what some tests count - is given its time too.
-    private static async Task<WorkProgressState[]> EndedAsync(Connected connected)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (DateTime.UtcNow < deadline && !HasEnded(connected))
-        {
-            await Task.Delay(25);
-        }
-
-        return await SettledAsync(connected);
-    }
-
-    private static bool HasEnded(Connected connected)
-    {
-        lock (connected.Seen)
-        {
-            if (connected.Seen.Count > 0 && connected.Seen[^1].IsDone)
-            {
-                return true;
-            }
-        }
-
-        return EndsOn(connected) > 0;
     }
 
     [TestMethod]
@@ -218,7 +229,7 @@ public sealed class WorkProgressIntegrationTests
         using (var work = reporter.Begin("Parsing the workspace"))
         {
             work.Report(new WorkProgressStep("Module1", 50));
-            await Task.Delay(200);
+            await connected.Begun.Task.WaitAsync(Patience);
         }
 
         await EndedAsync(connected);
@@ -240,12 +251,12 @@ public sealed class WorkProgressIntegrationTests
         var reporter = new WorkProgressReporter(TimeSpan.Zero);
         await using var connected = await ConnectAsync(reporter);
 
+        // the token is created, and the work begun on it, before the steps are reported to it.
         using (var work = reporter.Begin("Parsing the workspace"))
         {
-            await Task.Delay(200);
+            await connected.Begun.Task.WaitAsync(Patience);
             work.Report(new WorkProgressStep("Module1 (1 of 2)", 0));
             work.Report(new WorkProgressStep("Module2 (2 of 2)", 50));
-            await Task.Delay(100);
         }
 
         var seen = await EndedAsync(connected);
@@ -266,7 +277,8 @@ public sealed class WorkProgressIntegrationTests
             work.Report(new WorkProgressStep("done already", 100));
         }
 
-        Assert.AreEqual(0, (await SettledAsync(connected)).Length, "no token is created, and nothing flickers in and out at the client");
+        await FlushedAsync(connected);
+        Assert.IsFalse(WroteProgress(connected), "no token is created, and nothing flickers in and out at the client");
     }
 
     [TestMethod]
@@ -282,18 +294,21 @@ public sealed class WorkProgressIntegrationTests
         Assert.IsTrue(seen.Length > 0 && seen[^1].IsDone, "progress completion is always reported");
     }
 
+    // OmniSharp's client says it shows progress whatever it is configured to say, as it can: a client that does not is a server whose manager says so.
     [TestMethod]
-    public async Task AClientThatDoesNotShowProgress_IsReportedNothing()
+    public void AClientThatDoesNotShowProgress_IsReportedNothing()
     {
+        var manager = Substitute.For<IServerWorkDoneManager>();
+        manager.IsSupported.Returns(false);
         var reporter = new WorkProgressReporter(TimeSpan.Zero);
-        await using var connected = await ConnectAsync(reporter, clientSupportsProgress: false);
+        reporter.Attach(manager);
 
-        using (reporter.Begin("Indexing"))
+        using (var work = reporter.Begin("Indexing"))
         {
-            await Task.Delay(100);
+            work.Report(new WorkProgressStep("Module1", 50));
         }
 
-        Assert.AreEqual(0, (await SettledAsync(connected)).Length);
+        Assert.AreEqual(0, manager.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(IServerWorkDoneManager.Create)), "no token is created");
     }
 
     [TestMethod]
