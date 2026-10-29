@@ -105,6 +105,11 @@ internal class CoreDiagnosticsApp(
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnmatchedEventHandlerAnalyzer>();
+
+        // what RD-VBA does not host: the code of a host's document, which is analyzed and does not run.
+        services.AddSingleton<IModuleAnalyzer, HostedDocumentCodeAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, DocumentModuleHostAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplementsInDocumentModuleAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UseMeaningfulIdentifierNamesAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, HungarianNotationAnalyzer>();
     }

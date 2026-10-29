@@ -38,9 +38,10 @@ internal static class ExpressionFactDescriber
             case SimpleNameExpressionNode name:
             {
                 var symbol = context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol;
+                var document = NamesAHostedDocument(context, name, symbol) ? ValueExpressionSemanticFlags.HostedDocumentName : 0;
                 return symbol is null
-                    ? new(expression.Identity, expression.Location, type, ExpressionClassification.Unknown, null, 0, error)
-                    : new(expression.Identity, expression.Location, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName)
+                    ? new(expression.Identity, expression.Location, type, ExpressionClassification.Unknown, null, document, error)
+                    : new(expression.Identity, expression.Location, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName) | document
                         | (Expressions.SimpleNameExpressionStaticSemantics.IgnoresTypeCharacter(name, symbol) ? ValueExpressionSemanticFlags.IgnoredTypeCharacter : 0), error);
             }
 
@@ -104,6 +105,12 @@ internal static class ExpressionFactDescriber
             && (parameter.ResolvedType is not VBVariantType || parameter.DefaultValue is not null)
                 ? ValueExpressionSemanticFlags.IsMissingAlwaysFalse
                 : 0;
+
+    // a name that resolves to nothing, or to the variable it declares by being named, written as a document module's: MS-VBA's host makes it the document, and
+    // RD-VBA hosts none (ValueExpressionSemanticFlags.HostedDocumentName). A name the code declares as its own is its own, whatever modules there are.
+    private static bool NamesAHostedDocument(StaticEvaluationContext context, SimpleNameExpressionNode name, Symbol? symbol)
+        => (symbol is null || symbol.GetProperty(SymbolProperties.ImplicitlyDeclared) || symbol is VBLocalVariableSymbol { DeclaredBy: var declared } && declared.IsImplicit())
+            && context.Resolver.ResolveType(name.IdentifierName, ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol { IsDocument: true };
 
     private static ExpressionFact DescribeMember(
         StaticEvaluationContext context, IExpressionFactSink facts, ExpressionNode? owner, string memberName, VBType? type,

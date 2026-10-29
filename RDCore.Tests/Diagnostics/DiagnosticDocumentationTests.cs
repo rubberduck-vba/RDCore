@@ -137,12 +137,16 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.UnmatchedEventHandler, 407),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
+        (RDCoreDiagnosticId.HostedDocumentCode, 1005),
+        (RDCoreDiagnosticId.UnsupportedDocumentModule, 1006),
+        (RDCoreDiagnosticId.HostLibraryNotReferenced, 1007),
         (RDCoreDiagnosticId.SetThroughACallFails, 11012),
         (RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow, 11018),
         (RDCoreDiagnosticId.IgnoredTypeCharacter, 11019),
         (RDCoreDiagnosticId.ProcedureConstantLength, 11021),
         (RDCoreDiagnosticId.ReDimOfAnImplicitVariant, 11022),
         (RDCoreDiagnosticId.ProcedureTooLarge, 11023),
+        (RDCoreDiagnosticId.ImplementsInDocumentModule, 11024),
     ];
 
     [TestMethod]

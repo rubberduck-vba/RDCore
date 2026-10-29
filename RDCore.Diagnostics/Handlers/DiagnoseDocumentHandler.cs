@@ -26,10 +26,13 @@ internal sealed class DiagnoseDocumentHandler(
             diagnosticList.AddRange(payload.ParseResult.SyntaxErrors.Select(diagnostics.FromVBSyntaxError));
 
             // what the host's static pass found wrong with the code, which is the language's to say and not an analyzer's: a compile error is an error,
+            // but at a name of a host's document, which RD-VBA does not host: what is said there is why it names nothing (RDC01005), and not only that it does not.
             if (payload.Semantics is { } semantics)
             {
+                var documentNames = Analyzers.HostedDocumentCodeAnalyzer.References(semantics).Select(fact => fact.Location.Range).ToHashSet();
                 diagnosticList.AddRange(semantics.DeclarationErrors
                     .Concat(semantics.Procedures.SelectMany(procedure => procedure.CompileErrors))
+                    .Where(error => !(error.Id == VBCompileErrorId.VariableNotDefined && documentNames.Contains(error.Location.Range)))
                     .Select(error => diagnostics.FromVBCompileError(error.ToInfo())));
             }
         }

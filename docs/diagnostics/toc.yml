@@ -440,6 +440,12 @@
   href: rdc01001.md
 - name: RDC01002 — Hungarian notation
   href: rdc01002.md
+- name: RDC01005 — Hosted document code
+  href: rdc01005.md
+- name: RDC01006 — Unsupported document module
+  href: rdc01006.md
+- name: RDC01007 — Host library not referenced
+  href: rdc01007.md
 - name: RDC11005 — Bitwise operator
   href: rdc11005.md
 - name: RDC11006 — Ambiguous concatenation
@@ -470,5 +476,7 @@
   href: rdc11022.md
 - name: RDC11023 — Procedure MS-VBA refuses as too large
   href: rdc11023.md
+- name: RDC11024 — Implements in a document module
+  href: rdc11024.md
 - name: RDC20001 — Edit not applied to the waiting program
   href: rdc20001.md
