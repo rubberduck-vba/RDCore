@@ -122,7 +122,26 @@
 {0}</value>
   </data>
   <data name="ResumeRefusedForEdits" xml:space="preserve">
-    <value>Le programme ne peut pas continuer avec les modifications faites pendant son interruption; exécutez-le de nouveau pour en tenir compte :
+    <value>Le programme ne peut pas continuer avec les modifications faites pendant son interruption ; exécutez-le de nouveau pour en tenir compte :
 {0}</value>
+  </data>
+  <data name="EditNamed" xml:space="preserve">
+    <value>{0} : {1}</value>
+  </data>
+  <data name="SyncCancelled" xml:space="preserve">
+    <value>il n'a pas été chargé avant que le chargement soit interrompu</value>
+  </data>
+  <data name="ResumeRefusedForUnloaded" xml:space="preserve">
+    <value>Le programme ne peut pas continuer : le code enregistré de ces modules n'a pas pu être chargé, et il est interrompu sur le code qu'il avait :
+{0}</value>
+  </data>
+  <data name="ResumeRefusedForUnreadable" xml:space="preserve">
+    <value>Le programme ne peut pas continuer : {0} ne peut pas être lu ({1}), et il est interrompu sur le code qu'il avait.</value>
+  </data>
+  <data name="ResumeRefusedForRenamed" xml:space="preserve">
+    <value>Le programme ne peut pas continuer : le module {0} s'appelle maintenant {1} ; exécutez-le de nouveau pour en tenir compte.</value>
+  </data>
+  <data name="ResumeRefusedForReload" xml:space="preserve">
+    <value>Le programme ne peut pas continuer : le code enregistré n'a pas pu être chargé ({0}), et il est interrompu sur le code qu'il avait.</value>
   </data>
 </root>

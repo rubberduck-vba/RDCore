@@ -106,9 +106,12 @@ internal sealed class ProgramDebugAdapter(
     private ExecuteSessionResult? _stoppedError;
     private ErrorBreakMode _errorBreak;
 
-    // an edit was loaded while the program waited, which it goes on with; and whether the client is told that what it shows of where the program was is not so.
+    // an edit was loaded while the program waited, which it goes on with, and its next stop is told as invalidating what the client showed; and whether the client
+    // takes that. One request at a time has the program go on.
     private bool _editedWhileWaiting;
+    private bool _invalidateOnStop;
     private bool _invalidatedSupported;
+    private readonly SemaphoreSlim _going = new(1, 1);
 
     private sealed record VariableScope(int Frame, HostVariableScope Scope, int Reference);
 
@@ -370,34 +373,64 @@ internal sealed class ProgramDebugAdapter(
     // what the client shows of where it was - its frames, its variables - may not be what it is: it is told so.
     private async Task ResumeAsync(StepKind? step, CancellationToken token)
     {
-        await workspace.ReloadChangedAsync(token);
-        await editStatus.CheckAsync(token);
-        if (editStatus.Current.Edits is { Length: > 0 } edits)
+        // one request at a time loads, checks and has the program go on: a second one does not check the edits while the first is loading them.
+        await _going.WaitAsync(token);
+        try
         {
-            var refused = string.Format(DebuggerMessages.ResumeRefusedForEdits, Listed(edits));
-            Say(refused + "\n", OutputEventCategory.StandardError);
-            throw Refusal(refused);
-        }
-
-        bool edited;
-        lock (_sync)
-        {
-            (edited, _editedWhileWaiting) = (_editedWhileWaiting, false);
-        }
-
-        Resume(step);
-        if (edited && _invalidatedSupported)
-        {
-            _server!.SendInvalidated(new InvalidatedEvent
+            await LoadSavedAsync(token);
+            await editStatus.CheckAsync(token);
+            if (editStatus.Current.Edits is { Length: > 0 } edits)
             {
-                Areas = new Container<InvalidatedAreas>(InvalidatedAreas.Stacks, InvalidatedAreas.Variables),
-                ThreadId = ThreadId,
-            });
+                Refuse(string.Format(DebuggerMessages.ResumeRefusedForEdits, Listed(edits)));
+            }
+
+            // where the program next waits is told as not what the client showed of it before, when the code it goes on with is not the code it waited in.
+            lock (_sync)
+            {
+                (_invalidateOnStop, _editedWhileWaiting) = (_editedWhileWaiting, false);
+            }
+
+            Resume(step);
+        }
+        finally
+        {
+            _going.Release();
         }
     }
 
+    // the edits saved while the program waits, loaded: a program that can't go on with what is saved - or whose saved code could not be loaded at all - is refused,
+    // and waits on the code it had.
+    private async Task LoadSavedAsync(CancellationToken token)
+    {
+        string? refused;
+        try
+        {
+            refused = await workspace.ReloadChangedAsync(token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "❌ The saved code could not be loaded.");
+            refused = string.Format(DebuggerMessages.ResumeRefusedForReload, exception.Message);
+        }
+
+        if (refused is not null)
+        {
+            Refuse(refused);
+        }
+    }
+
+    // the client is answered the refusal, and told it.
+    private void Refuse(string refused)
+    {
+        Say(refused + "\n", OutputEventCategory.StandardError);
+        throw Refusal(refused);
+    }
+
     // each edit on a line of its own, as the user names it, and why.
-    private static string Listed(IEnumerable<HostDebugEdit> edits) => string.Join("\n", edits.Select(edit => $"  {edit.Name}: {edit.Reason}"));
+    private static string Listed(IEnumerable<HostDebugEdit> edits) => Listed(edits.Select(edit => (edit.Name, edit.Reason)));
+
+    private static string Listed(IEnumerable<(string Name, string Reason)> items)
+        => string.Join("\n", items.Select(item => "  " + string.Format(DebuggerMessages.EditNamed, item.Name, item.Reason)));
 
     public async Task<PauseResponse> Handle(PauseArguments request, CancellationToken cancellationToken)
     {
@@ -489,11 +522,22 @@ internal sealed class ProgramDebugAdapter(
     {
         bool stepped;
         bool paused;
+        bool invalidate;
         lock (_sync)
         {
-            (stepped, paused) = (_stepped, _paused);
-            (_stepped, _paused) = (false, false);
+            (stepped, paused, invalidate) = (_stepped, _paused, _invalidateOnStop);
+            (_stepped, _paused, _invalidateOnStop) = (false, false, false);
             _stoppedError = result.ErrorNumber != 0 ? result : null;
+        }
+
+        // the program went on with code that is not the code it waited in: the frames and the variables the client showed of it are not where they were.
+        if (invalidate && _invalidatedSupported)
+        {
+            _server!.SendInvalidated(new InvalidatedEvent
+            {
+                Areas = new Container<InvalidatedAreas>(InvalidatedAreas.Stacks, InvalidatedAreas.Variables),
+                ThreadId = ThreadId,
+            });
         }
 
         // a program that waits where an error was raised says so, whatever it was doing.
@@ -730,22 +774,43 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<GotoResponse> Handle(GotoArguments request, CancellationToken cancellationToken)
     {
-        // a point moved to is in the code as it is saved, which the host checks the edits against as it does when the program goes on.
-        await workspace.ReloadChangedAsync(cancellationToken);
-        var moved = await debugging.GotoAsync(ToLine(request.TargetId), label: null, cancellationToken);
-        if (!moved.Moved)
+        // a point moved to is in the code as it is saved, which the host checks the edits against as it does when the program goes on: one request at a time.
+        await _going.WaitAsync(cancellationToken);
+        try
         {
-            throw Refusal(moved.Reason ?? DebuggerMessages.CannotGoOnFromThere);
-        }
+            await LoadSavedAsync(cancellationToken);
+            var moved = await debugging.GotoAsync(ToLine(request.TargetId), label: null, cancellationToken);
+            await editStatus.CheckAsync(cancellationToken);
+            if (!moved.Moved)
+            {
+                throw Refusal(moved.Reason ?? DebuggerMessages.CannotGoOnFromThere);
+            }
 
-        // moving the point is not running: the program waits still, and its client is told where.
-        lock (_sync)
+            // moving the point is not running: the program waits still, and its client is told where - and that what it showed of it is not so, when it waits
+            // in code it did not wait in.
+            bool edited;
+            lock (_sync)
+            {
+                _references.Clear();
+                (edited, _editedWhileWaiting) = (_editedWhileWaiting, false);
+            }
+
+            if (edited && _invalidatedSupported)
+            {
+                _server!.SendInvalidated(new InvalidatedEvent
+                {
+                    Areas = new Container<InvalidatedAreas>(InvalidatedAreas.Stacks, InvalidatedAreas.Variables),
+                    ThreadId = ThreadId,
+                });
+            }
+
+            _server!.SendStopped(new StoppedEvent { Reason = StoppedEventReason.Goto, ThreadId = ThreadId, AllThreadsStopped = true });
+            return new GotoResponse();
+        }
+        finally
         {
-            _references.Clear();
+            _going.Release();
         }
-
-        _server!.SendStopped(new StoppedEvent { Reason = StoppedEventReason.Goto, ThreadId = ThreadId, AllThreadsStopped = true });
-        return new GotoResponse();
     }
 
     // ---- over ----

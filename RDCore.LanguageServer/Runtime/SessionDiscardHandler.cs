@@ -17,7 +17,8 @@ namespace RDCore.LanguageServer.Runtime;
 /// </remarks>
 internal sealed class SessionDiscardHandler(
     ISymbolSyncService symbols,
-    IPlatformClientCapabilitiesService clientCapabilities)
+    IPlatformClientCapabilitiesService clientCapabilities,
+    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null)
     : RDCoreRequestHandler<DiscardSessionParams, DiscardSessionResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
@@ -31,6 +32,14 @@ internal sealed class SessionDiscardHandler(
                 $"The client did not advertise the '{nameof(SessionDiscard)}' platform capability.");
         }
 
-        return await symbols.DiscardModuleAsync(request.ModuleName, token, request.EndProgram);
+        var discarded = await symbols.DiscardModuleAsync(request.ModuleName, token, request.EndProgram);
+
+        // a program the discard ended has no edits it does not have.
+        if (request.EndProgram && editStatus is not null)
+        {
+            await editStatus.CheckAsync(token);
+        }
+
+        return discarded;
     }
 }

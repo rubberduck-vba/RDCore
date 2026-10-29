@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
+using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Declarations;
@@ -26,13 +27,18 @@ internal sealed class PlatformDebugWorkspace(
     IParsingClientService parsing,
     ISymbolSyncService symbols,
     IWorkspaceReloadService reload,
+    System.IO.Abstractions.IFileSystem fileSystem,
     IOptions<SdkAppOptions> options,
     ILogger<PlatformDebugWorkspace> logger) : IDebugWorkspace
 {
     private readonly TaskCompletionSource<string> _lost = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly CancellationTokenSource _lifetime = new();
-    private readonly Dictionary<string, (string Module, Uri Document)> _byPath = new(PathComparer);
-    private readonly Dictionary<string, string> _byModule = new(StringComparer.OrdinalIgnoreCase);
+
+    // which file is which module, and which module is which file: made anew, and swapped whole, as the program goes on - the requests of a client that read them
+    // meanwhile read one or the other, never half of each.
+    private sealed record class Maps(IReadOnlyDictionary<string, (string Module, Uri Document)> ByPath, IReadOnlyDictionary<string, string> ByModule);
+
+    private Maps _maps = new(new Dictionary<string, (string, Uri)>(), new Dictionary<string, string>());
 
     // the paths of the files of a Windows workspace are not case-sensitive, and a client is no more careful than the file system is about which case it uses.
     private static StringComparer PathComparer => WorkspacePaths.Comparer;
@@ -88,11 +94,11 @@ internal sealed class PlatformDebugWorkspace(
         }
     }
 
-    // a module is named by its source (Attribute VB_Name), the name of the file when the source does not say - as the symbols of the workspace are defined.
-    private void MapDocuments()
+    // a module is named by its source (Attribute VB_Name), the name of the file when the source does not say - as the symbols of the workspace are defined. The
+    // modules that are named otherwise than they were, by the file they are.
+    private IReadOnlyList<(string Was, string Is)> MapDocuments()
     {
-        _byPath.Clear();
-        _byModule.Clear();
+        var (byPath, byModule) = (new Dictionary<string, (string Module, Uri Document)>(PathComparer), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         foreach (var document in documents.GetAllDocuments())
         {
             var uri = document.Id.Uri.ToUri();
@@ -103,29 +109,35 @@ internal sealed class PlatformDebugWorkspace(
 
             var module = parse.SyntaxTree.GetDeclaredName() ?? document.Name;
             var path = Path.GetFullPath(document.Id.Uri.GetFileSystemPath());
-            _byPath[path] = (module, uri);
-            _byModule[module] = path;
+            byPath[path] = (module, uri);
+            byModule[module] = path;
         }
+
+        var was = Interlocked.Exchange(ref _maps, new Maps(byPath, byModule));
+        return [.. byPath
+            .Where(entry => was.ByPath.TryGetValue(entry.Key, out var before) && !string.Equals(before.Module, entry.Value.Module, StringComparison.OrdinalIgnoreCase))
+            .Select(entry => (was.ByPath[entry.Key].Module, entry.Value.Module))];
     }
 
     public bool TryGetModule(string path, out string moduleName)
     {
         // a client writes a path as its platform does, and the workspace has them as the file system does.
-        var found = _byPath.TryGetValue(Path.GetFullPath(path), out var entry);
+        var found = Volatile.Read(ref _maps).ByPath.TryGetValue(Path.GetFullPath(path), out var entry);
         moduleName = entry.Module ?? string.Empty;
         return found;
     }
 
     public bool TryGetPath(string moduleName, out string path)
     {
-        var found = _byModule.TryGetValue(moduleName, out var file);
+        var found = Volatile.Read(ref _maps).ByModule.TryGetValue(moduleName, out var file);
         path = file ?? string.Empty;
         return found;
     }
 
     public async Task<ExecuteSessionResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
     {
-        if (!_byModule.TryGetValue(moduleName, out var path) || !_byPath.TryGetValue(path, out var entry)
+        var maps = Volatile.Read(ref _maps);
+        if (!maps.ByModule.TryGetValue(moduleName, out var path) || !maps.ByPath.TryGetValue(path, out var entry)
             || !parsing.TryGetCached(entry.Document, out var parse))
         {
             return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
@@ -146,18 +158,52 @@ internal sealed class PlatformDebugWorkspace(
         }, token);
     }
 
-    public async Task ReloadChangedAsync(CancellationToken token)
+    public async Task<string?> ReloadChangedAsync(CancellationToken token)
     {
-        // the files are read and told apart from what was loaded by their text: one that was saved as it was is nothing changed.
-        Uri[] files = [.. documents.GetAllDocuments().Where(document => document.IsFile).Select(document => document.Id.Uri.ToUri())];
-        if (files.Length == 0 || await reload.ReloadFilesAsync(files, token) is not { IsUnchanged: false })
+        WorkspaceDocument[] files = [.. documents.GetAllDocuments().Where(document => document.IsFile)];
+
+        // a file that is gone, locked or can't be read is no code to go on with: the program waits on the code it had, which it is told.
+        foreach (var file in files)
         {
-            return;
+            var path = file.Id.Uri.GetFileSystemPath();
+            try
+            {
+                using var readable = fileSystem.File.OpenRead(path);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return string.Format(DebuggerMessages.ResumeRefusedForUnreadable, Path.GetFileName(path), exception.Message);
+            }
         }
 
-        // a module may be named otherwise by its source now.
-        MapDocuments();
+        // the files are read and told apart from what was loaded by their text: one that was saved as it was is nothing changed. What another request had loaded,
+        // and is loading still, is waited for too.
+        var reloaded = files.Length == 0 ? null : await reload.ReloadFilesAsync([.. files.Select(file => file.Id.Uri.ToUri())], token);
+        await reload.WhenIdleAsync(token);
+
+        // a module the host could not define or load, as its text is now, holds the code it had: it is loaded again, since nothing else would.
+        if (symbols.Unsynced.Count > 0 && reloaded is not { IsUnchanged: false })
+        {
+            await symbols.SyncWorkspaceAsync(token, replace: true);
+        }
+
+        if (symbols.Unsynced is { Count: > 0 } unsynced)
+        {
+            return string.Format(DebuggerMessages.ResumeRefusedForUnloaded,
+                string.Join("\n", unsynced.Select(module => "  " + string.Format(DebuggerMessages.EditNamed, module.Key, module.Value))));
+        }
+
+        // a module named otherwise by its source now is a module the program does not have - its breakpoints, its frames are of the name it had - until it is run
+        // again, whatever is saved meanwhile.
+        if (reloaded is { IsUnchanged: false } && MapDocuments() is [var first, ..])
+        {
+            _renamed ??= first;
+        }
+
+        return _renamed is var (was, now) ? string.Format(DebuggerMessages.ResumeRefusedForRenamed, was, now) : null;
     }
+
+    private (string Was, string Is)? _renamed;
 
     public async Task CloseAsync()
     {

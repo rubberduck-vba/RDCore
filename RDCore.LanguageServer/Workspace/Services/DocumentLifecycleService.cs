@@ -110,6 +110,7 @@ internal interface IDocumentLifecycleService
 /// <param name="wait">How the refresh waits for that long; <see cref="Task.Delay(TimeSpan, CancellationToken)"/> when not said.</param>
 /// <param name="editStatus">What the program that waits does not have of the edits made while it waits: asked once the host has an edit, before what is found
 /// of the document is.</param>
+/// <param name="reload">The changes of the workspace's files and project, which what is loaded is waited for to include (<see cref="WhenAllLoadedAsync"/>).</param>
 internal sealed class DocumentLifecycleService(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
@@ -120,7 +121,8 @@ internal sealed class DocumentLifecycleService(
     ILogger<DocumentLifecycleService> logger,
     TimeSpan? editDelay = null,
     Func<TimeSpan, CancellationToken, Task>? wait = null,
-    IEditStatusMonitor? editStatus = null) : IDocumentLifecycleService
+    IEditStatusMonitor? editStatus = null,
+    IWorkspaceReloadService? reload = null) : IDocumentLifecycleService
 {
     /// <summary>How long a refresh waits after an edit for another one when nothing else is said: a quarter of a second, a pause in typing.</summary>
     public static readonly TimeSpan EditDelay = TimeSpan.FromMilliseconds(250);
@@ -302,8 +304,8 @@ internal sealed class DocumentLifecycleService(
 
     public async Task WhenAllLoadedAsync(CancellationToken token)
     {
-        // a refresh that ends superseded leaves its document to the one that superseded it, which is waited for in turn: the wait is over once every document's
-        // latest refresh is.
+        // a refresh that ends superseded leaves its document to the one that superseded it, which is waited for in turn; and a change of the workspace's files or
+        // of its project - what the client did not edit - is loaded too. The wait is over once every document's latest refresh is, and no change is being made.
         while (true)
         {
             Refresh[] pending;
@@ -312,17 +314,24 @@ internal sealed class DocumentLifecycleService(
                 pending = [.. _refreshes.Values.Where(refresh => !refresh.Done.IsCompleted)];
             }
 
-            if (pending.Length == 0)
-            {
-                return;
-            }
-
             foreach (var refresh in pending)
             {
                 refresh.Hurry.TrySetResult();
             }
 
             await Task.WhenAll(pending.Select(refresh => refresh.Done)).WaitAsync(token);
+            if (reload is not null)
+            {
+                await reload.WhenIdleAsync(token);
+            }
+
+            lock (_refreshGate)
+            {
+                if (_refreshes.Values.All(refresh => refresh.Done.IsCompleted))
+                {
+                    return;
+                }
+            }
         }
     }
 

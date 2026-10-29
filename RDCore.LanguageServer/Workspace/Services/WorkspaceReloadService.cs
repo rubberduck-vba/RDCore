@@ -88,6 +88,13 @@ internal interface IWorkspaceReloadService
     void Stop();
 
     /// <summary>
+    /// A task that completes once no change is being made: the documents of each change read, and the environment host and the symbols what they list - those of a
+    /// change made while it waits included. What a program that waits is checked against is the workspace once it is.
+    /// </summary>
+    /// <param name="token">A token that cancels the wait, and not the changes.</param>
+    Task WhenIdleAsync(CancellationToken token);
+
+    /// <summary>
     /// Reads again the files of the project that changed outside the editor - a <c>git checkout</c>, a module exported from the VBE - and defines the workspace
     /// again when one of them is not what was loaded.
     /// </summary>
@@ -168,6 +175,32 @@ internal sealed class WorkspaceReloadService(
     private readonly object _queue = new();
     private readonly List<Pending> _waiting = [];
     private bool _draining;
+    private Task _drained = Task.CompletedTask;
+
+    /// <inheritdoc/>
+    public async Task WhenIdleAsync(CancellationToken token)
+    {
+        while (true)
+        {
+            // a change whose documents are being read has its work queued once they are: the lock of the changes is taken once it is let go.
+            await _reloading.WaitAsync(token);
+            _reloading.Release();
+
+            Task drained;
+            lock (_queue)
+            {
+                if (!_draining)
+                {
+                    return;
+                }
+
+                drained = _drained;
+            }
+
+            // a change made while the batch was done is done after it: the wait goes on until none is left.
+            await drained.WaitAsync(token);
+        }
+    }
 
     /// <inheritdoc/>
     public void Stop()
@@ -308,7 +341,7 @@ internal sealed class WorkspaceReloadService(
                 if (!_draining)
                 {
                     _draining = true;
-                    _ = Task.Run(DrainAsync);
+                    _drained = Task.Run(DrainAsync);
                 }
             }
         }

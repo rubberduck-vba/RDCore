@@ -63,6 +63,7 @@ public sealed class ProgramDebugAdapterTests
                     Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint => new HostBreakpoint(breakpoint.Line, true))],
                 }));
             Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+            Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
             EditStatus = new EditStatusMonitor(Debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
             Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, NullLogger<ProgramDebugAdapter>.Instance);
         }
@@ -1174,6 +1175,7 @@ public sealed class ProgramDebugAdapterTests
             // as the reload does once the host has the saved file: the program that waits is checked against it.
             Listing(session, CalleeLocalRemoved);
             await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
+            return (string?)null;
         });
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
@@ -1196,5 +1198,74 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 });
 
         CollectionAssert.AreEqual(new[] { "reload", "goto" }, order.ToArray());
+    }
+
+    // what is saved can't be gone on with - a file that can't be read, a module the host could not load, one renamed - or could not be loaded at all: the client
+    // is refused, with why, and told it, and the program waits on the code it had.
+    [TestMethod]
+    [DataRow(false, DisplayName = "what the reload says")]
+    [DataRow(true, DisplayName = "a reload that fails")]
+    public async Task GoingOn_WithSavedCodeThatCannotBeLoaded_IsRefused_WithWhy(bool throws)
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        if (throws)
+        {
+            session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns<Task<string?>>(_ => throw new IOException("the disk is gone"));
+        }
+        else
+        {
+            session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns("Prog.bas can't be read");
+        }
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ContinueArguments { ThreadId = 1 }));
+
+        var why = throws ? "the disk is gone" : "Prog.bas can't be read";
+        StringAssert.Contains(refusal.Message, why);
+        StringAssert.Contains((await session.NextAsync<OutputEvent>(output => output.Category == OutputEventCategory.StandardError)).Output, why);
+        await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
+    }
+
+    // two requests to go on, the second while the first is loading what is saved: the second loads, checks and goes on once the first has started the program.
+    [TestMethod]
+    public async Task TwoRequestsToGoOn_LoadCheckAndGoOn_OneAfterTheOther()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var order = new List<string>();
+        var (loading, release) = (new TaskCompletionSource(), new TaskCompletionSource());
+        var reloads = 0;
+        session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            lock (order)
+            {
+                order.Add("reload");
+            }
+
+            if (Interlocked.Increment(ref reloads) == 1)
+            {
+                loading.TrySetResult();
+                await release.Task;
+            }
+
+            return (string?)null;
+        });
+        session.Debugging.ResumeAsync(Arg.Any<StepKind?>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+
+        var first = session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        await loading.Task.WaitAsync(Patience);
+        var second = session.SendAsync(new NextArguments { ThreadId = 1 });
+        lock (order)
+        {
+            order.Add("first let go");
+        }
+
+        release.SetResult();
+        await Task.WhenAll(first, second);
+
+        lock (order)
+        {
+            CollectionAssert.AreEqual(new[] { "reload", "first let go", "reload" }, order.ToArray(), "the second loads once the first is done with its own");
+        }
     }
 }

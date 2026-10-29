@@ -180,12 +180,15 @@ internal sealed class SessionDebugEvaluateHandler(IProgramDebugService debugging
 /// Handles <c>rdcore/session/debug/execute</c>: has the component that owns the runtime session run the statement a client wrote in an activation of the program that
 /// waits.
 /// </summary>
-internal sealed class SessionDebugExecuteHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
+/// <remarks>A statement typed at the stop may end the program (<c>End</c>): what it does not have of the edits is asked again once it is answered.</remarks>
+internal sealed class SessionDebugExecuteHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus)
     : RDCoreRequestHandler<SessionDebugExecuteParams, HostDebugEvaluateResult>
 {
-    protected override Task<HostDebugEvaluateResult> HandleAsync(SessionDebugExecuteParams request, CancellationToken token)
+    protected override async Task<HostDebugEvaluateResult> HandleAsync(SessionDebugExecuteParams request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
-        return debugging.ExecuteAsync(request.FrameId, request.Statement, token);
+        var result = await debugging.ExecuteAsync(request.FrameId, request.Statement, token);
+        await editStatus.CheckAsync(token);
+        return result;
     }
 }

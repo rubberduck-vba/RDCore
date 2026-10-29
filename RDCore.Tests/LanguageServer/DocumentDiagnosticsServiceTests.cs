@@ -184,6 +184,49 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.IsFalse(result.Diagnostics.Any(diagnostic => diagnostic.Code?.String == "RDC20001"));
     }
 
+    private async Task<EditStatusMonitor> OneEditListedAsync()
+    {
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        {
+            Suspended = true,
+            Edits = [new HostDebugEdit { Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+        await editStatus.CheckAsync(CancellationToken.None);
+        return editStatus;
+    }
+
+    // a client pushed to is published the static phase, then the static and runtime phases together: the edits are told by the static phase, once.
+    [TestMethod]
+    [DataRow(AnalysisPhase.Static, 1)]
+    [DataRow(AnalysisPhase.Runtime, 0)]
+    [DataRow(AnalysisPhase.All, 1)]
+    public async Task TheEditsTheProgramThatWaitsDoesNotHave_AreToldByTheStaticPhase(AnalysisPhase phase, int told)
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+
+        var result = await Sut(await OneEditListedAsync()).GetPhaseAsync(document.Id.Uri.ToUri(), phase, CancellationToken.None);
+
+        Assert.AreEqual(told, result.Diagnostics.Count(diagnostic => diagnostic.Code?.String == "RDC20001"));
+    }
+
+    // the edits are the server's own finding: no extension is needed for it.
+    [TestMethod]
+    public async Task TheEditsTheProgramThatWaitsDoesNotHave_AreTold_WithNoExtensionThatFindsAnything()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ProvidersAre(NonProvider());
+
+        var result = await Sut(await OneEditListedAsync()).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(1, result.Diagnostics.Count(diagnostic => diagnostic.Code?.String == "RDC20001"));
+    }
+
     // a procedure another module calls, removed: the findings of the module that calls it are not what they were, though its text is.
     [TestMethod]
     public async Task AnotherModuleChanged_TheFindingsOfTheSameVersion_AreFoundAgain()

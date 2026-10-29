@@ -166,10 +166,16 @@ internal sealed class DocumentDiagnosticsService(
         // the findings are of the workspace as it is when they are looked for: one that changes while they are is another result.
         var generation = refresh.Generation;
 
+        // the edits a program that waits does not have are the server's own finding, which no extension is needed for; they are told once, by the static phase,
+        // which a client pushed to has published before the runtime phase adds to it.
+        var isHostModule = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)));
+        var tellsEdits = isHostModule && phase.HasFlag(AnalysisPhase.Static);
+
         var providers = DiagnosticsProviders();
         if (providers.Length == 0)
         {
-            return DocumentDiagnosticsResult.Fresh(version, [], generation);
+            var named = parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() ?? document.Name : document.Name;
+            return DocumentDiagnosticsResult.Fresh(version, tellsEdits ? InTheTextOf(document, [.. EditsNotApplied(document, named)]) : [], generation);
         }
 
         progress?.Report(new WorkProgressStep(ProgressMessages.Parsing, 0));
@@ -181,7 +187,6 @@ internal sealed class DocumentDiagnosticsService(
         // the host runs the primary project only: a module of another project has the static diagnostics, and none of what running it would find out - and its
         // name is never asked for, since the host may hold a module by that name that is another. A document that is no file is the client's alone, and none of the host's.
         var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
-        var isHostModule = document.IsFile && (documents.WorkspaceRoot.Length == 0 || document.Projects.Any(root => WorkspacePaths.Same(root, documents.WorkspaceRoot)));
         var semantics = isHostModule ? await SemanticsOfAsync(moduleName, phase, token) : null;
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
 
@@ -196,7 +201,7 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
 
-        IReadOnlyList<Diagnostic> found = isHostModule ? [.. Aggregate(reports), .. EditsNotApplied(document, moduleName)] : Aggregate(reports);
+        IReadOnlyList<Diagnostic> found = tellsEdits ? [.. Aggregate(reports), .. EditsNotApplied(document, moduleName)] : Aggregate(reports);
         return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, found), generation);
     }
 
@@ -215,7 +220,7 @@ internal sealed class DocumentDiagnosticsService(
             var range = edit.Range ?? new SourceRange(new SourcePosition(0, 0), new SourcePosition(0, firstLine));
             // the reason is the host's, in the language of the user interface.
             yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(RDCoreDiagnosticId.EditAppliesOnRestart, range, DiagnosticSeverity.Information,
-                $"{edit.Name}: {edit.Reason}"));
+                string.Format(DebuggerMessages.EditNamed, edit.Name, edit.Reason)));
         }
     }
 

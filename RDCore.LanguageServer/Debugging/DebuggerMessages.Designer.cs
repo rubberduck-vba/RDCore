@@ -392,5 +392,59 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("ResumeRefusedForEdits", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: {1}.
+        /// </summary>
+        internal static string EditNamed {
+            get {
+                return ResourceManager.GetString("EditNamed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to it was not loaded before the loading was stopped.
+        /// </summary>
+        internal static string SyncCancelled {
+            get {
+                return ResourceManager.GetString("SyncCancelled", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: the saved code of these modules could not be loaded, and it waits on the code it had: {0}.
+        /// </summary>
+        internal static string ResumeRefusedForUnloaded {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForUnloaded", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: {0} can't be read ({1}), and it waits on the code it had..
+        /// </summary>
+        internal static string ResumeRefusedForUnreadable {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForUnreadable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: module {0} is named {1} now; run it again to pick that up..
+        /// </summary>
+        internal static string ResumeRefusedForRenamed {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForRenamed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program can't go on: the saved code could not be loaded ({0}), and it waits on the code it had..
+        /// </summary>
+        internal static string ResumeRefusedForReload {
+            get {
+                return ResourceManager.GetString("ResumeRefusedForReload", resourceCulture);
+            }
+        }
     }
 }

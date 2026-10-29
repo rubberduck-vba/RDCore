@@ -210,7 +210,7 @@ internal sealed class CoreLanguageServerApp(
     {
         // a client that pulls diagnostics is not pushed them as well: it would show each finding twice.
         publisher.Attach(server, enabled: request.Capabilities?.TextDocument?.Diagnostic is null);
-        // the findings the edits a program that waits does not have are of, pushed again as the list changes.
+        // the findings of the modules a waiting program has edits it can't take in are pushed again whenever those edits change.
         editStatusPublication.Attach();
         // what the client shows of each document is refreshed once the workspace changed under it, as the client says it is asked to.
         refresh.Attach(server);
