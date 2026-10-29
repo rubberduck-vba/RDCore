@@ -15,7 +15,7 @@ internal sealed class ScriptedKeys(bool interactive = true) : IConsoleKeys
     public static ConsoleKeyInfo Key(ConsoleKey key, bool shift = false, bool control = false) => new('\0', key, shift, false, control);
 
     public static ConsoleKeyInfo Char(char character)
-        => new(character, char.IsLetter(character) ? Enum.Parse<ConsoleKey>(char.ToUpperInvariant(character).ToString()) : ConsoleKey.NoName, char.IsUpper(character), false, false);
+        => new(character, char.IsAsciiLetter(character) ? Enum.Parse<ConsoleKey>(char.ToUpperInvariant(character).ToString()) : ConsoleKey.NoName, char.IsUpper(character), false, false);
 
     public ScriptedKeys Press(params ConsoleKeyInfo[] keys)
     {

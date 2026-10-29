@@ -155,8 +155,8 @@ server asks (`workspace/configuration`) for the section `rdcore`, which holds `F
 |No|No|`4`.|
 |Yes|Either|`IndentSpaces`.|
 
-A change that is still being followed when a newer one arrives is dropped, and so is one that is being followed when the server shuts down. The formatter does not exist
-yet: when it does, it indents with `Formatting.IndentSpaces`, and not with the `tabSize` of the options of a request to format.
+A change that is still being followed when a newer one arrives is dropped, and so is one that is being followed when the server shuts down. The formatter indents
+with `Formatting.IndentSpaces`, and not with the `tabSize` of the options of a request to format ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#textdocumentformatting-and-textdocumentrangeformatting)).
 
 A client that wants its editor to agree with the setting sets one from the other in its own configuration: the platform's shell has no editor, and a client with an
 editor (HexIDE, a VS Code extension) maps `editor.tabSize` for the VBA language to `Formatting.IndentSpaces`, or the other way.

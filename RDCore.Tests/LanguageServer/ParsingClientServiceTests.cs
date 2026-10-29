@@ -261,4 +261,128 @@ public sealed class ParsingClientServiceTests
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(original.SyntaxTree!.Children.Length, result.SyntaxTree!.Children.Length);
     }
+
+    // a parser whose answers are held until the test gives them, with the token each request was sent with.
+    private static List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> HeldAnswers(IRDCoreClientApp parser)
+    {
+        var requests = new List<(TaskCompletionSource<PlatformJsonEnvelope>, CancellationToken)>();
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(call =>
+        {
+            var answer = new TaskCompletionSource<PlatformJsonEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (requests)
+            {
+                requests.Add((answer, call.ArgAt<CancellationToken>(1)));
+            }
+
+            return answer.Task;
+        });
+        return requests;
+    }
+
+    private static async Task WhenAsked(List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> requests, int count)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            lock (requests)
+            {
+                if (requests.Count >= count)
+                {
+                    return;
+                }
+            }
+
+            Assert.IsLessThan(deadline, DateTime.UtcNow, "the parser was not asked");
+            await Task.Delay(5);
+        }
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfAVersionAlreadyBeingParsed_WaitsForThatParse_AndAsksNoOther()
+    {
+        var (sut, parser, documents) = Build();
+        var requests = HeldAnswers(parser);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub"));
+
+        var first = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        var second = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 1);
+        requests[0].Answer.SetResult(SampleEnvelope);
+
+        // one tree, and so one set of node identities: the ones the host is defined from, whichever caller asked first.
+        Assert.AreSame(await first, await second);
+        Assert.AreSame((await first).SyntaxTree, (await second).SyntaxTree);
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfADocumentOpenedWithTheVersionItWasReadFromDiskWith_ParsesTheClientsText()
+    {
+        // the client opens a document with its own text - a buffer it restored - and the version the workspace read it from disk with, while the disk text's
+        // parse is still out: what is parsed and kept for that version is the client's text.
+        var (sut, parser, documents) = Build();
+        var requests = HeldAnswers(parser);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Disk()\r\nEnd Sub"));
+
+        var fromDisk = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 1);
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Client()\r\nEnd Sub"));
+        sut.Invalidate(uri);
+        var opened = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 2);
+
+        Assert.IsTrue(requests[0].Token.IsCancellationRequested, "the disk text's parse was told to stop");
+        requests[0].Answer.TrySetCanceled(requests[0].Token);
+        requests[1].Answer.SetResult(SampleEnvelope);
+        Assert.AreSame(await opened, await fromDisk, "the caller of the disk text's parse is given the parse of the text the document reads now");
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
+            Arg.Is<ParseDocumentParams>(request => request.Fragment!.Contains("Client")), Arg.Any<CancellationToken>());
+        Assert.IsTrue(sut.TryGetCached(uri, 1, out var kept));
+        Assert.AreSame(await opened, kept);
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfALaterVersion_TellsTheParserToStopTheEarlierOne_WhoseCallerIsGivenTheLaterParse()
+    {
+        var (sut, parser, documents) = Build();
+        var requests = HeldAnswers(parser);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        var document = new WorkspaceDocument("Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub");
+        StubDocument(documents, uri, document);
+
+        var earlier = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 1);
+        StubDocument(documents, uri, document.WithText("Public Sub Foo()\r\n    Debug.Print 1\r\nEnd Sub"));
+        var later = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 2);
+
+        Assert.IsTrue(requests[0].Token.IsCancellationRequested, "the earlier parse was told to stop");
+        Assert.IsFalse(requests[1].Token.IsCancellationRequested);
+        requests[0].Answer.SetCanceled(requests[0].Token);
+        requests[1].Answer.SetResult(SampleEnvelope);
+        Assert.IsTrue((await later).IsSuccess);
+
+        // a superseded parse is no failure of its caller's: it is given the parse of what the document reads now, which it joins.
+        Assert.AreSame(await later, await earlier);
+        await parser.Received(2).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_ThatEveryCallerGaveUpOn_TellsTheParserToStop()
+    {
+        var (sut, parser, documents) = Build();
+        var requests = HeldAnswers(parser);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub"));
+        using var caller = new CancellationTokenSource();
+
+        var parse = sut.ParseDocumentAsync(uri, caller.Token);
+        await WhenAsked(requests, 1);
+        await caller.CancelAsync();
+
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => parse);
+        Assert.IsTrue(requests[0].Token.IsCancellationRequested);
+    }
 }

@@ -1,0 +1,405 @@
+using RDCore.Parsing;
+using RDCore.SDK.Formatting;
+
+namespace RDCore.Tests.Formatting;
+
+/// <summary>
+/// A line is indented a level for each body that encloses it in the syntax tree; a line the tree has no statement of is indented by its keywords; a line number
+/// stays at the start of its line, and a continued line lines up with the lines of its statement before it.
+/// </summary>
+[TestClass]
+public sealed class ModuleIndenterTests
+{
+    private static string Indented(string text, CodeFormattingOptions? options = null, int first = 0, int last = int.MaxValue)
+    {
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+        var edits = ModuleIndenter.Indent(parse, text, options ?? CodeFormattingOptions.Default, first, last);
+
+        // whatever a test expects, no edit changes what a literal or a comment says.
+        LiteralText.AssertNoEditIn(text, edits);
+        return ModuleIndenter.Apply(text, edits);
+    }
+
+    private static string Lines(params string[] lines) => string.Join("\r\n", lines);
+
+    [TestMethod]
+    public void NestedBlocks_AreALevelEach_TheirBranchesAtTheLevelOfTheBlock()
+    {
+        var text = Lines(
+            "Public Sub Test()",
+            "With Me",
+            "If a Then",
+            "For i = 1 To 2",
+            "Debug.Print i",
+            "Next",
+            "ElseIf b Then",
+            "Do While c",
+            "Loop",
+            "Else",
+            "While d",
+            "Wend",
+            "End If",
+            "End With",
+            "End Sub");
+
+        Assert.AreEqual(Lines(
+            "Public Sub Test()",
+            "    With Me",
+            "        If a Then",
+            "            For i = 1 To 2",
+            "                Debug.Print i",
+            "            Next",
+            "        ElseIf b Then",
+            "            Do While c",
+            "            Loop",
+            "        Else",
+            "            While d",
+            "            Wend",
+            "        End If",
+            "    End With",
+            "End Sub"), Indented(text));
+    }
+
+    [TestMethod]
+    public void TheLevelOfALine_IsOfSpaces_AsManyAsTheSettingSays()
+        => Assert.AreEqual(Lines("Sub A()", "  If x Then", "    y = 1", "  End If", "End Sub"),
+            Indented(Lines("Sub A()", "If x Then", "y = 1", "End If", "End Sub"), CodeFormattingOptions.Default with { IndentSpaces = 2 }));
+
+    [TestMethod]
+    public void ATab_IsReplacedBySpaces()
+        => Assert.AreEqual(Lines("Sub A()", "    x = 1", "End Sub"), Indented(Lines("Sub A()", "\tx = 1", "End Sub")));
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "indented")]
+    [DataRow(false, DisplayName = "not indented")]
+    public void WhatAnIfDirectiveGuards_IsIndented_AsTheSettingSays(bool indent)
+    {
+        var text = Lines("Sub A()", "#If DEBUG Then", "x = 1", "#Else", "x = 2", "#End If", "End Sub");
+        var body = indent ? "        " : "    ";
+
+        Assert.AreEqual(Lines("Sub A()", "    #If DEBUG Then", body + "x = 1", "    #Else", body + "x = 2", "    #End If", "End Sub"),
+            Indented(text, CodeFormattingOptions.Default with { IndentCompilerDirectives = indent }));
+    }
+
+    // a branch that is not compiled has no statements in the tree: its keywords indent it.
+    [TestMethod]
+    public void ABranchThatIsNotCompiled_IsIndentedByItsKeywords()
+    {
+        var text = Lines("Sub A()", "#If False Then", "If x Then", "y = 1", "End If", "#End If", "End Sub");
+
+        Assert.AreEqual(Lines("Sub A()", "    #If False Then", "        If x Then", "            y = 1", "        End If", "    #End If", "End Sub"), Indented(text));
+    }
+
+    [TestMethod]
+    public void AContinuedLine_LinesUpWithTheArgumentsOfItsStatement()
+        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "            2)", "End Sub"),
+            Indented(Lines("Sub A()", "x = Foo(1, _", "      2)", "End Sub")));
+
+    [TestMethod]
+    public void AContinuedLine_NotAligned_IsWhereItsStatementStarts()
+        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "    2)", "End Sub"),
+            Indented(Lines("Sub A()", "x = Foo(1, _", "      2)", "End Sub"), CodeFormattingOptions.Default with { AlignContinuations = false }));
+
+    [TestMethod]
+    public void ARange_IsGivenEditsForItsLinesOnly_TheirLevelsOfTheWholeModule()
+    {
+        var text = Lines("Sub A()", "If x Then", "y = 1", "End If", "End Sub");
+
+        Assert.AreEqual(Lines("Sub A()", "If x Then", "        y = 1", "End If", "End Sub"), Indented(text, first: 2, last: 2));
+    }
+
+    // only whitespace changes, and an edit is the run of it that changes: the indentation, and the gap before an end-of-line comment, apart.
+    [TestMethod]
+    public void AnEditOfALine_IsARunOfWhitespace_ThatIsNotWhatItIsToBe()
+    {
+        var text = Lines("Sub A()", "x = 1 ' one", "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default with { EndOfLineCommentStyle = EndOfLineCommentStyle.StandardGap });
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(1, 0, 0, "    "), new IndentationEdit(1, 5, 1, "        ") }, edits.ToArray());
+    }
+
+    [TestMethod]
+    public void AModuleIndentedAlready_IsGivenNoEdit()
+    {
+        var text = Lines("Option Explicit", "", "Public Enum Shade", "    Light", "End Enum", "", "Sub A()", "    Select Case x", "    Case 1", "        y = 1", "    End Select", "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        Assert.IsEmpty(ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default));
+    }
+
+    // as it is typed: every module a line at a time, unfinished until it is whole, has each of its lines where the whole module has it.
+    [TestMethod]
+    public void EveryModuleAsItIsTyped_HasEachLineWhereTheWholeModuleHasIt()
+    {
+        string[] indented =
+        [
+            "Option Explicit",
+            "",
+            "Private Type Point",
+            "    X As Long",
+            "End Type",
+            "",
+            "Public Function Area(ByVal a As Long, _",
+            "                     ByVal b As Long) As Long",
+            "    Dim p As Point",
+            "    If a > 0 Then",
+            "        Select Case b",
+            "        Case Is > 0",
+            "10          Area = a * b",
+            "        Case Else",
+            "            Area = 0",
+            "        End Select",
+            "    Else",
+            "        Do Until a = 0",
+            "            a = a - 1",
+            "        Loop",
+            "    End If",
+            "    With p",
+            "        .X = 1",
+            "    End With",
+            "    #If DEBUG Then",
+            "        Debug.Print Area",
+            "    #End If",
+            "End Function",
+        ];
+        var typed = indented.Select(line => line.StartsWith("10", StringComparison.Ordinal) ? "10 " + line[2..].TrimStart() : line.TrimStart()).ToArray();
+
+        for (var count = 1; count <= typed.Length; count++)
+        {
+            Assert.AreEqual(Lines(indented[..count]), Indented(Lines(typed[..count])), $"{count} lines typed");
+        }
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "Sub A()", "If x Then", "For i = 1 To 2", "y = 1" }, new[] { "Sub A()", "    If x Then", "        For i = 1 To 2", "            y = 1" },
+        DisplayName = "blocks not closed yet")]
+    [DataRow(new[] { "Sub A(", "If x Then", "y = = 1", "End If", "End Sub" }, new[] { "Sub A(", "    If x Then", "        y = = 1", "    End If", "End Sub" },
+        DisplayName = "a body the parser built nothing of")]
+    [DataRow(new[] { "Sub A()", "End If", "", "", "End Sub", "", "Sub B()", "End Sub" }, new[] { "Sub A()", "    End If", "", "", "End Sub", "", "Sub B()", "End Sub" },
+        DisplayName = "a closer of no block")]
+    [DataRow(new[] { "Sub A(", "If x Then", "y = = 1", "Else ' c", "y = = 2", "End If", "End Sub" },
+        new[] { "Sub A(", "    If x Then", "        y = = 1", "    Else                                         ' c", "        y = = 2", "    End If", "End Sub" }, DisplayName = "a branch with a comment")]
+    [DataRow(new[] { "Sub A()", "If x Then", "Print \"unterminated", "y = 1", "End If", "End Sub" },
+        new[] { "Sub A()", "    If x Then", "        Print \"unterminated", "        y = 1", "    End If", "End Sub" }, DisplayName = "a string not terminated")]
+    [DataRow(new[] { "Sub A()", "If x Then", "30 Print \"unterminated", "y = 1", "End If", "End Sub" },
+        new[] { "Sub A()", "    If x Then", "30      Print \"unterminated", "        y = 1", "    End If", "End Sub" }, DisplayName = "a string not terminated after a line number")]
+    [DataRow(new[] { "Sub A()", "If x Then", "20 Foo: y = 1", "End If", "End Sub" }, new[] { "Sub A()", "    If x Then", "20      Foo: y = 1", "    End If", "End Sub" },
+        DisplayName = "a call after a line number, which is no label")]
+    public void UnfinishedCode_IsIndentedByWhatEnclosesIt(string[] typed, string[] indented)
+        => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
+
+    // a closer whose statement is continued closes the block on the line it starts on: the lines it is continued on move with it.
+    [TestMethod]
+    public void ACloserContinuedOnMoreLines_IsAtTheLevelOfTheBlock()
+        => Assert.AreEqual(Lines("Sub A()", "    Do", "        x = 1", "    Loop Until a And _", "               b", "    y = 2", "End Sub"),
+            Indented(Lines("Sub A()", "Do", "x = 1", "Loop Until a And _", "           b", "y = 2", "End Sub")));
+
+    // as Rubberduck's indenter has it: the line that closes a block is at the block's level, wherever the closer is on it.
+    [TestMethod]
+    public void ALineWithACloserAfterItsCode_IsAtTheLevelOfTheBlock()
+        => Assert.AreEqual(Lines("Sub A()", "    If a Then", "    x = 1: End If", "    For i = 1 To 2", "    Debug.Print i: Next", "End Sub"),
+            Indented(Lines("Sub A()", "If a Then", "x = 1: End If", "For i = 1 To 2", "Debug.Print i: Next", "End Sub")));
+
+    // the empty lines between procedures are one edit, from the end of the line before them, with that line's line end; what is in a procedure is not spaced.
+    [TestMethod]
+    public void TheEmptyLinesBetweenProcedures_AreOneEditFromTheEndOfTheLineBeforeThem()
+    {
+        var text = "Sub A()\n\n\nEnd Sub\n  \n\n\nSub B()\r\nEnd Sub\r\nSub C()\r\nEnd Sub";
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default);
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(3, 7, 7, 0, "\n\n"), new IndentationEdit(8, 7, 9, 0, "\r\n\r\n") }, edits.ToArray());
+        Assert.AreEqual("Sub A()\n\n\nEnd Sub\n\nSub B()\r\nEnd Sub\r\n\r\nSub C()\r\nEnd Sub", ModuleIndenter.Apply(text, edits));
+    }
+
+    [TestMethod]
+    public void TheHeaderOfAClassModule_AndItsAttributes_AreLeftAsTheyAreWritten()
+    {
+        var text = Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Option Explicit",
+            "Public Property Get Item() As Long", "Attribute Item.VB_UserMemId = 0", "Item = 1", "End Property");
+
+        Assert.AreEqual(Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Option Explicit", "",
+            "Public Property Get Item() As Long", "Attribute Item.VB_UserMemId = 0", "    Item = 1", "End Property"), Indented(text));
+    }
+
+    [TestMethod]
+    public void ARangeThatSplitsAStatement_IsWidenedToTheWholeStatement()
+        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "            2)", "End Sub"),
+            Indented(Lines("Sub A()", "x = Foo(1, _", "      2)", "End Sub"), first: 2, last: 2));
+
+    // as the VBE has it: a label is in column 1, and the code after it where the level has it.
+    [TestMethod]
+    public void ALabel_IsInColumn1()
+        => Assert.AreEqual(Lines("Sub A()", "    On Error GoTo ErrH", "    Exit Sub", "ErrH:", "Done: Beep", "End Sub"),
+            Indented(Lines("Sub A()", "On Error GoTo ErrH", "Exit Sub", "    ErrH:", "  Done:   Beep", "End Sub")));
+
+    [TestMethod]
+    public void ALineNumberWithNoCode_IsWrittenWithNoWhitespaceAfterIt()
+        => Assert.AreEqual(Lines("Sub A()", "10  x = 1", "20", "End Sub"), Indented(Lines("Sub A()", "10 x = 1", "20  ", "End Sub")));
+
+    [TestMethod]
+    public void ATabInAContinuedLine_IsReplacedBySpaces()
+        => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "            2)", "End Sub"), Indented(Lines("Sub A()", "x = Foo(1, _", "\t2)", "End Sub")));
+
+    [TestMethod]
+    public void AProcedureWithAHeaderInEachBranchOfAnIf_HasThemAtItsLevel_AndItsBodyIndentedOnce()
+    {
+        var text = Lines("#If VBA7 Then", "  Public Sub A(ByVal x As LongPtr)", "  #Else", "    Public Sub A(ByVal x As Long)", " #End If", "y = 1", "End Sub");
+
+        Assert.AreEqual(Lines("#If VBA7 Then", "Public Sub A(ByVal x As LongPtr)", "#Else", "Public Sub A(ByVal x As Long)", "#End If", "    y = 1", "End Sub"),
+            Indented(text));
+    }
+
+    // a line ends as the Language Server Protocol counts it: a carriage return alone ends one too, and each line keeps what ends it.
+    [TestMethod]
+    public void ALineEnd_IsACarriageReturnALineFeedOrBoth()
+    {
+        var text = "Sub A()\rIf x Then\ny = 1\r\nEnd If\rEnd Sub";
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default);
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(1, 0, 0, "    "), new IndentationEdit(2, 0, 0, "        "), new IndentationEdit(3, 0, 0, "    ") }, edits.ToArray());
+        Assert.AreEqual("Sub A()\r    If x Then\n        y = 1\r\n    End If\rEnd Sub", ModuleIndenter.Apply(text, edits));
+    }
+
+    // an empty line the spacing writes is as an empty line at its level is: formatting what is formatted changes nothing.
+    [TestMethod]
+    public void TheEmptyLinesBetweenProcedures_AreIndented_WhenEmptyLinesAre()
+    {
+        var options = CodeFormattingOptions.Default with { EmptyLineHandlingMethod = EmptyLineHandlingMethod.Indent };
+
+        var once = Indented(Lines("#If X Then", "Sub A()", "End Sub", "Sub B()", "End Sub", "#End If"), options);
+
+        Assert.AreEqual(Lines("#If X Then", "    Sub A()", "    End Sub", "    ", "    Sub B()", "    End Sub", "#End If"), once);
+        Assert.AreEqual(once, Indented(once, options));
+    }
+
+    // a range changes no line outside of it: it spaces a gap between procedures only when it takes in the line before the gap and the procedure after it.
+    [TestMethod]
+    public void ARange_SpacesOnlyTheGapsItTakesInWhole()
+    {
+        var text = Lines("Sub A()", "x = 1", "End Sub", "", "", "", "Sub B()", "End Sub");
+
+        Assert.AreEqual(Lines("Sub A()", "    x = 1", "End Sub", "", "", "", "Sub B()", "End Sub"), Indented(text, first: 1, last: 2));
+        Assert.AreEqual(text, Indented(text, first: 6, last: 7));
+        Assert.AreEqual(Lines("Sub A()", "x = 1", "End Sub", "", "Sub B()", "End Sub"), Indented(text, first: 2, last: 6));
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "#If X Then", "Sub A()", "End Sub", "#Else", "Sub A()", "End Sub", "#End If" }, DisplayName = "after an #If, an #Else")]
+    [DataRow(new[] { "VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Class1\"", "Sub A()", "End Sub" },
+        DisplayName = "after the header and the attributes")]
+    public void AProcedureRightAfterADirectiveOrAnAttribute_IsNotSpaced(string[] lines)
+        => Assert.AreEqual(Lines(lines), Indented(Lines(lines), CodeFormattingOptions.Default with { IndentCompilerDirectives = false }));
+
+    [TestMethod]
+    public void TheCommentsRightAboveAProcedure_AreSpacedWithIt()
+        => Assert.AreEqual(Lines("Sub A()", "End Sub", "", "' about B", "Rem and more", "Sub B()", "End Sub"),
+            Indented(Lines("Sub A()", "End Sub", "' about B", "Rem and more", "Sub B()", "End Sub")));
+
+    // the edit of a gap ends where the edit of the indentation of the line after it starts: they touch, and do not overlap.
+    [TestMethod]
+    public void AGapAndTheIndentationOfTheProcedureAfterIt_AreTwoEditsThatTouch()
+    {
+        var text = Lines("Sub A()", "End Sub", "  Sub B()", "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        var edits = ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default);
+
+        CollectionAssert.AreEqual(new[] { new IndentationEdit(1, 7, 2, 0, "\r\n\r\n"), new IndentationEdit(2, 0, 2, string.Empty) }, edits.ToArray());
+        Assert.AreEqual(Lines("Sub A()", "End Sub", "", "Sub B()", "End Sub"), ModuleIndenter.Apply(text, edits));
+    }
+
+    // a date literal and a bracketed name are of one token: a colon, a comma or a parenthesis in them is no anchor. Global declares as Dim does.
+    [TestMethod]
+    [DataRow(new[] { "Sub A()", "If Now > #5:00:00 PM# And _", "x Then", "End If", "End Sub" },
+        new[] { "Sub A()", "    If Now > #5:00:00 PM# And _", "       x Then", "    End If", "End Sub" }, DisplayName = "a date literal after an operator")]
+    [DataRow(new[] { "Sub A()", "x = Foo(#1:00:00 PM#, _", "2)", "End Sub" }, new[] { "Sub A()", "    x = Foo(#1:00:00 PM#, _", "            2)", "End Sub" },
+        DisplayName = "a date literal argument")]
+    [DataRow(new[] { "Sub A()", "x = Foo([a:b], _", "2)", "End Sub" }, new[] { "Sub A()", "    x = Foo([a:b], _", "            2)", "End Sub" },
+        DisplayName = "a bracketed name with a colon")]
+    [DataRow(new[] { "Sub A()", "x = Foo([a(b], _", "2)", "End Sub" }, new[] { "Sub A()", "    x = Foo([a(b], _", "            2)", "End Sub" },
+        DisplayName = "a bracketed name with a parenthesis")]
+    [DataRow(new[] { "Global a As Long, _", "b As Long" }, new[] { "Global a As Long, _", "b As Long" }, DisplayName = "a Global declaration")]
+    public void AContinuedLine_LinesUpPastWhatIsOfOneToken(string[] typed, string[] indented)
+        => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
+
+    // an As in a string literal, a bracketed name or a comment is none of the declaration's: what the program says stays what it says.
+    [TestMethod]
+    [DataRow("Const c = \"q As r\"", "Const c = \"q As r\"", DisplayName = "in a string literal")]
+    [DataRow("Dim [a As b] As Long", "Dim [a As b]  As Long", DisplayName = "in a bracketed name")]
+    [DataRow("Dim x: Rem a As b", "Dim x: Rem a As b", DisplayName = "in a Rem comment")]
+    public void AnAsThatIsNotOfTheCode_IsNotAligned(string typed, string indented)
+        => Assert.AreEqual(indented, Indented(typed, CodeFormattingOptions.Default with { AlignDims = true, EndOfLineCommentStyle = EndOfLineCommentStyle.SameGap }));
+
+    // a comment is the rest of its line, and what it is continued on: an apostrophe in its text starts no end-of-line comment.
+    [TestMethod]
+    [DataRow(new[] { "Sub A()", "Rem don't panic", "End Sub" }, new[] { "Sub A()", "    Rem don't panic", "End Sub" }, DisplayName = "a Rem alone on its line")]
+    [DataRow(new[] { "Sub A()", "10 Rem don't", "20 ' it's", "End Sub" }, new[] { "Sub A()", "10  Rem don't", "20  ' it's", "End Sub" },
+        DisplayName = "after a line number")]
+    [DataRow(new[] { "Sub A()", "Rem a _", "don't _", "b", "End Sub" }, new[] { "Sub A()", "    Rem a _", "    don't _", "    b", "End Sub" },
+        DisplayName = "a Rem continued")]
+    [DataRow(new[] { "Sub A()", "x = 1 ' a _", "it's", "End Sub" }, new[] { "Sub A()", "    x = 1 ' a _", "          it's", "End Sub" },
+        DisplayName = "an end-of-line comment continued")]
+    public void TheTextOfAComment_IsNoCode(string[] typed, string[] indented)
+        => Assert.AreEqual(Lines(indented), Indented(Lines(typed), CodeFormattingOptions.Default with { EndOfLineCommentStyle = EndOfLineCommentStyle.SameGap }));
+
+    // a Rem that starts a statement after code is the line's end-of-line comment, aligned as one is, its text as it is.
+    [TestMethod]
+    [DataRow("x = 1:", DisplayName = "after a colon")]
+    [DataRow("If x Then", DisplayName = "after a Then")]
+    public void ARemAfterCode_IsAnEndOfLineComment(string code)
+    {
+        var column = CodeFormattingOptions.Default.EndOfLineCommentColumnSpaceAlignment - 1;
+
+        Assert.AreEqual(Lines("Sub A()", "    " + code + new string(' ', column - 4 - code.Length) + "Rem it's", "End Sub"),
+            Indented(Lines("Sub A()", code + " Rem it's", "End Sub")));
+    }
+
+    // the edits are made wherever they are in the list, each where the text as it was has it, two that touch one after the other; two that overlap are refused.
+    [TestMethod]
+    public void Apply_MakesTheEditsInAnyOrder_AndRefusesTwoThatOverlap()
+    {
+        var text = "a\r\nb\nc";
+
+        Assert.AreEqual("a\r\n\r\n b\n  c",
+            ModuleIndenter.Apply(text, [new IndentationEdit(2, 0, 0, "  "), new IndentationEdit(0, 1, 1, 0, "\r\n\r\n"), new IndentationEdit(1, 0, 0, " ")]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => ModuleIndenter.Apply(text, [new IndentationEdit(0, 0, 1, 1, "x"), new IndentationEdit(1, 0, 1, "y")]));
+    }
+
+    // whatever the settings, no edit changes what a literal or a comment says.
+    [TestMethod]
+    [DataRow(EndOfLineCommentStyle.AlignInColumn)]
+    [DataRow(EndOfLineCommentStyle.Absolute)]
+    [DataRow(EndOfLineCommentStyle.SameGap)]
+    [DataRow(EndOfLineCommentStyle.StandardGap)]
+    public void NoEdit_ChangesALiteralOrAComment(EndOfLineCommentStyle style)
+    {
+        var text = Lines(
+            "Option Explicit",
+            "Const c = \"q As r\" ' s As t",
+            "Private Const d As Date = #1/1/2000#",
+            "Sub A()",
+            "Dim s As String: s = \"it's ' a: End If\"",
+            "Rem don't panic: End Sub",
+            "x = 1: Rem it's",
+            "10 Rem don't",
+            "20 ' it's",
+            "If x Then Rem it's",
+            "Rem a _",
+            "don't _",
+            "b",
+            "x = Foo(\"a,  b\", _",
+            "\"c (d\") ' e's _",
+            "f's",
+            "Dim [a As b] As Long",
+            "End Sub");
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
+
+        LiteralText.AssertNoEditIn(text, ModuleIndenter.Indent(parse, text, CodeFormattingOptions.Default with { AlignDims = true, EndOfLineCommentStyle = style }));
+    }
+}
