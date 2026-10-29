@@ -1111,6 +1111,33 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
+    public async Task ACont_RefusedByAServerThatCannotSayWhatIsNotApplied_SaysWhatTheRefusalSaid()
+    {
+        await WaitAtTheStopAsync();
+        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee changed" });
+        _platform.GetEditStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<HostDebugEditStatusResult>(new OmniSharp.Extensions.JsonRpc.Server.MethodNotSupportedException(null, "rdcore/session/debug/editStatus")));
+
+        await CommandAsync(new ContReplCommand());
+
+        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "Program.Callee changed");
+    }
+
+    [TestMethod]
+    public async Task ACont_WhoseQuestionOfTheEditsFailsOtherwise_IsNotSaidAsARefusal()
+    {
+        // a broken relay, a wire error or a host fault is a failure of the request, as any other the shell makes, and not hidden behind the refusal's words.
+        await WaitAtTheStopAsync();
+        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee changed" });
+        _platform.GetEditStatusAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<HostDebugEditStatusResult>(new InvalidOperationException("the relay is broken")));
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => CommandAsync(new ContReplCommand()));
+        Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State, "the program waits where it did, whatever asking failed");
+        _console.DidNotReceive().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "Program.Callee changed");
+    }
+
+    [TestMethod]
     public async Task ACont_ThatGoesOn_AsksNothingOfTheEdits()
     {
         await WaitAtTheStopAsync();

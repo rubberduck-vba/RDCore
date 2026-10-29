@@ -121,24 +121,26 @@ internal static class ReplExecution
         Report(context, await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None));
         var waitedBefore = context.Debugger.StoppedAt;
         context.Debugger.Running();
+        ExecuteSessionResult result;
         try
         {
-            var result = await context.Platform.ResumeAsync(step, CancellationToken.None);
-            if (result.Outcome is ExecutionOutcome.Refused)
+            result = await context.Platform.ResumeAsync(step, CancellationToken.None);
+            if (result.Outcome is not ExecutionOutcome.Refused)
             {
-                // a program that cannot be gone on with is still where it was, and why is said: the edits that are not applied to it, when they are why.
-                context.Debugger.Suspended(waitedBefore);
-                await RenderRefusalAsync(context, result.ErrorMessage, CancellationToken.None);
+                Render(context, result);
                 return;
             }
-
-            Render(context, result);
         }
         catch
         {
             context.Debugger.Idle();
             throw;
         }
+
+        // a program that cannot be gone on with is still where it was, whatever saying why costs; and why is said: the edits that are not applied to it, when
+        // they are why.
+        context.Debugger.Suspended(waitedBefore);
+        await RenderRefusalAsync(context, result.ErrorMessage, CancellationToken.None);
     }
 
     /// <summary>
@@ -148,6 +150,11 @@ internal static class ReplExecution
     /// <remarks>
     /// What is not applied is asked of the platform once, after the refusal: the reasons are its words, in the session's language, and are said as given. A
     /// platform that cannot say is taken at the refusal's word.
+    /// <para>
+    /// The edits are said in place of the refusal's own reason whenever there are any, which is right because the host refuses for them before anything else:
+    /// a resume before it is resumed, and a goto before its line or label is looked for (<c>ProgramExecution.ResumeAsync</c>, <c>Goto</c>). A host that
+    /// checked a label first would have its "no such label" said as the edits.
+    /// </para>
     /// </remarks>
     /// <param name="context">The live session.</param>
     /// <param name="reason">What the platform said the refusal was for.</param>
@@ -179,14 +186,15 @@ internal static class ReplExecution
         }
     }
 
-    // the edits the platform says are not applied, or nothing when it cannot say: a language server that has no such request is no reason to say less of a refusal.
+    // the edits the platform says are not applied, or nothing when it cannot say: a language server that has no such request (JSON-RPC -32601) is no reason to
+    // say less of a refusal. Any other failure of the request is one, and is not hidden behind the refusal's words.
     private static async Task<HostDebugEditStatusResult?> EditStatusOrNoneAsync(ReplCommandContext context, CancellationToken token)
     {
         try
         {
             return await context.Platform.GetEditStatusAsync(token);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (OmniSharp.Extensions.JsonRpc.Server.MethodNotSupportedException)
         {
             return null;
         }
