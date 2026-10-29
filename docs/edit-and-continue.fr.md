@@ -45,6 +45,16 @@ d'attendre là où il est, vous dit quelle modification fait obstacle et pourquo
 Les variables gardent leurs valeurs à travers chaque modification qui s'applique. Cela comprend les variables de module, les variables `Static` et les champs
 de vos objets.
 
+## 🛑 Quand le programme s'arrête sur une erreur
+
+- **Une erreur que rien ne gère :** corrigez la ligne où il s'est arrêté et poursuivez, et la ligne s'exécute telle que vous l'avez corrigée.
+  Poursuivez sans la corriger, et la ligne s'exécute de nouveau : l'erreur revient et le programme s'y arrête encore, comme dans l'éditeur VBA.
+  `Err` détient toujours l'erreur.
+- **L'instruction suivante définie (Goto) sur une autre ligne :** le programme poursuit à partir de là, et l'erreur n'est pas levée. `Err` la
+  détient toujours.
+- **Une erreur que votre code gère** (`On Error GoTo`, avec l'arrêt sur toutes les erreurs) : **Continuer** la donne à votre gestionnaire.
+  Modifier la ligne qui l'a levée attend la prochaine exécution, parce que le gestionnaire est déjà en route.
+
 ## ⏸️ Ce qui attend la prochaine exécution
 
 Certaines modifications ne peuvent pas être appliquées à un programme déjà en cours, parce que le programme détient quelque chose que la modification
@@ -134,7 +144,8 @@ Quand rien ne fait obstacle, ou qu'aucun programme n'attend, il le dit :
 
 ## ⚖️ Comparé à l'éditeur VBA
 
-Mesuré dans Excel (64 bits) à un `Stop` dans une procédure, sur 44 sortes de modifications :
+Mesuré dans Excel (64 bits) à un `Stop` dans une procédure, sur 44 sortes de modifications, et, pour la dernière ligne, à une erreur que rien ne
+gère :
 
 | Sorte de modification | Éditeur VBA | RD-VBA |
 |---|---|---|
@@ -155,6 +166,7 @@ Mesuré dans Excel (64 bits) à un `Stop` dans une procédure, sur 44 sortes de 
 | Un `Declare` changé; une ligne `Option` ajoutée ou retirée | **réinitialise** | poursuit (une ligne `Option` : dans un module où le programme ne se trouve pas) |
 | Le corps d'une méthode d'une classe dont des objets existent | poursuit | poursuit |
 | Un champ ajouté à une classe dont des objets existent | poursuit | attend, et nomme la modification (pour l'instant) |
+| La ligne où une erreur a arrêté le programme, corrigée | poursuit après elle, sans exécuter votre correction | s'exécute telle que vous l'avez corrigée |
 
 Là où l'éditeur VBA réinitialise, il demande d'abord, et **Annuler** défait la modification. Là où RD-VBA attend, rien n'est perdu, sauf la valeur d'une variable de module
 dont vous avez changé le type. Le programme reste où il était, et vous choisissez : annuler la modification et poursuivre (sauf si elle a réinitialisé la

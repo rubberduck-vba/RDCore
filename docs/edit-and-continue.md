@@ -42,6 +42,14 @@ the edit back and go on (unless it reset a variable's value), or run the program
 
 Variables keep their values across every edit that applies. That includes module-level variables, `Static` variables and the fields of your objects.
 
+## 🛑 When the program stops at an error
+
+- **An error that nothing handles:** fix the line it stopped at and go on, and the line runs as you fixed it. Go on without fixing it,
+  and the line runs again: the error comes back and the program stops there again, as in the VBA editor. `Err` still holds the error.
+- **Set Next Statement (Goto) to another line:** the program goes on from there, and the error isn't raised. `Err` still holds it.
+- **An error your code handles** (`On Error GoTo`, with break on all errors): **Continue** gives it to your handler. Editing the line that
+  raised it waits until you run again, because the handler is already on its way.
+
 ## ⏸️ What waits until you run again
 
 Some edits can't be applied to a program that's already running, because the program holds something the edit would change underneath it. RD-VBA doesn't
@@ -128,7 +136,7 @@ With nothing in the way, or with no program waiting, it says so:
 
 ## ⚖️ Compared with the VBA editor
 
-Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit:
+Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit, and, for the last row, at an error that nothing handles:
 
 | Kind of edit | VBA editor | RD-VBA |
 |---|---|---|
@@ -149,6 +157,7 @@ Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit:
 | A `Declare` changed; an `Option` line added or removed | **resets** | goes on (an `Option` line: in a module the program isn't in) |
 | A method body of a class with live objects | goes on | goes on |
 | A field added to a class with live objects | goes on | waits, and names the edit (for now) |
+| The line an error stopped at, fixed | goes on after it, without running your fix | runs as you fixed it |
 
 Where the VBA editor resets, it asks first, and **Cancel** takes the edit back. Where RD-VBA waits, nothing is lost but the value of a module variable whose type
 you changed. The program stays where it was, and you choose: take the edit back and go on (unless the edit reset a variable's value), or run again.
