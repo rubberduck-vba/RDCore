@@ -11,8 +11,8 @@ et vous modifiez le code sur-le-champ. Puis vous poursuivez : `CONT` dans le REP
 L'éditeur VBA d'Office en fait une partie. Mais bien des modifications l'amènent à réinitialiser le projet (« Cette action réinitialisera votre projet,
 continuer quand même? »), et tout ce que le programme avait accumulé jusque-là est perdu. RD-VBA applique toutes les modifications qu'il peut appliquer
 correctement, soit plus que l'éditeur VBA. Quand une modification ne peut pas être appliquée, RD-VBA ne met pas fin à votre programme : il continue
-d'attendre là où il est, vous dit quelle modification fait obstacle et pourquoi, et vous laisse choisir. Vous pouvez annuler la modification et poursuivre,
-ou relancer le programme.
+d'attendre là où il est, vous dit quelle modification fait obstacle et pourquoi, et vous laisse choisir. Vous pouvez annuler la modification et poursuivre
+(sauf si elle a réinitialisé la valeur d'une variable), ou relancer le programme.
 
 ## ✅ Ce qui s'applique quand vous poursuivez
 
@@ -49,14 +49,14 @@ de vos objets.
 
 Certaines modifications ne peuvent pas être appliquées à un programme déjà en cours, parce que le programme détient quelque chose que la modification
 changerait sous lui. RD-VBA ne devine pas, et n'applique jamais la moitié d'une modification. Quand **Continuer** ou un pas rencontre l'une d'elles, le
-programme est refusé et continue d'attendre, et la modification est nommée avec sa raison. Annulez la modification et poursuivez, ou relancez le programme
-pour l'avoir.
+programme est refusé et continue d'attendre, et la modification est nommée avec sa raison. Annulez la modification et poursuivez (sauf si elle a réinitialisé
+la valeur d'une variable), ou relancez le programme pour l'avoir.
 
 | Vous avez changé… | Pourquoi cela attend |
 |---|---|
 | Une variable locale ajoutée à une procédure où se trouve le programme, ou retirée | Les variables de la procédure sont déjà disposées. L'appliquer est prévu pour une version ultérieure. |
 | Un champ ajouté à une classe dont le programme peut détenir des objets | Les objets créés avant la modification n'auraient pas de place pour lui. L'appliquer est prévu pour une version ultérieure. |
-| Le type d'une variable locale, ou d'une variable, pendant qu'elle détient une valeur | Il faudrait convertir la valeur sous le programme. |
+| Le type d'une variable locale, ou d'une variable, pendant qu'elle détient une valeur | Il faudrait convertir la valeur sous le programme. Pour une variable de module, la modification réinitialise sa valeur, et l'annuler n'y change rien : relancez le programme. |
 | Une `Const` (ou un membre d'un `Enum`) qui dimensionne un tableau ou une `String * N`, changée de valeur, directement ou par une autre `Const` | Ce qu'elle dimensionne existe déjà, à son ancienne taille. |
 | Une `Const` ou un membre d'un `Enum` que lit une procédure où se trouve le programme | Cette procédure a déjà lu l'ancienne valeur. |
 | Une ligne `Option` d'un module où se trouve le programme | La procédure en cours garde le réglage avec lequel elle a commencé. |
@@ -156,8 +156,9 @@ Mesuré dans Excel (64 bits) à un `Stop` dans une procédure, sur 44 sortes de 
 | Le corps d'une méthode d'une classe dont des objets existent | poursuit | poursuit |
 | Un champ ajouté à une classe dont des objets existent | poursuit | attend, et nomme la modification (pour l'instant) |
 
-Là où l'éditeur VBA réinitialise, il demande d'abord, et **Annuler** défait la modification. Là où RD-VBA attend, rien n'est perdu. Le programme reste où il
-était, et vous choisissez : annuler la modification et poursuivre, ou relancer.
+Là où l'éditeur VBA réinitialise, il demande d'abord, et **Annuler** défait la modification. Là où RD-VBA attend, rien n'est perdu, sauf la valeur d'une variable de module
+dont vous avez changé le type. Le programme reste où il était, et vous choisissez : annuler la modification et poursuivre (sauf si elle a réinitialisé la
+valeur d'une variable), ou relancer.
 
 ## Voir aussi
 
