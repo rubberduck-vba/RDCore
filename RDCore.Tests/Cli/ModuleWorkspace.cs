@@ -102,6 +102,23 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries);
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with document modules: <c>.doccls</c> files the
+    /// project says are the code of a host's document (<c>Super</c>), loaded as the platform loads them; for a project that references libraries, or only the
+    /// standard library when <paramref name="libraries"/> is <see langword="null"/>.
+    /// </summary>
+    public static Task<string[]> LoadDocumentsAsync(
+        IReadOnlyList<(string Name, string Source, DocClassType? Super)> documents, string program, WorkspaceLibraries? libraries)
+        => RunCoreAsync([], program, errorsOnly: true, libraries: libraries, documents: documents);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, in a workspace that has document modules
+    /// (<see cref="LoadDocumentsAsync"/>).
+    /// </summary>
+    public static Task<string[]> RunWithDocumentsAsync(
+        IReadOnlyList<(string Name, string Source, DocClassType? Super)> documents, string program, WorkspaceLibraries? libraries)
+        => RunCoreAsync([], program, errorsOnly: false, libraries: libraries, documents: documents);
+
+    /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, for a project that references libraries.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
@@ -211,12 +228,17 @@ internal static class ModuleWorkspace
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
-        bool releaseDropsDebugStatements = false)
+        bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
     {
         var loadErrors = new List<string>();
+
+        // the kind of a document module is what the project says, as the platform reads it: one it gives no Super is what its text says.
+        var supers = (documents ?? []).Where(document => document.Super is not null)
+            .ToDictionary(document => document.Name, document => document.Super!.Value, StringComparer.OrdinalIgnoreCase);
         (string Name, string Extension, ModuleType Type, string Source)[] others =
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
+            .. (documents ?? []).Select(module => (module.Name, "doccls", ModuleKinds.Of(module.Super, module.Source), module.Source)),
             .. (forms ?? []).Select(module => (module.Name, "frm", ModuleType.ClassModule, module.Source)),
             .. (modules ?? []).Select(module => (module.Name, "bas", ModuleType.StdModule, module.Source)),
         ];
@@ -226,7 +248,11 @@ internal static class ModuleWorkspace
         var project = new ProjectFile(Root, new RDCoreProject
         {
             Name = "Project1",
-            Modules = [.. allModules.Select(module => new RDCoreModule { RelativeUri = $"{module.Name}.{module.Extension}" })],
+            Modules = [.. allModules.Select(module => new RDCoreModule
+            {
+                RelativeUri = $"{module.Name}.{module.Extension}",
+                Super = supers.TryGetValue(module.Name, out var super) ? super : null,
+            })],
             References = [.. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
         });
         var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };
@@ -262,7 +288,7 @@ internal static class ModuleWorkspace
                 workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
         var resolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), project.ProjectInfo.Name,
-            libraries: librarySymbols);
+            libraries: librarySymbols, documentHosts: supers);
 
         // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then
         // the code of each is sent.
@@ -278,7 +304,7 @@ internal static class ModuleWorkspace
                         ModuleUri = module.Uri,
                         ModuleName = module.Module.Name,
                         Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
-                        Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                        Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree!.GetModuleDirectives()),
                         ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
                         ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                         PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
@@ -296,7 +322,7 @@ internal static class ModuleWorkspace
                     WorkspaceRoot = workspaceRoot,
                     ModuleUri = module.Uri,
                     ModuleName = module.Module.Name,
-                    Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
+                    Directives = ModuleKinds.DirectivesOf(module.Module.Type, module.Parse.SyntaxTree.GetModuleDirectives()),
                     ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),

@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace RDCore.SDK.Workspace;
@@ -224,16 +225,69 @@ public record class RDCoreFile : IEquatable<RDCoreFile>
     public virtual bool Equals(RDCoreFile? other) => other?.RelativeUri is string uri && RelativeUri.Equals(uri);
 }
 
+/// <summary>
+/// What a host's document is, whose code a document module is (<strong>MS-VBAL §4.2.1</strong>): the class the host has for it, whose members and events the
+/// module's object has.
+/// </summary>
+/// <remarks>
+/// A project file says it by name (<c>"ExcelWorksheet"</c>); one that says it by number, as earlier project files did, is read the same. A name or a number
+/// this does not have is <see cref="Unknown"/>: the project still loads, and the module is one RD-VBA does not support.
+/// </remarks>
+[JsonConverter(typeof(DocClassTypeJsonConverter))]
 public enum DocClassType
 {
+    /// <summary>A document of a host RD-VBA does not know.</summary>
     Unknown = 0,
+    /// <summary>An Excel workbook (<c>Excel.Workbook</c>): <c>ThisWorkbook</c>.</summary>
     ExcelWorkbook = 1,
+    /// <summary>An Excel worksheet (<c>Excel.Worksheet</c>): <c>Sheet1</c>.</summary>
     ExcelWorksheet = 2,
+    /// <summary>An Access form (<c>Access.Form</c>).</summary>
     AccessForm = 3,
+    /// <summary>An Access report (<c>Access.Report</c>).</summary>
     AccessReport = 4,
+    /// <summary>A Word document (<c>Word.Document</c>): <c>ThisDocument</c>.</summary>
+    WordDocument = 5,
 }
 
+/// <summary>
+/// Reads a <see cref="DocClassType"/> by its name or its number, and writes it by its name; a name or a number it does not have reads as
+/// <see cref="DocClassType.Unknown"/>.
+/// </summary>
+public sealed class DocClassTypeJsonConverter : JsonConverter<DocClassType>
+{
+    /// <inheritdoc/>
+    public override DocClassType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Number)
+        {
+            return reader.TryGetInt32(out var number) && Enum.IsDefined((DocClassType)number) ? (DocClassType)number : DocClassType.Unknown;
+        }
+
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            // a name only: "2" is no name, and Enum.TryParse would take it for the number.
+            var name = reader.GetString();
+            return name is { Length: > 0 } && char.IsLetter(name[0]) && Enum.TryParse<DocClassType>(name, ignoreCase: true, out var named) && Enum.IsDefined(named)
+                ? named
+                : DocClassType.Unknown;
+        }
+
+        throw new JsonException($"A {nameof(DocClassType)} is a name or a number, not a {reader.TokenType}.");
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, DocClassType value, JsonSerializerOptions options) => writer.WriteStringValue(value.ToString());
+}
+
+/// <summary>
+/// A module of a project: a source file, and what the project says of it that its text does not.
+/// </summary>
 public record class RDCoreModule : RDCoreFile
 {
+    /// <summary>
+    /// What host document the module is the code of, which makes it a document module (<see cref="ModuleKinds.Of(RDCoreModule?, string?)"/>); <see langword="null"/>
+    /// for a standard or class module.
+    /// </summary>
     public DocClassType? Super { get; init; }
 }

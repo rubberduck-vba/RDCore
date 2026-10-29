@@ -77,6 +77,13 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+
+        // a document module's code names the members of its host's class as its own (MS-VBAL §4.2.1), after them: an unqualified Range in a worksheet's.
+        if (HostMembersOf(origin, global, name) is { } hostMember)
+        {
+            return hostMember;
+        }
+
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
         (LexicalScope? Tier, Func<Symbol, bool> IsCandidate)[] tiers =
         [
@@ -274,6 +281,26 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
     // tier has none, so the caller moves on to the next one.
+    // the members of the host's class named so, when the lookup is from a document module (VBClassModuleSymbol.HostClass): its library's class is found by
+    // its names, and its members are not the module's - no scope maps them.
+    private SymbolResolutionResult? HostMembersOf(LexicalScope[] origin, LexicalScope? global, string name)
+    {
+        if (global is null || origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module) is not { } moduleScope)
+        {
+            return null;
+        }
+
+        var module = global.DeclaredAs(moduleScope.Uri.Fragment.TrimStart('#')).OfType<VBClassModuleSymbol>()
+            .FirstOrDefault(candidate => candidate.HostClass is not null && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
+        if (module is null || VBProjectSymbol.ResolveHostClass(this, module) is not { } host)
+        {
+            return null;
+        }
+
+        return SelectTier(moduleScope, host.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
+            && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
+    }
+
     private static SymbolResolutionResult? SelectTier(LexicalScope lexicalScope, IEnumerable<Symbol> candidates)
     {
         var matches = candidates.ToArray();

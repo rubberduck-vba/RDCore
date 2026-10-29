@@ -125,6 +125,16 @@ internal record class WorkspaceDocument
     public ReadOnlyMemory<byte> Companion { get; init; }
 
     /// <summary>
+    /// What host document the project says the document's module is the code of (<see cref="RDCoreModule.Super"/>), which makes it a document module
+    /// (<see cref="ModuleKinds.Of(DocClassType?, string?)"/>); <see langword="null"/> for any other module, and for a document no project lists as one.
+    /// </summary>
+    /// <remarks>
+    /// The project's, not the text's: the document service stamps it from what the project lists (<c>IWorkspaceDocumentService.SetDocumentModules</c>), and an
+    /// edit of the text keeps it.
+    /// </remarks>
+    public DocClassType? Super { get; init; }
+
+    /// <summary>
     /// The document with the specified text, an edit the server made: one version later, and with changes that are not saved.
     /// </summary>
     public WorkspaceDocument WithText(string text) => this with { Text = text, Version = Version + 1, IsDirty = true };

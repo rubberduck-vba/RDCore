@@ -13,8 +13,8 @@ namespace RDCore.SDK.Workspace;
 /// of the file extension: RD-VBA determines a module's kind from its source, not from <c>.cls</c> vs
 /// <c>.bas</c>.
 /// <para>
-/// RD-VBA <c>.doccls</c> files are the VBIDE rendering of a document module rather than an importable
-/// export, so they carry no header and are out of scope here.
+/// A document module's export (a <c>.doccls</c>) carries no header: what makes a module one is the
+/// project's word for it, which <see cref="ModuleKinds.Of(RDCoreModule?, string?)"/> reads before this.
 /// </para>
 /// </remarks>
 public static partial class ModuleHeader

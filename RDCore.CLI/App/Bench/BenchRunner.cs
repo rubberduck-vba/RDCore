@@ -14,6 +14,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using System.Diagnostics;
 using System.IO.Abstractions;
@@ -202,7 +203,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
                     ModuleUri = uri,
                     ModuleName = module.Name,
                     Symbols = SymbolDescriptorProjector.Project(symbols, uri),
-                    Directives = parse.SyntaxTree!.GetModuleDirectives(),
+                    Directives = ModuleKinds.DirectivesOf(module.Type, parse.SyntaxTree!.GetModuleDirectives()),
                     ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                     PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse),
@@ -223,7 +224,7 @@ internal sealed class BenchRunner(IRuntimeEnvironmentProfile environment, IFileS
                 WorkspaceRoot = root,
                 ModuleUri = uri,
                 ModuleName = module.Name,
-                Directives = parse.SyntaxTree!.GetModuleDirectives(),
+                Directives = ModuleKinds.DirectivesOf(module.Type, parse.SyntaxTree!.GetModuleDirectives()),
                 ImplementedInterfaceNames = parse.SyntaxTree!.GetImplementedInterfaceNames(),
                 ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                 ParseResultJson = PlatformJson.Serialize(parse),

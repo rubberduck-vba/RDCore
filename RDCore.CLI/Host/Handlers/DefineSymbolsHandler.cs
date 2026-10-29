@@ -15,6 +15,7 @@ using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -290,13 +291,26 @@ internal sealed class DefineSymbolsHandler(
         }
 
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, parseResult);
-        foreach (var error in errors)
+
+        // a module is loaded again at every edit of it: what a load failed with is said once, as long as the next fails with the same, and so is that it loads again.
+        switch (LoadFailuresBySession.GetOrCreateValue(session).Record(request.ModuleName, errors))
         {
-            logger.LogWarning("{module} was not loaded: {error}", request.ModuleName, error);
+            case ModuleLoadChange.Failed:
+                foreach (var error in errors)
+                {
+                    logger.LogWarning("{module} was not loaded: {error}", request.ModuleName, error);
+                }
+                break;
+
+            case ModuleLoadChange.Recovered:
+                logger.LogInformation("{module} loads again.", request.ModuleName);
+                break;
         }
 
         return errors;
     }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession, ModuleLoadFailures> LoadFailuresBySession = new();
 
     // MS-VBAL 5.2.1: the module symbol is composed from the .rdproj without parsing anything, so its
     // Option directives are not known until the language server sends them here. They are what an

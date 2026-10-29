@@ -39,7 +39,8 @@ public sealed class SymbolSyncServiceTests
 
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) Build(
         ModuleParseResult? cached, bool providesCapability = true, DefineSymbolsResult? response = null,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure,
+        Microsoft.Extensions.Logging.ILogger<SymbolSyncService>? logger = null, DocClassType? super = null)
     {
         var host = Substitute.For<IRDCoreClientApp>();
         host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -53,7 +54,7 @@ public sealed class SymbolSyncServiceTests
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(host);
 
-        var document = new WorkspaceDocument("src/Mod1.bas", Root, "content");
+        var document = new WorkspaceDocument("src/Mod1.bas", Root, "content") { Super = super };
         var documents = Substitute.For<IWorkspaceDocumentService>();
         documents.GetAllDocuments().Returns([document]);
 
@@ -71,7 +72,7 @@ public sealed class SymbolSyncServiceTests
 
         var sut = new SymbolSyncService(
             orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(implicitScope),
-            NullLogger<SymbolSyncService>.Instance, new NoLibraries());
+            logger ?? NullLogger<SymbolSyncService>.Instance, new NoLibraries());
         return (sut, host);
     }
 
@@ -420,5 +421,54 @@ public sealed class SymbolSyncServiceTests
             new[] { "workspace symbols", "workspace code", "fragment symbols", "fragment code" },
             done,
             string.Join(" | ", done) + ": the scaffold's code is not loaded over the client's text while the client is between defining it and asking about it");
+    }
+
+    // ---- what a load failed with is said once ----
+
+    private sealed class RecordingLogger : Microsoft.Extensions.Logging.ILogger<SymbolSyncService>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
+
+    [TestMethod]
+    public async Task AModuleTheHostRefusesTheSameWay_EachTimeItIsSent_IsLoggedOnce()
+    {
+        // an editor sends the module it edits at every keystroke: 1,027 identical warnings in one session, before.
+        var logger = new RecordingLogger();
+        var (sut, _) = Build(Parse("Public Sub Foo()\r\nEnd Sub"), response: new DefineSymbolsResult { CodeErrors = ["Invalid use of Me keyword"] }, logger: logger);
+
+        for (var edit = 0; edit < 3; edit++)
+        {
+            await sut.SyncWorkspaceAsync(CancellationToken.None, replace: true);
+        }
+
+        Assert.AreEqual(1, logger.Entries.Count(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning && entry.Message.Contains("was not loaded")),
+            string.Join("\n", logger.Entries.Select(entry => entry.Message)));
+    }
+
+    [TestMethod]
+    public async Task ADocumentModule_IsSentAsAClassModule_ThatNoneCreates_AndThatHasNoDefaultInstance()
+    {
+        // what legacy Rubberduck exported of a worksheet: the code pane's text, no header and no attribute. Me is valid in it, for it is a class module.
+        var (sut, host) = Build(Parse("Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = TypeName(Me)\r\nEnd Function"), super: DocClassType.ExcelWorksheet);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await host.Received().SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod1" && p.CodeOnly
+                && p.Directives.Explicit && !p.Directives.Creatable && p.Directives.Extensible && !p.Directives.PredeclaredId),
+            Arg.Any<CancellationToken>());
+        await host.Received().SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod1" && !p.CodeOnly && p.Symbols.Any(symbol => symbol.Name == "Hello"
+                && symbol.Scope == RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Instance)),
+            Arg.Any<CancellationToken>());
     }
 }

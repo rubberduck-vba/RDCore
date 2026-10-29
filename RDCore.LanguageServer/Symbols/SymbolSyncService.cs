@@ -13,6 +13,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -178,7 +179,7 @@ internal sealed class SymbolSyncService(
 
             // collect every parsed module first: the resolver is composed over the whole workspace, so
             // one module's `As SomeType` can bind to a sibling module's Type / Enum declaration.
-            var (workspaceRoot, modules) = CollectModules(token);
+            var (workspaceRoot, modules, hosts) = CollectModules(token);
 
             if (workspaceRoot is null)
             {
@@ -188,7 +189,7 @@ internal sealed class SymbolSyncService(
 
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
-                implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
+                implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot), documentHosts: hosts);
 
             // three phases, each for every module before the next (DefineSymbolsParams.DeclareTypesOnly): its types are declared, its declarations are bound,
             // and its code is loaded - a third of the work each.
@@ -239,7 +240,7 @@ internal sealed class SymbolSyncService(
                 Step(ProgressMessages.Loading, module.Name);
                 try
                 {
-                    await SendModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Parse, token);
+                    await SendModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -281,7 +282,7 @@ internal sealed class SymbolSyncService(
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
                 Symbols = descriptors,
-                Directives = parseResult.SyntaxTree.GetModuleDirectives(),
+                Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = withCode ? PlatformJson.Serialize(parseResult) : string.Empty,
@@ -302,10 +303,12 @@ internal sealed class SymbolSyncService(
     // every module of the primary project that has a parse: the resolver is composed over the whole project, so one module's `As SomeType` can bind to a sibling
     // module's Type / Enum declaration. The environment host runs that project and no other: a module of another project is analyzed by the language server,
     // and a `Module1` of it is never defined under the primary project's.
-    private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules) CollectModules(CancellationToken token)
+    private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules, Dictionary<string, DocClassType> Hosts)
+        CollectModules(CancellationToken token)
     {
         Uri? workspaceRoot = null;
         var modules = new List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)>();
+        var hosts = new Dictionary<string, DocClassType>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in documents.GetProjectDocuments(documents.WorkspaceRoot))
         {
             token.ThrowIfCancellationRequested();
@@ -322,9 +325,13 @@ internal sealed class SymbolSyncService(
             // module kind is never a parser input — read it off the raw source, same as the parsing pass.
             var moduleKind = ParsingClientService.ModuleTypeOf(document);
             modules.Add((SymbolUri.Module(workspaceRoot, moduleName), moduleName, moduleKind, parseResult));
+            if (document.Super is { } super)
+            {
+                hosts.TryAdd(moduleName, super);
+            }
         }
 
-        return (workspaceRoot, modules);
+        return (workspaceRoot, modules, hosts);
     }
 
     public async Task SyncDocumentAsync(Uri documentUri, CancellationToken token)
@@ -341,7 +348,7 @@ internal sealed class SymbolSyncService(
             return;
         }
 
-        var (workspaceRoot, modules) = CollectModules(token);
+        var (workspaceRoot, modules, hosts) = CollectModules(token);
         var moduleName = parseResult.SyntaxTree.GetDeclaredName() ?? document.Name;
         if (workspaceRoot is null || modules.FirstOrDefault(module => module.Name == moduleName) is not { Parse: not null } changed)
         {
@@ -352,9 +359,9 @@ internal sealed class SymbolSyncService(
         // bound against - and then its code is loaded, which is checked against the same.
         var workspaceResolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, projectName: referencedLibraries.ProjectName,
-            implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
+            implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot), documentHosts: hosts);
         await DefineModuleSymbolsAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, workspaceResolver, replace: true, withCode: false, token);
-        await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Parse, token);
+        await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, token);
     }
 
     public async Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false)
@@ -384,11 +391,13 @@ internal sealed class SymbolSyncService(
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
-        return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, parseResult, token);
+        return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token);
     }
 
-    // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded.
-    private async Task SendModuleCodeAsync(Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded - once for as long as
+    // it fails the same way, for the module is sent again at every edit of it (ModuleLoadFailures).
+    private async Task SendModuleCodeAsync(
+        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult, CancellationToken token)
     {
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams
@@ -396,18 +405,29 @@ internal sealed class SymbolSyncService(
                 WorkspaceRoot = workspaceRoot,
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
-                Directives = parseResult.SyntaxTree.GetModuleDirectives(),
+                Directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives()),
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = PlatformJson.Serialize(parseResult),
                 CodeOnly = true,
             }, token);
 
-        foreach (var error in result.CodeErrors)
+        switch (_loadFailures.Record(moduleName, result.CodeErrors))
         {
-            logger.LogWarning("📤 {module} was not loaded: {error}", moduleName, error);
+            case ModuleLoadChange.Failed:
+                foreach (var error in result.CodeErrors)
+                {
+                    logger.LogWarning("📤 {module} was not loaded: {error}", moduleName, error);
+                }
+                break;
+
+            case ModuleLoadChange.Recovered:
+                LogIfEnabled(LogLevel.Information, $"📤 {moduleName} loads again.");
+                break;
         }
     }
+
+    private readonly ModuleLoadFailures _loadFailures = new();
 
     private void LogIfEnabled(LogLevel level, string message)
     {

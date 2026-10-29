@@ -268,12 +268,9 @@ internal sealed class ParsingClientService(
     internal static string ModuleSourceOf(WorkspaceDocument document)
         => BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath()) ? BasicProgramText.ToModuleSource(document.Text) : document.Text;
 
-    // review #170: fixed. The file extension was a stopgap; module kind is a fact of the source
-    // (the VERSION header), not the file name — RD-VBA determines it the same way regardless of
-    // extension (see ModuleHeader). No longer sent to the parser: it never derived the kind from
-    // this hint, only echoed it onto the AST root, which was itself the wrong layer to carry it.
-    internal static ModuleType ModuleTypeOf(WorkspaceDocument document)
-        => ModuleHeader.IsClassModule(document.Text) == true ? ModuleType.ClassModule : ModuleType.StdModule;
+    // the module kind is the project's word for a document module, and a fact of the source (the VERSION header) otherwise - not of the file name - as the
+    // environment host reads it too (ModuleKinds.Of). It is not sent to the parser, which has no use for it.
+    internal static ModuleType ModuleTypeOf(WorkspaceDocument document) => ModuleKinds.Of(document.Super, document.Text);
 
     private void LogIfEnabled(LogLevel level, string message)
     {

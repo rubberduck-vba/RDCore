@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
@@ -134,8 +135,8 @@ public sealed class SyntaxTreeSymbolProvider(
             yield break;
         }
 
-        // a standard module's members are module-scoped; a class module's are instance-scoped.
-        var memberScope = moduleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
+        // a standard module's members are module-scoped; a class module's are instance-scoped, and a document module is a class module.
+        var memberScope = moduleType.IsClass() ? ScopeKind.Instance : ScopeKind.Module;
         // MS-VBAL 5.2.3.1.5: a declaration that names no type is implicitly a Variant, unless a
         // Def<Type> directive covers the first letter of its name (MS-VBAL 5.2.2).
         var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver, VBVariantType.TypeInfo, [.. module.Children.OfType<TypeDefDirectiveNode>()]);

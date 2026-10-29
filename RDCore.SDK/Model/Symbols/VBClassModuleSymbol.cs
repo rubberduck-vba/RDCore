@@ -229,6 +229,25 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     }
 
     /// <summary>
+    /// The class of a referenced library whose object this module's document is, when this is a document module
+    /// (<see cref="Workspace.ModuleKinds.HostClassOf"/>): <c>Excel.Worksheet</c> for a worksheet's. Its members are names of this module's code - an
+    /// unqualified <c>Range</c> in a worksheet's is <c>Excel.Worksheet.Range</c> - after the module's own (<see cref="VBProjectSymbol.ResolveHostClass"/>).
+    /// <see langword="null"/> for any other class, and for a document of a host RD-VBA does not know.
+    /// </summary>
+    /// <remarks>
+    /// The members are found through the library's class, not declared again as this module's: RD-VBA hosts no document, and nothing makes one of this
+    /// class's objects the host's. The code that names them is analyzed, and never runs.
+    /// </remarks>
+    public Workspace.DocumentHostClass? HostClass { get; init; }
+
+    /// <summary>
+    /// Whether this is a document module: the code of a host's document, as the project says (<see cref="Workspace.ModuleKinds.Of(Workspace.RDCoreModule?, string?)"/>),
+    /// whether or not RD-VBA knows the host (<see cref="HostClass"/>). Only the host makes its documents, so no program creates an object of this class: a
+    /// <c>New</c> of it is <see cref="Errors.VBCompileErrorId.InvalidUseOfNewKeyword"/>, as MS-VBA has it of a worksheet's.
+    /// </summary>
+    public bool IsDocument { get; init; }
+
+    /// <summary>
     /// Whether a live instance of this class is COM Automation-capable (<c>IDispatch</c>) or
     /// <c>IUnknown</c>-only. Defaults to <see cref="VBAutomationKind.Dispatch"/> — true of every
     /// RD-VBA class module today; <see cref="VBAutomationKind.Unknown"/> is groundwork for a future

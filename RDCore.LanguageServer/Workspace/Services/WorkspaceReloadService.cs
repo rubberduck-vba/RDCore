@@ -551,6 +551,10 @@ internal sealed class WorkspaceReloadService(
         // what the project now lists as other files is no code, whatever it was before.
         documents.SetOtherFiles(after.Where(file => !file.Value).Select(file => IdOf(projectFiles.Project.Uri, file.Key)));
 
+        // and what it says its document modules are: a module whose Super changed is the kind it says now, when every module is defined again.
+        documents.SetDocumentModules(projectFiles.Project.Uri, projectFiles.Project.ProjectInfo.Modules.Where(module => module.Super is not null)
+            .Select(module => KeyValuePair.Create(IdOf(projectFiles.Project.Uri, module.RelativeUri), module.Super!.Value)));
+
         var removed = before.Keys.Where(path => !after.ContainsKey(path)).ToList();
         var added = after.Keys.Where(path => !before.ContainsKey(path)).ToList();
 

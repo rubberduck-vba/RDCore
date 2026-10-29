@@ -56,6 +56,13 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
                 $"'{typeName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.ParentUri.Fragment.TrimStart('#')))}"));
         }
 
+        // a document module's objects are its host's to make, in its own project too (MS-VBA: Invalid use of New keyword, oracle\s49 D07).
+        if (result.Symbol is VBClassModuleSymbol { IsDocument: true } document)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfNewKeyword, expression.Location,
+                string.Format(Exceptions.VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose, document.Name)));
+        }
+
         if (result.Symbol is VBClassModuleSymbol classModule)
         {
             // MS-VBAL §5.2.4.1.1 (instancing): a class that is Public Not Creatable cannot be instantiated from another project, and a Private one - the

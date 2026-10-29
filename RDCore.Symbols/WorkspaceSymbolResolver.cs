@@ -36,7 +36,7 @@ public static class WorkspaceSymbolResolver
     /// Modules are passed as tuples, not a dictionary: <c>Uri</c> equality ignores the fragment, but a
     /// module uri differs from its siblings only in the fragment (<c>workspace#ModuleName</c>).
     /// <c>ModuleType</c> travels alongside the parse result — the parser is never told a module's kind
-    /// and does not derive it (<c>RDCore.SDK.Workspace.ModuleHeader.IsClassModule</c> reads it off the
+    /// and does not derive it (<c>RDCore.SDK.Workspace.ModuleKinds.Of</c> reads it off the project and the
     /// raw source instead).
     /// </summary>
     /// <param name="projectName">
@@ -49,11 +49,16 @@ public static class WorkspaceSymbolResolver
     /// The symbols of the libraries the project references (<see cref="LibrarySymbolProvider"/>), which the workspace's names are bound among: a type of a
     /// library resolves as the standard library's do, by its own name and qualified by the library's.
     /// </param>
+    /// <param name="documentHosts">
+    /// What host document each document module is the code of (<c>RDCoreModule.Super</c>), by the module's name: its code names the members of the host's
+    /// class (<see cref="VBClassModuleSymbol.HostClass"/>). A document module it does not name is one of no host RD-VBA knows.
+    /// </param>
     public static ISymbolResolver Compose(
         Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
         ISymbolResolver fallback, string? projectName = null,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null)
-        => ComposeWithScopes(workspaceRoot, modules, fallback, projectName, implicitScope, libraries).Resolver;
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null,
+        IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
+        => ComposeWithScopes(workspaceRoot, modules, fallback, projectName, implicitScope, libraries, documentHosts).Resolver;
 
     /// <summary>
     /// Composes the workspace like <see cref="Compose"/> and also returns the scope tree the resolver
@@ -62,17 +67,18 @@ public static class WorkspaceSymbolResolver
     public static WorkspaceComposition ComposeWithScopes(
         Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
         ISymbolResolver fallback, string? projectName = null,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null,
+        IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
     {
         var parsed = modules.ToList();
 
         // the discovery pass runs with the intrinsics alone, where no workspace or library name
         // resolves — so it must not do implicit declaration, which would take every reference in every
         // procedure for an undeclared name.
-        var declared = BuildSymbols(workspaceRoot, parsed, fallback, projectName, withImplicitDeclarations: false, libraries: libraries);
+        var declared = BuildSymbols(workspaceRoot, parsed, fallback, projectName, withImplicitDeclarations: false, libraries: libraries, documentHosts: documentHosts);
         var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(declared)), fallback);
 
-        var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName, implicitScope: implicitScope, libraries: libraries);
+        var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
         var scopeTree = ScopeTreeBuilder.Build(bound);
         return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree);
     }
@@ -82,7 +88,8 @@ public static class WorkspaceSymbolResolver
     private static List<Symbol> BuildSymbols(
         Uri workspaceRoot, IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
         ISymbolResolver typeResolver, string? projectName, bool withImplicitDeclarations = true,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, IReadOnlyList<Symbol>? libraries = null,
+        IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
     {
         var symbols = new List<Symbol>();
 
@@ -107,20 +114,24 @@ public static class WorkspaceSymbolResolver
             // it here so the scope tree has a module tier to hang the members off (and so a
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
             var moduleName = moduleUri.Fragment.TrimStart('#');
-            var directives = parseResult.SyntaxTree.GetModuleDirectives();
+            // a document module's attributes are what it is, not what its export says (ModuleKinds.DirectivesOf).
+            var directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives());
             var implementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [];
-            VBModuleSymbol module = moduleType == ModuleType.ClassModule
+            VBModuleSymbol module = moduleType.IsClass()
                 ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)
                     {
+                        IsDocument = moduleType == ModuleType.DocumentModule,
+                        HostClass = moduleType == ModuleType.DocumentModule && documentHosts?.TryGetValue(moduleName, out var super) == true
+                            ? ModuleKinds.HostClassOf(super)
+                            : null,
                         Directives = directives,
                         ImplementedInterfaceNames = implementedInterfaceNames,
                         ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                     }
-                    .With(SymbolProperties.Creatable, parseResult.SyntaxTree?.IsCreatable() ?? true)
-                    .With(SymbolProperties.PredeclaredId, parseResult.SyntaxTree?.IsPredeclared() ?? false)
-                    .With(SymbolProperties.Extensible, parseResult.SyntaxTree?.IsExtensible() ?? false)
+                    .With(SymbolProperties.Creatable, directives.Creatable)
+                    .With(SymbolProperties.PredeclaredId, directives.PredeclaredId)
+                    .With(SymbolProperties.Extensible, directives.Extensible)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
-
             // members can't ride on the module symbol the way a Type's fields ride on it (built from
             // one AST node's own children) - a module's members are separate top-level declarations,
             // so they're only known once the member provider below has run.
