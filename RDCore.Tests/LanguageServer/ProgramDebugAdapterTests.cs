@@ -1266,24 +1266,26 @@ public sealed class ProgramDebugAdapterTests
     }
 
     // two requests to go on, the second while the first is loading what is saved: the second loads, checks and goes on once the first has started the program.
+    // The handlers are asked directly, so that the second is in the adapter before the first is let go: what a request does before it waits is done by the time
+    // its handler returns the task.
     [TestMethod]
     public async Task TwoRequestsToGoOn_LoadCheckAndGoOn_OneAfterTheOther()
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         var order = new List<string>();
-        var (loading, release) = (new TaskCompletionSource(), new TaskCompletionSource());
-        var reloads = 0;
+        var release = new TaskCompletionSource();
         session.Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
         {
+            bool first;
             lock (order)
             {
                 order.Add("reload");
+                first = order.Count == 1;
             }
 
-            if (Interlocked.Increment(ref reloads) == 1)
+            if (first)
             {
-                loading.TrySetResult();
                 await release.Task;
             }
 
@@ -1291,20 +1293,23 @@ public sealed class ProgramDebugAdapterTests
         });
         session.Debugging.ResumeAsync(Arg.Any<StepKind?>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
 
-        var first = session.SendAsync(new ContinueArguments { ThreadId = 1 });
-        await loading.Task.WaitAsync(Patience);
-        var second = session.SendAsync(new NextArguments { ThreadId = 1 });
+        var first = session.Adapter.Handle(new ContinueArguments { ThreadId = 1 }, CancellationToken.None);
+        var second = session.Adapter.Handle(new NextArguments { ThreadId = 1 }, CancellationToken.None);
+        string[] whileHeld;
         lock (order)
         {
-            order.Add("first let go");
+            whileHeld = [.. order];
         }
 
+        var secondWaited = !second.IsCompleted;
         release.SetResult();
-        await Task.WhenAll(first, second);
+        await Task.WhenAll(first, second).WaitAsync(Patience);
 
+        CollectionAssert.AreEqual(new[] { "reload" }, whileHeld, "the second does not load while the first is loading");
+        Assert.IsTrue(secondWaited, "the second waits for the first");
         lock (order)
         {
-            CollectionAssert.AreEqual(new[] { "reload", "first let go", "reload" }, order.ToArray(), "the second loads once the first is done with its own");
+            Assert.HasCount(2, order, "the second loads once the first is done with its own");
         }
     }
 }

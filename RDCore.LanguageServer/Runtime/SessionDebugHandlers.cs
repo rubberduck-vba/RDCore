@@ -188,7 +188,9 @@ internal sealed class SessionDebugExecuteHandler(IProgramDebugService debugging,
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         var result = await debugging.ExecuteAsync(request.FrameId, request.Statement, token);
-        await editStatus.CheckAsync(token);
+
+        // the host has answered: a request cancelled now is not one whose answer is lost.
+        await editStatus.CheckAsync(CancellationToken.None);
         return result;
     }
 }

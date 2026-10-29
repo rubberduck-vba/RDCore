@@ -133,4 +133,35 @@ public sealed class SessionDebugEditContinueTests
 
         Assert.IsEmpty(_editStatus.Current.Edits);
     }
+
+    // a program ended at the stop - an End typed in it, a discard that ends it - has no edits it does not have; the host has answered, and a request cancelled
+    // after it is still answered what the host said.
+    [TestMethod]
+    [DataRow("execute")]
+    [DataRow("discard")]
+    public async Task AProgramEndedAtTheStop_HasTheEditsAskedAgain_EvenWhenTheRequestIsCancelledOnceAnswered(string request)
+    {
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
+        await _editStatus.CheckAsync(CancellationToken.None);
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        using var cancelled = new CancellationTokenSource();
+        var symbols = Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>();
+        _debugging.ExecuteAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            cancelled.Cancel();
+            return new HostDebugEvaluateResult { Value = string.Empty };
+        });
+        symbols.DiscardModuleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), true).Returns(_ =>
+        {
+            cancelled.Cancel();
+            return new DiscardSessionResult { Discarded = 1 };
+        });
+
+        object answer = request == "execute"
+            ? await new SessionDebugExecuteHandler(_debugging, _capabilities, _editStatus).Handle(new SessionDebugExecuteParams { Statement = "End" }, cancelled.Token)
+            : await new SessionDiscardHandler(symbols, _capabilities, _editStatus).Handle(new DiscardSessionParams { ModuleName = "M1", EndProgram = true }, cancelled.Token);
+
+        Assert.IsNotNull(answer);
+        Assert.IsEmpty(_editStatus.Current.Edits);
+    }
 }

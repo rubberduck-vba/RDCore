@@ -88,10 +88,11 @@ internal sealed class SessionExecuteHandler(
             logger.LogInformation("▶️ {module}.{entryPoint}: {outcome}", request.ModuleName, request.EntryPoint, result.Outcome);
         }
 
-        // a program run again ends the one that waited, and has every edit: what was said of the edits that one did not have is not so any more.
+        // a program run again ends the one that waited, and has every edit: what was said of the edits that one did not have is not so any more. The host has
+        // answered: a request cancelled now is not one whose answer is lost.
         if (editStatus is not null)
         {
-            await editStatus.CheckAsync(token);
+            await editStatus.CheckAsync(CancellationToken.None);
         }
 
         return result;

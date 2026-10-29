@@ -69,6 +69,7 @@ internal sealed class PlatformDebugWorkspace(
         await parsing.ParseWorkspaceAsync(token);
         await symbols.SyncWorkspaceAsync(token);
         MapDocuments();
+        _baseline = BaselineOf(Volatile.Read(ref _maps));
     }
 
     // the component is started and waited for; a component that is lost for good afterwards ends the debugging, since a program cannot be debugged without it.
@@ -94,9 +95,8 @@ internal sealed class PlatformDebugWorkspace(
         }
     }
 
-    // a module is named by its source (Attribute VB_Name), the name of the file when the source does not say - as the symbols of the workspace are defined. The
-    // modules that are named otherwise than they were, by the file they are.
-    private IReadOnlyList<(string Was, string Is)> MapDocuments()
+    // a module is named by its source (Attribute VB_Name), the name of the file when the source does not say - as the symbols of the workspace are defined.
+    private void MapDocuments()
     {
         var (byPath, byModule) = (new Dictionary<string, (string Module, Uri Document)>(PathComparer), new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         foreach (var document in documents.GetAllDocuments())
@@ -113,10 +113,60 @@ internal sealed class PlatformDebugWorkspace(
             byModule[module] = path;
         }
 
-        var was = Interlocked.Exchange(ref _maps, new Maps(byPath, byModule));
-        return [.. byPath
-            .Where(entry => was.ByPath.TryGetValue(entry.Key, out var before) && !string.Equals(before.Module, entry.Value.Module, StringComparison.OrdinalIgnoreCase))
-            .Select(entry => (was.ByPath[entry.Key].Module, entry.Value.Module))];
+        _ = Interlocked.Exchange(ref _maps, new Maps(byPath, byModule));
+    }
+
+    // what the program had as it was started, or as it last went on. A file listed and missing, or a module that could not be loaded, as the program was started
+    // is no edit - the program ran without it - and is not why it can't go on: what is refused is what is so since.
+    private sealed record class Baseline(IReadOnlySet<string> Readable, IReadOnlySet<string> Unloaded, IReadOnlyDictionary<string, string> Names);
+
+    private Baseline _baseline = new(new HashSet<string>(), new HashSet<string>(), new Dictionary<string, string>());
+
+    // a load that failed or was stopped left the host with what nothing says: it is loaded again before the program goes on.
+    private bool _loadFailed;
+
+    // the files of the project the host runs: the modules of another project are no code of the program.
+    private WorkspaceDocument[] ProgramFiles() => [.. documents.GetProjectDocuments(documents.WorkspaceRoot).Where(document => document.IsFile)];
+
+    private static string FullPath(WorkspaceDocument file) => Path.GetFullPath(file.Id.Uri.GetFileSystemPath());
+
+    private string? Unreadable(WorkspaceDocument file)
+    {
+        try
+        {
+            using var readable = fileSystem.File.OpenRead(file.Id.Uri.GetFileSystemPath());
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return exception.Message;
+        }
+    }
+
+    // what the host does not have as it is now, and why: a module it could not define or load, and a file with no parse of its text - the parser gave none, or
+    // was not asked again after it failed.
+    private Dictionary<string, string> Unloaded(IEnumerable<WorkspaceDocument> files)
+    {
+        var unloaded = new Dictionary<string, string>(symbols.Unsynced, StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            if (!parsing.TryGetCached(file.Id.Uri.ToUri(), file.Version, out var parse) || parse.SyntaxTree is null)
+            {
+                var why = parse?.SyntaxErrors.FirstOrDefault()?.Description;
+                unloaded.TryAdd(Path.GetFileName(file.Id.Uri.GetFileSystemPath()), string.IsNullOrEmpty(why) ? DebuggerMessages.ModuleNotParsed : why);
+            }
+        }
+
+        return unloaded;
+    }
+
+    private Baseline BaselineOf(Maps maps, IReadOnlyDictionary<string, string>? names = null)
+    {
+        var files = ProgramFiles();
+        return new Baseline(
+            files.Where(file => Unreadable(file) is null).Select(FullPath).ToHashSet(PathComparer),
+            Unloaded(files).Keys.ToHashSet(StringComparer.OrdinalIgnoreCase),
+            names ?? maps.ByPath.ToDictionary(entry => entry.Key, entry => entry.Value.Module, PathComparer));
     }
 
     public bool TryGetModule(string path, out string moduleName)
@@ -146,8 +196,8 @@ internal sealed class PlatformDebugWorkspace(
         var environment = orchestration.RuntimeEnvironment;
         await environment.WaitForReadyAsync(token);
 
-        // a program run again has the modules as they are named now.
-        _renamed = null;
+        // a program run again has the modules as they are named now, and what is loaded now.
+        Volatile.Write(ref _baseline, BaselineOf(maps));
 
         // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration.
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
@@ -163,50 +213,88 @@ internal sealed class PlatformDebugWorkspace(
 
     public async Task<string?> ReloadChangedAsync(CancellationToken token)
     {
-        WorkspaceDocument[] files = [.. documents.GetAllDocuments().Where(document => document.IsFile)];
+        var baseline = Volatile.Read(ref _baseline);
+        var files = new List<WorkspaceDocument>();
 
-        // a file that is gone, locked or can't be read is no code to go on with: the program waits on the code it had, which it is told.
-        foreach (var file in files)
+        // a file that is gone, locked or can't be read is no code to go on with: the program waits on the code it had, which it is told. One that could not be
+        // read when the program started is not read now either: the program has none of its code.
+        foreach (var file in ProgramFiles())
         {
-            var path = file.Id.Uri.GetFileSystemPath();
-            try
+            if (Unreadable(file) is not { } why)
             {
-                using var readable = fileSystem.File.OpenRead(path);
+                files.Add(file);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            else if (baseline.Readable.Contains(FullPath(file)))
             {
-                return string.Format(DebuggerMessages.ResumeRefusedForUnreadable, Path.GetFileName(path), exception.Message);
+                return string.Format(DebuggerMessages.ResumeRefusedForUnreadable, Path.GetFileName(file.Id.Uri.GetFileSystemPath()), why);
             }
         }
 
         // the files are read and told apart from what was loaded by their text: one that was saved as it was is nothing changed. What another request had loaded,
-        // and is loading still, is waited for too.
-        var reloaded = files.Length == 0 ? null : await reload.ReloadFilesAsync([.. files.Select(file => file.Id.Uri.ToUri())], token);
-        await reload.WhenIdleAsync(token);
-
-        // a module the host could not define or load, as its text is now, holds the code it had: it is loaded again, since nothing else would.
-        if (symbols.Unsynced.Count > 0 && reloaded is not { IsUnchanged: false })
+        // and is loading still, is waited for too. A batch that loaded anything defined the whole workspace again.
+        WorkspaceReloadResult? reloaded;
+        try
         {
-            await symbols.SyncWorkspaceAsync(token, replace: true);
+            reloaded = files.Count == 0 ? null : await reload.ReloadFilesAsync([.. files.Select(file => file.Id.Uri.ToUri())], token);
+            await reload.WhenIdleAsync(token);
+        }
+        catch
+        {
+            _loadFailed = true;
+            throw;
         }
 
-        if (symbols.Unsynced is { Count: > 0 } unsynced)
+        if (reloaded is { IsUnchanged: false })
+        {
+            _loadFailed = false;
+        }
+
+        // what the host could not define or load since, as its text is now, holds the code it had - and so does what a load that failed or was stopped did not
+        // reach: it is loaded again, since nothing else would.
+        var unloaded = Unloaded(files);
+        if ((_loadFailed || unloaded.Keys.Any(name => !baseline.Unloaded.Contains(name))) && reloaded is not { IsUnchanged: false })
+        {
+            try
+            {
+                foreach (var file in files.Where(file => !parsing.TryGetCached(file.Id.Uri.ToUri(), file.Version, out var parse) || parse.SyntaxTree is null))
+                {
+                    _ = await parsing.ParseDocumentAsync(file.Id.Uri.ToUri(), token);
+                }
+
+                await symbols.SyncWorkspaceAsync(token, replace: true);
+            }
+            catch
+            {
+                _loadFailed = true;
+                throw;
+            }
+
+            _loadFailed = false;
+            unloaded = Unloaded(files);
+        }
+
+        MapDocuments();
+        if (unloaded.Where(module => !baseline.Unloaded.Contains(module.Key)).ToList() is { Count: > 0 } since)
         {
             return string.Format(DebuggerMessages.ResumeRefusedForUnloaded,
-                string.Join("\n", unsynced.Select(module => "  " + string.Format(DebuggerMessages.EditNamed, module.Key, module.Value))));
+                string.Join("\n", since.Select(module => "  " + string.Format(DebuggerMessages.EditNamed, module.Key, module.Value))));
         }
 
-        // a module named otherwise by its source now is a module the program does not have - its breakpoints, its frames are of the name it had - until it is run
-        // again, whatever is saved meanwhile.
-        if (reloaded is { IsUnchanged: false } && MapDocuments() is [var first, ..])
+        // a module named otherwise by its source than it was when the program started is a module the program does not have - its breakpoints, its frames are
+        // of the name it had - until it is run again, whatever is saved meanwhile; named back, it is the module the program has.
+        var maps = Volatile.Read(ref _maps);
+        foreach (var (path, was) in baseline.Names)
         {
-            _renamed ??= first;
+            if (maps.ByPath.TryGetValue(path, out var now) && !string.Equals(was, now.Module, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Format(DebuggerMessages.ResumeRefusedForRenamed, was, now.Module);
+            }
         }
 
-        return _renamed is var (was, now) ? string.Format(DebuggerMessages.ResumeRefusedForRenamed, was, now) : null;
+        // the program goes on with what is loaded now: what is refused next is what changes from it.
+        Volatile.Write(ref _baseline, BaselineOf(maps, baseline.Names));
+        return null;
     }
-
-    private (string Was, string Is)? _renamed;
 
     public async Task CloseAsync()
     {

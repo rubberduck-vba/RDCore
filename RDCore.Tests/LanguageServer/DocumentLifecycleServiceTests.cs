@@ -417,6 +417,60 @@ public sealed class DocumentLifecycleServiceTests
         await _sut.WhenAllLoadedAsync(CancellationToken.None).WaitAsync(Patience);
     }
 
+    // a change of the workspace's files - what the client did not edit - is loaded too: the wait is over once it is.
+    [TestMethod]
+    public async Task TheWorkspaceLoaded_IsWaitedFor_UntilTheFilesChangedAreLoaded()
+    {
+        var reload = Substitute.For<IWorkspaceReloadService>();
+        var idle = new TaskCompletionSource();
+        reload.WhenIdleAsync(Arg.Any<CancellationToken>()).Returns(idle.Task);
+        var sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance,
+            TimeSpan.Zero, reload: reload);
+        sut.Opened(Mod1, Declares, 1);
+        await sut.WhenRefreshedAsync(Mod1);
+
+        var loaded = sut.WhenAllLoadedAsync(CancellationToken.None);
+
+        Assert.IsFalse(loaded.IsCompleted, "the files changed are being loaded");
+        idle.SetResult();
+        await loaded.WaitAsync(Patience);
+    }
+
+    // an edit made while the files changed are being loaded is waited for too, once they are.
+    [TestMethod]
+    public async Task TheWorkspaceLoaded_IsWaitedFor_AsAnEditMadeWhileTheFilesWereLoadedIs()
+    {
+        var reload = Substitute.For<IWorkspaceReloadService>();
+        var (asked, idle) = (new TaskCompletionSource(), new TaskCompletionSource());
+        var calls = 0;
+        reload.WhenIdleAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            if (Interlocked.Increment(ref calls) > 1)
+            {
+                return Task.CompletedTask;
+            }
+
+            asked.TrySetResult();
+            return idle.Task;
+        });
+        var sut = new DocumentLifecycleService(_documents, _parsing, _symbols, _diagnostics, _publisher, _refresh, NullLogger<DocumentLifecycleService>.Instance,
+            TimeSpan.Zero, reload: reload);
+        sut.Opened(Mod1, Declares, 1);
+        await sut.WhenRefreshedAsync(Mod1);
+        var (syncs, released) = GatedSyncs(1);
+
+        var loaded = sut.WhenAllLoadedAsync(CancellationToken.None);
+        await asked.Task.WaitAsync(Patience);
+        _ = sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
+        await syncs[0].Task.WaitAsync(Patience);
+        idle.SetResult();
+
+        Assert.IsFalse(loaded.IsCompleted, "the edit is being loaded");
+        released[0].SetResult();
+        await loaded.WaitAsync(Patience);
+        Assert.AreEqual(2, calls, "and the files are waited for again after it");
+    }
+
     // an edit loaded while a program waits is checked at once: what is found of the document after it is of what the program does not have.
     [TestMethod]
     public async Task AnEditLoaded_HasTheProgramThatWaitsCheckedAgainstIt_BeforeItsFindingsAre()

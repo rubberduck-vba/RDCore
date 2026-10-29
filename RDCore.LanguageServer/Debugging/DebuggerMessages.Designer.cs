@@ -430,11 +430,11 @@ namespace RDCore.LanguageServer.Debugging {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to it was not loaded before the loading was stopped.
+        ///   Looks up a localized string similar to it could not be parsed.
         /// </summary>
-        internal static string SyncCancelled {
+        internal static string ModuleNotParsed {
             get {
-                return ResourceManager.GetString("SyncCancelled", resourceCulture);
+                return ResourceManager.GetString("ModuleNotParsed", resourceCulture);
             }
         }
 

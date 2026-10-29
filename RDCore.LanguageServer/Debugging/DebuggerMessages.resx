@@ -139,8 +139,8 @@
   <data name="EditNamed" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
-  <data name="SyncCancelled" xml:space="preserve">
-    <value>it was not loaded before the loading was stopped</value>
+  <data name="ModuleNotParsed" xml:space="preserve">
+    <value>it could not be parsed</value>
   </data>
   <data name="ResumeRefusedForUnloaded" xml:space="preserve">
     <value>The program can't go on: the saved code of these modules could not be loaded, and it waits on the code it had:

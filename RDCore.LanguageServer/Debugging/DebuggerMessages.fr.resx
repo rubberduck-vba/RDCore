@@ -139,8 +139,8 @@
   <data name="EditNamed" xml:space="preserve">
     <value>{0} : {1}</value>
   </data>
-  <data name="SyncCancelled" xml:space="preserve">
-    <value>il n'a pas été chargé avant que le chargement soit interrompu</value>
+  <data name="ModuleNotParsed" xml:space="preserve">
+    <value>il n'a pas pu être analysé</value>
   </data>
   <data name="ResumeRefusedForUnloaded" xml:space="preserve">
     <value>Le programme ne peut pas continuer : le code enregistré de ces modules n'a pas pu être chargé, et il est interrompu sur le code qu'il avait :

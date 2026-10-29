@@ -1,5 +1,6 @@
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Symbols;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
@@ -18,7 +19,7 @@ namespace RDCore.LanguageServer.Runtime;
 internal sealed class SessionDiscardHandler(
     ISymbolSyncService symbols,
     IPlatformClientCapabilitiesService clientCapabilities,
-    RDCore.LanguageServer.Debugging.IEditStatusMonitor? editStatus = null)
+    IEditStatusMonitor? editStatus = null)
     : RDCoreRequestHandler<DiscardSessionParams, DiscardSessionResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
@@ -34,10 +35,10 @@ internal sealed class SessionDiscardHandler(
 
         var discarded = await symbols.DiscardModuleAsync(request.ModuleName, token, request.EndProgram);
 
-        // a program the discard ended has no edits it does not have.
+        // a program the discard ended has no edits it does not have. The host has answered: a request cancelled now is not one whose answer is lost.
         if (request.EndProgram && editStatus is not null)
         {
-            await editStatus.CheckAsync(token);
+            await editStatus.CheckAsync(CancellationToken.None);
         }
 
         return discarded;

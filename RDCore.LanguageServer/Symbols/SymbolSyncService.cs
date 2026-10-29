@@ -274,23 +274,32 @@ internal sealed class SymbolSyncService(
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            LogIfEnabled(LogLevel.Information, "Symbol sync was cancelled; language server is shutting down.");
-            foreach (var name in collected.Where(name => !loaded.Contains(name)))
-            {
-                failed.TryAdd(name, Debugging.DebuggerMessages.SyncCancelled);
-            }
+            LogIfEnabled(LogLevel.Information, "Symbol sync was cancelled.");
+            Unfinished(failed, loaded, collected, WorkspaceMessages.SyncCancelled);
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "❌ Symbol sync failed.");
-            foreach (var name in collected.Where(name => !loaded.Contains(name)))
-            {
-                failed.TryAdd(name, exception.Message);
-            }
+            Unfinished(failed, loaded, collected, exception.Message);
         }
         finally
         {
             Volatile.Write(ref _unsynced, failed);
+        }
+    }
+
+    // a sync that did not finish loaded only some of what it collected, and may not have reached the collecting at all: what the last sync did not load is not
+    // loaded either, unless this one loaded it.
+    private void Unfinished(Dictionary<string, string> failed, HashSet<string> loaded, IReadOnlyList<string> collected, string reason)
+    {
+        foreach (var name in collected.Where(name => !loaded.Contains(name)))
+        {
+            failed.TryAdd(name, reason);
+        }
+
+        foreach (var (name, why) in Unsynced.Where(module => !loaded.Contains(module.Key)))
+        {
+            failed.TryAdd(name, why);
         }
     }
 
