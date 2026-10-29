@@ -59,7 +59,8 @@ public sealed class DocumentModuleDiagnosticsTests
         var payload = await ModuleWorkspace.SemanticsAsync(classes ?? [], program, libraries: libraries, documents: [(name, source, super)]);
         var module = diagnosed ?? name;
         var (file, text) = module == "Program" ? ("Program.bas", program) : ($"{name}.doccls", source);
-        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, file));
+        // a file URI, as the language server sends a document's: on Linux, a bare path is no absolute URI once the payload has been through JSON.
+        var uri = Platform.Wire.FileUri(Path.Combine(ModuleWorkspace.Root, file));
         var semantics = payload.Modules.Single(candidate => candidate.Module.Fragment.TrimStart('#') == module);
         var parse = new ModuleParser().Parse(uri, text);
 
