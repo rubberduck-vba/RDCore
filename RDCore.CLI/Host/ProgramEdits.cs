@@ -91,6 +91,17 @@ internal sealed class ProgramEdits
         var now = Of(session, image);
         var edits = new List<ProgramEdit>();
 
+        // the locals a statement typed at the break declared in the activation it ran in: the frame holds them already.
+        var declaredAtAStop = new Dictionary<string, HashSet<string>>();
+        foreach (var frame in session.CallStack.Frames.OfType<CallStackFrame>())
+        {
+            if (frame.Procedure is { } procedure && SymbolDescriptorProjector.Project([procedure], procedure.ParentUri).FirstOrDefault() is { } descriptor)
+            {
+                var names = declaredAtAStop.TryGetValue(KeyOf(procedure.ParentUri, descriptor), out var known) ? known : declaredAtAStop[KeyOf(procedure.ParentUri, descriptor)] = new(StringComparer.OrdinalIgnoreCase);
+                names.UnionWith(frame.DeclaredAtAStop.Select(local => local.Name));
+            }
+        }
+
         foreach (var key in suspended._declarations.Keys.Union(now._declarations.Keys))
         {
             var before = suspended._declarations.GetValueOrDefault(key);
@@ -100,7 +111,7 @@ internal sealed class ProgramEdits
                 continue;
             }
 
-            edits.Add(Classify(before, after, suspended._active.Contains(key)));
+            edits.Add(Classify(before, after, suspended._active.Contains(key), declaredAtAStop.GetValueOrDefault(key) ?? []));
         }
 
         // a module's options and what a class implements or raises: read afresh by its code, unless it is a class whose objects the program may hold.
@@ -119,7 +130,7 @@ internal sealed class ProgramEdits
         {
             var inIt = suspended._active.Any(key => SameProcedure(key, procedure));
             var changed = now._bodies.TryGetValue(procedure, out var current) ? current != fingerprint : inIt;
-            if (changed && !edits.Any(edit => edit.Name == NameOfProcedure(procedure)))
+            if (changed && !edits.Any(edit => edit.Name == NameOfProcedure(procedure) && edit.Kind is not ProgramEditKind.Applies))
             {
                 edits.Add(new ProgramEdit(NameOfProcedure(procedure), inIt ? ProgramEditKind.NotYet : ProgramEditKind.Applies,
                     inIt ? Resources.Host_Edit_BodyOfAnActiveProcedure : Resources.Host_Edit_Applies));
@@ -140,7 +151,7 @@ internal sealed class ProgramEdits
     }
 
     // what an edited declaration is to the program, by plan-edit-and-continue §2.
-    private static ProgramEdit Classify(Declaration? before, Declaration? after, bool active)
+    private static ProgramEdit Classify(Declaration? before, Declaration? after, bool active, IReadOnlySet<string> declaredAtAStop)
     {
         var name = (after ?? before)!.Name;
         var kind = (after ?? before)!.Kind;
@@ -186,9 +197,12 @@ internal sealed class ProgramEdits
                 }
             }
 
-            return active && !before.Locals.Select(Text).SequenceEqual(after.Locals.Select(Text))
+            // a local the frame already holds - declared by a statement typed at the break - is no change of its layout.
+            var added = after.Locals.Where(local => !before.Locals.Any(other => string.Equals(other.Name, local.Name, StringComparison.OrdinalIgnoreCase)));
+            var relaidOut = after.Locals.Length < before.Locals.Length || added.Any(local => !declaredAtAStop.Contains(local.Name));
+            // its code is the bodies' to say (Since), and its signature is as it was.
+            return active && relaidOut
                 ? Edit(ProgramEditKind.NotYet, Resources.Host_Edit_LocalsOfAnActiveProcedure)
-                : active ? Edit(ProgramEditKind.NotYet, Resources.Host_Edit_BodyOfAnActiveProcedure)
                 : Edit(ProgramEditKind.Applies, Resources.Host_Edit_Applies);
         }
 

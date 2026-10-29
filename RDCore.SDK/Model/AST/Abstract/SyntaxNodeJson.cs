@@ -58,9 +58,10 @@ public static class SyntaxNodeJson
     };
 
     /// <summary>
-    /// <see cref="Options"/>, less every property that says where in the source something was written (a <see cref="Source.SourceLocation"/>, a
-    /// <see cref="Source.SourceRange"/>): two writings of the same code with these are the same text, however the code moved. A blank line inserted above
-    /// it, or a comment edited, leaves it as it was.
+    /// <see cref="Options"/>, less every property that says where something was written: in the source (a <see cref="Source.SourceLocation"/>, a
+    /// <see cref="Source.SourceRange"/>) or in the tree (a node's <see cref="SyntaxNodeId"/>, its path from the module). Two writings of the same code with
+    /// these are the same text, however the code moved: a blank line inserted above it, a comment edited, or a declaration added before it leaves it as
+    /// it was.
     /// </summary>
     /// <remarks>
     /// For comparing, and so for writing only: what is read with these has no location. The fingerprints of a program image are written with them, and
@@ -83,7 +84,7 @@ public static class SyntaxNodeJson
 
         static bool IsLocation(Type type)
             => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
-                && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange));
+                && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange) || underlying == typeof(SyntaxNodeId));
     }
 
     // an expression node has its location twice: its own Location, and the SourceLocation of the node it is, which it is constructed with. The second is

@@ -523,6 +523,13 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     // A pair of record types met again on the way down is taken as the same: a type that contains itself, which no compile check stops yet, ends there.
     private static bool IsSameType(VBType? before, VBType? after, HashSet<(VBUserDefinedType, VBUserDefinedType)>? comparing = null)
     {
+        // a class is the type it was if it is the same class: its symbol is defined again with its module, a new one with the same identity, and what a
+        // variable of it holds - an object of that class, or Nothing - is what it held.
+        if (before is VBClassType beforeClass && after is VBClassType afterClass)
+        {
+            return beforeClass.Symbol.SemanticId == afterClass.Symbol.SemanticId;
+        }
+
         if (!Equals(before, after))
         {
             return false;
