@@ -70,7 +70,7 @@ program to go on with until it compiles again. Fix it, and **Continue** goes on.
 ### In the editor
 
 As soon as you make an edit that won't apply, the editor shows an Information finding:
-[**RDC20001** Edit that applies when the program is run again](diagnostics/rdc20001.md). It sits on the declaration or procedure you edited, where it is
+[**RDC20001** Edit not applied to the waiting program](diagnostics/rdc20001.md). It sits on the declaration or procedure you edited, where it is
 now, or, when the code no longer compiles, where it doesn't compile. It says why, and goes away when you take the edit back, or when the program ends.
 
 ### In the REPL
@@ -154,7 +154,7 @@ choose: take the edit back and go on, or run again.
 
 ## See also
 
-- [**RDC20001** Edit that applies when the program is run again](diagnostics/rdc20001.md)
+- [**RDC20001** Edit not applied to the waiting program](diagnostics/rdc20001.md)
 - [Getting Started](getting-started.md)
 
 ---
