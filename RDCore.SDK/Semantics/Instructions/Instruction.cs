@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Instructions;
@@ -66,4 +67,21 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// control arrived here — a <c>GoTo</c> into or out of a <c>With</c> block leaves no stale stack to
 /// unwind. <c>null</c> when this instruction is not inside any <c>With</c> block.
 /// </param>
-public sealed record class Instruction(int Offset, StatementNode? Node, InstructionKind Kind, int? Target, ImmutableArray<int?> Targets, int? Else, int? End, int? Matching, int? EnclosingWith);
+public sealed record class Instruction(int Offset, StatementNode? Node, InstructionKind Kind, int? Target, ImmutableArray<int?> Targets, int? Else, int? End, int? Matching, int? EnclosingWith)
+{
+    /// <summary>
+    /// The line a block's closing instruction is on - the <see cref="InstructionKind.ForNext"/> of a <c>For</c> on its <c>Next</c>, the back edge of a
+    /// <c>While</c> or a <c>Do While</c> on its <c>Wend</c> or <c>Loop</c> - which has no statement of its own (<see cref="Node"/>); <see langword="null"/>
+    /// on every other instruction.
+    /// </summary>
+    public SourceLocation? Closes { get; init; }
+
+    /// <summary>
+    /// Where the instruction is, as a program that waits before it, or is paused at it, is shown there: its statement's location, or the closing line of the
+    /// block it closes (<see cref="Closes"/>) - where MS-VBA highlights a loop paused at its back edge.
+    /// </summary>
+    /// <remarks>
+    /// Not where an error it raises is located: a <c>Next</c> is no statement of its own, and its error is at the <c>For</c> it closes.
+    /// </remarks>
+    public SourceLocation? Location => Node?.SourceLocation ?? Closes;
+}

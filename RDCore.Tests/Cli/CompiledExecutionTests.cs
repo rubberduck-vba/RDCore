@@ -306,8 +306,13 @@ public sealed class CompiledExecutionTests
         var run = await AssertAlikeWalkingBackAsync(Program(lines), "Stored");
 
         Assert.AreEqual(6, run.Result.ErrorNumber);
-        Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
-        Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
+
+        // under the random walk-back the activation may be handed over before it gets to the store, and the interpreter raises the error all the same.
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
+            Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
+        }
     }
 
     [TestMethod]

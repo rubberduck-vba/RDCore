@@ -44,10 +44,10 @@ public sealed class CompiledActivation
         (_session, _frame, _list, _executor, _context, _body) = (session, frame, list, executor, context, body);
         _halt = session.Halt;
 
-        // the safepoint the activation is handed to the interpreter at, under the random walk-back: one of its first 32, a different one for each activation.
+        // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
         if (CompiledExecution.WalksBackAtRandom)
         {
-            _untilPoll = 1 + (int)(((uint)Interlocked.Increment(ref _activations) * 2654435761u) >> 27);
+            _untilPoll = body.NextRandomSafepoint();
         }
     }
 
@@ -55,8 +55,6 @@ public sealed class CompiledActivation
     private const int PollInterval = 256;
 
     private int _untilPoll = PollInterval;
-
-    private static int _activations;
 
     /// <summary>
     /// Whether the program is to stop, or the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>): the activation is then handed to the
@@ -149,7 +147,7 @@ public sealed class CompiledActivation
     public RuntimeExecutionOutcome Interpret(int pc)
     {
         _frame.Pc = pc;
-        _body.WalkedBack(pc < _list.Items.Length ? _list.Items[pc].Node?.SourceLocation : null);
+        _body.WalkedBack(pc < _list.Items.Length ? _list.Items[pc].Location : null);
         return _executor.Run(_session, _frame, _list, _context);
     }
 
@@ -163,9 +161,30 @@ public sealed class CompiledActivation
 /// <param name="Run">The compiled code.</param>
 /// <param name="ResultKind">The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</param>
 /// <param name="Loops">The <c>For</c> loops, by the number compiled code knows each by.</param>
-internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecutionOutcome> Run, ScalarKind? ResultKind, IReadOnlyList<CompiledForLoop> Loops)
+/// <param name="Name">The procedure's name: what the random walk-back tells one body from another by, the same in every run.</param>
+internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecutionOutcome> Run, ScalarKind? ResultKind, IReadOnlyList<CompiledForLoop> Loops,
+    string Name)
 {
     private long _walkedBack;
+    private int _activations;
+
+    /// <summary>
+    /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many polls it runs past first. It is
+    /// chosen from the body's name, how many activations of it came before, and the seed (<see cref="CompiledExecution.WalkBackSeed"/>), so that a run
+    /// can be replayed whatever else runs beside it; and from 1 to 4,096, so that the late iterations of a loop are reached as well as the first.
+    /// </summary>
+    internal int NextRandomSafepoint()
+    {
+        var hash = 2166136261u;
+        foreach (var character in Name)
+        {
+            hash = (hash ^ character) * 16777619u;
+        }
+
+        hash = (hash ^ (uint)CompiledExecution.WalkBackSeed) * 16777619u;
+        hash = (hash ^ (uint)Interlocked.Increment(ref _activations)) * 2654435761u;
+        return 1 + (int)((hash >> 27) << (int)((hash >> 8) % 8));
+    }
 
     /// <summary>How many times an activation of the body was handed to the interpreter.</summary>
     public long WalkBacks => Interlocked.Read(ref _walkedBack);

@@ -169,26 +169,29 @@ internal sealed class SessionHalt : ISessionHalt
     private StepKind? _step;
     private int _stepDepth;
 
+    // whether a step is asked for, as compiled code running on the program's thread reads it, while the debugger's thread asks for one - a pause is one.
+    private volatile bool _stepping;
+
     public void Clear()
     {
         Pending = null;
         Location = null;
-        _step = null;
+        (_step, _stepping) = (null, false);
         _lastWaitedAt = null;
     }
 
     public IExecutionGate? Gate { get; set; }
 
-    // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step. A pause is a
-    // cancellation, which compiled code polls for itself.
-    public bool WantsInterpreter => Gate is not null && (Breakpoints.HasAny || _step is not null);
+    // under a debugger, compiled code runs on until something only the interpreter can do is asked for: a breakpoint, set anywhere, or a step - which a pause
+    // is too, a step into whatever runs next.
+    public bool WantsInterpreter => Gate is not null && (_stepping || Breakpoints.HasAny);
 
     public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
 
     public void RequestStep(StepKind kind, int callDepth)
     {
-        _step = kind;
-        _stepDepth = callDepth;
+        (_step, _stepDepth) = (kind, callDepth);
+        _stepping = true;
     }
 
     public bool TakeStep(int callDepth)
@@ -208,7 +211,7 @@ internal sealed class SessionHalt : ISessionHalt
 
         if (due)
         {
-            _step = null;
+            (_step, _stepping) = (null, false);
         }
 
         return due;

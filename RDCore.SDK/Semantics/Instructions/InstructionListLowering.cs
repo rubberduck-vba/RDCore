@@ -430,7 +430,7 @@ public static class InstructionListLowering
     {
         var header = Emit(state, scope, node, InstructionKind.ConditionalBranch);
         LowerBlock(body, state, scope);
-        Emit(state, scope, null, InstructionKind.Jump, target: header);
+        Closing(state, Emit(state, scope, null, InstructionKind.Jump, target: header), node);
         var after = state.Items.Count;
         PatchElse(state, header, after);
         PatchEnd(state, header, after);
@@ -458,7 +458,7 @@ public static class InstructionListLowering
         var opener = Emit(state, scope, forStatement, InstructionKind.ForOpener);
         var bodyStart = state.Items.Count;
         LowerBlock(forStatement.Body, state, scope);
-        Emit(state, scope, null, InstructionKind.ForNext, target: bodyStart, matching: opener);
+        Closing(state, Emit(state, scope, null, InstructionKind.ForNext, target: bodyStart, matching: opener), forStatement);
         var after = state.Items.Count;
         PatchEnd(state, opener, after);
         return after;
@@ -469,7 +469,7 @@ public static class InstructionListLowering
         var opener = Emit(state, scope, forEach, InstructionKind.ForEachOpener);
         var bodyStart = state.Items.Count;
         LowerBlock(forEach.Body, state, scope);
-        Emit(state, scope, null, InstructionKind.ForEachNext, target: bodyStart, matching: opener);
+        Closing(state, Emit(state, scope, null, InstructionKind.ForEachNext, target: bodyStart, matching: opener), forEach);
         var after = state.Items.Count;
         PatchEnd(state, opener, after);
         return after;
@@ -494,6 +494,17 @@ public static class InstructionListLowering
         }
         state.Items.Add(new Instruction(offset, node, kind, target, ImmutableArray<int?>.Empty, Else: null, End: null, matching, scope.EnclosingWith));
         return offset;
+    }
+
+    // the instruction that closes a block, which has no statement of its own, is on the block's last line: its Next, its Wend, its Loop.
+    private static void Closing(LoweringState state, int index, StatementNode block)
+    {
+        var (start, end) = (block.SourceLocation.Range.Start, block.SourceLocation.Range.End);
+        var line = end.Character == 0 && end.Line > start.Line ? end.Line - 1 : end.Line;
+        state.Items[index] = state.Items[index] with
+        {
+            Closes = new SourceLocation(block.SourceLocation.Uri, new SourceRange(new SourcePosition(line, 0), end.Line == line ? end : new SourcePosition(line, 0))),
+        };
     }
 
     private static void PatchElse(LoweringState state, int index, int value) => state.Items[index] = state.Items[index] with { Else = value };
