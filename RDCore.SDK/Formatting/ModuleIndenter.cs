@@ -684,13 +684,22 @@ public static partial class ModuleIndenter
         {
             var range = label.SourceLocation.Range;
             var text = module.Lines[range.Start.Line];
-            if (range.Start.Line == range.End.Line && range.Start.Character == text.Length - text.TrimStart().Length && range.End.Character <= text.Length)
+            if (range.Start.Line == range.End.Line && range.Start.Character == text.Length - text.TrimStart().Length && IsLabel(label, module))
             {
                 labels[range.Start.Line] = range.End.Character;
             }
         }
 
         return labels;
+    }
+
+    // a label is a name and its colon: what the parser recovered from an error as one - a statement it could not read - is none.
+    private static bool IsLabel(LineLabelNode label, ModuleLines module)
+    {
+        var range = label.SourceLocation.Range;
+        var text = module.Lines[range.Start.Line];
+        return label is LineNumberNode
+            || (range.Start.Line == range.End.Line && range.End.Character <= text.Length && LabelText().IsMatch(text[range.Start.Character..range.End.Character]));
     }
 
     private static int[] LevelsOf(ModuleParseResult parse, ModuleLines module, CodeFormattingOptions options, IReadOnlyList<DirectiveBlock> blocks,
@@ -716,10 +725,25 @@ public static partial class ModuleIndenter
                 }
             }
 
-            foreach (var node in tree.Descendants())
+            var lastCode = Array.FindLastIndex(module.Lines, line => !string.IsNullOrWhiteSpace(line));
+            void Visit(SyntaxNode node)
             {
+                if (IsCutShort(node, module, lastCode))
+                {
+                    return;
+                }
+
                 Cover(covered, node, module);
                 IndentBodiesOf(node, module, options, splitHeaders, Indent);
+                foreach (var child in node.ChildNodes())
+                {
+                    Visit(child);
+                }
+            }
+
+            foreach (var node in tree.ChildNodes())
+            {
+                Visit(node);
             }
         }
 
@@ -743,7 +767,8 @@ public static partial class ModuleIndenter
     // what is in it covers its own lines: a body the parser built nothing of is indented by its keywords.
     private static void Cover(bool[] covered, SyntaxNode node, ModuleLines module)
     {
-        if (node is not (StatementNode or MemberDeclarationNode or VariableDeclarationNode or ConstantDeclarationNode or DirectiveNode))
+        if (node is not (StatementNode or MemberDeclarationNode or VariableDeclarationNode or ConstantDeclarationNode or DirectiveNode)
+            || (node is LineLabelNode label && !IsLabel(label, module)))
         {
             return;
         }
@@ -753,6 +778,20 @@ public static partial class ModuleIndenter
         {
             covered[line] = true;
         }
+    }
+
+    // a block the parser cut short, recovering from an error: it has no closer, and code follows it - a block not closed yet, as it is typed, is open to the last
+    // line. Neither it nor what is in it says where a line is: its lines are indented by their keywords.
+    private static bool IsCutShort(SyntaxNode node, ModuleLines module, int lastCode)
+    {
+        if (node is not (StatementNode or MemberDeclarationNode) || BlockCloser(node) is null)
+        {
+            return false;
+        }
+
+        var range = node.SourceLocation.Range;
+        var (start, end) = (range.Start.Line, module.LastLineOf(range));
+        return end < lastCode && BodyEnd(node, module, start, end) == end;
     }
 
     private static void IndentBodiesOf(SyntaxNode node, ModuleLines module, CodeFormattingOptions options, IReadOnlyDictionary<int, DirectiveBlock> splitHeaders,
@@ -802,7 +841,21 @@ public static partial class ModuleIndenter
     // when the parser found no closer, as it is typed.
     private static int BodyEnd(SyntaxNode node, ModuleLines module, int start, int end)
     {
-        string? closer = node switch
+        var closer = BlockCloser(node);
+
+        // a node the parser recovered from an error may end past its closer, on the empty lines after it.
+        var last = end;
+        while (last > start && string.IsNullOrWhiteSpace(module.Lines[last]))
+        {
+            last--;
+        }
+
+        return closer is not null && last > start && HasStatementStartingWith(Keyworded(module.Lines[last]), closer) ? last - 1 : end;
+    }
+
+    // the keyword that closes a block: none for a node that is no block.
+    private static string? BlockCloser(SyntaxNode node)
+        => node switch
         {
             MemberDeclarationNode { MemberKind: MemberKind.Procedure } => "End Sub",
             MemberDeclarationNode { MemberKind: MemberKind.Function } => "End Function",
@@ -817,16 +870,6 @@ public static partial class ModuleIndenter
             WithStatementNode => "End With",
             _ => null,
         };
-
-        // a node the parser recovered from an error may end past its closer, on the empty lines after it.
-        var last = end;
-        while (last > start && string.IsNullOrWhiteSpace(module.Lines[last]))
-        {
-            last--;
-        }
-
-        return closer is not null && last > start && HasStatementStartingWith(Keyworded(module.Lines[last]), closer) ? last - 1 : end;
-    }
 
     // whether a statement of a line starts with the words of a keyword: the first, or one after a colon of its code - none in a literal or a comment.
     private static bool HasStatementStartingWith(string code, string words)
@@ -1287,6 +1330,9 @@ public static partial class ModuleIndenter
     [GeneratedRegex(@"^\s*(?<number>(?:-?\d+|&H[0-9A-F]{1,8}):?)(?:\s+|$)", RegexOptions.IgnoreCase)]
     private static partial Regex LineNumber();
 
+    [GeneratedRegex(@"^[\p{L}_][\p{L}\p{N}_]*\s*:$")]
+    private static partial Regex LabelText();
+
     [GeneratedRegex(@"^\s*(?:'|Rem(?:\s|$))", RegexOptions.IgnoreCase)]
     private static partial Regex CommentLine();
 
@@ -1305,7 +1351,6 @@ public static partial class ModuleIndenter
     [GeneratedRegex(@"^((Public|Private|Friend|Global)\s+)?(Declare|Enum|Type|Event|Implements)\b", RegexOptions.IgnoreCase)]
     private static partial Regex NotAVariable();
 
-    // what a declaration's line names before its first As, and that As.
     [GeneratedRegex(@"^As\s", RegexOptions.IgnoreCase)]
     private static partial Regex LeadingAs();
 
