@@ -776,6 +776,9 @@
   <data name="Repl_EditsNotApplied" xml:space="preserve">
     <value>Des modifications faites pendant que le programme attendait ne lui sont pas appliquées :</value>
   </data>
+  <data name="Repl_EditNamed" xml:space="preserve">
+    <value>{0} : {1}</value>
+  </data>
   <data name="Repl_RunToStartAgain" xml:space="preserve">
     <value>RUN pour recommencer.</value>
   </data>

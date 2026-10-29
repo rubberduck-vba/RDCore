@@ -1733,6 +1733,15 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_EditsNotApplied", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: {1}.
+        /// </summary>
+        public static string Repl_EditNamed {
+            get {
+                return ResourceManager.GetString("Repl_EditNamed", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to RUN to start again..

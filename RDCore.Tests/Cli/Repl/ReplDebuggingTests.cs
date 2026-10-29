@@ -1214,6 +1214,7 @@ public sealed class ReplDebuggingTests
 
             _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, "IMPOSSIBLE DE POURSUIVRE",
                 "Des modifications faites pendant que le programme attendait ne lui sont pas appliquées :");
+            _console.Received(1).WriteLine("  Program.Main : the code of a procedure the program is in is not applied to a program that waits yet");
             _console.Received(1).WriteLine("RUN pour recommencer.");
         }
         finally

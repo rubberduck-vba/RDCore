@@ -182,7 +182,7 @@ internal static class ReplExecution
     {
         foreach (var edit in edits)
         {
-            console.WriteLine($"  {edit.Name}: {edit.Reason}");
+            console.WriteLine("  " + string.Format(Resources.Repl_EditNamed, edit.Name, edit.Reason));
         }
     }
 

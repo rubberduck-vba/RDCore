@@ -778,6 +778,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_EditsNotApplied" xml:space="preserve">
     <value>Edits made while the program waited are not applied to it:</value>
   </data>
+  <data name="Repl_EditNamed" xml:space="preserve">
+    <value>{0}: {1}</value>
+    <comment>An edit that is not applied to the waiting program: {0} is what was edited (Module.Procedure), {1} is why it isn't applied.</comment>
+  </data>
   <data name="Repl_RunToStartAgain" xml:space="preserve">
     <value>RUN to start again.</value>
   </data>
