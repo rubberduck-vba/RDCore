@@ -331,7 +331,7 @@ public static class StatementStaticSemanticsEvaluator
 
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
-                CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), walk);
+                CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, DeclaredTypeOfTarget(context, assignment, targetResult.Result!)), walk);
             }
             return;
         }
@@ -1174,6 +1174,31 @@ public static class StatementStaticSemanticsEvaluator
     // (§5.4.3.8) - and no public variable of the name. A property of the class named by its bare name, from another of its procedures, is one too; in its
     // own Property Get, the name is the result (§5.4.3.8, §5.4.3.9: "does not refer to the enclosing procedure").
     private static bool HasOnlyAPropertyGet(StaticEvaluationContext context, ExpressionNode target, bool isSet)
+        => AccessorsOf(context, target) is { } members
+            && members.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() is { } get
+            && (isSet ? !SetsThroughWhatItReturns(context, get.ResolvedType) : get.ResolvedType is not (VBClassType or VBObjectType or VBVariantType))
+            && !members.Any(member => member.Kind == SymbolKindExt.Field || (isSet ? member is VBPropertySetMemberSymbol : member is VBPropertyLetMemberSymbol));
+
+    // MS-VBAL §5.3.1.7: the declared type of a Property Let or a Property Set is the declared type of its value parameter. A property that can't be read -
+    // that has no Property Get - is assigned through its Property Set by a Set statement (§5.4.3.9), and through its Property Let by a Let statement
+    // (§5.4.3.8): what is assigned is coerced to that accessor's value parameter. A property that can be read is declared the type its Property Get
+    // returns, as its target is evaluated.
+    private static VBType DeclaredTypeOfTarget(StaticEvaluationContext context, AssignmentStatementNode assignment, VBType evaluated)
+    {
+        if (evaluated is not VBVoidType || AccessorsOf(context, assignment.Target) is not { } members || members.OfType<VBPropertyGetMemberSymbol>().Any())
+        {
+            return evaluated;
+        }
+
+        VBProcedureMemberSymbol? accessor = assignment.Kind == AssignmentKind.Set
+            ? members.OfType<VBPropertySetMemberSymbol>().FirstOrDefault()
+            : members.OfType<VBPropertyLetMemberSymbol>().FirstOrDefault();
+        return accessor is { Parameters: [.., var value] } ? value.ResolvedType : evaluated;
+    }
+
+    // the accessors of the property the target names, and whatever else the module declares of the name; none when the target names no property, or names
+    // the procedure it is assigned in.
+    private static VBTypeMemberSymbol[]? AccessorsOf(StaticEvaluationContext context, ExpressionNode target)
     {
         VBTypeMemberSymbol[] members;
         if (target is SimpleNameExpressionNode name)
@@ -1188,7 +1213,7 @@ public static class StatementStaticSemanticsEvaluator
                 || module is null
                 || property.ParentUri.AbsoluteUri != module.AbsoluteUri && property.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 })
             {
-                return false;
+                return null;
             }
 
             // its accessors and whatever else its module declares of the name, as the scope has them
@@ -1204,7 +1229,7 @@ public static class StatementStaticSemanticsEvaluator
                 || property is not IVBPropertyMemberSymbol
                 || property.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri)
             {
-                return false;
+                return null;
             }
 
             members = qualifier is VBModuleSymbol { Members: { IsDefaultOrEmpty: false } declared }
@@ -1223,7 +1248,7 @@ public static class StatementStaticSemanticsEvaluator
                 : context.EnclosingWithTargetType;
             if (owner is not VBClassType { Symbol: var snapshot })
             {
-                return false;
+                return null;
             }
 
             members = [.. (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
@@ -1231,12 +1256,10 @@ public static class StatementStaticSemanticsEvaluator
         }
         else
         {
-            return false;
+            return null;
         }
 
-        return members.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() is { } get
-            && (isSet ? !SetsThroughWhatItReturns(context, get.ResolvedType) : get.ResolvedType is not (VBClassType or VBObjectType or VBVariantType))
-            && !members.Any(member => member.Kind == SymbolKindExt.Field || (isSet ? member is VBPropertySetMemberSymbol : member is VBPropertyLetMemberSymbol));
+        return members;
     }
 
     // MS-VBAL §5.4.3.9: a function, or a property that has no Property Set, named as the target of a Set outside its own body is called, and what it returns
