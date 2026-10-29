@@ -117,4 +117,26 @@ public sealed class ReplDocumentSyncTests
         CollectionAssert.AreEqual(new[] { true, true }, await Task.WhenAll(one, two).WaitAsync(TimeSpan.FromSeconds(20)));
         Assert.AreEqual(1, opened);
     }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task ASave_WaitsForTheChangeBeingSent_AndSavesTheTextTheServerWasToldOf()
+    {
+        var document = await OpenedAsync();
+        _program.Store(20, "Y = 2");
+
+        var telling = document.SynchronizeAsync(CancellationToken.None);
+        await _firstSent.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        var saving = Task.Run(() => document.WillSaveAsync(CancellationToken.None));
+        Assert.IsFalse(saving.Wait(TimeSpan.FromMilliseconds(200)), "the save waits for the change being sent");
+        await _platform.DidNotReceiveWithAnyArgs().WillSaveDocumentAsync(default!, default);
+
+        _program.Store(30, "Z = 3");
+        _release.SetResult();
+        await telling;
+        var saved = await saving.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.AreEqual(_sent[^1].Text, saved, "what is saved is what the server was told of last");
+        Assert.AreEqual("10 X = 1\r\n20 Y = 2\r\n30 Z = 3\r\n", saved);
+    }
 }
