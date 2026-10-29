@@ -16,4 +16,11 @@ public sealed record class RDCoreInitializationOptions
     /// when the client does not say, which leaves the server's own setting.
     /// </summary>
     public string? Language { get; init; }
+
+    /// <summary>
+    /// The language of the client's user interface, as a language tag (<c>fr-CA</c>), which a server speaks to it in: the same as the request's own
+    /// <c>locale</c> (<strong>LSP 3.17</strong> <c>InitializeParams.locale</c>), which the language client a platform's client is built on has no option to
+    /// send. A server reads the request's <c>locale</c> first; <see langword="null"/> says none.
+    /// </summary>
+    public string? Locale { get; init; }
 }
