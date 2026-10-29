@@ -470,5 +470,5 @@
   href: rdc11022.md
 - name: RDC11023 — Procedure MS-VBA refuses as too large
   href: rdc11023.md
-- name: RDC20001 — Edit that applies when the program is run again
+- name: RDC20001 — Edit not applied to the waiting program
   href: rdc20001.md

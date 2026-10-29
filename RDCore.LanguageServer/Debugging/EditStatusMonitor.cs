@@ -12,7 +12,7 @@ namespace RDCore.LanguageServer.Debugging;
 /// <para>
 /// An edit reaches a program that waits as the analysis pass loads it, and most are applied when the program goes on. The host lists the others - picked up when
 /// the program is run again, or not compiled - and the user is told of each as it is made: a diagnostic where the edited declaration is
-/// (<see cref="SDK.Model.Diagnostics.RDCoreDiagnosticId.EditAppliesOnRestart"/>), and a debug adapter's <c>output</c> line.
+/// (<see cref="SDK.Model.Diagnostics.RDCoreDiagnosticId.EditNotApplied"/>), and a debug adapter's <c>output</c> line.
 /// </para>
 /// <para>
 /// A change of the list changes the findings of the modules it names, which did not change themselves: the client is asked to refresh what it shows of every

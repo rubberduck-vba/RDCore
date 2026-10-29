@@ -219,7 +219,7 @@ internal sealed class DocumentDiagnosticsService(
             var firstLine = document.Text.Split('\n', 2)[0].TrimEnd('\r').Length;
             var range = edit.Range ?? new SourceRange(new SourcePosition(0, 0), new SourcePosition(0, firstLine));
             // the reason is the host's, in the language of the user interface.
-            yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(RDCoreDiagnosticId.EditAppliesOnRestart, range, DiagnosticSeverity.Information,
+            yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(RDCoreDiagnosticId.EditNotApplied, range, DiagnosticSeverity.Information,
                 string.Format(DebuggerMessages.EditNamed, edit.Name, edit.Reason)));
         }
     }

@@ -103,5 +103,5 @@ public enum RDCoreDiagnosticId
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
     */
-    EditAppliesOnRestart = 20001, // an edit made while the program waits that is not applied to it: picked up when it is run again, or it does not compile
+    EditNotApplied = 20001, // an edit made while the program waits that is not applied to it: picked up when it is run again, or it does not compile
 }
