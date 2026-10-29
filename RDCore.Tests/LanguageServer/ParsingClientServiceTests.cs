@@ -310,12 +310,41 @@ public sealed class ParsingClientServiceTests
         await WhenAsked(requests, 1);
         requests[0].Answer.SetResult(SampleEnvelope);
 
+        // one tree, and so one set of node identities: the ones the host is defined from, whichever caller asked first.
         Assert.AreSame(await first, await second);
+        Assert.AreSame((await first).SyntaxTree, (await second).SyntaxTree);
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
-    public async Task ParseDocumentAsync_OfALaterVersion_TellsTheParserToStopTheEarlierOne()
+    public async Task ParseDocumentAsync_OfADocumentOpenedWithTheVersionItWasReadFromDiskWith_ParsesTheClientsText()
+    {
+        // the client opens a document with its own text - a buffer it restored - and the version the workspace read it from disk with, while the disk text's
+        // parse is still out: what is parsed and kept for that version is the client's text.
+        var (sut, parser, documents) = Build();
+        var requests = HeldAnswers(parser);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Disk()\r\nEnd Sub"));
+
+        var fromDisk = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 1);
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "Public Sub Client()\r\nEnd Sub"));
+        sut.Invalidate(uri);
+        var opened = sut.ParseDocumentAsync(uri, CancellationToken.None);
+        await WhenAsked(requests, 2);
+
+        Assert.IsTrue(requests[0].Token.IsCancellationRequested, "the disk text's parse was told to stop");
+        requests[0].Answer.TrySetCanceled(requests[0].Token);
+        requests[1].Answer.SetResult(SampleEnvelope);
+        Assert.AreSame(await opened, await fromDisk, "the caller of the disk text's parse is given the parse of the text the document reads now");
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
+            Arg.Is<ParseDocumentParams>(request => request.Fragment!.Contains("Client")), Arg.Any<CancellationToken>());
+        Assert.IsTrue(sut.TryGetCached(uri, 1, out var kept));
+        Assert.AreSame(await opened, kept);
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfALaterVersion_TellsTheParserToStopTheEarlierOne_WhoseCallerIsGivenTheLaterParse()
     {
         var (sut, parser, documents) = Build();
         var requests = HeldAnswers(parser);
@@ -334,7 +363,10 @@ public sealed class ParsingClientServiceTests
         requests[0].Answer.SetCanceled(requests[0].Token);
         requests[1].Answer.SetResult(SampleEnvelope);
         Assert.IsTrue((await later).IsSuccess);
-        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => earlier);
+
+        // a superseded parse is no failure of its caller's: it is given the parse of what the document reads now, which it joins.
+        Assert.AreSame(await later, await earlier);
+        await parser.Received(2).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

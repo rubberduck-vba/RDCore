@@ -40,7 +40,7 @@ public interface IModuleParser
     /// </param>
     /// <param name="token">
     /// Cancels a parse that is no longer wanted (its text has changed since, or its caller gave up): the parse stops at the next rule it enters, and throws
-    /// <see cref="OperationCanceledException"/> rather than answer.
+    /// <see cref="OperationCanceledException"/> rather than return a result. A request for it is answered as cancelled, not with a failed parse.
     /// </param>
     ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default);
 }
@@ -134,7 +134,7 @@ public partial class ModuleParser(
                 Trivia = trivia,
             };
         }
-        // a parse that was cancelled is no failure to degrade from: it is not answered (ANTLR's own ParseCanceledException is an OperationCanceledException too,
+        // a parse that was cancelled is no failure to degrade from: it throws that it was cancelled (ANTLR's own ParseCanceledException is an OperationCanceledException too,
         // which is why the token says so, not the exception's type).
         catch (Exception exception) when (!token.IsCancellationRequested)
         {

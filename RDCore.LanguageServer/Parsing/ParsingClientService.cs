@@ -104,7 +104,22 @@ internal sealed class ParsingClientService(
         return found;
     }
 
-    public void Invalidate(Uri documentUri) => _cache.TryRemove(documentUri, out _);
+    // what was parsed of the document is not what it reads: neither the parse kept nor the one in flight is its own (a document opened with the version it was
+    // read from disk with, and the client's text).
+    public void Invalidate(Uri documentUri)
+    {
+        InFlightParse? running;
+        lock (_inFlight)
+        {
+            _ = _cache.TryRemove(documentUri, out _);
+            if (_inFlight.Remove(documentUri, out running) is false)
+            {
+                running = null;
+            }
+        }
+
+        running?.Cancellation.Cancel();
+    }
 
     public async Task<IReadOnlyList<SyntaxToken>> TokenizeAsync(Uri documentUri, string text, CancellationToken token)
     {
@@ -167,73 +182,96 @@ internal sealed class ParsingClientService(
             return error;
         }
 
-        // the text has not changed since it was parsed: so the parse has not either.
-        if (TryGetCached(documentUri, document.Version, out var cached))
+        // a parse of this text already asked for is waited for, not asked for again: the refresh of a keystroke and the client's pull and tokens requests after
+        // it each want the same one, and so get the same tree, with the same node identities - the ones the host is defined from. A parse of another text
+        // supersedes it (the parser is told to stop), and so does every one of its callers giving up. A caller whose parse was superseded is given the parse of
+        // what the document reads now: a superseded parse is no failure of its caller's.
+        for (var attempt = 0; ; attempt++)
         {
-            return cached;
-        }
-
-        // a parse of this version already asked for is waited for, not asked for again: the refresh of a keystroke and the client's pull and tokens requests
-        // after it each want the same one. A parse of a later version supersedes it (the parser is told to stop), and so does every one of its callers giving
-        // up.
-        InFlightParse parse;
-        InFlightParse? superseded = null;
-        lock (_inFlight)
-        {
-            if (_inFlight.TryGetValue(documentUri, out var running) && running.Version == document.Version)
+            if (!documents.TryGetDocument(documentUri, out document))
             {
-                parse = running;
+                return ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "no workspace document is loaded for this URI");
             }
-            else
+
+            // the text has not changed since it was parsed: so the parse has not either.
+            if (TryGetCached(documentUri, document.Version, out var cached))
             {
-                if (running is not null && running.Version < document.Version)
+                return cached;
+            }
+
+            var parse = Join(documentUri, document, out var superseded);
+            if (superseded is not null)
+            {
+                await superseded.Cancellation.CancelAsync();
+            }
+
+            try
+            {
+                return await parse.Answer.WaitAsync(token);
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested && attempt < MaxSupersededAttempts)
+            {
+                // superseded: the document reads otherwise now, and its parse is asked for, or joined.
+            }
+            finally
+            {
+                if (Leave(documentUri, parse))
                 {
-                    superseded = running;
+                    await parse.Cancellation.CancelAsync();
                 }
-
-                parse = new InFlightParse(document.Version);
-                parse.Answer = ParseVersionAsync(documentUri, document, parse.Cancellation.Token);
-                _inFlight[documentUri] = parse;
-            }
-
-            parse.Waiting++;
-        }
-
-        if (superseded is not null)
-        {
-            await superseded.Cancellation.CancelAsync();
-        }
-
-        try
-        {
-            return await parse.Answer.WaitAsync(token);
-        }
-        finally
-        {
-            var abandoned = false;
-            lock (_inFlight)
-            {
-                if (--parse.Waiting == 0)
-                {
-                    abandoned = !parse.Answer.IsCompleted;
-                    if (_inFlight.TryGetValue(documentUri, out var current) && ReferenceEquals(current, parse))
-                    {
-                        _inFlight.Remove(documentUri);
-                    }
-                }
-            }
-
-            if (abandoned)
-            {
-                await parse.Cancellation.CancelAsync();
             }
         }
     }
 
-    // a parse asked of the parser, and how many callers wait for it.
-    private sealed class InFlightParse(int version)
+    // how many times a parse is asked for again after being superseded: a document that is edited faster than it can be parsed is parsed as it reads then.
+    private const int MaxSupersededAttempts = 8;
+
+    // the parse of this text in flight, or a new one asked for; and the one it supersedes, which the caller cancels once it has let go of the lock.
+    private InFlightParse Join(Uri documentUri, WorkspaceDocument document, out InFlightParse? superseded)
+    {
+        superseded = null;
+        lock (_inFlight)
+        {
+            if (_inFlight.TryGetValue(documentUri, out var running) && running.Version == document.Version && string.Equals(running.Text, document.Text, StringComparison.Ordinal))
+            {
+                running.Waiting++;
+                return running;
+            }
+
+            superseded = running;
+            var parse = new InFlightParse(document.Version, document.Text);
+            parse.Answer = ParseVersionAsync(documentUri, document, parse);
+            _inFlight[documentUri] = parse;
+            parse.Waiting++;
+            return parse;
+        }
+    }
+
+    // a caller no longer waits for the parse: whether it was the last one to, while the parse is not over, which is then cancelled.
+    private bool Leave(Uri documentUri, InFlightParse parse)
+    {
+        lock (_inFlight)
+        {
+            if (--parse.Waiting > 0)
+            {
+                return false;
+            }
+
+            if (_inFlight.TryGetValue(documentUri, out var current) && ReferenceEquals(current, parse))
+            {
+                _inFlight.Remove(documentUri);
+            }
+
+            return !parse.Answer.IsCompleted;
+        }
+    }
+
+    // a parse asked of the parser: of which text, and how many callers wait for it.
+    private sealed class InFlightParse(int version, string text)
     {
         public int Version { get; } = version;
+
+        public string Text { get; } = text;
 
         public CancellationTokenSource Cancellation { get; } = new();
 
@@ -244,8 +282,10 @@ internal sealed class ParsingClientService(
 
     private readonly Dictionary<Uri, InFlightParse> _inFlight = [];
 
-    private async Task<ModuleParseResult> ParseVersionAsync(Uri documentUri, WorkspaceDocument document, CancellationToken token)
+    private async Task<ModuleParseResult> ParseVersionAsync(Uri documentUri, WorkspaceDocument document, InFlightParse parse)
     {
+        var token = parse.Cancellation.Token;
+
         // not under the lock it is asked for in: the request is sent once the caller has let go of it.
         await Task.Yield();
         await orchestration.ParsingService.WaitForReadyAsync(token);
@@ -262,8 +302,20 @@ internal sealed class ParsingClientService(
         // what the parser answered is the parse of the version it was sent. A failure to answer is not: it is kept under no version, so that it is what the last
         // parse was without being taken for the parse of any text, and the next ask is another try. A parse that comes back after a later one has been kept does
         // not replace it.
+        // a parse that is no longer the document's own - superseded by another text, or invalidated since it was asked for - is kept by no one: its version
+        // may be the same as the text's that replaced it.
         var parsedVersion = envelope is not null ? document.Version : -1;
-        _cache.AddOrUpdate(documentUri, (parsedVersion, result), (_, existing) => existing.Version > parsedVersion ? existing : (parsedVersion, result));
+        lock (_inFlight)
+        {
+            if (!_inFlight.TryGetValue(documentUri, out var current) || !ReferenceEquals(current, parse))
+            {
+                token.ThrowIfCancellationRequested();
+                return result;
+            }
+
+            _cache.AddOrUpdate(documentUri, (parsedVersion, result), (_, existing) => existing.Version > parsedVersion ? existing : (parsedVersion, result));
+        }
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("📄 Parsed {uri}: {status}", documentUri,

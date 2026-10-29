@@ -35,7 +35,8 @@ public class ParseFullDocumentHandler(
         logger.LogInformation("📥 {method}: {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
         try
         {
-            // a parse the client no longer waits for (it cancelled the request: the text has changed since) stops, and is not answered.
+            // a parse the client no longer waits for (it cancelled the request: the text has changed since) stops, and the request is answered as cancelled
+            // (JSON-RPC's -32800), not with a failed parse.
             var result = moduleParser.Parse(uri, content, request.AnchorOffset, token);
             logger.LogInformation("📤 {uri}: {status}", uri,
                 result.IsSuccess ? "ok" : $"{result.SyntaxErrors.Length} syntax error(s)");
