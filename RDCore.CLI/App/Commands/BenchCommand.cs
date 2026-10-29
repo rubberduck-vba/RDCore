@@ -39,7 +39,9 @@ internal sealed class BenchCommandOptions
 /// <remarks>
 /// A case is a <c>Public Sub Bench*()</c> of a standard module (<see cref="BenchRunner"/>). Nothing is asserted: the numbers are for comparing one build with
 /// another, and a case that raises an error says so instead. With no path, the corpus built into <c>rdc</c> is run: arithmetic loops over <c>Long</c>,
-/// <c>Double</c> and <c>Variant</c>, strings, arrays, and calls to procedures, objects and the standard library.
+/// <c>Double</c> and <c>Variant</c>, strings, arrays, and calls to procedures, objects and the standard library. The <c>indent</c> row is the shell's: a program of
+/// <see cref="BenchRunner.ProgramLines"/> numbered lines indented as the shell indents it before it lists it (<see cref="BenchRunner.IndentProgram"/>), the same
+/// whatever the workspace: the fastest of as many runs as the cases have (<c>--runs</c>).
 /// </remarks>
 /// <param name="writer">Writes the platform's messages: what went wrong.</param>
 /// <param name="fileSystem">The file system the workspace is on.</param>
@@ -148,6 +150,10 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"{"load",-10}{Milliseconds(report.Load),12}");
         Output.WriteLine($"{"sweep",-10}{Milliseconds(report.Sweep),12}");
         Output.WriteLine($"{"compile",-10}{Milliseconds(report.Compile),12}");
+        if (report.Indent is { } indent)
+        {
+            Output.WriteLine($"{"indent",-10}{Milliseconds(indent),12}  ({BenchRunner.ProgramLines.ToString("N0", CultureInfo.InvariantCulture)} lines)");
+        }
 
         foreach (var problem in report.Problems)
         {
