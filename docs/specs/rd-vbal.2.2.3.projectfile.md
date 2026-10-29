@@ -81,7 +81,7 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |---|---|---|
 |`Name`|`string`|The _identifier name_ (token) used in workspace source code to reference this library.|
 |`Guid`|`string`|A _Globally Unique Identifier_ optionally identifying the referenced library in a _host-defined application registry_.|
-|`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists.|
+|`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists. An import of a `.vbp` resolves the path VB6 writes relative to the `.vbp`'s folder (`..\..\Windows\System32\FM20.DLL`), so that it names the same file wherever the project is moved.|
 |`Major`|number (`0`)|The _major_ version number of the referenced library, if available.|
 |`Minor`|number (`0`)|The _minor_ version number of the referenced library, if available.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
