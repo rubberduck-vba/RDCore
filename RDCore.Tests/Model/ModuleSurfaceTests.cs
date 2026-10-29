@@ -85,6 +85,55 @@ public sealed class ModuleSurfaceTests
         Assert.AreEqual(before.Declarations, after.Declarations);
     }
 
+    // what a body is made of, besides its statements: nothing outside of the procedure can go to a label or a line number of it, nor see what it declares.
+    [TestMethod]
+    [DataRow("10 Show\r\n", "10 Show\r\n20 Show\r\n", DisplayName = "a line numbered")]
+    [DataRow("10 Show\r\n", "Again: Show\r\n10 Show\r\n", DisplayName = "a label")]
+    [DataRow("10 Show\r\n", "Static Count As Long\r\n10 Show\r\n", DisplayName = "a Static local")]
+    [DataRow("Const K = 1\r\n10 Show\r\n", "Const K = 2\r\n10 Show\r\n", DisplayName = "a local constant's value")]
+    public void WhatABodyIsMadeOf_IsNoDeclaration(string body, string edited)
+    {
+        const string Header = "Option Explicit\r\nPublic Sub Main()\r\n";
+        var (before, after) = (SurfaceOf(Header + body + "End Sub\r\n")!, SurfaceOf(Header + edited + "End Sub\r\n")!);
+
+        Assert.AreEqual(before.Declarations, after.Declarations);
+    }
+
+    [TestMethod]
+    public void AMembersAttribute_IsADeclaration()
+    {
+        const string Module = "Public Function Twice()\r\nAttribute Twice.VB_Description = \"Doubles\"\r\nEnd Function\r\n";
+
+        Assert.AreNotEqual(SurfaceOf(Module)!.Declarations, SurfaceOf(Module.Replace("Doubles", "Halves"))!.Declarations);
+    }
+
+    // which of the declarations written in #If branches are the module's: what a #Const sets, wherever it is, and what an #If outside of a procedure says.
+    [TestMethod]
+    [DataRow("#Const A = 1", "#Const A = 0", DisplayName = "a #Const's value")]
+    [DataRow("#If A Then", "#If Not A Then", DisplayName = "an #If's condition")]
+    [DataRow("    #Const B = 1", "    #Const B = 2", DisplayName = "a #Const in a procedure")]
+    public void TheDirectivesThatSayWhichDeclarationsAreLive_AreDeclarations(string written, string edited)
+    {
+        var module = string.Join("\r\n", "#Const A = 1", "#If A Then", "Public Sub Bar()", "End Sub", "#End If", "Public Sub Foo()", "    #Const B = 1", "    #If B Then",
+            "    Debug.Print 1", "    #End If", "End Sub", "");
+
+        Assert.Contains(written, module);
+        Assert.AreNotEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
+    }
+
+    // what an #If in a procedure says is which of its statements are compiled, and what a branch holds is the syntax tree's.
+    [TestMethod]
+    [DataRow("    #If B Then", "    #If Not B Then", DisplayName = "an #If's condition in a procedure")]
+    [DataRow("Debug.Print 1", "Debug.Print 2", DisplayName = "a literal in a branch")]
+    public void WhatADirectiveInAProcedureSays_AndWhatABranchHolds_AreNoDeclaration(string written, string edited)
+    {
+        var module = string.Join("\r\n", "#Const A = 1", "#If A Then", "Public Sub Bar()", "Debug.Print 1", "End Sub", "#End If", "Public Sub Foo()", "    #Const B = 1",
+            "    #If B Then", "    Debug.Print 3", "    #End If", "End Sub", "");
+
+        Assert.Contains(written, module);
+        Assert.AreEqual(SurfaceOf(module)!.Declarations, SurfaceOf(module.Replace(written, edited))!.Declarations);
+    }
+
     [TestMethod]
     public void IsNull_ForAModuleWithNoSyntaxTree()
         => Assert.IsNull(ModuleSurface.Of(new ModuleParseResult()));

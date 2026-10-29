@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using System.Collections;
@@ -19,14 +20,18 @@ namespace RDCore.SDK.Model.AST;
 /// <remarks>
 /// <para>
 /// <see cref="Declarations"/> is what the other modules are bound against: the module's options and attributes, its module-level declarations, and the
-/// signature of each of its procedures - its name, its parameters, the type it returns - with every value written in them (a constant, an <c>Optional</c>
-/// parameter's default, an <c>Enum</c> member's value, an array's bounds). What is found out about another module - what its names mean, what its code does,
-/// what is wrong with it - is of what this one declares, and of nothing its procedures do.
+/// signature of each of its procedures - its name, its parameters, the type it returns, its attributes - with every value written in them (a constant, an
+/// <c>Optional</c> parameter's default, an <c>Enum</c> member's value, an array's bounds); and its directives that say which of the declarations written in
+/// <c>#If</c> branches are its own (<strong>MS-VBAL §3.4</strong>): each <c>#Const</c>, wherever it is written, and each <c>#If</c>, <c>#ElseIf</c> and
+/// <c>#Else</c> outside of a procedure. What is found out about another module - what its names mean, what its code does, what is wrong with it - is of what
+/// this one declares, and of nothing its procedures do.
 /// </para>
 /// <para>
 /// <see cref="References"/> is what the code of the module's procedures refers to: the names its bodies use, and what they declare, which decides what those
-/// names mean. It is what makes the module reference a member of another, which a count of that member's references is made of (a code lens), and nothing
-/// that is found out about the other module.
+/// names mean - not a local constant's value, which no other module sees - and their labels and line numbers.
+/// It is what makes the module reference a member of another, which a count of that member's references is made of (a code lens), and nothing that is found
+/// out about the other module. An <c>Attribute</c> line written inside a statement of a body is in neither: a member's attributes are those that follow its
+/// header, and the platform reads no other.
 /// </para>
 /// <para>
 /// None of it is where it is written: an edit that moves a declaration leaves both parts as they were, and so does one to a comment, to whitespace, or to a
@@ -66,7 +71,39 @@ public sealed record class ModuleSurface(string Declarations, string References)
             Append(declarations, references, annotation, inBody: false);
         }
 
+        // the directives say which of the declarations written in #If branches are the module's: each #Const, wherever it is, sets a constant of the whole module,
+        // and each #If outside of a procedure says which branch is live. One inside a procedure says which of its statements are, which is its body's.
+        var procedures = tree.Descendants().OfType<MemberDeclarationNode>().Where(IsProcedure).Select(member => member.SourceLocation.Range).ToArray();
+        foreach (var directive in parse.PrecompilerTrivia)
+        {
+            AppendDirective(declarations, directive, procedures, inProcedure: false);
+        }
+
         return new ModuleSurface(declarations.ToString(), references.ToString());
+    }
+
+    private static bool IsProcedure(SyntaxNode node)
+        => node is MemberDeclarationNode { MemberKind: MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet };
+
+    // a directive, and those nested in it: the directives of the module are held in the code they are written in (PrecompilerTriviaNode), which is the syntax
+    // tree's, and is not told. An #If inside a procedure, and what its condition is made of, is that procedure's body's; a #Const is told wherever it is.
+    private static void AppendDirective(StringBuilder surface, SyntaxNode node, SourceRange[] procedures, bool inProcedure)
+    {
+        if (node is PrecompilerIfBlockStatementNode or PrecompilerConstantDeclarationNode)
+        {
+            var start = node.SourceLocation.Range.Start;
+            inProcedure = node is not PrecompilerConstantDeclarationNode && procedures.Any(range => range.Start < start && start <= range.End);
+        }
+
+        if (node is not PrecompilerTriviaNode && !inProcedure)
+        {
+            Describe(surface, node);
+        }
+
+        foreach (var child in NodesOf(node))
+        {
+            AppendDirective(surface, child, procedures, inProcedure);
+        }
     }
 
     private static void Append(StringBuilder declarations, StringBuilder references, SyntaxNode node, bool inBody)
@@ -86,11 +123,13 @@ public sealed record class ModuleSurface(string Declarations, string References)
             Describe(references, node);
         }
 
-        var isProcedure = node is MemberDeclarationNode { MemberKind: MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet };
+        var isProcedure = IsProcedure(node);
         foreach (var child in NodesOf(node))
         {
-            // the statements of a procedure, and the variables and constants it declares, are its body; its parameters and the type it returns are its signature.
-            Append(declarations, references, child, inBody || (isProcedure && child is StatementNode or VariableDeclarationNode or ConstantDeclarationNode));
+            // the statements of a procedure, the variables and constants it declares and its labels and line numbers, which nothing outside of it can go to, are
+            // its body; its parameters, the type it returns and its attributes are its signature.
+            Append(declarations, references, child,
+                inBody || (isProcedure && child is StatementNode or VariableDeclarationNode or ConstantDeclarationNode or LineLabelNode));
         }
     }
 

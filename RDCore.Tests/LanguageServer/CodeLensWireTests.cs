@@ -149,7 +149,8 @@ public sealed class CodeLensWireTests
         Assert.AreEqual(11, resolved[4].Command!.Arguments![1].Value<int>("character"));
     }
 
-    // a name typed in another module's body defines nothing again: the count of a lens is found of the text as it is when the lens is resolved.
+    // the count of a lens is found of the text as it is when the lens is resolved, whatever was composed before: a refresh of the client's lenses is all a
+    // change of what another module's code refers to needs (DocumentLifecycleServiceTests, ALineNumberedTypedInABody_DefinesNothingAgain_...).
     [TestMethod]
     public async Task TheCountOfALens_IsOfTheTextAsItIsWhenItIsResolved()
     {
