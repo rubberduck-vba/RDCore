@@ -259,6 +259,11 @@ public static class RDCorePlatformProtocol
     public const string HostDebugGoto = "rdcore/host/debug/goto";
 
     /// <summary>
+    /// Asks the environment host which edits made while a program waits are not applied to it: what resuming it would be refused for.
+    /// </summary>
+    public const string HostDebugEditStatus = "rdcore/host/debug/editStatus";
+
+    /// <summary>
     /// Asks the environment host to set the lines of a module that a program under a debugger waits at.
     /// </summary>
     public const string HostDebugBreakpoints = "rdcore/host/debug/breakpoints";
@@ -286,6 +291,9 @@ public static class RDCorePlatformProtocol
 
     /// <summary>Asks the language server to move the point the program that waits goes on from. See <see cref="HostDebugGoto"/>.</summary>
     public const string SessionDebugGoto = "rdcore/session/debug/goto";
+
+    /// <summary>Asks the language server which edits made while a program waits are not applied to it. See <see cref="HostDebugEditStatus"/>.</summary>
+    public const string SessionDebugEditStatus = "rdcore/session/debug/editStatus";
 
     /// <summary>Asks the language server to end the program that is running or waits. See <see cref="HostDebugTerminate"/>.</summary>
     public const string SessionDebugTerminate = "rdcore/session/debug/terminate";

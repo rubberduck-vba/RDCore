@@ -4,6 +4,7 @@ using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
@@ -199,6 +200,18 @@ internal static class ModuleWorkspace
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
 
     /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
+    /// </summary>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
+    /// <param name="debug">Whether the program runs under a debugger.</param>
+    public static Task InspectWithModulesAsync(
+        IReadOnlyList<(string Name, string Source)> modules, string program,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, bool debug = false)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
+
+    /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, VBExecutionEngine engine)
@@ -245,71 +258,23 @@ internal static class ModuleWorkspace
         var workspaceRoot = Wire.FileUri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
-        var parsed = allModules.Select(module =>
-        {
-            var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
-            Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
-
-            // as the language server does: the parse of a form has what its designer declares, which the parser does not read.
-            parse = parse with { Designer = forms?.FirstOrDefault(form => form.Name == module.Name).Designer };
-            return (Module: module, Uri: new UriBuilder(workspaceRoot) { Fragment = module.Name }.Uri, Parse: parse);
-        }).ToArray();
-
         // the language server binds the workspace's names among the libraries the project references, as the host's session has them.
         var librarySymbols = libraries is null
             ? null
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
                 workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
-        var resolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), project.ProjectInfo.Name,
-            libraries: librarySymbols);
-
-        // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then
-        // the code of each is sent.
-        foreach (var declareTypesOnly in new[] { true, false })
-        {
-            foreach (var module in parsed)
-            {
-                var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
-                    .Handle(Wire.RoundTrip(new DefineSymbolsParams
-                    {
-                        WorkspaceRoot = workspaceRoot,
-                        ModuleUri = module.Uri,
-                        ModuleName = module.Module.Name,
-                        Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
-                        Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
-                        ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-                        PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
-                        Replace = true,
-                        DeclareTypesOnly = declareTypesOnly,
-                    }), CancellationToken.None);
-            }
-        }
+        var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
+            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols);
 
         foreach (var module in parsed)
         {
-            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
-                .Handle(new DefineSymbolsParams
-                {
-                    WorkspaceRoot = workspaceRoot,
-                    ModuleUri = module.Uri,
-                    ModuleName = module.Module.Name,
-                    Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
-                    ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
-                    ParseResultJson = PlatformJson.Serialize(module.Parse),
-                    CodeOnly = true,
-                }, CancellationToken.None);
-
             if (errorsOnly)
             {
-                loadErrors.AddRange(defined.CodeErrors);
+                loadErrors.AddRange(module.CodeErrors);
                 continue;
             }
 
-            Assert.IsEmpty(defined.CodeErrors, $"{module.Module.Name}: {string.Join("; ", defined.CodeErrors)}");
+            Assert.IsEmpty(module.CodeErrors, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
         }
 
         if (errorsOnly)
@@ -322,7 +287,7 @@ internal static class ModuleWorkspace
             return [.. loadErrors];
         }
 
-        var entry = parsed.Single(module => module.Module.Name == "Program");
+        var entry = parsed.Single(module => module.Name == "Program");
         Task<ExecuteSessionResult> Execute(CancellationToken cancellation)
             => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
                 .Handle(new HostExecuteParams
@@ -348,5 +313,106 @@ internal static class ModuleWorkspace
 
         Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorMessage} {string.Join("; ", result.Diagnostics ?? [])}");
         return [.. result.Output.Select(line => line.Trim())];
+    }
+
+    /// <summary>
+    /// Edits modules of a session as the analysis pass does with an edit of their documents: each is parsed again, its symbols are defined again and its
+    /// code is loaded again, while a program may wait. What a program that waits is resumed on, or refused.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads: the names of each are bound among all of them.</param>
+    /// <returns>What each module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadAsync(EnvironmentSessionProvider provider, params (string Name, ModuleType Type, string Source)[] modules)
+    {
+        var defined = await DefineAsync(provider, "Project1",
+            [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null);
+        return [.. defined.SelectMany(module => module.CodeErrors)];
+    }
+
+    /// <summary>
+    /// Edits modules of a session as the language server does with an edit of one document: the names of every module are bound among all of them, as the
+    /// workspace now reads, and only the edited ones are defined again and have their code loaded again. The others are loaded later by the language server,
+    /// after the edited module's diagnostics; until then the host has them as they were.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="only">The names of the modules that are defined and loaded again.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads.</param>
+    /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+        params (string Name, ModuleType Type, string Source)[] modules)
+    {
+        var defined = await DefineAsync(provider, "Project1",
+            [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null,
+            only: only);
+        return [.. defined.SelectMany(module => module.CodeErrors)];
+    }
+
+    // as the language server does, in three phases: the types of every module are declared, then the declarations of every module are bound, and then the
+    // code of each is sent. The names are bound among every module; only those named, when they are, are defined and loaded.
+    private static async Task<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)[]> DefineAsync(
+        EnvironmentSessionProvider sessionProvider, string projectName, (string Name, string Extension, ModuleType Type, string Source)[] modules,
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols,
+        IReadOnlyCollection<string>? only = null)
+    {
+        var workspaceRoot = Wire.FileUri(Root);
+        var parsed = modules.Select(module =>
+        {
+            var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
+            Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+
+            // as the language server does: the parse of a form has what its designer declares, which the parser does not read.
+            parse = parse with { Designer = forms?.FirstOrDefault(form => form.Name == module.Name).Designer };
+            return (Module: module, Uri: new UriBuilder(workspaceRoot) { Fragment = module.Name }.Uri, Parse: parse);
+        }).ToArray();
+
+        var resolver = WorkspaceSymbolResolver.Compose(
+            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver(), projectName,
+            libraries: librarySymbols);
+        if (only is not null)
+        {
+            parsed = [.. parsed.Where(module => only.Contains(module.Module.Name))];
+        }
+
+        foreach (var declareTypesOnly in new[] { true, false })
+        {
+            foreach (var module in parsed)
+            {
+                var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
+                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                    .Handle(Wire.RoundTrip(new DefineSymbolsParams
+                    {
+                        WorkspaceRoot = workspaceRoot,
+                        ModuleUri = module.Uri,
+                        ModuleName = module.Module.Name,
+                        Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
+                        Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                        ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
+                        ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                        PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(module.Parse),
+                        Replace = true,
+                        DeclareTypesOnly = declareTypesOnly,
+                    }), CancellationToken.None);
+            }
+        }
+
+        var defined = new List<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)>();
+        foreach (var module in parsed)
+        {
+            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                .Handle(new DefineSymbolsParams
+                {
+                    WorkspaceRoot = workspaceRoot,
+                    ModuleUri = module.Uri,
+                    ModuleName = module.Module.Name,
+                    Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                    ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
+                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
+                    ParseResultJson = PlatformJson.Serialize(module.Parse),
+                    CodeOnly = true,
+                }, CancellationToken.None);
+            defined.Add((module.Module.Name, module.Uri, module.Parse, [.. loaded.CodeErrors]));
+        }
+
+        return [.. defined];
     }
 }

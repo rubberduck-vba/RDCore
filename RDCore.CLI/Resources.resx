@@ -470,10 +470,70 @@ Long Live the Cucumber (Latin)</comment>
     <value>no program is suspended</value>
   </data>
   <data name="Host_ChangedWhileWaiting_Resume" xml:space="preserve">
-    <value>{0} changed while the program waited, and a program is resumed on the code it was suspended with: run it again to pick the changes up</value>
+    <value>{0} changed while the program waited, in a way that is not applied to it: run it again to pick the changes up, or undo them</value>
   </data>
   <data name="Host_ChangedWhileWaiting_Goto" xml:space="preserve">
-    <value>{0} changed while the program waited: run it again to pick the changes up</value>
+    <value>{0} changed while the program waited, in a way that is not applied to it: run it again to pick the changes up, or undo them</value>
+  </data>
+  <data name="Host_Edit_Applies" xml:space="preserve">
+    <value>applied</value>
+  </data>
+  <data name="Host_Edit_FaultOfAnActiveProcedure" xml:space="preserve">
+    <value>the statement a procedure the program is in stopped at an error of</value>
+  </data>
+  <data name="Host_Edit_UncertainInAnActiveProcedure" xml:space="preserve">
+    <value>an edit near where the program is that can't be placed for certain, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_ValueReset" xml:space="preserve">
+    <value>a variable whose value an edit reset, which only running the program again gives back</value>
+  </data>
+  <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
+    <value>the Option Base of a module whose arrays hold values</value>
+  </data>
+  <data name="Host_Edit_CallOfAnActiveProcedure" xml:space="preserve">
+    <value>the call a procedure the program is in is in the middle of</value>
+  </data>
+  <data name="Host_Edit_BlockOfAnActiveProcedure" xml:space="preserve">
+    <value>the opening of a block or a GoSub the program is in</value>
+  </data>
+  <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
+    <value>the error handler of a procedure the program is in, or the statement its error was raised at</value>
+  </data>
+  <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
+    <value>a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_FieldOfAClass" xml:space="preserve">
+    <value>a field added to a class whose objects the program may hold, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
+    <value>the signature of a procedure the program is in</value>
+  </data>
+  <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
+    <value>a local of a procedure the program is in, given another type</value>
+  </data>
+  <data name="Host_Edit_StoredValue" xml:space="preserve">
+    <value>a variable or a field that holds a value, given another type or removed</value>
+  </data>
+  <data name="Host_Edit_ClassInterface" xml:space="preserve">
+    <value>what a class implements, or the events it raises</value>
+  </data>
+  <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
+    <value>the code does not compile: {0}</value>
+  </data>
+  <data name="Host_Edit_HeaderOfAnActiveProcedure" xml:space="preserve">
+    <value>the code of a procedure the program is in, in the middle of a call its condition or the header of its block makes, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
+    <value>an option of the module the program is in, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_FieldOfAType" xml:space="preserve">
+    <value>a field added to a Type whose values the program may hold, which is not applied to a program that waits yet</value>
+  </data>
+  <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
+    <value>a constant that sizes what a variable holds, given another value</value>
+  </data>
+  <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
+    <value>a constant a procedure the program is in already read, given another value, which is not applied to a program that waits yet</value>
   </data>
   <data name="Host_WaitsInNoProcedure" xml:space="preserve">
     <value>the program waits in no procedure</value>

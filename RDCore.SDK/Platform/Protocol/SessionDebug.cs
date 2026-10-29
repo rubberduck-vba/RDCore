@@ -41,6 +41,13 @@ public record class SessionDebugGotoParams : IRequest, IRequest<HostDebugGotoRes
 }
 
 /// <summary>
+/// Request for <c>rdcore/session/debug/editStatus</c>: which edits made while a program waits are not applied to it. The language-server side of
+/// <see cref="HostDebugEditStatusParams"/>.
+/// </summary>
+[Method(RDCorePlatformProtocol.SessionDebugEditStatus, Direction.ClientToServer)]
+public record class SessionDebugEditStatusParams : IRequest, IRequest<HostDebugEditStatusResult>;
+
+/// <summary>
 /// Request for <c>rdcore/session/debug/terminate</c>: ends the program that is running or waits. The language-server side of <see cref="HostDebugTerminateParams"/>.
 /// </summary>
 [Method(RDCorePlatformProtocol.SessionDebugTerminate, Direction.ClientToServer)]

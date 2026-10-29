@@ -266,6 +266,12 @@ public record class SymbolDescriptor
     public int? FixedLength { get; init; }
 
     /// <summary>
+    /// The constant <see cref="FixedLength"/> is the value of, as the declaration names it (<see cref="SymbolProperties.FixedLengthName"/>); <c>null</c> when
+    /// the length is written as a number, and for any other type.
+    /// </summary>
+    public string? FixedLengthName { get; init; }
+
+    /// <summary>
     /// The source span of the whole declaration — the primary site (the first branch) when the
     /// member has multiple <see cref="Definitions"/>.
     /// </summary>
@@ -417,6 +423,9 @@ public record class LocalDescriptor
 
     /// <summary>The length of a fixed-length string the variable is, or the elements of the array it is: see <see cref="SymbolDescriptor.FixedLength"/>.</summary>
     public int? FixedLength { get; init; }
+
+    /// <summary>The constant <see cref="FixedLength"/> is the value of: see <see cref="SymbolDescriptor.FixedLengthName"/>.</summary>
+    public string? FixedLengthName { get; init; }
 
     /// <summary>
     /// Whether the declaration carries the <c>Static</c> token (<strong>MS-VBAL §5.4.3.1</strong>):

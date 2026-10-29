@@ -434,6 +434,22 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private CallStackAwareSymbolResolver? _bindingsField;
     private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings, this);
 
+    // a module is defined again by one request while a program that waits is asked what was edited by another.
+    private readonly Lock _resetLock = new();
+    private ImmutableArray<Symbol> _valuesReset = [];
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> ValuesReset
+    {
+        get
+        {
+            lock (_resetLock)
+            {
+                return _valuesReset;
+            }
+        }
+    }
+
     public bool TryDefine(Symbol symbol, ScopeKind scope)
     {
         if (!table.TryAdd(symbol, scope))
@@ -509,7 +525,22 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             && SessionBindings.TryGetAddress(existing, out _);
         if (!sameDeclaration)
         {
-            return TryUndefine(existing, scope) && TryDefine(symbol, scope);
+            // what the variable held is let go of with its storage.
+            var held = existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _);
+            if (!(TryUndefine(existing, scope) && TryDefine(symbol, scope)))
+            {
+                return false;
+            }
+
+            if (held)
+            {
+                lock (_resetLock)
+                {
+                    _valuesReset = _valuesReset.Add(existing);
+                }
+            }
+
+            return true;
         }
 
         // storage is keyed by the symbol's semantic identity, which the newest definition shares, so replacing the
@@ -523,6 +554,13 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     // A pair of record types met again on the way down is taken as the same: a type that contains itself, which no compile check stops yet, ends there.
     private static bool IsSameType(VBType? before, VBType? after, HashSet<(VBUserDefinedType, VBUserDefinedType)>? comparing = null)
     {
+        // a class is the type it was if it is the same class: its symbol is defined again with its module, a new one with the same identity, and what a
+        // variable of it holds - an object of that class, or Nothing - is what it held.
+        if (before is VBClassType beforeClass && after is VBClassType afterClass)
+        {
+            return beforeClass.Symbol.SemanticId == afterClass.Symbol.SemanticId;
+        }
+
         if (!Equals(before, after))
         {
             return false;
@@ -674,7 +712,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule)
     {
-        var instance = new ObjectInstance(objectId, classModule, storage);
+        var instance = new ObjectInstance(objectId, classModule, storage, table);
         var fields = table.InstanceSymbols.Where(field =>
             field.ParentUri.AbsoluteUri == classModule.Uri.AbsoluteUri
             && field.Kind is SymbolKindExt.Field or SymbolKindExt.Variable

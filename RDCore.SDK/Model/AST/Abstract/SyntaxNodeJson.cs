@@ -57,6 +57,80 @@ public static class SyntaxNodeJson
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine, OmitRedundantLocation } },
     };
 
+    /// <summary>
+    /// <see cref="Options"/>, less every property that says where something was written: in the source (a <see cref="Source.SourceLocation"/>, a
+    /// <see cref="Source.SourceRange"/>) or in the tree (a node's <see cref="SyntaxNodeId"/>, its path from the module). Two writings of the same code with
+    /// these are the same text, however the code moved: a blank line inserted above it, a comment edited, or a declaration added before it leaves it as
+    /// it was.
+    /// </summary>
+    /// <remarks>
+    /// For comparing, and so for writing only: what is read with these has no location. The fingerprints of a program image are written with them, and
+    /// so are those of the declarations a program that waits was suspended with.
+    /// </remarks>
+    public static JsonSerializerOptions LocationFreeOptions { get; } = CreateLocationFreeOptions();
+
+    private static JsonSerializerOptions CreateLocationFreeOptions()
+    {
+        var options = new JsonSerializerOptions(Options);
+        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
+        {
+            foreach (var property in typeInfo.Properties.Where(property => IsLocation(property.PropertyType)).ToList())
+            {
+                _ = typeInfo.Properties.Remove(property);
+            }
+        });
+
+        return options;
+
+        static bool IsLocation(Type type)
+            => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
+                && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange) || underlying == typeof(SyntaxNodeId));
+    }
+
+    /// <summary>
+    /// <see cref="LocationFreeOptions"/>, less the statements a block contains: a block statement written with these is its header alone - a
+    /// <c>For</c> line, an <c>If</c> condition, a <c>With</c> target - and not the statements of its body, nor its <c>ElseIf</c>, <c>Else</c> or
+    /// <c>Case</c> blocks.
+    /// </summary>
+    /// <remarks>
+    /// For comparing, and so for writing only. An instruction of a lowered body is written with these: the statements of a block are instructions of
+    /// their own, and an edit of one of them leaves the block's opening instruction as it was.
+    /// </remarks>
+    public static JsonSerializerOptions HeaderOptions { get; } = CreateHeaderOptions();
+
+    private static JsonSerializerOptions CreateHeaderOptions()
+    {
+        var options = new JsonSerializerOptions(LocationFreeOptions);
+        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
+        {
+            foreach (var property in typeInfo.Properties.Where(property => IsBlock(property.PropertyType)).ToList())
+            {
+                _ = typeInfo.Properties.Remove(property);
+            }
+        });
+
+        return options;
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Blocks = new();
+
+    // a block of statements; a node that holds one (an ElseIf, an Else, a Case); or a sequence of those.
+    private static bool IsBlock(Type type) => Blocks.GetOrAdd(type, static type =>
+    {
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+        if (typeof(Statements.StatementBlock).IsAssignableFrom(underlying))
+        {
+            return true;
+        }
+
+        var element = underlying.IsArray ? underlying.GetElementType()
+            : underlying.GetInterfaces().Append(underlying).FirstOrDefault(candidate => candidate.IsGenericType && candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                ?.GetGenericArguments()[0];
+        var node = element ?? underlying;
+        return typeof(SyntaxNode).IsAssignableFrom(node)
+            && node.GetProperties().Any(property => typeof(Statements.StatementBlock).IsAssignableFrom(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType));
+    });
+
     // an expression node has its location twice: its own Location, and the SourceLocation of the node it is, which it is constructed with. The second is
     // written only where it differs, and is constructed from the first when it is read.
     private static void OmitRedundantLocation(JsonTypeInfo typeInfo)
