@@ -681,7 +681,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule)
     {
-        var instance = new ObjectInstance(objectId, classModule, storage);
+        var instance = new ObjectInstance(objectId, classModule, storage, table);
         var fields = table.InstanceSymbols.Where(field =>
             field.ParentUri.AbsoluteUri == classModule.Uri.AbsoluteUri
             && field.Kind is SymbolKindExt.Field or SymbolKindExt.Variable

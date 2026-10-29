@@ -16,14 +16,30 @@ namespace RDCore.Runtime.Execution;
 /// <see cref="Frames.CallStackFrame"/> does for a procedure's locals — this is what gives two
 /// instances of the same class module independent bindings for the "same" declared field.
 /// </summary>
+/// <remarks>
+/// Given the table its class is declared in, the instance is an instance of the class as it is declared now: a class module defined again while the object
+/// lives - an edit made while the program waits - gives it the members the class has now.
+/// </remarks>
 public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule, ISessionStorage storage) : IObjectInstance
 {
     private readonly SymbolAddressTable _addresses = new(storage);
     private readonly HashSet<SemanticId> _declared = [];
     private readonly List<Symbol> _staticLocals = [];
+    private readonly SymbolTable? _table;
+
+    internal ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule, ISessionStorage storage, SymbolTable table)
+        : this(objectId, classModule, storage)
+    {
+        _table = table;
+    }
 
     public VBRuntimeObjectId ObjectId => objectId;
-    public VBClassModuleSymbol ClassModule => classModule;
+
+    // a class the table does not declare - the library's, a late-bound server's - is the one the object was created as.
+    public VBClassModuleSymbol ClassModule
+        => _table is not null && _table.TryGet(classModule, classModule.ScopeKind, out var current) && current is VBClassModuleSymbol declared
+            ? declared
+            : classModule;
 
     /// <inheritdoc/>
     public IReadOnlyCollection<Symbol> StaticLocals => _staticLocals;
