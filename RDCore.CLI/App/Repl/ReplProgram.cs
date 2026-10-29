@@ -15,9 +15,14 @@ namespace RDCore.CLI.App.Repl;
 /// is in the BASIC this shell is modelled on. Re-typing a number replaces that line; typing a number
 /// with nothing after it deletes it.
 /// <para>
-/// The statements are stored indented by the blocks they are in, when the shell indents them (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>): every edit
-/// indents them all again, as the lines after a block's opener or closer may be at another level, and <c>LIST</c>, <c>SAVE</c> and the document the language
-/// server holds have them as they are stored.
+/// The statements are stored indented by the blocks they are in, when the shell indents them (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>). An edit may
+/// put the lines after a block's opener or closer at another level, and the whole program is indented again - once, when it is next read as a whole (<c>LIST</c>,
+/// <c>SAVE</c>, <c>RUN</c>, the document the language server holds), not at each edit: lines pasted at the prompt are indented once. A program that cannot be
+/// indented is kept as it was typed.
+/// </para>
+/// <para>
+/// The buffer is read from more threads than the shell's (what the language server is told when the program is left alone, the ghost text of the prompt): each
+/// member reads and writes it under its lock.
 /// </para>
 /// </remarks>
 public sealed class ReplProgram
@@ -39,8 +44,16 @@ public sealed class ReplProgram
 
     private readonly SortedDictionary<int, string> _lines = [];
 
+    private readonly object _gate = new();
+
     // the statements as they are to be stored, from the statements as they are: nothing, for a buffer that stores what is typed as it is.
     private readonly Func<IReadOnlyList<string>, IReadOnlyList<string>>? _indent;
+
+    // told why the statements could not be indented, when they could not; they are kept as they were typed.
+    private readonly Action<Exception>? _indentFailed;
+
+    // a statement was stored or deleted since the buffer was indented: it is indented before it is read as a whole.
+    private bool _unindented;
 
     // set, from any thread, when what the statements are indented by changed; the buffer is indented again on the shell's own thread (IndentIfChanged).
     private int _indentationChanged;
@@ -55,16 +68,27 @@ public sealed class ReplProgram
     /// The statements of the program as they are to be stored, from the statements as they are, in the order of their numbers: as many, in the same order
     /// (<see cref="RDCore.SDK.Formatting.ProgramIndenter.Indent"/>).
     /// </param>
-    public ReplProgram(Func<IReadOnlyList<string>, IReadOnlyList<string>> indent)
+    /// <param name="indentFailed">Told why the statements could not be indented, when <paramref name="indent"/> throws: they are kept as they were typed.</param>
+    public ReplProgram(Func<IReadOnlyList<string>, IReadOnlyList<string>> indent, Action<Exception>? indentFailed = null)
     {
         _indent = indent;
+        _indentFailed = indentFailed;
     }
 
     /// <summary>The number of lines currently in the buffer.</summary>
-    public int Count => _lines.Count;
+    public int Count
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lines.Count;
+            }
+        }
+    }
 
     /// <summary>Whether the buffer holds no lines at all.</summary>
-    public bool IsEmpty => _lines.Count == 0;
+    public bool IsEmpty => Count == 0;
 
     /// <summary>
     /// Bumped by every edit. This is the buffer's LSP document version — the language server drops a
@@ -80,9 +104,25 @@ public sealed class ReplProgram
     /// <param name="statement">The statement text, without the number.</param>
     public void Store(int number, string statement)
     {
-        _lines[number] = statement;
-        Indent();
-        Version++;
+        lock (_gate)
+        {
+            _lines[number] = statement;
+            _unindented = _indent is not null;
+            Version++;
+        }
+    }
+
+    /// <summary>
+    /// The statement of a line as it was typed, without the indentation the program gives it: what the line is typed again as.
+    /// </summary>
+    /// <param name="number">The line number.</param>
+    /// <returns>The statement; <see langword="null"/> when the program has no such line.</returns>
+    public string? StatementOf(int number)
+    {
+        lock (_gate)
+        {
+            return _lines.TryGetValue(number, out var statement) ? statement.TrimStart() : null;
+        }
     }
 
     /// <summary>
@@ -97,16 +137,35 @@ public sealed class ReplProgram
     /// <returns>Whether a statement is other than it was: the buffer is then one version later.</returns>
     public bool IndentIfChanged()
     {
-        if (Interlocked.Exchange(ref _indentationChanged, 0) == 0 || !Indent())
+        if (Interlocked.Exchange(ref _indentationChanged, 0) == 0)
         {
             return false;
         }
 
-        Version++;
-        return true;
+        lock (_gate)
+        {
+            _unindented = false;
+            if (!Indent())
+            {
+                return false;
+            }
+
+            Version++;
+            return true;
+        }
     }
 
-    // every statement, as it is to be stored; whether one is other than it was. A buffer that cannot be indented as the lines it has is left as it is.
+    // the statements, indented, when one was stored or deleted since they were; under the lock.
+    private void EnsureIndented()
+    {
+        if (_unindented)
+        {
+            _unindented = false;
+            Indent();
+        }
+    }
+
+    // every statement, as it is to be stored; whether one is other than it was. A buffer that cannot be indented as the lines it has is left as it is; under the lock.
     private bool Indent()
     {
         if (_indent is null || _lines.Count == 0)
@@ -115,7 +174,18 @@ public sealed class ReplProgram
         }
 
         var numbers = _lines.Keys.ToArray();
-        var indented = _indent([.. _lines.Values]);
+        IReadOnlyList<string> indented;
+        try
+        {
+            indented = _indent([.. _lines.Values]);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // the indenter could not read the program: it is kept as it is, and indented again at the next edit.
+            _indentFailed?.Invoke(exception);
+            return false;
+        }
+
         if (indented.Count != numbers.Length)
         {
             return false;
@@ -141,18 +211,21 @@ public sealed class ReplProgram
     /// <returns>The zero-based position of the line among the lines, or <c>-1</c> if no such line is in the buffer.</returns>
     public int IndexOf(int number)
     {
-        var index = 0;
-        foreach (var key in _lines.Keys)
+        lock (_gate)
         {
-            if (key == number)
+            var index = 0;
+            foreach (var key in _lines.Keys)
             {
-                return index;
+                if (key == number)
+                {
+                    return index;
+                }
+
+                index++;
             }
 
-            index++;
+            return -1;
         }
-
-        return -1;
     }
 
     /// <summary>
@@ -161,7 +234,12 @@ public sealed class ReplProgram
     /// <param name="index">The zero-based position of the line among the lines.</param>
     /// <returns>The line number, or <see langword="null"/> if the program has no line there.</returns>
     public int? NumberAt(int index)
-        => index >= 0 && index < _lines.Count ? _lines.Keys.ElementAt(index) : null;
+    {
+        lock (_gate)
+        {
+            return index >= 0 && index < _lines.Count ? _lines.Keys.ElementAt(index) : null;
+        }
+    }
 
     /// <summary>
     /// Where the line numbered <paramref name="number"/> is in the module the program is run as (<see cref="ToModuleSource"/>), which has the procedure's header
@@ -177,27 +255,34 @@ public sealed class ReplProgram
     /// <returns><c>false</c> if no such line was in the buffer.</returns>
     public bool Delete(int number)
     {
-        if (!_lines.Remove(number))
+        lock (_gate)
         {
-            return false;
-        }
+            if (!_lines.Remove(number))
+            {
+                return false;
+            }
 
-        // the lines after a block's opener or closer that is gone are at another level.
-        Indent();
-        Version++;
-        return true;
+            // the lines after a block's opener or closer that is gone are at another level.
+            _unindented = _indent is not null;
+            Version++;
+            return true;
+        }
     }
 
     /// <summary>Empties the buffer.</summary>
     public void Clear()
     {
-        if (_lines.Count == 0)
+        lock (_gate)
         {
-            return;
-        }
+            if (_lines.Count == 0)
+            {
+                return;
+            }
 
-        _lines.Clear();
-        Version++;
+            _lines.Clear();
+            _unindented = false;
+            Version++;
+        }
     }
 
     /// <summary>
@@ -253,14 +338,18 @@ public sealed class ReplProgram
             return rejected;
         }
 
-        _lines.Clear();
-        foreach (var line in loaded)
+        lock (_gate)
         {
-            _lines.Add(line.Key, line.Value);
+            _lines.Clear();
+            foreach (var line in loaded)
+            {
+                _lines.Add(line.Key, line.Value);
+            }
+
+            _unindented = _indent is not null;
+            Version++;
         }
 
-        Indent();
-        Version++;
         return [];
     }
 
@@ -270,9 +359,15 @@ public sealed class ReplProgram
     /// <param name="from">The first line number to include, or <c>null</c> for the start of the buffer.</param>
     /// <param name="to">The last line number to include, or <c>null</c> for the end of the buffer.</param>
     public IEnumerable<(int Number, string Statement)> Lines(int? from = null, int? to = null)
-        => _lines
-            .Where(line => (from is null || line.Key >= from) && (to is null || line.Key <= to))
-            .Select(line => (line.Key, line.Value));
+    {
+        lock (_gate)
+        {
+            EnsureIndented();
+            return [.. _lines
+                .Where(line => (from is null || line.Key >= from) && (to is null || line.Key <= to))
+                .Select(line => (line.Key, line.Value))];
+        }
+    }
 
     /// <summary>
     /// The buffer as a VBA standard module: every numbered line is a labelled statement in the
@@ -314,13 +409,24 @@ public sealed class ReplProgram
     /// module scope the program itself runs in.
     /// </summary>
     /// <param name="statement">The statement typed at the prompt.</param>
-    public string ToImmediateModuleSource(string statement)
+    public string ToImmediateModuleSource(string statement) => ImmediateModuleSource(Lines(), statement);
+
+    private static string ImmediateModuleSource(IEnumerable<(int Number, string Statement)> lines, string statement)
     {
         var source = new StringBuilder();
-        AppendProcedure(source, EntryPointName, Lines().Select(line => $"{line.Number} {line.Statement}"));
+        AppendProcedure(source, EntryPointName, lines.Select(line => $"{line.Number} {line.Statement}"));
         source.Append(NewLine);
         AppendProcedure(source, ImmediateEntryPointName, [statement]);
         return source.ToString();
+    }
+
+    // the lines as they are stored, indented or not: what completing a line is made of, which is asked as the line is typed - a program is not indented for it.
+    private (int Number, string Statement)[] StoredLines()
+    {
+        lock (_gate)
+        {
+            return [.. _lines.Select(line => (line.Key, line.Value))];
+        }
     }
 
     /// <summary>
@@ -355,7 +461,7 @@ public sealed class ReplProgram
 
             var (statement, character) = Expanded(typed[statementStart..], Math.Max(0, cursor - statementStart));
             var label = $"{number} ";
-            var lines = new SortedDictionary<int, string>(_lines) { [number] = statement };
+            var lines = new SortedDictionary<int, string>(StoredLines().ToDictionary(line => line.Number, line => line.Statement)) { [number] = statement };
             var source = new StringBuilder();
             AppendProcedure(source, EntryPointName, lines.Select(line => $"{line.Key} {line.Value}"));
 
@@ -366,7 +472,8 @@ public sealed class ReplProgram
         var (immediate, at) = Expanded(typed[start..], Math.Max(0, cursor - start));
 
         // the program's procedure - its header, its lines, its end - and the line between the two, then the immediate procedure's header.
-        return (ToImmediateModuleSource(immediate), _lines.Count + 4, at);
+        var stored = StoredLines();
+        return (ImmediateModuleSource(stored, immediate), stored.Length + 4, at);
     }
 
     // a statement with its leading `?` written as the Print it is, and where the cursor is once it is.
