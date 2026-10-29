@@ -227,33 +227,51 @@ public static partial class ModuleIndenter
     /// <param name="edits">The edits, none of them overlapping; in any order.</param>
     /// <returns>The text with the edits made, the line ends it keeps as they were.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> or <paramref name="edits"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">An edit is of a line the text does not have, or of characters its line does not have, or two edits
+    /// overlap.</exception>
+    /// <remarks>The text is read once, from the first edit to the last: the time it takes grows with the text and the edits, and not with the one times the other.</remarks>
     public static string Apply(string text, IReadOnlyList<IndentationEdit> edits)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(edits);
-        var parts = LineEnd().Split(text);
+        if (edits.Count == 0)
+        {
+            return text;
+        }
 
-        // where a position is in the text: the lines before it, with what ends them, and its character in its line.
+        // where each line starts in the text, and how long it is without what ends it.
+        var starts = new List<int> { 0 };
+        var lengths = new List<int>();
+        foreach (Match end in LineEnd().Matches(text))
+        {
+            lengths.Add(end.Index - starts[^1]);
+            starts.Add(end.Index + end.Length);
+        }
+
+        lengths.Add(text.Length - starts[^1]);
+
         int OffsetOf(int line, int character)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(line);
-            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(line * 2, parts.Length);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(line, starts.Count);
             ArgumentOutOfRangeException.ThrowIfNegative(character);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(character, parts[line * 2].Length);
-            return parts.Take(line * 2).Sum(part => part.Length) + character;
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(character, lengths[line]);
+            return starts[line] + character;
         }
 
-        // the edits from the last to the first: each is where the text before it puts it.
-        var edited = new System.Text.StringBuilder(text);
-        foreach (var edit in edits.OrderByDescending(edit => edit.Line).ThenByDescending(edit => edit.Character))
+        // the edits from the first to the last: the text between them is copied as it is.
+        var edited = new System.Text.StringBuilder(text.Length);
+        var copied = 0;
+        foreach (var (start, end, newText) in edits.Select(edit => (Start: OffsetOf(edit.Line, edit.Character), End: OffsetOf(edit.EndLine, edit.EndCharacter), edit.NewText))
+            .OrderBy(edit => edit.Start).ThenBy(edit => edit.End))
         {
-            var (start, end) = (OffsetOf(edit.Line, edit.Character), OffsetOf(edit.EndLine, edit.EndCharacter));
             ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
-            edited.Remove(start, end - start).Insert(start, edit.NewText);
+            ArgumentOutOfRangeException.ThrowIfLessThan(start, copied);
+            edited.Append(text, copied, start - copied).Append(newText);
+            copied = end;
         }
 
-        return edited.ToString();
+        return edited.Append(text, copied, text.Length - copied).ToString();
     }
 
     // what ends a line, kept by a split: a carriage return and a line feed, or either alone.

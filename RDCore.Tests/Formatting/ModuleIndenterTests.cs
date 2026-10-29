@@ -348,6 +348,17 @@ public sealed class ModuleIndenterTests
             Indented(Lines("Sub A()", code + " Rem it's", "End Sub")));
     }
 
+    // the edits are made wherever they are in the list, each where the text as it was has it, two that touch one after the other; two that overlap are refused.
+    [TestMethod]
+    public void Apply_MakesTheEditsInAnyOrder_AndRefusesTwoThatOverlap()
+    {
+        var text = "a\r\nb\nc";
+
+        Assert.AreEqual("a\r\n\r\n b\n  c",
+            ModuleIndenter.Apply(text, [new IndentationEdit(2, 0, 0, "  "), new IndentationEdit(0, 1, 1, 0, "\r\n\r\n"), new IndentationEdit(1, 0, 0, " ")]));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => ModuleIndenter.Apply(text, [new IndentationEdit(0, 0, 1, 1, "x"), new IndentationEdit(1, 0, 1, "y")]));
+    }
+
     // whatever the settings, no edit changes what a literal or a comment says.
     [TestMethod]
     [DataRow(EndOfLineCommentStyle.AlignInColumn)]
