@@ -158,6 +158,12 @@ public sealed class ModuleIndenterTests
         DisplayName = "a closer of no block")]
     [DataRow(new[] { "Sub A(", "If x Then", "y = = 1", "Else ' c", "y = = 2", "End If", "End Sub" },
         new[] { "Sub A(", "    If x Then", "        y = = 1", "    Else ' c", "        y = = 2", "    End If", "End Sub" }, DisplayName = "a branch with a comment")]
+    [DataRow(new[] { "Sub A()", "If x Then", "Print \"unterminated", "y = 1", "End If", "End Sub" },
+        new[] { "Sub A()", "    If x Then", "        Print \"unterminated", "        y = 1", "    End If", "End Sub" }, DisplayName = "a string not terminated")]
+    [DataRow(new[] { "Sub A()", "If x Then", "30 Print \"unterminated", "y = 1", "End If", "End Sub" },
+        new[] { "Sub A()", "    If x Then", "30      Print \"unterminated", "        y = 1", "    End If", "End Sub" }, DisplayName = "a string not terminated after a line number")]
+    [DataRow(new[] { "Sub A()", "If x Then", "20 Foo: y = 1", "End If", "End Sub" }, new[] { "Sub A()", "    If x Then", "20      Foo: y = 1", "    End If", "End Sub" },
+        DisplayName = "a call after a line number, which is no label")]
     public void UnfinishedCode_IsIndentedByWhatEnclosesIt(string[] typed, string[] indented)
         => Assert.AreEqual(Lines(indented), Indented(Lines(typed)));
 
