@@ -480,6 +480,52 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
     }
 
+    // the definitions held while a program is in progress, by the identity of the variable they would replace, each with the scope it is defined in.
+    private ImmutableDictionary<string, (Symbol Symbol, ScopeKind Scope)> _held = ImmutableDictionary<string, (Symbol, ScopeKind)>.Empty;
+
+    // set by the program's start and end, read by the definitions of the requests that edit it meanwhile.
+    private volatile bool _holdsStoredValues;
+
+    /// <inheritdoc/>
+    public bool HoldsStoredValues
+    {
+        get => _holdsStoredValues;
+        set => _holdsStoredValues = value;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> HeldDefinitions
+    {
+        get
+        {
+            lock (_resetLock)
+            {
+                return [.. _held.Values.Select(held => held.Symbol)];
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> ApplyHeldDefinitions()
+    {
+        ImmutableDictionary<string, (Symbol Symbol, ScopeKind Scope)> held;
+        lock (_resetLock)
+        {
+            (held, _held) = (_held, _held.Clear());
+        }
+
+        var applied = new List<Symbol>();
+        foreach (var (symbol, scope) in held.Values)
+        {
+            if (table.TryGet(symbol, scope, out var existing) && Replaced(existing, symbol, scope))
+            {
+                applied.Add(symbol);
+            }
+        }
+
+        return applied;
+    }
+
     public bool TryDefine(Symbol symbol, ScopeKind scope)
     {
         if (!table.TryAdd(symbol, scope))
@@ -553,29 +599,52 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             && symbol is ITypedSymbol { ResolvedType: var after }
             && IsSameType(before, after)
             && SessionBindings.TryGetAddress(existing, out _);
+        var key = existing.Uri.ToString();
         if (!sameDeclaration)
         {
-            // what the variable held is let go of with its storage.
-            var held = existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _);
-            if (!(TryUndefine(existing, scope) && TryDefine(symbol, scope)))
-            {
-                return false;
-            }
-
-            if (held)
+            // while a program is in progress, what the variable holds is not let go of: the definition is held, and the variable stays as it was.
+            if (HoldsStoredValues && existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _))
             {
                 lock (_resetLock)
                 {
-                    _valuesReset = _valuesReset.Add(existing);
+                    _held = _held.SetItem(key, (symbol, scope));
                 }
+
+                return true;
             }
 
-            return true;
+            return Replaced(existing, symbol, scope);
+        }
+
+        // the variable declared as it was: a definition held for it is taken back.
+        lock (_resetLock)
+        {
+            _held = _held.Remove(key);
         }
 
         // storage is keyed by the symbol's semantic identity, which the newest definition shares, so replacing the
         // symbol itself leaves what it holds where it is.
         table.Replace(symbol, scope);
+        return true;
+    }
+
+    // a symbol replaced the long way, its storage freed and allocated again: what a variable held is let go of with it.
+    private bool Replaced(Symbol existing, Symbol symbol, ScopeKind scope)
+    {
+        var held = existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _);
+        if (!(TryUndefine(existing, scope) && TryDefine(symbol, scope)))
+        {
+            return false;
+        }
+
+        if (held)
+        {
+            lock (_resetLock)
+            {
+                _valuesReset = _valuesReset.Add(existing);
+            }
+        }
+
         return true;
     }
 

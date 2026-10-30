@@ -219,6 +219,17 @@ internal sealed class ProgramEdits
             }
         }
 
+        // a variable given another type while the program is in progress: it is held as it was, with its value, and is declared as edited when the program is
+        // over. Its declaration reads as it was, which is why it is said here: the edit taken back drops the hold, and the program goes on with the value.
+        foreach (var held in session.Symbols.HeldDefinitions)
+        {
+            var name = $"{NameOf(held.ParentUri.AbsoluteUri)}.{held.Name}";
+            if (!edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
+            {
+                edits.Add(new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_HeldUntilRun, held.ParentUri, RangeOf(held)));
+            }
+        }
+
         // a variable whose value a definition reset since the program was suspended: the edit that did it may be taken back, and the value is still gone.
         foreach (var reset in session.Symbols.ValuesReset.Skip(suspended._reset))
         {
@@ -479,6 +490,14 @@ internal sealed class ProgramEdits
     private static string KeyOf(Uri module, SymbolDescriptor descriptor) => $"{module.AbsoluteUri}|{descriptor.Kind}|{descriptor.Name.ToUpperInvariant()}";
 
     private static string NameOfProcedure(string procedure) => procedure[(procedure.LastIndexOf('#') + 1)..];
+
+    // where a symbol is declared, as its definition says.
+    private static SourceRange? RangeOf(Symbol symbol) => symbol switch
+    {
+        AccessibleTypedSymbol declared => declared.Range,
+        BoundTypedSymbol declared => declared.Range,
+        _ => null,
+    };
 
     private static string NameOf(string module) => new Uri(module).Fragment.TrimStart('#') is { Length: > 0 } name ? name : module;
 

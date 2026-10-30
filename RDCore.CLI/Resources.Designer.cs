@@ -410,6 +410,11 @@ namespace RDCore.CLI {
         public static string Host_Edit_ValueReset => ResourceManager.GetString("Host_Edit_ValueReset", resourceCulture)!;
 
         /// <summary>
+        ///   Looks up a localized string similar to a variable that holds a value, given another type: it keeps its value until the edit is taken back, and the edit applies when the program is run again.
+        /// </summary>
+        public static string Host_Edit_HeldUntilRun => ResourceManager.GetString("Host_Edit_HeldUntilRun", resourceCulture)!;
+
+        /// <summary>
         ///   Looks up a localized string similar to the Option Base of a module whose arrays hold values.
         /// </summary>
         public static string Host_Edit_OptionBaseOfStoredArrays => ResourceManager.GetString("Host_Edit_OptionBaseOfStoredArrays", resourceCulture)!;

@@ -292,6 +292,12 @@ internal sealed class DefineSymbolsHandler(
 
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, parseResult);
 
+        // lowered against a variable a program in progress holds as it was: lowered again once the program is over, against the variable as it is declared.
+        var name = request.ModuleName;
+        HeldDefinitions.Loaded(session, name, () => session.Symbols.TryGetModule(name, out var current)
+            ? new ModuleLoader(session, sessionProvider.Image, messages).Load(current, parseResult)
+            : []);
+
         // a module is loaded again at every edit of it: what a load failed with is said once, as long as the next fails with the same, and so is that it loads again.
         switch (LoadFailuresBySession.GetOrCreateValue(session).Record(request.ModuleName, errors))
         {

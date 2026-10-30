@@ -238,7 +238,8 @@ public sealed class EditAndContinueTests
     [TestMethod]
     [DataRow(new[] { "Program|Replace|Dim a As Long|    Dim a As Integer" }, "a local of a procedure the program is in, given another type",
         DisplayName = "a local of a procedure the program is in, retyped")]
-    [DataRow(new[] { "Program|Replace|Public G As Long|Public G As Integer" }, "a variable or a field that holds a value", DisplayName = "a module variable that holds a value, retyped")]
+    [DataRow(new[] { "Program|Replace|Public G As Long|Public G As Integer" }, "a variable that holds a value, given another type",
+        DisplayName = "a module variable that holds a value, retyped")]
     [DataRow(new[] { "Program|Replace|    X As Long|    X As Integer" }, "a variable or a field that holds a value", DisplayName = "a field of a Type a local holds, retyped")]
     [DataRow(new[] { "Program|Replace|Public Sub Callee(ByVal p As Long)|Public Sub Callee(ByVal p As Long, Optional ByVal q As Long)" },
         "the signature of a procedure the program is in", DisplayName = "the signature of the procedure the program is in")]
@@ -699,32 +700,96 @@ public sealed class EditAndContinueTests
         }
     }
 
-    // a variable retyped while the program waits is defined again, and what it held is gone: taking the edit back gives it another variable of the type
-    // it had, not the value. Only running the program again gives the value back.
+    // a variable retyped while the program waits is held as it was, with its value: the program is not resumed on the edit, which applies when it is run
+    // again, and the edit taken back is no edit - the program goes on with the value.
     [TestMethod]
-    public async Task AModuleVariableRetypedWhileTheProgramWaits_ThenTheEditTakenBack_IsStillRefused_UntilTheProgramIsRunAgain()
+    [DataRow("Program|Replace|Public G As Long|Public G As Integer", "Program.G (a variable that holds a value, given another type", DisplayName = "a module variable")]
+    [DataRow("Program|Replace|Static S As Long|    Static S As Integer", "a variable or a field that holds a value", DisplayName = "a Static")]
+    public async Task AVariableRetypedWhileTheProgramWaits_IsHeld_AndTheEditTakenBack_GoesOnWithItsValue(string edit, string reason)
     {
-        var retyped = Edited(Program, ["Program|Replace|Public G As Long|Public G As Integer"], "Program");
-        ExecuteSessionResult? whileRetyped = null, takenBack = null, again = null;
+        var retyped = Edited(Program, [edit], "Program");
+        ExecuteSessionResult? whileRetyped = null, takenBack = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, retyped));
             whileRetyped = await Resume(provider);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, Program));
             takenBack = await Resume(provider);
-            again = await runAgain();
         }, debug: true);
 
         Assert.AreEqual(ExecutionOutcome.Refused, whileRetyped!.Outcome, whileRetyped.ErrorMessage);
-        Assert.AreEqual(ExecutionOutcome.Refused, takenBack!.Outcome, takenBack.ErrorMessage);
-        StringAssert.Contains(takenBack.ErrorMessage, "Program.G (a variable whose value an edit reset");
-        Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, again.ErrorMessage);
+        StringAssert.Contains(whileRetyped.ErrorMessage, reason);
+        Assert.AreEqual(ExecutionOutcome.Completed, takenBack!.Outcome, takenBack.ErrorMessage);
+        CollectionAssert.AreEqual(AsItWas, Output(takenBack), "the program goes on as it would have, G with the value it held");
     }
 
-    // the object a variable of a class held, retyped, is gone from it: the program can't go on without it, and its Class_Terminate does not run while the
-    // program waits - what is let go of by a program that is reset runs none, as an End runs none - and the object is discarded when the program is run again.
+    // the edit held while the program waited applies when it is run again: the variable is declared as edited, and the code loaded while it was held is lowered
+    // again against it - its assignment coerces to the edited type.
     [TestMethod]
-    public async Task AVariableOfAClassRetypedWhileTheProgramWaits_LosesItsObject_AndIsStillRefusedOnceTakenBack()
+    public async Task AModuleVariableRetypedWhileTheProgramWaits_IsDeclaredAsEdited_WhenTheProgramIsRunAgain()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public G As Long",
+            "Public Sub Main()",
+            "    G = 41",
+            "    Stop",
+            "    G = G + 1",
+            "    Debug.Print \"G=\" & G & \" \" & TypeName(G)",
+            "End Sub");
+        ExecuteSessionResult? again = null, done = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, program.Replace("G As Long", "G As Integer", StringComparison.Ordinal)));
+            again = await runAgain();
+            done = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, again.ErrorMessage);
+        Assert.AreEqual(ExecutionOutcome.Completed, done!.Outcome, done.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "G=42 Integer" }, Output(done));
+    }
+
+    // code edited to use the variable as edited, while the program waits: loaded while the variable is held as it was, it is checked against the variable
+    // as it was - an object assigned to a Long - and is lowered again against it as edited when the program is run again, and runs.
+    [TestMethod]
+    public async Task CodeLoadedWhileAVariableIsHeld_IsLoweredAgainstItAsEdited_WhenTheProgramIsRunAgain()
+    {
+        var program = Lines(
+            "Option Explicit",
+            "Public G As Long",
+            "Public Sub Main()",
+            "    G = 41",
+            "    Stop",
+            "    Debug.Print \"G=\" & G",
+            "End Sub");
+        var edited = Lines(
+            "Option Explicit",
+            "Public G As Collection",
+            "Public Sub Main()",
+            "    Set G = New Collection",
+            "    Stop",
+            "    Debug.Print \"G=\" & G.Count",
+            "End Sub");
+        ExecuteSessionResult? again = null, done = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
+            again = await runAgain();
+            done = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, again.ErrorMessage);
+        Assert.AreEqual(ExecutionOutcome.Completed, done!.Outcome, done.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "G=0" }, Output(done));
+    }
+
+    // the object a variable of a class holds, the variable retyped while the program waits, is still held: its Class_Terminate does not run, and the edit
+    // taken back, the program goes on with it.
+    [TestMethod]
+    public async Task AVariableOfAClassRetypedWhileTheProgramWaits_KeepsItsObject_AndGoesOnOnceTakenBack()
     {
         var owned = ModuleWorkspace.ClassModule("D",
             "Option Explicit",
@@ -753,8 +818,8 @@ public sealed class EditAndContinueTests
         }, debug: true);
 
         Assert.AreEqual("0", whileWaiting);
-        Assert.AreEqual(ExecutionOutcome.Refused, takenBack!.Outcome, takenBack.ErrorMessage);
-        StringAssert.Contains(takenBack.ErrorMessage, "Program.Held (a variable whose value an edit reset");
+        Assert.AreEqual(ExecutionOutcome.Completed, takenBack!.Outcome, takenBack.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "main:end" }, Output(takenBack));
     }
 
     // a program of one module run to its Stop, made to wait where `before` makes it, edited into another, and resumed.
