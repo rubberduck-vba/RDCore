@@ -219,6 +219,18 @@ internal sealed class ProgramEdits
             }
         }
 
+        // a module variable given another type while the program is in progress is held as it was, with its value, and is declared as edited when the program
+        // is over. Its declaration reads as it was, which is why it is said here; the edit taken back drops the hold, and the program goes on with the value. A
+        // Static is no symbol of its own that a definition replaces: its storage is kept as it is, and a Static retyped is said by its procedure (Classify).
+        foreach (var definition in session.Symbols.HeldDefinitions)
+        {
+            var name = NameOfHeld(definition);
+            if (!edits.Any(edit => edit.Name == name && edit.Kind is not ProgramEditKind.Applies))
+            {
+                edits.Add(new ProgramEdit(name, ProgramEditKind.Restart, Resources.Host_Edit_HeldUntilRun, definition.ParentUri, RangeOf(definition)));
+            }
+        }
+
         // a variable whose value a definition reset since the program was suspended: the edit that did it may be taken back, and the value is still gone.
         foreach (var reset in session.Symbols.ValuesReset.Skip(suspended._reset))
         {
@@ -229,10 +241,13 @@ internal sealed class ProgramEdits
             }
         }
 
-        // the code a module was last loaded with did not compile: its old bodies are still loaded, and resuming would run them.
+        // the code a module was last loaded with did not compile: its old bodies are still loaded, and resuming would run them. One loaded while a variable is
+        // held was checked against the variable as it was, not as edited: the hold is what is said of it, above, and it is lowered again when the program
+        // is over (HeldDefinitions).
         foreach (var module in now._modules.Keys)
         {
-            if (image.IsLoaded(new Uri(module)) && image.Semantics.TryGet(new Uri(module), out var model) && !model.IsValid)
+            if (image.IsLoaded(new Uri(module)) && image.Semantics.TryGet(new Uri(module), out var model) && !model.IsValid
+                && !HeldDefinitions.LoweredUnderAHold(session, NameOf(module)))
             {
                 var first = model.CompileErrors.FirstOrDefault();
                 edits.Add(new ProgramEdit(NameOf(module), ProgramEditKind.DoesNotCompile, string.Format(Resources.Host_Edit_DoesNotCompile, first?.Description ?? string.Empty),
@@ -479,6 +494,17 @@ internal sealed class ProgramEdits
     private static string KeyOf(Uri module, SymbolDescriptor descriptor) => $"{module.AbsoluteUri}|{descriptor.Kind}|{descriptor.Name.ToUpperInvariant()}";
 
     private static string NameOfProcedure(string procedure) => procedure[(procedure.LastIndexOf('#') + 1)..];
+
+    // a held variable as the user names it: Module.Variable.
+    private static string NameOfHeld(Symbol held) => $"{NameOf(held.ParentUri.AbsoluteUri)}.{held.Name}";
+
+    // where a symbol is declared, as its definition says.
+    private static SourceRange? RangeOf(Symbol symbol) => symbol switch
+    {
+        AccessibleTypedSymbol declared => declared.Range,
+        BoundTypedSymbol declared => declared.Range,
+        _ => null,
+    };
 
     private static string NameOf(string module) => new Uri(module).Fragment.TrimStart('#') is { Length: > 0 } name ? name : module;
 

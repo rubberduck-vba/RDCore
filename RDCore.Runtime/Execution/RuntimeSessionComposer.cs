@@ -124,9 +124,13 @@ public static class RuntimeSessionComposer
         // text written to a file is in the environment's own ANSI code page (IRuntimeEnvironmentProfile.AnsiEncoding).
         var files = new SessionFileChannels(fileSystem ?? new FileSystem(), environment.AnsiEncoding);
 
-        return new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, new SessionHalt(), references, output ?? NullRuntimeOutput.Instance)
+        var session = new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, new SessionHalt(), references, output ?? NullRuntimeOutput.Instance)
         {
             Libraries = libraries,
         };
+
+        // a variable replaced by a definition lets go of the objects it held, which the session counts the references of.
+        symbols.LettingGo = session.LetGoOfReplaced;
+        return session;
     }
 }

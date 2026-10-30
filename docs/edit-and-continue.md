@@ -11,7 +11,7 @@ starting over.
 The VBA editor in Office does some of this too. But many edits make it reset the project ("This action will reset your project, proceed anyway?"), and
 everything the program had built up so far is lost. RD-VBA applies every edit it can apply correctly, which is more than the VBA editor does. When an edit
 can't be applied, RD-VBA doesn't end your program: it keeps waiting where it is, tells you which edit is in the way and why, and lets you choose. You can take
-the edit back and go on (unless it reset a variable's value), or run the program again.
+the edit back and go on, or run the program again.
 
 ## ✅ What applies when you go on
 
@@ -54,13 +54,13 @@ Variables keep their values across every edit that applies. That includes module
 
 Some edits can't be applied to a program that's already running, because the program holds something the edit would change underneath it. RD-VBA doesn't
 guess, and never applies half of an edit. When **Continue** or a step meets one of these, the program is refused and keeps waiting, and the edit is named
-with its reason. Take the edit back and go on (unless it reset a variable's value), or run the program again to have it.
+with its reason. Take the edit back and go on, or run the program again to have it.
 
 | You changed… | Why it waits |
 |---|---|
 | A local variable added to, or removed from, a procedure the program is in | The procedure's variables are laid out already. Applying it is planned for a later version. |
 | A field added to a class whose objects the program may hold | Objects made before the edit would have no room for it. Applying it is planned for a later version. |
-| A local's type, or a variable's type, while it holds a value | The value would have to be converted under the program. For a module variable, the edit resets its value, so taking the edit back doesn't help: run the program again. |
+| A local's type, or a variable's type, while it holds a value | The value would have to be converted under the program. A module variable or a `Static` keeps its value, as it was declared, for as long as the program is in progress: take the edit back and go on with it, or end the program, and the edit applies. |
 | A `Const` (or `Enum` member) that sizes an array or a `String * N`, given another value, directly or through another `Const` | What it sizes exists already, at its old size. |
 | A `Const` or `Enum` member that a procedure the program is in reads | That procedure read the old value already. |
 | An `Option` line of a module the program is in | The running procedure keeps the setting it started with. |
@@ -159,8 +159,8 @@ Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit, 
 | A field added to a class with live objects | goes on | waits, and names the edit (for now) |
 | The line an error stopped at, fixed | goes on after it, without running your fix | runs as you fixed it |
 
-Where the VBA editor resets, it asks first, and **Cancel** takes the edit back. Where RD-VBA waits, nothing is lost but the value of a module variable whose type
-you changed. The program stays where it was, and you choose: take the edit back and go on (unless the edit reset a variable's value), or run again.
+Where the VBA editor resets, it asks first, and **Cancel** takes the edit back. Where RD-VBA waits, nothing is lost: a variable whose type you changed keeps its
+value until the program is over. The program stays where it was, and you choose: take the edit back and go on, or run again.
 
 ## See also
 

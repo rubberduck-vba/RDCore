@@ -204,6 +204,11 @@ public interface ISessionSymbols
     /// be by <see cref="TryUndefine"/> followed by <see cref="TryDefine"/>. A symbol that holds no storage is
     /// simply replaced.
     /// </para>
+    /// <para>
+    /// While <see cref="HoldsStoredValues"/> is set, a definition that would let go of what a variable holds is held instead: the variable stays defined as it
+    /// was, with its value, until the held definition is applied (<see cref="ApplyHeldDefinitions"/>). A definition that declares it as it was again - the
+    /// edit taken back - drops the hold.
+    /// </para>
     /// </remarks>
     /// <param name="symbol">The newest definition, which takes the place of the one with the same identity.</param>
     /// <param name="scope">The scope it was defined in.</param>
@@ -219,6 +224,32 @@ public interface ISessionSymbols
     /// program that goes on after one of them was reset would go on with a value it never had.
     /// </remarks>
     IReadOnlyList<Symbol> ValuesReset { get; }
+
+    /// <summary>
+    /// Whether a definition that would let go of what a variable holds is held rather than applied (<see cref="TryRedefine"/>, <see cref="HeldDefinitions"/>).
+    /// </summary>
+    /// <remarks>
+    /// Set for as long as a program is in progress - running, or waiting at a stop - so that an edit made meanwhile takes no value from it. MS-VBA resets the
+    /// project for such an edit. A held one can be taken back with the value still there, and is applied when the program is over.
+    /// </remarks>
+    bool HoldsStoredValues { get; set; }
+
+    /// <summary>
+    /// The definitions <see cref="TryRedefine"/> held, each the newest of its identity: a variable redeclared as another type, or as something that holds no
+    /// value, while <see cref="HoldsStoredValues"/> was set. Each such variable is defined as it was, and holds what it held.
+    /// </summary>
+    IReadOnlyList<Symbol> HeldDefinitions { get; }
+
+    /// <summary>
+    /// Stops holding (<see cref="HoldsStoredValues"/>) and applies every held definition, as <see cref="TryRedefine"/> would have applied it: what each
+    /// variable held is let go of (<see cref="ValuesReset"/>).
+    /// </summary>
+    /// <remarks>
+    /// Stopping and taking what is held are one step: a definition that arrives meanwhile is either among those applied, or applied as it arrives. Code
+    /// lowered while a definition was held was lowered against the variable as it was: whoever loaded it lowers it again once this is done.
+    /// </remarks>
+    /// <returns>The definitions applied; none when nothing was held.</returns>
+    IReadOnlyList<Symbol> ApplyHeldDefinitions();
 
     /// <summary>
     /// Gives every variable of the session the value it was defined with, and discards every object.

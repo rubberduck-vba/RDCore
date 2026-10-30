@@ -64,6 +64,27 @@ internal sealed class RuntimeSession(
     // the objects whose Terminate is running.
     private readonly HashSet<VBRuntimeObjectId> _terminating = [];
 
+    // while a variable a definition replaced lets go of what it held: nothing it destroys runs a Terminate.
+    private bool _resetting;
+
+    /// <summary>
+    /// Lets go of the objects <paramref name="cell"/> holds, its storage freed by a definition that replaces its variable: each reference it was is dropped,
+    /// as a reset drops it - an object it held the last reference to is destroyed, and runs no <c>Terminate</c>, as nothing of a project MS-VBA resets does.
+    /// </summary>
+    internal void LetGoOfReplaced(IBindingHandle cell)
+    {
+        var resetting = _resetting;
+        _resetting = true;
+        try
+        {
+            ObjectReferences.Release(this, cell);
+        }
+        finally
+        {
+            _resetting = resetting;
+        }
+    }
+
     public bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle)
     {
         if (Objects.RemoveRef(instance, handle) != 0)
@@ -82,7 +103,7 @@ internal sealed class RuntimeSession(
         // object that has one is not destroyed, and is a candidate again when it next loses its last. An error the
         // handler leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA,
         // grid oracle\s44): a release has no result to carry it in, so it is recorded, and the executor stops with it.
-        if (Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
+        if (!_resetting && Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
         {
             _terminating.Add(instance);
             try
@@ -480,6 +501,71 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
     }
 
+    // the definitions held while a program is in progress, by the identity of the variable they would replace, each with the scope it is defined in.
+    private ImmutableDictionary<string, (Symbol Symbol, ScopeKind Scope)> _held = ImmutableDictionary<string, (Symbol, ScopeKind)>.Empty;
+
+    // set by the program's start, cleared by the release at its end (ApplyHeldDefinitions), read by the definitions of the requests that edit it meanwhile:
+    // read and written with _resetLock held, so that a definition is either held before the release takes what is held, or applied as it arrives.
+    private bool _holdsStoredValues;
+
+    /// <inheritdoc/>
+    public bool HoldsStoredValues
+    {
+        get
+        {
+            lock (_resetLock)
+            {
+                return _holdsStoredValues;
+            }
+        }
+        set
+        {
+            lock (_resetLock)
+            {
+                _holdsStoredValues = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// What lets go of the objects a variable holds when its storage is freed by a definition that replaces it, as a reset lets go of them: set by the
+    /// session, which counts their references.
+    /// </summary>
+    internal Action<IBindingHandle>? LettingGo { get; set; }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> HeldDefinitions
+    {
+        get
+        {
+            lock (_resetLock)
+            {
+                return [.. _held.Values.Select(held => held.Symbol)];
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Symbol> ApplyHeldDefinitions()
+    {
+        ImmutableDictionary<string, (Symbol Symbol, ScopeKind Scope)> held;
+        lock (_resetLock)
+        {
+            (held, _held, _holdsStoredValues) = (_held, _held.Clear(), false);
+        }
+
+        var applied = new List<Symbol>();
+        foreach (var (symbol, scope) in held.Values)
+        {
+            if (table.TryGet(symbol, scope, out var existing) && Replaced(existing, symbol, scope))
+            {
+                applied.Add(symbol);
+            }
+        }
+
+        return applied;
+    }
+
     public bool TryDefine(Symbol symbol, ScopeKind scope)
     {
         if (!table.TryAdd(symbol, scope))
@@ -553,29 +639,67 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             && symbol is ITypedSymbol { ResolvedType: var after }
             && IsSameType(before, after)
             && SessionBindings.TryGetAddress(existing, out _);
+        var key = existing.Uri.ToString();
         if (!sameDeclaration)
         {
-            // what the variable held is let go of with its storage.
-            var held = existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _);
-            if (!(TryUndefine(existing, scope) && TryDefine(symbol, scope)))
-            {
-                return false;
-            }
-
-            if (held)
+            // while a program is in progress, what the variable holds is not let go of: the definition is held, and the variable stays as it was. Whether one
+            // is, is told with the lock held, as the release at the program's end tells it.
+            if (existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out _))
             {
                 lock (_resetLock)
                 {
-                    _valuesReset = _valuesReset.Add(existing);
+                    if (_holdsStoredValues)
+                    {
+                        _held = _held.SetItem(key, (symbol, scope));
+                        return true;
+                    }
                 }
             }
 
-            return true;
+            return Replaced(existing, symbol, scope);
+        }
+
+        // the variable declared as it was: a definition held for it is taken back.
+        lock (_resetLock)
+        {
+            _held = _held.Remove(key);
         }
 
         // storage is keyed by the symbol's semantic identity, which the newest definition shares, so replacing the
         // symbol itself leaves what it holds where it is.
         table.Replace(symbol, scope);
+        return true;
+    }
+
+    // a symbol replaced the long way, its storage freed and allocated again: what a variable held is let go of with it, the objects it held among it - each
+    // reference it was is dropped, once.
+    private bool Replaced(Symbol existing, Symbol symbol, ScopeKind scope)
+    {
+        MemoryAddress address = default;
+        var held = existing is ITypedSymbol && SessionBindings.TryGetAddress(existing, out address);
+        if (held && LettingGo is { } letGo && SessionBindings.TryRead(address, out var cell) && cell is not null)
+        {
+            letGo(cell);
+        }
+
+        lock (_resetLock)
+        {
+            _held = _held.Remove(existing.Uri.ToString());
+        }
+
+        if (!(TryUndefine(existing, scope) && TryDefine(symbol, scope)))
+        {
+            return false;
+        }
+
+        if (held)
+        {
+            lock (_resetLock)
+            {
+                _valuesReset = _valuesReset.Add(existing);
+            }
+        }
+
         return true;
     }
 

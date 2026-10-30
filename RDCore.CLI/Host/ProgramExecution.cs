@@ -174,6 +174,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         session.Halt.Clear();
         SessionWipe.Abandon(session);
 
+        // an edit made while it runs or waits takes no value from it (HeldDefinitions).
+        HeldDefinitions.Hold(session);
+
         return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnection(() => RunToTheEnd(session, pipeline, entryPoint, token));
     }
 
@@ -852,6 +855,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         _inspector.Forget();
         provider.Output.Target = NullRuntimeOutput.Instance;
         session.Memory.Reclaim();
+        _ = HeldDefinitions.Release(session);
         LeaveTurn(session);
         _idle.TrySetResult();
     }
@@ -863,6 +867,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         // what the program held for as long as it ran is released, and was freed in the order it was allocated in: the free memory at the end of
         // the space is unused again, and what is free afterwards is fragmentation - a hole with something allocated after it.
         session.Memory.Reclaim();
+
+        // what an edit made while the program ran was held from it is applied now that it is over.
+        _ = HeldDefinitions.Release(session);
 
         lock (_sync)
         {
