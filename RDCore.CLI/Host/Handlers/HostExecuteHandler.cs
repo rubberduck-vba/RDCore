@@ -31,29 +31,41 @@ internal sealed class HostExecuteHandler(
     IVerboseMessageBuilder messages,
     ILogger<HostExecuteHandler> logger) : RDCoreRequestHandler<HostExecuteParams, ExecuteSessionResult>
 {
-    protected override Task<ExecuteSessionResult> HandleAsync(HostExecuteParams request, CancellationToken token)
+    protected override async Task<ExecuteSessionResult> HandleAsync(HostExecuteParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(NotFound(Resources.Host_NoRuntimeSessionToRunIn));
+            return NotFound(Resources.Host_NoRuntimeSessionToRunIn);
         }
 
         // a program that is running owns the session: nothing of it is loaded, composed or redefined under it.
         if (sessionProvider.Execution.State is ProgramState.Running)
         {
-            return Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning });
+            return new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning };
         }
 
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);
         if (payload?.ParseResult.SyntaxTree is null)
         {
-            return Task.FromResult(NotFound(Resources.Host_RequestCarriedNoParsedModule));
+            return NotFound(Resources.Host_RequestCarriedNoParsedModule);
         }
 
         var session = sessionProvider.Session;
         if (!session.Symbols.TryGetModule(request.ModuleName, out var module))
         {
-            return Task.FromResult(NotFound(string.Format(Resources.Host_ModuleIsNotDefined, request.ModuleName)));
+            return NotFound(string.Format(Resources.Host_ModuleIsNotDefined, request.ModuleName));
+        }
+
+        // a run of the program while the one that waits holds a variable as it was is a run of the code as edited, which the held definition is part of:
+        // the program that waits is ended first, as the run would end it, and what it held is applied - so that the module is lowered against the
+        // variable as it is declared now.
+        if (!request.Immediate && sessionProvider.Execution.State is ProgramState.Suspended && session.Symbols.HeldDefinitions.Count > 0)
+        {
+            _ = await sessionProvider.Execution.TerminateAsync(wipe: false);
+            if (!session.Symbols.TryGetModule(request.ModuleName, out module))
+            {
+                return NotFound(string.Format(Resources.Host_ModuleIsNotDefined, request.ModuleName));
+            }
         }
 
         // every procedure of the module, lowered and loaded into the session's code under the symbol it belongs to, so a
@@ -61,23 +73,23 @@ internal sealed class HostExecuteHandler(
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, payload.ParseResult);
         if (errors.Length > 0)
         {
-            return Task.FromResult(new ExecuteSessionResult
+            return new ExecuteSessionResult
             {
                 Outcome = ExecutionOutcome.SyntaxError,
                 Diagnostics = [.. errors],
-            });
+            };
         }
 
         if (!session.Symbols.TryResolveValue(request.EntryPoint, module, out var entry) || entry is not VBTypeMemberSymbol entryPoint)
         {
-            return Task.FromResult(NotFound(string.Format(Resources.Host_NotAProcedureOfTheModule, request.ModuleName, request.EntryPoint)));
+            return NotFound(string.Format(Resources.Host_NotAProcedureOfTheModule, request.ModuleName, request.EntryPoint));
         }
 
         // the pipeline is composed per run: the cancellation is this run's own. For a program under a debugger a cancellation is a break and not the end of the
         // run, which the owner of the program sees to.
         var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, request.Debug ? CancellationToken.None : token, outside: sessionProvider.Outside);
 
-        return RunAsync(pipeline, entryPoint, request, token);
+        return await RunAsync(pipeline, entryPoint, request, token);
     }
 
     private async Task<ExecuteSessionResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)

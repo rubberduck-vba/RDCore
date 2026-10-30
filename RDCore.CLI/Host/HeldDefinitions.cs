@@ -31,6 +31,22 @@ internal static class HeldDefinitions
             }
         }
 
+        public void Remove(string module)
+        {
+            lock (_sync)
+            {
+                _modules = _modules.Remove(module);
+            }
+        }
+
+        public bool Contains(string module)
+        {
+            lock (_sync)
+            {
+                return _modules.ContainsKey(module);
+            }
+        }
+
         public ImmutableDictionary<string, Func<ImmutableArray<string>>> Take()
         {
             lock (_sync)
@@ -46,33 +62,53 @@ internal static class HeldDefinitions
     public static void Hold(IRuntimeSession session) => session.Symbols.HoldsStoredValues = true;
 
     /// <summary>
-    /// A module was loaded: when a definition is held, what loaded it is kept, to lower it again once the held definitions are applied.
+    /// A module was loaded: when a definition is held, what loaded it is kept, to lower it again once the held definitions are applied. Loaded when nothing
+    /// is held, it is lowered against the variables as they are declared, and needs no lowering again.
     /// </summary>
     /// <param name="session">The session it was loaded in.</param>
     /// <param name="module">The module's name.</param>
-    /// <param name="lower">What lowers it again, from the parse it was loaded with: the errors its code has, none when it loads.</param>
+    /// <param name="lower">What lowers it again, from the parse it was loaded with, and says what is wrong with it the way a load does.</param>
     public static void Loaded(IRuntimeSession session, string module, Func<ImmutableArray<string>> lower)
     {
+        var loads = LoadsBySession.GetOrCreateValue(session);
         if (session.Symbols.HeldDefinitions.Count > 0)
         {
-            LoadsBySession.GetOrCreateValue(session).Add(module, lower);
+            loads.Add(module, lower);
+        }
+        else
+        {
+            loads.Remove(module);
         }
     }
 
     /// <summary>
-    /// The program is over: nothing is held from now on, what was held is applied, and the code lowered against it is lowered again.
+    /// Whether <paramref name="module"/> was last loaded while a definition is held: its code was checked against the variable as it was, not as edited.
+    /// </summary>
+    public static bool LoweredUnderAHold(IRuntimeSession session, string module)
+        => session.Symbols.HeldDefinitions.Count > 0 && LoadsBySession.TryGetValue(session, out var loads) && loads.Contains(module);
+
+    /// <summary>
+    /// The program is over: nothing is held from now on, what was held is applied, and the code lowered against it is lowered again - each module by what
+    /// loaded it, which says what is wrong with it as its load would have.
     /// </summary>
     /// <param name="session">The session the program was in.</param>
-    /// <returns>The modules lowered again, each with the errors its code has now; none when nothing was held.</returns>
-    public static IReadOnlyDictionary<string, ImmutableArray<string>> Release(IRuntimeSession session)
+    /// <returns>The names of the modules lowered again; none when nothing was held.</returns>
+    public static IReadOnlyCollection<string> Release(IRuntimeSession session)
     {
-        session.Symbols.HoldsStoredValues = false;
+        // stopping to hold and taking what is held are one step (ISessionSymbols.ApplyHeldDefinitions): a definition that arrives meanwhile is held before
+        // it, or applied as it arrives.
+        var applied = session.Symbols.ApplyHeldDefinitions();
         var loads = LoadsBySession.GetOrCreateValue(session).Take();
-        if (session.Symbols.ApplyHeldDefinitions().Count == 0)
+        if (applied.Count == 0)
         {
-            return ImmutableDictionary<string, ImmutableArray<string>>.Empty;
+            return [];
         }
 
-        return loads.ToImmutableDictionary(load => load.Key, load => load.Value(), StringComparer.OrdinalIgnoreCase);
+        foreach (var (_, lower) in loads)
+        {
+            _ = lower();
+        }
+
+        return [.. loads.Keys];
     }
 }

@@ -241,10 +241,12 @@ public interface ISessionSymbols
     IReadOnlyList<Symbol> HeldDefinitions { get; }
 
     /// <summary>
-    /// Applies every held definition, as <see cref="TryRedefine"/> would have applied it: what each variable held is let go of (<see cref="ValuesReset"/>).
+    /// Stops holding (<see cref="HoldsStoredValues"/>) and applies every held definition, as <see cref="TryRedefine"/> would have applied it: what each
+    /// variable held is let go of (<see cref="ValuesReset"/>).
     /// </summary>
     /// <remarks>
-    /// Code lowered while a definition was held was lowered against the variable as it was: whoever loaded it lowers it again once this is done.
+    /// Stopping and taking what is held are one step: a definition that arrives meanwhile is either among those applied, or applied as it arrives. Code
+    /// lowered while a definition was held was lowered against the variable as it was: whoever loaded it lowers it again once this is done.
     /// </remarks>
     /// <returns>The definitions applied; none when nothing was held.</returns>
     IReadOnlyList<Symbol> ApplyHeldDefinitions();

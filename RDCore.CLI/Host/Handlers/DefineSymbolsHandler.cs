@@ -290,26 +290,31 @@ internal sealed class DefineSymbolsHandler(
             return [];
         }
 
+        var errors = Load(session, request.ModuleName, module, parseResult);
+
+        // lowered against a variable a program in progress holds as it was: lowered again once the program is over, against the variable as it is declared,
+        // and what is wrong with it then said as it is said now.
+        var name = request.ModuleName;
+        HeldDefinitions.Loaded(session, name, () => session.Symbols.TryGetModule(name, out var current) ? Load(session, name, current, parseResult) : []);
+        return errors;
+    }
+
+    private ImmutableArray<string> Load(IRuntimeSession session, string name, VBModuleSymbol module, ModuleParseResult parseResult)
+    {
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, parseResult);
 
-        // lowered against a variable a program in progress holds as it was: lowered again once the program is over, against the variable as it is declared.
-        var name = request.ModuleName;
-        HeldDefinitions.Loaded(session, name, () => session.Symbols.TryGetModule(name, out var current)
-            ? new ModuleLoader(session, sessionProvider.Image, messages).Load(current, parseResult)
-            : []);
-
         // a module is loaded again at every edit of it: what a load failed with is said once, as long as the next fails with the same, and so is that it loads again.
-        switch (LoadFailuresBySession.GetOrCreateValue(session).Record(request.ModuleName, errors))
+        switch (LoadFailuresBySession.GetOrCreateValue(session).Record(name, errors))
         {
             case ModuleLoadChange.Failed:
                 foreach (var error in errors)
                 {
-                    logger.LogWarning("{module} was not loaded: {error}", request.ModuleName, error);
+                    logger.LogWarning("{module} was not loaded: {error}", name, error);
                 }
                 break;
 
             case ModuleLoadChange.Recovered:
-                logger.LogInformation("{module} loads again.", request.ModuleName);
+                logger.LogInformation("{module} loads again.", name);
                 break;
         }
 

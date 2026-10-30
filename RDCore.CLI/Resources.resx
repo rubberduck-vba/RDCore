@@ -491,7 +491,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>a variable whose value an edit reset, which only running the program again gives back</value>
   </data>
   <data name="Host_Edit_HeldUntilRun" xml:space="preserve">
-    <value>a variable that holds a value, given another type: it keeps its value until the edit is taken back, and the edit applies when the program is run again</value>
+    <value>a variable that holds a value, given another type: it keeps its value while the program is in progress, and the edit applies once the program is over - take the edit back to go on</value>
   </data>
   <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
     <value>the Option Base of a module whose arrays hold values</value>

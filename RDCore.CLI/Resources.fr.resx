@@ -489,7 +489,7 @@
     <value>une variable dont une modification a réinitialisé la valeur, que seule une nouvelle exécution du programme rend</value>
   </data>
   <data name="Host_Edit_HeldUntilRun" xml:space="preserve">
-    <value>une variable qui détient une valeur, dont le type a changé : elle garde sa valeur tant que la modification n'est pas annulée, et la modification s'applique à la prochaine exécution du programme</value>
+    <value>une variable qui détient une valeur, dont le type a changé : elle garde sa valeur tant que le programme est en cours, et la modification s'applique une fois le programme terminé - annulez la modification pour poursuivre</value>
   </data>
   <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
     <value>l'Option Base d'un module dont les tableaux détiennent des valeurs</value>

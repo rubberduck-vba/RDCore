@@ -410,7 +410,7 @@ namespace RDCore.CLI {
         public static string Host_Edit_ValueReset => ResourceManager.GetString("Host_Edit_ValueReset", resourceCulture)!;
 
         /// <summary>
-        ///   Looks up a localized string similar to a variable that holds a value, given another type: it keeps its value until the edit is taken back, and the edit applies when the program is run again.
+        ///   Looks up a localized string similar to a variable that holds a value, given another type: it keeps its value while the program is in progress, and the edit applies once the program is over - take the edit back to go on.
         /// </summary>
         public static string Host_Edit_HeldUntilRun => ResourceManager.GetString("Host_Edit_HeldUntilRun", resourceCulture)!;
 

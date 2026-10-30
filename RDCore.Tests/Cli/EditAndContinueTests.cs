@@ -9,6 +9,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
+using RDCore.Tests.Platform;
 
 namespace RDCore.Tests.Cli;
 
@@ -700,27 +701,46 @@ public sealed class EditAndContinueTests
         }
     }
 
-    // a variable retyped while the program waits is held as it was, with its value: the program is not resumed on the edit, which applies when it is run
-    // again, and the edit taken back is no edit - the program goes on with the value.
+    // a variable retyped while the program waits keeps its value: it is the one edit said, the program is not resumed on it, and the edit taken back is no
+    // edit - the program goes on with the value. A module variable is held as it was; a Static keeps the storage it has, and is said by its procedure.
     [TestMethod]
-    [DataRow("Program|Replace|Public G As Long|Public G As Integer", "Program.G (a variable that holds a value, given another type", DisplayName = "a module variable")]
+    [DataRow("Program|Replace|Public G As Long|Public G As Integer", "a variable that holds a value, given another type", DisplayName = "a module variable")]
     [DataRow("Program|Replace|Static S As Long|    Static S As Integer", "a variable or a field that holds a value", DisplayName = "a Static")]
     public async Task AVariableRetypedWhileTheProgramWaits_IsHeld_AndTheEditTakenBack_GoesOnWithItsValue(string edit, string reason)
     {
         var retyped = Edited(Program, [edit], "Program");
+        HostDebugEditStatusResult? status = null;
         ExecuteSessionResult? whileRetyped = null, takenBack = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, retyped));
+            status = provider.Execution.EditStatus();
             whileRetyped = await Resume(provider);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, Program));
             takenBack = await Resume(provider);
         }, debug: true);
 
+        var held = Assert.ContainsSingle(status!.Edits, string.Join("; ", status.Edits.Select(listed => $"{listed.Name} ({listed.Reason})")));
+        Assert.AreEqual(HostDebugEditKind.Restart, held.Kind);
+        StringAssert.Contains(held.Reason, reason);
         Assert.AreEqual(ExecutionOutcome.Refused, whileRetyped!.Outcome, whileRetyped.ErrorMessage);
-        StringAssert.Contains(whileRetyped.ErrorMessage, reason);
         Assert.AreEqual(ExecutionOutcome.Completed, takenBack!.Outcome, takenBack.ErrorMessage);
         CollectionAssert.AreEqual(AsItWas, Output(takenBack), "the program goes on as it would have, G with the value it held");
+    }
+
+    // a run of the program as the language server makes it: the module's source as it reads now, parsed, in the request.
+    private static Task<ExecuteSessionResult> RunWithAsync(EnvironmentSessionProvider provider, string source)
+    {
+        var uri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Program" }.Uri;
+        var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), source);
+        return new HostExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+            .Handle(new HostExecuteParams
+            {
+                Json = PlatformJson.Serialize(new HostExecutePayload(uri, parse)),
+                ModuleName = "Program",
+                EntryPoint = "Main",
+                Debug = true,
+            }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
     }
 
     // the edit held while the program waited applies when it is run again: the variable is declared as edited, and the code loaded while it was held is lowered
@@ -737,12 +757,13 @@ public sealed class EditAndContinueTests
             "    G = G + 1",
             "    Debug.Print \"G=\" & G & \" \" & TypeName(G)",
             "End Sub");
+        var edited = program.Replace("G As Long", "G As Integer", StringComparison.Ordinal);
         ExecuteSessionResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
-            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, program.Replace("G As Long", "G As Integer", StringComparison.Ordinal)));
-            again = await runAgain();
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
+            again = await RunWithAsync(provider, edited);
             done = await Resume(provider);
         }, debug: true);
 
@@ -752,7 +773,8 @@ public sealed class EditAndContinueTests
     }
 
     // code edited to use the variable as edited, while the program waits: loaded while the variable is held as it was, it is checked against the variable
-    // as it was - an object assigned to a Long - and is lowered again against it as edited when the program is run again, and runs.
+    // as it was - an object assigned to a Long - which is said as the hold, not as code that does not compile; run again as it now reads, it is lowered
+    // against the variable as edited, and runs.
     [TestMethod]
     public async Task CodeLoadedWhileAVariableIsHeld_IsLoweredAgainstItAsEdited_WhenTheProgramIsRunAgain()
     {
@@ -772,18 +794,61 @@ public sealed class EditAndContinueTests
             "    Stop",
             "    Debug.Print \"G=\" & G.Count",
             "End Sub");
+        HostDebugEditStatusResult? status = null;
         ExecuteSessionResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, edited));
-            again = await runAgain();
+            status = provider.Execution.EditStatus();
+            again = await RunWithAsync(provider, edited);
             done = await Resume(provider);
         }, debug: true);
 
-        Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, again.ErrorMessage);
+        var held = Assert.ContainsSingle(status!.Edits, string.Join("; ", status.Edits.Select(listed => $"{listed.Name} ({listed.Reason})")));
+        Assert.AreEqual(("Program.G", HostDebugEditKind.Restart), (held.Name, held.Kind));
+        Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, string.Join("; ", again.Diagnostics ?? []));
         Assert.AreEqual(ExecutionOutcome.Completed, done!.Outcome, done.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "G=0" }, Output(done));
+    }
+
+    // a variable held as it was holds the reference to its object it held: the held definition applied, that reference is let go of, once - the object is
+    // let go of when the last other is.
+    [TestMethod]
+    public async Task AHeldVariable_LetsGoOfItsObject_WhenTheDefinitionIsApplied()
+    {
+        var owned = ModuleWorkspace.ClassModule("D",
+            "Option Explicit",
+            "Private Sub Class_Terminate()",
+            "    Terminated = Terminated + 1",
+            "End Sub");
+        var program = Lines(
+            "Option Explicit",
+            "Public Terminated As Long",
+            "Public Held As D",
+            "Public Watch As D",
+            "Public Sub Main()",
+            "    If Watch Is Nothing Then",
+            "        Set Held = New D",
+            "        Set Watch = Held",
+            "        Stop",
+            "    Else",
+            "        Set Watch = Nothing",
+            "        Debug.Print \"T=\" & Terminated",
+            "    End If",
+            "End Sub");
+        var edited = program.Replace("Held As D", "Held As Object", StringComparison.Ordinal);
+        ExecuteSessionResult? again = null;
+        await ModuleWorkspace.InspectAsync([("D", owned)], program, async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("D", ModuleType.ClassModule, owned), ("Program", ModuleType.StdModule, edited));
+            _ = await provider.Execution.TerminateAsync(wipe: false);
+            again = await RunWithAsync(provider, edited);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, again!.Outcome, again.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "T=1" }, Output(again));
     }
 
     // the object a variable of a class holds, the variable retyped while the program waits, is still held: its Class_Terminate does not run, and the edit
