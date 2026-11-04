@@ -10,8 +10,9 @@ namespace RDCore.SDK.Server;
 /// program waits or is over, and a request that would stop it would wait for it to stop: a program that never ends could not be paused or ended.
 /// </para>
 /// <para>
-/// A request marked with this acts on what another request is doing, is safe to handle while it does, and is answered at once: pausing or ending the program
-/// that runs, saying which errors it waits at. The order of every other request and notification is not changed. A <c>$/cancelRequest</c> does not reach it.
+/// A request marked with this acts on what another request is doing, is safe to handle while it does, and is done in a bounded while, which nothing it waits
+/// for can stretch: pausing or ending the program that runs, saying which errors it waits at. The marked requests are handled in the order they arrive in, one
+/// after the other; the order of every other request and notification is not changed. A <c>$/cancelRequest</c> does not reach it.
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]

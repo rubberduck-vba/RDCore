@@ -268,8 +268,8 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
-    // HexIDE's findings desk, pause-queued-behind-run: a pause, as the shell's Ctrl+Break and the debug adapter send it, waited for the run of the program it would
-    // pause - in the language server and in the host - and a program that never ends could not be stopped.
+    // a pause, as the shell's Ctrl+Break and the debug adapter send it, is handled while the program it pauses runs - in the language server and in the host - and
+    // stops a program that never ends.
     private const string Looping = "Public Sub Main()\r\n    Dim Total As Long\r\n    Do While True\r\n        Total = Total + 1\r\n    Loop\r\nEnd Sub\r\n";
 
     private const string ClaimsDebugging = """

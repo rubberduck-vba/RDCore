@@ -15,19 +15,20 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A program that runs under a debugger is paused and ended over the host's connection while the request that runs it runs. Each request waited for the one
-/// before it, and the request that runs a program is done when the program is: a pause or an end sent to a program that never ends waited forever (HexIDE's
-/// findings desk, <c>pause-queued-behind-run</c>).
+/// before it, and the request that runs a program is done when the program is: a pause or an end sent to a program that never ends waited forever.
 /// </summary>
 [TestClass]
 public sealed class ProgramControlOverTheConnectionTests
 {
     private static readonly (string Name, string Source)[] NoClasses = [];
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // what keeps a test from hanging: no answer it waits for takes nearly as long, on any machine.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
 
-    private static readonly string Looping = string.Join("\r\n",
+    private static readonly string StopsThenLoops = string.Join("\r\n",
         "Public Total As Long",
         "Public Sub Main()",
+        "    Stop",
         "    Do While True",
         "        Total = Total + 1",
         "    Loop",
@@ -62,11 +63,78 @@ public sealed class ProgramControlOverTheConnectionTests
             Assert.AreEqual(ProgramState.Idle, provider.Execution.State);
         });
 
-    // the looping program, broken into as it starts so that it waits, and the host's program requests served over a connection as the host serves them.
-    private static Task ConnectedAsync(Func<EnvironmentSessionProvider, LanguageClient, Task> test)
-        => ModuleWorkspace.InspectAsync(NoClasses, Looping, async (provider, first, _) =>
+    // ---- a stop asked of a program that is started and not executing yet ----
+
+    // a program is running from the moment it is started, and executes once it has its turn and is set up: the turn is taken, and told, in between. What is
+    // asked of it there is asked of it as it starts: a run starts as one that was never stopped, and a stop asked earlier was lost.
+    private static async Task<ExecuteSessionResult> RunAskingAsItIsTakingItsTurn(EnvironmentSessionProvider provider, Func<Task<ExecuteSessionResult>> run, Action ask)
+    {
+        void Asked(bool running)
         {
-            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, "the cancellation of the request is a break");
+            if (running)
+            {
+                provider.Session.Turn.Running -= Asked;
+                Assert.AreEqual(ProgramState.Running, provider.Execution.State);
+                ask();
+            }
+        }
+
+        provider.Session.Turn.Running += Asked;
+        return await run().WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task APause_AskedOfAProgramThatIsStartedAndNotExecutingYet_StopsIt()
+        => await ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, run) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
+            var paused = false;
+
+            var result = await RunAskingAsItIsTakingItsTurn(provider, run, () => paused = provider.Execution.Pause());
+
+            Assert.IsTrue(paused);
+            Assert.AreEqual(ExecutionOutcome.Suspended, result.Outcome, result.ErrorMessage);
+            Assert.IsTrue(await provider.Execution.TerminateAsync(wipe: false));
+        }, debug: true);
+
+    [TestMethod]
+    public async Task ATerminate_AskedOfAProgramThatIsStartedAndNotExecutingYet_EndsIt()
+        => await ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, run) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
+            Task<bool>? terminated = null;
+
+            var result = await RunAskingAsItIsTakingItsTurn(provider, run, () => terminated = provider.Execution.TerminateAsync(wipe: false));
+
+            Assert.AreEqual(ExecutionOutcome.Halted, result.Outcome, result.ErrorMessage);
+            Assert.IsTrue(await terminated!.WaitAsync(Patience));
+            Assert.AreEqual(ProgramState.Idle, provider.Execution.State);
+        }, debug: true);
+
+    // a program in a call outside it stops when the call returns: the end asked of it stands, and whoever asked is not kept waiting for it.
+    [TestMethod]
+    public async Task ATerminate_WhoseWaitIsStopped_IsAnsweredAtOnce_AndTheEndStands()
+        => await ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, run) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
+            Task<bool>? terminated = null;
+            var answeredBeforeTheEnd = false;
+
+            var result = await RunAskingAsItIsTakingItsTurn(provider, run, () =>
+            {
+                terminated = provider.Execution.TerminateAsync(wipe: false, new CancellationToken(canceled: true));
+                answeredBeforeTheEnd = terminated.IsCompletedSuccessfully && terminated.Result;
+            });
+
+            Assert.IsTrue(answeredBeforeTheEnd);
+            Assert.AreEqual(ExecutionOutcome.Halted, result.Outcome, result.ErrorMessage);
+        }, debug: true);
+
+    // the looping program, which waits at the Stop it begins with, and the host's program requests served over a connection as the host serves them.
+    private static Task ConnectedAsync(Func<EnvironmentSessionProvider, LanguageClient, Task> test)
+        => ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
 
             using var timeout = new CancellationTokenSource(Patience);
             var toServer = new Pipe();
@@ -87,15 +155,15 @@ public sealed class ProgramControlOverTheConnectionTests
             using var client = await connecting;
 
             await test(provider, client);
-        }, cancelWhen: provider => provider.Execution.State is ProgramState.Running, debug: true);
+        }, debug: true);
 
+    // a resumed program has nothing that tells it runs but its state, which is asked until it says so: how long that takes decides nothing, and a program that
+    // never runs is the test's timeout.
     private static async Task WaitForAsync(Func<bool> condition)
     {
-        var deadline = DateTime.UtcNow + Patience;
         while (!condition())
         {
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "timed out");
-            await Task.Delay(10);
+            await Task.Yield();
         }
     }
 }

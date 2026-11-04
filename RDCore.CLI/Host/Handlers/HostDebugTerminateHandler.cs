@@ -5,8 +5,25 @@ namespace RDCore.CLI.Host.Handlers;
 /// <summary>
 /// Handles <c>rdcore/host/debug/terminate</c>: ends the program that is running or waits.
 /// </summary>
+/// <remarks>
+/// A program that runs is ended at its next instruction, which a program in a call outside it - a <c>Declare</c>, an object, a dialog - comes to when the call
+/// returns: the request is answered once the program is ended, or after <see cref="StopWait"/> with the end asked of it, which stands. The request is handled as
+/// it arrives (<see cref="SDK.Server.HandledOnArrivalAttribute"/>), and nothing else bounds it.
+/// </remarks>
 internal sealed class HostDebugTerminateHandler(IEnvironmentSessionProvider sessionProvider) : RDCoreRequestHandler<HostDebugTerminateParams, HostDebugAck>
 {
+    /// <summary>How long the request waits for a program that runs to stop.</summary>
+    internal static readonly TimeSpan StopWait = TimeSpan.FromSeconds(5);
+
     protected override async Task<HostDebugAck> HandleAsync(HostDebugTerminateParams request, CancellationToken token)
-        => new() { Acted = sessionProvider.IsComposed && await sessionProvider.Execution.TerminateAsync(request.Wipe) };
+    {
+        if (!sessionProvider.IsComposed)
+        {
+            return new HostDebugAck();
+        }
+
+        using var bound = CancellationTokenSource.CreateLinkedTokenSource(token);
+        bound.CancelAfter(StopWait);
+        return new HostDebugAck { Acted = await sessionProvider.Execution.TerminateAsync(request.Wipe, bound.Token) };
+    }
 }

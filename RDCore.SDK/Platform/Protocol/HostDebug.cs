@@ -42,7 +42,8 @@ public record class HostDebugPauseParams : IRequest, IRequest<HostDebugAck>;
 /// </summary>
 /// <remarks>
 /// Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>): a program that is running is stopped at its
-/// next instruction, and ended by the request that runs it, which this answers after.
+/// next instruction, and ended by the request that runs it, which this answers after. A program in a call outside it - a <c>Declare</c>, an object, a dialog -
+/// comes to its next instruction when the call returns: the answer waits for that a few seconds at most, and the end asked of the program stands.
 /// </remarks>
 [HandledOnArrival]
 [Method(RDCorePlatformProtocol.HostDebugTerminate, Direction.ClientToServer)]
