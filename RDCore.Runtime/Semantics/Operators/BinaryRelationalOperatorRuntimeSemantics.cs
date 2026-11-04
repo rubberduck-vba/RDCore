@@ -116,6 +116,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked);
         }
 
+        if (operands is [var first, var second] && IsStringComparedAsADouble(resolver, expression, analysisContext.EffectiveTypeResult.Result, first, second))
+        {
+            builder.AddFlags(ComparisonOperatorSemanticFlags.IsStringComparedAsADouble);
+        }
+
         return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
         {
             VBBooleanType => ComparisonOperatorSemanticFlags.BooleanEffectiveType,
@@ -290,6 +295,68 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     private static bool IsVariantStringAgainstASingleOrALongLong(VBTypedValue left, VBTypedValue right)
         => IsVariantStringAgainstAScalar(left, right, out _, out var leftIsNumeric)
             && (leftIsNumeric ? left : right).TypeInfo is VBSingleType or VBLongLongType;
+
+    // MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles, where MS-VBAL 5.6.9.5's table
+    // gives the number's type (OperationPlanner.SpecifiedRelationalEffectiveType): the analysis states it (IsStringComparedAsADouble) for RDCore.Diagnostics
+    // to report (RDC11027) - but where the two compare alike: a known String that is no number (13 either way), or a number the table's type holds as the
+    // Double holds it. A LongLong is compared alike only where a Double holds both operands exactly.
+    private bool IsStringComparedAsADouble(ISymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
+    {
+        if (!ComparesValues || effective is not VBDoubleType
+            || OperationPlanner.SpecifiedRelationalEffectiveType(left.GetTargetType(), right.GetTargetType()) is not { } specified
+            || specified is VBDoubleType
+            || !IsStringAgainstAnother(left, right, out var text, out var number))
+        {
+            return false;
+        }
+
+        if (text.IsIndeterminate)
+        {
+            return true;
+        }
+
+        var asSpecified = CoerceUnstated(resolver, expression, text, specified);
+        if (asSpecified.ErrorInfo is { } error)
+        {
+            return error.ErrorId != (int)VBRuntimeErrorId.TypeMismatch;
+        }
+
+        var asDouble = CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo);
+        if (asDouble.Result is not { } held || Convert.ToDouble(held.RuntimeValue.BoxedValue) != Convert.ToDouble(asSpecified.Result!.RuntimeValue.BoxedValue))
+        {
+            return true;
+        }
+
+        return specified is VBLongLongType
+            && (number.IsIndeterminate || !IsHeldByADouble(asSpecified.Result) || !IsHeldByADouble(number));
+    }
+
+    private static bool IsStringAgainstAnother(VBTypedValue left, VBTypedValue right, out VBStringValue text, out VBTypedValue number)
+    {
+        (text, number) = (HeldString(left), HeldString(right)) switch
+        {
+            ({ } held, null) => (held, right),
+            (null, { } held) => (held, left),
+            _ => (null!, null!),
+        };
+
+        return text is not null;
+    }
+
+    private static VBStringValue? HeldString(VBTypedValue operand) => operand switch
+    {
+        VBStringValue text => text,
+        VBVariantValue { TypedValue: VBStringValue text } => text,
+        _ => null,
+    };
+
+    // 2^53: a Double holds every integer of that magnitude, and not every one above it.
+    private static bool IsHeldByADouble(VBTypedValue integer)
+        => Convert.ToInt64((integer is VBVariantValue variant ? variant.TypedValue : integer).RuntimeValue.BoxedValue) is >= -(1L << 53) and <= 1L << 53;
+
+    private LetCoercionResult CoerceUnstated(ISymbolResolver resolver, ExpressionNode expression, VBStringValue text, VBType destination)
+        => LetCoercionSemanticsProvider.EvaluateUnstated(resolver, expression,
+            new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, text, new VBTypeDescValue(destination), ConversionSite.OperatorOperand));
 
     /// <summary>
     /// The effective type the plan of the operation says, for the value types of its operands.

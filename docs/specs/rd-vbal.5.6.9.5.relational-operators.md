@@ -162,6 +162,11 @@ A `Variant` `String` compared with a `Single` or a `LongLong` is compared as `Do
 
 A `String` declared as one, compared with a `LongLong`, is not measured, and keeps the table's type.
 
+The analysis states the departure as a fact of the operation (`ComparisonOperatorSemanticFlags.IsStringComparedAsADouble`) where the two comparisons
+can come out differently: a value it does not know, or a `String` that is a number the table's type does not hold as the `Double` does (`"2.5"`, or
+`"40000"` with an `Integer`). It does not state it for a known `String` that is no number, a type mismatch (13) either way. RDCore.Diagnostics reports it as
+[`RDC11027`](../diagnostics/rdc11027.md), a warning.
+
 ### An expression over a Variant
 
 An arithmetic operator, `&`, and a pair of parentheses with a `Variant` operand are declared `Variant`

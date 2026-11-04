@@ -486,5 +486,7 @@
   href: rdc11025.md
 - name: RDC11026 — Public variable of an object passed ByRef as a copy
   href: rdc11026.md
+- name: RDC11027 — String compared with a number as a Double
+  href: rdc11027.md
 - name: RDC20001 — Edit not applied to the waiting program
   href: rdc20001.md

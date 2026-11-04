@@ -106,6 +106,7 @@ public enum RDCoreDiagnosticId
     ImplementsInDocumentModule = 11024, // Implements in a document module: MS-VBAL §5.2.4.2 forbids it in an extension module; MS-VBA compiles and runs it
     ArrayGivenASecondEmptyArgumentList = 11025, // f()(): MS-VBAL §5.6.13.1 makes it invalid; MS-VBA compiles it as the array, and raises 9 when it runs
     ObjectVariablePassedByRefIsACopy = 11026, // Bump b.Count, Count a public variable of b's class, ByRef: MS-VBAL passes the variable, MS-VBA a copy
+    StringComparedWithANumberAsADouble = 11027, // "2.5" = 2: MS-VBA compares a String with a Byte, an Integer or a Long as Doubles; MS-VBAL in the number's type
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
