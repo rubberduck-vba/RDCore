@@ -438,7 +438,7 @@ internal sealed class CompletionService(
         // any other document is completed in the project that loaded it, and so is a line typed at a prompt: the primary project's.
         var root = !isOwnProject && documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
         var primary = isOwnProject || WorkspacePaths.Same(root, documents.WorkspaceRoot);
-        var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : new Uri(root);
+        var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : SymbolUri.Root(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.

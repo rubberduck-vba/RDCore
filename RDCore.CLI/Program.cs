@@ -28,6 +28,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Formatting;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
@@ -636,7 +637,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             // a folder with no project file is the project it holds, as the language server makes it up.
             var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
             var project = await projectFileLoader.LoadOrSynthesizeAsync(request.RootUri.GetFileSystemPath(), language);
-            sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
+            sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }
         catch (Exception exception)

@@ -122,7 +122,7 @@ internal sealed class RenameService(
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
     {
-        var workspaceRoot = new Uri(root);
+        var workspaceRoot = SymbolUri.Root(root);
         var modules = new List<RenameWorkspace.DocumentModule>();
         foreach (var document in documents.GetProjectDocuments(root))
         {
