@@ -512,6 +512,7 @@ public static class StatementStaticSemanticsEvaluator
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {
                     ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Arguments);
+                    ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, callStatement.Callee, callStatement.Arguments);
                 }
 
                 // a ParamArray is no variable a ByRef parameter can be bound to (MS-VBAL §5.3.1.11), and an object given to a parameter that expects a

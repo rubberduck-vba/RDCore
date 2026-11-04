@@ -205,7 +205,8 @@ its bounds kept.
 |Parameter|Argument|Binding|
 |---|---|---|
 |`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
-|`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), a public variable of an object (`obj.Count`, `.Count`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
+|`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
+|`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
 |`ByRef`, declared `Variant`|An addressable, writable variable, of either of those|A reference binding.|
 |`ByRef`, declared as a class or `Object`|A variable of a different declared type|A `ByVal`-style copy: the class/`Object` copy-back is not modeled.|
 |`ByRef`|Not recognized as aliasable: an expression, a literal, a variable of mismatched declared type, a read-only target|The same `ByVal`-style Let-coerced copy: **MS-VBAL §5.3.1.11**'s "otherwise" case. Never an error.|
@@ -233,6 +234,25 @@ An element of an array has a cell and no address of its own: the call is given a
 the call is over - after every handler, for a `RaiseEvent`. What the callee assigns is what the element holds, and the array is locked for as long as the call
 runs ([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)). An element of what a function or a property returns is a value, and is copied;
 so is an element passed to a `Declare`d procedure, which the marshaller lays out.
+
+#### A public variable of an object
+
+**MS-VBAL §5.6.12** classifies a member access to a public variable of a class as a variable, which a `ByRef` parameter would be bound to by reference.
+**MS-VBA** passes a copy instead (recorded in Excel): it implements a public variable of a class as a property of the class's interface, and what a caller is
+given of `b.Count` is the value its `Get` returns. What the procedure assigns to the parameter is lost. RD-VBA passes the copy too, and
+[**RDC11026**](../diagnostics/rdc11026.md) warns where the code is written so. Neither MS-VBAL nor Microsoft Learn says so.
+
+With `Public Count As Long` in a class `Box`, `b` a `Box`, and `Sub Bump(ByRef n As Long): n = n + 1`:
+
+|Argument|Where|After the call|
+|---|---|---|
+|`b.Count`|Any module|`b.Count` is unchanged: a copy.|
+|`Me.Count`|`Box`'s own code|Unchanged: a copy.|
+|`.Count`, in `With b`|Any module|Unchanged: a copy.|
+|`o.Count`, `o` an `Object` holding a `Box`|Any module|Unchanged: a copy (late bound).|
+|`b.Count`, to `ByRef v As Variant`|Any module|Unchanged: a copy.|
+|`Count`|`Box`'s own code|Written: the variable itself.|
+|`Globals.Counter`, `Counter`, a standard module's `Public Counter As Long`|Any module|Written: the variable itself, however it is named.|
 
 The `ByVal` and `ByRef`-fallback copy is made by a direct Let-coercion call, since there is no addressable
 symbol to Let-assign through. A Let-assignment to the function result variable makes the same lower-level call,

@@ -769,6 +769,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplementsInDocumentModule_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA..
+        /// </summary>
+        public static string ObjectVariablePassedByRefIsACopy_Message {
+            get {
+                return ResourceManager.GetString("ObjectVariablePassedByRefIsACopy_Message", resourceCulture);
+            }
+        }
+
     }
 }

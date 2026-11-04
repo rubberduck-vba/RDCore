@@ -254,6 +254,7 @@ public static class ExpressionStaticSemanticsEvaluator
         if (calleeResult.Result is not VBArrayType)
         {
             MarkPassedAsArguments(context, indexExpression.Arguments);
+            ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, indexExpression.Callee, indexExpression.Arguments);
         }
 
         ByValArgumentStaticSemantics.MarkRedundant(context, indexExpression, calleeResult.Result);

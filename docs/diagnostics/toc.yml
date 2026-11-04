@@ -478,5 +478,7 @@
   href: rdc11023.md
 - name: RDC11024 — Implements in a document module
   href: rdc11024.md
+- name: RDC11026 — Public variable of an object passed ByRef as a copy
+  href: rdc11026.md
 - name: RDC20001 — Edit not applied to the waiting program
   href: rdc20001.md
