@@ -596,16 +596,17 @@ public sealed class ProgramExecutionTests
     public async Task APeek_OutsideTheProcedureThatWaits_IsRefused()
         => await DebugAsync(CalledAndWaiting, async (provider, _, _) => Assert.IsFalse((await Goto(provider, line: 3, peek: true)).Moved));
 
+    // line 4 is a statement of the code the program waited in, and a blank line of the code as it is now: only the edited code says the statement after it.
     [TestMethod]
     public async Task APeek_AfterTheCodeChanged_SaysTheLineOfTheEditedCode()
         => await DebugAsync(Skippable, async (provider, _, _) =>
         {
-            Reload(provider, "\r\n" + Skippable);
+            Reload(provider, Skippable.Replace("    Stop\r\n", "    Stop\r\n\r\n"));
 
-            var peeked = await Goto(provider, line: 7, peek: true);
+            var peeked = await Goto(provider, line: 4, peek: true);
 
             Assert.IsTrue(peeked.Moved, peeked.Reason);
-            Assert.AreEqual(7, peeked.Line);
+            Assert.AreEqual(5, peeked.Line);
             CollectionAssert.AreEqual(new[] { "111" }, Lines(await Resume(provider)));
         });
 
