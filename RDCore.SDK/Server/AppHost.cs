@@ -344,6 +344,9 @@ public abstract class AppHost<TApp>() : IDisposable
                 // a component logs to its file. The generic host also writes every warning and error to the Windows Application event log, which one
                 // session fills with dozens of entries, and back-to-back sessions overwrite in an hour.
                 RemoveDefaultLogger(services, typeof(Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider));
+
+                // the language server's container logs through this logging too.
+                builder.WithoutDeferredOutputWarnings();
             });
     }
 

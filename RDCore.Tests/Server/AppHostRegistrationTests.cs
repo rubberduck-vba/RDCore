@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Server;
@@ -55,6 +56,28 @@ public class AppHostRegistrationTests
 
         Assert.IsFalse(services.Any(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
             && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider)));
+    }
+
+    [TestMethod]
+    public void AComponent_DoesNotLogTheWarningOfAMessageHeldUntilTheClientIsInitialized()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+        services.AddSingleton<IConfiguration>(configuration);
+
+        // a provider that writes whatever it is given: what is not written is what the component's logging filters out.
+        var writesEverything = Substitute.For<ILogger>();
+        writesEverything.IsEnabled(Arg.Any<LogLevel>()).Returns(true);
+        var everything = Substitute.For<ILoggerProvider>();
+        everything.CreateLogger(Arg.Any<string>()).Returns(writesEverything);
+        services.AddLogging(builder => builder.AddProvider(everything));
+        new TestAppHost().Configure(services, configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger(RDCore.SDK.Server.Logging.DeferredOutputLogging.Category);
+
+        Assert.IsFalse(logger.IsEnabled(LogLevel.Warning), "OmniSharp warns of each message it holds, and sends it later");
+        Assert.IsTrue(logger.IsEnabled(LogLevel.Error));
     }
 
     // exposes AppHost's protected external-service registration for assertions.
