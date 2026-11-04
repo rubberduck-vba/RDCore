@@ -29,12 +29,12 @@ internal sealed class SessionAnalyzeHandler(
     IPlatformClientCapabilitiesService clientCapabilities,
     IOptions<SdkAppOptions> options,
     ILogger<SessionAnalyzeHandler> logger)
-    : RDCoreRequestHandler<AnalyzeSessionParams, AnalyzeSessionResult>
+    : RDCoreRequestHandler<SessionAnalyzeParams, SessionAnalyzeResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
     private const int InvalidRequestCode = -32600;
 
-    protected override async Task<AnalyzeSessionResult> HandleAsync(AnalyzeSessionParams request, CancellationToken token)
+    protected override async Task<SessionAnalyzeResult> HandleAsync(SessionAnalyzeParams request, CancellationToken token)
     {
         if (!clientCapabilities.Expects(capabilities => capabilities.SessionAnalyze))
         {
@@ -52,7 +52,7 @@ internal sealed class SessionAnalyzeHandler(
                 request.ModuleName, found.Count, providers);
         }
 
-        return new AnalyzeSessionResult
+        return new SessionAnalyzeResult
         {
             Providers = providers,
             Diagnostics = [.. found

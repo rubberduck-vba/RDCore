@@ -18,7 +18,21 @@ namespace RDCore.Tests.Client;
 [TestCategory("Platform")]
 public sealed class ClientWithoutOmniSharpTests
 {
-    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(90);
+    // what ends a wait is what it waits for, or the language server exiting or closing its pipe: never how long it took, which is the machine's. A wait that ends
+    // on neither has hung, and fails as hung - a safety net, never the way a test is expected to end.
+    private static readonly TimeSpan Hung = TimeSpan.FromMinutes(10);
+
+    private static async Task<T> Unhung<T>(Task<T> waited, string what)
+    {
+        try
+        {
+            return await waited.WaitAsync(Hung);
+        }
+        catch (TimeoutException)
+        {
+            throw new AssertFailedException($"hung: {what} - nothing came in {Hung.TotalMinutes} minutes, and the language server neither exited nor closed its pipe.");
+        }
+    }
 
     private static string AppHost(string name) => Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{name}.exe" : name);
 
@@ -53,11 +67,9 @@ public sealed class ClientWithoutOmniSharpTests
         { "expectedComponent": 1, "expected": { "languageServer": { "sessionExecute": { "isSupported": true }, "sessionInteraction": { "isSupported": true } } } }
         """;
 
-    [Ignore("MG20261031: Flaky timing tests passed locally, failed twice on CI (Linux)")]
     [TestMethod]
     [DataRow("{}", DisplayName = "a client that declares nothing")]
     [DataRow(AsHexIdeDeclares, DisplayName = "a client that declares what HexIDE does")]
-    [Timeout(180_000, CooperativeCancellation = true)]
     public async Task AClientThatShowsDialogs_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes(string capabilities)
     {
         await using var platform = await Platform.StartAsync();
@@ -67,7 +79,7 @@ public sealed class ClientWithoutOmniSharpTests
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
 
-        var handshake = await rpc.RequestAsync(2, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         Assert.IsNull(handshake["error"], handshake.ToJsonString());
 
         var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = Program, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
@@ -78,9 +90,7 @@ public sealed class ClientWithoutOmniSharpTests
 
     // the order HexIDE's add-in sent its messages in (C:\Dev\Claude\hexide-msgbox-wire-2026-10-30.txt): the document opened and its diagnostics asked for before the
     // platform handshake, which is sent without waiting for them; its requests numbered from 2, so that the handshake is 4, as the language server's msgBox is.
-    [Ignore("MG20261031: Flaky timing tests passed locally, failed twice on CI (Linux)")]
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
     public async Task AClientInHexIdesOrder_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes()
     {
         await using var platform = await Platform.StartAsync();
@@ -95,7 +105,7 @@ public sealed class ClientWithoutOmniSharpTests
         });
 
         var diagnostics = rpc.RequestAsync(3, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        var handshake = await rpc.RequestAsync(4, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = await rpc.RequestAsync(4, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         Assert.IsNull(handshake["error"], handshake.ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
@@ -115,9 +125,7 @@ public sealed class ClientWithoutOmniSharpTests
 
     // the order HexIDE's add-in sent its messages in when the reply was lost (C:\Dev\Claude\hexide-msgbox-tap-2026-10-30.log): the program run as soon as the client
     // is connected, while the language server is still parsing the workspace and composing the session - which replaces the module just before it runs it.
-    [Ignore("MG20261031: Flaky timing tests passed locally, failed twice on CI (Linux)")]
     [TestMethod]
-    [Timeout(300_000, CooperativeCancellation = true)]
     public async Task AProgramRunWhileTheWorkspaceIsComposed_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
@@ -131,7 +139,7 @@ public sealed class ClientWithoutOmniSharpTests
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
         });
 
-        var handshake = rpc.RequestAsync(3, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
         Assert.IsNull((await handshake)["error"]);
 
@@ -145,9 +153,7 @@ public sealed class ClientWithoutOmniSharpTests
 
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
     // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once.
-    [Ignore("MG20261031: Flaky timing tests passed locally, failed twice on CI (Linux)")]
     [TestMethod]
-    [Timeout(300_000, CooperativeCancellation = true)]
     public async Task AProgramRunWhileTheClientPullsItsDiagnosticsAgain_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
@@ -164,7 +170,7 @@ public sealed class ClientWithoutOmniSharpTests
         var initialize = await rpc.RequestAsync(2, "initialize", platform.InitializeParams(AsHexIdeDeclares));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
-        var handshake = rpc.RequestAsync(3, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         await rpc.NotifyAsync("textDocument/didOpen", new JsonObject
         {
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
@@ -184,8 +190,6 @@ public sealed class ClientWithoutOmniSharpTests
     // the third byte tap (C:\Dev\Claude\hexide-msgbox-tap3-2026-10-30.log), in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
     // the refresh, and writes both at once; the program's msgBox is then the language server's request 5, which is the id of the client's execute, still running.
     [TestMethod]
-    [Ignore("MG20261031: Flaky timing tests passed locally, failed twice on CI (Linux)")]
-    [Timeout(300_000, CooperativeCancellation = true)]
     public async Task AProgramRunWhileTheClientPullsAgainBeforeItAnswersTheRefresh_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
@@ -215,7 +219,7 @@ public sealed class ClientWithoutOmniSharpTests
         {
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
         });
-        var handshake = rpc.RequestAsync(3, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
         Assert.IsNull((await handshake)["error"]);
 
@@ -224,7 +228,7 @@ public sealed class ClientWithoutOmniSharpTests
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
         Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
-        Assert.IsNull((await pulledAgain.WaitAsync(Bound))["error"], "and the second pull is answered");
+        Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
         await platform.ShutdownAsync(7);
     }
 
@@ -233,11 +237,9 @@ public sealed class ClientWithoutOmniSharpTests
     private const string OkOnly = "Public Sub Main()\r\n    On Error Resume Next\r\n    Debug.Print MsgBox(\"from the add-in probe\")\r\n    Debug.Print \"after\"\r\nEnd Sub\r\n";
 
     [TestMethod]
-    [Ignore("MG20261031: Flaky timing tests passed locally, failed twice on CI (Linux)")]
     [DataRow(6, true, ExecutionOutcome.RuntimeError, "VBR50002", DisplayName = "answered with vbYes, which a vbOKOnly box has no button for")]
     [DataRow(1, true, ExecutionOutcome.Completed, "", DisplayName = "answered with vbOK")]
     [DataRow(0, false, ExecutionOutcome.RuntimeError, "VBR50001", DisplayName = "declined: not handled")]
-    [Timeout(180_000, CooperativeCancellation = true)]
     public async Task AClientThatShowsDialogs_IsTheOneThatAnswers_AndNoDialogOfTheHostWaits(int result, bool handled, ExecutionOutcome outcome, string code)
     {
         await using var platform = await Platform.StartAsync();
@@ -247,7 +249,7 @@ public sealed class ClientWithoutOmniSharpTests
         var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
-        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject()))["error"]);
+        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject()))["error"]);
 
         var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = OkOnly, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
@@ -275,19 +277,28 @@ public sealed class ClientWithoutOmniSharpTests
         private readonly Process _process;
         private readonly NamedPipeClientStream _pipe;
 
-        private Platform(string root, string workspace, Process process, NamedPipeClientStream pipe)
+        private Platform(string root, string workspace, Process process, Task<int> exited, NamedPipeClientStream pipe)
         {
             _root = root;
             Workspace = new Uri(workspace).AbsoluteUri;
             ModuleUri = new Uri(Path.Combine(workspace, "Program.bas")).AbsoluteUri;
             _process = process;
             _pipe = pipe;
+            Exited = exited;
             Rpc = new JsonRpc(pipe, (method, _) =>
             {
                 Asked.Enqueue(method);
                 return method == RDCorePlatformProtocol.SessionMessageBox ? MessageBoxAnswer() : null;
             });
+
+            // a language server that exits answers nothing more: what the client waits for fails, with its log, at once.
+            Rpc.Told = () => $"logged by the server:\n{string.Join("\n", Rpc.Logged)}\n{LogOf(root)}";
+            _ = exited.ContinueWith(code => Rpc.Fail(new InvalidOperationException($"the language server exited with code {code.Result}.\n{Rpc.Told()}")),
+                TaskScheduler.Default);
         }
+
+        /// <summary>The language server's exit code, once it has exited.</summary>
+        public Task<int> Exited { get; }
 
         public JsonRpc Rpc { get; }
 
@@ -333,9 +344,17 @@ public sealed class ClientWithoutOmniSharpTests
             start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
 
             var process = Process.Start(start)!;
+            var exited = process.WaitForExitAsync().ContinueWith(_ => process.ExitCode, TaskScheduler.Default);
             var pipe = new NamedPipeClientStream(".", launch.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-            await pipe.ConnectAsync((int)Bound.TotalMilliseconds);
-            return new Platform(root, workspace, process, pipe);
+            var connected = pipe.ConnectAsync();
+            if (await Unhung(Task.WhenAny(connected, exited), "the language server opening its pipe") != connected)
+            {
+                await pipe.DisposeAsync();
+                throw new AssertFailedException($"the language server exited with code {exited.Result} before it opened its pipe.\n{LogOf(root)}");
+            }
+
+            await connected;
+            return new Platform(root, workspace, process, exited, pipe);
         }
 
         public JsonObject InitializeParams(string capabilities) => new()
@@ -362,7 +381,7 @@ public sealed class ClientWithoutOmniSharpTests
         {
             _ = await Rpc.RequestAsync(id, "shutdown", new JsonObject());
             await Rpc.NotifyAsync("exit", new JsonObject());
-            await _process.WaitForExitAsync().WaitAsync(Bound);
+            _ = await Unhung(Exited, "the language server exiting once it was told to exit");
         }
 
         public async ValueTask DisposeAsync()
@@ -411,6 +430,7 @@ public sealed class ClientWithoutOmniSharpTests
         private readonly SemaphoreSlim _writing = new(1, 1);
         private readonly CancellationTokenSource _stop = new();
         private readonly Task _reading;
+        private Exception? _failure;
 
         public JsonRpc(Stream stream, Func<string, JsonNode?, JsonNode?> answer)
         {
@@ -422,6 +442,9 @@ public sealed class ClientWithoutOmniSharpTests
         /// <summary>What the server logged to the client (<c>window/logMessage</c>).</summary>
         public ConcurrentQueue<string> Logged { get; } = [];
 
+        /// <summary>What a failure says besides itself: what the server logged.</summary>
+        public Func<string> Told { get; set; } = () => string.Empty;
+
         /// <summary>What the client does once it has answered a request of the server, given its method.</summary>
         public Action<string>? Answered { get; set; }
 
@@ -429,21 +452,40 @@ public sealed class ClientWithoutOmniSharpTests
         public Func<string, JsonObject?>? Before { get; set; }
 
         /// <summary>The answer to a request with this id, which the client writes itself.</summary>
-        public Task<JsonObject> Expect(int id)
-        {
-            var answered = new TaskCompletionSource<JsonObject>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _pending[id] = answered;
-            return answered.Task;
-        }
+        public Task<JsonObject> Expect(int id) => Unhung(Pending(id), $"the answer to request {id}");
 
         public Task NotifyAsync(string method, JsonObject parameters) => WriteAsync(new JsonObject { ["jsonrpc"] = "2.0", ["method"] = method, ["params"] = parameters });
 
         public async Task<JsonObject> RequestAsync(int id, string method, JsonObject parameters)
         {
+            var answered = Pending(id);
+            await WriteAsync(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = method, ["params"] = parameters });
+            return await Unhung(answered, $"the answer to {method} ({id})");
+        }
+
+        /// <summary>
+        /// Fails what the client waits for, and what it waits for from now on: the server is gone, and answers nothing more. The first failure is the one kept.
+        /// </summary>
+        public void Fail(Exception failure)
+        {
+            Interlocked.CompareExchange(ref _failure, failure, null);
+            foreach (var pending in _pending.Values)
+            {
+                pending.TrySetException(_failure!);
+            }
+        }
+
+        // what answers the request with this id; already failed when the server is gone.
+        private Task<JsonObject> Pending(int id)
+        {
             var answered = new TaskCompletionSource<JsonObject>(TaskCreationOptions.RunContinuationsAsynchronously);
             _pending[id] = answered;
-            await WriteAsync(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = method, ["params"] = parameters });
-            return await answered.Task.WaitAsync(Bound);
+            if (Interlocked.CompareExchange(ref _failure, null, null) is { } failure)
+            {
+                answered.TrySetException(failure);
+            }
+
+            return answered.Task;
         }
 
         private async Task ReadAllAsync()
@@ -474,12 +516,10 @@ public sealed class ClientWithoutOmniSharpTests
                     }
                 }
             }
-            catch (Exception exception) when (exception is IOException or EndOfStreamException or ObjectDisposedException or OperationCanceledException)
+            catch (Exception exception)
             {
-                foreach (var pending in _pending.Values)
-                {
-                    pending.TrySetException(exception);
-                }
+                // whatever ended the reading - the pipe closed, a frame unread, the client disposed - nothing more is answered.
+                Fail(new InvalidOperationException($"the client stopped reading the server: {exception.Message}\n{Told()}", exception));
             }
         }
 

@@ -22,11 +22,11 @@ public sealed class CompiledCallerWaitingTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Terminate(EnvironmentSessionProvider provider)
+    private static Task<DebugAck> Terminate(EnvironmentSessionProvider provider)
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
     private static SyntaxNode Statement(string text)
@@ -45,7 +45,7 @@ public sealed class CompiledCallerWaitingTests
         Assert.IsTrue(made.Success, made.Error);
     }
 
-    private static string Observed(ExecuteSessionResult result)
+    private static string Observed(ExecuteResult result)
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorMessage} @{result.ErrorLine}";
 
     // Main waits at its Stop; resumed, it calls Outer, which waits in its call of Inner; then the module is defined again as edited, or a debugger runs

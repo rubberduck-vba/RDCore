@@ -222,7 +222,7 @@ public interface IReplPlatformClient
     /// Cancelling this cancels the run itself, all the way into the interpreter loop — it is what a
     /// break at the keyboard turns into.
     /// </param>
-    Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token);
+    Task<ExecuteResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to take a module out of the runtime session: what it declared and what it held. Defining a module again never
@@ -230,7 +230,7 @@ public interface IReplPlatformClient
     /// </summary>
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<DiscardSessionResult> DiscardAsync(string moduleName, CancellationToken token);
+    Task<DiscardResult> DiscardAsync(string moduleName, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to take a module out of the runtime session like <see cref="DiscardAsync(string, CancellationToken)"/>, and to end the program that
@@ -239,7 +239,7 @@ public interface IReplPlatformClient
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="endProgram">Whether the program that is running or waits is ended first.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<DiscardSessionResult> DiscardAsync(string moduleName, bool endProgram, CancellationToken token);
+    Task<DiscardResult> DiscardAsync(string moduleName, bool endProgram, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to run one procedure of a module like <see cref="ExecuteAsync(string, string, string, CancellationToken)"/>, under a debugger when
@@ -251,34 +251,34 @@ public interface IReplPlatformClient
     /// <param name="debug">Whether the program runs under a debugger.</param>
     /// <param name="immediate">Whether the entry point is a statement typed at a prompt, which is run alongside a program that waits and leaves it waiting.</param>
     /// <param name="token">A token that cancels the request. For a program under a debugger a break is <see cref="PauseAsync"/>, not this.</param>
-    Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token);
+    Task<ExecuteResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to go on with the program that waits, to the next place it waits or to its end, or for one step.
     /// </summary>
     /// <param name="step">How far, or <see langword="null"/> for as far as it goes.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token);
+    Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to stop the program that is running, so that it waits where it is. The request that runs the program answers where.
     /// </summary>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugAck> PauseAsync(CancellationToken token);
+    Task<DebugAck> PauseAsync(CancellationToken token);
 
     /// <summary>
     /// Asks the language server to move the point the program that waits goes on from, to a statement label or line number of its procedure.
     /// </summary>
     /// <param name="label">The label or line number.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugGotoResult> GotoAsync(string label, CancellationToken token);
+    Task<DebugGotoResult> GotoAsync(string label, CancellationToken token);
 
     /// <summary>
     /// Asks the language server which edits made while the program waits are not applied to it: what going on with it, stepping it or moving the point it goes on
     /// from is refused for.
     /// </summary>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugEditStatusResult> GetEditStatusAsync(CancellationToken token);
+    Task<DebugEditStatusResult> GetEditStatusAsync(CancellationToken token);
 
     /// <summary>
     /// Asks the language server to set the lines of a module that a program under a debugger waits at.
@@ -286,13 +286,13 @@ public interface IReplPlatformClient
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="breakpoints">The breakpoints to set.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token);
+    Task<DebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token);
 
     /// <summary>
     /// Asks the language server for the activations of the program that waits, innermost first.
     /// </summary>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugStackResult> GetStackAsync(CancellationToken token);
+    Task<DebugStackResult> GetStackAsync(CancellationToken token);
 
     /// <summary>
     /// Asks the language server for the variables of an activation of the program that waits, or the parts of one of them.
@@ -301,7 +301,7 @@ public interface IReplPlatformClient
     /// <param name="scope">Which of its variables.</param>
     /// <param name="reference">The reference of a variable that has parts, or <c>0</c>.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugVariablesResult> GetVariablesAsync(int frameId, HostVariableScope scope, int reference, CancellationToken token);
+    Task<DebugVariablesResult> GetVariablesAsync(int frameId, DebugVariableScope scope, int reference, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to run a statement in an activation of the program that waits, as if it were written in the procedure that activation is of.
@@ -309,7 +309,7 @@ public interface IReplPlatformClient
     /// <param name="frameId">The activation, by its place on the stack.</param>
     /// <param name="statement">The statement, as it was typed; <c>?</c> prints.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugEvaluateResult> ExecuteInFrameAsync(int frameId, string statement, CancellationToken token);
+    Task<DebugEvaluateResult> ExecuteInFrameAsync(int frameId, string statement, CancellationToken token);
 
     /// <summary>
     /// Asks the language server to analyze a module and report what its diagnostics providers found.
@@ -317,7 +317,7 @@ public interface IReplPlatformClient
     /// <param name="source">The complete module source.</param>
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
+    Task<SessionAnalyzeResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
 
     /// <summary>
     /// Asks the language server what can be written at a position of a module: the completion list of the line at the prompt.
@@ -379,7 +379,7 @@ public interface IReplPlatformClient
     /// </summary>
     /// <param name="address">The address to read.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<PeekSessionResult> PeekAsync(int address, CancellationToken token);
+    Task<PeekResult> PeekAsync(int address, CancellationToken token);
 
     /// <summary>
     /// Writes a byte at an address in the runtime session's memory, unchecked.
@@ -387,7 +387,7 @@ public interface IReplPlatformClient
     /// <param name="address">The address to write.</param>
     /// <param name="value">The byte to write there.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<PokeSessionResult> PokeAsync(int address, byte value, CancellationToken token);
+    Task<PokeResult> PokeAsync(int address, byte value, CancellationToken token);
 }
 
 /// <summary>

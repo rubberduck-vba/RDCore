@@ -15,7 +15,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// the AST is polymorphic and the JSON-RPC transport's serializer cannot round-trip it (see
 /// <see cref="PlatformJson"/>).
 /// </remarks>
-[Method(RDCorePlatformProtocol.ParseFullDocument, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.ParseFullDocument, Direction.ClientToServer)]
 public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelope>
 {
     /// <summary>

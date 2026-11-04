@@ -3,7 +3,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <summary>
 /// What an edit made while a program waits is to it, when it is not applied.
 /// </summary>
-public enum HostDebugEditKind
+public enum DebugEditKind
 {
     /// <summary>Applying it is correct, but no build of the host does it to a program that waits yet: it is picked up when the program is run again.</summary>
     NotYet,
@@ -18,7 +18,7 @@ public enum HostDebugEditKind
 /// <summary>
 /// Which variables of a frame.
 /// </summary>
-public enum HostVariableScope
+public enum DebugVariableScope
 {
     /// <summary>The parameters and the local variables of the procedure, and the value it returns.</summary>
     Locals,

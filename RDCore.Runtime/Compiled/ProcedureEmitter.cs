@@ -240,6 +240,9 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldloc, callee);
             _il.Emit(OpCodes.Brfalse, indirect);
 
+            // a CLR exception the callee lets out - a defect of the platform, which no handler of the program catches - takes its activation off the stack as it
+            // goes by (CompiledActivation.AbandonDirectCall): what is on the stack after is what was before the call.
+            _il.BeginExceptionBlock();
             _il.Emit(OpCodes.Ldloc, callee);
             for (var i = 0; i < arguments.Length; i++)
             {
@@ -248,6 +251,12 @@ internal sealed class ProcedureEmitter
 
             _il.Emit(OpCodes.Call, direct.Entry);
             _il.Emit(OpCodes.Stloc, outcome);
+            _il.BeginFaultBlock();
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldloc, callee);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.AbandonDirectCall))!);
+            _il.EndExceptionBlock();
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
             _il.Emit(OpCodes.Ldloc, callee);

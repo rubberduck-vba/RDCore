@@ -24,7 +24,7 @@ public enum RubberduckIndenterSettingsSource
 }
 
 /// <summary>
-/// Request <c>rdcore/rubberduck-indenter-settings</c> (<see cref="RDCorePlatformProtocol.RubberduckIndenterSettings"/>): asks the client for the indenter settings its user had in
+/// Request <c>rdcore/formatting/indenterSettings</c> (<see cref="RDCorePlatformProtocol.RubberduckIndenterSettings"/>): asks the client for the indenter settings its user had in
 /// Rubberduck, as Rubberduck has them. The client answers a <see cref="RubberduckIndenterSettingsResult"/>.
 /// </summary>
 /// <remarks>
@@ -67,7 +67,7 @@ public record class RubberduckIndenterSettingsResult
 }
 
 /// <summary>
-/// Request <c>rdcore/rubberduck-indenter-settings/apply</c> (<see cref="RDCorePlatformProtocol.RubberduckIndenterSettingsApply"/>): asks the client to take the indenter settings
+/// Request <c>rdcore/formatting/indenterSettings/apply</c> (<see cref="RDCorePlatformProtocol.RubberduckIndenterSettingsApply"/>): asks the client to take the indenter settings
 /// it read as its own settings. The client answers a <see cref="RubberduckIndenterSettingsApplyResult"/>.
 /// </summary>
 /// <remarks>

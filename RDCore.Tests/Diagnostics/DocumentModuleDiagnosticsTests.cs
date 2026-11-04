@@ -66,7 +66,7 @@ public sealed class DocumentModuleDiagnosticsTests
 
         IModuleAnalyzer[] analyzers = [new HostedDocumentCodeAnalyzer(), new DocumentModuleHostAnalyzer(), new ImplementsInDocumentModuleAnalyzer()];
         var response = await new DiagnoseDocumentHandler(new DiagnosticFactory(), analyzers, NullLogger<DiagnoseDocumentHandler>.Instance).Handle(
-            new DiagnoseDocumentRequest { Json = PlatformJson.Serialize(new DiagnoseDocumentPayload(uri, 1, parse, semantics)) }, CancellationToken.None);
+            new DiagnoseDocumentParams { Json = PlatformJson.Serialize(new DiagnoseDocumentPayload(uri, 1, parse, semantics)) }, CancellationToken.None);
         return (new ModuleAnalysisContext(uri, parse, semantics), [.. response.Diagnostics]);
     }
 

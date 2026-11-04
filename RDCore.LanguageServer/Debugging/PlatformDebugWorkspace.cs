@@ -184,13 +184,13 @@ internal sealed class PlatformDebugWorkspace(
         return found;
     }
 
-    public async Task<ExecuteSessionResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
+    public async Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
     {
         var maps = Volatile.Read(ref _maps);
         if (!maps.ByModule.TryGetValue(moduleName, out var path) || !maps.ByPath.TryGetValue(path, out var entry)
             || !parsing.TryGetCached(entry.Document, out var parse))
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
+            return new ExecuteResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
         }
 
         var environment = orchestration.RuntimeEnvironment;
@@ -201,7 +201,7 @@ internal sealed class PlatformDebugWorkspace(
 
         // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration.
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        return await environment.SendRequestAsync<HostExecuteParams, ExecuteSessionResult>(new HostExecuteParams
+        return await environment.SendRequestAsync<HostExecuteParams, ExecuteResult>(new HostExecuteParams
         {
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
             ModuleName = moduleName,

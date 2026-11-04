@@ -10,7 +10,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// list of a line typed at a prompt.
 /// </summary>
 /// <remarks>
-/// The counterpart to <see cref="AnalyzeSessionParams"/> for completion: an editor asks LSP's own <c>textDocument/completion</c> of a document it has open, and a
+/// The counterpart to <see cref="SessionAnalyzeParams"/> for completion: an editor asks LSP's own <c>textDocument/completion</c> of a document it has open, and a
 /// shell has no document for the line it is typing - the line is not in the program until it is entered, and an immediate statement never is. The list is the one
 /// <c>textDocument/completion</c> answers with, of the module as it is supplied: nothing of it is sent to the environment host.
 /// </remarks>

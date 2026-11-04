@@ -8,7 +8,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// (<c>rdcore/host/interaction/msgBox</c>) and from the language server to the client (<see cref="SessionMessageBoxParams"/>), and the answer comes back
 /// the same way. The program waits for it, as it waits for a dialog.
 /// </remarks>
-public abstract record class MessageBoxRequestParams
+public abstract record class MessageBoxParams
 {
     /// <summary>The message.</summary>
     public string Prompt { get; init; } = string.Empty;
@@ -29,8 +29,8 @@ public abstract record class MessageBoxRequestParams
 /// <summary>
 /// What a program asks for in an <c>InputBox</c>, as it travels to whoever asks.
 /// </summary>
-/// <remarks>See <see cref="MessageBoxRequestParams"/>.</remarks>
-public abstract record class InputBoxRequestParams
+/// <remarks>See <see cref="MessageBoxParams"/>.</remarks>
+public abstract record class InputBoxParams
 {
     /// <summary>The message.</summary>
     public string Prompt { get; init; } = string.Empty;
@@ -47,7 +47,7 @@ public abstract record class InputBoxRequestParams
     /// <summary>Where the top edge of the dialog is, in twips from the top of the screen; <see langword="null"/> to center it.</summary>
     public int? YPos { get; init; }
 
-    /// <inheritdoc cref="MessageBoxRequestParams.Output"/>
+    /// <inheritdoc cref="MessageBoxParams.Output"/>
     public IReadOnlyList<string> Output { get; init; } = [];
 }
 
@@ -109,10 +109,10 @@ public sealed record class InputBoxResult
 /// Request <c>rdcore/session/interaction/msgBox</c>, which a client handles: the language server asks a client that said it shows dialogs (the
 /// <c>SessionInteraction</c> capability) to answer a program's <c>MsgBox</c>, and is answered a <see cref="MessageBoxResult"/>.
 /// </summary>
-public record class SessionMessageBoxParams : MessageBoxRequestParams;
+public record class SessionMessageBoxParams : MessageBoxParams;
 
 /// <summary>
 /// Request <c>rdcore/session/interaction/inputBox</c>, which a client handles: the language server asks a client that said it shows dialogs (the
 /// <c>SessionInteraction</c> capability) to answer a program's <c>InputBox</c>, and is answered an <see cref="InputBoxResult"/>.
 /// </summary>
-public record class SessionInputBoxParams : InputBoxRequestParams;
+public record class SessionInputBoxParams : InputBoxParams;

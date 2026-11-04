@@ -96,7 +96,7 @@ public sealed class WindowsLegacyIndenterRegistry : ILegacyIndenterRegistry
 }
 
 /// <summary>
-/// Reads the indenter settings of Rubberduck where they are, as they are: what a client answers <c>rdcore/rubberduck-indenter-settings</c> with
+/// Reads the indenter settings of Rubberduck where they are, as they are: what a client answers <c>rdcore/formatting/indenterSettings</c> with
 /// (<see cref="RubberduckIndenterSettingsParams"/>).
 /// </summary>
 /// <remarks>

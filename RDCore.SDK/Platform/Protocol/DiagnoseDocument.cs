@@ -16,12 +16,12 @@ namespace RDCore.SDK.Platform.Protocol;
 /// parsed <see cref="ModuleParseResult"/> down rather than have each provider re-read and re-parse.
 /// The parse result's AST is polymorphic and the JSON-RPC transport's serializer cannot round-trip it
 /// (see <see cref="PlatformJson"/>), so the payload rides a <see cref="System.Text.Json"/> string in
-/// <see cref="Json"/>. The response is a plain <see cref="DiagnoseDocumentResponse"/> — an LSP
+/// <see cref="Json"/>. The response is a plain <see cref="DiagnoseDocumentResult"/> — an LSP
 /// <see cref="Diagnostic"/> is the transport serializer's own model. Only extensions whose manifest
 /// advertises the <see cref="DiagnoseDocument"/> capability receive this request.
 /// </remarks>
-[Method(RDCorePlatformProtocol.DiagnoseDocument, Direction.ClientToServer)]
-public record class DiagnoseDocumentRequest : IRequest, IRequest<DiagnoseDocumentResponse>
+[Method(RDCoreComponentProtocol.DiagnoseDocument, Direction.ClientToServer)]
+public record class DiagnoseDocumentParams : IRequest, IRequest<DiagnoseDocumentResult>
 {
     /// <summary>
     /// The <see cref="System.Text.Json"/> representation of a <see cref="DiagnoseDocumentPayload"/>.
@@ -30,7 +30,7 @@ public record class DiagnoseDocumentRequest : IRequest, IRequest<DiagnoseDocumen
 }
 
 /// <summary>
-/// The <see cref="System.Text.Json"/> payload carried in <see cref="DiagnoseDocumentRequest.Json"/>.
+/// The <see cref="System.Text.Json"/> payload carried in <see cref="DiagnoseDocumentParams.Json"/>.
 /// </summary>
 /// <remarks>
 /// Deliberately a record the language server grows: a <c>SemanticContext</c> field (resolver output —
@@ -58,7 +58,7 @@ public record class DiagnoseDocumentPayload(
 /// to LSP <see cref="Diagnostic"/>s (code, <c>codeDescription</c> help URL, and structured
 /// <c>data</c>), plus the source version echoed back for the language server's staleness gate.
 /// </summary>
-public record class DiagnoseDocumentResponse
+public record class DiagnoseDocumentResult
 {
     /// <summary>
     /// The diagnostics the provider found, in source order.

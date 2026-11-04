@@ -31,7 +31,7 @@ public sealed class ReplDebuggingTests
         _platform.Provides<SessionDiscard>().Returns(true);
         _platform.Provides<ProgramDebugging>().Returns(true);
         _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult()));
+            .Returns(Task.FromResult(new DebugBreakpointsResult()));
         _context = new ReplCommandContext(_program, _console, _platform, new ReplDocument(_program, _platform), []);
 
         _program.Store(10, "X = 1");
@@ -40,13 +40,13 @@ public sealed class ReplDebuggingTests
     }
 
     // the module's first line is the Sub statement, so the line numbered 10 is the line of the source at index 1.
-    private static ExecuteSessionResult SuspendedAt(int sourceLine) => new() { Outcome = ExecutionOutcome.Suspended, ErrorLine = sourceLine };
+    private static ExecuteResult SuspendedAt(int sourceLine) => new() { Outcome = ExecutionOutcome.Suspended, ErrorLine = sourceLine };
 
-    private void ExecuteReturns(ExecuteSessionResult result)
+    private void ExecuteReturns(ExecuteResult result)
         => _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(result));
 
-    private void ResumeReturns(ExecuteSessionResult result)
+    private void ResumeReturns(ExecuteResult result)
         => _platform.ResumeAsync(Arg.Any<StepKind?>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
 
     private Task RunAsync() => new RunReplCommand().ExecuteAsync(_context, string.Empty, CancellationToken.None);
@@ -58,10 +58,10 @@ public sealed class ReplDebuggingTests
     // the platform refuses every condition that is not an expression the way the language server does: by the breakpoint's place in the request.
     private void RefuseCondition(string condition, string reason)
         => _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(new HostDebugBreakpointsResult
+            .Returns(call => Task.FromResult(new DebugBreakpointsResult
             {
                 Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint =>
-                    new HostBreakpoint(breakpoint.Line, false, breakpoint.Condition == condition ? reason : null))],
+                    new DebugBreakpoint(breakpoint.Line, false, breakpoint.Condition == condition ? reason : null))],
             }));
 
     // ---- breakpoints the platform can say are wrong ----
@@ -72,12 +72,12 @@ public sealed class ReplDebuggingTests
         _ = _context.Debugger.ToggleBreakpoint(10);
         _ = _context.Debugger.ToggleBreakpoint(20);
         _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult
+            .Returns(Task.FromResult(new DebugBreakpointsResult
             {
-                Breakpoints = [new HostBreakpoint(1, true), new HostBreakpoint(2, false)],
+                Breakpoints = [new DebugBreakpoint(1, true), new DebugBreakpoint(2, false)],
                 Judged = true,
             }));
-        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ExecuteReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await RunAsync();
 
@@ -90,12 +90,12 @@ public sealed class ReplDebuggingTests
         _ = _context.Debugger.ToggleBreakpoint(10);
         _ = _context.Debugger.ToggleBreakpoint(20);
         _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult
+            .Returns(Task.FromResult(new DebugBreakpointsResult
             {
-                Breakpoints = [new HostBreakpoint(1, false), new HostBreakpoint(2, false)],
+                Breakpoints = [new DebugBreakpoint(1, false), new DebugBreakpoint(2, false)],
                 Judged = false,
             }));
-        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ExecuteReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await RunAsync();
 
@@ -107,7 +107,7 @@ public sealed class ReplDebuggingTests
     {
         _ = _context.Debugger.ToggleBreakpoint(10);
         _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(1, false)], Judged = true }));
+            .Returns(Task.FromResult(new DebugBreakpointsResult { Breakpoints = [new DebugBreakpoint(1, false)], Judged = true }));
 
         await CommandAsync(new BreakReplCommand(), "20");
 
@@ -132,7 +132,7 @@ public sealed class ReplDebuggingTests
     public async Task ARunTimeError_InsideGoSubs_SaysInItsStackTraceWhichGoSubsItCameFrom()
     {
         // source lines 1..3 are program lines 10..30: the error at 30, in the GoSub of 20, which the GoSub of 10 called.
-        ExecuteReturns(new ExecuteSessionResult
+        ExecuteReturns(new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             ErrorLine = 3,
@@ -163,7 +163,7 @@ public sealed class ReplDebuggingTests
     [TestMethod]
     public async Task ARun_ThatCompletes_IsNotWaiting()
     {
-        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ExecuteReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await RunAsync();
 
@@ -174,7 +174,7 @@ public sealed class ReplDebuggingTests
     public async Task ARun_TellsThePlatformWhereTheBreakpointsAre_AsLinesOfTheModule()
     {
         _context.Debugger.ToggleBreakpoint(30);
-        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ExecuteReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await RunAsync();
 
@@ -187,7 +187,7 @@ public sealed class ReplDebuggingTests
     {
         _platform.Provides<ProgramDebugging>().Returns(false);
         _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Interrupted, ErrorLine = 2 }));
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Interrupted, ErrorLine = 2 }));
 
         await RunAsync();
 
@@ -202,7 +202,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed, Output = ["2"] });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["2"] });
 
         await CommandAsync(new ContReplCommand());
 
@@ -217,8 +217,8 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true, Line = 3 }));
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 3 }));
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await CommandAsync(new ContReplCommand(), "30");
 
@@ -247,7 +247,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Reason = "nope" }));
+        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Reason = "nope" }));
 
         await CommandAsync(new ContReplCommand(), "30");
 
@@ -282,7 +282,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "run it again" });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "run it again" });
 
         await CommandAsync(new ContReplCommand());
 
@@ -563,7 +563,7 @@ public sealed class ReplDebuggingTests
     {
         _context.Debugger.SetBreakpoint(new Breakpoint(30, ConditionExpression: "X >"));
         RefuseCondition("X >", "expected an expression");
-        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ExecuteReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await RunAsync();
 
@@ -594,9 +594,9 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
-            Frames = [new HostStackFrame(0, "Helper", "Other", 6, 0), new HostStackFrame(1, "Main", "Program", 2, 0)],
+            Frames = [new DebugStackFrame(0, "Helper", "Other", 6, 0), new DebugStackFrame(1, "Main", "Program", 2, 0)],
         }));
 
         await CommandAsync(new StackReplCommand());
@@ -610,10 +610,10 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(3));
         await RunAsync();
-        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
             // waits before line 30, called by the GoSub of line 20, which the GoSub of line 10 called.
-            Frames = [new HostStackFrame(0, "Main", "Program", 3, 0, [2, 1]), new HostStackFrame(1, "Caller", "Other", 4, 0)],
+            Frames = [new DebugStackFrame(0, "Main", "Program", 3, 0, [2, 1]), new DebugStackFrame(1, "Caller", "Other", 4, 0)],
         }));
 
         await CommandAsync(new StackReplCommand());
@@ -627,9 +627,9 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(3));
         await RunAsync();
-        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
-            Frames = [new HostStackFrame(0, "Main", "Program", 3, 0, [1], Handler: "900")],
+            Frames = [new DebugStackFrame(0, "Main", "Program", 3, 0, [1], Handler: "900")],
         }));
 
         await CommandAsync(new StackReplCommand());
@@ -642,9 +642,9 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
-            Frames = [new HostStackFrame(0, "Main", "Program", 2, 0)],
+            Frames = [new DebugStackFrame(0, "Main", "Program", 2, 0)],
         }));
 
         await CommandAsync(new StackReplCommand());
@@ -668,13 +668,13 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetVariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        _platform.GetVariablesAsync(0, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("k", "7", "Long")],
+            Variables = [new DebugVariable("k", "7", "Long")],
         }));
-        _platform.GetVariablesAsync(0, HostVariableScope.Module, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        _platform.GetVariablesAsync(0, DebugVariableScope.Module, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("X", "42", "Variant/Long"), new HostVariable("Name", "\"hi\"", "String")],
+            Variables = [new DebugVariable("X", "42", "Variant/Long"), new DebugVariable("Name", "\"hi\"", "String")],
         }));
 
         await CommandAsync(new VarsReplCommand());
@@ -694,18 +694,18 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
-            Frames = [new HostStackFrame(0, "Helper", "Program", 2, 0), new HostStackFrame(1, "Main", "Program", 1, 0)],
+            Frames = [new DebugStackFrame(0, "Helper", "Program", 2, 0), new DebugStackFrame(1, "Main", "Program", 1, 0)],
         }));
-        _platform.GetVariablesAsync(1, Arg.Any<HostVariableScope>(), Arg.Is(0), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult()));
+        _platform.GetVariablesAsync(1, Arg.Any<DebugVariableScope>(), Arg.Is(0), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult()));
 
         await CommandAsync(new FrameReplCommand(), "1");
         await CommandAsync(new VarsReplCommand());
 
         Assert.AreEqual(1, _context.Debugger.SelectedFrame);
         _console.Received().WriteLine("#1 Main");
-        await _platform.Received().GetVariablesAsync(1, HostVariableScope.Module, 0, Arg.Any<CancellationToken>());
+        await _platform.Received().GetVariablesAsync(1, DebugVariableScope.Module, 0, Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -713,7 +713,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult { Frames = [new HostStackFrame(0, "Main", "Program", 1, 0)] }));
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult { Frames = [new DebugStackFrame(0, "Main", "Program", 1, 0)] }));
 
         await CommandAsync(new FrameReplCommand(), "3");
 
@@ -739,14 +739,14 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetVariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        _platform.GetVariablesAsync(0, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("arr", string.Empty, "Long(1 To 2)", Reference: 3)],
+            Variables = [new DebugVariable("arr", string.Empty, "Long(1 To 2)", Reference: 3)],
         }));
-        _platform.GetVariablesAsync(0, HostVariableScope.Module, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult()));
-        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<HostVariableScope>(), 3, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        _platform.GetVariablesAsync(0, DebugVariableScope.Module, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult()));
+        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<DebugVariableScope>(), 3, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("(1)", "5", "Long"), new HostVariable("(2)", "6", "Long")],
+            Variables = [new DebugVariable("(1)", "5", "Long"), new DebugVariable("(2)", "6", "Long")],
         }));
 
         await CommandAsync(new VarsReplCommand());
@@ -764,12 +764,12 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<HostVariableScope>(), Arg.Is(0), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult()));
+        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<DebugVariableScope>(), Arg.Is(0), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult()));
 
         await CommandAsync(new VarsReplCommand(), "1");
 
-        await _platform.Received(1).GetVariablesAsync(1, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>());
-        await _platform.Received(1).GetVariablesAsync(1, HostVariableScope.Module, 0, Arg.Any<CancellationToken>());
+        await _platform.Received(1).GetVariablesAsync(1, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>());
+        await _platform.Received(1).GetVariablesAsync(1, DebugVariableScope.Module, 0, Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -798,7 +798,7 @@ public sealed class ReplDebuggingTests
 
     // ---- a statement typed while the program waits ----
 
-    private void ExecuteInFrameReturns(HostDebugEvaluateResult result)
+    private void ExecuteInFrameReturns(DebugEvaluateResult result)
         => _platform.ExecuteInFrameAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
 
     [TestMethod]
@@ -806,7 +806,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        ExecuteInFrameReturns(new HostDebugEvaluateResult { Success = true, Output = ["1"] });
+        ExecuteInFrameReturns(new DebugEvaluateResult { Success = true, Output = ["1"] });
 
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "?v");
 
@@ -823,7 +823,7 @@ public sealed class ReplDebuggingTests
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
         _context.Debugger.SelectedFrame = 1;
-        ExecuteInFrameReturns(new HostDebugEvaluateResult { Success = true });
+        ExecuteInFrameReturns(new DebugEvaluateResult { Success = true });
 
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "X = 2");
 
@@ -835,7 +835,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        ExecuteInFrameReturns(new HostDebugEvaluateResult { Error = "'nowhere' is not defined" });
+        ExecuteInFrameReturns(new DebugEvaluateResult { Error = "'nowhere' is not defined" });
 
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "?nowhere");
 
@@ -848,7 +848,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        ExecuteInFrameReturns(new HostDebugEvaluateResult { Error = "ended", EndedTheProgram = true });
+        ExecuteInFrameReturns(new DebugEvaluateResult { Error = "ended", EndedTheProgram = true });
 
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "END");
 
@@ -859,7 +859,7 @@ public sealed class ReplDebuggingTests
     public async Task AStatement_TypedWhenNoProgramWaits_IsARunLikeAnyOther()
     {
         _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed }));
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed }));
 
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "?v");
 
@@ -965,7 +965,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
         await CommandAsync(new ContReplCommand());
 
         await CommandAsync(new ListReplCommand(GetMockThemeService()));
@@ -1026,16 +1026,16 @@ public sealed class ReplDebuggingTests
 
     // ---- edits made while the program waits ----
 
-    private static readonly HostDebugEdit[] Pending =
+    private static readonly DebugEdit[] Pending =
     [
-        new() { Name = "Program.Callee", Kind = HostDebugEditKind.Restart, Reason = "the signature of a procedure the program is in changed" },
-        new() { Name = "Program.Main", Kind = HostDebugEditKind.NotYet, Reason = "the code of a procedure the program is in is not applied to a program that waits yet" },
-        new() { Name = "Program", Kind = HostDebugEditKind.DoesNotCompile, Reason = "'y' is not defined" },
+        new() { Name = "Program.Callee", Kind = DebugEditKind.Restart, Reason = "the signature of a procedure the program is in changed" },
+        new() { Name = "Program.Main", Kind = DebugEditKind.NotYet, Reason = "the code of a procedure the program is in is not applied to a program that waits yet" },
+        new() { Name = "Program", Kind = DebugEditKind.DoesNotCompile, Reason = "'y' is not defined" },
     ];
 
-    private void EditStatusReturns(bool suspended, params HostDebugEdit[] edits)
+    private void EditStatusReturns(bool suspended, params DebugEdit[] edits)
         => _platform.GetEditStatusAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEditStatusResult { Suspended = suspended, Edits = [.. edits] }));
+            .Returns(Task.FromResult(new DebugEditStatusResult { Suspended = suspended, Edits = [.. edits] }));
 
     private async Task WaitAtTheStopAsync()
     {
@@ -1060,7 +1060,7 @@ public sealed class ReplDebuggingTests
     public async Task ACont_RefusedForTheEditsMadeWhileTheProgramWaited_NamesEachWithWhy_AndSaysRunStartsAgain()
     {
         await WaitAtTheStopAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee, Program.Main, Program" });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee, Program.Main, Program" });
         EditStatusReturns(suspended: true, Pending);
 
         await CommandAsync(new ContReplCommand());
@@ -1076,7 +1076,7 @@ public sealed class ReplDebuggingTests
     public async Task AStep_RefusedForTheEditsMadeWhileTheProgramWaited_NamesEachWithWhy(string arguments)
     {
         await WaitAtTheStopAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee, Program.Main, Program" });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee, Program.Main, Program" });
         EditStatusReturns(suspended: true, Pending);
 
         await CommandAsync(new StepReplCommand(), arguments);
@@ -1088,7 +1088,7 @@ public sealed class ReplDebuggingTests
     public async Task AContFromALine_RefusedForTheEditsMadeWhileTheProgramWaited_NamesEachWithWhy_AndDoesNotGoOn()
     {
         await WaitAtTheStopAsync();
-        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = false, Reason = "Program.Callee changed" }));
+        _platform.GotoAsync("30", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = false, Reason = "Program.Callee changed" }));
         EditStatusReturns(suspended: true, Pending);
 
         await CommandAsync(new ContReplCommand(), "30");
@@ -1101,7 +1101,7 @@ public sealed class ReplDebuggingTests
     public async Task ACont_RefusedForAnythingButEdits_SaysWhatThePlatformSaid()
     {
         await WaitAtTheStopAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" });
         EditStatusReturns(suspended: true);
 
         await CommandAsync(new ContReplCommand());
@@ -1114,9 +1114,9 @@ public sealed class ReplDebuggingTests
     public async Task ACont_RefusedByAServerThatCannotSayWhatIsNotApplied_SaysWhatTheRefusalSaid()
     {
         await WaitAtTheStopAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee changed" });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee changed" });
         _platform.GetEditStatusAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<HostDebugEditStatusResult>(new OmniSharp.Extensions.JsonRpc.Server.MethodNotSupportedException(null, "rdcore/session/debug/editStatus")));
+            .Returns(Task.FromException<DebugEditStatusResult>(new OmniSharp.Extensions.JsonRpc.Server.MethodNotSupportedException(null, "rdcore/session/debug/editStatus")));
 
         await CommandAsync(new ContReplCommand());
 
@@ -1128,9 +1128,9 @@ public sealed class ReplDebuggingTests
     {
         // a broken relay, a wire error or a host fault is a failure of the request, as any other the shell makes, and not hidden behind the refusal's words.
         await WaitAtTheStopAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee changed" });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee changed" });
         _platform.GetEditStatusAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<HostDebugEditStatusResult>(new InvalidOperationException("the relay is broken")));
+            .Returns(Task.FromException<DebugEditStatusResult>(new InvalidOperationException("the relay is broken")));
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => CommandAsync(new ContReplCommand()));
         Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State, "the program waits where it did, whatever asking failed");
@@ -1141,7 +1141,7 @@ public sealed class ReplDebuggingTests
     public async Task ACont_ThatGoesOn_AsksNothingOfTheEdits()
     {
         await WaitAtTheStopAsync();
-        ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
 
         await CommandAsync(new ContReplCommand());
 
@@ -1207,7 +1207,7 @@ public sealed class ReplDebuggingTests
         try
         {
             await WaitAtTheStopAsync();
-            ResumeReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee" });
+            ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "Program.Callee" });
             EditStatusReturns(suspended: true, Pending);
 
             await CommandAsync(new ContReplCommand());

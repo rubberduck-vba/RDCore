@@ -103,7 +103,7 @@ internal sealed class ProgramDebugAdapter(
     private bool _launched;
     private bool _started;
     private int _terminated;
-    private ExecuteSessionResult? _stoppedError;
+    private ExecuteResult? _stoppedError;
     private ErrorBreakMode _errorBreak;
 
     // an edit was loaded while the program waited, which it goes on with, and its next stop is told as invalidating what the client showed; and whether the client
@@ -113,7 +113,7 @@ internal sealed class ProgramDebugAdapter(
     private bool _invalidatedSupported;
     private readonly SemaphoreSlim _going = new(1, 1);
 
-    private sealed record VariableScope(int Frame, HostVariableScope Scope, int Reference);
+    private sealed record VariableScope(int Frame, DebugVariableScope Scope, int Reference);
 
     /// <summary>Completes when the client has disconnected, or the adapter has nothing left to debug.</summary>
     public Task Closed => _closed.Task;
@@ -285,7 +285,7 @@ internal sealed class ProgramDebugAdapter(
         }
 
         // a breakpoint whose condition is refused is never waited at, which is what a client shows a breakpoint that is not verified as.
-        static bool IsWaitedAt(HostBreakpoint breakpoint) => breakpoint.Verified && breakpoint.ConditionError is null;
+        static bool IsWaitedAt(DebugBreakpoint breakpoint) => breakpoint.Verified && breakpoint.ConditionError is null;
 
         return new SetBreakpointsResponse
         {
@@ -321,7 +321,7 @@ internal sealed class ProgramDebugAdapter(
 
     public Task<ExceptionInfoResponse> Handle(ExceptionInfoArguments request, CancellationToken cancellationToken)
     {
-        ExecuteSessionResult? error;
+        ExecuteResult? error;
         ErrorBreakMode mode;
         lock (_sync)
         {
@@ -428,9 +428,9 @@ internal sealed class ProgramDebugAdapter(
 
     // the edits the program does not have, then what the user does about them: code that does not compile is corrected, and the program goes on; any other edit is
     // picked up when the program is run again.
-    private static string Told(string format, IReadOnlyCollection<HostDebugEdit> edits)
+    private static string Told(string format, IReadOnlyCollection<DebugEdit> edits)
     {
-        var uncompiled = edits.Count(edit => edit.Kind == HostDebugEditKind.DoesNotCompile);
+        var uncompiled = edits.Count(edit => edit.Kind == DebugEditKind.DoesNotCompile);
         var advice = uncompiled == 0
             ? DebuggerMessages.EditsAdviceRunAgain
             : uncompiled == edits.Count
@@ -440,7 +440,7 @@ internal sealed class ProgramDebugAdapter(
     }
 
     // each edit on a line of its own, as the user names it, and why.
-    private static string Listed(IEnumerable<HostDebugEdit> edits) => Listed(edits.Select(edit => (edit.Name, edit.Reason)));
+    private static string Listed(IEnumerable<DebugEdit> edits) => Listed(edits.Select(edit => (edit.Name, edit.Reason)));
 
     private static string Listed(IEnumerable<(string Name, string Reason)> items)
         => string.Join("\n", items.Select(item => "  " + string.Format(DebuggerMessages.EditNamed, item.Name, item.Reason)));
@@ -469,7 +469,7 @@ internal sealed class ProgramDebugAdapter(
     }
 
     // runs a request that answers when the program next waits or is over, on its own: the client has been answered already.
-    private void Run(Func<CancellationToken, Task<ExecuteSessionResult>> request)
+    private void Run(Func<CancellationToken, Task<ExecuteResult>> request)
     {
         _ = Task.Run(async () =>
         {
@@ -490,7 +490,7 @@ internal sealed class ProgramDebugAdapter(
         });
     }
 
-    private async Task ReportAsync(ExecuteSessionResult result)
+    private async Task ReportAsync(ExecuteResult result)
     {
         // the lines the program printed came apart from the answer, and are said before what the answer says of the program.
         await output.WaitForAsync(result.StreamedLines, TimeSpan.FromSeconds(2), _lifetime.Token);
@@ -524,14 +524,14 @@ internal sealed class ProgramDebugAdapter(
         await editStatus.CheckAsync(_lifetime.Token);
     }
 
-    private static string Describe(ExecuteSessionResult result) => result.Outcome switch
+    private static string Describe(ExecuteResult result) => result.Outcome switch
     {
         ExecutionOutcome.SyntaxError => string.Join("\n", result.Diagnostics),
         ExecutionOutcome.RuntimeError => $"{(result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle)} '{result.ErrorNumber}': {result.ErrorMessage}",
         _ => result.ErrorMessage.Length > 0 ? result.ErrorMessage : result.Outcome.ToString(),
     };
 
-    private async Task StoppedAsync(ExecuteSessionResult result)
+    private async Task StoppedAsync(ExecuteResult result)
     {
         bool stepped;
         bool paused;
@@ -692,8 +692,8 @@ internal sealed class ProgramDebugAdapter(
             return Task.FromResult(new ScopesResponse
             {
                 Scopes = new Container<Scope>(
-                    new Scope { Name = DebuggerMessages.ScopeLocals, PresentationHint = "locals", VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Locals, 0)) },
-                    new Scope { Name = DebuggerMessages.ScopeModule, VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Module, 0)) }),
+                    new Scope { Name = DebuggerMessages.ScopeLocals, PresentationHint = "locals", VariablesReference = Reference(new VariableScope(frame, DebugVariableScope.Locals, 0)) },
+                    new Scope { Name = DebuggerMessages.ScopeModule, VariablesReference = Reference(new VariableScope(frame, DebugVariableScope.Module, 0)) }),
             });
         }
     }
@@ -719,7 +719,7 @@ internal sealed class ProgramDebugAdapter(
         }
 
         var result = await debugging.VariablesAsync(scope.Frame, scope.Scope, scope.Reference, cancellationToken);
-        IEnumerable<HostVariable> variables = result.Variables;
+        IEnumerable<DebugVariable> variables = result.Variables;
         if (request.Start is > 0)
         {
             variables = variables.Skip((int)request.Start.Value);
@@ -772,7 +772,7 @@ internal sealed class ProgramDebugAdapter(
             {
                 Result = result.Value,
                 Type = result.Type,
-                VariablesReference = result.Reference == 0 ? 0 : Reference(new VariableScope(frame, HostVariableScope.Locals, result.Reference)),
+                VariablesReference = result.Reference == 0 ? 0 : Reference(new VariableScope(frame, DebugVariableScope.Locals, result.Reference)),
             };
         }
     }
@@ -853,7 +853,7 @@ internal sealed class ProgramDebugAdapter(
 
     // ---- output ----
 
-    private void Say(string text, OutputEventCategory category, ExecuteSessionResult? located = null)
+    private void Say(string text, OutputEventCategory category, ExecuteResult? located = null)
     {
         if (_server is not { } server)
         {

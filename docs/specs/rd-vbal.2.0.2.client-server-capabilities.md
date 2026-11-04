@@ -107,7 +107,7 @@ This catalogue is intended to document every platform capability the SDK defines
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
 |[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
 |[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
-|[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/rubberduck-indenter-settings`, `rdcore/rubberduck-indenter-settings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcorerubberduck-indenter-settings)).|
+|[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/formatting/indenterSettings`, `rdcore/formatting/indenterSettings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcoreformattingindentersettings)).|
 |[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
 
 > [!NOTE]
@@ -149,7 +149,7 @@ and its semantic model 1.5 MB rather than 3.6 MB. Anything serialized with the s
 
 ### `rdcore/session/execute`
 
-The `rdcore/session/execute` result ([`ExecuteSessionResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteSessionResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
+The `rdcore/session/execute` result ([`ExecuteResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
 
 The interactive shell renders a run-time error from this result, as:
 
@@ -704,14 +704,14 @@ The request carries the lines the program completed before it opened the dialog 
 
 The interactive shell draws a dialog as a box with a border, centred on the console, with its title in the top edge and its message wrapped inside. A `MsgBox` ends with a row of buttons, chosen with the arrow keys, <kbd>Tab</kbd>, <kbd>Enter</kbd>, or a button's key. Its icon has a column of its own, and the lines of the message hang under it. An `InputBox` ends with a line to type on, which starts with the default text selected and scrolls inside the box. <kbd>Esc</kbd> closes either at window level.
 
-### `rdcore/rubberduck-indenter-settings`
+### `rdcore/formatting/indenterSettings`
 
 A user who had Rubberduck has indenter settings (**RD-VBAL §2.3.3**, the `Formatting` settings). Rubberduck keeps them on the user's machine, in its own configuration and in the
 registry, and a client owns its configuration: the language server does not read the machine of the user, and writes none of the client's settings. A client that expects
 [`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html) reads them for it, and takes the mapped settings as its own. Two requests, both sent by the
 language server to the client:
 
-**`rdcore/rubberduck-indenter-settings`** (params `{}`) asks what the client found. The client answers what it read, _as it is_, and maps nothing:
+**`rdcore/formatting/indenterSettings`** (params `{}`) asks what the client found. The client answers what it read, _as it is_, and maps nothing:
 
 ```json
 { "source": "RubberduckConfig", "values": { "IndentCase": "true", "IndentSpaces": "2" }, "tabWidth": null }
@@ -740,7 +740,7 @@ Rubberduck's own configuration is read when it has indenter settings, and the re
 A flag is `Y` or it is not (an empty one says nothing); a number is kept to the limits of its setting, and a negative one says nothing; a setting the source says nothing of keeps
 its default.
 
-**`rdcore/rubberduck-indenter-settings/apply`** asks the client to take what was mapped as its own:
+**`rdcore/formatting/indenterSettings/apply`** asks the client to take what was mapped as its own:
 
 ```json
 { "source": "RubberduckConfig", "settings": { "Formatting.IndentCase": "True", "Formatting.IndentSpaces": "2" } }

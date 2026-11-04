@@ -56,6 +56,17 @@ public sealed class SymbolUriTests
         Assert.AreEqual(SymbolUri.Module(root.LocalPath, "GameBoard").AbsoluteUri, SymbolUri.Module(escaped, "GameBoard").AbsoluteUri);
     }
 
+    // a root travels between the components as the text it is written with: the text of a path (/tmp/...) is read back as a relative URI.
+    [TestMethod]
+    [DataRow(false, DisplayName = "given as a path")]
+    [DataRow(true, DisplayName = "given as a file URI")]
+    public void ARoot_IsWrittenAsTheFileUriItIs(bool asUri)
+    {
+        var root = SymbolUri.Root(asUri ? Root.AbsoluteUri : Root.LocalPath);
+
+        Assert.AreEqual(Root.AbsoluteUri, root.OriginalString);
+    }
+
     [TestMethod]
     public void ARootOfAnotherScheme_IsTheRootAsItIs()
         => Assert.AreEqual("untitled:Untitled-1#Module1", SymbolUri.Module("untitled:Untitled-1", "Module1").AbsoluteUri);

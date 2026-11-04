@@ -18,7 +18,7 @@ internal static class ReplVariableListing
     /// <param name="variables">The variables, in the order they are written in.</param>
     /// <param name="indent">How many levels they are indented.</param>
     /// <param name="token">A token that cancels the requests for the parts.</param>
-    public static async Task WriteAsync(ReplCommandContext context, IReadOnlyList<HostVariable> variables, int indent, CancellationToken token)
+    public static async Task WriteAsync(ReplCommandContext context, IReadOnlyList<DebugVariable> variables, int indent, CancellationToken token)
     {
         var margin = new string(' ', indent * 2);
         var width = variables.Count == 0 ? 0 : variables.Max(variable => variable.Name.Length);
@@ -34,7 +34,7 @@ internal static class ReplVariableListing
                 continue;
             }
 
-            var parts = await context.Platform.GetVariablesAsync(0, HostVariableScope.Locals, variable.Reference, token);
+            var parts = await context.Platform.GetVariablesAsync(0, DebugVariableScope.Locals, variable.Reference, token);
             await WriteAsync(context, [.. parts.Variables.Take(PartsShown)], indent + 1, token);
             if (parts.Variables.Count > PartsShown)
             {

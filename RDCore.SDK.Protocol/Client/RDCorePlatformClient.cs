@@ -25,7 +25,7 @@ public sealed class RDCorePlatformClient(IRDCorePlatformChannel channel)
     public IRDCorePlatformChannel Channel { get; } = channel;
 
     /// <summary>
-    /// Performs the platform handshake (<see cref="RDCorePlatformHandshake.Method"/>): says what the client expects of the component it connected to, and learns what
+    /// Performs the platform handshake (<see cref="RDCorePlatformProtocol.PlatformInitialize"/>): says what the client expects of the component it connected to, and learns what
     /// that component provides.
     /// </summary>
     /// <param name="expectedComponent">The component the client expects to be connected to: <see cref="CoreServerComponent.LanguageServer"/>, for a client of the platform.</param>
@@ -33,7 +33,7 @@ public sealed class RDCorePlatformClient(IRDCorePlatformChannel channel)
     /// <param name="token">Cancels the request.</param>
     /// <returns>The component the client is connected to, and the capabilities it provides.</returns>
     public Task<PlatformInitializeResult> InitializeAsync(CoreServerComponent expectedComponent, CorePlatformClientCapabilities expected, CancellationToken token)
-        => Send<PlatformInitializeParams, PlatformInitializeResult>(RDCorePlatformHandshake.Method, new PlatformInitializeParams { ExpectedComponent = expectedComponent, Expected = expected }, token);
+        => Send<PlatformInitializeParams, PlatformInitializeResult>(RDCorePlatformProtocol.PlatformInitialize, new PlatformInitializeParams { ExpectedComponent = expectedComponent, Expected = expected }, token);
 
     /// <summary>Asks for the state of the runtime session (<see cref="RDCorePlatformProtocol.SessionStatus"/>).</summary>
     /// <param name="request">The request.</param>
@@ -46,99 +46,99 @@ public sealed class RDCorePlatformClient(IRDCorePlatformChannel channel)
     /// <param name="request">The code to run, and how.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>How the code ran: completed, suspended, or failed, with what it printed.</returns>
-    public Task<ExecuteSessionResult> ExecuteAsync(ExecuteSessionParams request, CancellationToken token)
-        => Send<ExecuteSessionParams, ExecuteSessionResult>(RDCorePlatformProtocol.SessionExecute, request, token);
+    public Task<ExecuteResult> ExecuteAsync(SessionExecuteParams request, CancellationToken token)
+        => Send<SessionExecuteParams, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, request, token);
 
     /// <summary>Discards a module of the runtime session (<see cref="RDCorePlatformProtocol.SessionDiscard"/>).</summary>
     /// <param name="request">The module.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>How much was discarded.</returns>
-    public Task<DiscardSessionResult> DiscardAsync(DiscardSessionParams request, CancellationToken token)
-        => Send<DiscardSessionParams, DiscardSessionResult>(RDCorePlatformProtocol.SessionDiscard, request, token);
+    public Task<DiscardResult> DiscardAsync(SessionDiscardParams request, CancellationToken token)
+        => Send<SessionDiscardParams, DiscardResult>(RDCorePlatformProtocol.SessionDiscard, request, token);
 
     /// <summary>Reads a byte of the runtime session's memory (<see cref="RDCorePlatformProtocol.SessionPeek"/>).</summary>
     /// <param name="request">The address.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>The byte, and whether the address is allocated.</returns>
-    public Task<PeekSessionResult> PeekAsync(PeekSessionParams request, CancellationToken token)
-        => Send<PeekSessionParams, PeekSessionResult>(RDCorePlatformProtocol.SessionPeek, request, token);
+    public Task<PeekResult> PeekAsync(SessionPeekParams request, CancellationToken token)
+        => Send<SessionPeekParams, PeekResult>(RDCorePlatformProtocol.SessionPeek, request, token);
 
     /// <summary>Writes a byte of the runtime session's memory (<see cref="RDCorePlatformProtocol.SessionPoke"/>).</summary>
     /// <param name="request">The address and the value.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Whether the byte was written.</returns>
-    public Task<PokeSessionResult> PokeAsync(PokeSessionParams request, CancellationToken token)
-        => Send<PokeSessionParams, PokeSessionResult>(RDCorePlatformProtocol.SessionPoke, request, token);
+    public Task<PokeResult> PokeAsync(SessionPokeParams request, CancellationToken token)
+        => Send<SessionPokeParams, PokeResult>(RDCorePlatformProtocol.SessionPoke, request, token);
 
     /// <summary>Resumes, or steps, the suspended program (<see cref="RDCorePlatformProtocol.SessionDebugResume"/>).</summary>
     /// <param name="request">How far to run.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>How the program ran: suspended again, ended, or failed.</returns>
-    public Task<ExecuteSessionResult> DebugResumeAsync(SessionDebugResumeParams request, CancellationToken token)
-        => Send<SessionDebugResumeParams, ExecuteSessionResult>(RDCorePlatformProtocol.SessionDebugResume, request, token);
+    public Task<ExecuteResult> DebugResumeAsync(SessionDebugResumeParams request, CancellationToken token)
+        => Send<SessionDebugResumeParams, ExecuteResult>(RDCorePlatformProtocol.SessionDebugResume, request, token);
 
     /// <summary>Suspends the running program (<see cref="RDCorePlatformProtocol.SessionDebugPause"/>).</summary>
     /// <param name="request">The request.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Whether there was a program to suspend.</returns>
-    public Task<HostDebugAck> DebugPauseAsync(SessionDebugPauseParams request, CancellationToken token)
-        => Send<SessionDebugPauseParams, HostDebugAck>(RDCorePlatformProtocol.SessionDebugPause, request, token);
+    public Task<DebugAck> DebugPauseAsync(SessionDebugPauseParams request, CancellationToken token)
+        => Send<SessionDebugPauseParams, DebugAck>(RDCorePlatformProtocol.SessionDebugPause, request, token);
 
     /// <summary>Moves the next statement of the suspended program (<see cref="RDCorePlatformProtocol.SessionDebugGoto"/>).</summary>
     /// <param name="request">Where to.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Whether the next statement moved, where to, or why it did not.</returns>
-    public Task<HostDebugGotoResult> DebugGotoAsync(SessionDebugGotoParams request, CancellationToken token)
-        => Send<SessionDebugGotoParams, HostDebugGotoResult>(RDCorePlatformProtocol.SessionDebugGoto, request, token);
+    public Task<DebugGotoResult> DebugGotoAsync(SessionDebugGotoParams request, CancellationToken token)
+        => Send<SessionDebugGotoParams, DebugGotoResult>(RDCorePlatformProtocol.SessionDebugGoto, request, token);
 
     /// <summary>Asks what the edits made while the program is suspended do to it (<see cref="RDCorePlatformProtocol.SessionDebugEditStatus"/>).</summary>
     /// <param name="request">The request.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Each edit, and what it takes to apply it.</returns>
-    public Task<HostDebugEditStatusResult> DebugEditStatusAsync(SessionDebugEditStatusParams request, CancellationToken token)
-        => Send<SessionDebugEditStatusParams, HostDebugEditStatusResult>(RDCorePlatformProtocol.SessionDebugEditStatus, request, token);
+    public Task<DebugEditStatusResult> DebugEditStatusAsync(SessionDebugEditStatusParams request, CancellationToken token)
+        => Send<SessionDebugEditStatusParams, DebugEditStatusResult>(RDCorePlatformProtocol.SessionDebugEditStatus, request, token);
 
     /// <summary>Ends the suspended program (<see cref="RDCorePlatformProtocol.SessionDebugTerminate"/>).</summary>
     /// <param name="request">Whether to wipe the session's state as well.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Whether there was a program to end.</returns>
-    public Task<HostDebugAck> DebugTerminateAsync(SessionDebugTerminateParams request, CancellationToken token)
-        => Send<SessionDebugTerminateParams, HostDebugAck>(RDCorePlatformProtocol.SessionDebugTerminate, request, token);
+    public Task<DebugAck> DebugTerminateAsync(SessionDebugTerminateParams request, CancellationToken token)
+        => Send<SessionDebugTerminateParams, DebugAck>(RDCorePlatformProtocol.SessionDebugTerminate, request, token);
 
     /// <summary>Sets the breakpoints of a module (<see cref="RDCorePlatformProtocol.SessionDebugBreakpoints"/>).</summary>
     /// <param name="request">The module and its breakpoints: all of them, which replace the ones it had.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Each breakpoint as it was set: verified on a line that runs, or not.</returns>
-    public Task<HostDebugBreakpointsResult> DebugBreakpointsAsync(SessionDebugBreakpointsParams request, CancellationToken token)
-        => Send<SessionDebugBreakpointsParams, HostDebugBreakpointsResult>(RDCorePlatformProtocol.SessionDebugBreakpoints, request, token);
+    public Task<DebugBreakpointsResult> DebugBreakpointsAsync(SessionDebugBreakpointsParams request, CancellationToken token)
+        => Send<SessionDebugBreakpointsParams, DebugBreakpointsResult>(RDCorePlatformProtocol.SessionDebugBreakpoints, request, token);
 
     /// <summary>Asks for the call stack of the suspended program (<see cref="RDCorePlatformProtocol.SessionDebugStack"/>).</summary>
     /// <param name="request">The request.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>The frames, innermost first.</returns>
-    public Task<HostDebugStackResult> DebugStackAsync(SessionDebugStackParams request, CancellationToken token)
-        => Send<SessionDebugStackParams, HostDebugStackResult>(RDCorePlatformProtocol.SessionDebugStack, request, token);
+    public Task<DebugStackResult> DebugStackAsync(SessionDebugStackParams request, CancellationToken token)
+        => Send<SessionDebugStackParams, DebugStackResult>(RDCorePlatformProtocol.SessionDebugStack, request, token);
 
     /// <summary>Asks for the variables of a frame of the suspended program, or of an object (<see cref="RDCorePlatformProtocol.SessionDebugVariables"/>).</summary>
     /// <param name="request">The frame, the scope, and the object.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>The variables, with their values and types.</returns>
-    public Task<HostDebugVariablesResult> DebugVariablesAsync(SessionDebugVariablesParams request, CancellationToken token)
-        => Send<SessionDebugVariablesParams, HostDebugVariablesResult>(RDCorePlatformProtocol.SessionDebugVariables, request, token);
+    public Task<DebugVariablesResult> DebugVariablesAsync(SessionDebugVariablesParams request, CancellationToken token)
+        => Send<SessionDebugVariablesParams, DebugVariablesResult>(RDCorePlatformProtocol.SessionDebugVariables, request, token);
 
     /// <summary>Evaluates an expression in a frame of the suspended program (<see cref="RDCorePlatformProtocol.SessionDebugEvaluate"/>).</summary>
     /// <param name="request">The frame and the expression.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>The value, or the error the expression raised.</returns>
-    public Task<HostDebugEvaluateResult> DebugEvaluateAsync(SessionDebugEvaluateParams request, CancellationToken token)
-        => Send<SessionDebugEvaluateParams, HostDebugEvaluateResult>(RDCorePlatformProtocol.SessionDebugEvaluate, request, token);
+    public Task<DebugEvaluateResult> DebugEvaluateAsync(SessionDebugEvaluateParams request, CancellationToken token)
+        => Send<SessionDebugEvaluateParams, DebugEvaluateResult>(RDCorePlatformProtocol.SessionDebugEvaluate, request, token);
 
     /// <summary>Runs a statement in a frame of the suspended program, as the Immediate window does (<see cref="RDCorePlatformProtocol.SessionDebugExecute"/>).</summary>
     /// <param name="request">The frame and the statement.</param>
     /// <param name="token">Cancels the request.</param>
     /// <returns>Whether the statement ran, what it printed, or the error it raised.</returns>
-    public Task<HostDebugEvaluateResult> DebugExecuteAsync(SessionDebugExecuteParams request, CancellationToken token)
-        => Send<SessionDebugExecuteParams, HostDebugEvaluateResult>(RDCorePlatformProtocol.SessionDebugExecute, request, token);
+    public Task<DebugEvaluateResult> DebugExecuteAsync(SessionDebugExecuteParams request, CancellationToken token)
+        => Send<SessionDebugExecuteParams, DebugEvaluateResult>(RDCorePlatformProtocol.SessionDebugExecute, request, token);
 
     /// <summary>
     /// Shows the program's <c>MsgBox</c> calls (<see cref="RDCorePlatformProtocol.SessionMessageBox"/>), for a client that expects <see cref="SessionInteraction"/>.
