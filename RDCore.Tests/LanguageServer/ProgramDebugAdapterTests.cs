@@ -1079,6 +1079,24 @@ public sealed class ProgramDebugAdapterTests
         StringAssert.Contains(refusal.Message, "another procedure");
     }
 
+    // a target is a line as the program waited at it: the program has gone on since, and may wait in other code.
+    [TestMethod]
+    public async Task AGoto_ToATargetGivenBeforeTheProgramWentOn_IsRefused()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new HostDebugGotoResult { Moved = true, Line = 13 });
+        session.Debugging.GotoAsync("Prog", 13, false, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true, Line = 13 }));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+        var target = await TargetAsync(session, 14);
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        _ = await session.NextAsync<StoppedEvent>();
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id }));
+
+        await session.Debugging.DidNotReceive().GotoAsync("Prog", 13, false, Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     public async Task AGoto_ToATargetTheClientWasNotGiven_IsRefused()
     {

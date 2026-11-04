@@ -115,7 +115,8 @@ internal sealed class ProgramDebugAdapter(
 
     private sealed record VariableScope(int Frame, HostVariableScope Scope, int Reference);
 
-    // the targets a client was given to go on from, by the id it goes to one with: a line of a module, as the host said the program would go on from it.
+    // the targets a client was given to go on from, by the id it goes to one with: a line of a module, as the host said the program would go on from it. They
+    // are the targets of one stop: the program going on, or stopping again, forgets them, and an id given before is refused.
     private readonly Dictionary<long, GotoPoint> _gotoTargets = [];
     private long _nextGotoTarget;
 
@@ -468,6 +469,7 @@ internal sealed class ProgramDebugAdapter(
         {
             _stepped = step is not null;
             _references.Clear();
+            _gotoTargets.Clear();
             _stoppedError = null;
         }
 
@@ -547,6 +549,7 @@ internal sealed class ProgramDebugAdapter(
             (stepped, paused, invalidate) = (_stepped, _paused, _invalidateOnStop);
             (_stepped, _paused, _invalidateOnStop) = (false, false, false);
             _stoppedError = result.ErrorNumber != 0 ? result : null;
+            _gotoTargets.Clear();
         }
 
         // the program went on with code that is not the code it waited in: the frames and the variables the client showed of it are not where they were.
@@ -862,6 +865,7 @@ internal sealed class ProgramDebugAdapter(
             lock (_sync)
             {
                 _references.Clear();
+                _gotoTargets.Clear();
                 (edited, _editedWhileWaiting) = (_editedWhileWaiting, false);
             }
 
