@@ -150,6 +150,12 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
         Output.WriteLine($"{"load",-10}{Milliseconds(report.Load),12}");
         Output.WriteLine($"{"sweep",-10}{Milliseconds(report.Sweep),12}");
         Output.WriteLine($"{"compile",-10}{Milliseconds(report.Compile),12}");
+        if (report.DirectCalls + report.IndirectCalls > 0)
+        {
+            Output.WriteLine($"{"calls",-10}{report.DirectCalls.ToString("N0", CultureInfo.InvariantCulture),12} direct, "
+                + $"{report.IndirectCalls.ToString("N0", CultureInfo.InvariantCulture)} through the invoker");
+        }
+
         if (report.Indent is { } indent)
         {
             Output.WriteLine($"{"indent",-10}{Milliseconds(indent),12}  ({BenchRunner.ProgramLines.ToString("N0", CultureInfo.InvariantCulture)} lines)");

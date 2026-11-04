@@ -85,9 +85,28 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// The thread of a request is the thread that reads the connection: a handler is called on it, and a handler that does not return until a program is over keeps
     /// it for as long. A program that waits for an answer over the same connection - a <c>MsgBox</c> the client answers - then waits for an answer nothing reads, and
     /// a <c>$/cancelRequest</c> that would stop it is not read either. Code that runs for as long as a program pleases runs here instead.
+    /// <para>
+    /// The thread's stack has room for every activation the call stack takes (<see cref="RuntimeCallStack.ProgramThreadStackSize"/>): a thread's default stack
+    /// holds fewer than a hundred, and a deeper recursion would be error 28 far sooner than its limit.
+    /// </para>
     /// </remarks>
     internal static Task<T> OffTheConnection<T>(Func<T> run)
-        => Task.Factory.StartNew(run, CancellationToken.None, TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                done.SetResult(run());
+            }
+            catch (Exception exception)
+            {
+                done.SetException(exception);
+            }
+        }, RuntimeCallStack.ProgramThreadStackSize) { IsBackground = true, Name = "RDCore program" };
+        thread.Start();
+        return done.Task;
+    }
 
     // gives the turn back when the program is over. Called with the lock held, or by what ends the program.
     private void LeaveTurn(IRuntimeSession session)

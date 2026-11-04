@@ -2575,8 +2575,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     && (!typedByAddress || HoldsValueOf(parameter, reference.DeclaredType!, () => Evaluate(session, memberAccess, context).Result));
             }
 
-            return !takesAny && (TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference)
-                || TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external));
+            // a public variable of an object named as its member (b.Count, Me.Count, .Count in a With block, late bound too) is passed as a copy, which what
+            // the callee assigns is not written back to (MS-VBA, recorded in Excel: oracle\s55 B01, B02, B06-B08). MS-VBAL §5.6.12 classifies it as a
+            // variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL §5.3.1.11). Named by itself in its
+            // own class it is the variable (B05), bound below as any name is.
+            return !takesAny && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
         }
 
         if (qualified is null && argument is not SimpleNameExpressionNode)
@@ -2928,38 +2931,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // type - which is the variable it hands on when it is passed by reference again.
     private static VBType DeclaredTypeOf(IRuntimeSession session, Symbol symbol, VBType declared)
         => session.CallStack.Current is { } current && current.TryGetReferencedType(symbol, out var referenced) ? referenced : declared;
-
-    // MS-VBAL §5.3.1.11: a public variable of an object is a variable too, with an address of its own, and a ByRef parameter is a second name for it
-    // when the types agree, as for a variable of the code's own - which is also what lets a callee lock it (§5.4.3.3). A property falls through to the copy;
-    // the field of a user-defined type to TryResolveRecordFieldByRefArgument.
-    private bool TryResolveFieldByRefArgument(
-        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBParameterSymbol parameter, out VBRuntimeReference reference)
-    {
-        reference = VBRuntimeReference.NullRef;
-
-        var evaluated = EvaluateOwner(session, context, memberAccess);
-        if (!evaluated.IsSuccess
-            || UnwrappedOwner(evaluated.Result!) is not VBObjectValue owner
-            || ResolveAssignableMember(session, context, memberAccess, owner, isSet: false)
-                is not { Field: ITypedSymbol { ResolvedType: { } fieldType } field, Instance: { } instance })
-        {
-            return false;
-        }
-
-        if (!IsOfDeclaredType(parameter, fieldType) && parameter.ResolvedType is not VBVariantType)
-        {
-            return false;
-        }
-
-        if (!instance.TryGetAddress((Symbol)field, out var address)
-            || !instance.GetValue((Symbol)field).BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
-        {
-            return false;
-        }
-
-        reference = new VBRuntimeReference(address, ReferencedType(parameter, fieldType));
-        return true;
-    }
 
     // MissingArgumentNode is a placeholder, not a value - element access needs every subscript, so it
     // reports as unresolved rather than being silently skipped the way the static evaluator's own

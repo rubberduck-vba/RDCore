@@ -39,10 +39,14 @@ public sealed class CompiledActivation
     private readonly CompiledBody _body;
     private readonly ISessionHalt _halt;
 
+    // what made the activation, which makes the activations of the calls it makes through their callees' typed entries, and ends them (EnterDirectly): the
+    // session's own, never one the body was compiled with - a body is shared by every session composed over the same scopes.
+    private readonly RuntimeProcedureInvoker _invoker;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
-        CompiledBody body)
+        CompiledBody body, RuntimeProcedureInvoker invoker)
     {
-        (_session, _frame, _list, _executor, _context, _body) = (session, frame, list, executor, context, body);
+        (_session, _frame, _list, _executor, _context, _body, _invoker) = (session, frame, list, executor, context, body, invoker);
         _halt = session.Halt;
         _scopes = session.Symbols.Scopes;
         frame.RunsCompiled = true;
@@ -116,6 +120,7 @@ public sealed class CompiledActivation
         (integral, floating) = (0, 0);
         _frame.Pc = pc;
         _failed = null;
+        _body.CountIndirectCall();
         var called = _body.Callees[callee];
         if (_executor.Expressions.ScalarInvokerOf(called.Procedure) is not { } invoker)
         {
@@ -143,6 +148,73 @@ public sealed class CompiledActivation
 
         // a function of a scalar type returns a known value of it.
         if (result.Result is not { } value || !ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out var payload))
+        {
+            _failed = RuntimeExecutionOutcome.InternalError;
+            return false;
+        }
+
+        (integral, floating) = (payload.Integral, payload.Floating);
+        return true;
+    }
+
+    /// <summary>
+    /// The activation of the procedure numbered <paramref name="callee"/> of the body, a compiled one, which compiled code is about to call through its typed
+    /// entry (<see cref="DirectCall"/>), with the arguments as it holds them: the instruction at <paramref name="pc"/> is the one that makes the call, which the
+    /// frame says while the callee runs. The call is the invoker's (<see cref="Call"/>) when the callee is not called this way, or not now: the session runs
+    /// no compiled code any more (its engine was changed); the session's symbols were defined again since this activation began, or the callee's body was
+    /// loaded again, either of which the body it was compiled against may no longer be; the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
+    /// the session is being analyzed; or the call stack has no room for another frame.
+    /// </summary>
+    /// <returns>The callee's activation, which its entry is called with; <see langword="null"/> when the call is to be made through the invoker.</returns>
+    public CompiledActivation? EnterDirectly(int pc, int callee)
+    {
+        if (_body.Directs[callee] is not { Body: { } body } direct || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter
+            || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
+            || !ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
+        {
+            return null;
+        }
+
+        _frame.Pc = pc;
+        _failed = null;
+        if (_invoker.PushCompiledActivation(direct.Procedure, direct.List) is not { } frame)
+        {
+            return null;
+        }
+
+        _body.CountDirectCall();
+        _suspensionsBeforeCall = Suspensions;
+        return new CompiledActivation(_session, frame, direct.List, _executor, direct.Context, body, _invoker);
+    }
+
+    /// <summary>
+    /// Ends the activation <paramref name="callee"/> of the call numbered <paramref name="call"/> of the body, which compiled code made through the callee's
+    /// typed entry (<see cref="EnterDirectly"/>), and which returned <paramref name="outcome"/>: the frame off the stack, as the invoker takes it off.
+    /// </summary>
+    /// <returns>
+    /// Whether the call returned: what it returned is then a payload of its kind, when what it returns is read. When not, the interpreter is given the call
+    /// (<see cref="AfterFailedCall"/>), with the error the callee raised, or with the program stopped in it.
+    /// </returns>
+    public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
+    {
+        (integral, floating) = (0, 0);
+        outcome = _invoker.PopCompiledActivation(outcome);
+        if (outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure)
+        {
+            // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
+            _failed = outcome.Kind is RuntimeExecutionOutcomeKind.Error ? outcome : RuntimeExecutionOutcome.InternalError;
+            return false;
+        }
+
+        // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of.
+        if (_body.Callees[call].Result is null)
+        {
+            return true;
+        }
+
+        // a function of a scalar type returns a payload of it: its compiled code assigned it when it returned, and so did the interpreter it was handed to.
+        if (!callee._frame.TryReadResult(out var payload))
         {
             _failed = RuntimeExecutionOutcome.InternalError;
             return false;
@@ -247,9 +319,21 @@ public sealed class CompiledActivation
 
     private void Spill(int slot, long integral, double floating)
     {
-        if (_frame.TryGetSlotCell(slot, out var cell) && cell is ScalarCell scalar)
+        if (_frame.TryGetSlotCell(slot, out var cell))
         {
-            scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
+            if (cell is ScalarCell scalar)
+            {
+                scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
+            }
+
+            return;
+        }
+
+        // an activation of a call compiled code made through the callee's typed entry holds no cell until it needs one (EnterDirectly): it is given the cell
+        // it would have been given at the call, holding what the variable holds now.
+        if (_body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && ScalarPayload.IsScalar(type))
+        {
+            _frame.PushPayload(symbol, new ScalarPayload(type, integral, floating), slot);
         }
     }
 
@@ -312,11 +396,29 @@ public sealed class CompiledActivation
 /// <param name="Loops">The <c>For</c> loops, by the number compiled code knows each by.</param>
 /// <param name="Name">The procedure's name: what the random walk-back tells one body from another by, the same in every run.</param>
 /// <param name="Callees">The procedures the body calls, by the number compiled code knows each by.</param>
+/// <param name="Directs">For each of <paramref name="Callees"/>, the compiled callee it calls directly; <see langword="null"/> for one it calls through the invoker.</param>
+/// <param name="SlotSymbols">The parameter or the variable each slot of the body's activations holds: what a cell is made for, when the activation has none yet.</param>
 internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecutionOutcome> Run, ScalarKind? ResultKind, IReadOnlyList<CompiledForLoop> Loops,
-    string Name, IReadOnlyList<CompiledCallee> Callees)
+    string Name, IReadOnlyList<CompiledCallee> Callees, IReadOnlyList<DirectCall?> Directs, IReadOnlyDictionary<int, Symbol> SlotSymbols)
 {
     private long _walkedBack;
     private int _activations;
+
+    private long _directCalls;
+    private long _indirectCalls;
+
+    /// <summary>How many calls the body made of a compiled procedure directly, through its typed entry.</summary>
+    public long DirectCalls => Interlocked.Read(ref _directCalls);
+
+    /// <summary>How many calls the body made through the invoker: of a procedure that is not compiled, or not when it was.</summary>
+    public long IndirectCalls => Interlocked.Read(ref _indirectCalls);
+
+    internal void CountDirectCall() => Interlocked.Increment(ref _directCalls);
+
+    internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
+
+    /// <summary>The typed entry of the body: its compiled activation, then each parameter. Set once the body's type is created.</summary>
+    public System.Reflection.MethodInfo? Entry { get; init; }
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -

@@ -1313,15 +1313,23 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         _addresses?.ReleaseAll();
-        foreach (var (_, variant) in _occasional?.ReferenceVariants ?? [])
+
+        // what an activation has none of is not made to be gone through: a frame is let go of at every return.
+        if (_occasional?.ReferenceVariants is { } variants)
         {
-            Storage.TryDeallocate(variant);
+            foreach (var (_, variant) in variants)
+            {
+                Storage.TryDeallocate(variant);
+            }
         }
 
         // the addresses of locals whose names an edit let go of (Retire).
-        foreach (var retired in _occasional?.RetiredAddresses ?? [])
+        if (_occasional?.RetiredAddresses is { } retiredAddresses)
         {
-            Storage.TryDeallocate(retired);
+            foreach (var retired in retiredAddresses)
+            {
+                Storage.TryDeallocate(retired);
+            }
         }
 
         // a variable of this activation that a parameter of a call it made was asked the address of, and that was not asked for it itself since: the
@@ -1334,11 +1342,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
         }
 
-        foreach (var (_, held) in _cells ?? [])
+        if (_cells is { } cells)
         {
-            if (held is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            foreach (var (_, held) in cells)
             {
-                Storage.TryDeallocate(given);
+                if (held is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+                {
+                    Storage.TryDeallocate(given);
+                }
             }
         }
 

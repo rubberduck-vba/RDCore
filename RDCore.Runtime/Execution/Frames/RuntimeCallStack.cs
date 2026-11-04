@@ -17,6 +17,12 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     // space") on runaway recursion well before the host process's own real stack would be at risk.
     private const int MaxDepth = 5000;
 
+    /// <summary>
+    /// The size of the stack of a thread a program runs on: room for <see cref="MaxDepth"/> activations, each of which is CLR calls of its own - about 13 KB of
+    /// them for an interpreted activation of a Debug build, where a thread's default 1 MB holds fewer than 100. It is reserved, and committed only as it is used.
+    /// </summary>
+    public const int ProgramThreadStackSize = 256 * 1024 * 1024;
+
     private CallStackFrame? _selected;
     private int _selectedDepth;
 
@@ -49,7 +55,11 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     }
 
     /// <inheritdoc/>
-    protected override bool OnBeforeTryPush(CallStackFrame frame) => Depth < MaxDepth;
+    /// <remarks>
+    /// No activation is pushed past <see cref="MaxDepth"/>, nor when the thread the program runs on is near the end of its own stack: an activation is made by
+    /// CLR calls, which a stack too small for the depth would overflow, ending the host without an error. Either is error 28, which the program can handle.
+    /// </remarks>
+    protected override bool OnBeforeTryPush(CallStackFrame frame) => Depth < MaxDepth && System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack();
 
     /// <inheritdoc/>
     protected override void OnFramePopped(CallStackFrame? frame) => frame?.ReleaseAll();

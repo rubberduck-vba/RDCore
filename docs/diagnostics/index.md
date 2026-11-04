@@ -287,6 +287,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11023](rdc11023.md)|Procedure MS-VBA refuses as too large — more than 5,000 statements, which RD-VBA runs and MS-VBA refuses (Procedure too large)|
 |[RDC11024](rdc11024.md)|Implements in a document module — MS-VBAL forbids it in an extension module, MS-VBA compiles it|
 |[RDC11025](rdc11025.md)|Array given a second empty argument list — `f()()`, which MS-VBAL makes invalid, MS-VBA compiles and fails with 9 when it runs|
+|[RDC11026](rdc11026.md)|Public variable of an object passed ByRef as a copy — MS-VBAL passes the variable, MS-VBA a copy|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program — made while it waits in the debugger, which can't go on with it|
 
 ---

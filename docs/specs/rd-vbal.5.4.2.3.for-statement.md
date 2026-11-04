@@ -118,6 +118,24 @@ state for its `Matching` offset, its `ForOpener` never ran in this activation.
 Run-time error 92 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.ForLoopNotInitialized`
 ([**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)).
 
+### An error in the header, under `On Error Resume Next`
+
+MS-VBAL does not say what a loop is when its start, end or step raises an error that `On Error Resume Next` goes past
+([**RD-VBAL §5.4.4.1**](rd-vbal.5.4.4.1.on-error-statement.md)). RD-VBA does what MS-VBA does, recorded in Excel
+(oracle\s54 F01-F07, X01-X04):
+
+- The statement that follows the `For` is the first of its body, and it runs: the counter is not tested against the end.
+- Nothing the header evaluated is kept. The counter is not given the start, and neither the end nor the step is stored,
+  even one evaluated before the error.
+- The loop keeps the end and the step it had: what an earlier pass through the same `For` stored, in the same
+  activation. With none, the end is 0, and so is the step of a loop that writes a `Step` clause; a loop that writes
+  none steps by 1.
+- Its `Next` steps the counter and tests it with that end and that step, as it does any other loop's.
+
+`For i = 1 To 10 \ n`, with `n` 0 on a first pass, runs its body with `i` as it was, and steps it by 1 until it exceeds
+0: once, for an `i` of 0 or more. A faulted
+`Step` leaves a step of 0: the loop runs until something in its body leaves it.
+
 ## Implementation
 
 - `ProcedureExecutor` dispatches `ForOpener` and `ForNext`.

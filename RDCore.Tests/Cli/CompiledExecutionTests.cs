@@ -604,12 +604,17 @@ public sealed class CompiledExecutionTests
             "    Everything = S + C - (L \\ 2) + (L Mod 2)",
             "End Function"), VBExecutionEngine.Compiled);
 
-        var method = run.Compiled["Everything"].Body!.Run.Method;
-        var references = MemberReferencesOf(method).ToList();
-        Assert.IsNotEmpty(references);
-        foreach (var member in references)
+        // Run reads the parameters and calls the typed entry (Body), which is the procedure's code: what either names is the support namespace's, or the
+        // compiled code's own - a procedure it calls through its typed entry.
+        var body = run.Compiled["Everything"].Body!;
+        foreach (var method in new[] { body.Run.Method, body.Entry! })
         {
-            Assert.AreEqual(typeof(CompiledActivation).Namespace, member.DeclaringType?.Namespace, member.ToString());
+            var references = MemberReferencesOf(method).ToList();
+            Assert.IsNotEmpty(references);
+            foreach (var member in references)
+            {
+                Assert.IsTrue(member.DeclaringType?.Namespace == typeof(CompiledActivation).Namespace || member.Module == method.Module, member.ToString());
+            }
         }
     }
 

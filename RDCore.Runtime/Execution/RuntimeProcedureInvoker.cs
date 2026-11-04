@@ -243,7 +243,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         var compiled = image.Compiler.Compile(Session, Executor.Expressions, procedure, body);
         if (compiled.Body is { } code)
         {
-            return code.Run(new CompiledActivation(Session, frame, body, Executor, context, code));
+            return code.Run(new CompiledActivation(Session, frame, body, Executor, context, code, this));
         }
 
         // a test that expects every procedure it runs to be compiled fails the call of one that is not, rather than run it interpreted unnoticed.
@@ -491,6 +491,52 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     private readonly ConcurrentDictionary<VBTypeMemberSymbol, Activation> _activations = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The body of <paramref name="procedure"/> as this invoker runs it; <see langword="null"/> when it has none.</summary>
+    internal InstructionList? BodyOf(VBTypeMemberSymbol procedure)
+        => BodyOf(procedure, _activations.TryGetValue(procedure, out var activation) ? activation : _activations.GetOrAdd(procedure, ActivationOf));
+
+    /// <summary>
+    /// The activation of <paramref name="procedure"/> a call compiled code makes of it runs in, when it is compiled too and every parameter of it is a scalar
+    /// passed by value (IR lowering S2.3b): laid out, and on the call stack, as <see cref="InvokeScalars"/> would make it - but holding nothing. The callee's
+    /// compiled code is given its arguments, and holds its parameters and its variables; it gives the frame their cells only when the activation is handed to
+    /// the interpreter, or a debugger is to see them (<c>CompiledActivation.Spill</c>).
+    /// </summary>
+    /// <returns><see langword="null"/> when the call stack is full: the call is then made as any other, which says so (<see cref="VBRuntimeErrorId.OutOfStackSpace"/>).</returns>
+    internal CallStackFrame? PushCompiledActivation(VBTypeMemberSymbol procedure, InstructionList body)
+    {
+        if (!_activations.TryGetValue(procedure, out var activation))
+        {
+            activation = _activations.GetOrAdd(procedure, ActivationOf);
+        }
+
+        var frame = (CallStackFrame)Session.Symbols.CreateFrame(activation.NodeId, activation.Symbol, activation.Directives);
+        (frame.Procedure, frame.Body) = (procedure, body);
+        frame.LayOut(activation.Layout);
+        return Session.CallStack.TryPush(frame) ? frame : null;
+    }
+
+    /// <summary>
+    /// The end of an activation <see cref="PushCompiledActivation"/> made, as <see cref="InvokeScalars"/> ends one: what an error a <c>Class_Terminate</c> left
+    /// unhandled makes of its outcome, and the frame off the stack - unless the program was stopped in it, which leaves it there. Its parameters and variables
+    /// are scalars, which hold no object to let go of.
+    /// </summary>
+    /// <returns>The activation's outcome, as its caller is to see it.</returns>
+    internal RuntimeExecutionOutcome PopCompiledActivation(RuntimeExecutionOutcome outcome)
+    {
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Error)
+            && Session.Errors.Untrappable is { } untrappable)
+        {
+            outcome = RuntimeExecutionOutcome.Error(untrappable);
+        }
+
+        if (outcome.Kind is not RuntimeExecutionOutcomeKind.Break)
+        {
+            Session.CallStack.TryPop(out _);
+        }
+
+        return outcome;
+    }
 
     // MS-VBAL 5.2.1: a procedure's code runs under the Option directives of the module declaring it, whichever module called it. A StaticSymbol has no link
     // back to its module, so the frame is what carries them.

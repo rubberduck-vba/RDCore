@@ -1,45 +1,87 @@
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <strong>MS-VBAL §5.3.1.11</strong> a public variable of an object is a variable: a <c>ByRef</c> parameter whose argument is one is a second name for it, and what the
-/// callee writes through the parameter is what the object's variable holds.
+/// <strong>MS-VBAL §5.3.1.11</strong> a public variable of an object, named as a member of it (<c>b.Count</c>, <c>Me.Count</c>), given to a <c>ByRef</c>
+/// parameter: MS-VBA passes a copy, which what the callee assigns to does not write back. Named by itself in its own class, it is the variable, as a module's
+/// variable is however it is named. Each expectation is what MS-VBA prints for the same code, recorded in Excel (oracle\s55 B).
 /// </summary>
+/// <remarks>
+/// MS-VBAL §5.6.12 classifies <c>b.Count</c> as a variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL
+/// §5.3.1.11).
+/// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.3.1.11 Procedure Invocation Argument Processing")]
 public sealed class ByRefFieldArgumentTests
 {
-    private static Task<string[]> RunAsync(string procedures, params string[] body)
-        => ArrayStatementTargetTests.RunProgramAsync(string.Empty, procedures, body);
+    private static readonly (string Name, string Source)[] Box =
+    [
+        ("Box", ModuleWorkspace.ClassModule("Box",
+            "Option Explicit",
+            "Public Count As Long",
+            "Public Loose As Variant",
+            "Public Sub BumpMine()", "    Bump Me.Count", "End Sub",
+            "Public Sub BumpOwn()", "    Bump Count", "End Sub")),
+    ];
 
-    private const string Bump = "Public Sub Bump(ByRef n As Long)\r\nn = n + 1\r\nEnd Sub";
+    private static readonly (string Name, string Source)[] Globals = [("Globals", ModuleWorkspace.StandardModule("Globals", "Option Explicit", "Public Counter As Long"))];
+
+    private static Task<string[]> RunAsync(params string[] body)
+        => ModuleWorkspace.RunAsync(Box, Globals, string.Join("\r\n",
+        [
+            "Attribute VB_Name = \"Program\"",
+            "Option Explicit",
+            "Public Sub Bump(ByRef n As Long)", "    n = n + 1", "End Sub",
+            "Public Sub Bump2(ByRef n As Integer)", "    n = n + 1", "End Sub",
+            "Public Sub Set8(ByRef v As Variant)", "    v = 8", "End Sub",
+            "Public Sub Main()",
+            "    Dim b As Box",
+            "    Set b = New Box",
+            .. body,
+            "End Sub",
+        ]));
 
     [TestMethod]
-    public async Task APublicVariableOfAnObject_PassedByRef_IsWrittenThroughTheParameter()
+    public async Task APublicVariableOfAnObject_PassedByRef_IsACopy()
+        => CollectionAssert.AreEqual(new[] { "1" },
+            await RunAsync("b.Count = 1", "Bump b.Count", "Debug.Print b.Count"));
+
+    [TestMethod]
+    public async Task APublicVariableOfItsOwnObject_NamedThroughMe_PassedByRef_IsACopy()
+        => CollectionAssert.AreEqual(new[] { "0" },
+            await RunAsync("b.BumpMine", "Debug.Print b.Count"));
+
+    [TestMethod]
+    public async Task APublicVariableOfItsOwnObject_NamedByItself_PassedByRef_IsTheVariable()
         => CollectionAssert.AreEqual(new[] { "2" },
-            await RunAsync(Bump, "b.Count = 1", "Bump b.Count", "Debug.Print b.Count"));
+            await RunAsync("b.BumpOwn", "b.BumpOwn", "Debug.Print b.Count"));
 
     [TestMethod]
-    public async Task TheSameVariable_PassedTwice_IsTheSameStorageTwice()
-        => CollectionAssert.AreEqual(new[] { "3" },
-            await RunAsync(Bump, "b.Count = 1", "Bump b.Count", "Bump b.Count", "Debug.Print b.Count"));
+    public async Task AModulesVariable_NamedThroughItsModule_PassedByRef_IsTheVariable()
+        => CollectionAssert.AreEqual(new[] { "1", "2" },
+            await RunAsync("Bump Globals.Counter", "Debug.Print Globals.Counter", "Bump Counter", "Debug.Print Counter"));
 
     [TestMethod]
-    public async Task APublicVariableInAWithBlock_PassedByRef_IsWrittenThroughTheParameter()
-        => CollectionAssert.AreEqual(new[] { "6" },
-            await RunAsync(Bump, "b.Count = 5", "With b", "Bump .Count", "End With", "Debug.Print b.Count"));
+    public async Task APublicVariableInAWithBlock_PassedByRef_IsACopy()
+        => CollectionAssert.AreEqual(new[] { "5" },
+            await RunAsync("b.Count = 5", "With b", "Bump .Count", "End With", "Debug.Print b.Count"));
 
     [TestMethod]
-    public async Task APublicVariableOfAnotherType_PassedByRef_IsStillACopy()
+    public async Task APublicVariableOfAnObjectBoundLate_PassedByRef_IsACopy()
+        => CollectionAssert.AreEqual(new[] { "5" },
+            await RunAsync("Dim o As Object", "Set o = b", "o.Count = 5", "Bump o.Count", "Debug.Print o.Count"));
+
+    [TestMethod]
+    public async Task APublicVariableOfAnObject_PassedToAVariantParameter_IsACopy()
         => CollectionAssert.AreEqual(new[] { "1" },
-            await RunAsync("Public Sub Bump2(ByRef n As Integer)\r\nn = n + 1\r\nEnd Sub", "b.Count = 1", "Bump2 b.Count", "Debug.Print b.Count"));
+            await RunAsync("b.Count = 1", "Set8 b.Count", "Debug.Print b.Count"));
 
     [TestMethod]
-    public async Task APublicVariableOfAnObject_PassedToAVariantParameter_IsWrittenThroughIt()
-        => CollectionAssert.AreEqual(new[] { "8" },
-            await RunAsync("Public Sub Set8(ByRef v As Variant)\r\nv = 8\r\nEnd Sub", "b.Count = 1", "Set8 b.Count", "Debug.Print b.Count"));
-
-    [TestMethod]
-    public async Task AnExpressionThatIsNotAVariable_PassedByRef_IsStillACopy()
+    public async Task APublicVariableOfAnotherType_PassedByRef_IsACopy()
         => CollectionAssert.AreEqual(new[] { "1" },
-            await RunAsync(Bump, "b.Count = 1", "Bump (b.Count)", "Debug.Print b.Count"));
+            await RunAsync("b.Count = 1", "Bump2 b.Count", "Debug.Print b.Count"));
+
+    [TestMethod]
+    public async Task APublicVariableInParentheses_PassedByRef_IsACopy()
+        => CollectionAssert.AreEqual(new[] { "1" },
+            await RunAsync("b.Count = 1", "Bump (b.Count)", "Debug.Print b.Count"));
 }
