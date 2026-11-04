@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Logging;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
@@ -37,6 +38,27 @@ public sealed class ServerInputTests
 
         await completing.WaitAsync(Hung);
         Assert.IsTrue((await pipe.Writer.FlushAsync()).IsCompleted, "the reader it wraps is completed once the read has come back");
+        await input.CompleteAsync();
+    }
+
+    // the exit completes the reader while the loop parses what it has read.
+    [TestMethod]
+    public async Task AReaderCompletedWhileItsReadIsParsed_LeavesTheBufferToTheLoop_ThenAnswersWithTheEndOfTheInput()
+    {
+        var pipe = new Pipe();
+        var input = new ServerInput(pipe.Reader);
+        var message = "Content-Length: 2\r\n\r\n{}"u8.ToArray();
+        await pipe.Writer.WriteAsync(message);
+
+        var read = await input.ReadAsync().AsTask().WaitAsync(Hung);
+        await input.CompleteAsync().AsTask().WaitAsync(Hung);
+
+        CollectionAssert.AreEqual(message, read.Buffer.ToArray(), "the buffer the loop holds is still what it read");
+        input.AdvanceTo(read.Buffer.End);
+        var end = await input.ReadAsync().AsTask().WaitAsync(Hung);
+        Assert.IsTrue(end.IsCompleted, "the end of the input");
+        Assert.IsTrue(end.Buffer.IsEmpty);
+        input.AdvanceTo(end.Buffer.Start, end.Buffer.End);
         await input.CompleteAsync();
     }
 

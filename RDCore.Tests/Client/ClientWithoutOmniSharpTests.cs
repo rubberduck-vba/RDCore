@@ -139,8 +139,12 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        StringAssert.Contains(WholeLogOf(platform.Root), "OmniSharp.Extensions.", "what OmniSharp's own container logs is in the language server's file as well");
         await platform.ShutdownAsync(6);
+
+        // a clean start and a clean shutdown log no fault: not the messages held until the client was initialized, nor the input read as it was completed.
+        var log = WholeLogOf(platform.Root);
+        Assert.DoesNotContain("Tried to send", log);
+        Assert.DoesNotContain("Reading is not allowed", log);
     }
 
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to

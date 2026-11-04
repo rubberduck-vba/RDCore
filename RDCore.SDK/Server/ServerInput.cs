@@ -4,143 +4,157 @@ using System.IO.Pipelines;
 namespace RDCore.SDK.Server;
 
 /// <summary>
-/// The reader a language server reads its client's messages with, which can be completed while it reads: a reader that is the one it wraps, read for read,
-/// until it is completed.
+/// The reader a language server reads its client's messages with, which can be completed while it reads: the messages of the reader it wraps, until it is
+/// completed, and then the end of the input.
 /// </summary>
 /// <remarks>
 /// <para>
-/// OmniSharp's input loop waits on a read for as long as the connection is open, and OmniSharp completes its reader under that read, as it handles
-/// <c>exit</c> and as the server is disposed. Over a named pipe, completing a stream's reader disposes the pipe, the read comes back, and the reader that
-/// was completed fails it: <c>"Reading is not allowed after reader was completed"</c>, which the loop reports as an unhandled exception at every clean
-/// shutdown.
+/// OmniSharp's input loop reads for as long as the connection is open, and OmniSharp completes its reader under that loop, as it handles <c>exit</c> and as
+/// the server is disposed. Over a named pipe, completing a stream's reader disposes the pipe, the read that waits comes back, and the reader that was
+/// completed fails it: <c>"Reading is not allowed after reader was completed"</c>, which the loop reports as an unhandled exception at every clean shutdown.
+/// Completed while the loop parses what it has read, the reader takes back the buffer the loop is parsing.
 /// </para>
 /// <para>
-/// Completed while a read is waiting, this reader cancels the read and answers it with the end of the input, and completes the reader it wraps once the read
-/// has come back: the loop stops as it stops when the client closes the connection.
+/// This reader copies what the reader it wraps reads into a pipe of its own, which the loop reads. Completed, it stops reading the reader it wraps and
+/// completes it, and ends its own pipe: the loop parses what it holds, reads the end of the input, and stops as it stops when the client closes the
+/// connection. Only the loop's own reads complete the pipe it reads.
 /// </para>
 /// </remarks>
-/// <param name="inner">The reader of the stream the client's messages arrive on.</param>
-public sealed class ServerInput(PipeReader inner) : PipeReader
+public sealed class ServerInput : PipeReader
 {
     private static readonly ReadResult End = new(ReadOnlySequence<byte>.Empty, isCanceled: false, isCompleted: true);
 
-    private readonly object _gate = new();
-    private readonly CancellationTokenSource _ending = new();
-    private Task _reading = Task.CompletedTask;
-    private TaskCompletionSource? _completion;
+    private readonly PipeReader _inner;
 
-    // the read that came back is the end of the input this reader answered, not one of the reader it wraps: there is nothing of it to advance past.
-    private volatile bool _ended;
+    // the loop reads a message whole before it consumes any of it: the pipe never waits for it to consume, however long the message.
+    private readonly Pipe _received = new(new PipeOptions(pauseWriterThreshold: 0, resumeWriterThreshold: 0, useSynchronizationContext: false));
+    private readonly CancellationTokenSource _ending = new();
+    private readonly Task _receiving;
+
+    // the loop has read the end of the input, and the pipe it read is completed: there is nothing left to advance past or to read.
+    private bool _finished;
+
+    /// <summary>
+    /// Creates the reader of a language server's input, and starts reading the reader it wraps.
+    /// </summary>
+    /// <param name="inner">The reader of the stream the client's messages arrive on.</param>
+    public ServerInput(PipeReader inner)
+    {
+        _inner = inner;
+        _receiving = Task.Run(ReceiveAsync);
+    }
 
     /// <inheritdoc/>
     public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
     {
-        var returned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
+        if (_finished)
         {
-            if (_ending.IsCancellationRequested)
-            {
-                _ended = true;
-                return End;
-            }
-
-            _reading = returned.Task;
-        }
-
-        try
-        {
-            using var reading = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _ending.Token);
-            return await inner.ReadAsync(reading.Token);
-        }
-        catch (OperationCanceledException) when (_ending.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-        {
-            _ended = true;
             return End;
         }
-        finally
-        {
-            returned.SetResult();
-        }
+
+        return Finish(await _received.Reader.ReadAsync(cancellationToken));
     }
 
     /// <inheritdoc/>
     public override bool TryRead(out ReadResult result)
     {
-        if (_ending.IsCancellationRequested)
+        if (_finished)
         {
-            _ended = true;
             result = End;
             return true;
         }
 
-        return inner.TryRead(out result);
+        if (_received.Reader.TryRead(out var read))
+        {
+            result = Finish(read);
+            return true;
+        }
+
+        result = default;
+        return false;
     }
 
     /// <inheritdoc/>
     public override void AdvanceTo(SequencePosition consumed)
     {
-        if (!_ended)
+        if (!_finished)
         {
-            inner.AdvanceTo(consumed);
+            _received.Reader.AdvanceTo(consumed);
         }
     }
 
     /// <inheritdoc/>
     public override void AdvanceTo(SequencePosition consumed, SequencePosition examined)
     {
-        if (!_ended)
+        if (!_finished)
         {
-            inner.AdvanceTo(consumed, examined);
+            _received.Reader.AdvanceTo(consumed, examined);
         }
     }
 
     /// <inheritdoc/>
-    public override void CancelPendingRead() => inner.CancelPendingRead();
+    public override void CancelPendingRead() => _received.Reader.CancelPendingRead();
 
     /// <inheritdoc/>
-    public override void Complete(Exception? exception = null) => _ = CompleteOnce(exception);
+    public override void Complete(Exception? exception = null) => _ = CompleteAfterReceiving();
 
     /// <inheritdoc/>
-    public override ValueTask CompleteAsync(Exception? exception = null) => new(CompleteOnce(exception));
+    public override ValueTask CompleteAsync(Exception? exception = null) => new(CompleteAfterReceiving());
 
-    // completed once, however many times it is told to: by the loop as it stops, by the exit, and by the server as it is disposed.
-    private Task CompleteOnce(Exception? exception)
+    // the end of the input, read by the loop with nothing left to parse, completes the pipe it reads: no buffer of it is held.
+    private ReadResult Finish(ReadResult read)
     {
-        TaskCompletionSource completion;
-        lock (_gate)
+        if (!read.IsCompleted || !read.Buffer.IsEmpty)
         {
-            if (_completion is { } started)
-            {
-                return started.Task;
-            }
-
-            completion = _completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            return read;
         }
 
-        _ = CompleteAfterReadingAsync(exception, completion);
-        return completion.Task;
+        _received.Reader.AdvanceTo(read.Buffer.End);
+        _received.Reader.Complete();
+        _finished = true;
+        return End;
     }
 
-    private async Task CompleteAfterReadingAsync(Exception? exception, TaskCompletionSource completion)
+    private async Task ReceiveAsync()
     {
+        Exception? failure = null;
         try
         {
-            _ending.Cancel();
-
-            Task reading;
-            lock (_gate)
+            while (true)
             {
-                reading = _reading;
-            }
+                var read = await _inner.ReadAsync(_ending.Token);
+                foreach (var segment in read.Buffer)
+                {
+                    _received.Writer.Write(segment.Span);
+                }
 
-            // the read that waits comes back first, answered with the end of the input; the reader it wraps is completed with nothing reading it.
-            await reading;
-            await inner.CompleteAsync(exception);
-            completion.TrySetResult();
+                _inner.AdvanceTo(read.Buffer.End);
+                await _received.Writer.FlushAsync(_ending.Token);
+                if (read.IsCompleted)
+                {
+                    break;
+                }
+            }
         }
-        catch (Exception failure)
+        catch (OperationCanceledException) when (_ending.IsCancellationRequested)
         {
-            completion.TrySetException(failure);
+            // completed: the read of the reader it wraps came back, and nothing reads it now.
         }
+        catch (Exception exception)
+        {
+            // the loop reads the failure of the stream as it would have read it from the stream's own reader.
+            failure = exception;
+        }
+
+        await _inner.CompleteAsync(failure);
+        await _received.Writer.CompleteAsync(failure);
+    }
+
+    // completed once, however many times it is told to: by the exit, by the loop as it stops, and by the server as it is disposed.
+    // receiving ends by completing the reader it wraps and the pipe it fills.
+    private Task CompleteAfterReceiving()
+    {
+        _ending.Cancel();
+        return _receiving;
     }
 }
