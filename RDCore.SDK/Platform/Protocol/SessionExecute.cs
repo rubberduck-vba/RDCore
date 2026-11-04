@@ -9,7 +9,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <see cref="SessionExecuteParams"/> as the platform's JSON-RPC handlers and senders know it: the method it is a request of, and what it is answered with.
 /// </summary>
 [Method(RDCorePlatformProtocol.SessionExecute, Direction.ClientToServer)]
-public sealed record class ExecuteSessionRequest : SessionExecuteParams, IRequest, IRequest<ExecuteResult>;
+public sealed record class SessionExecuteRequest : SessionExecuteParams, IRequest, IRequest<ExecuteResult>;
 
 /// <summary>
 /// Request for <c>rdcore/host/execute</c>: the language-server side of
@@ -17,7 +17,7 @@ public sealed record class ExecuteSessionRequest : SessionExecuteParams, IReques
 /// </summary>
 /// <remarks>
 /// The parsed module rides a <see cref="System.Text.Json"/> string for the same reason
-/// <see cref="DiagnoseDocumentRequest"/>'s does — the AST is polymorphic and the JSON-RPC
+/// <see cref="DiagnoseDocumentParams"/>'s does — the AST is polymorphic and the JSON-RPC
 /// transport's own serializer cannot round-trip it (see <see cref="PlatformJson"/>). The language
 /// server has already parsed and defined the module's symbols by the time it sends this, so the host
 /// lowers and runs rather than re-deriving any of it.

@@ -81,7 +81,7 @@ public sealed class RDCorePlatformClientWireTests
     public async Task ASessionRequest_ReachesTheServer_AndItsResultComesBackAsTheServerWroteIt()
     {
         string? source = null;
-        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
+        using var connected = await ConnectAsync(server => server.OnRequest<SessionExecuteRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
         {
             source = request.Source;
             return Task.FromResult(new ExecuteResult
@@ -167,7 +167,7 @@ public sealed class RDCorePlatformClientWireTests
     public async Task TheLanguageServer_ReadsAStringThatLooksLikeADate_AsTheClientWroteIt()
     {
         var sources = new List<string>();
-        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
+        using var connected = await ConnectAsync(server => server.OnRequest<SessionExecuteRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
         {
             sources.Add(request.Source);
             return Task.FromResult(new ExecuteResult());
@@ -185,7 +185,7 @@ public sealed class RDCorePlatformClientWireTests
     public async Task TheClient_ReadsAStringThatLooksLikeADate_AsTheLanguageServerWroteIt()
     {
         string? prompt = null;
-        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (_, _) =>
+        using var connected = await ConnectAsync(server => server.OnRequest<SessionExecuteRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (_, _) =>
             Task.FromResult(new ExecuteResult { Output = [WithAnOffset, WithAFraction] })));
         using var registration = connected.Platform.OnInputBox((request, _) =>
         {

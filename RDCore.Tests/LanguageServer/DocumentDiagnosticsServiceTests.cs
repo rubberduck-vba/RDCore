@@ -82,8 +82,8 @@ public sealed class DocumentDiagnosticsServiceTests
             $"{title}.exe", title, new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
             [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
         app.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        app.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new DiagnoseDocumentResponse { Diagnostics = diagnostics, SourceVersion = sourceVersion });
+        app.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
+            .Returns(new DiagnoseDocumentResult { Diagnostics = diagnostics, SourceVersion = sourceVersion });
         return app;
     }
 
@@ -393,7 +393,7 @@ public sealed class DocumentDiagnosticsServiceTests
             "boom.exe", "Boom", new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
             [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
         failing.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        failing.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
+        failing.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("boom"));
 
         ProvidersAre(failing, Provider("RDCore.Diagnostics", 1, Diag(1)));
@@ -416,7 +416,7 @@ public sealed class DocumentDiagnosticsServiceTests
     private static DiagnoseDocumentPayload PayloadSentTo(IRDCoreClientApp provider)
     {
         var request = provider.ReceivedCalls().Single(call => call.GetMethodInfo().Name == nameof(IRDCoreClientApp.SendRequestAsync)).GetArguments()[0];
-        return PlatformJson.Deserialize<DiagnoseDocumentPayload>(((DiagnoseDocumentRequest)request!).Json);
+        return PlatformJson.Deserialize<DiagnoseDocumentPayload>(((DiagnoseDocumentParams)request!).Json);
     }
 
     [TestMethod]

@@ -16,7 +16,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// the code in its buffer.
 /// </remarks>
 [Method(RDCorePlatformProtocol.SessionAnalyze, Direction.ClientToServer)]
-public record class AnalyzeSessionParams : IRequest, IRequest<AnalyzeSessionResult>, IWorkDoneProgressParams
+public record class SessionAnalyzeParams : IRequest, IRequest<SessionAnalyzeResult>, IWorkDoneProgressParams
 {
     /// <summary>
     /// The token the progress of the analysis is reported to (<strong>LSP 3.17</strong> §Work Done Progress): the parse, the semantic model, and each
@@ -38,7 +38,7 @@ public record class AnalyzeSessionParams : IRequest, IRequest<AnalyzeSessionResu
 /// <summary>
 /// What the platform found in the module.
 /// </summary>
-public record class AnalyzeSessionResult
+public record class SessionAnalyzeResult
 {
     /// <summary>
     /// The diagnostics, in source order.

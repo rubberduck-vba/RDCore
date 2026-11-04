@@ -215,12 +215,12 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         => Platform.DebugExecuteAsync(new SessionDebugExecuteParams { FrameId = frameId, Statement = statement }, token);
 
     /// <inheritdoc/>
-    public async Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token)
+    public async Task<SessionAnalyzeResult> AnalyzeAsync(string source, string moduleName, CancellationToken token)
     {
         // the analysis reports its progress to a token of its own, which is tracked until it is answered.
         using var progress = client.TrackWorkDone();
-        return await client.SendRequestAsync<AnalyzeSessionParams, AnalyzeSessionResult>(
-            new AnalyzeSessionParams { Source = source, ModuleName = moduleName, WorkDoneToken = progress.Token }, token);
+        return await client.SendRequestAsync<SessionAnalyzeParams, SessionAnalyzeResult>(
+            new SessionAnalyzeParams { Source = source, ModuleName = moduleName, WorkDoneToken = progress.Token }, token);
     }
 
     /// <inheritdoc/>

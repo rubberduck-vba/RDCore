@@ -10,7 +10,7 @@ namespace RDCore.Tests.Platform;
 /// <summary>
 /// <see cref="DiagnoseDocumentPayload"/> carries a polymorphic <c>ModuleParseResult</c> to a provider
 /// extension, so it rides a <see cref="PlatformJson"/> string; the
-/// <see cref="DiagnoseDocumentResponse"/> comes back as plain LSP <see cref="Diagnostic"/>s the
+/// <see cref="DiagnoseDocumentResult"/> comes back as plain LSP <see cref="Diagnostic"/>s the
 /// transport's own (Newtonsoft) serializer round-trips.
 /// </summary>
 [TestClass]
@@ -73,9 +73,9 @@ public sealed class DiagnoseDocumentSerializationTests
     }
 
     [TestMethod]
-    public void DiagnoseDocumentResponse_RoundTripsThroughTheLspSerializer()
+    public void DiagnoseDocumentResult_RoundTripsThroughTheLspSerializer()
     {
-        var original = new DiagnoseDocumentResponse
+        var original = new DiagnoseDocumentResult
         {
             SourceVersion = 4,
             Diagnostics = new Container<Diagnostic>(
@@ -99,7 +99,7 @@ public sealed class DiagnoseDocumentSerializationTests
         };
 
         var json = LspSerializer.Instance.SerializeObject(original);
-        var result = LspSerializer.Instance.DeserializeObject<DiagnoseDocumentResponse>(json);
+        var result = LspSerializer.Instance.DeserializeObject<DiagnoseDocumentResult>(json);
 
         Assert.AreEqual(4, result.SourceVersion);
         Assert.AreEqual(2, result.Diagnostics.Count());

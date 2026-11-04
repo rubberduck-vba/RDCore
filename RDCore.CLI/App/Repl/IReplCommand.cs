@@ -317,7 +317,7 @@ public interface IReplPlatformClient
     /// <param name="source">The complete module source.</param>
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
+    Task<SessionAnalyzeResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
 
     /// <summary>
     /// Asks the language server what can be written at a position of a module: the completion list of the line at the prompt.
