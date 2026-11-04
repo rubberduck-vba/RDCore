@@ -178,12 +178,14 @@ public sealed class CompiledByRefCallTests
             "        Add n - 1, total",
             "    End If",
             "End Sub");
-        var (observed, _) = await AssertAlikeAsync(program);
+        var (observed, direct) = await AssertAlikeAsync(program, provider => BodyOf(provider, "Go").DirectCalls + BodyOf(provider, "Add").DirectCalls);
 
         StringAssert.Contains(observed, "| 65 |");
+        AssertCalls(2 + 10 + 4, (direct, 0));
         if (!CompiledExecution.WalksBackAtRandom)
         {
             var activations = (await RunAsync(program, VBExecutionEngine.Compiled, [], provider => BodyOf(provider, "Add").ActivationsMade)).Measured;
+            Assert.IsGreaterThanOrEqualTo(1L, activations, "Add is called directly");
             Assert.IsLessThanOrEqualTo(11L, activations, "as many as the recursion goes deep");
         }
     }
@@ -215,11 +217,12 @@ public sealed class CompiledByRefCallTests
         Assert.IsGreaterThanOrEqualTo(1L, walkedBack);
     }
 
-    // an error raised after a callee wrote its parameter leaves the caller's variable written: an interpreted caller's, given to compiled code by reference.
+    // an error raised after a callee wrote its parameter leaves the caller's variable written: an interpreted caller's, given to compiled code by reference,
+    // which passes it on directly.
     [TestMethod]
     public async Task AnErrorAfterTheCalleeWroteTheVariable_LeavesItWritten()
     {
-        var (observed, _) = await AssertAlikeAsync(Program(
+        var (observed, direct) = await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    On Error Resume Next",
             "    Dim n As Long",
@@ -233,13 +236,15 @@ public sealed class CompiledByRefCallTests
             "Private Sub Second(ByRef y As Long)",
             "    y = 7",
             "    y = y \\ 0",
-            "End Sub"));
+            "End Sub"), Direct("First"));
 
         StringAssert.Contains(observed, "| 7  11 |");
+        AssertCalls(1, (direct, 0));
     }
 
     // a field of an object passed by reference, and Me's field: the compiled callee is given what the interpreter passes - a cell of its own holding a copy,
-    // which it runs compiled on, or the field's address, which it is handed to the interpreter at.
+    // which it runs compiled on, making its call directly, or the field's address, which it is handed to the interpreter at. Either way its body is entered
+    // for each call.
     [TestMethod]
     public async Task AFieldOfAnObjectPassedByReference_IsWhatTheInterpreterPasses_TheCompiledCalleeIsGiven()
     {
@@ -253,7 +258,7 @@ public sealed class CompiledByRefCallTests
                 "    Increment Me.Field",
                 "End Sub")),
         };
-        var (observed, compiled) = await AssertAlikeAsync(Program(
+        var (observed, entered) = await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim o As C",
             "    Set o = New C",
@@ -263,18 +268,28 @@ public sealed class CompiledByRefCallTests
             "    Debug.Print o.Field",
             "End Sub",
             "Public Sub Increment(ByRef x As Long)",
-            "    x = x + 1",
-            "End Sub"), provider => BodyOf(provider, "Increment").Entry is null ? 0 : 1, classes);
+            "    Add x, 1",
+            "End Sub",
+            "Private Sub Add(ByRef x As Long, ByVal n As Long)",
+            "    x = x + n",
+            "End Sub"), provider => BodyOf(provider, "Increment").DirectCalls + BodyOf(provider, "Increment").WalkBacks, classes);
 
         StringAssert.StartsWith(observed, "Completed |");
-        Assert.AreEqual(1L, compiled, "Increment is compiled");
+        if (CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.IsGreaterThanOrEqualTo(2L, entered);
+        }
+        else
+        {
+            Assert.AreEqual(2L, entered, "Increment's compiled body is entered for each call");
+        }
     }
 
     // an element of an array passed by reference is the element: a compiled callee given it is handed to the interpreter, which reads it where it is.
     [TestMethod]
     public async Task AnElementPassedByReference_IsTheElement()
     {
-        var (observed, _) = await AssertAlikeAsync(Program(
+        var (observed, walkedBack) = await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim a(1 To 3) As Long",
             "    a(2) = 5",
@@ -283,9 +298,58 @@ public sealed class CompiledByRefCallTests
             "End Sub",
             "Public Sub Increment(ByRef x As Long)",
             "    x = x + 1",
-            "End Sub"));
+            "End Sub"), provider => BodyOf(provider, "Increment").WalkBacks);
 
         StringAssert.Contains(observed, "| 6 |");
+        Assert.IsGreaterThanOrEqualTo(1L, walkedBack, "Increment is compiled, and handed to the interpreter");
+    }
+
+    // a value passed by reference to a callee the interpreter runs is a value, as the interpreter passes it: the callee's cell is its own, and is let go of
+    // with its frame, even after the callee took its address. What is still allocated once the program ended is what the interpreter leaves.
+    [TestMethod]
+    public async Task AValuePassedByReference_ToAnInterpretedCallee_IsLetGoOfWithTheCallee()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Go(100)",
+            "End Sub",
+            "Private Function Go(ByVal count As Long) As Long",
+            "    Dim i As Long, n As Long",
+            "    For i = 1 To count",
+            "        Touch (n)",
+            "        Touch n + 1",
+            "        Touch n",
+            "    Next",
+            "    Go = n",
+            "End Function",
+            "Private Sub Touch(ByRef x As Long)",
+            "    Dim p As LongPtr",
+            "    p = VarPtr(x)",
+            "    x = x + 1",
+            "End Sub");
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
+        var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
+
+        StringAssert.Contains(compiled.Observed, "| 100 |");
+        Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(300L, compiled.Indirect, "Go is compiled, and calls Touch through the invoker");
+        }
+    }
+
+    // the program run to its end with engine: what it did, the bytes of the session's memory still allocated, and the calls Go made through the invoker.
+    private static async Task<(string Observed, int Allocated, long Indirect)> AllocatedAfterAsync(string program, VBExecutionEngine engine)
+    {
+        (string Observed, int Allocated, long Indirect) made = default;
+        using var running = CompiledExecution.Running(engine);
+        await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
+        {
+            made = (Observed(run), provider.Session.Memory.Info.AllocatedBytes, engine is VBExecutionEngine.Compiled ? BodyOf(provider, "Go").IndirectCalls : 0);
+            return Task.CompletedTask;
+        }, engine: engine);
+        return made;
     }
 
     // compiled code passes its variable by reference to a callee it does not compile as the interpreter does: the cell, which the callee's parameter is.
@@ -414,6 +478,62 @@ public sealed class CompiledByRefCallTests
             }
         }, debug: true, engine: engine);
         return observed;
+    }
+
+    // a byte POKEd at the address of a parameter passed by reference, while the program waits in the callee, is written into the caller's variable: the
+    // address is the variable's (VarPtr), and so is what is bound there.
+    private static async Task<string> PokedBelowFillAsync(VBExecutionEngine engine)
+    {
+        var observed = string.Empty;
+        using var running = CompiledExecution.Running(engine);
+        await ModuleWorkspace.InspectAsync([], Program(
+            "Public Sub Main()",
+            "    Debug.Print Go()",
+            "End Sub",
+            "Private Function Go() As Long",
+            "    Dim n As Long",
+            "    n = 1",
+            "    Fill n",
+            "    Go = n",
+            "End Function",
+            "Private Sub Fill(ByRef x As Long)",
+            "    Dim p As LongPtr",
+            "    p = VarPtr(x)",
+            "    Stop",
+            "End Sub"), async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var fill = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Fill").Id;
+                var address = int.Parse(provider.Execution.Variables(fill, HostVariableScope.Locals, 0).Variables.Single(variable => variable.Name == "p").Value,
+                    System.Globalization.CultureInfo.InvariantCulture);
+                var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = address, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
+                Assert.IsTrue(poked.IsWritten);
+                observed = Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                    .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
+            }
+            finally
+            {
+                if (provider.Execution.State is not ProgramState.Idle)
+                {
+                    _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+                }
+            }
+        }, debug: true, engine: engine);
+        return observed;
+    }
+
+    [TestMethod]
+    [Ignore("a POKE at the address of a ByRef parameter rebinds the address to a binding of its own (SessionStorage.TryPoke), and the caller goes on reading its old cell")]
+    public async Task AByteWrittenAtTheAddressOfAParameterPassedByReference_IsWrittenIntoTheCallersVariable()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await PokedBelowFillAsync(VBExecutionEngine.Interpreter);
+        var compiled = await PokedBelowFillAsync(VBExecutionEngine.Compiled);
+
+        StringAssert.Contains(interpreted, "| 42 |");
+        Assert.AreEqual(interpreted, compiled);
     }
 
     [TestMethod]

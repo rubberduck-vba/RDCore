@@ -324,7 +324,10 @@ public sealed class CompiledActivation : ILightActivation
     // the cells of the arguments of the call compiled code is making that are passed by reference, by index; none for one passed by value.
     private object?[] _references = [];
 
-    /// <summary>Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a parameter passed by reference: its cell.</summary>
+    /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a parameter passed by reference: the cell of the variable
+    /// given. A value given to such a parameter is given with <see cref="SetArgument"/>.
+    /// </summary>
     public void SetReference(int index, object cell)
     {
         if (index >= _references.Length)
@@ -344,7 +347,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
     /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
-    /// such argument, which the parameter is a second name for (<see cref="CellReference"/>): the instruction at <paramref name="pc"/> is the one that makes
+    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>), and the value of anything else, of which the callee
+    /// makes a cell of its own: the instruction at <paramref name="pc"/> is the one that makes
     /// the call, which the frame says while the callee runs.
     /// </summary>
     /// <returns>Whether the call returned: what it returned is then a payload of its kind. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>).</returns>
@@ -357,6 +361,7 @@ public sealed class CompiledActivation : ILightActivation
         var called = _body.Callees[callee];
         if (_executor.Expressions.ScalarInvokerOf(called.Procedure) is not { } invoker)
         {
+            ForgetReferences(called);
             return false;
         }
 
@@ -395,19 +400,29 @@ public sealed class CompiledActivation : ILightActivation
         return arguments;
     }
 
-    // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): a value of the parameter's type, or the cell of a variable.
+    // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
+    // of which the callee makes a cell of its own when the parameter is passed by reference.
     private IRuntimeValue[] ArgumentsOf(CompiledCallee called)
     {
         var arguments = new IRuntimeValue[called.Parameters.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = called.ByReference[i]
-                ? new CellReference(Unsafe.As<ScalarCell>(_references[i]!))
+            arguments[i] = i < _references.Length && _references[i] is { } cell
+                ? new CellReference(Unsafe.As<ScalarCell>(cell))
                 : new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating).Box();
-            _references[i] = null;
         }
 
+        ForgetReferences(called);
         return arguments;
+    }
+
+    // the cells given for a call are let go of once it is made, or once the interpreter is to make it: the next call is given its own.
+    private void ForgetReferences(CompiledCallee called)
+    {
+        if (called.TakesReferences)
+        {
+            Array.Clear(_references, 0, Math.Min(called.Parameters.Count, _references.Length));
+        }
     }
 
     /// <summary>

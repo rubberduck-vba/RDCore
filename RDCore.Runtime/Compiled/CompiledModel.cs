@@ -202,8 +202,9 @@ internal sealed record class ExitStep(int Offset) : CompiledStep(Offset);
 // in, which the parameter is a second name for. Only an argument of a call.
 internal sealed record class ReferenceNode(int Slot, ScalarKind Kind) : PayloadNode(Kind);
 
-// the argument of a parameter passed by reference that is no variable - a literal, an operation, an expression in parentheses (MS-VBAL §5.3.1.11): a cell
-// of its own, made for the call, holding the value let-coerced to the parameter's kind. Only an argument of a call.
+// the argument of a parameter passed by reference that is no variable - a literal, an operation, an expression in parentheses (MS-VBAL §5.3.1.11): the
+// value let-coerced to the parameter's kind, of which a cell of its own is made for a call made directly; the invoker is given the value, as the
+// interpreter gives it. Only an argument of a call.
 internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Value.Kind);
 
 // a call of a procedure of the workspace (Callee, of CompiledBody.Callees), every argument a scalar passed by value, or the cell of one passed by reference

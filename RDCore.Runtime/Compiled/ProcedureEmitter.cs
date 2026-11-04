@@ -302,14 +302,15 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, callee);
             _il.Emit(OpCodes.Ldloc, callee);
             _il.Emit(OpCodes.Brfalse, indirect);
+            var given = EmitTemporaries(call, arguments);
 
             // a CLR exception the callee lets out - a defect of the platform, which no handler of the program catches - takes its activation off the stack as it
             // goes by (CompiledActivation.AbandonDirectCall): what is on the stack after is what was before the call.
             _il.BeginExceptionBlock();
             _il.Emit(OpCodes.Ldloc, callee);
-            for (var i = 0; i < arguments.Length; i++)
+            for (var i = 0; i < given.Length; i++)
             {
-                Load(arguments[i], call.Arguments[i].Kind);
+                Load(given[i], call.Arguments[i].Kind);
             }
 
             _il.Emit(OpCodes.Call, direct.Entry);
@@ -336,7 +337,7 @@ internal sealed class ProcedureEmitter
         {
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
-            if (call.Arguments[i] is ReferenceNode or TemporaryNode)
+            if (call.Arguments[i] is ReferenceNode)
             {
                 Load(arguments[i], call.Arguments[i].Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetReference))!);
@@ -747,28 +748,36 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
     }
 
-    // the argument of a call: a value, or the cell of a parameter passed by reference - the variable's, or one of its own made of the value.
-    private Operand EmitArgument(PayloadNode node, Label failure)
+    // the argument of a call: a value - which is all a parameter passed by reference is given of one that is no variable, until the call is made directly
+    // (EmitTemporaries) - or the cell of a variable passed by reference.
+    private Operand EmitArgument(PayloadNode node, Label failure) => node switch
     {
-        switch (node)
-        {
-            case ReferenceNode reference:
-                return new Operand(_cells[reference.Slot], 0, 0);
+        ReferenceNode reference => new Operand(_cells[reference.Slot], 0, 0),
+        TemporaryNode temporary => EmitPayload(temporary.Value, failure),
+        _ => EmitPayload(node, failure),
+    };
 
-            case TemporaryNode temporary:
+    // the arguments of a call made directly: a parameter passed by reference that is given a value is given a cell of its own holding it, which is the
+    // callee's alone (MS-VBAL §5.3.1.11). The invoker is given the value, and the interpreter makes the callee's cell of it, as for a call it makes.
+    private Operand[] EmitTemporaries(CallStep call, Operand[] arguments)
+    {
+        var direct = (Operand[])arguments.Clone();
+        for (var i = 0; i < direct.Length; i++)
+        {
+            if (call.Arguments[i] is not TemporaryNode temporary)
             {
-                var value = EmitPayload(temporary.Value, failure);
-                var cell = _il.DeclareLocal(typeof(object));
-                _il.Emit(OpCodes.Ldc_I4, (int)temporary.Kind);
-                LoadAsBoth(value, temporary.Kind);
-                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.NewCell))!);
-                _il.Emit(OpCodes.Stloc, cell);
-                return new Operand(cell, 0, 0);
+                continue;
             }
 
-            default:
-                return EmitPayload(node, failure);
+            var cell = _il.DeclareLocal(typeof(object));
+            _il.Emit(OpCodes.Ldc_I4, (int)temporary.Kind);
+            LoadAsBoth(arguments[i], temporary.Kind);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.NewCell))!);
+            _il.Emit(OpCodes.Stloc, cell);
+            direct[i] = new Operand(cell, 0, 0);
         }
+
+        return direct;
     }
 
     // evaluates a payload into a local - or names the local or the constant it is - leaving nothing on the stack, so that a failure branches from an empty one.
