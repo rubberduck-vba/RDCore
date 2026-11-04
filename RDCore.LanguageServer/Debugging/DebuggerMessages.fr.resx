@@ -66,6 +66,9 @@
   <data name="StopPaused" xml:space="preserve">
     <value>Interrompu</value>
   </data>
+  <data name="StillStopping" xml:space="preserve">
+    <value>Le programme est encore en train de s'arrêter : il attend le retour d'un appel externe, et prendra fin à ce retour.</value>
+  </data>
   <data name="StopAtBreakpoint" xml:space="preserve">
     <value>Interrompu sur un point d'arrêt</value>
   </data>

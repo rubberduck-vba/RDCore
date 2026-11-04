@@ -620,6 +620,9 @@ internal static class LanguageServerOptionsExtensions
         // OmniSharp's own IReceiver drops a bare Exit sent before Initialize instead of letting it
         // through per spec, so ExitHandler above never runs and the host hangs instead of exiting
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
-        // registered first, so registering ours here pre-empts it.
-        .WithServices(services => services.AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
+        // registered first, so registering ours here pre-empts it. It also keeps a request that acts on a running program, which is handled as it arrives rather
+        // than after the request that runs the program (ArrivalRequests).
+        .WithServices(services => services
+            .AddSingleton<ArrivalRequests>()
+            .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

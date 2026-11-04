@@ -741,6 +741,29 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
+    // a program in a call outside it ends when the call returns: the client is told it is still stopping, and the end is told when the run that was going on
+    // is over.
+    [TestMethod]
+    public async Task ATerminate_OfAProgramStillStopping_SaysSo_AndTheEndIsToldWhenTheRunIsOver()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var running = new TaskCompletionSource<ExecuteResult>();
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(running.Task);
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true, Stopping = true }));
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        session.Debugging.ClearReceivedCalls();
+
+        _ = await session.SendAsync(new TerminateArguments());
+
+        Assert.AreEqual(DebuggerMessages.StillStopping + "\n", (await session.NextAsync<OutputEvent>()).Output);
+        Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
+        await session.Debugging.DidNotReceiveWithAnyArgs().EditStatusAsync(default);
+
+        running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
     [TestMethod]
     public async Task ADisconnect_EndsTheProgramTheClientStarted_AndTheAdapterIsDone()
     {

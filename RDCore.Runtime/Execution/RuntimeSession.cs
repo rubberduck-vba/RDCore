@@ -293,8 +293,10 @@ internal sealed class SessionHalt : ISessionHalt
 
     public bool TrySuspendOnError(IVBRaisableError error, bool handled)
     {
-        if (BreakOnErrors is ErrorBreakMode.None
-            || (BreakOnErrors is ErrorBreakMode.Unhandled && handled)
+        // the mode is said from another thread while the program runs: it is read once, so that the error is judged by one mode.
+        var mode = BreakOnErrors;
+        if (mode is ErrorBreakMode.None
+            || (mode is ErrorBreakMode.Unhandled && handled)
             || ReferenceEquals(_lastWaitedAt, error))
         {
             return false;

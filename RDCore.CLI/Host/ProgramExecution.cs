@@ -68,6 +68,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     private ProgramEdits? _suspendedWith;
     private bool _terminating;
     private bool _wipeOnTerminate;
+
+    // whether the program that runs was started under a debugger, which can stop it; and a stop asked of it before it executes, which it is asked as it starts.
+    private bool _debugging;
+    private bool _stopWhenStarted;
     private TaskCompletionSource _idle = Settled();
     private readonly ProgramInspector _inspector = new(provider);
     private bool _streaming;
@@ -187,6 +191,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             _state = ProgramState.Running;
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
+            (_debugging, _stopWhenStarted) = (debug, false);
             _streaming = debug && streamOutput;
             session.RunsUnattended = unattended;
         }
@@ -697,13 +702,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     {
         lock (_sync)
         {
-            if (_state is not ProgramState.Running || _execution is null)
+            if (_state is not ProgramState.Running || !_debugging)
             {
                 return false;
             }
 
-            // a step into is due at the very next instruction, whichever procedure it is in: that is a pause.
-            provider.Session.Halt.RequestStep(StepKind.Into, callDepth: 0);
+            StopAtTheNextInstruction();
             return true;
         }
     }
@@ -712,8 +716,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// Ends the program that is running or waits.
     /// </summary>
     /// <param name="wipe">Whether the session is wiped, as an <c>End</c> wipes it, or keeps what the program made of it.</param>
-    /// <returns>Whether there was a program to end.</returns>
-    public async Task<bool> TerminateAsync(bool wipe)
+    /// <param name="token">
+    /// Stops the wait for a program that is running to stop: one in a call outside it - a <c>Declare</c>, an object, a dialog - stops when the call returns, and the
+    /// end that was asked of it stands meanwhile.
+    /// </param>
+    /// <returns>Whether there was a program to end, and whether it had not stopped yet when the wait was stopped.</returns>
+    public async Task<DebugAck> TerminateAsync(bool wipe, CancellationToken token = default)
     {
         Task idle;
         lock (_sync)
@@ -721,33 +729,56 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             switch (_state)
             {
                 case ProgramState.Idle:
-                    return false;
+                    return new DebugAck();
 
                 // what runs alongside the program is let finish: it is short, and it is what the program would be ended in the middle of.
                 case ProgramState.Suspended when _alongside:
-                    return false;
+                    return new DebugAck();
 
                 case ProgramState.Suspended:
                     EndSuspended(provider.Session, wipe);
-                    return true;
+                    return new DebugAck { Acted = true };
 
                 default:
                     // a program that is not under a debugger has nothing to stop it at: it ends when it ends, or when its request is cancelled.
-                    if (_execution is null)
+                    if (!_debugging)
                     {
-                        return false;
+                        return new DebugAck();
                     }
 
                     // a program that is running is stopped first, and ended by the request that runs it when it waits.
                     (_terminating, _wipeOnTerminate) = (true, wipe);
                     idle = _idle.Task;
-                    provider.Session.Halt.RequestStep(StepKind.Into, callDepth: 0);
+                    StopAtTheNextInstruction();
                     break;
             }
         }
 
-        await idle;
-        return true;
+        try
+        {
+            await idle.WaitAsync(token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // the end stands: the program ends at its next instruction, once the call it is in returns.
+            return new DebugAck { Acted = true, Stopping = true };
+        }
+
+        return new DebugAck { Acted = true };
+    }
+
+    // a step into is due at the very next instruction, whichever procedure it is in: that is a pause. A program that was started and is not executing yet - it
+    // waits for its turn, or is being set up - would lose a step asked of it now (a run starts as one that was never stopped): it is asked of it as it starts.
+    // Called with the lock held.
+    private void StopAtTheNextInstruction()
+    {
+        if (_execution is null)
+        {
+            _stopWhenStarted = true;
+            return;
+        }
+
+        provider.Session.Halt.RequestStep(StepKind.Into, callDepth: 0);
     }
 
     // ---- a statement typed while the program waits ----
@@ -823,6 +854,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             execution = _execution = new SuspendableExecution(session);
             _output = NewSegmentOutput();
             provider.Output.Target = _output;
+            if (_stopWhenStarted)
+            {
+                _stopWhenStarted = false;
+                session.Halt.RequestStep(StepKind.Into, callDepth: 0);
+            }
         }
 
         try

@@ -168,7 +168,7 @@ public sealed class ClientWithoutOmniSharpTests
         var initialize = await rpc.RequestAsync(1, "initialize", parameters);
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
-        var handshake = await rpc.RequestAsync(2, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         Assert.IsNull(handshake["error"], handshake.ToJsonString());
         var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute,
             new JsonObject { ["source"] = "Public Sub Main()\r\n    Debug.Print 6\r\nEnd Sub\r\n", ["moduleName"] = "Program", ["entryPoint"] = "Main" });
@@ -301,6 +301,48 @@ public sealed class ClientWithoutOmniSharpTests
         }
 
         await platform.ShutdownAsync(4);
+    }
+
+    // a pause, as the shell's Ctrl+Break and the debug adapter send it, is handled while the program it pauses runs - in the language server and in the host - and
+    // stops a program that never ends.
+    private const string Looping = "Public Sub Main()\r\n    Dim Total As Long\r\n    Do While True\r\n        Total = Total + 1\r\n    Loop\r\nEnd Sub\r\n";
+
+    private const string ClaimsDebugging = """
+        { "expectedComponent": 1, "expected": { "languageServer": { "sessionExecute": { "isSupported": true }, "programDebugging": { "isSupported": true } } } }
+        """;
+
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task AProgramRunUnderADebugger_IsPausedWhileItRuns_ThenEnded()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDebugging)!.AsObject()))["error"]);
+
+        var running = rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute,
+            new JsonObject { ["source"] = Looping, ["moduleName"] = "Program", ["entryPoint"] = "Main", ["debug"] = true });
+
+        // a pause that arrives before the program runs acts on nothing, and is answered so: it is sent again until it stops the program.
+        var id = 4;
+        JsonNode paused;
+        do
+        {
+            paused = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugPause, new JsonObject());
+            Assert.IsNull(paused["error"], $"{paused.ToJsonString()}\n{LogOf(platform.Root)}");
+            Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+        }
+        while (paused["result"]!["acted"]!.GetValue<bool>() is false);
+
+        var suspended = await running;
+        Assert.AreEqual((int)ExecutionOutcome.Suspended, suspended["result"]!["outcome"]!.GetValue<int>(), $"{suspended.ToJsonString()}\n{LogOf(platform.Root)}");
+
+        var ended = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugTerminate, new JsonObject());
+        Assert.IsTrue(ended["result"]!["acted"]!.GetValue<bool>(), ended.ToJsonString());
+        await platform.ShutdownAsync(id);
     }
 
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.
