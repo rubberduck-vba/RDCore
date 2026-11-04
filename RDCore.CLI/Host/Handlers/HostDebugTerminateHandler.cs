@@ -7,8 +7,9 @@ namespace RDCore.CLI.Host.Handlers;
 /// </summary>
 /// <remarks>
 /// A program that runs is ended at its next instruction, which a program in a call outside it - a <c>Declare</c>, an object, a dialog - comes to when the call
-/// returns: the request is answered once the program is ended, or after <see cref="StopWait"/> with the end asked of it, which stands. The request is handled as
-/// it arrives (<see cref="SDK.Server.HandledOnArrivalAttribute"/>), and nothing else bounds it.
+/// returns: the request is answered once the program is ended, or after <see cref="StopWait"/> with the end asked of it, which stands, and says the program is
+/// still stopping (<see cref="HostDebugAck.Stopping"/>). The request is handled as it arrives (<see cref="SDK.Server.HandledOnArrivalAttribute"/>), and nothing
+/// else bounds it.
 /// </remarks>
 internal sealed class HostDebugTerminateHandler(IEnvironmentSessionProvider sessionProvider) : RDCoreRequestHandler<HostDebugTerminateParams, HostDebugAck>
 {
@@ -24,6 +25,6 @@ internal sealed class HostDebugTerminateHandler(IEnvironmentSessionProvider sess
 
         using var bound = CancellationTokenSource.CreateLinkedTokenSource(token);
         bound.CancelAfter(StopWait);
-        return new HostDebugAck { Acted = await sessionProvider.Execution.TerminateAsync(request.Wipe, bound.Token) };
+        return await sessionProvider.Execution.TerminateAsync(request.Wipe, bound.Token);
     }
 }

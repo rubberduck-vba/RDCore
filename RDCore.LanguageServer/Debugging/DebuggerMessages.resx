@@ -66,6 +66,9 @@
   <data name="StopPaused" xml:space="preserve">
     <value>Paused</value>
   </data>
+  <data name="StillStopping" xml:space="preserve">
+    <value>The program is still stopping: it waits for an outside call to return, and ends when it does.</value>
+  </data>
   <data name="StopAtBreakpoint" xml:space="preserve">
     <value>Paused on breakpoint</value>
   </data>

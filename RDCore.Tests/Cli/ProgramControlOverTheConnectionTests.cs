@@ -47,10 +47,11 @@ public sealed class ProgramControlOverTheConnectionTests
 
     [TestMethod]
     public async Task APause_SentWhileAResumedProgramRuns_StopsIt_AndTheResumeAnswersSuspended()
-        => await ConnectedAsync(async (provider, client) =>
+        => await ConnectedAsync(async (provider, client, resumed) =>
         {
             var running = client.SendRequest<ExecuteSessionResult>(new HostDebugResumeParams(), CancellationToken.None);
-            await WaitForAsync(() => provider.Execution.State is ProgramState.Running);
+            await resumed.WaitAsync(Patience);
+            Assert.AreEqual(ProgramState.Running, provider.Execution.State);
 
             var ack = await client.SendRequest<HostDebugAck>(new HostDebugPauseParams(), CancellationToken.None).WaitAsync(Patience);
             var paused = await running.WaitAsync(Patience);
@@ -62,10 +63,11 @@ public sealed class ProgramControlOverTheConnectionTests
 
     [TestMethod]
     public async Task ATerminate_SentWhileAResumedProgramRuns_EndsIt()
-        => await ConnectedAsync(async (provider, client) =>
+        => await ConnectedAsync(async (provider, client, resumed) =>
         {
             var running = client.SendRequest<ExecuteSessionResult>(new HostDebugResumeParams(), CancellationToken.None);
-            await WaitForAsync(() => provider.Execution.State is ProgramState.Running);
+            await resumed.WaitAsync(Patience);
+            Assert.AreEqual(ProgramState.Running, provider.Execution.State);
 
             var ack = await client.SendRequest<HostDebugAck>(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
@@ -105,7 +107,7 @@ public sealed class ProgramControlOverTheConnectionTests
 
             Assert.IsTrue(paused);
             Assert.AreEqual(ExecutionOutcome.Suspended, result.Outcome, result.ErrorMessage);
-            Assert.IsTrue(await provider.Execution.TerminateAsync(wipe: false));
+            Assert.IsTrue((await provider.Execution.TerminateAsync(wipe: false)).Acted);
         }, debug: true);
 
     [TestMethod]
@@ -113,36 +115,41 @@ public sealed class ProgramControlOverTheConnectionTests
         => await ModuleWorkspace.InspectAsync(NoClasses, StopsTheFirstTimeThenLoops, async (provider, first, run) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
-            Task<bool>? terminated = null;
+            Task<HostDebugAck>? terminated = null;
 
             var result = await RunAskingAsItIsTakingItsTurn(provider, run, () => terminated = provider.Execution.TerminateAsync(wipe: false));
 
             Assert.AreEqual(ExecutionOutcome.Halted, result.Outcome, result.ErrorMessage);
-            Assert.IsTrue(await terminated!.WaitAsync(Patience));
+            var ended = await terminated!.WaitAsync(Patience);
+            Assert.IsTrue(ended.Acted);
+            Assert.IsFalse(ended.Stopping, "it was ended");
             Assert.AreEqual(ProgramState.Idle, provider.Execution.State);
         }, debug: true);
 
-    // a program in a call outside it stops when the call returns: the end asked of it stands, and whoever asked is not kept waiting for it.
+    // a program in a call outside it stops when the call returns: the end asked of it stands, and whoever asked is not kept waiting for it - and is told the
+    // program is still stopping.
     [TestMethod]
-    public async Task ATerminate_WhoseWaitIsStopped_IsAnsweredAtOnce_AndTheEndStands()
+    public async Task ATerminate_WhoseWaitIsStopped_IsAnsweredAtOnce_ThatTheProgramIsStillStopping_AndTheEndStands()
         => await ModuleWorkspace.InspectAsync(NoClasses, StopsTheFirstTimeThenLoops, async (provider, first, run) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
-            Task<bool>? terminated = null;
-            var answeredBeforeTheEnd = false;
+            HostDebugAck? answeredBeforeTheEnd = null;
 
             var result = await RunAskingAsItIsTakingItsTurn(provider, run, () =>
             {
-                terminated = provider.Execution.TerminateAsync(wipe: false, new CancellationToken(canceled: true));
-                answeredBeforeTheEnd = terminated.IsCompletedSuccessfully && terminated.Result;
+                var terminated = provider.Execution.TerminateAsync(wipe: false, new CancellationToken(canceled: true));
+                answeredBeforeTheEnd = terminated.IsCompletedSuccessfully ? terminated.Result : null;
             });
 
-            Assert.IsTrue(answeredBeforeTheEnd);
+            Assert.IsNotNull(answeredBeforeTheEnd, "answered at once");
+            Assert.IsTrue(answeredBeforeTheEnd.Acted);
+            Assert.IsTrue(answeredBeforeTheEnd.Stopping);
             Assert.AreEqual(ExecutionOutcome.Halted, result.Outcome, result.ErrorMessage);
         }, debug: true);
 
-    // the looping program, which waits at the Stop it begins with, and the host's program requests served over a connection as the host serves them.
-    private static Task ConnectedAsync(Func<EnvironmentSessionProvider, LanguageClient, Task> test)
+    // the looping program, which waits at the Stop it begins with, and the host's program requests served over a connection as the host serves them. The test
+    // is told when the resume has begun: the program is running from then on.
+    private static Task ConnectedAsync(Func<EnvironmentSessionProvider, LanguageClient, Task, Task> test)
         => ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, _) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
@@ -150,11 +157,12 @@ public sealed class ProgramControlOverTheConnectionTests
             using var timeout = new CancellationTokenSource(Patience);
             var toServer = new Pipe();
             var toClient = new Pipe();
+            var resume = new BegunResume(new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance));
             var serving = OmniSharpLanguageServer.From(options => options
                 .WithInput(toServer.Reader)
                 .WithOutput(toClient.Writer)
                 .WithEveryRequestAnswered()
-                .AddHandler(new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance))
+                .AddHandler(resume)
                 .AddHandler(new HostDebugPauseHandler(provider))
                 .AddHandler(new HostDebugTerminateHandler(provider))
                 .WithServices(services => services
@@ -165,16 +173,21 @@ public sealed class ProgramControlOverTheConnectionTests
             using var server = await serving;
             using var client = await connecting;
 
-            await test(provider, client);
+            await test(provider, client, resume.Begun);
         }, debug: true);
 
-    // a resumed program has nothing that tells it runs but its state, which is asked until it says so: how long that takes decides nothing, and a program that
-    // never runs is the test's timeout.
-    private static async Task WaitForAsync(Func<bool> condition)
+    // the host's resume, which says when it has begun: a resume sets the program running before it first waits, and is answered when the program next stops.
+    private sealed class BegunResume(HostDebugResumeHandler resume) : IJsonRpcRequestHandler<HostDebugResumeParams, ExecuteSessionResult>
     {
-        while (!condition())
+        private readonly TaskCompletionSource _begun = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Begun => _begun.Task;
+
+        public Task<ExecuteSessionResult> Handle(HostDebugResumeParams request, CancellationToken cancellationToken)
         {
-            await Task.Yield();
+            var resumed = resume.Handle(request, cancellationToken);
+            _begun.TrySetResult();
+            return resumed;
         }
     }
 }

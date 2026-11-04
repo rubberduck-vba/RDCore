@@ -12,6 +12,12 @@ public record class HostDebugAck
     /// Whether there was a program to act on: a program was running or waiting, and now is paused or ended.
     /// </summary>
     public bool Acted { get; init; }
+
+    /// <summary>
+    /// Whether the program was asked to end and had not stopped by the time the request was answered: it is in a call outside it - a <c>Declare</c>, an object, a
+    /// dialog - and ends when the call returns. The end that was asked of it stands. Only <c>rdcore/host/debug/terminate</c> says so.
+    /// </summary>
+    public bool Stopping { get; init; }
 }
 
 /// <summary>

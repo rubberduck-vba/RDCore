@@ -830,7 +830,12 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<TerminateResponse> Handle(TerminateArguments request, CancellationToken cancellationToken)
     {
-        _ = await debugging.TerminateAsync(wipe: true, cancellationToken);
+        // a program in a call outside it ends when the call returns: the request that runs it answers then, and the end is told as the end of any run is.
+        if ((await debugging.TerminateAsync(wipe: true, cancellationToken)).Stopping)
+        {
+            Say(DebuggerMessages.StillStopping + "\n", OutputEventCategory.Console);
+            return new TerminateResponse();
+        }
 
         // a program that is over has no edits it does not have.
         await editStatus.CheckAsync(cancellationToken);

@@ -87,7 +87,11 @@ internal sealed class SessionDebugEditStatusHandler(IPlatformClientCapabilitiesS
 /// <summary>
 /// Handles <c>rdcore/session/debug/terminate</c>: relays a client's request to end the program that is running or waits.
 /// </summary>
-/// <remarks>A program that is over has no edits it does not have: what is said of them is cleared once it is answered.</remarks>
+/// <remarks>
+/// A program that is over has no edits it does not have: what is said of them is cleared once it is answered. A program that is still stopping
+/// (<see cref="HostDebugAck.Stopping"/>) is not asked of yet: the host answers that question after the request that runs the program, which is done when the
+/// program is, and the request that relays it would wait as long. Its edits are told when the program ends, as the end of any run tells them.
+/// </remarks>
 internal sealed class SessionDebugTerminateHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus)
     : RDCoreRequestHandler<SessionDebugTerminateRequest, HostDebugAck>
 {
@@ -95,7 +99,11 @@ internal sealed class SessionDebugTerminateHandler(IProgramDebugService debuggin
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         var result = await debugging.TerminateAsync(request.Wipe, token);
-        await editStatus.CheckAsync(token);
+        if (!result.Stopping)
+        {
+            await editStatus.CheckAsync(token);
+        }
+
         return result;
     }
 }

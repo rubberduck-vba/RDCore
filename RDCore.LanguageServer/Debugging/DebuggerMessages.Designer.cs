@@ -284,7 +284,16 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("StopPaused", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program is still stopping: it waits for an outside call to return, and ends when it does..
+        /// </summary>
+        internal static string StillStopping {
+            get {
+                return ResourceManager.GetString("StillStopping", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Step.
         /// </summary>

@@ -720,8 +720,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// Stops the wait for a program that is running to stop: one in a call outside it - a <c>Declare</c>, an object, a dialog - stops when the call returns, and the
     /// end that was asked of it stands meanwhile.
     /// </param>
-    /// <returns>Whether there was a program to end.</returns>
-    public async Task<bool> TerminateAsync(bool wipe, CancellationToken token = default)
+    /// <returns>Whether there was a program to end, and whether it had not stopped yet when the wait was stopped.</returns>
+    public async Task<HostDebugAck> TerminateAsync(bool wipe, CancellationToken token = default)
     {
         Task idle;
         lock (_sync)
@@ -729,21 +729,21 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             switch (_state)
             {
                 case ProgramState.Idle:
-                    return false;
+                    return new HostDebugAck();
 
                 // what runs alongside the program is let finish: it is short, and it is what the program would be ended in the middle of.
                 case ProgramState.Suspended when _alongside:
-                    return false;
+                    return new HostDebugAck();
 
                 case ProgramState.Suspended:
                     EndSuspended(provider.Session, wipe);
-                    return true;
+                    return new HostDebugAck { Acted = true };
 
                 default:
                     // a program that is not under a debugger has nothing to stop it at: it ends when it ends, or when its request is cancelled.
                     if (!_debugging)
                     {
-                        return false;
+                        return new HostDebugAck();
                     }
 
                     // a program that is running is stopped first, and ended by the request that runs it when it waits.
@@ -760,9 +760,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            // the end stands: the program ends at its next instruction, once the call it is in returns.
+            return new HostDebugAck { Acted = true, Stopping = true };
         }
 
-        return true;
+        return new HostDebugAck { Acted = true };
     }
 
     // a step into is due at the very next instruction, whichever procedure it is in: that is a pause. A program that was started and is not executing yet - it
