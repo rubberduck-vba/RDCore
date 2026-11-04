@@ -15,6 +15,10 @@ Dans une archive de la plateforme :
 
 Les paquets tiers redistribués dans l'archive demeurent sous leurs propres licences (voir plus bas).
 
+### Vos projets vous appartiennent
+
+La GPLv3 couvre RDCore lui-même, et non les projets avec lesquels il travaille. Le code source VBA et RD-VBA d'un projet, ses fichiers de projet, et tout ce que RDCore en construit, compile ou génère appartiennent à leurs auteurs respectifs, qui sont libres de les placer sous la licence de leur choix. Cela comprend toute partie de RDCore qu'une construction place dans son résultat afin que celui-ci puisse s'exécuter. Ouvrir, analyser, exécuter, déboguer ou construire un projet avec RDCore n'impose à ce projet aucune obligation de la GPLv3.
+
 ## Code tiers dans les binaires RDCore
 
 - Les _lexers_ et _parsers_ de **RDCore.ParseServer** sont générés par ANTLR, à la compilation, à partir des grammaires `RDCore.Parsing/Syntax/*.g4` du référentiel source.
@@ -53,6 +57,10 @@ In a platform archive:
 - 📚 **Library descriptions** — `Symbols/*.json` describe the programming interfaces of libraries a VBA project can reference (Excel, Word, Access, Office, MSForms, VBIDE, DAO, ADODB, Scripting, stdole): the names, signatures and constants of their types and members, exported from their type libraries. They contain no code from those libraries. The libraries, their names and their documentation belong to their owners.
 
 Third-party packages redistributed in the archive remain under their own licences (see below).
+
+### Your projects are yours
+
+The GPLv3 covers RDCore itself, not the projects it works with. A project's VBA and RD-VBA source code, its project files, and whatever RDCore builds, compiles or generates from them belong to their respective authors, who are free to license them as they please. This includes any part of RDCore that a build places in its output so that the output can run. Opening, analysing, running, debugging or building a project with RDCore places no obligation of the GPLv3 on that project.
 
 ## Third-party code in RDCore binaries
 

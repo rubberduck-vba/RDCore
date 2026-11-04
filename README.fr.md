@@ -11,6 +11,7 @@ Ce dépôt contient différents projets **en cours de développement** produisan
 
 - **Les bibliothèques RDCore.SDK et RDCore.SDK.Protocol** (incluant leur documentation) sont sous licence **⚖️MIT**;
 - **Tout le reste** construit autour d'elle est sous licence **⚖️GPLv3**.
+- **Vos projets vous appartiennent :** le code VBA et RD-VBA que vous écrivez, et tout ce que RDCore en construit, sont à vous, sous la licence de votre choix (voir [NOTICE.md](NOTICE.md)).
 
 Cet arrangement protège les contributeurs historiques et actuels tout en permettant l'avenir : **l'implémentation du runtime RDCore demeurera open-source**.
 
