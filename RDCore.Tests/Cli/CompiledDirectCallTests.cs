@@ -546,6 +546,30 @@ public sealed class CompiledDirectCallTests
         StringAssert.Contains(observed, "error  28");
     }
 
+    // error 28 is raised as deep in a recursion compiled code makes directly as in one the interpreter makes: the activations without a frame are counted as the
+    // frames are (IR lowering S2.3b2). Not handled, the error's stack trace has every one of them.
+    [TestMethod]
+    public async Task ARecursionThatNeverEnds_IsOutOfStackSpace_AsDeepAsWhenTheInterpreterMakesIt()
+    {
+        var (observed, direct, _) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Deep(1)",
+            "End Sub",
+            "Private Function Deep(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Deep(n + 1)",
+            "    Deep = r",
+            "End Function"), "Deep");
+
+        StringAssert.Contains(observed, "| 28 ");
+        var depth = observed.Split(" < ").Length;
+        Assert.IsGreaterThan(1000, depth, "the trace has every activation");
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.IsGreaterThan(1000L, direct, "Deep calls itself through its typed entry");
+        }
+    }
+
     // the stack trace of an error is the one captured where it was raised: every activation it unwinds, and the location in the innermost one only - not what
     // is left of the stack where a handler catches it.
     [TestMethod]
