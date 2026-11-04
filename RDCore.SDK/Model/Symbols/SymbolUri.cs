@@ -47,6 +47,11 @@ public static class SymbolUri
     /// <para>
     /// A URI of another scheme is the root as it is: a client's documents need not be files (<c>untitled:Untitled-1</c>).
     /// </para>
+    /// <para>
+    /// The root of a path is written as its <c>file</c> URI (<c>file:///tmp/Work</c>), never as the path: a root travels between the platform's components
+    /// (<c>DefineSymbolsParams.WorkspaceRoot</c>) as the text it is written with, and the text of a path is read back as a relative URI where a path begins with
+    /// <c>/</c>, which addresses nothing.
+    /// </para>
     /// </remarks>
     /// <param name="workspaceRoot">An absolute path, or an absolute URI.</param>
     /// <exception cref="ArgumentException">The root is neither: a relative path addresses nothing until it is said what it is relative to.</exception>
@@ -55,17 +60,20 @@ public static class SymbolUri
         ArgumentException.ThrowIfNullOrEmpty(workspaceRoot);
         if (Path.IsPathFullyQualified(workspaceRoot))
         {
-            return new Uri(workspaceRoot);
+            return FileRoot(workspaceRoot);
         }
 
         if (Uri.TryCreate(workspaceRoot, UriKind.Absolute, out var uri))
         {
-            return uri.IsFile ? new Uri(PathOf(uri)) : uri;
+            return uri.IsFile ? FileRoot(PathOf(uri)) : uri;
         }
 
         throw new ArgumentException(string.Format(System.Globalization.CultureInfo.InvariantCulture,
             "'{0}' is neither an absolute path nor an absolute URI: the modules of a project are addressed under a root that is.", workspaceRoot), nameof(workspaceRoot));
     }
+
+    // the root of a folder, written as its file URI: a Uri made of a path keeps the path as its text.
+    private static Uri FileRoot(string path) => new(new Uri(path).AbsoluteUri);
 
     // the path a file URI is of, however it escapes it; DocumentUri writes a drive's letter in lowercase, and the root keeps it as the URI writes it.
     private static string PathOf(Uri file)
