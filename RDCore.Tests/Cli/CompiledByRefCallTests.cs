@@ -452,7 +452,7 @@ public sealed class CompiledByRefCallTests
             {
                 var stack = provider.Execution.Stack().Frames;
                 string ValueIn(string procedure, string name)
-                    => provider.Execution.Variables(stack.Single(frame => frame.Procedure == procedure).Id, HostVariableScope.Locals, 0).Variables
+                    => provider.Execution.Variables(stack.Single(frame => frame.Procedure == procedure).Id, DebugVariableScope.Locals, 0).Variables
                         .Single(variable => variable.Name == name).Value;
 
                 observed = $"x={ValueIn("Bump", "x")}, n={ValueIn("Go", "n")}";
@@ -506,7 +506,7 @@ public sealed class CompiledByRefCallTests
             try
             {
                 var fill = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Fill").Id;
-                var address = int.Parse(provider.Execution.Variables(fill, HostVariableScope.Locals, 0).Variables.Single(variable => variable.Name == "p").Value,
+                var address = int.Parse(provider.Execution.Variables(fill, DebugVariableScope.Locals, 0).Variables.Single(variable => variable.Name == "p").Value,
                     System.Globalization.CultureInfo.InvariantCulture);
                 var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = address, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
                 Assert.IsTrue(poked.IsWritten);
