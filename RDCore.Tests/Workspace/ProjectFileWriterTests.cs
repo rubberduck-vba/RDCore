@@ -41,7 +41,7 @@ public sealed class ProjectFileWriterTests
         Assert.AreEqual("0.0.9", (loaded with { IsDirty = true }).Version, "copied as it is");
 
         await new ProjectFileWriter(fileSystem).SaveAsync(loaded);
-        Assert.AreEqual(ProjectFile.CurrentVersion, (await new ProjectFileLoader(fileSystem).LoadAsync(Root)).Version, "stamped by the write");
+        Assert.AreEqual(ProjectFileVersion.Current, (await new ProjectFileLoader(fileSystem).LoadAsync(Root)).Version, "stamped by the write");
     }
 
     // a project the platform made up for a folder stays one, however it is changed, until it is written: a copy keeps what the project file is.

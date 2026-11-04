@@ -89,7 +89,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// it calls <c>VB</c> is the runtime library of its ActiveX controls, which is not this one. Where a dialect has more or fewer
     /// members than another, the members are what say so, not the name of the library.
     /// </remarks>
-    public const string LibraryName = "VBA";
+    public const string LibraryName = RDCore.SDK.Workspace.RDCoreReference.StandardLibraryName;
 
     /// <summary>
     /// Whether <paramref name="symbol"/> is a member the standard library declares: a procedure of one of its modules, or a member of one of its classes.

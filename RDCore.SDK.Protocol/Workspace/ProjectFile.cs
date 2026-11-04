@@ -1,13 +1,16 @@
 ﻿using RDCore.SDK.Extensibility;
-using RDCore.SDK.Server;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace RDCore.SDK.Workspace;
 
 /// <summary>
-/// The in-memory model of a workspace's <c>.rdproj</c> project file.
+/// The in-memory model of a workspace's <c>.rdproj</c> project file (<strong>RD-VBAL §2.2.3</strong>).
 /// </summary>
+/// <remarks>
+/// It reads with <see cref="JsonSerializer"/> and nothing else, so a client of the platform, such as an IDE's add-in, reads a project's modules and files
+/// without the platform.
+/// </remarks>
 public sealed record class ProjectFile : IEquatable<ProjectFile>
 {
     /// <summary>
@@ -15,8 +18,22 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     /// </summary>
     public static readonly string FileName = ".rdproj";
 
+    /// <summary>
+    /// A project file of an empty project, at the platform's virtual workspace (<see cref="RDCoreUriNamespaces.RDCoreWorkspaceUri"/>).
+    /// </summary>
     public ProjectFile() : this(RDCoreUriNamespaces.RDCoreWorkspaceUri) { }
+
+    /// <summary>
+    /// A project file of an empty project, at <paramref name="uri"/>.
+    /// </summary>
+    /// <param name="uri">The workspace root (<see cref="Uri"/>).</param>
     public ProjectFile(string uri) : this(uri, new()) { }
+
+    /// <summary>
+    /// A project file of <paramref name="project"/>, at <paramref name="uri"/>, that no platform wrote yet (its <see cref="Version"/> is empty).
+    /// </summary>
+    /// <param name="uri">The workspace root (<see cref="Uri"/>).</param>
+    /// <param name="project">The project the file describes.</param>
     public ProjectFile(string uri, RDCoreProject project)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(uri, nameof(uri));
@@ -24,13 +41,15 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = uri;
         ProjectInfo = project;
-        Version = CurrentVersion;
+        Version = string.Empty;
         IsDirty = false;
         Configuration = [];
     }
 
-    // a copy is of the same project file: made by the same version - only a write stamps the version of the platform that writes it (WithCurrentVersion) - and
-    // as synthesized as it was, until it is written.
+    /// <summary>
+    /// A copy of <paramref name="source"/>: of the same version, and as synthesized as it was, until it is written. A copy is clean.
+    /// </summary>
+    /// <param name="source">The project file to copy.</param>
     public ProjectFile(ProjectFile source)
     {
         ArgumentNullException.ThrowIfNull(source, nameof(source));
@@ -45,15 +64,11 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     }
 
     /// <summary>
-    /// The version of the running platform, which a project file it writes is stamped with (<see cref="WithCurrentVersion"/>).
+    /// The project file stamped with the version of the platform that writes it (<see cref="Version"/>). The platform stamps a project file as it writes it,
+    /// and only then.
     /// </summary>
-    public static string CurrentVersion => AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
-
-    /// <summary>
-    /// The project file as the running platform writes it: stamped with its version (<see cref="CurrentVersion"/>). A project file that is read, or copied,
-    /// keeps the version that wrote it, so that a platform can refuse a project a later version wrote.
-    /// </summary>
-    public ProjectFile WithCurrentVersion() => this with { Version = CurrentVersion };
+    /// <param name="version">The writing platform's version, as <c>major.minor.build</c>.</param>
+    public ProjectFile WithVersion(string version) => this with { Version = version };
 
     /// <summary>
     /// <c>true</c> if the project file has unsaved changes.
@@ -62,8 +77,7 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     public bool IsDirty { get; init; }
 
     /// <summary>
-    /// <c>true</c> for a project the platform made up for a folder that has no <c>.rdproj</c>, from the source files under it
-    /// (<see cref="IProjectFileLoader.LoadOrSynthesizeAsync"/>), and that was not written yet.
+    /// <c>true</c> for a project the platform made up for a folder that has no <c>.rdproj</c>, from the source files under it, and that was not written yet.
     /// </summary>
     /// <remarks>
     /// Opening a folder never writes a project file into it: a synthesized project lives in memory until the first change made to it - a file the client
@@ -82,7 +96,7 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     public string Uri { get; init; } = string.Empty;
     /// <summary>
     /// The <c>RDCore.ServerApp</c> version that last wrote this project file: kept as it is read and copied, and stamped when it is written
-    /// (<see cref="WithCurrentVersion"/>).
+    /// (<see cref="WithVersion"/>). It is empty for a project file no platform wrote yet.
     /// </summary>
     public string Version { get; init; }
     /// <summary>
@@ -94,21 +108,47 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     /// </summary>
     public RDCoreProject ProjectInfo { get; init; } = new RDCoreProject();
 
+    /// <summary>The project file at another workspace root (<see cref="Uri"/>); this is not a change to the project.</summary>
+    /// <param name="uri">The workspace root.</param>
     public ProjectFile WithUri(string uri) => this with { Uri = uri };
 
+    /// <summary>The project file with <paramref name="reference"/> added last to the project's references; it is dirty.</summary>
+    /// <param name="reference">The reference to add.</param>
     public ProjectFile WithReference(RDCoreReference reference) => this with { ProjectInfo = ProjectInfo.WithReference(reference), IsDirty = true };
+    /// <summary>The project file with <paramref name="module"/> added to the project's modules; it is dirty.</summary>
+    /// <param name="module">The module to add.</param>
     public ProjectFile WithModule(RDCoreModule module) => this with { ProjectInfo = ProjectInfo.WithModule(module), IsDirty = true };
+    /// <summary>The project file with <paramref name="document"/> added to the project's other files; it is dirty.</summary>
+    /// <param name="document">The file to add.</param>
     public ProjectFile WithDocument(RDCoreFile document) => this with { ProjectInfo = ProjectInfo.WithDocument(document), IsDirty = true };
+    /// <summary>The project file with <paramref name="folder"/> added to the project's folders; it is dirty.</summary>
+    /// <param name="folder">The folder to add, relative to the workspace root.</param>
     public ProjectFile WithFolder(string folder) => this with { ProjectInfo = ProjectInfo.WithFolder(folder), IsDirty = true };
+    /// <summary>The project file with the precompiler constant <paramref name="name"/> set to <paramref name="value"/>; it is dirty.</summary>
+    /// <param name="name">The constant's name.</param>
+    /// <param name="value">The source text of its value.</param>
     public ProjectFile WithPrecompilerConstant(string name, string value) => this with { ProjectInfo = ProjectInfo.WithPrecompilerConstant(name, value), IsDirty = true };
 
+    /// <summary>The project file without <paramref name="reference"/>; it is dirty.</summary>
+    /// <param name="reference">The reference to remove.</param>
     public ProjectFile WithoutReference(RDCoreReference reference) => this with { ProjectInfo = ProjectInfo.WithoutReference(reference), IsDirty = true };
+    /// <summary>The project file without <paramref name="module"/>; it is dirty.</summary>
+    /// <param name="module">The module to remove.</param>
     public ProjectFile WithoutModule(RDCoreModule module) => this with { ProjectInfo = ProjectInfo.WithoutModule(module), IsDirty = true };
+    /// <summary>The project file without <paramref name="document"/>; it is dirty.</summary>
+    /// <param name="document">The file to remove.</param>
     public ProjectFile WithoutDocument(RDCoreFile document) => this with { ProjectInfo = ProjectInfo.WithoutDocument(document), IsDirty = true };
+    /// <summary>The project file without <paramref name="folder"/>; it is dirty.</summary>
+    /// <param name="folder">The folder to remove.</param>
     public ProjectFile WithoutFolder(string folder) => this with { ProjectInfo = ProjectInfo.WithoutFolder(folder), IsDirty = true };
+    /// <summary>The project file without the precompiler constant <paramref name="name"/>; it is dirty.</summary>
+    /// <param name="name">The constant's name.</param>
     public ProjectFile WithoutPrecompilerConstant(string name) => this with { ProjectInfo = ProjectInfo.WithoutPrecompilerConstant(name), IsDirty = true };
 
+    /// <inheritdoc/>
     public override int GetHashCode() => Uri.GetHashCode();
+    /// <summary>Whether <paramref name="other"/> is the project file at the same workspace root (<see cref="Uri"/>).</summary>
+    /// <param name="other">The project file to compare with.</param>
     public bool Equals(ProjectFile? other) => other?.Uri is string uri && Uri.Equals(uri);
 }
 
@@ -117,6 +157,9 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 /// </summary>
 public record class RDCoreProject
 {
+    /// <summary>
+    /// The project's name: what a project-qualified reference to its members names.
+    /// </summary>
     public string Name { get; init; } = string.Empty;
 
     /// <summary>
@@ -124,25 +167,34 @@ public record class RDCoreProject
     /// </summary>
     /// <remarks>
     /// The standard library (<c>VBA</c>) is none of them: every project has it, in every dialect (<strong>RD-VBAL §6.0</strong>), and a project file does not
-    /// list it. A project file that does - with the path of Office's <c>VBE7.DLL</c>, as a VB6 project's references do - is read without it
-    /// (<see cref="ProjectFileLoader"/>), and written without it (<see cref="RDCoreReference.IsStandardLibrary"/>).
+    /// list it. A project file that does - with the path of Office's <c>VBE7.DLL</c>, as a VB6 project's references do - is read without it, and written
+    /// without it (<see cref="RDCoreReference.IsStandardLibrary"/>).
     /// </remarks>
     public RDCoreReference[] References { get; init; } = [];
 
+    /// <summary>
+    /// The project's modules: its source files, by their paths relative to the workspace root (<strong>RD-VBAL §2.2.3.3</strong>).
+    /// </summary>
     public RDCoreModule[] Modules { get; init; } = [];
+    /// <summary>
+    /// The project's files that are not modules, by their paths relative to the workspace root.
+    /// </summary>
     public RDCoreFile[] OtherFiles { get; init; } = [];
+    /// <summary>
+    /// The project's folders, relative to the workspace root, including those no file is in.
+    /// </summary>
     public string[] Folders { get; set; } = [];
 
     /// <summary>
-    /// The Visual Basic 6 project (<c>.vbp</c>) the project was imported from, by its path relative to the folder of the <c>.rdproj</c>: the import writes it
-    /// (<see cref="VbpImport.Into"/>), a second import of the same <c>.vbp</c> keeps it, and nothing else changes it. <see langword="null"/> for a project that was not imported - a
+    /// The Visual Basic 6 project (<c>.vbp</c>) the project was imported from, by its path relative to the folder of the <c>.rdproj</c>: the import writes it,
+    /// a second import of the same <c>.vbp</c> keeps it, and nothing else changes it. <see langword="null"/> for a project that was not imported - a
     /// <c>.vbp</c> next to a <c>.rdproj</c> does not make it one.
     /// </summary>
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceProject { get; init; }
 
     /// <summary>Whether the project was imported from a Visual Basic 6 project (<see cref="SourceProject"/>).</summary>
-    [System.Text.Json.Serialization.JsonIgnore]
+    [JsonIgnore]
     public bool IsImported => SourceProject is not null;
 
     /// <summary>
@@ -152,6 +204,10 @@ public record class RDCoreProject
     /// </summary>
     public Dictionary<string, string> PrecompilerConstants { get; init; } = [];
 
+    /// <summary>
+    /// The full paths of the project's modules, other files and folders, under <paramref name="srcRoot"/>.
+    /// </summary>
+    /// <param name="srcRoot">The workspace root the project's paths are relative to.</param>
     public HashSet<string> GetWorkspaceFolders(string srcRoot) =>
         [
             .. Modules.Select(module => Path.Combine(srcRoot, module.RelativeUri)),
@@ -159,30 +215,65 @@ public record class RDCoreProject
             .. Folders.Select(folder => Path.Combine(srcRoot, folder)),
         ];
 
+    /// <summary>
+    /// The project's modules and other files in <paramref name="folder"/> or under it.
+    /// </summary>
+    /// <param name="folder">A folder relative to the workspace root, with <c>/</c> separators.</param>
     public IEnumerable<RDCoreFile> GetFolderFiles(string folder) =>
         [
             .. Modules.Where(m => Path.GetDirectoryName(m.RelativeUri)!.Replace('\\', '/').StartsWith(folder)),
             .. OtherFiles.Where(f => Path.GetDirectoryName(f.RelativeUri)!.Replace('\\', '/').StartsWith(folder)),
         ];
 
+    /// <summary>The project under another name.</summary>
+    /// <param name="name">The project's name.</param>
     public RDCoreProject WithName(string name) => this with { Name = name };
+    /// <summary>The project with <paramref name="reference"/> added last to its references, at the lowest priority.</summary>
+    /// <param name="reference">The reference to add.</param>
     public RDCoreProject WithReference(RDCoreReference reference) => this with { References = [.. References, reference] };
+    /// <summary>The project with <paramref name="module"/> added to its modules.</summary>
+    /// <param name="module">The module to add.</param>
     public RDCoreProject WithModule(RDCoreModule module) => this with { Modules = [.. Modules, module] };
+    /// <summary>The project with <paramref name="document"/> added to its other files.</summary>
+    /// <param name="document">The file to add.</param>
     public RDCoreProject WithDocument(RDCoreFile document) => this with { OtherFiles = [.. OtherFiles, document] };
+    /// <summary>The project with <paramref name="folder"/> added to its folders.</summary>
+    /// <param name="folder">The folder to add, relative to the workspace root.</param>
     public RDCoreProject WithFolder(string folder) => this with { Folders = [.. Folders, folder] };
+    /// <summary>The project with the precompiler constant <paramref name="name"/> set to <paramref name="value"/>, whatever the case of its name.</summary>
+    /// <param name="name">The constant's name.</param>
+    /// <param name="value">The source text of its value.</param>
     public RDCoreProject WithPrecompilerConstant(string name, string value)
         => this with { PrecompilerConstants = new(PrecompilerConstants, StringComparer.OrdinalIgnoreCase) { [name] = value } };
 
+    /// <summary>The project without <paramref name="reference"/>.</summary>
+    /// <param name="reference">The reference to remove.</param>
     public RDCoreProject WithoutReference(RDCoreReference reference) => this with { References = [.. References.Where(r => r != reference)] };
+    /// <summary>The project without <paramref name="module"/>.</summary>
+    /// <param name="module">The module to remove.</param>
     public RDCoreProject WithoutModule(RDCoreModule module) => this with { Modules = [.. Modules.Where(m => m != module)] };
+    /// <summary>The project without <paramref name="document"/>.</summary>
+    /// <param name="document">The file to remove.</param>
     public RDCoreProject WithoutDocument(RDCoreFile document) => this with { OtherFiles = [.. OtherFiles.Where(d => d != document)] };
+    /// <summary>The project without <paramref name="folder"/>.</summary>
+    /// <param name="folder">The folder to remove.</param>
     public RDCoreProject WithoutFolder(string folder) => this with { Folders = [.. Folders.Where(f => f != folder)] };
+    /// <summary>The project without the precompiler constant <paramref name="name"/>, whatever the case of its name.</summary>
+    /// <param name="name">The constant's name.</param>
     public RDCoreProject WithoutPrecompilerConstant(string name)
         => this with { PrecompilerConstants = new(PrecompilerConstants.Where(e => !string.Equals(e.Key, name, StringComparison.OrdinalIgnoreCase)), StringComparer.OrdinalIgnoreCase) };
 }
 
+/// <summary>
+/// A library or project a project references (<strong>RD-VBAL §2.2.3.2</strong>).
+/// </summary>
 public sealed record class RDCoreReference : IEquatable<RDCoreReference>
 {
+    /// <summary>
+    /// The name of the standard library, which every project has (<strong>RD-VBAL §6.0</strong>).
+    /// </summary>
+    public const string StandardLibraryName = "VBA";
+
     /// <summary>
     /// The identifier of the type library of <c>VBA</c>, the standard library, by which a VB6 project references it.
     /// </summary>
@@ -194,19 +285,43 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
     /// </summary>
     [JsonIgnore]
     public bool IsStandardLibrary
-        => string.Equals(Name, Runtime.StdLib.StdLibSymbolProvider.LibraryName, StringComparison.OrdinalIgnoreCase) || Guid == StandardLibraryGuid;
+        => string.Equals(Name, StandardLibraryName, StringComparison.OrdinalIgnoreCase) || Guid == StandardLibraryGuid;
 
+    /// <summary>
+    /// The referenced library's or project's name, which identifies the reference.
+    /// </summary>
     public string Name { get; init; } = string.Empty;
+    /// <summary>
+    /// Where the referenced library is, when the reference has a file; <see langword="null"/> otherwise.
+    /// </summary>
     public string? AbsolutePath { get; init; }
+    /// <summary>
+    /// The identifier of the referenced type library, for a reference to one; <see langword="null"/> otherwise.
+    /// </summary>
     public Guid? Guid { get; init; }
+    /// <summary>
+    /// The major version of the referenced type library; <see langword="null"/> when the reference does not say.
+    /// </summary>
     public int? Major { get; init; }
+    /// <summary>
+    /// The minor version of the referenced type library; <see langword="null"/> when the reference does not say.
+    /// </summary>
     public int? Minor { get; init; }
+    /// <summary>
+    /// Where the description of the referenced library's members is, when it is a file of its own; <see langword="null"/> otherwise.
+    /// </summary>
     public string? TypeLibInfoPath { get; init; }
 
+    /// <summary>
+    /// Whether the reference cannot be removed from the project.
+    /// </summary>
     public bool IsUnremovable { get; init; } = false;
 
+    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Name, Guid, Major, Minor);
 
+    /// <summary>Whether <paramref name="other"/> references the library or project of the same name.</summary>
+    /// <param name="other">The reference to compare with.</param>
     public bool Equals(RDCoreReference? other) => other?.Name is string name && Name.Equals(name);
 }
 
@@ -220,6 +335,9 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
 [JsonConverter(typeof(RDCoreFileJsonConverter))]
 public record class RDCoreFile : IEquatable<RDCoreFile>
 {
+    /// <summary>
+    /// The file's path, relative to the workspace root, which identifies the file.
+    /// </summary>
     public string RelativeUri { get; init; } = string.Empty;
 
     /// <summary>
@@ -228,11 +346,17 @@ public record class RDCoreFile : IEquatable<RDCoreFile>
     [JsonIgnore]
     public string Extension => Path.GetExtension(RelativeUri);
 
+    /// <summary>
+    /// The name of a module in this file whose source declares none (<see cref="ModuleName.FromFileName"/>).
+    /// </summary>
     [JsonIgnore]
     public string DefaultName => ModuleName.FromFileName(RelativeUri);
 
+    /// <inheritdoc/>
     public override int GetHashCode() => RelativeUri.GetHashCode();
 
+    /// <summary>Whether <paramref name="other"/> is the file at the same path.</summary>
+    /// <param name="other">The file to compare with.</param>
     public virtual bool Equals(RDCoreFile? other) => other?.RelativeUri is string uri && RelativeUri.Equals(uri);
 }
 
@@ -301,8 +425,8 @@ public sealed class DocClassTypeJsonConverter : JsonConverter<DocClassType>
 public record class RDCoreModule : RDCoreFile
 {
     /// <summary>
-    /// What host document the module is the code of, which makes it a document module (<see cref="ModuleKinds.Of(RDCoreModule?, string?)"/>); <see langword="null"/>
-    /// for a standard or class module.
+    /// What host document the module is the code of, which makes it a document module; <see langword="null"/> for a standard or class module, whose own
+    /// text says which it is.
     /// </summary>
     public DocClassType? Super { get; init; }
 }
