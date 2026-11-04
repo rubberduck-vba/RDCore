@@ -57,13 +57,17 @@ internal static class NumericLiteral
     /// <summary>
     /// Negates a resolved numeric literal (VBA has no negative-literal token — the sign is a unary
     /// operator). Returns <c>null</c> for a value that is not one of the numeric intrinsics
-    /// <see cref="Resolve"/> produces.
+    /// <see cref="Resolve"/> produces, and for one whose negation its type cannot hold: the least
+    /// <c>Integer</c>, <c>Long</c> or <c>LongLong</c>, which the unary operator overflows (MS-VBA:
+    /// <c>-&amp;H8000</c> raises 6 at run time, and is a compile error in a <c>Const</c>; Excel, oracle\s56
+    /// G14, s57 N01-N06).
     /// </summary>
     public static VBTypedValue? Negate(VBTypedValue value) => value switch
     {
-        VBIntegerValue v => new VBIntegerValue(unchecked((short)-v.Value)),
-        VBLongValue v => new VBLongValue(unchecked(-v.Value)),
-        VBLongLongValue v => new VBLongLongValue(unchecked(-v.Value)),
+        VBIntegerValue { Value: short.MinValue } or VBLongValue { Value: int.MinValue } or VBLongLongValue { Value: long.MinValue } => null,
+        VBIntegerValue v => new VBIntegerValue((short)-v.Value),
+        VBLongValue v => new VBLongValue(-v.Value),
+        VBLongLongValue v => new VBLongLongValue(-v.Value),
         VBSingleValue v => new VBSingleValue(-v.Value),
         VBDoubleValue v => new VBDoubleValue(-v.Value),
         VBCurrencyValue v => new VBCurrencyValue(-v.Value.Value),

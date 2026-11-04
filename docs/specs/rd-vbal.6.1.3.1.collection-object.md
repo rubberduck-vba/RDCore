@@ -36,6 +36,7 @@ A key is a `String`, and is the same key whatever the case of its letters. A mem
 |Situation|Runtime error|
 |---|---|
 |A position that is not in the collection (`Item`, `Remove`, `Before`, `After`).|9, `Subscript out of range`.|
+|Any position of an empty collection.|5, as **MS-VBA** raises it (recorded in Excel).|
 |A key that no member has.|5, `Invalid procedure call or argument`.|
 |A key that a member already has (`Add`).|457, `This key is already associated with an element of this collection`. Nothing is added.|
 |Both `Before` and `After` given (`Add`).|5.|

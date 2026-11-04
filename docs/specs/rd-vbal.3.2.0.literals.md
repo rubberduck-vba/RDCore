@@ -70,6 +70,11 @@ A suffix sets a radix literal's width:
 
 A radix literal is **never** `Double`.
 
+VBA has no negative literal: `-&H8000` is the unary minus of the `Integer` `-32768`, whose negation no `Integer` holds.
+It overflows (6) when it runs, and in a `Const` it is the compile error `Overflow`, as **MS-VBA** has it (recorded in
+Excel); so is the least `Long` (`-&H80000000`) and the least `LongLong` (`-&H8000000000000000^`). `-&H8000&` is a `Long`,
+and `-32768`.
+
 > [!NOTE]
 > `LongLong` is only produced by the `^` suffix. An unsuffixed integer literal that exceeds `Long` range widens to
 > `Double`, never `LongLong`.

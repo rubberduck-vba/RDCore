@@ -1634,6 +1634,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // reported: the family follows who raised it, and workspace source raised this one. `Error 11` is
         // VBA00011, not VBR00011, even though 11 is a code MS-VBA defines.
         var number = ((VBIntegerValue)numberResult.Result!).Value;
+
+        // as Err.Raise given no help context: the one Err has, while it has an error, or the error's (Error 9 is 1000009, oracle\s57 H01).
+        if (!session.Errors.HasError)
+        {
+            session.Errors.HelpContext = SessionErrorState.HelpContextOf(number);
+        }
+
         return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(
             number, errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
     }

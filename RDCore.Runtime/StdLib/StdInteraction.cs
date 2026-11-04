@@ -1,6 +1,7 @@
 using RDCore.External;
 using RDCore.External.Interaction;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -195,9 +196,10 @@ public sealed class StdInteraction(
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> CallByName(VBObjectValue objectValue, VBStringValue procName, VBCallType callType, params VBVariantValue[] args)
     {
+        // MS-VBA: Nothing is an invalid argument (5), where a call written in source on Nothing is 91 (recorded in Excel: oracle\s56 G04, s57 C03).
         if (objectValue.IsNothing())
         {
-            return Fail<VBVariantValue>(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, $"CallByName(Nothing, \"{procName.Value}\"): there is no object to call.");
+            return Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, $"CallByName(Nothing, \"{procName.Value}\"): there is no object to call.");
         }
 
         if (!session.Symbols.TryGetInstance(objectValue.Value, out var instance) || session.Callables is not { } callables)
@@ -256,10 +258,10 @@ public sealed class StdInteraction(
 
         if (MemberOf(candidates, callType) is not { } target)
         {
-            // a Function asked for as a property is the member, called the wrong way (MS-VBA: 450, Excel-verified, oracle\s40 B22, B28); a name that is no
-            // member to be called so at all is 438.
-            return callType is VBCallType.VBGet && candidates.Any(member => member is VBFunctionMemberSymbol)
-                ? Fail<VBVariantValue>(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, $"'{procName.Value}' is a function, and no property to get.")
+            // a Sub or a Function asked for as a property, to get, to let or to set, is the member, called the wrong way (MS-VBA: 450, Excel-verified,
+            // oracle\s40 B22, B28, s57 C04, C07); a name that is no member to be called so at all is 438.
+            return callType is not VBCallType.VBMethod && candidates.Any(IsMethod)
+                ? Fail<VBVariantValue>(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, $"'{procName.Value}' is a method, and no property to {callType}.")
                 : Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, $"The object has no member '{procName.Value}' that can be called as {callType}.");
         }
 
@@ -298,6 +300,32 @@ public sealed class StdInteraction(
                 // §5.3.1.11; MS-VBA, Excel-verified, oracle\s40 B06-B09, B13).
                 bound[index] = (session.Symbols.Defaults?.DefaultValueOf(parameter) ?? parameter.ResolvedType.DefaultValue).RuntimeValue;
                 continue;
+            }
+
+            // MS-VBA gives the member a variable passed to a ByRef parameter by reference, as IDispatch is given a VT_BYREF argument: the member writes the
+            // caller's variable, or the element of its array (recorded in Excel: oracle\s56 G03, s57 C01, C02, C05). A Variant parameter is given a variable of
+            // any type, which keeps its type (C05: a Long incremented is a Long); a variable of another type than the parameter's, a Variant among them, is a type
+            // mismatch, and the member is not called (C02, C05).
+            if (!isValue && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) && args[argument].Handle is VariantReferenceBindingHandle variable)
+            {
+                if (variable.DeclaredType.Equals(parameter.ResolvedType))
+                {
+                    bound[index] = new CellReference(variable.Variable);
+                    continue;
+                }
+
+                if (parameter.ResolvedType is VBVariantType)
+                {
+                    bound[index] = new CellReference(variable.Variable, variable.DeclaredType);
+                    continue;
+                }
+
+                // an object variable given an object parameter of another class is unmeasured, and passed as it was: by value.
+                if (variable.DeclaredType is VBVariantType || !(IsOfObjects(variable.DeclaredType) || IsOfObjects(parameter.ResolvedType)))
+                {
+                    return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch,
+                        $"'{target.Name}' takes '{parameter.Name}' by reference as {parameter.ResolvedType.Name}, and was given a {variable.DeclaredType.Name}.");
+                }
             }
 
             var coerced = Coerce(args[argument], parameter.ResolvedType);
@@ -422,9 +450,6 @@ public sealed class StdInteraction(
 
     private static VBTypeMemberSymbol? MemberOf(IReadOnlyList<VBTypeMemberSymbol> candidates, VBCallType callType)
     {
-        bool IsMethod(VBTypeMemberSymbol member) => member is VBFunctionMemberSymbol or VBProcedureMemberSymbol
-            && member is not (VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
-
         return callType switch
         {
             VBCallType.VBMethod => candidates.FirstOrDefault(IsMethod) ?? candidates.FirstOrDefault(member => member is VBPropertyGetMemberSymbol),
@@ -435,6 +460,11 @@ public sealed class StdInteraction(
             _ => null,
         };
     }
+
+    private static bool IsOfObjects(VBType type) => type is VBObjectType or VBClassType;
+
+    private static bool IsMethod(VBTypeMemberSymbol member) => member is VBFunctionMemberSymbol or VBProcedureMemberSymbol
+        && member is not (VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
 
     // what the argument of a call written in source is Let-coerced to, from the value alone: a Variant takes it as it is, an object is passed as the reference it is.
     private RuntimeSemanticsEvaluationResult<VBTypedValue> Coerce(VBVariantValue argument, VBType declared)

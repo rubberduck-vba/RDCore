@@ -868,15 +868,26 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <param name="symbol">The parameter.</param>
     /// <param name="cell">The cell of the caller's variable.</param>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it; <c>-1</c> to look it up.</param>
-    internal void PushAlias(Symbol symbol, IBindingHandle cell, int slot)
-        => Hold(symbol, cell, cell is ScalarCell scalar ? scalar.Type.DefaultValue.Size : 0, slot, isAlias: true);
+    /// <param name="referencedType">
+    /// The declared type of the variable when the parameter does not have it - a <c>Variant</c> parameter given a variable of another type
+    /// (<see cref="TryGetReferencedType"/>); <see langword="null"/> when it does.
+    /// </param>
+    internal void PushAlias(Symbol symbol, IBindingHandle cell, int slot, VBType? referencedType = null)
+    {
+        Hold(symbol, cell, cell is ScalarCell scalar ? scalar.Type.DefaultValue.Size : 0, slot, isAlias: true, referencedType);
+        if (referencedType is not null)
+        {
+            (Occasionally.ReferencedTypes ??= [])[symbol.SemanticId] = referencedType;
+        }
+    }
 
     /// <summary>The layout the activation was laid out as (<see cref="LayOut"/>), if it was.</summary>
     internal FrameLayout? Layout => _layout;
 
     // a slot the caller numbered is the one of this activation's layout, which is what the caller read the number from: no symbol is looked up (S1.3).
-    // isAlias: the cell is a variable of the caller's (PushAlias), which this activation has a second name for and does not free.
-    private IBindingHandle Hold(Symbol symbol, IBindingHandle cell, int size, int slot, bool isAlias = false)
+    // isAlias: the cell is a variable of the caller's (PushAlias), which this activation has a second name for and does not free; referencedType, the type a
+    // Variant reference parameter reads it as.
+    private IBindingHandle Hold(Symbol symbol, IBindingHandle cell, int size, int slot, bool isAlias = false, VBType? referencedType = null)
     {
         if ((uint)slot < (uint)_slots.Length || TryGetOwnSlot(symbol, out slot))
         {
@@ -887,7 +898,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
             }
 
-            held = new Slot(true, default, cell, null, size, isAlias);
+            held = new Slot(true, default, cell, referencedType, size, isAlias);
             return cell;
         }
 

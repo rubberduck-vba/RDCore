@@ -1,3 +1,4 @@
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values;
@@ -43,7 +44,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         var errorNumber = Convert.ToInt32(number.Handle.Value.BoxedValue);
         State.Source = Text(source) ?? State.Source;
         State.HelpFile = Text(helpFile) ?? State.HelpFile;
-        State.HelpContext = Number(helpContext) ?? State.HelpContext;
+        State.HelpContext = Number(helpContext) ?? (State.HasError ? State.HelpContext : SessionErrorState.HelpContextOf(errorNumber));
 
         // "If unspecified, the value in Number is examined. If it can be mapped to a VBA run-time error
         // code, the String that would be returned by the Error function is used as Description. If there

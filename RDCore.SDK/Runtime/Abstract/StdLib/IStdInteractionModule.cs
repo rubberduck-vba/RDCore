@@ -24,9 +24,12 @@ public interface IStdInteractionModule
     /// <param name="objectValue">The object exposing the member to be invoked.</param>
     /// <param name="procName">The name of the member to be invoked.</param>
     /// <param name="callType">The type of member invocation.</param>
-    /// <param name="args">Any arguments to be supplied to the member upon invocation.</param>
+    /// <param name="args">
+    /// Any arguments to be supplied to the member upon invocation: an argument that is a variable is given as it (<see cref="StdLibParamArrayOfVariablesAttribute"/>),
+    /// which a <c>ByRef</c> parameter of the member refers to.
+    /// </param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult<VBVariantValue> CallByName(VBObjectValue objectValue, VBStringValue procName, VBCallType callType, params VBVariantValue[] args);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> CallByName(VBObjectValue objectValue, VBStringValue procName, VBCallType callType, [StdLibParamArrayOfVariables] params VBVariantValue[] args);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.2 Choose</strong>
