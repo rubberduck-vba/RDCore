@@ -1390,6 +1390,51 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The array &apos;{0}&apos; is declared with more than {1:N0} elements, the most an array holds in RD-VBA..
+        /// </summary>
+        public static string VBCompileError_OutOfMemory_ArrayElements_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_OutOfMemory_ArrayElements_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to User-defined type may not be passed ByVal.
+        /// </summary>
+        public static string VBCompileError_UserDefinedTypeMayNotBePassedByVal {
+            get {
+                return ResourceManager.GetString("VBCompileError_UserDefinedTypeMayNotBePassedByVal", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The parameter &apos;{0}&apos; is a record of the type &apos;{1}&apos;, which is passed by reference: declare it ByRef, or without ByVal..
+        /// </summary>
+        public static string VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions.
+        /// </summary>
+        public static string VBCompileError_UserDefinedTypeNotCoercibleToVariant {
+            get {
+                return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotCoercibleToVariant", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A record of the type &apos;{0}&apos; is given to a Variant, which can&apos;t hold it: give it to a variable or a parameter of the type &apos;{0}&apos;, or copy its fields..
+        /// </summary>
+        public static string VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
         public static string VBCompileError_NameIsAProject_Verbose {

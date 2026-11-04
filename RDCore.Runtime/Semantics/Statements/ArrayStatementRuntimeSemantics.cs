@@ -44,8 +44,9 @@ public sealed record class ArrayStatementRuntimeSemantics(
     private readonly ArrayBoundEvaluator _bounds = new(Expressions, LetCoercion);
 
     // what a statement acts on: the symbol a simple name resolves to, or the expression that a member access or an index is, the type it is
-    // declared as when that is known, and the value it holds now.
-    private readonly record struct Target(Symbol? Symbol, ExpressionNode? Expression, VBType? Declared, VBTypedValue? Current);
+    // declared as when that is known, and the value it holds now. A Variant reference parameter given a variable of another type is declared as that
+    // variable is (IsReferenced).
+    private readonly record struct Target(Symbol? Symbol, ExpressionNode? Expression, VBType? Declared, VBTypedValue? Current, bool IsReferenced = false);
 
     /// <summary>
     /// Executes a <c>ReDim</c> statement (<strong>MS-VBAL §5.4.3.3</strong>).
@@ -64,6 +65,15 @@ public sealed record class ArrayStatementRuntimeSemantics(
         if (!TryResolveTarget(session, context, redim.IsSimpleName ? null : redim.Target, redim.Name, out var target, out var targetFailure))
         {
             return targetFailure;
+        }
+
+        // a Variant reference parameter given a variable that is no array - a Long, a String, an object - can't make it one, and one given an array of
+        // another element type than the As clause states can't change the type it is declared with: MS-VBA raises 13 and the variable keeps what it
+        // held, with Preserve too (recorded in Excel: oracle\s56 D01-D04, D11).
+        if (target.IsReferenced && (target.Declared is not (null or VBArrayType or VBVariantType)
+            || target.Declared is VBArrayType { ItemType: var item } && ClauseTypeOf(session, context, redim) is { } clause && !IsSameType(item, clause)))
+        {
+            return Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is a variable of the type {target.Declared?.Name}");
         }
 
         // "If the redimensioned variable is currently locked by a ByRef formal parameter runtime Error 10 is raised" - which MS-VBA reads as an
@@ -97,6 +107,13 @@ public sealed record class ArrayStatementRuntimeSemantics(
             }
 
             return failure;
+        }
+
+        // an array RD-VBA can't hold a cell for each element of is out of memory, and the variable keeps what it held: MS-VBA (64-bit) allocates the
+        // 2,147,483,648 bytes of `ReDim b(2147483647) As Byte` and a billion Longs (recorded in Excel: oracle\s56 I07, I09, B09).
+        if (VBArrayValue.LengthOf(bounds) > VBArrayValue.MaximumLength)
+        {
+            return Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: more than {VBArrayValue.MaximumLength} elements");
         }
 
         // the array a ReDim makes is known - whatever the variable held before, and so whether it was known - unless its bounds are not: then
@@ -136,11 +153,16 @@ public sealed record class ArrayStatementRuntimeSemantics(
     // `ReDim v(1) As Long` makes it hold a Long(). Null when the statement states no type, or the target is not a Variant.
     private static VBType? StatedItemTypeOf(IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim, Target target)
     {
-        if (target.Declared is VBArrayType)
-        {
-            return null;
-        }
+        return target.Declared is VBArrayType ? null : ClauseTypeOf(session, context, redim);
+    }
 
+    // the same declared type, as a declaration states it: an enumeration is the declared type Long (MS-VBAL §5.2.3.4).
+    private static bool IsSameType(VBType declared, VBType stated)
+        => string.Equals(VBEnumType.AsDeclaredType(declared).Name, VBEnumType.AsDeclaredType(stated).Name, StringComparison.OrdinalIgnoreCase);
+
+    // the type the As clause or the type character of a ReDim states; null when it states none.
+    private static VBType? ClauseTypeOf(IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim)
+    {
         if (redim.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType)
         {
             return redim.TypeHint is { } hint && IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? hinted : null;
@@ -304,10 +326,14 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return false;
         }
 
-        var declared = (symbol as ITypedSymbol)?.ResolvedType;
+        // MS-VBAL §5.3.1.11: a Variant reference parameter given a variable of another type is that variable - `Grow arr` of `Grow(a As Variant)` with
+        // `Dim arr() As Long` re-dimensions arr, which stays a Long() (MS-VBA, recorded in Excel: oracle\s56 I03, I04), and raises 10 for a fixed-size one (I05).
+        VBType? referenced = null;
+        var isReferenced = session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out referenced);
+        var declared = isReferenced ? referenced : (symbol as ITypedSymbol)?.ResolvedType;
         var current = declared?.CreateValue(session.Symbols.Resolver.GetValue(symbol).ForReading());
 
-        target = new(symbol, null, declared, current);
+        target = new(symbol, null, declared, current, isReferenced);
         return true;
     }
 

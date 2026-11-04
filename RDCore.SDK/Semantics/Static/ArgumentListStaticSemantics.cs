@@ -86,8 +86,8 @@ internal static class ArgumentListStaticSemantics
                     return VBCompileErrorInfo.For(VBCompileErrorId.NamedArgumentAlreadySpecified, named.Location, named.Name);
                 }
 
-                if ((AnyError(context, procedure, parameter, named.Value) ?? ByRefError(context, procedure, parameter, named.Value)
-                    ?? ValueError(context, procedure, parameter, named.Value)) is { } namedByRef)
+                if ((AnyError(context, procedure, parameter, named.Value) ?? RecordError(context, procedure, parameter, named.Value)
+                    ?? ByRefError(context, procedure, parameter, named.Value) ?? ValueError(context, procedure, parameter, named.Value)) is { } namedByRef)
                 {
                     return namedByRef;
                 }
@@ -103,6 +103,11 @@ internal static class ArgumentListStaticSemantics
                     return VBCompileErrorInfo.For(VBCompileErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, argument.Location, procedure.Name);
                 }
 
+                if (RecordError(context, procedure, own[^1], argument) is { } collected)
+                {
+                    return collected;
+                }
+
                 continue;
             }
 
@@ -110,8 +115,8 @@ internal static class ArgumentListStaticSemantics
             if (argument is not MissingArgumentNode)
             {
                 given.Add(own[position].Name);
-                if ((AnyError(context, procedure, own[position], argument) ?? ByRefError(context, procedure, own[position], argument)
-                    ?? ValueError(context, procedure, own[position], argument)) is { } byRef)
+                if ((AnyError(context, procedure, own[position], argument) ?? RecordError(context, procedure, own[position], argument)
+                    ?? ByRefError(context, procedure, own[position], argument) ?? ValueError(context, procedure, own[position], argument)) is { } byRef)
                 {
                     return byRef;
                 }
@@ -142,6 +147,35 @@ internal static class ArgumentListStaticSemantics
         return VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, argument.Location,
             string.Format(Exceptions.VBArgument_ArrayToAsAny_Verbose, name.IdentifierName));
     }
+
+    // a record is passed by reference, to a parameter of its type. MS-VBA refuses one given to a Variant - ByVal, ByRef, untyped, a ParamArray, a library's
+    // (`c.Add t1` of a Collection) - and one given in parentheses, which is a value and no variable to pass, `F (t1)` (recorded in Excel: oracle\s56 I11-I13,
+    // C08-C11, C14). A record of a referenced library's public type is one a Variant holds (VBExternalUserDefinedType); a Declare's parameters are its own;
+    // and Len and LenB take "any valid variable name" (MS-VBAL §6.1.2.11.1.22), a record's for its length.
+    private static VBCompileErrorInfo? RecordError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
+    {
+        var toVariant = parameter is ParamArrayParameterSymbol || parameter.ResolvedType is VBVariantType;
+        if (procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol || argument is MissingArgumentNode or AddressOfExpressionNode
+            || IsLength(procedure)
+            || !toVariant && parameter.ResolvedType is not VBUserDefinedType
+            || ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, argument)
+                is not { IsSuccess: true, Result: { } given } || LetCoercionStaticSemantics.RecordOf(given) is not { } record)
+        {
+            return null;
+        }
+
+        // an array of records is refused a Variant too (oracle\s56 D12); given to a record parameter it is the ByRef mismatch ByRefError reports.
+        return toVariant
+            ? VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant, argument.Location,
+                string.Format(Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose, record))
+            : given is VBUserDefinedType && argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp }
+                ? VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, argument.Location, record)
+                : null;
+    }
+
+    private static bool IsLength(VBTypeMemberSymbol procedure)
+        => procedure is VBFunctionMemberSymbol { Name: var name } && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(procedure)
+            && (string.Equals(name, "Len", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "LenB", StringComparison.OrdinalIgnoreCase));
 
     // MS-VBAL §5.3.1.11: a variable given to a ByRef parameter is aliased to it, and is of its declared type - an array, of its element type. MS-VBA refuses
     // one of another type (Excel-verified): "ByRef argument type mismatch", or for an array "Type mismatch: array or user-defined type expected". A Variant
