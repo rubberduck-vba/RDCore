@@ -200,11 +200,11 @@ if ($RequireReleaseFiles -and (Test-Path -LiteralPath $ReleasePath -PathType Lea
     }
 }
 
-# (e) a shipped tree has never run: Logs/ is created (and written) on first launch
+# (e) the platform writes nothing into its tree (its logs go to its user's folders): a Logs/ here was left by a build older than that
 $LogsPath = Join-Path $Root "Logs"
 if (Test-Path -LiteralPath $LogsPath -PathType Container) {
     $logs = @(Get-ChildItem -LiteralPath $LogsPath -Recurse -File -Force)
-    if ($logs.Count -gt 0) { Add-Failure "Logs/ holds $($logs.Count) file(s); the tree has been run. Publish it again." }
+    if ($logs.Count -gt 0) { Add-Failure "Logs/ holds $($logs.Count) file(s), which no current build writes there. Publish it again." }
 }
 
 if ($Failures.Count -gt 0) {

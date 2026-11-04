@@ -2,9 +2,10 @@
 # smoke-launches the language server of a platform root the way a client does, and waits for it to validate and
 # register every extension the tree ships.
 #
-# runs on a temporary copy: a launch writes Logs/ into its platform root, and the tree being tested must stay
-# shippable. the environment is scrubbed of RDCORE_PLATFORM_ROOT and configuration overrides so that the tree's own
-# layout and appsettings.json are what gets tested. passes once the log shows each extension validated, the
+# runs on a temporary copy, and fails if the launch wrote anything into it: a platform is installed where its user
+# may not write, so its logs go to RDCORE_LOGS_DIRECTORY, set to a folder of this run's own. the environment is
+# scrubbed of RDCORE_PLATFORM_ROOT and configuration overrides so that the tree's own layout and appsettings.json are
+# what gets tested. passes once the log shows each extension validated, the
 # registration done and the pipe listening; fails on timeout, early exit, an extension the server refused, or any
 # [ERR]/[FTL] line. the whole process tree and the copy are removed either way.
 [CmdletBinding()]
@@ -41,7 +42,7 @@ $Work = Join-Path ([IO.Path]::GetTempPath()) "rdcore-smoke-$([guid]::NewGuid().T
 $Tree = Join-Path $Work "platform"
 $Workspace = Join-Path $Work "workspace"
 $PipeName = "rdcore-smoke-$([guid]::NewGuid().ToString('n'))"
-$Logs = Join-Path $Tree "Logs"
+$Logs = Join-Path $Work "logs"
 
 function Read-LanguageServerLog {
     if (-not (Test-Path -LiteralPath $Logs)) { return "" }
@@ -70,12 +71,11 @@ $Process = $null
 # nothing started after MaxValue, so the walk finds no children if the start time was never read
 $ServerStart = [datetime]::MaxValue
 $Verdict = $null
+$Written = @()
 $Log = ""
 try {
     New-Item $Workspace -ItemType Directory -Force | Out-Null
     Copy-Item -LiteralPath $Source -Destination $Tree -Recurse
-    # stale logs would satisfy (or fail) the checks below on their own
-    Remove-Item -LiteralPath $Logs -Recurse -Force -ErrorAction SilentlyContinue
 
     $executable = Join-Path $Tree $Manifest.langService
     $startInfo = [Diagnostics.ProcessStartInfo]::new($executable)
@@ -94,6 +94,7 @@ try {
     foreach ($name in @($startInfo.Environment.Keys)) {
         if ($name -eq "RDCORE_PLATFORM_ROOT" -or $name -match "^(DOTNET_)?Configuration(__|:)") { [void]$startInfo.Environment.Remove($name) }
     }
+    $startInfo.Environment["RDCORE_LOGS_DIRECTORY"] = $Logs
 
     Write-Host "Starting $($Manifest.langService) from a copy at $Tree (pipe $PipeName, timeout ${TimeoutSeconds}s)..."
     $Process = [Diagnostics.Process]::Start($startInfo)
@@ -139,6 +140,11 @@ finally {
         foreach ($id in $children) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
         [void]$Process.WaitForExit(10000)
     }
+    # what the launch left in the tree: nothing, or the platform can't be installed read-only
+    if (Test-Path -LiteralPath $Tree) {
+        $shipped = @(Get-ChildItem -LiteralPath $Source -Recurse -File -Force -Name)
+        $Written = @(Get-ChildItem -LiteralPath $Tree -Recurse -File -Force -Name | Where-Object { $_ -notin $shipped })
+    }
     # handles are released asynchronously after a kill
     for ($attempt = 1; (Test-Path -LiteralPath $Work) -and $attempt -le 20; $attempt++) {
         try { Remove-Item -LiteralPath $Work -Recurse -Force } catch { Start-Sleep -Milliseconds 500 }
@@ -149,6 +155,10 @@ finally {
 Write-Host "--- RDCore.LanguageServer log ---"
 Write-Host $Log.TrimEnd()
 Write-Host "---"
+
+if ($Verdict -eq "ok" -and $Written.Count -gt 0) {
+    $Verdict = "the launch wrote into the platform root:`n  " + ($Written -join "`n  ")
+}
 
 if ($Verdict -ne "ok") {
     foreach ($stream in @(@("stdout", $StandardOutput), @("stderr", $StandardError))) {

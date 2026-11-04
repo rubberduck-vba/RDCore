@@ -210,10 +210,9 @@ Write-Host ""
 Write-Host "🧩 Assembling platform..."
 Write-Host ""
 
+# what the platform ships, and nothing it writes: its logs go to its user's folders (PlatformEnvironment.LogsDirectory), so it can be installed read-only.
 $PlatformFolders = @(
-    "Config",
     "Extensions",
-    "Logs",
     "Symbols"
 )
 
