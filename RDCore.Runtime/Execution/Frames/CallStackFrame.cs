@@ -1332,12 +1332,6 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
         }
 
-        // the addresses of locals whose names an edit let go of (Retire).
-        foreach (var retired in _occasional?.RetiredAddresses ?? [])
-        {
-            Storage.TryDeallocate(retired);
-        }
-
         // a variable of this activation that a parameter of a call it made was asked the address of, and that was not asked for it itself since: the
         // address is this activation's (TryGiveAddress).
         foreach (var slot in _slots)
