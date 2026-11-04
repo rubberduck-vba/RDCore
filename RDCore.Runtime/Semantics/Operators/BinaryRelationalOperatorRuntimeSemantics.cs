@@ -298,14 +298,16 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
 
     // MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles, where MS-VBAL 5.6.9.5's table
     // gives the number's type (OperationPlanner.SpecifiedRelationalEffectiveType): the analysis states it (IsStringComparedAsADouble) for RDCore.Diagnostics
-    // to report (RDC11027) - but where the two compare alike: a known String that is no number (13 either way), or a number the table's type holds as the
-    // Double holds it. A LongLong is compared alike only where a Double holds both operands exactly.
+    // to report (RDC11027) where the operator can answer otherwise than the table's comparison would. It cannot for a known String that is no number (13
+    // either way), nor for a known String compared with a known number for which the two answers are the same. With the number not known, the two answer
+    // alike for every number but those next to the String's value: "2.5" is the table's 2, and 2.5 < n is 2 < n for every integer n, where 2.5 > n is not
+    // 2 > n for n = 2. Past 2^53, where a Double holds no longer every integer, a LongLong is not compared alike.
     private bool IsStringComparedAsADouble(ISymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
     {
         if (!ComparesValues || effective is not VBDoubleType
             || OperationPlanner.SpecifiedRelationalEffectiveType(left.GetTargetType(), right.GetTargetType()) is not { } specified
             || specified is VBDoubleType
-            || !IsStringAgainstAnother(left, right, out var text, out var number))
+            || !IsStringAgainstAnother(left, right, out var text, out var number, out var stringIsLeft))
         {
             return false;
         }
@@ -321,23 +323,55 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             return error.ErrorId != (int)VBRuntimeErrorId.TypeMismatch;
         }
 
-        var asDouble = CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo);
-        if (asDouble.Result is not { } held || Convert.ToDouble(held.RuntimeValue.BoxedValue) != Convert.ToDouble(asSpecified.Result!.RuntimeValue.BoxedValue))
+        if (CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo).Result is not { } asDouble)
         {
             return true;
         }
 
-        return specified is VBLongLongType
-            && (number.IsIndeterminate || !IsHeldByADouble(asSpecified.Result) || !IsHeldByADouble(number));
+        var held = Convert.ToDouble(asDouble.RuntimeValue.BoxedValue);
+        var tabled = asSpecified.Result!.RuntimeValue.BoxedValue;
+        if (specified is VBSingleType)
+        {
+            var single = Convert.ToSingle(tabled);
+            float[] singles = number.IsIndeterminate ? [float.BitDecrement(single), single, float.BitIncrement(single)] : [Convert.ToSingle(ValueOf(number))];
+            return singles.Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(single, n, stringIsLeft));
+        }
+
+        if (Math.Abs(held) >= 1L << 53)
+        {
+            return true;
+        }
+
+        var integer = Convert.ToInt64(tabled);
+        long[] integers = number.IsIndeterminate
+            ? [(long)Math.Floor(held) - 1, (long)Math.Floor(held), (long)Math.Ceiling(held), (long)Math.Ceiling(held) + 1]
+            : [Convert.ToInt64(ValueOf(number))];
+        return integers.Where(n => IsInRangeOf(specified, n)).Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(integer, n, stringIsLeft));
     }
 
-    private static bool IsStringAgainstAnother(VBTypedValue left, VBTypedValue right, out VBStringValue text, out VBTypedValue number)
+    // MS-VBA's answer: the String's Double and the number's.
+    private bool AsDoubles(double text, double number, bool stringIsLeft) => stringIsLeft ? ComparisonOp(text, number) : ComparisonOp(number, text);
+
+    // the table's answer: the String as a value of the number's type, and the number.
+    private bool Ordered<T>(T text, T number, bool stringIsLeft) where T : INumber<T> => stringIsLeft ? ComparisonOp(text, number) : ComparisonOp(number, text);
+
+    private static bool IsInRangeOf(VBType type, long value) => type switch
     {
-        (text, number) = (HeldString(left), HeldString(right)) switch
+        VBByteType => value is >= byte.MinValue and <= byte.MaxValue,
+        VBIntegerType => value is >= short.MinValue and <= short.MaxValue,
+        VBLongType => value is >= int.MinValue and <= int.MaxValue,
+        _ => true,
+    };
+
+    private static object ValueOf(VBTypedValue number) => (number is VBVariantValue variant ? variant.TypedValue : number).RuntimeValue.BoxedValue;
+
+    private static bool IsStringAgainstAnother(VBTypedValue left, VBTypedValue right, out VBStringValue text, out VBTypedValue number, out bool stringIsLeft)
+    {
+        (text, number, stringIsLeft) = (HeldString(left), HeldString(right)) switch
         {
-            ({ } held, null) => (held, right),
-            (null, { } held) => (held, left),
-            _ => (null!, null!),
+            ({ } held, null) => (held, right, true),
+            (null, { } held) => (held, left, false),
+            _ => (null!, null!, false),
         };
 
         return text is not null;
@@ -349,10 +383,6 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         VBVariantValue { TypedValue: VBStringValue text } => text,
         _ => null,
     };
-
-    // 2^53: a Double holds every integer of that magnitude, and not every one above it.
-    private static bool IsHeldByADouble(VBTypedValue integer)
-        => Convert.ToInt64((integer is VBVariantValue variant ? variant.TypedValue : integer).RuntimeValue.BoxedValue) is >= -(1L << 53) and <= 1L << 53;
 
     private LetCoercionResult CoerceUnstated(ISymbolResolver resolver, ExpressionNode expression, VBStringValue text, VBType destination)
         => LetCoercionSemanticsProvider.EvaluateUnstated(resolver, expression,

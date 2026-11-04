@@ -226,7 +226,7 @@ public sealed class OperatorFactAnalyzerTests
     [TestMethod]
     [DataRow("ByVal a As String", "r = a > 2", DisplayName = "a String parameter")]
     [DataRow("", "Dim a As String", "a = \"2\"", "r = a > 2", DisplayName = "a String variable")]
-    [DataRow("ByVal b As LongLong", "Dim v As Variant", "v = \"2\"", "r = v = b", DisplayName = "a LongLong parameter, which a Double may not hold")]
+    [DataRow("ByVal b As LongLong", "Dim v As Variant", "v = \"2.5\"", "r = v = b", DisplayName = "a LongLong parameter")]
     public async Task AComparisonOfAValueThatIsNotKnown_AsDoubles_IsReported(string parameters, params string[] body)
     {
         var finding = (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), parameters, ["Dim r As Boolean", .. body])).Single();
@@ -238,9 +238,66 @@ public sealed class OperatorFactAnalyzerTests
     [DataRow("r = \"abc\" = b", DisplayName = "a String that is no number, 13 either way")]
     [DataRow("r = \"2\" = b", DisplayName = "an integer's text, which the two compare alike")]
     [DataRow("v = \"2\"", "r = v = 2^", DisplayName = "a LongLong a Double holds")]
+    [DataRow("v = \"2\"", "r = v = c", DisplayName = "a LongLong parameter and an integer's text")]
     public async Task AComparisonOfKnownValues_ThatComeOutAlike_IsNotReported(params string[] body)
     {
-        Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal b As Long", ["Dim r As Boolean, v As Variant", .. body]));
+        Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal b As Long, ByVal c As LongLong", ["Dim r As Boolean, v As Variant", .. body]));
+    }
+
+    // "2.5" is the table's 2, and "2.6" its 3: with n not known, MS-VBA's answer is the table's for some operators and not for others.
+    [TestMethod]
+    [DataRow("2.5", "<", false, DisplayName = "\"2.5\" < n: 2 < n for every integer")]
+    [DataRow("2.5", ">=", false, DisplayName = "\"2.5\" >= n: 2 >= n for every integer")]
+    [DataRow("2.5", ">", true, DisplayName = "\"2.5\" > n: not 2 > n for n = 2")]
+    [DataRow("2.5", "<=", true, DisplayName = "\"2.5\" <= n: not 2 <= n for n = 2")]
+    [DataRow("2.5", "=", true, DisplayName = "\"2.5\" = n: not 2 = n for n = 2")]
+    [DataRow("2.5", "<>", true, DisplayName = "\"2.5\" <> n: not 2 <> n for n = 2")]
+    [DataRow("2.6", ">", false, DisplayName = "\"2.6\" > n: 3 > n for every integer")]
+    [DataRow("2.6", "<=", false, DisplayName = "\"2.6\" <= n: 3 <= n for every integer")]
+    [DataRow("2.6", "<", true, DisplayName = "\"2.6\" < n: not 3 < n for n = 3")]
+    [DataRow("2.6", ">=", true, DisplayName = "\"2.6\" >= n: not 3 >= n for n = 3")]
+    public async Task AStringComparedWithANumberNotKnown_IsReported_WhereTheOperatorCanAnswerOtherwise(string text, string op, bool isReported)
+    {
+        string[] stringLeft = ["Dim v As Variant, r As Boolean", $"v = \"{text}\"", $"r = v {op} n"];
+        string[] stringRight = ["Dim v As Variant, r As Boolean", $"v = \"{text}\"", $"r = n {Mirrored(op)} v"];
+
+        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal n As Long", stringLeft)).Length == 1, "the String on the left");
+        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal n As Long", stringRight)).Length == 1, "the String on the right");
+
+        static string Mirrored(string op) => op switch { "<" => ">", ">" => "<", "<=" => ">=", ">=" => "<=", _ => op };
+    }
+
+    [TestMethod]
+    [DataRow("v = \"2.5\"", "r = v > 7", false, DisplayName = "\"2.5\" > 7: False either way")]
+    [DataRow("v = \"2.5\"", "r = v > 2", true, DisplayName = "\"2.5\" > 2: True, where 2 > 2 is False")]
+    [DataRow("v = \"2.5\"", "r = v <> 3", false, DisplayName = "\"2.5\" <> 3: True either way")]
+    [DataRow("v = \"2.5\"", "r = v <> 2", true, DisplayName = "\"2.5\" <> 2: True, where 2 <> 2 is False")]
+    [DataRow("", "r = S > 2", true, DisplayName = "a constant \"2.5\" > 2")]
+    [DataRow("", "r = S < 7", false, DisplayName = "a constant \"2.5\" < 7")]
+    [DataRow("", "r = S <= K", true, DisplayName = "a constant \"2.5\" <= a constant 2: False, where 2 <= 2 is True")]
+    [DataRow("", "r = S >= K", false, DisplayName = "a constant \"2.5\" >= a constant 2: True either way")]
+    public async Task AStringComparedWithAKnownNumber_IsReported_WhereTheAnswersDiffer(string assignment, string comparison, bool isReported)
+    {
+        var findings = await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "",
+            "Const S As String = \"2.5\"", "Const K As Long = 2","Dim v As Variant, r As Boolean", assignment, comparison);
+
+        Assert.AreEqual(isReported, findings.Length == 1);
+    }
+
+    // a Case clause compares the selector with its value as the relational operator does (MS-VBAL 5.4.2.10).
+    [TestMethod]
+    [DataRow("Case 2", true, DisplayName = "Case 2: v = 2")]
+    [DataRow("Case 7", false, DisplayName = "Case 7: v = 7, False either way")]
+    [DataRow("Case Is > 2", true, DisplayName = "Case Is > 2")]
+    [DataRow("Case Is < 3", false, DisplayName = "Case Is < 3: True either way")]
+    [DataRow("Case 1 To 2", true, DisplayName = "Case 1 To 2: v <= 2")]
+    [DataRow("Case 3 To 4", false, DisplayName = "Case 3 To 4: False either way")]
+    public async Task ACaseClause_OfAVariantSelectorHoldingAString_IsReported_WhereTheAnswersDiffer(string clause, bool isReported)
+    {
+        var findings = await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "",
+            "Dim v As Variant", "v = \"2.5\"", "Select Case v", clause, "Debug.Print 1", "End Select");
+
+        Assert.AreEqual(isReported, findings.Length > 0);
     }
 
     [TestMethod]
@@ -260,7 +317,7 @@ public sealed class OperatorFactAnalyzerTests
     [TestMethod]
     public async Task AnExpressionOverAVariantNumber_ComparedWithAString_IsComparedAsText_NotAsDoubles()
     {
-        string[] body = ["Dim v As Variant, r As Boolean", "v = 1", "r = (v + 1) = \"2.0\""];
+        string[] body = ["Dim v As Variant, r As Boolean", "v = 1", "r = (v + 1) = \"2.5\""];
 
         Assert.AreEqual(RDCoreDiagnosticId.VariantComparedWithStringAsText, (await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "", body)).Single().Id);
         Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "", body));
