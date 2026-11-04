@@ -320,8 +320,10 @@ public sealed class ProgramExecutionTests
 
     // ---- moving the point the program goes on from ----
 
-    private static Task<HostDebugGotoResult> Goto(EnvironmentSessionProvider provider, int line = 0, string? label = null)
-        => new HostDebugGotoHandler(provider).Handle(new HostDebugGotoParams { Line = line, Label = label }, CancellationToken.None).WaitAsync(Patience);
+    private static Task<HostDebugGotoResult> Goto(EnvironmentSessionProvider provider, int line = 0, string? label = null, string? moduleName = null, bool peek = false)
+        => new HostDebugGotoHandler(provider)
+            .Handle(new HostDebugGotoParams { Line = line, Label = label, ModuleName = moduleName, Peek = peek }, CancellationToken.None)
+            .WaitAsync(Patience);
 
     private static readonly string Skippable = Program(
         "Public Total As Long",
@@ -476,6 +478,102 @@ public sealed class ProgramExecutionTests
             Assert.IsTrue((await Goto(provider, line: 8)).Moved);
 
             CollectionAssert.AreEqual(new[] { "20" }, Lines(await Resume(provider)));
+        });
+
+    private static readonly string CalledAndWaiting = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Helper",
+        "    Debug.Print Total",
+        "End Sub",
+        "Private Sub Helper()",
+        "    Stop",
+        "    Total = 1",
+        "    Total = Total + 20",
+        "End Sub");
+
+    // the first statement at or after a line of the module's declarations, or of a procedure above the one that waits, is the first statement of the one that
+    // waits: a statement nobody pointed at.
+    [TestMethod]
+    [DataRow(0, DisplayName = "the module's declarations")]
+    [DataRow(3, DisplayName = "the procedure that called it")]
+    public async Task AGoto_ToALineOutsideTheProcedureThatWaits_IsRefused_AndTheProgramGoesOnFromWhereItStopped(int line)
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) =>
+        {
+            var moved = await Goto(provider, line: line);
+
+            Assert.IsFalse(moved.Moved, $"moved to line {moved.Line}");
+            StringAssert.Contains(moved.Reason, "Program.Helper");
+            CollectionAssert.AreEqual(new[] { "21" }, Lines(await Resume(provider)));
+        });
+
+    [TestMethod]
+    public async Task AGoto_ToALineOfAnotherModule_IsRefused_AndTheProgramGoesOnFromWhereItStopped()
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) =>
+        {
+            var moved = await Goto(provider, line: 8, moduleName: "Other");
+
+            Assert.IsFalse(moved.Moved, $"moved to line {moved.Line}");
+            StringAssert.Contains(moved.Reason, "Other");
+            CollectionAssert.AreEqual(new[] { "21" }, Lines(await Resume(provider)));
+        });
+
+    [TestMethod]
+    public async Task AGoto_ToALineOfTheModuleThatWaits_NamedAsItIs_GoesOnFromThere()
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) =>
+        {
+            Assert.IsTrue((await Goto(provider, line: 8, moduleName: "Program")).Moved);
+
+            CollectionAssert.AreEqual(new[] { "20" }, Lines(await Resume(provider)));
+        });
+
+    private static readonly string WaitsAboveABlankLine = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Total = 1",
+        "    Stop",
+        "",
+        "    Total = Total + 10",
+        "    Debug.Print Total",
+        "End Sub");
+
+    [TestMethod]
+    public async Task APeek_AtALineWithNoStatement_SaysTheLineOfTheNextOne()
+        => await DebugAsync(WaitsAboveABlankLine, async (provider, _, _) =>
+        {
+            var peeked = await Goto(provider, line: 4, moduleName: "Program", peek: true);
+
+            Assert.IsTrue(peeked.Moved, peeked.Reason);
+            Assert.AreEqual(5, peeked.Line);
+        });
+
+    [TestMethod]
+    public async Task APeek_MovesNothing()
+        => await DebugAsync(WaitsAboveABlankLine, async (provider, _, _) =>
+        {
+            Assert.IsTrue((await Goto(provider, line: 2, peek: true)).Moved);
+
+            var resumed = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, "the Stop was run again");
+            CollectionAssert.AreEqual(new[] { "11" }, Lines(resumed));
+        });
+
+    [TestMethod]
+    public async Task APeek_OutsideTheProcedureThatWaits_IsRefused()
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) => Assert.IsFalse((await Goto(provider, line: 3, peek: true)).Moved));
+
+    [TestMethod]
+    public async Task APeek_AfterTheCodeChanged_SaysTheLineOfTheEditedCode()
+        => await DebugAsync(Skippable, async (provider, _, _) =>
+        {
+            Reload(provider, "\r\n" + Skippable);
+
+            var peeked = await Goto(provider, line: 7, peek: true);
+
+            Assert.IsTrue(peeked.Moved, peeked.Reason);
+            Assert.AreEqual(7, peeked.Line);
+            CollectionAssert.AreEqual(new[] { "111" }, Lines(await Resume(provider)));
         });
 
     // ---- breakpoints ----

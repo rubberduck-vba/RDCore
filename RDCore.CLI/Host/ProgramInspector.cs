@@ -188,6 +188,6 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
     }
 
     // the module is the fragment of the procedure's parent: "Program" for Program.Main.
-    private static string ModuleNameOf(CallStackFrame frame)
+    internal static string ModuleNameOf(CallStackFrame frame)
         => frame.Procedure?.ParentUri.Fragment.TrimStart('#') is { Length: > 0 } module ? module : string.Empty;
 }

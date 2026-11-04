@@ -87,6 +87,18 @@ public record class HostDebugGotoParams : IRequest, IRequest<HostDebugGotoResult
     /// <see cref="Line"/>.
     /// </summary>
     public string? Label { get; init; }
+
+    /// <summary>
+    /// The programmatic name of the module <see cref="Line"/> is a line of, or <see langword="null"/> for the module of the procedure the program waits in. A line of
+    /// another module is refused: the program can't go on from there.
+    /// </summary>
+    public string? ModuleName { get; init; }
+
+    /// <summary>
+    /// Whether the request only asks where the program would go on from, and moves nothing: the answer is the one the move would be, with the line the move would
+    /// land on - the first statement that begins on <see cref="Line"/> or after it, which a client offers as the target of the line.
+    /// </summary>
+    public bool Peek { get; init; }
 }
 
 /// <summary>

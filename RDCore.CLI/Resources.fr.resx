@@ -545,6 +545,12 @@
   <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
     <value>aucune instruction de la procédure ne commence à cette ligne ni après</value>
   </data>
+  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
+    <value>la ligne n'est pas dans {0}, la procédure où le programme attend</value>
+  </data>
+  <data name="Host_GotoInAnotherModule" xml:space="preserve">
+    <value>la ligne est dans {0}, et le programme attend dans {1}</value>
+  </data>
   <data name="Host_NoSuchActivation" xml:space="preserve">
     <value>cette activation n'existe pas</value>
   </data>

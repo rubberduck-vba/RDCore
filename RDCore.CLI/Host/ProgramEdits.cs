@@ -314,7 +314,7 @@ internal sealed class ProgramEdits
     }
 
     // the procedure an activation is of, as the session defines it now.
-    private static VBTypeMemberSymbol? CurrentProcedureOf(IRuntimeSession session, CallStackFrame frame)
+    internal static VBTypeMemberSymbol? CurrentProcedureOf(IRuntimeSession session, CallStackFrame frame)
         => session.Symbols.MembersOf(frame.Procedure!.ParentUri).FirstOrDefault(member => member.SemanticId == frame.Procedure.SemanticId);
 
     // the activations whose procedure's body is not the one they run - edited, or its module loaded again - each with that body, how the two align, and
