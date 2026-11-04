@@ -65,7 +65,7 @@ public static class SymbolUri
 
         if (Uri.TryCreate(workspaceRoot, UriKind.Absolute, out var uri))
         {
-            return uri.IsFile ? FileRoot(PathOf(uri)) : uri;
+            return uri.IsFile ? FileRoot(FileSystemPathOf(uri)) : uri;
         }
 
         throw new ArgumentException(string.Format(System.Globalization.CultureInfo.InvariantCulture,
@@ -76,7 +76,7 @@ public static class SymbolUri
     private static Uri FileRoot(string path) => new(new Uri(path).AbsoluteUri);
 
     // the path a file URI is of, however it escapes it; DocumentUri writes a drive's letter in lowercase, and the root keeps it as the URI writes it.
-    private static string PathOf(Uri file)
+    private static string FileSystemPathOf(Uri file)
     {
         var path = DocumentUri.From(file).GetFileSystemPath();
         return path is [_, ':', ..] && file.AbsolutePath.TrimStart('/') is [var drive, ..] ? drive + path[1..] : path;
@@ -102,18 +102,50 @@ public static class SymbolUri
     }
 
     /// <summary>
-    /// The name of a module, as its address has it (<see cref="Module(Uri, string)"/>): the fragment, as the module's name was written, and not as an address
-    /// escapes it.
+    /// Where a symbol is in its project or library, as its address has it: the names of the module and of each member down to the symbol, joined by dots
+    /// (<c>GameBoard.Reset.Count</c>), as they were written, and not as an address escapes them.
     /// </summary>
     /// <remarks>
-    /// <see cref="Uri.Fragment"/> is escaped: the address of <c>Modèle</c> has the fragment <c>#Mod%C3%A8le</c>. A name read from it is unescaped.
+    /// <para>
+    /// <see cref="Uri.Fragment"/> is escaped: the address of <c>Modèle</c> has the fragment <c>#Mod%C3%A8le</c>. A name read from it is unescaped, and a name
+    /// compared with one, shown, or looked up is read with this, not from the fragment.
+    /// </para>
+    /// <para>
+    /// A relative URI addresses no symbol: every symbol is addressed under the absolute root of its project or library (<see cref="Root"/>), and a relative
+    /// one reaching this is a mistake of whatever made it, which is not covered up as an empty name.
+    /// </para>
     /// </remarks>
-    /// <param name="module">The address of a module.</param>
-    /// <returns>The module's name, or an empty string when the address has no fragment.</returns>
-    public static string ModuleNameOf(Uri module)
+    /// <param name="symbol">The address of a symbol, or the root of a project or a library.</param>
+    /// <returns>The symbol's path, or an empty string for a root.</returns>
+    /// <exception cref="ArgumentException"><paramref name="symbol"/> is a relative URI.</exception>
+    public static string PathOf(Uri symbol)
     {
-        ArgumentNullException.ThrowIfNull(module);
-        return Uri.UnescapeDataString(module.Fragment.TrimStart('#'));
+        ArgumentNullException.ThrowIfNull(symbol);
+        if (!symbol.IsAbsoluteUri)
+        {
+            throw new ArgumentException(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "'{0}' is a relative URI: a symbol is addressed under the absolute root of its project or library.", symbol.OriginalString), nameof(symbol));
+        }
+
+        return Uri.UnescapeDataString(symbol.Fragment.TrimStart('#'));
+    }
+
+    /// <summary>
+    /// The name of the module a symbol is addressed under (<see cref="Module(Uri, string)"/>): the first name of its path (<see cref="PathOf"/>), as the
+    /// module's name was written, and not as an address escapes it.
+    /// </summary>
+    /// <remarks>
+    /// A module's name is an identifier (<strong>MS-VBAL §4.2</strong>), which has no dot (<strong>MS-VBAL §3.3.5</strong>): whatever follows the first one is
+    /// the path of a member.
+    /// </remarks>
+    /// <param name="symbol">The address of a module, or of any symbol declared in one.</param>
+    /// <returns>The module's name, or an empty string for the root of a project or a library.</returns>
+    /// <exception cref="ArgumentException"><paramref name="symbol"/> is a relative URI.</exception>
+    public static string ModuleNameOf(Uri symbol)
+    {
+        var path = PathOf(symbol);
+        var dot = path.IndexOf('.', StringComparison.Ordinal);
+        return dot < 0 ? path : path[..dot];
     }
 
     /// <summary>
@@ -127,7 +159,7 @@ public static class SymbolUri
         ArgumentNullException.ThrowIfNull(parent);
         return new UriBuilder(parent)
         {
-            Fragment = string.IsNullOrEmpty(parent.Fragment) ? name : $"{parent.Fragment.TrimStart('#')}.{name}",
+            Fragment = PathOf(parent) is { Length: > 0 } path ? $"{path}.{name}" : name,
         }.Uri;
     }
 }
