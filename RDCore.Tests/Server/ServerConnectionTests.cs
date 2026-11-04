@@ -17,7 +17,7 @@ namespace RDCore.Tests.Server;
 /// What a language server of the platform logs as it starts and as it shuts down cleanly: nothing that is not a fault.
 /// </summary>
 [TestClass]
-public sealed class ServerInputTests
+public sealed class ServerConnectionTests
 {
     private static readonly TimeSpan Hung = TimeSpan.FromMinutes(5);
 
@@ -129,6 +129,53 @@ public sealed class ServerInputTests
 
         var warnings = logged.Where(record => record.Category == DeferredOutputLogging.Category && record.Level == LogLevel.Warning).ToList();
         Assert.IsEmpty(warnings, string.Join("\n", warnings.Select(record => record.Message)));
+    }
+
+    // OmniSharp stops its output as it handles exit: it completes the writer, then cancels the loop that writes. A message still being written then is
+    // cancelled through the writer it completed.
+    [TestMethod]
+    public async Task AServerStoppedWhileAMessageIsWritten_StopsWithoutFault()
+    {
+        var stream = new WriteWaitsUntilCancelled();
+        var output = new ServerOutput(PipeWriter.Create(stream));
+        var handler = new OmniSharp.Extensions.JsonRpc.OutputHandler(output, new OmniSharp.Extensions.JsonRpc.Serialization.JsonRpcSerializer(), [],
+            System.Reactive.Concurrency.Scheduler.Default, Microsoft.Extensions.Logging.Abstractions.NullLogger<OmniSharp.Extensions.JsonRpc.OutputHandler>.Instance);
+        handler.Initialized();
+
+        handler.Send(new OmniSharp.Extensions.JsonRpc.Client.OutgoingNotification { Method = "rdcore/test/written" });
+        await stream.Writing.WaitAsync(Hung);
+
+        await handler.StopAsync().WaitAsync(Hung);
+    }
+
+    // a stream whose reader has stopped reading: a write waits until it is cancelled.
+    private sealed class WriteWaitsUntilCancelled : Stream
+    {
+        private readonly TaskCompletionSource _writing = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Writing => _writing.Task;
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            _writing.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => WriteAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     // every record of the container, as it is logged.
