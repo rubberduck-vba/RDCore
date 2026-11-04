@@ -89,7 +89,7 @@ public sealed class ClientLocaleTests
     // ---- what a client of the protocol says ----
 
     // OmniSharp 0.19.9 reads an initialize request into a type of its own that has no locale, and makes the request its handlers are given of that one: what the
-    // client said is kept from the message as it came (desk card locale-ignored).
+    // client said is kept from the message as it came.
     [TestMethod]
     [DataRow("fr-CA", "fr-CA", DisplayName = "a locale")]
     [DataRow(null, null, DisplayName = "none")]
@@ -148,6 +148,17 @@ public sealed class ClientLocaleTests
         Assert.AreEqual("fr-CA", ClientLocale.Of(null, options), "a platform's client, whose language client cannot say it there");
         Assert.AreEqual("fr-CA", ClientLocale.Of("  ", options));
         Assert.IsNull(ClientLocale.Of(null, null));
+    }
+
+    // a request's locale that is no culture the platform knows does not hide the one a platform's client says; when neither is known, the request's stands.
+    [TestMethod]
+    public void ARequestsLocaleThePlatformDoesNotKnow_GivesWayToTheInitializationOptions()
+    {
+        var options = new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "fr-CA" };
+
+        Assert.AreEqual("fr-CA", ClientLocale.Of("xx-YY", options));
+        Assert.AreEqual("xx-YY", ClientLocale.Of("xx-YY", new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "zz-QQ" }));
+        Assert.AreEqual("xx-YY", ClientLocale.Of("xx-YY", null));
     }
 
     [TestMethod]

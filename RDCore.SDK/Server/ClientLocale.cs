@@ -32,16 +32,42 @@ public static class ClientLocale
     /// The language a client says it shows, in an <c>initialize</c> request: the request's own <c>locale</c>, which a client of the protocol says, and
     /// otherwise what a platform's own client says in its <c>initializationOptions</c> (<see cref="Platform.Protocol.RDCoreInitializationOptions.Locale"/>).
     /// </summary>
+    /// <remarks>
+    /// The first of the two that is a language the platform knows is the one (<see cref="Apply"/>): a request's <c>locale</c> that is no known culture does
+    /// not hide a known one in the <c>initializationOptions</c>. When neither is known, the first one said is, and is not applied.
+    /// </remarks>
     /// <param name="locale">The request's <c>locale</c>.</param>
     /// <param name="initializationOptions">What the client says in its <c>initializationOptions</c>, if it is a platform's.</param>
     public static string? Of(string? locale, Platform.Protocol.RDCoreInitializationOptions? initializationOptions)
-        => !string.IsNullOrWhiteSpace(locale) ? locale : initializationOptions?.Locale;
+    {
+        string?[] said = [locale, initializationOptions?.Locale];
+        return said.FirstOrDefault(tag => CultureOf(tag) is not null) ?? said.FirstOrDefault(tag => !string.IsNullOrWhiteSpace(tag));
+    }
 
-    // the request's own locale, which OmniSharp 0.19.9 gives its handlers none of: the one the receiver kept from the message (InitializeLocale).
+    // the request's own locale: the one the receiver kept from the message (InitializeLocale). OmniSharp 0.19.9 gives its handlers an InitializeParams whose
+    // Locale is always null, so the request is read first only for a version of OmniSharp that keeps it.
     internal static string? Said(OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer server, OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams request)
         => !string.IsNullOrWhiteSpace(request.Locale)
             ? request.Locale
             : (server.Services.GetService(typeof(Services.InitializeLocale)) as Services.InitializeLocale)?.Locale;
+
+    // the culture of a tag, when it is one the platform knows: ICU makes a culture of any well-formed tag, and only a known one is a language it could speak.
+    private static CultureInfo? CultureOf(string? tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag))
+        {
+            return null;
+        }
+
+        try
+        {
+            return CultureInfo.GetCultureInfo(tag.Trim(), predefinedOnly: true);
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Makes the language a client says it shows the language of the user interface.
@@ -50,18 +76,7 @@ public static class ClientLocale
     /// <returns>The culture now in use; <see langword="null"/> when the client says none, or one the platform does not know, which leaves the one in use.</returns>
     public static CultureInfo? Apply(string? locale)
     {
-        if (string.IsNullOrWhiteSpace(locale))
-        {
-            return null;
-        }
-
-        CultureInfo culture;
-        try
-        {
-            // ICU makes a culture of any well-formed tag: only one it knows is a language the platform could speak.
-            culture = CultureInfo.GetCultureInfo(locale.Trim(), predefinedOnly: true);
-        }
-        catch (CultureNotFoundException)
+        if (CultureOf(locale) is not { } culture)
         {
             return null;
         }

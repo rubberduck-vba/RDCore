@@ -344,9 +344,9 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(id);
     }
 
-    // LSP's own locale, which a client of the protocol says (HexIDE's findings desk, locale-ignored): the language server speaks the client's language, and tells the
-    // components it starts the same. OmniSharp 0.19.9 gives its handlers an initialize request without it. A document's diagnostics are pulled so that the parse
-    // server is known to have been initialized by the time its log is read.
+    // LSP's own locale, which a client of the protocol says: the language server speaks the client's language, and tells the components it starts the same.
+    // OmniSharp 0.19.9 gives its handlers an initialize request without it. A document's diagnostics are pulled so that the parse server is known to have been
+    // initialized. The logs are read once the platform is shut down: a file log is written behind, and only an ended process has written all of it.
     [TestMethod]
     [Timeout(180_000, CooperativeCancellation = true)]
     public async Task TheLocaleOfTheInitializeRequest_IsTheLanguageOfTheLanguageServer_AndOfTheComponentsItStarts()
@@ -366,10 +366,11 @@ public sealed class ClientWithoutOmniSharpTests
         var diagnostics = await rpc.RequestAsync(2, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
         Assert.IsNull(diagnostics["error"], diagnostics.ToJsonString());
 
+        await platform.ShutdownAsync(3);
+
         const string Applied = "The client's user interface is in 'fr-CA'.";
         StringAssert.Contains(WholeLogOf(platform.Root), Applied, "the language server: " + LogOf(platform.Root));
         StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Applied, "the parse server it started");
-        await platform.ShutdownAsync(3);
     }
 
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.
