@@ -210,7 +210,7 @@ internal static class ModuleWorkspace
         {
             // the facts of the code are evaluated in the background, after the model is stored.
             await sessionProvider.Image.Semantics.WhenAllEvaluatedAsync();
-            model = sessionProvider.Image.Semantics.All.Single(candidate => candidate.Module.Fragment.TrimStart('#') == moduleName);
+            model = sessionProvider.Image.Semantics.All.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == moduleName);
         }, language: language, libraries: libraries);
 
         return model!;

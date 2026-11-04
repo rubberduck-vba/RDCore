@@ -1003,11 +1003,11 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     public IReadOnlyList<Symbol> DeclaredIn(Uri moduleUri)
     {
         var document = moduleUri.GetLeftPart(UriPartial.Path);
-        var prefix = moduleUri.Fragment.TrimStart('#') + ".";
+        var prefix = SymbolUri.PathOf(moduleUri) + ".";
 
         return [.. table.All().Where(symbol =>
             string.Equals(symbol.Uri.GetLeftPart(UriPartial.Path), document, StringComparison.Ordinal)
-            && symbol.Uri.Fragment.TrimStart('#').StartsWith(prefix, StringComparison.OrdinalIgnoreCase))];
+            && SymbolUri.PathOf(symbol.Uri).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))];
     }
 
     public LexicalScope? ScopeOf(Uri uri) => table.ScopeTree.TryGetScope(uri, out var scope) ? scope : null;

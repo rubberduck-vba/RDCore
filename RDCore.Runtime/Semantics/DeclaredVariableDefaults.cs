@@ -138,7 +138,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             return frame.Directives.Base;
         }
 
-        var moduleName = variable.Uri.Fragment.TrimStart('#').Split('.')[0];
+        var moduleName = SymbolUri.ModuleNameOf(variable.Uri);
         return (session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var module)
                 || session.Symbols.TryResolveType(moduleName, GlobalSymbols.UnresolvedSymbol, out module))
             && module is VBModuleSymbol { } declaring

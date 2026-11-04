@@ -61,7 +61,7 @@ public sealed class DocumentModuleDiagnosticsTests
         var (file, text) = module == "Program" ? ("Program.bas", program) : ($"{name}.doccls", source);
         // a file URI, as the language server sends a document's: on Linux, a bare path is no absolute URI once the payload has been through JSON.
         var uri = Platform.Wire.FileUri(Path.Combine(ModuleWorkspace.Root, file));
-        var semantics = payload.Modules.Single(candidate => candidate.Module.Fragment.TrimStart('#') == module);
+        var semantics = payload.Modules.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == module);
         var parse = new ModuleParser().Parse(uri, text);
 
         IModuleAnalyzer[] analyzers = [new HostedDocumentCodeAnalyzer(), new DocumentModuleHostAnalyzer(), new ImplementsInDocumentModuleAnalyzer()];
@@ -88,6 +88,24 @@ public sealed class DocumentModuleDiagnosticsTests
         Assert.IsTrue(related.Any(message => message.StartsWith("'Range'", StringComparison.Ordinal)), "Me.Range: " + string.Join("\n", related));
         Assert.IsTrue(related.Any(message => message.StartsWith("'Cells'", StringComparison.Ordinal)), "an unqualified Cells: " + string.Join("\n", related));
         Assert.IsFalse(diagnostics.Any(diagnostic => CodeOf(diagnostic) is "RDC01006" or "RDC01007"));
+    }
+
+    // a sheet of a French workbook: what is said of it names it as its code does, not as its address escapes the name.
+    [TestMethod]
+    public async Task AWorksheetNamedWithAnAccent_IsNamedSo_InWhatIsReportedOfIt()
+    {
+        var (_, hosted) = await DiagnoseAsync("Feuillé", GameSheet, DocClassType.ExcelWorksheet, Excel);
+        var (_, unsupported) = await DiagnoseAsync("Feuillé", GameSheet, null, Excel);
+        var iface = ("IGridView", "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"IGridView\"\r\nPublic Sub Refresh()\r\nEnd Sub\r\n");
+        var (_, implements) = await DiagnoseAsync("Feuillé", "Option Explicit\r\nImplements IGridView\r\nPrivate Sub IGridView_Refresh()\r\nEnd Sub\r\n",
+            DocClassType.ExcelWorksheet, Excel, classes: [iface]);
+
+        var presumed = hosted.Single(diagnostic => CodeOf(diagnostic) == "RDC01005");
+        StringAssert.Contains(presumed.Message, "Feuillé");
+        Assert.IsTrue(presumed.RelatedInformation!.Any(information => information.Message.StartsWith("'Range'", StringComparison.Ordinal)),
+            string.Join("\n", presumed.RelatedInformation!.Select(information => information.Message)));
+        StringAssert.Contains(unsupported.Single(diagnostic => CodeOf(diagnostic) == "RDC01006").Message, "Feuillé");
+        StringAssert.Contains(implements.Single(diagnostic => CodeOf(diagnostic) == "RDC11024").Message, "Feuillé");
     }
 
     [TestMethod]

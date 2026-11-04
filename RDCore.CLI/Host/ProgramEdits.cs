@@ -545,7 +545,7 @@ internal sealed class ProgramEdits
         _ => null,
     };
 
-    private static string NameOf(string module) => new Uri(module).Fragment.TrimStart('#') is { Length: > 0 } name ? name : module;
+    private static string NameOf(string module) => SymbolUri.ModuleNameOf(new Uri(module)) is { Length: > 0 } name ? name : module;
 
     private static ModuleText TextOf(VBModuleSymbol module)
         => new($"{module.Directives}", module is VBClassModuleSymbol type

@@ -180,7 +180,7 @@ public static class SymbolDescriptorProjector
     private static string? OfAnotherModule(Symbol symbol, string moduleKey)
         => symbol.GetProperty(SymbolProperties.Library) is null
             && symbol.ParentUri.ToString() != moduleKey
-            && Uri.UnescapeDataString(symbol.ParentUri.Fragment.TrimStart('#')) is { Length: > 0 } module
+            && SymbolUri.PathOf(symbol.ParentUri) is { Length: > 0 } module
                 ? $"{module}.{symbol.Name}"
                 : null;
 
