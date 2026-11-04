@@ -222,8 +222,11 @@ public record class RDCoreFile : IEquatable<RDCoreFile>
 {
     public string RelativeUri { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The file's extension with its leading period, <c>".md"</c> for <c>"docs/README.md"</c>; an empty string when the file's name has none.
+    /// </summary>
     [JsonIgnore]
-    public string Extension => RelativeUri[^RelativeUri.LastIndexOf('.')..];
+    public string Extension => Path.GetExtension(RelativeUri);
 
     [JsonIgnore]
     public string DefaultName => ModuleName.FromFileName(RelativeUri);
