@@ -3,6 +3,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using RDCore.SDK.Platform;
 
 namespace RDCore.Tests.Platform;
 
@@ -39,7 +40,7 @@ public sealed class ServerConsoleTests
             RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true,
-            Environment = { ["RDCORE_PLATFORM_ROOT"] = root },
+            Environment = { ["RDCORE_PLATFORM_ROOT"] = root, [PlatformEnvironment.LogsEnvironmentVariable] = Path.Combine(root, "Logs") },
         };
 
         using var process = Process.Start(start)!;
