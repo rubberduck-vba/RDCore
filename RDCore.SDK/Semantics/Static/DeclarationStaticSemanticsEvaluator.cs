@@ -74,7 +74,7 @@ public static class DeclarationStaticSemanticsEvaluator
             errors.AddRange(PublicMemberSemantics.Evaluate(module, members, resolver));
 
             // what a constant's value names - a constant, a variable, a function - is known once every name resolves.
-            errors.AddRange(ConstantExpressionStaticSemantics.Evaluate(members, resolver));
+            errors.AddRange(ConstantExpressionStaticSemantics.Evaluate(members, resolver, module is VBModuleSymbol { Directives.Base: var optionBase } ? optionBase : 0));
         }
 
         if (module is VBClassModuleSymbol classModule)
@@ -264,9 +264,8 @@ public static class DeclarationStaticSemanticsEvaluator
             {
                 CheckDeclaredType(module, parameter, parameter.SelectionRange, member.ParentUri, resolver, errors,
                     mayBeAny: member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol);
-                // TODO measure in MS-VBA a record parameter declared ByVal of a property, an event and a Declare: only a Sub's and a Function's are (oracle\s56).
-                if (member is not (VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol or VBEventMemberSymbol
-                    or VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol))
+                // an event's is the one MS-VBA compiles (oracle\s56 E03).
+                if (member is not VBEventMemberSymbol)
                 {
                     CheckByValRecord(module, parameter, member.ParentUri, resolver, errors);
                 }
@@ -404,7 +403,8 @@ public static class DeclarationStaticSemanticsEvaluator
     };
 
     // a record is passed by reference: MS-VBA refuses a parameter of a user-defined type declared ByVal, "User-defined type may not be passed ByVal" (recorded in
-    // Excel: oracle\s56 I10, C06, C15), where MS-VBAL §5.3.1.5 sets no such rule. An array of records is no record, and an array parameter is refused ByVal anyway.
+    // Excel: oracle\s56 I10, C06, C15) - of a property and a Declare too, a Property Let's value parameter among them (D05-D07, E01, E07) - where MS-VBAL
+    // §5.3.1.5 sets no such rule. An array of records is no record, and an array parameter is refused ByVal anyway.
     private static void CheckByValRecord(
         Symbol module, VBParameterSymbol parameter, Uri document, ISymbolResolver resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {

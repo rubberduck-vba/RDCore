@@ -43,13 +43,14 @@ is `VBC09371` too ([**RD-VBAL §5.6.13.1** Argument Lists](rd-vbal.5.6.13.index-
 
 ### Parameters of a user-defined type
 
-A record of a user-defined type is passed by reference, to a parameter of its type. A parameter of one declared `ByVal` - of a `Sub` or a `Function` - is
-[VBC09381](../diagnostics/vbc09381.md) _User-defined type may not be passed ByVal_, where the module's declarations are checked, whether the procedure is called
-or not.
+A record of a user-defined type is passed by reference, to a parameter of its type. A parameter of one declared `ByVal` - of a `Sub`, a `Function`, a property
+(the value of a `Property Let` too) or a `Declare` - is [VBC09381](../diagnostics/vbc09381.md) _User-defined type may not be passed ByVal_, where the module's
+declarations are checked, whether the procedure is called or not. An event's is not: `Event Moved(ByVal pt As TPoint)` compiles.
 
 > [!IMPORTANT]
 > **MS-VBAL §5.3.1.5** sets no such rule: a `ByVal` parameter "defines a local variable", and a record is a value a variable holds. **MS-VBA** refuses the
-> declaration (recorded in Excel, `oracle\s56` I10, C06, C15), and so does **RD-VBA**: a module RD-VBA compiles is one MS-VBA compiles.
+> declaration (recorded in Excel, `oracle\s56` I10, C06, C15, D05-D07, E01, E07) and compiles an event's (E03), and so does **RD-VBA**: a module RD-VBA
+> compiles is one MS-VBA compiles.
 
 What a call gives such a parameter is checked with the call ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)): a record
 given to a `Variant` is [VBC09382](../diagnostics/vbc09382.md), and one given in parentheses, `F (pt)`, is a value and no variable to pass,

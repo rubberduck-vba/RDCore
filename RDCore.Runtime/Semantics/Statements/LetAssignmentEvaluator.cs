@@ -373,7 +373,10 @@ public sealed class LetAssignmentEvaluator(
             // `r.Values(1) = value`: an element of the array a field of the record holds, which is written where it is.
             VBUserDefinedTypeValue record when !indexArguments.IsEmpty && record[memberAccess.Member.IdentifierName] is { } field
                 => AssignElementOf(session, context, statement, field, memberAccess, indexArguments, source, value, isSet),
-            _ => RuntimeExecutionOutcome.InternalError,
+            VBUserDefinedTypeValue => RuntimeExecutionOutcome.InternalError,
+            // a Variant that holds neither an object nor a record - an array, a number - has no member to assign, indexed or Set: 424 (MS-VBA, recorded in
+            // Excel: oracle\s56 D09, D10), as AssignField raises for `v.Foo = 1`.
+            _ => RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, memberAccess.Member.IdentifierName)),
         };
     }
 

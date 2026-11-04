@@ -51,8 +51,11 @@ public sealed class ReDimSizeLimitTests
     [TestMethod]
     [DataRow("Dim b(100000000) As Byte", DisplayName = "a local (C12)")]
     [DataRow("Dim b(1 To 4097, 1 To 4097) As Integer", DisplayName = "two dimensions")]
-    [DataRow("Static b(16777217) As Byte", DisplayName = "a Static local")]
+    [DataRow("Static b(16777216) As Byte", DisplayName = "a Static local")]
+    [DataRow("Dim b(16777216) As Byte", DisplayName = "one more than the most, from the Option Base 0")]
+    [DataRow("Dim b(4096, 4095) As Byte", DisplayName = "two dimensions from the Option Base 0")]
     [DataRow("Const N As Long = 100000000\r\n    Dim b(N) As Byte", DisplayName = "bounds that name a constant")]
+    [DataRow("Const N As Long = 16777216\r\n    Dim b(N) As Byte", DisplayName = "a bound that names a constant, from the Option Base 0")]
     [DataRow("Const N As Long = 4096\r\n    Dim b(N, 1 To 4097) As Byte", DisplayName = "a bound that names a constant beside a literal")]
     public async Task AFixedSizeArrayOfMoreElementsThanRDVBAHolds_IsOutOfMemory_WhenItIsCompiled(string declaration)
     {
@@ -79,6 +82,29 @@ public sealed class ReDimSizeLimitTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n    Dim b(1 To 16777216) As Byte\r\nEnd Sub\r\n");
 
         Assert.IsEmpty(errors, string.Join(" | ", errors));
+    }
+
+    [TestMethod]
+    [DataRow("Dim b(16777216) As Byte", DisplayName = "literal bounds")]
+    [DataRow("Dim b(4096, 4096) As Byte", DisplayName = "two dimensions")]
+    [DataRow("Const N As Long = 16777216\r\n    Dim b(N) As Byte", DisplayName = "a bound that names a constant")]
+    public async Task AFixedSizeArrayOfTheMostElementsRDVBAHolds_FromTheOptionBase1_Compiles(string declaration)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nOption Base 1\r\nPublic Sub Main()\r\n    {declaration}\r\nEnd Sub\r\n");
+
+        Assert.IsEmpty(errors, string.Join(" | ", errors));
+    }
+
+    [TestMethod]
+    [DataRow("    b(16777216) As Byte", DisplayName = "literal bounds")]
+    [DataRow("    b(N) As Byte", DisplayName = "a bound that names a constant")]
+    public async Task AFieldOfARecord_IsBoundedFrom0_WhateverTheOptionBase(string field)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([],
+            $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nOption Base 1\r\nPrivate Const N As Long = 16777216\r\nPrivate Type TBig\r\n{field}\r\nEnd Type\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+
+        Assert.HasCount(1, errors, string.Join(" | ", errors));
+        Assert.StartsWith("Out of memory", errors[0]);
     }
 
     [TestMethod]

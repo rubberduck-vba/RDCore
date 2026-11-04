@@ -158,16 +158,17 @@ internal static class ArgumentListStaticSemantics
             || IsLength(procedure)
             || !toVariant && parameter.ResolvedType is not VBUserDefinedType
             || ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, argument)
-                is not { IsSuccess: true, Result: VBUserDefinedType record and not VBExternalUserDefinedType })
+                is not { IsSuccess: true, Result: { } given } || LetCoercionStaticSemantics.RecordOf(given) is not { } record)
         {
             return null;
         }
 
+        // an array of records is refused a Variant too (oracle\s56 D12); given to a record parameter it is the ByRef mismatch ByRefError reports.
         return toVariant
             ? VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant, argument.Location,
-                string.Format(Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose, record.Symbol.Name))
-            : argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp }
-                ? VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, argument.Location, record.Symbol.Name)
+                string.Format(Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose, record))
+            : given is VBUserDefinedType && argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp }
+                ? VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, argument.Location, record)
                 : null;
     }
 

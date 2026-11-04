@@ -146,6 +146,10 @@ A `Variant` reference parameter - `a As Variant`, or `a` with no type - given an
 the element type it is declared with (`TypeName` is still `Long()`), and a `ReDim Preserve` keeps its elements. A fixed-size array given to one is runtime
 error 10, and keeps its bounds, as **MS-VBA** has it (recorded in Excel, `oracle\s56` I03-I06).
 
+What the variable is declared as is what the `ReDim` can't change. A variable that is no array - a `Long`, a `String`, an `Object` - given to such a parameter is
+runtime error 13 _Type mismatch_, with `Preserve` or without, and keeps what it held; so is an array of `Long` re-dimensioned `ReDim a(5) As String` through
+it (`oracle\s56` D01-D04, D11).
+
 ### The most elements an array holds
 
 RD-VBA holds each element of an array in a cell of its own, and an array holds at most 16,777,216 (2<sup>24</sup>) elements, in every dimension together
