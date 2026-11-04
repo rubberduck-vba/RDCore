@@ -342,6 +342,7 @@ public sealed class ClientWithoutOmniSharpTests
             });
             var start = launch.ToProcessStartInfo();
             start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
+            start.Environment[PlatformEnvironment.LogsEnvironmentVariable] = Path.Combine(root, "Logs");
 
             var process = Process.Start(start)!;
             var exited = process.WaitForExitAsync().ContinueWith(_ => process.ExitCode, TaskScheduler.Default);

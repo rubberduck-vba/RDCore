@@ -114,7 +114,7 @@ $French = @(
 
 Write-TextFile (Join-Path $Root "SOURCE.md") ($English + @("", "---", "") + $French)
 
-# every file of the tree except release.json itself, the checksums file and anything a run left under Logs/
+# every file of the tree except release.json itself, the checksums file and a Logs/ an older build left (Test-PlatformTree refuses one)
 $Paths = [string[]]@(Get-ChildItem -LiteralPath $Root -Recurse -File -Force |
     ForEach-Object { Get-RelativePath $_.FullName } |
     Where-Object { $_ -cne "release.json" -and $_ -cne "SHA256SUMS" -and -not $_.StartsWith("Logs/", [StringComparison]::OrdinalIgnoreCase) })

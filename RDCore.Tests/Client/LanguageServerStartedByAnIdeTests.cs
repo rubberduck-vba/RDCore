@@ -47,6 +47,7 @@ public sealed class LanguageServerStartedByAnIdeTests
         });
         var start = launch.ToProcessStartInfo();
         start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
+        start.Environment[PlatformEnvironment.LogsEnvironmentVariable] = Path.Combine(root, "Logs");
 
         using var process = Process.Start(start)!;
         try

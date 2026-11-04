@@ -1,216 +1,86 @@
-# Let's Build RDCore 
+# Getting started with RDCore
 <sup>_Ce document est disponible en [français](getting-started.fr.html)_</sup>
 
----
-## 🚀 Getting Started
-
-1. **First read and accept** the Contributor Licence Agreement (CLA) as appropriate for your situation (it will make the next steps smoother);
-1. Browse the _project roadmap_ and pick a ticket under the _current milestone_;
-1. _Fork_ the **RDCore** repository to **your GitHub account**;
-1. Download a _clone_ of the repository on a workstation that is free of rights (i.e. NOT your employer's computer);
-1. Open `RDCore.slnx` un _Microsoft Visual Studio Community Editition 2026_ (free for open-source contributions);
-  a. 👉 Alternatively, use `dotnet build` CLI tooling to build the solution.
-1. Start a new _branch_ from **main**, named in reference to the selected ticket;
-1. Implement and test your contributions in your local branch;
-1. When everything works and is ready for review, open a new _pull request_ referring to the selected ticket;
-  a. 👉 Mention `Closes #` followed by the ticket number in the body of the _pull request_.
-  b. 👉 Such a mention in a _commit_ of your branch history will appear in the ticket history as soon as your commits are _pushed_ to your _fork_, which signals work in progress to other contributors.
-1. Sign the CLA by copying the specified signature content into a comment on your PR.
-  a. 👉 This will only be need to be done once.
-1. Once your _pull request_ is completed, **destroy your feature branch** and resynchronize _main_ to start work on a new ticket.
-  a. 👉 The _squash merge_ will destroy the details of your commit history in the central repository, which quickly complicates things if additional commits get added to an already-completed branch; a patch may be submitted by starting a new branch from _main_ resynchronized to contain the _merge commit_.
-
+> [!NOTE]
+> **The platform is pre-alpha.** Expect rough edges, and expect things to change between versions.
 
 ---
-## 📦 Installing a preview build
+## 📦 Installing the platform
 
-Preview builds of the platform are published as _prereleases_ on the [GitHub Releases page](https://github.com/rubberduck-vba/RDCore/releases). A preview build is a zip of the whole platform tree: it is not an installer, and it is not a certified build.
+You need the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). You probably have it already: `dotnet --list-runtimes` lists `Microsoft.NETCore.App 10.x` if you do.
 
-1. Download `rdcore-<version>-win-x64.zip` and `SHA256SUMS` from the release;
-1. Verify the download: in Git Bash, `sha256sum -c --ignore-missing SHA256SUMS`; in PowerShell, `(Get-FileHash .\rdcore-<version>-win-x64.zip).Hash` must match the zip's line in `SHA256SUMS` (case aside). With the GitHub CLI, `gh attestation verify rdcore-<version>-win-x64.zip -R rubberduck-vba/RDCore --signer-workflow rubberduck-vba/RDCore/.github/workflows/release.yml --source-ref refs/tags/v<version>` also checks that the zip was built by this repository's release workflow, from the `v<version>` tag;
-1. Extract the zip to a user-writable folder of its own, one per version, such as `%LOCALAPPDATA%\RDCore\<version>`: the platform writes its `Logs/` inside that folder;
-1. Install the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) if `dotnet --list-runtimes` doesn't list `Microsoft.NETCore.App 10.x`: preview builds are _framework-dependent_.
+1. **Download** `rdcore-<version>-win-x64.zip` from the [GitHub Releases page](https://github.com/rubberduck-vba/RDCore/releases). [rubberduckvba.ca](https://rubberduckvba.ca) downloads the exact same file.
+1. **Extract** it wherever you like, `Program Files` included. Keep the extracted folder whole: each part of the platform finds the others from it.
 
-To run it:
+That's it: there's no installer, and nothing to register.
 
-- Keep the extracted tree whole: the language server finds its platform (`rdcore.json`, the parse server, the extensions) from the parent of its own folder.
-- A client launches `RDCore.LanguageServer\RDCore.LanguageServer.exe` with `RDCore.LanguageServer\` as its working directory (`appsettings.json` is read from the working directory) and `--client-process-id <pid> --pipe-name <name> --workspace <uri>`, `<pid>` being the client's own process ID, without which the server and its child processes cannot exit if the client dies; `release.json` describes the same launch under `launch.languageServer`.
-- Don't set `RDCORE_PLATFORM_ROOT` in your user or system environment: it overrides the platform root of every RDCore process (and of the processes they start).
-- With no arguments, `RDCore.CLI\rdc.exe` is the interactive RD-VBA shell; it also reads `appsettings.json` from its working directory, so start it from `RDCore.CLI\`.
-- RDCore runs as a 64-bit process: UserForms need 64-bit Office (the 64-bit Microsoft Forms 2.0), a `Declare` statement's library must be a 64-bit DLL, and Office automation (`CreateObject("Excel.Application")`) needs the Office application installed.
+> [!TIP]
+> To check the download, also get `SHA256SUMS` from the release. In PowerShell, `(Get-FileHash .\rdcore-<version>-win-x64.zip).Hash` must match the zip's line in it; in Git Bash, `sha256sum -c --ignore-missing SHA256SUMS` checks it for you.
 
 > [!WARNING]
-> Preview builds are not signed: SmartScreen may warn about them, and Windows 11 _Smart App Control_ may block them.
-
-> 👉 To assemble the same tree from a clone, run `PlatformPublish.ps1` (it needs `git` on the `PATH`, to record the commit it builds): with no arguments it publishes a Debug tree to `artifacts\rdcore-dev` after asking for confirmation; `-Configuration Release -RuntimeIdentifier win-x64` matches the preview builds, `-VersionSuffix <suffix>` adds a prerelease suffix (e.g. `rc.1`), `-PlatformRoot <path>` picks the output folder (relative to the repository root) and `-Silent` skips the confirmation. The release workflow then adds `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json`; maintainers will find the whole procedure in [RELEASING.md](https://github.com/rubberduck-vba/RDCore/blob/main/RELEASING.md).
-
+> Preview builds aren't signed yet: SmartScreen may warn about them, and Windows 11's _Smart App Control_ may block them.
 
 ---
-## 🧩 Building a RDCore extension
+## 💻 The RD-VBA shell
 
-It only takes a few lines in your entry point to make your application a RDCore app:
+Open the `RDCore.CLI` folder and run **`rdc.exe`**. If all goes well, you'll see the platform's splash screen:
 
-```csharp
-public class Program
-{
-    public static async Task<int> Main(string[] args)
-    {
-        using var host = new RDCoreConsoleClientHost();
-        return await host.RunAsync(args);
-    }
-}
-```
+![RDCore CLI splash screen](images/rdvba-cli-splash.png)
 
-### Host
+From here you're somewhere between the program mode of _Commodore 64 BASIC_, the _immediate_ pane of the VBIDE, and a modern editor:
 
-Before you can write these lines, you must define a _host_ by inheriting `RDCoreLanguageClientHost` if you're writing a _client_ :
+- Type `HELP` for the list of commands.
+- Type any RD-VBA statement to run it right away: `Debug.Print 6 * 7`.
+- Start a line with a _line number_ to write it into the _current program_: `10 Debug.Print "Hello"`.
 
-```csharp
-internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsoleClientApp>()
-{
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
-    {
-        services
-            .AddSingleton<IAppThemeService, AppThemeService>()
-            .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
-            .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
-            .AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>()
-            .AddSingleton<ShowSplashCommand>();
-    }
-}
-```
+The current program is the body of an implicit procedure named `Main`, in an implicit module named `Program`. It stays in memory until you `NEW` it, `LOAD` another one, or `EXIT`.
 
-...or by inheriting `RDCorePlatformServerHost` if you're building a _server_ app instead:
+| Command | What it does |
+|---|---|
+| `LIST` | Shows the program, formatted. `FOLD` folds and unfolds its blocks. |
+| `RUN` | Runs it. |
+| `SAVE` / `LOAD` | Writes it to, or reads it from, a `.rdc` text file. |
+| `BREAK <line#> [<condition>]` | Sets a breakpoint; `BREAK TOGGLE <line#>` turns one off or on again. `CONT` goes on from a stop, and `STEP` runs one statement. |
+| `VARS`, `STACK` | Shows the variables and the call stack at a stop. |
+| `CONFIG` | Shows and edits your settings, with completion. Formatting changes apply right away. |
 
-```csharp
-internal class CoreDiagnosticsAppHost() : RDCorePlatformServerHost<CoreDiagnosticsApp>()
-{
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
-    {
-    }
-}
-```
-
-### Application
-
-In both cases, the role of the host is to supply services to the `IServiceCollection` such that the application can be instantiated with injected services.
-
-Then for a client you would inherit `RDCoreClientApp` :
-
-```csharp
-internal class RDCoreConsoleClientApp(
-    IOptions<SdkAppOptions> options,
-    IChildConnectionFactory connectionFactory,
-    ILogger<RDCoreConsoleClientApp> logger)
-    : RDCoreClientApp(options, connectionFactory, logger)
-{
-    public override CoreServerComponent PlatformComponent => CoreServerComponent.ClientApp;
-
-    protected override void ConfigureServices(IServiceCollection services)
-    {
-    }
-
-    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
-    {
-        // TODO
-        return capabilities;
-    }
-
-    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
-    {
-        // TODO
-    }
-
-    protected override async Task OnLanguageClientStartedAsync(ILanguageClient client, CancellationToken token)
-    {
-        // TODO
-    }
-
-    protected override void Dispose(bool disposing) { }
-}
-```
-
-...and for a server app we instead inherit the LSP app from `RDCoreServerApp`:
-
-```csharp
-internal class CoreDiagnosticsApp(
-    IOptions<SdkAppOptions> options,
-    IServerStateProvider serverStateProvider,
-    IHealthCheckService<CoreDiagnosticsApp> healthCheckService,
-    ILanguageServerProtocolTransportLayer transportLayer,
-    ILogger<CoreDiagnosticsApp> logger)
-    : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
-{
-    public override CoreServerComponent PlatformComponent => CoreServerComponent.Extension;
-
-    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
-    {
-        // TODO
-    }
-
-    protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
-    {
-        // TODO
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        // TODO
-    }
-}
-```
-
-In any case, the role of this abstraction layer is to configure the _capabilities_ (LSP) of the application, along with the _handlers_ that will be handling the LSP requests and notifications.
-
-### Client or Server?
-
-- A _client_ application is typically an IDE application.
-- A _server_ application could be a satellite language server, or a platform extension (plug-in).
-- 🌐[LSP 3.17 Specifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
-
-
-> [!IMPORTANT]
-> 🧩 **RDCore Platform Extensions** need a _manifest_ (`extension.manifest.json`, schema [ExtensionInfo](api/RDCore.SDK.Extensibility.ExtensionInfo.html)) for the language server to _discover_ and bring them up during platform assembly. The manifest is generated by the CLI in _command mode_:
->
-> ```
-> rdc.exe describe-ext RDCore.Diagnostics.exe --description "…" --unsafe-dev-mode
-> ```
->
-> `describe-ext` reflects the extension executable's advertised capabilities (its `[assembly: ProvidesCorePlatformClientCapability<T>]` declarations) into the manifest. `PlatformPublish.ps1` runs it once per extension while assembling the platform.
-
-> [!IMPORTANT]
-> 📚 **Referenced libraries** (`Excel`, `Word`, `Access`, `ADODB`, `Scripting`, …) are known to a project by their _name_, as if the library were VBA code, and what each declares ships with the platform as a _library description_ in `Symbols/<Name>.json` (format: [LibraryDescription](api/RDCore.SDK.Runtime.Libraries.LibraryDescription.html)). A project is checked against the description, so it can be analyzed on a machine that does not have the library. A library that the platform has no description of is a reference that cannot be resolved, and the types that name it are compile errors. Libraries that depend on one another are rejected, not resolved.
->
-> A description is generated, never written by hand, on a Windows machine that has the library, by the CLI in _command mode_:
->
-> ```
-> rdc.exe export-library Excel --dependencies --output Symbols
-> ```
->
-> `export-library` takes a file (`scrrun.dll`), the identifier the machine gave the library, or its name; when several versions of a library are registered, the latest is described. `--dependencies` describes the libraries it depends on too, which a project needs in order to reference it.
->
-> The description is what a project is _checked_ against; what it _runs_ against are the objects of the library on the machine that runs it. `New Scripting.Dictionary` is a real dictionary, and `New Excel.Application` starts a real Excel, driven from the sidelines through its object model. Today that is the automation servers of Windows; elsewhere, a program that creates one of these objects is told that the platform has none (error 429), while the same program is analyzed anywhere. Every such call passes through the same interception chain as any call outside the workspace, and an administrator can refuse them all with `"AllowAutomation": false` in `appsettings.json` (error 70, _Permission denied_).
-
-
-### Capabilities
-
-RDCore platform extensions with a valid _manifest_ that gets them to initiate a _LSP handshake_ with the LSP _orchestration layer_ must supply initialization parameters that specify a complete set of both LSP (protocol) defined and _environment host-defined **capabilities**_. An extension advertises a platform capability such as [`CliCommand`](api/RDCore.SDK.Client.CliCommand.html) with an assembly attribute:
-
-```csharp
-[assembly: ProvidesCorePlatformClientCapability<CliCommand>]
-```
-
-> 👉 The complete and exhaustive list of platform capabilities shall be documented in [RD-VBAL §2.0.2](specs/rd-vbal.2.0.2.client-server-capabilities.md) as its implementation progresses.
+At a stop you can type statements as you would in the VBIDE's immediate pane, and edit the program before you go on.
 
 > [!NOTE]
-> **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
+> The shell is a demo and a way to try the platform, not an IDE. It doesn't handle a project with more than one procedure scope, or BASIC-style line numbers in your own modules.
 
 ---
-## 🧩 Platform-level extensions (SDK and _language core_)
+## 📥 Bringing a VBA project over
 
-The _lgnauge core_ is engineered to be extended through _server_ type extensions, via an exchange of _capabilities_ giving access to extension points.
+RDCore works with your project's source files, exported from the VBA editor. Legacy Rubberduck exports a whole project in one click; the VBIDE exports one module at a time, unless you script it against the _VBIDE Extensibility_ library.
 
-Please see [RD-VBAL § 1.1](specs/rd-vbal.1.1.philosophy.md) for more details and the platform's extension philosophy at that level.
+Put the exported files in a folder of their own, then make it an RDCore workspace. From the `RDCore.CLI` folder:
+
+```
+rdc new <path>
+```
+
+This writes a `.rdproj` file into that folder, naming each source file it finds. Files it doesn't recognize are listed under "other files": they're still part of the workspace, just not source code.
+
+Then open the shell on it with `rdc --workspace <path>`.
+
+---
+## 🧩 Using RDCore from an IDE
+
+The shell is fun, but the real work happens in the language server behind it, and a language server needs an editor. We recommend **HexIDE**: unlike most editors, it was made for VB developers, so you'll feel right at home.
+
+> **🚧 The HexIDE integration is in progress.** This section will say how to set it up when it's ready.
+
+---
+## 🔎 Good to know
+
+- **RDCore is a 64-bit process**, so what it loads must be 64-bit too:
+  - UserForms need 64-bit Office (the 64-bit Microsoft Forms 2.0);
+  - a `Declare` statement's library must be a 64-bit DLL;
+  - Office automation (`CreateObject("Excel.Application")`) needs the Office application installed.
+- **Your settings** are kept in `%APPDATA%\RDCore`, and the **logs** in `%LOCALAPPDATA%\RDCore\Logs`. Nothing is written into the folder you extracted, so updating means replacing that folder.
+- **Your projects are yours**: the GPLv3 covers RDCore itself, not the code you write or what RDCore builds from it (see [NOTICE.md](https://github.com/rubberduck-vba/RDCore/blob/main/NOTICE.md)).
+- **Want to contribute, or build on the platform?** See [Building on RDCore](building-on-rdcore.md).
 
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • BUILD | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](/RDCore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

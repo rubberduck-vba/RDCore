@@ -118,17 +118,17 @@ gh attestation verify rdcore-<version>-win-x64.zip -R rubberduck-vba/RDCore --si
 
 This checks that the zip was built by the Release workflow (`.github/workflows/release.yml`) of `rubberduck-vba/RDCore`, running for the tag `<tag>`. With `-R` alone, an attestation made by any workflow of the repository, on any branch, would pass.
 
-**Per-file hashes.** Once extracted, `release.json` lists every file of the tree with its size and SHA-256 (except `release.json` itself, `SHA256SUMS` and anything under `Logs/`). In PowerShell, this prints the path of every listed file that is missing or differs, then of every file that isn't listed (nothing means the tree matches `release.json`):
+**Per-file hashes.** Once extracted, `release.json` lists every file of the tree with its size and SHA-256 (except `release.json` itself and `SHA256SUMS`). In PowerShell, this prints the path of every listed file that is missing or differs, then of every file that isn't listed (nothing means the tree matches `release.json`):
 
 ```powershell
 $root = "$env:LOCALAPPDATA\RDCore\0.1.0"
 $release = Get-Content (Join-Path $root 'release.json') -Raw | ConvertFrom-Json
 $listed = $release.files.path + 'release.json', 'SHA256SUMS'
 $release.files | Where-Object { (Get-FileHash (Join-Path $root $_.path) -ErrorAction SilentlyContinue).Hash -ne $_.sha256 } | ForEach-Object path
-Get-ChildItem $root -Recurse -File -Force -Name | ForEach-Object { $_.Replace('\', '/') } | Where-Object { $_ -notin $listed -and $_ -notlike 'Logs/*' }
+Get-ChildItem $root -Recurse -File -Force -Name | ForEach-Object { $_.Replace('\', '/') } | Where-Object { $_ -notin $listed }
 ```
 
-From a clone, `tools/release/Test-PlatformTree.ps1 -PlatformRoot <extracted folder> -ExpectedCommit <sha> -RequireReleaseFiles` (PowerShell 7) runs the platform-tree gate the workflow uses, which also catches added files. It is for a freshly extracted tree only: it fails once `Logs/` holds files, that is, once the tree has been run.
+From a clone, `tools/release/Test-PlatformTree.ps1 -PlatformRoot <extracted folder> -ExpectedCommit <sha> -RequireReleaseFiles` (PowerShell 7) runs the platform-tree gate the workflow uses, which also catches added files. Running the platform writes nothing into its tree, so the check holds after it has run too.
 
 **Immutable releases.** Once immutability is on:
 
@@ -174,7 +174,7 @@ Extensions/                  extensionsDirectory
 Symbols/                     <Library>.json: the libraries a project can reference (see NOTICE.md)
 ```
 
-There is no `Logs/` and no `Config/` folder: `Logs/` is created on first run.
+There is no `Logs/` folder: the platform writes its logs to its user's folders (below), and nothing into its own tree, so it can be extracted anywhere, `Program Files` included.
 
 `release.json` (`"schema": 1`) is the machine-readable description of the release: `version`, `commit`, `rid`, `deployment` (`framework-dependent`), `runtime` (`Microsoft.NETCore.App` and its minimum version), `entryPoints` (same as `rdcore.json`), `launch.languageServer` (path, working directory, arguments), `source` (repository, tag, commit), and `files` (path, size and SHA-256 of every file, sorted by path).
 
@@ -186,5 +186,5 @@ There is no `Logs/` and no `Config/` folder: `Logs/` is created on first run.
   - **UserForms** host Microsoft Forms 2.0, which needs **64-bit Office** (the 64-bit `FM20.DLL`); with 32-bit Office, a form fails to load.
   - A **`Declare`** statement's library must be a 64-bit DLL.
   - **Office automation** (`CreateObject("Excel.Application")` and the like) needs the Office application installed.
-- **Logs are written inside the extracted tree** (`<platform root>/Logs/<Component>-<yyyyMMdd>.log`), so the tree must be extracted to a user-writable folder (not under `Program Files`).
+- **Logs** are written to the user's folders, `<Component>-<yyyyMMdd>.log`: `%LOCALAPPDATA%\RDCore\Logs` on Windows (`RDCORE_LOGS_DIRECTORY` overrides it). Two versions of the platform running at once write to the same files.
 - **Verbose logging.** The shipped `appsettings.json` files set `"TraceLevel": "Trace"` and `"Verbose": true`: logs grow quickly, and verbose messages may contain relatively sensitive information such as document locations, symbol names and execution stack traces.
