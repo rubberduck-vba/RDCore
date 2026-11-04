@@ -33,21 +33,21 @@ public sealed class CompiledDebuggingTests
         "    Next",
         "End Sub");
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
+    private static Task<DebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
         => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams
         {
             ModuleName = "Program",
             Breakpoints = [.. lines.Select(line => new HostBreakpointLine { Line = line })],
         }, CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Pause(EnvironmentSessionProvider provider)
+    private static Task<DebugAck> Pause(EnvironmentSessionProvider provider)
         => new HostDebugPauseHandler(provider).Handle(new HostDebugPauseParams(), CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Terminate(EnvironmentSessionProvider provider)
+    private static Task<DebugAck> Terminate(EnvironmentSessionProvider provider)
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
     // how often the compiled body of Spin was handed to the interpreter; none while it was never compiled.
@@ -133,7 +133,7 @@ public sealed class CompiledDebuggingTests
 
                 var stack = provider.Execution.Stack().Frames;
                 Assert.AreEqual(("Inner", "Outer", 7), (stack[0].Procedure, stack[1].Procedure, stack[1].Line));
-                var outer = provider.Execution.Variables(stack[1].Id, HostVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name, variable => variable.Value);
+                var outer = provider.Execution.Variables(stack[1].Id, DebugVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name, variable => variable.Value);
                 Assert.AreEqual(("3", "20"), (outer["i"], outer["t"]), "the caller's variables, as they were when it made the call");
             }
             finally
@@ -161,9 +161,9 @@ public sealed class CompiledDebuggingTests
     }
 
     // the program run to the Stop in Inner, at stopLine, while Outer, compiled, is in the middle of its call; edited; and resumed.
-    private static async Task<ExecuteSessionResult> EditedWhileACompiledCallerWaitsAsync(string program, string edited, int stopLine)
+    private static async Task<ExecuteResult> EditedWhileACompiledCallerWaitsAsync(string program, string edited, int stopLine)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, first, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
@@ -292,9 +292,9 @@ public sealed class CompiledDebuggingTests
 
     // the program run to the first Stop in Inner while Outer, compiled, is in the middle of its call; Outer edited as firstEdit, resumed to the second Stop
     // in the same call, edited as secondEdit, and resumed to its end.
-    private static async Task<ExecuteSessionResult> EditedAtTwoWaitsOfACompiledCallerAsync(string firstEdit, string secondEdit)
+    private static async Task<ExecuteResult> EditedAtTwoWaitsOfACompiledCallerAsync(string firstEdit, string secondEdit)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], StoppingTwice, async (provider, first, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);

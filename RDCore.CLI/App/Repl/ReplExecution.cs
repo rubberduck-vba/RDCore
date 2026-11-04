@@ -121,7 +121,7 @@ internal static class ReplExecution
         Report(context, await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None));
         var waitedBefore = context.Debugger.StoppedAt;
         context.Debugger.Running();
-        ExecuteSessionResult result;
+        ExecuteResult result;
         try
         {
             result = await context.Platform.ResumeAsync(step, CancellationToken.None);
@@ -178,7 +178,7 @@ internal static class ReplExecution
     /// </summary>
     /// <param name="console">Where they are written.</param>
     /// <param name="edits">The edits.</param>
-    public static void WriteEdits(IReplConsole console, IEnumerable<HostDebugEdit> edits)
+    public static void WriteEdits(IReplConsole console, IEnumerable<DebugEdit> edits)
     {
         foreach (var edit in edits)
         {
@@ -188,7 +188,7 @@ internal static class ReplExecution
 
     // the edits the platform says are not applied, or nothing when it cannot say: a language server that has no such request (JSON-RPC -32601) is no reason to
     // say less of a refusal. Any other failure of the request is one, and is not hidden behind the refusal's words.
-    private static async Task<HostDebugEditStatusResult?> EditStatusOrNoneAsync(ReplCommandContext context, CancellationToken token)
+    private static async Task<DebugEditStatusResult?> EditStatusOrNoneAsync(ReplCommandContext context, CancellationToken token)
     {
         try
         {
@@ -236,7 +236,7 @@ internal static class ReplExecution
     /// </summary>
     /// <param name="context">The live session.</param>
     /// <param name="result">The answer to the request that ran the program, or went on with it.</param>
-    public static void Render(ReplCommandContext context, ExecuteSessionResult result)
+    public static void Render(ReplCommandContext context, ExecuteResult result)
     {
         var (console, program) = (context.Console, context.Program);
         foreach (var line in result.Output)
@@ -306,7 +306,7 @@ internal static class ReplExecution
     // BASIC has always said which line it died on, and so does this: the title carries the program's own
     // line number, and the detail carries what a reader needs after that - the diagnostic code and message,
     // whose error it is, and the stack it was raised on.
-    private static void RenderRuntimeError(IReplConsole console, ReplProgram program, ExecuteSessionResult result)
+    private static void RenderRuntimeError(IReplConsole console, ReplProgram program, ExecuteResult result)
     {
         // the title is the error's *category* - what kind of thing went wrong - and the detail says what it
         // was. Uppercased because that is the shell's voice, not because the title is.
@@ -326,7 +326,7 @@ internal static class ReplExecution
             string.Join($"{Environment.NewLine}  ", Detail(program, result)));
     }
 
-    private static IEnumerable<string> Detail(ReplProgram program, ExecuteSessionResult result)
+    private static IEnumerable<string> Detail(ReplProgram program, ExecuteResult result)
     {
         yield return $"{result.ErrorCode}  {result.ErrorMessage}";
 

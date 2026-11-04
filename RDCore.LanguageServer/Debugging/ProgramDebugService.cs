@@ -23,49 +23,49 @@ internal interface IProgramDebugService
     /// <summary>Goes on with the program that waits, to the next place it waits or to its end.</summary>
     /// <param name="step">How far it goes, or <see langword="null"/> for as far as it goes.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token);
+    Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token);
 
     /// <summary>Stops the program that is running where it is.</summary>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugAck> PauseAsync(CancellationToken token);
+    Task<DebugAck> PauseAsync(CancellationToken token);
 
     /// <summary>Moves the point the program that waits goes on from.</summary>
     /// <param name="line">The zero-based line, when the point is a line.</param>
     /// <param name="label">The label, when the point is a label.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugGotoResult> GotoAsync(int line, string? label, CancellationToken token);
+    Task<DebugGotoResult> GotoAsync(int line, string? label, CancellationToken token);
 
     /// <summary>Which edits made while the program waits are not applied to it.</summary>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugEditStatusResult> EditStatusAsync(CancellationToken token);
+    Task<DebugEditStatusResult> EditStatusAsync(CancellationToken token);
 
     /// <summary>Ends the program that runs or waits.</summary>
     /// <param name="wipe">Whether the session is wiped as well.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugAck> TerminateAsync(bool wipe, CancellationToken token);
+    Task<DebugAck> TerminateAsync(bool wipe, CancellationToken token);
 
     /// <summary>Sets the lines of a module the program waits at.</summary>
     /// <param name="moduleName">The programmatic name of the module.</param>
     /// <param name="breakpoints">The breakpoints replacing the ones set before.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token);
+    Task<DebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token);
 
     /// <summary>The activations of the program that waits, innermost first.</summary>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugStackResult> StackAsync(CancellationToken token);
+    Task<DebugStackResult> StackAsync(CancellationToken token);
 
     /// <summary>The variables of an activation of the program that waits, or the parts of one of them.</summary>
     /// <param name="frameId">The activation, by its place on the stack.</param>
     /// <param name="scope">Which of its variables.</param>
     /// <param name="reference">The variable whose parts are wanted, or <c>0</c> for the variables of the scope.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugVariablesResult> VariablesAsync(int frameId, HostVariableScope scope, int reference, CancellationToken token);
+    Task<DebugVariablesResult> VariablesAsync(int frameId, DebugVariableScope scope, int reference, CancellationToken token);
 
     /// <summary>The value of an expression in an activation of the program that waits.</summary>
     /// <param name="frameId">The activation, by its place on the stack.</param>
     /// <param name="expression">The expression, as text.</param>
     /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token);
+    Task<DebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token);
 
     /// <summary>
     /// Runs the statement a person typed in an activation of the program that waits, as the immediate window of a procedure that is stopped does.
@@ -75,7 +75,7 @@ internal interface IProgramDebugService
     /// value is shown - <c>x = 5</c> is an assignment, <c>?x = 5</c> is a comparison that is printed, and <c>SomeFunc(5)</c> is a call that prints nothing.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>What the statement printed, or why it was not run.</returns>
-    Task<HostDebugEvaluateResult> ExecuteAsync(int frameId, string text, CancellationToken token);
+    Task<DebugEvaluateResult> ExecuteAsync(int frameId, string text, CancellationToken token);
 
     /// <summary>Says which run-time errors the program waits at, where they are raised.</summary>
     /// <param name="mode">Which.</param>
@@ -96,67 +96,67 @@ internal sealed class ProgramDebugService(
     IParsingClientService parsing,
     IOptions<SdkAppOptions> options) : IProgramDebugService
 {
-    public async Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token)
+    public async Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = DebuggerMessages.NoRuntimeEnvironment };
+            return new ExecuteResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugResumeParams, ExecuteSessionResult>(new HostDebugResumeParams { Step = step }, token);
+        return await environment.SendRequestAsync<HostDebugResumeParams, ExecuteResult>(new HostDebugResumeParams { Step = step }, token);
     }
 
-    public async Task<HostDebugAck> PauseAsync(CancellationToken token)
+    public async Task<DebugAck> PauseAsync(CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugAck();
+            return new DebugAck();
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugPauseParams, HostDebugAck>(new HostDebugPauseParams(), token);
+        return await environment.SendRequestAsync<HostDebugPauseParams, DebugAck>(new HostDebugPauseParams(), token);
     }
 
-    public async Task<HostDebugGotoResult> GotoAsync(int line, string? label, CancellationToken token)
+    public async Task<DebugGotoResult> GotoAsync(int line, string? label, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugGotoResult { Reason = DebuggerMessages.NoRuntimeEnvironment };
+            return new DebugGotoResult { Reason = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugGotoParams, HostDebugGotoResult>(new HostDebugGotoParams { Line = line, Label = label }, token);
+        return await environment.SendRequestAsync<HostDebugGotoParams, DebugGotoResult>(new HostDebugGotoParams { Line = line, Label = label }, token);
     }
 
-    public async Task<HostDebugEditStatusResult> EditStatusAsync(CancellationToken token)
+    public async Task<DebugEditStatusResult> EditStatusAsync(CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugEditStatusResult();
+            return new DebugEditStatusResult();
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugEditStatusParams, HostDebugEditStatusResult>(new HostDebugEditStatusParams(), token)
-            ?? new HostDebugEditStatusResult();
+        return await environment.SendRequestAsync<HostDebugEditStatusParams, DebugEditStatusResult>(new HostDebugEditStatusParams(), token)
+            ?? new DebugEditStatusResult();
     }
 
-    public async Task<HostDebugAck> TerminateAsync(bool wipe, CancellationToken token)
+    public async Task<DebugAck> TerminateAsync(bool wipe, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugAck();
+            return new DebugAck();
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugTerminateParams, HostDebugAck>(new HostDebugTerminateParams { Wipe = wipe }, token);
+        return await environment.SendRequestAsync<HostDebugTerminateParams, DebugAck>(new HostDebugTerminateParams { Wipe = wipe }, token);
     }
 
-    public async Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token)
+    public async Task<DebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugBreakpointsResult { Breakpoints = [.. breakpoints.Select(breakpoint => new HostBreakpoint(breakpoint.Line, false))] };
+            return new DebugBreakpointsResult { Breakpoints = [.. breakpoints.Select(breakpoint => new DebugBreakpoint(breakpoint.Line, false))] };
         }
 
         // a condition is parsed here, where the parser is, and the host is given the expression. One that is not an expression is refused: its breakpoint goes to the
@@ -180,7 +180,7 @@ internal sealed class ProgramDebugService(
         }
 
         await environment.WaitForReadyAsync(token);
-        var result = await environment.SendRequestAsync<HostDebugBreakpointsParams, HostDebugBreakpointsResult>(
+        var result = await environment.SendRequestAsync<HostDebugBreakpointsParams, DebugBreakpointsResult>(
             new HostDebugBreakpointsParams { ModuleName = moduleName, Breakpoints = lines }, token);
 
         return result.Breakpoints.Count != lines.Length ? result : result with
@@ -189,44 +189,44 @@ internal sealed class ProgramDebugService(
         };
     }
 
-    public async Task<HostDebugStackResult> StackAsync(CancellationToken token)
+    public async Task<DebugStackResult> StackAsync(CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugStackResult();
+            return new DebugStackResult();
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugStackParams, HostDebugStackResult>(new HostDebugStackParams(), token);
+        return await environment.SendRequestAsync<HostDebugStackParams, DebugStackResult>(new HostDebugStackParams(), token);
     }
 
-    public async Task<HostDebugVariablesResult> VariablesAsync(int frameId, HostVariableScope scope, int reference, CancellationToken token)
+    public async Task<DebugVariablesResult> VariablesAsync(int frameId, DebugVariableScope scope, int reference, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugVariablesResult();
+            return new DebugVariablesResult();
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugVariablesParams, HostDebugVariablesResult>(
+        return await environment.SendRequestAsync<HostDebugVariablesParams, DebugVariablesResult>(
             new HostDebugVariablesParams { FrameId = frameId, Scope = scope, Reference = reference }, token);
     }
 
-    public async Task<HostDebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token)
+    public async Task<DebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugEvaluateResult { Error = DebuggerMessages.NoRuntimeEnvironment };
+            return new DebugEvaluateResult { Error = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         var (value, error) = await ParseExpressionAsync(expression, "Evaluate", token);
         if (value is null)
         {
-            return new HostDebugEvaluateResult { Error = error };
+            return new DebugEvaluateResult { Error = error };
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugEvaluateParams, HostDebugEvaluateResult>(
+        return await environment.SendRequestAsync<HostDebugEvaluateParams, DebugEvaluateResult>(
             new HostDebugEvaluateParams { FrameId = frameId, Json = PlatformJson.Serialize<ExpressionNode>(value) }, token);
     }
 
@@ -250,16 +250,16 @@ internal sealed class ProgramDebugService(
         return assignments is [{ Value: { } value }] ? (value, null) : (null, DebuggerMessages.NotOneExpression);
     }
 
-    public async Task<HostDebugEvaluateResult> ExecuteAsync(int frameId, string text, CancellationToken token)
+    public async Task<DebugEvaluateResult> ExecuteAsync(int frameId, string text, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugEvaluateResult { Error = DebuggerMessages.NoRuntimeEnvironment };
+            return new DebugEvaluateResult { Error = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         if (text.Contains('\n') || text.Contains('\r') || string.IsNullOrWhiteSpace(text))
         {
-            return new HostDebugEvaluateResult { Error = DebuggerMessages.StatementIsOneLine };
+            return new DebugEvaluateResult { Error = DebuggerMessages.StatementIsOneLine };
         }
 
         // the immediate window writes a question mark for Debug.Print.
@@ -271,17 +271,17 @@ internal sealed class ProgramDebugService(
         var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __Execute()\r\n{source}\r\nEnd Sub\r\n", token);
         if (!parsed.IsSuccess || parsed.SyntaxTree is null)
         {
-            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? DebuggerMessages.NotAStatement };
+            return new DebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? DebuggerMessages.NotAStatement };
         }
 
         var statements = parsed.SyntaxTree.Children.OfType<MemberDeclarationNode>().SelectMany(member => member.Children.OfType<StatementNode>()).ToArray();
         if (statements is not [var statement])
         {
-            return new HostDebugEvaluateResult { Error = DebuggerMessages.OneStatementAtATime };
+            return new DebugEvaluateResult { Error = DebuggerMessages.OneStatementAtATime };
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugExecuteParams, HostDebugEvaluateResult>(
+        return await environment.SendRequestAsync<HostDebugExecuteParams, DebugEvaluateResult>(
             new HostDebugExecuteParams { FrameId = frameId, Json = PlatformJson.Serialize<SyntaxNode>(statement) }, token);
     }
 
@@ -293,7 +293,7 @@ internal sealed class ProgramDebugService(
         }
 
         await environment.WaitForReadyAsync(token);
-        _ = await environment.SendRequestAsync<HostDebugErrorBreakParams, HostDebugAck>(new HostDebugErrorBreakParams { Mode = mode }, token);
+        _ = await environment.SendRequestAsync<HostDebugErrorBreakParams, DebugAck>(new HostDebugErrorBreakParams { Mode = mode }, token);
     }
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);

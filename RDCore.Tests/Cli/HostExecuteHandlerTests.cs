@@ -58,7 +58,7 @@ public sealed class HostExecuteHandlerTests
     /// Runs <paramref name="entryPoint"/> of <paramref name="source"/> the way the platform does: the
     /// language server parses and projects the symbols, the host defines them and runs.
     /// </summary>
-    private static async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint = "Main", CancellationToken token = default)
+    private static async Task<ExecuteResult> ExecuteAsync(string source, string entryPoint = "Main", CancellationToken token = default)
     {
         var composed = Compose(source);
         return await ExecuteAsync(composed, source, entryPoint, token);
@@ -68,7 +68,7 @@ public sealed class HostExecuteHandlerTests
     /// Runs one module against an already-composed session, so a test can run more than once against
     /// the same one — which is what a live client does, and the only way a redefinition is exercised.
     /// </summary>
-    private static async Task<ExecuteSessionResult> ExecuteAsync(
+    private static async Task<ExecuteResult> ExecuteAsync(
         (HostExecuteHandler Handler, EnvironmentSessionProvider Session, Uri WorkspaceRoot, Uri ModuleUri) composed,
         string source, string entryPoint = "Main", CancellationToken token = default,
         ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)

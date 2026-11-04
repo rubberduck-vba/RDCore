@@ -40,7 +40,7 @@ internal interface IDebugWorkspace
     /// <param name="entryPoint">The name of the parameterless procedure to run.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>Where the program waits, or how it ended.</returns>
-    Task<ExecuteSessionResult> StartAsync(string moduleName, string entryPoint, CancellationToken token);
+    Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token);
 
     /// <summary>
     /// Reads the files of the workspace's modules again, and has the environment host load each one whose text is not what it loaded: the edits saved while the

@@ -32,11 +32,11 @@ public sealed class ProgramDebugServiceTests
         parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
-        _environment.SendRequestAsync<HostDebugBreakpointsParams, HostDebugBreakpointsResult>(Arg.Any<HostDebugBreakpointsParams>(), Arg.Any<CancellationToken>())
+        _environment.SendRequestAsync<HostDebugBreakpointsParams, DebugBreakpointsResult>(Arg.Any<HostDebugBreakpointsParams>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 _sent = call.Arg<HostDebugBreakpointsParams>();
-                return Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [.. _sent.Breakpoints.Select(line => new HostBreakpoint(line.Line, true))], Judged = true });
+                return Task.FromResult(new DebugBreakpointsResult { Breakpoints = [.. _sent.Breakpoints.Select(line => new DebugBreakpoint(line.Line, true))], Judged = true });
             });
 
         _service = new ProgramDebugService(orchestration, parsing, Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = "file:///c:/ws/" } }));

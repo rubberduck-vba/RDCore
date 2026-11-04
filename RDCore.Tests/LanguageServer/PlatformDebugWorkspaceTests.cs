@@ -73,8 +73,8 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         }
 
         _orchestration.RuntimeEnvironment.Returns(_host);
-        _host.SendRequestAsync<HostExecuteParams, ExecuteSessionResult>(Arg.Any<HostExecuteParams>(), Arg.Any<CancellationToken>())
-            .Returns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Suspended });
+        _host.SendRequestAsync<HostExecuteParams, ExecuteResult>(Arg.Any<HostExecuteParams>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteResult { Outcome = ExecutionOutcome.Suspended });
     }
 
     public void Dispose()

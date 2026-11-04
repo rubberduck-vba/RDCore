@@ -19,9 +19,9 @@ namespace RDCore.LanguageServer.Runtime;
 /// </remarks>
 internal sealed class SessionDebugResumeHandler(
     IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus, IDocumentLifecycleService lifecycle)
-    : RDCoreRequestHandler<SessionDebugResumeRequest, ExecuteSessionResult>
+    : RDCoreRequestHandler<SessionDebugResumeRequest, ExecuteResult>
 {
-    protected override async Task<ExecuteSessionResult> HandleAsync(SessionDebugResumeRequest request, CancellationToken token)
+    protected override async Task<ExecuteResult> HandleAsync(SessionDebugResumeRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         await lifecycle.WhenAllLoadedAsync(token);
@@ -35,9 +35,9 @@ internal sealed class SessionDebugResumeHandler(
 /// Handles <c>rdcore/session/debug/pause</c>: relays a client's request to stop the program that is running.
 /// </summary>
 internal sealed class SessionDebugPauseHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
-    : RDCoreRequestHandler<SessionDebugPauseRequest, HostDebugAck>
+    : RDCoreRequestHandler<SessionDebugPauseRequest, DebugAck>
 {
-    protected override Task<HostDebugAck> HandleAsync(SessionDebugPauseRequest request, CancellationToken token)
+    protected override Task<DebugAck> HandleAsync(SessionDebugPauseRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         return debugging.PauseAsync(token);
@@ -53,9 +53,9 @@ internal sealed class SessionDebugPauseHandler(IProgramDebugService debugging, I
 /// </remarks>
 internal sealed class SessionDebugGotoHandler(
     IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus, IDocumentLifecycleService lifecycle)
-    : RDCoreRequestHandler<SessionDebugGotoRequest, HostDebugGotoResult>
+    : RDCoreRequestHandler<SessionDebugGotoRequest, DebugGotoResult>
 {
-    protected override async Task<HostDebugGotoResult> HandleAsync(SessionDebugGotoRequest request, CancellationToken token)
+    protected override async Task<DebugGotoResult> HandleAsync(SessionDebugGotoRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         await lifecycle.WhenAllLoadedAsync(token);
@@ -73,9 +73,9 @@ internal sealed class SessionDebugGotoHandler(
 /// edited modules are of, too (<see cref="IEditStatusMonitor"/>).
 /// </remarks>
 internal sealed class SessionDebugEditStatusHandler(IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus, IDocumentLifecycleService lifecycle)
-    : RDCoreRequestHandler<SessionDebugEditStatusRequest, HostDebugEditStatusResult>
+    : RDCoreRequestHandler<SessionDebugEditStatusRequest, DebugEditStatusResult>
 {
-    protected override async Task<HostDebugEditStatusResult> HandleAsync(SessionDebugEditStatusRequest request, CancellationToken token)
+    protected override async Task<DebugEditStatusResult> HandleAsync(SessionDebugEditStatusRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         await lifecycle.WhenAllLoadedAsync(token);
@@ -89,9 +89,9 @@ internal sealed class SessionDebugEditStatusHandler(IPlatformClientCapabilitiesS
 /// </summary>
 /// <remarks>A program that is over has no edits it does not have: what is said of them is cleared once it is answered.</remarks>
 internal sealed class SessionDebugTerminateHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus)
-    : RDCoreRequestHandler<SessionDebugTerminateRequest, HostDebugAck>
+    : RDCoreRequestHandler<SessionDebugTerminateRequest, DebugAck>
 {
-    protected override async Task<HostDebugAck> HandleAsync(SessionDebugTerminateRequest request, CancellationToken token)
+    protected override async Task<DebugAck> HandleAsync(SessionDebugTerminateRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         var result = await debugging.TerminateAsync(request.Wipe, token);
@@ -104,9 +104,9 @@ internal sealed class SessionDebugTerminateHandler(IProgramDebugService debuggin
 /// Handles <c>rdcore/session/debug/breakpoints</c>: relays the lines of a module a client wants the program to wait at.
 /// </summary>
 internal sealed class SessionDebugBreakpointsHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
-    : RDCoreRequestHandler<SessionDebugBreakpointsRequest, HostDebugBreakpointsResult>
+    : RDCoreRequestHandler<SessionDebugBreakpointsRequest, DebugBreakpointsResult>
 {
-    protected override Task<HostDebugBreakpointsResult> HandleAsync(SessionDebugBreakpointsRequest request, CancellationToken token)
+    protected override Task<DebugBreakpointsResult> HandleAsync(SessionDebugBreakpointsRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         return debugging.SetBreakpointsAsync(request.ModuleName, request.Breakpoints, token);
@@ -140,9 +140,9 @@ internal static class SessionDebugRelay
 /// Handles <c>rdcore/session/debug/stack</c>: relays a client's request for the activations of the program that waits.
 /// </summary>
 internal sealed class SessionDebugStackHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
-    : RDCoreRequestHandler<SessionDebugStackRequest, HostDebugStackResult>
+    : RDCoreRequestHandler<SessionDebugStackRequest, DebugStackResult>
 {
-    protected override Task<HostDebugStackResult> HandleAsync(SessionDebugStackRequest request, CancellationToken token)
+    protected override Task<DebugStackResult> HandleAsync(SessionDebugStackRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         return debugging.StackAsync(token);
@@ -153,9 +153,9 @@ internal sealed class SessionDebugStackHandler(IProgramDebugService debugging, I
 /// Handles <c>rdcore/session/debug/variables</c>: relays a client's request for the variables of an activation of the program that waits.
 /// </summary>
 internal sealed class SessionDebugVariablesHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
-    : RDCoreRequestHandler<SessionDebugVariablesRequest, HostDebugVariablesResult>
+    : RDCoreRequestHandler<SessionDebugVariablesRequest, DebugVariablesResult>
 {
-    protected override Task<HostDebugVariablesResult> HandleAsync(SessionDebugVariablesRequest request, CancellationToken token)
+    protected override Task<DebugVariablesResult> HandleAsync(SessionDebugVariablesRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         return debugging.VariablesAsync(request.FrameId, request.Scope, request.Reference, token);
@@ -167,9 +167,9 @@ internal sealed class SessionDebugVariablesHandler(IProgramDebugService debuggin
 /// that waits.
 /// </summary>
 internal sealed class SessionDebugEvaluateHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities)
-    : RDCoreRequestHandler<SessionDebugEvaluateRequest, HostDebugEvaluateResult>
+    : RDCoreRequestHandler<SessionDebugEvaluateRequest, DebugEvaluateResult>
 {
-    protected override Task<HostDebugEvaluateResult> HandleAsync(SessionDebugEvaluateRequest request, CancellationToken token)
+    protected override Task<DebugEvaluateResult> HandleAsync(SessionDebugEvaluateRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         return debugging.EvaluateAsync(request.FrameId, request.Expression, token);
@@ -182,9 +182,9 @@ internal sealed class SessionDebugEvaluateHandler(IProgramDebugService debugging
 /// </summary>
 /// <remarks>A statement typed at the stop may end the program (<c>End</c>): what it does not have of the edits is asked again once it is answered.</remarks>
 internal sealed class SessionDebugExecuteHandler(IProgramDebugService debugging, IPlatformClientCapabilitiesService clientCapabilities, IEditStatusMonitor editStatus)
-    : RDCoreRequestHandler<SessionDebugExecuteRequest, HostDebugEvaluateResult>
+    : RDCoreRequestHandler<SessionDebugExecuteRequest, DebugEvaluateResult>
 {
-    protected override async Task<HostDebugEvaluateResult> HandleAsync(SessionDebugExecuteRequest request, CancellationToken token)
+    protected override async Task<DebugEvaluateResult> HandleAsync(SessionDebugExecuteRequest request, CancellationToken token)
     {
         SessionDebugRelay.RequireCapability(clientCapabilities);
         var result = await debugging.ExecuteAsync(request.FrameId, request.Statement, token);

@@ -10,7 +10,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// it supplies and report what is wrong with it, without running anything.
 /// </summary>
 /// <remarks>
-/// The counterpart to <see cref="ExecuteSessionParams"/> for a client with no editor: an editor gets
+/// The counterpart to <see cref="SessionExecuteParams"/> for a client with no editor: an editor gets
 /// this through LSP's own <c>textDocument/diagnostic</c> pull against a document it has open, and a
 /// shell has neither a document nor a pull — but wants the same answer, from the same providers, for
 /// the code in its buffer.

@@ -142,7 +142,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// How it ended, or where it waits. A program that is suspended is let go of, and not refused: running one is what <c>RUN</c> does, and in BASIC it starts the
     /// program over. A program that is running is refused.
     /// </returns>
-    public Task<ExecuteSessionResult> RunAsync(
+    public Task<ExecuteResult> RunAsync(
         RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate = false, bool streamOutput = false,
         bool unattended = false)
     {
@@ -196,7 +196,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <param name="step">How far it goes, or <see langword="null"/> for as far as it goes.</param>
     /// <param name="token">The cancellation of the request, which is a break.</param>
     /// <returns>Where the program is by then, or <see cref="ExecutionOutcome.Refused"/> when it cannot be resumed.</returns>
-    public async Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token)
+    public async Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token)
     {
         var session = provider.Session;
         SuspendableExecution execution;
@@ -228,28 +228,28 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// The edits made while the program waits that are not applied to it: what resuming it, stepping it or moving its point of execution is refused for.
     /// </summary>
     /// <returns>None, and not suspended, when no program waits.</returns>
-    public HostDebugEditStatusResult EditStatus()
+    public DebugEditStatusResult EditStatus()
     {
         lock (_sync)
         {
             if (_state is not ProgramState.Suspended || _alongside || _suspendedWith is null)
             {
-                return new HostDebugEditStatusResult();
+                return new DebugEditStatusResult();
             }
 
-            return new HostDebugEditStatusResult
+            return new DebugEditStatusResult
             {
                 Suspended = true,
                 Edits = [.. ProgramEdits.Since(_suspendedWith, provider.Session, provider.Image)
                     .Where(edit => edit.Kind is not ProgramEditKind.Applies)
-                    .Select(edit => new HostDebugEdit
+                    .Select(edit => new DebugEdit
                     {
                         Name = edit.Name,
                         Kind = edit.Kind switch
                         {
-                            ProgramEditKind.Restart => HostDebugEditKind.Restart,
-                            ProgramEditKind.DoesNotCompile => HostDebugEditKind.DoesNotCompile,
-                            _ => HostDebugEditKind.NotYet,
+                            ProgramEditKind.Restart => DebugEditKind.Restart,
+                            ProgramEditKind.DoesNotCompile => DebugEditKind.DoesNotCompile,
+                            _ => DebugEditKind.NotYet,
                         },
                         Reason = edit.Reason,
                         ModuleUri = edit.Module,
@@ -265,7 +265,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <param name="line">The zero-based line of the source to go on from. Ignored when <paramref name="label"/> is given.</param>
     /// <param name="label">A statement label or line number of the procedure to go on from.</param>
     /// <returns>Where the program goes on from, or why it was not moved.</returns>
-    public HostDebugGotoResult Goto(int line, string? label)
+    public DebugGotoResult Goto(int line, string? label)
     {
         lock (_sync)
         {
@@ -302,7 +302,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
             frame.MoveTo(offset);
             var location = offset < body.Items.Length ? body.Items[offset].Location : null;
-            return new HostDebugGotoResult
+            return new DebugGotoResult
             {
                 Moved = true,
                 Line = location?.Range.Start.Line ?? -1,
@@ -311,7 +311,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         }
     }
 
-    private static HostDebugGotoResult NotMoved(string reason) => new() { Reason = reason };
+    private static DebugGotoResult NotMoved(string reason) => new() { Reason = reason };
 
     /// <summary>
     /// Sets the lines of a module that a program under a debugger waits at.
@@ -322,15 +322,15 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <remarks>
     /// A breakpoint is where an instruction is, and a line no statement begins on is reported as not verified - nothing would ever wait there, and a client is to drop it.
     /// Every line is kept all the same, since the code can be loaded again before the program runs (a shell redefines its program at each <c>RUN</c>), and what is
-    /// verified is a fact about the code that is loaded now. Whether it is the code the person means is what <see cref="HostDebugBreakpointsResult.Judged"/> says.
+    /// verified is a fact about the code that is loaded now. Whether it is the code the person means is what <see cref="DebugBreakpointsResult.Judged"/> says.
     /// A disabled breakpoint is judged as any other is, and is not waited at; neither is one whose condition the request did not carry an expression for.
     /// </remarks>
-    public HostDebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<HostBreakpointLine> breakpoints)
+    public DebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<HostBreakpointLine> breakpoints)
     {
         var session = provider.Session;
         if (!session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var module) || module is null)
         {
-            return new HostDebugBreakpointsResult { Breakpoints = [.. breakpoints.Select(breakpoint => new HostBreakpoint(breakpoint.Line, false))] };
+            return new DebugBreakpointsResult { Breakpoints = [.. breakpoints.Select(breakpoint => new DebugBreakpoint(breakpoint.Line, false))] };
         }
 
         var refused = new string?[breakpoints.Count];
@@ -350,9 +350,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
         session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, waited);
         var bodies = provider.Image.BodiesOf(module.Uri);
-        return new HostDebugBreakpointsResult
+        return new DebugBreakpointsResult
         {
-            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new HostBreakpoint(breakpoint.Line, IBreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
+            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, IBreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
             Judged = bodies.Any(),
         };
     }
@@ -381,11 +381,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// The activations of the program that waits, innermost first.
     /// </summary>
     /// <returns>None when no program waits.</returns>
-    public HostDebugStackResult Stack()
+    public DebugStackResult Stack()
     {
         lock (_sync)
         {
-            return _state is ProgramState.Suspended ? _inspector.Stack() : new HostDebugStackResult();
+            return _state is ProgramState.Suspended ? _inspector.Stack() : new DebugStackResult();
         }
     }
 
@@ -396,11 +396,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <param name="scope">Which of its variables.</param>
     /// <param name="reference">The reference of a variable that has parts, or <c>0</c>.</param>
     /// <returns>None when no program waits.</returns>
-    public HostDebugVariablesResult Variables(int frameId, HostVariableScope scope, int reference)
+    public DebugVariablesResult Variables(int frameId, DebugVariableScope scope, int reference)
     {
         lock (_sync)
         {
-            return _state is ProgramState.Suspended ? _inspector.Variables(frameId, scope, reference) : new HostDebugVariablesResult();
+            return _state is ProgramState.Suspended ? _inspector.Variables(frameId, scope, reference) : new DebugVariablesResult();
         }
     }
 
@@ -415,7 +415,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// pushes an activation above, as any call does. The program stays where it waits. Something that stops - a <c>Stop</c> in a procedure the expression calls - stops
     /// the expression and not the program, and an <c>End</c> is the end of it.
     /// </remarks>
-    public HostDebugEvaluateResult Evaluate(RuntimeExecutionPipeline pipeline, int frameId, ExpressionNode expression)
+    public DebugEvaluateResult Evaluate(RuntimeExecutionPipeline pipeline, int frameId, ExpressionNode expression)
         => InFrame(frameId, ofAStatement: false, (session, stack, frame, procedure) =>
         {
             RuntimeSemanticsEvaluationResult result;
@@ -440,7 +440,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// changes the local the program will go on with. The statement is a body of its own, in an activation of its own that is not on the call stack - the activation
     /// selected is the program's, and where it waits is not for the statement to move.
     /// </remarks>
-    public HostDebugEvaluateResult Execute(RuntimeExecutionPipeline pipeline, int frameId, SyntaxNode statement)
+    public DebugEvaluateResult Execute(RuntimeExecutionPipeline pipeline, int frameId, SyntaxNode statement)
         => InFrame(frameId, ofAStatement: true, (session, stack, selected, procedure) =>
         {
             if (DeclareImplicitly(session, statement, selected, procedure) is { } refused)
@@ -482,7 +482,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     // something prints is its own, and whatever it leaves on the call stack - a Stop in a procedure it calls - is let go of. The program is claimed with the lock held
     // (_alongside), and the something runs with nothing locked, so that a request that asks about the program while it runs - while a dialog it opened waits for its
     // answer - is answered rather than waiting for it. Called on a thread of its own by the handlers (OffTheConnection).
-    private HostDebugEvaluateResult InFrame(
+    private DebugEvaluateResult InFrame(
         int frameId, bool ofAStatement, Func<IRuntimeSession, RuntimeCallStack, CallStackFrame, VBTypeMemberSymbol, (VBTypedValue? Value, string? Failure)> run)
     {
         IRuntimeSession session;
@@ -539,11 +539,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 if (value is null)
                 {
                     // a statement has no value: it is done.
-                    return new HostDebugEvaluateResult { Success = true, Output = output.Lines };
+                    return new DebugEvaluateResult { Success = true, Output = output.Lines };
                 }
 
                 var described = _inspector.Describe(string.Empty, value);
-                return new HostDebugEvaluateResult
+                return new DebugEvaluateResult
                 {
                     Success = true,
                     Value = described.Value,
@@ -667,7 +667,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
-    private static HostDebugEvaluateResult Unevaluated(string reason, RuntimeOutputBuffer? output = null)
+    private static DebugEvaluateResult Unevaluated(string reason, RuntimeOutputBuffer? output = null)
         => new() { Error = reason, Output = output?.Lines ?? [] };
 
     /// <summary>
@@ -737,7 +737,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     // the thread of the program), so it is stopped by one, as a run that is not under a debugger is. An End in it is the end of the program: the one that waits is
     // ended with the session wiped, which is what End does. Called with _alongside set and nothing locked, on a thread of its own (OffTheConnection): nothing else
     // resumes or ends the program meanwhile, and a request that asks whether one could is answered while it runs - a dialog it opens included.
-    private ExecuteSessionResult RunAlongside(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
+    private ExecuteResult RunAlongside(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
     {
         var output = new RuntimeOutputBuffer();
         var depth = session.CallStack.Depth;
@@ -777,7 +777,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     // ---- a run that is not under a debugger ----
 
-    private ExecuteSessionResult RunToTheEnd(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
+    private ExecuteResult RunToTheEnd(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
     {
         // the session is this host's own and outlives the run; the output buffer and the cancellation
         // are this run's, so the pipeline is composed per run and the output routed for its duration.
@@ -795,7 +795,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     // ---- a run under a debugger ----
 
-    private async Task<ExecuteSessionResult> RunUnderDebuggerAsync(
+    private async Task<ExecuteResult> RunUnderDebuggerAsync(
         IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
     {
         SuspendableExecution execution;
@@ -825,10 +825,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     }
 
     // where the program is, as the request that ran it up to here answers - and how many lines it has been said, so that the receiver knows when it has them all.
-    private ExecuteSessionResult Segment(IRuntimeSession session, ExecutionStop stop)
+    private ExecuteResult Segment(IRuntimeSession session, ExecutionStop stop)
         => SegmentCore(session, stop) with { StreamedLines = Interlocked.Read(ref _streamed) };
 
-    private ExecuteSessionResult SegmentCore(IRuntimeSession session, ExecutionStop stop)
+    private ExecuteResult SegmentCore(IRuntimeSession session, ExecutionStop stop)
     {
         var output = _output;
         if (!stop.IsSuspended)
@@ -853,7 +853,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             if (_terminating)
             {
                 EndSuspended(session, _wipeOnTerminate);
-                return new ExecuteSessionResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
+                return new ExecuteResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
             }
 
             _state = ProgramState.Suspended;
@@ -863,7 +863,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
         // a program that waits where an error was raised says which: the program is asked why it waits by what it has of the error.
         var error = session.Halt.StoppedOnError;
-        return new ExecuteSessionResult
+        return new ExecuteResult
         {
             Outcome = ExecutionOutcome.Suspended,
             Output = output.Lines,
@@ -946,7 +946,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         _suspendedWith = ProgramEdits.Of(provider.Session, provider.Image);
     }
 
-    private static ExecuteSessionResult Refused(string reason) => new() { Outcome = ExecutionOutcome.Refused, ErrorMessage = reason };
+    private static ExecuteResult Refused(string reason) => new() { Outcome = ExecutionOutcome.Refused, ErrorMessage = reason };
 
     private static TaskCompletionSource Settled()
     {
@@ -958,7 +958,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     // What the invoker answered, as the caller sees it. An internal error means the interpreter met
     // something it has no implementation for - unless the run was cancelled, in which case that is
     // exactly what an interrupted run looks like from here.
-    private ExecuteSessionResult Report(
+    private ExecuteResult Report(
         RuntimeSemanticsEvaluationResult invocation, IRuntimeSession session, RuntimeOutputBuffer output, CancellationToken token)
     {
         // a program that was stopped is not one that failed: an End is over and leaves nothing of it, and a Stop - or a break asked for from outside, which is what
@@ -971,10 +971,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             if (halt is RuntimeHaltKind.End)
             {
                 SessionWipe.End(session);
-                return new ExecuteSessionResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
+                return new ExecuteResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
             }
 
-            return new ExecuteSessionResult
+            return new ExecuteResult
             {
                 Outcome = ExecutionOutcome.Interrupted,
                 Output = output.Lines,
@@ -986,12 +986,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
         if (invocation.IsSuccess)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
+            return new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
         }
 
         if (invocation.IsInternalError)
         {
-            return new ExecuteSessionResult
+            return new ExecuteResult
             {
                 Outcome = token.IsCancellationRequested ? ExecutionOutcome.Interrupted : ExecutionOutcome.NotImplemented,
                 Output = output.Lines,
@@ -1004,7 +1004,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         // the error itself says what and where; the session's own error state says the rest, because that is
         // where Err lives - its Source, and the stack trace captured when the error was raised.
         var error = invocation.ErrorInfo!;
-        return new ExecuteSessionResult
+        return new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             Output = output.Lines,

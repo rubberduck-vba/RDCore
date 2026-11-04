@@ -149,7 +149,7 @@ and its semantic model 1.5 MB rather than 3.6 MB. Anything serialized with the s
 
 ### `rdcore/session/execute`
 
-The `rdcore/session/execute` result ([`ExecuteSessionResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteSessionResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
+The `rdcore/session/execute` result ([`ExecuteResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
 
 The interactive shell renders a run-time error from this result, as:
 

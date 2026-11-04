@@ -35,8 +35,8 @@ internal sealed class VarsReplCommand : IReplCommand
         }
 
         // the module declares its variables before a procedure declares its own.
-        var variables = new List<HostVariable>();
-        foreach (var scope in new[] { HostVariableScope.Module, HostVariableScope.Locals })
+        var variables = new List<DebugVariable>();
+        foreach (var scope in new[] { DebugVariableScope.Module, DebugVariableScope.Locals })
         {
             variables.AddRange((await context.Platform.GetVariablesAsync(frame, scope, 0, token)).Variables);
         }

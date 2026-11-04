@@ -19,7 +19,7 @@ public sealed class CompiledExecutionTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private sealed record class Run(ExecuteSessionResult Result, IReadOnlyDictionary<string, CompilationResult> Compiled);
+    private sealed record class Run(ExecuteResult Result, IReadOnlyDictionary<string, CompilationResult> Compiled);
 
     // compiled code works on payloads, which the suite is also run without: what it does is not to be seen then, as every procedure is refused.
     internal static void RequirePayloads()
@@ -42,7 +42,7 @@ public sealed class CompiledExecutionTests
     private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         (string Name, string Source)[]? classes = null)
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
 
         // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two.
@@ -58,7 +58,7 @@ public sealed class CompiledExecutionTests
     }
 
     // what a run of a program is to the person who runs it, which is the same whatever engine runs it.
-    private static string Observed(ExecuteSessionResult result)
+    private static string Observed(ExecuteResult result)
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorCode} {result.ErrorMessage} "
             + $"@{result.ErrorLine}:{result.ErrorCharacter} Erl {result.ErrorLineNumber} | {string.Join(" < ", result.StackTrace.Select(frame => $"{frame.Procedure}@{frame.Line}:{frame.Character}"))}";
 

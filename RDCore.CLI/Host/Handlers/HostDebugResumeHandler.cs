@@ -12,13 +12,13 @@ namespace RDCore.CLI.Host.Handlers;
 /// </remarks>
 internal sealed class HostDebugResumeHandler(
     IEnvironmentSessionProvider sessionProvider,
-    ILogger<HostDebugResumeHandler> logger) : RDCoreRequestHandler<HostDebugResumeParams, ExecuteSessionResult>
+    ILogger<HostDebugResumeHandler> logger) : RDCoreRequestHandler<HostDebugResumeParams, ExecuteResult>
 {
-    protected override async Task<ExecuteSessionResult> HandleAsync(HostDebugResumeParams request, CancellationToken token)
+    protected override async Task<ExecuteResult> HandleAsync(HostDebugResumeParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = Resources.Host_NoRuntimeSessionToRunIn };
+            return new ExecuteResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = Resources.Host_NoRuntimeSessionToRunIn };
         }
 
         var result = await sessionProvider.Execution.ResumeAsync(request.Step, token);

@@ -167,51 +167,51 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         => Platform.StatusAsync(new SessionStatusParams { WaitMilliseconds = waitMilliseconds }, token);
 
     /// <inheritdoc/>
-    public Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token)
-        => Platform.ExecuteAsync(new ExecuteSessionParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint }, token);
+    public Task<ExecuteResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token)
+        => Platform.ExecuteAsync(new SessionExecuteParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint }, token);
 
     /// <inheritdoc/>
-    public Task<DiscardSessionResult> DiscardAsync(string moduleName, CancellationToken token)
-        => Platform.DiscardAsync(new DiscardSessionParams { ModuleName = moduleName }, token);
+    public Task<DiscardResult> DiscardAsync(string moduleName, CancellationToken token)
+        => Platform.DiscardAsync(new SessionDiscardParams { ModuleName = moduleName }, token);
 
     /// <inheritdoc/>
-    public Task<DiscardSessionResult> DiscardAsync(string moduleName, bool endProgram, CancellationToken token)
-        => Platform.DiscardAsync(new DiscardSessionParams { ModuleName = moduleName, EndProgram = endProgram }, token);
+    public Task<DiscardResult> DiscardAsync(string moduleName, bool endProgram, CancellationToken token)
+        => Platform.DiscardAsync(new SessionDiscardParams { ModuleName = moduleName, EndProgram = endProgram }, token);
 
     /// <inheritdoc/>
-    public Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token)
-        => Platform.ExecuteAsync(new ExecuteSessionParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint, Debug = debug, Immediate = immediate }, token);
+    public Task<ExecuteResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token)
+        => Platform.ExecuteAsync(new SessionExecuteParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint, Debug = debug, Immediate = immediate }, token);
 
     /// <inheritdoc/>
-    public Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token)
+    public Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token)
         => Platform.DebugResumeAsync(new SessionDebugResumeParams { Step = step }, token);
 
     /// <inheritdoc/>
-    public Task<HostDebugAck> PauseAsync(CancellationToken token)
+    public Task<DebugAck> PauseAsync(CancellationToken token)
         => Platform.DebugPauseAsync(new SessionDebugPauseParams(), token);
 
     /// <inheritdoc/>
-    public Task<HostDebugGotoResult> GotoAsync(string label, CancellationToken token)
+    public Task<DebugGotoResult> GotoAsync(string label, CancellationToken token)
         => Platform.DebugGotoAsync(new SessionDebugGotoParams { Label = label }, token);
 
     /// <inheritdoc/>
-    public Task<HostDebugEditStatusResult> GetEditStatusAsync(CancellationToken token)
+    public Task<DebugEditStatusResult> GetEditStatusAsync(CancellationToken token)
         => Platform.DebugEditStatusAsync(new SessionDebugEditStatusParams(), token);
 
     /// <inheritdoc/>
-    public Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token)
+    public Task<DebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<SessionBreakpointLine> breakpoints, CancellationToken token)
         => Platform.DebugBreakpointsAsync(new SessionDebugBreakpointsParams { ModuleName = moduleName, Breakpoints = breakpoints }, token);
 
     /// <inheritdoc/>
-    public Task<HostDebugStackResult> GetStackAsync(CancellationToken token)
+    public Task<DebugStackResult> GetStackAsync(CancellationToken token)
         => Platform.DebugStackAsync(new SessionDebugStackParams(), token);
 
     /// <inheritdoc/>
-    public Task<HostDebugVariablesResult> GetVariablesAsync(int frameId, HostVariableScope scope, int reference, CancellationToken token)
+    public Task<DebugVariablesResult> GetVariablesAsync(int frameId, DebugVariableScope scope, int reference, CancellationToken token)
         => Platform.DebugVariablesAsync(new SessionDebugVariablesParams { FrameId = frameId, Scope = scope, Reference = reference }, token);
 
     /// <inheritdoc/>
-    public Task<HostDebugEvaluateResult> ExecuteInFrameAsync(int frameId, string statement, CancellationToken token)
+    public Task<DebugEvaluateResult> ExecuteInFrameAsync(int frameId, string statement, CancellationToken token)
         => Platform.DebugExecuteAsync(new SessionDebugExecuteParams { FrameId = frameId, Statement = statement }, token);
 
     /// <inheritdoc/>
@@ -254,12 +254,12 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
             new SessionCompletionParams { Source = source, ModuleName = moduleName, Command = command }, token);
 
     /// <inheritdoc/>
-    public Task<PeekSessionResult> PeekAsync(int address, CancellationToken token)
-        => Platform.PeekAsync(new PeekSessionParams { Address = address }, token);
+    public Task<PeekResult> PeekAsync(int address, CancellationToken token)
+        => Platform.PeekAsync(new SessionPeekParams { Address = address }, token);
 
     /// <inheritdoc/>
-    public Task<PokeSessionResult> PokeAsync(int address, byte value, CancellationToken token)
-        => Platform.PokeAsync(new PokeSessionParams { Address = address, Value = value }, token);
+    public Task<PokeResult> PokeAsync(int address, byte value, CancellationToken token)
+        => Platform.PokeAsync(new SessionPokeParams { Address = address, Value = value }, token);
 
     // the platform protocol's requests go through the client logic every client of the platform has; the connection is the channel only once it is ready.
     private RDCorePlatformClient Platform => new(client.Channel);

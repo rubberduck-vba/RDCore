@@ -53,7 +53,7 @@ public sealed class EditStatusPublicationTests
         new EditStatusPublication(_monitor, documents, Substitute.For<IParsingClientService>(), _diagnostics, _publisher, NullLogger<EditStatusPublication>.Instance).Attach();
     }
 
-    private async Task<Uri[]> PublishedAsync(HostDebugEditStatusResult previous, HostDebugEditStatusResult current, int expected)
+    private async Task<Uri[]> PublishedAsync(DebugEditStatusResult previous, DebugEditStatusResult current, int expected)
     {
         lock (_published)
         {
@@ -62,7 +62,7 @@ public sealed class EditStatusPublicationTests
             _allPublished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
-        _monitor.Changed += Raise.Event<Action<HostDebugEditStatusResult, HostDebugEditStatusResult>>(previous, current);
+        _monitor.Changed += Raise.Event<Action<DebugEditStatusResult, DebugEditStatusResult>>(previous, current);
         await _allPublished.Task.WaitAsync(Patience);
         lock (_published)
         {
@@ -75,7 +75,7 @@ public sealed class EditStatusPublicationTests
     [DataRow(true, false, DisplayName = "break mode ended")]
     public async Task BreakModeBegunOrEnded_PushesEveryModuleAgain(bool before, bool after)
     {
-        var published = await PublishedAsync(new HostDebugEditStatusResult { Suspended = before }, new HostDebugEditStatusResult { Suspended = after }, expected: 2);
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = before }, new DebugEditStatusResult { Suspended = after }, expected: 2);
 
         CollectionAssert.AreEquivalent(new[] { Module1.Id.Uri.ToUri(), Module2.Id.Uri.ToUri() }, published);
     }
@@ -84,9 +84,9 @@ public sealed class EditStatusPublicationTests
     [TestMethod]
     public async Task AnEditListed_WhileTheProgramWaitsStill_PushesTheModuleItNamesAgain()
     {
-        var edit = new HostDebugEdit { Name = "Module2.Foo", Kind = HostDebugEditKind.Restart, Reason = "a local was removed", ModuleUri = new Uri("file:///ws#Module2") };
+        var edit = new DebugEdit { Name = "Module2.Foo", Kind = DebugEditKind.Restart, Reason = "a local was removed", ModuleUri = new Uri("file:///ws#Module2") };
 
-        var published = await PublishedAsync(new HostDebugEditStatusResult { Suspended = true }, new HostDebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
 
         CollectionAssert.AreEqual(new[] { Module2.Id.Uri.ToUri() }, published);
     }

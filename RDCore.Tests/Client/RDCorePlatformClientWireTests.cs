@@ -81,10 +81,10 @@ public sealed class RDCorePlatformClientWireTests
     public async Task ASessionRequest_ReachesTheServer_AndItsResultComesBackAsTheServerWroteIt()
     {
         string? source = null;
-        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteSessionResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
+        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
         {
             source = request.Source;
-            return Task.FromResult(new ExecuteSessionResult
+            return Task.FromResult(new ExecuteResult
             {
                 Outcome = ExecutionOutcome.Suspended,
                 Output = ["1", "2026-10-30T12:34:56"],
@@ -92,7 +92,7 @@ public sealed class RDCorePlatformClientWireTests
             });
         }));
 
-        var result = await connected.Platform.ExecuteAsync(new ExecuteSessionParams { Source = "Debug.Print 1", ModuleName = "Module1", EntryPoint = "Main", Debug = true }, CancellationToken.None);
+        var result = await connected.Platform.ExecuteAsync(new SessionExecuteParams { Source = "Debug.Print 1", ModuleName = "Module1", EntryPoint = "Main", Debug = true }, CancellationToken.None);
 
         Assert.AreEqual("Debug.Print 1", source);
         Assert.AreEqual(ExecutionOutcome.Suspended, result.Outcome);
@@ -106,10 +106,10 @@ public sealed class RDCorePlatformClientWireTests
     public async Task ADebugRequest_ReachesTheServer_WithItsEnumeration()
     {
         StepKind? received = null;
-        using var connected = await ConnectAsync(server => server.OnRequest<SessionDebugResumeRequest, ExecuteSessionResult>(RDCorePlatformProtocol.SessionDebugResume, (request, _) =>
+        using var connected = await ConnectAsync(server => server.OnRequest<SessionDebugResumeRequest, ExecuteResult>(RDCorePlatformProtocol.SessionDebugResume, (request, _) =>
         {
             received = request.Step;
-            return Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+            return Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
         }));
 
         var result = await connected.Platform.DebugResumeAsync(new SessionDebugResumeParams { Step = StepKind.Out }, CancellationToken.None);
@@ -167,14 +167,14 @@ public sealed class RDCorePlatformClientWireTests
     public async Task TheLanguageServer_ReadsAStringThatLooksLikeADate_AsTheClientWroteIt()
     {
         var sources = new List<string>();
-        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteSessionResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
+        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (request, _) =>
         {
             sources.Add(request.Source);
-            return Task.FromResult(new ExecuteSessionResult());
+            return Task.FromResult(new ExecuteResult());
         }));
 
-        await connected.Platform.ExecuteAsync(new ExecuteSessionParams { Source = WithAnOffset }, CancellationToken.None);
-        await connected.Platform.ExecuteAsync(new ExecuteSessionParams { Source = WithAFraction }, CancellationToken.None);
+        await connected.Platform.ExecuteAsync(new SessionExecuteParams { Source = WithAnOffset }, CancellationToken.None);
+        await connected.Platform.ExecuteAsync(new SessionExecuteParams { Source = WithAFraction }, CancellationToken.None);
 
         CollectionAssert.AreEqual(new[] { WithAnOffset, WithAFraction }, sources, "an offset and a fraction of a second are read as written");
     }
@@ -185,15 +185,15 @@ public sealed class RDCorePlatformClientWireTests
     public async Task TheClient_ReadsAStringThatLooksLikeADate_AsTheLanguageServerWroteIt()
     {
         string? prompt = null;
-        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteSessionResult>(RDCorePlatformProtocol.SessionExecute, (_, _) =>
-            Task.FromResult(new ExecuteSessionResult { Output = [WithAnOffset, WithAFraction] })));
+        using var connected = await ConnectAsync(server => server.OnRequest<ExecuteSessionRequest, ExecuteResult>(RDCorePlatformProtocol.SessionExecute, (_, _) =>
+            Task.FromResult(new ExecuteResult { Output = [WithAnOffset, WithAFraction] })));
         using var registration = connected.Platform.OnInputBox((request, _) =>
         {
             prompt = request.Prompt;
             return Task.FromResult(InputBoxResult.NotHandled);
         });
 
-        var result = await connected.Platform.ExecuteAsync(new ExecuteSessionParams(), CancellationToken.None);
+        var result = await connected.Platform.ExecuteAsync(new SessionExecuteParams(), CancellationToken.None);
         await connected.Server.SendRequest(new SessionInputBoxRequest { Prompt = WithAnOffset }, CancellationToken.None);
 
         CollectionAssert.AreEqual(new[] { WithAnOffset, WithAFraction }, result.Output.ToArray(), "a result is read as written");

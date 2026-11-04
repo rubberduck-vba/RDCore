@@ -42,8 +42,8 @@ public sealed class RDCorePlatformJsonWireTests
             ReferenceCount = 2,
             Memory = new SessionMemoryStatus { ReservedBytes = 1, AvailableBytes = 2, AllocatedBytes = 3, FreeBytes = 4, CommittedBytes = 5, LargestFreeBlock = 6 },
         });
-        yield return Same(new ExecuteSessionParams { Source = "Debug.Print 1", ModuleName = "Module1", EntryPoint = "Main", Debug = true, Immediate = true });
-        yield return Same(new ExecuteSessionResult
+        yield return Same(new SessionExecuteParams { Source = "Debug.Print 1", ModuleName = "Module1", EntryPoint = "Main", Debug = true, Immediate = true });
+        yield return Same(new ExecuteResult
         {
             Outcome = ExecutionOutcome.Suspended,
             Output = ["1"],
@@ -60,12 +60,12 @@ public sealed class RDCorePlatformJsonWireTests
             ConditionError = "x",
             StackTrace = [new ExecuteStackFrame("Main", 1, 2, [5, 6])],
         });
-        yield return Same(new DiscardSessionParams { ModuleName = "Module1", EndProgram = true });
-        yield return Same(new DiscardSessionResult { Discarded = 2 });
-        yield return Same(new PeekSessionParams { Address = 16 });
-        yield return Same(new PeekSessionResult { Address = 16, IsAllocated = true, Value = 255 });
-        yield return Same(new PokeSessionParams { Address = 16, Value = 7 });
-        yield return Same(new PokeSessionResult { Address = 16, IsWritten = true });
+        yield return Same(new SessionDiscardParams { ModuleName = "Module1", EndProgram = true });
+        yield return Same(new DiscardResult { Discarded = 2 });
+        yield return Same(new SessionPeekParams { Address = 16 });
+        yield return Same(new PeekResult { Address = 16, IsAllocated = true, Value = 255 });
+        yield return Same(new SessionPokeParams { Address = 16, Value = 7 });
+        yield return Same(new PokeResult { Address = 16, IsWritten = true });
 
         yield return Same(new SessionMessageBoxParams { Prompt = "Hello", Title = "Title", Style = 4, Output = ["before"] });
         yield return Same(new MessageBoxResult { Handled = true, Result = 6 });
@@ -80,24 +80,24 @@ public sealed class RDCorePlatformJsonWireTests
         yield return Same(new SessionDebugTerminateParams { Wipe = true });
         yield return Same(new SessionDebugBreakpointsParams { ModuleName = "Module1", Breakpoints = [new SessionBreakpointLine { Line = 2, IsEnabled = false, Condition = "i > 3" }] });
         yield return Same(new SessionDebugStackParams());
-        yield return Same(new SessionDebugVariablesParams { FrameId = 1, Scope = HostVariableScope.Module, Reference = 9 });
+        yield return Same(new SessionDebugVariablesParams { FrameId = 1, Scope = DebugVariableScope.Module, Reference = 9 });
         yield return Same(new SessionDebugEvaluateParams { FrameId = 1, Expression = "i + 1" });
         yield return Same(new SessionDebugExecuteParams { FrameId = 1, Statement = "i = 2" });
 
-        yield return Same(new HostDebugAck { Acted = true });
-        yield return Same(new HostDebugGotoResult { Moved = true, Reason = "moved", Line = 4, Character = 0 });
-        yield return Same(new HostDebugGotoResult { Moved = false, Reason = null });
-        yield return Same(new HostDebugEditStatusResult
+        yield return Same(new DebugAck { Acted = true });
+        yield return Same(new DebugGotoResult { Moved = true, Reason = "moved", Line = 4, Character = 0 });
+        yield return Same(new DebugGotoResult { Moved = false, Reason = null });
+        yield return Same(new DebugEditStatusResult
         {
             Suspended = true,
             Edits = ImmutableArray.Create(
-                new HostDebugEdit { Name = "Module1.Main", Kind = HostDebugEditKind.Restart, Reason = "signature", ModuleUri = Module, Range = Range },
-                new HostDebugEdit { Name = "Module1.Other", ModuleUri = null, Range = null }),
+                new DebugEdit { Name = "Module1.Main", Kind = DebugEditKind.Restart, Reason = "signature", ModuleUri = Module, Range = Range },
+                new DebugEdit { Name = "Module1.Other", ModuleUri = null, Range = null }),
         });
-        yield return Same(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(2, true), new HostBreakpoint(3, false, "Expected: expression")], Judged = true });
-        yield return Same(new HostDebugStackResult { Frames = [new HostStackFrame(1, "Main", "Module1", 2, 3, [4], "ErrHandler"), new HostStackFrame(2, "Other", "Module1", 5, 6)] });
-        yield return Same(new HostDebugVariablesResult { Variables = [new HostVariable("i", "1", "Integer"), new HostVariable("o", "Object", "Class1", 3)], NotListed = 2 });
-        yield return Same(new HostDebugEvaluateResult { Success = true, Value = "2", Type = "Integer", Reference = 1, Error = "none", Output = ["x"], EndedTheProgram = true });
+        yield return Same(new DebugBreakpointsResult { Breakpoints = [new DebugBreakpoint(2, true), new DebugBreakpoint(3, false, "Expected: expression")], Judged = true });
+        yield return Same(new DebugStackResult { Frames = [new DebugStackFrame(1, "Main", "Module1", 2, 3, [4], "ErrHandler"), new DebugStackFrame(2, "Other", "Module1", 5, 6)] });
+        yield return Same(new DebugVariablesResult { Variables = [new DebugVariable("i", "1", "Integer"), new DebugVariable("o", "Object", "Class1", 3)], NotListed = 2 });
+        yield return Same(new DebugEvaluateResult { Success = true, Value = "2", Type = "Integer", Reference = 1, Error = "none", Output = ["x"], EndedTheProgram = true });
 
         yield return Same(new PlatformInitializeParams
         {
@@ -151,14 +151,14 @@ public sealed class RDCorePlatformJsonWireTests
     [
         ("SessionStatusParams", """{"waitMilliseconds":250}"""),
         ("SessionStatusResult", """{"isComposed":true,"projectName":"VBAProject","moduleCount":3,"referenceCount":2,"memory":{"reservedBytes":1,"availableBytes":2,"allocatedBytes":3,"freeBytes":4,"committedBytes":5,"largestFreeBlock":6}}"""),
-        ("ExecuteSessionParams", """{"source":"Debug.Print 1","moduleName":"Module1","entryPoint":"Main","debug":true,"immediate":true}"""),
-        ("ExecuteSessionResult", """{"outcome":7,"output":["1"],"streamedLines":7,"diagnostics":["RDC00001"],"errorNumber":13,"errorMessage":"Type mismatch","errorCode":"VBR00013","errorTitle":"Type mismatch","errorSource":"VBAProject","errorLine":3,"errorCharacter":4,"errorLineNumber":100,"conditionError":"x","stackTrace":[{"procedure":"Main","line":1,"character":2,"returnLines":[5,6]}]}"""),
-        ("DiscardSessionParams", """{"moduleName":"Module1","endProgram":true}"""),
-        ("DiscardSessionResult", """{"discarded":2}"""),
-        ("PeekSessionParams", """{"address":16}"""),
-        ("PeekSessionResult", """{"address":16,"isAllocated":true,"value":255}"""),
-        ("PokeSessionParams", """{"address":16,"value":7}"""),
-        ("PokeSessionResult", """{"address":16,"isWritten":true}"""),
+        ("SessionExecuteParams", """{"source":"Debug.Print 1","moduleName":"Module1","entryPoint":"Main","debug":true,"immediate":true}"""),
+        ("ExecuteResult", """{"outcome":7,"output":["1"],"streamedLines":7,"diagnostics":["RDC00001"],"errorNumber":13,"errorMessage":"Type mismatch","errorCode":"VBR00013","errorTitle":"Type mismatch","errorSource":"VBAProject","errorLine":3,"errorCharacter":4,"errorLineNumber":100,"conditionError":"x","stackTrace":[{"procedure":"Main","line":1,"character":2,"returnLines":[5,6]}]}"""),
+        ("SessionDiscardParams", """{"moduleName":"Module1","endProgram":true}"""),
+        ("DiscardResult", """{"discarded":2}"""),
+        ("SessionPeekParams", """{"address":16}"""),
+        ("PeekResult", """{"address":16,"isAllocated":true,"value":255}"""),
+        ("SessionPokeParams", """{"address":16,"value":7}"""),
+        ("PokeResult", """{"address":16,"isWritten":true}"""),
         ("SessionMessageBoxParams", """{"prompt":"Hello","title":"Title","style":4,"output":["before"]}"""),
         ("MessageBoxResult", """{"handled":true,"result":6,"declined":false,"failure":null}"""),
         ("SessionInputBoxParams", """{"prompt":"Name?","title":"Title","default":"x","xPos":10,"yPos":20,"output":["before"]}"""),
@@ -174,14 +174,14 @@ public sealed class RDCorePlatformJsonWireTests
         ("SessionDebugVariablesParams", """{"frameId":1,"scope":1,"reference":9}"""),
         ("SessionDebugEvaluateParams", """{"frameId":1,"expression":"i + 1"}"""),
         ("SessionDebugExecuteParams", """{"frameId":1,"statement":"i = 2"}"""),
-        ("HostDebugAck", """{"acted":true}"""),
-        ("HostDebugGotoResult", """{"moved":true,"reason":"moved","line":4,"character":0}"""),
-        ("HostDebugGotoResult", """{"moved":false,"reason":null,"line":-1,"character":-1}"""),
-        ("HostDebugEditStatusResult", """{"suspended":true,"edits":[{"name":"Module1.Main","kind":1,"reason":"signature","moduleUri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}},{"name":"Module1.Other","kind":0,"reason":"","moduleUri":null,"range":null}]}"""),
-        ("HostDebugBreakpointsResult", """{"breakpoints":[{"line":2,"verified":true,"conditionError":null},{"line":3,"verified":false,"conditionError":"Expected: expression"}],"judged":true}"""),
-        ("HostDebugStackResult", """{"frames":[{"id":1,"procedure":"Main","module":"Module1","line":2,"character":3,"handler":"ErrHandler","returnLines":[4]},{"id":2,"procedure":"Other","module":"Module1","line":5,"character":6,"handler":null,"returnLines":[]}]}"""),
-        ("HostDebugVariablesResult", """{"variables":[{"name":"i","value":"1","type":"Integer","reference":0},{"name":"o","value":"Object","type":"Class1","reference":3}],"notListed":2}"""),
-        ("HostDebugEvaluateResult", """{"success":true,"value":"2","type":"Integer","reference":1,"error":"none","output":["x"],"endedTheProgram":true}"""),
+        ("DebugAck", """{"acted":true}"""),
+        ("DebugGotoResult", """{"moved":true,"reason":"moved","line":4,"character":0}"""),
+        ("DebugGotoResult", """{"moved":false,"reason":null,"line":-1,"character":-1}"""),
+        ("DebugEditStatusResult", """{"suspended":true,"edits":[{"name":"Module1.Main","kind":1,"reason":"signature","moduleUri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}},{"name":"Module1.Other","kind":0,"reason":"","moduleUri":null,"range":null}]}"""),
+        ("DebugBreakpointsResult", """{"breakpoints":[{"line":2,"verified":true,"conditionError":null},{"line":3,"verified":false,"conditionError":"Expected: expression"}],"judged":true}"""),
+        ("DebugStackResult", """{"frames":[{"id":1,"procedure":"Main","module":"Module1","line":2,"character":3,"handler":"ErrHandler","returnLines":[4]},{"id":2,"procedure":"Other","module":"Module1","line":5,"character":6,"handler":null,"returnLines":[]}]}"""),
+        ("DebugVariablesResult", """{"variables":[{"name":"i","value":"1","type":"Integer","reference":0},{"name":"o","value":"Object","type":"Class1","reference":3}],"notListed":2}"""),
+        ("DebugEvaluateResult", """{"success":true,"value":"2","type":"Integer","reference":1,"error":"none","output":["x"],"endedTheProgram":true}"""),
         ("PlatformInitializeParams", """{"expectedComponent":1,"expected":{"parsing":{"parseFullDocument":{"isSupported":true},"parseTokens":{"isSupported":false}},"environmentHost":{"defineSymbols":{"isSupported":true},"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":false},"sessionDiscard":{"isSupported":false},"projectReload":{"isSupported":false},"programDebugging":{"isSupported":false},"semanticAnalysis":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false}},"languageServer":{"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":true},"programDebugging":{"isSupported":false},"sessionDiscard":{"isSupported":false},"sessionAnalyze":{"isSupported":false},"sessionCompletion":{"isSupported":false},"sessionSignatureHelp":{"isSupported":false},"sessionSemanticTokens":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false},"sessionInteraction":{"isSupported":true},"unattended":{"isSupported":true},"rubberduckIndenterSettings":{"isSupported":false}}}}"""),
         ("PlatformInitializeParams", """{"expectedComponent":1,"expected":{"languageServer":{"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":false},"programDebugging":{"isSupported":false},"sessionDiscard":{"isSupported":false},"sessionAnalyze":{"isSupported":false},"sessionCompletion":{"isSupported":false},"sessionSignatureHelp":{"isSupported":false},"sessionSemanticTokens":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false},"sessionInteraction":{"isSupported":false},"unattended":{"isSupported":false},"rubberduckIndenterSettings":{"isSupported":false}}}}"""),
         ("PlatformInitializeResult", """{"component":1,"provided":["SessionExecute","SessionStatus"]}"""),

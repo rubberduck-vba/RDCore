@@ -15,20 +15,20 @@ internal sealed class SessionPeekHandler(
     IPlatformOrchestrationService orchestration,
     IPlatformClientCapabilitiesService clientCapabilities,
     ILogger<SessionPeekHandler> logger)
-    : RDCoreRequestHandler<PeekSessionRequest, PeekSessionResult>
+    : RDCoreRequestHandler<PeekSessionRequest, PeekResult>
 {
-    protected override async Task<PeekSessionResult> HandleAsync(PeekSessionRequest request, CancellationToken token)
+    protected override async Task<PeekResult> HandleAsync(PeekSessionRequest request, CancellationToken token)
     {
         SessionMemoryRelay.RequireCapability(clientCapabilities);
 
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
             logger.LogWarning("rdcore/session/memory/peek: no runtime environment component is registered.");
-            return new PeekSessionResult { Address = request.Address };
+            return new PeekResult { Address = request.Address };
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostPeekParams, PeekSessionResult>(
+        return await environment.SendRequestAsync<HostPeekParams, PeekResult>(
             new HostPeekParams { Address = request.Address }, token);
     }
 }
@@ -41,20 +41,20 @@ internal sealed class SessionPokeHandler(
     IPlatformOrchestrationService orchestration,
     IPlatformClientCapabilitiesService clientCapabilities,
     ILogger<SessionPokeHandler> logger)
-    : RDCoreRequestHandler<PokeSessionRequest, PokeSessionResult>
+    : RDCoreRequestHandler<PokeSessionRequest, PokeResult>
 {
-    protected override async Task<PokeSessionResult> HandleAsync(PokeSessionRequest request, CancellationToken token)
+    protected override async Task<PokeResult> HandleAsync(PokeSessionRequest request, CancellationToken token)
     {
         SessionMemoryRelay.RequireCapability(clientCapabilities);
 
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
             logger.LogWarning("rdcore/session/memory/poke: no runtime environment component is registered.");
-            return new PokeSessionResult { Address = request.Address };
+            return new PokeResult { Address = request.Address };
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostPokeParams, PokeSessionResult>(
+        return await environment.SendRequestAsync<HostPokeParams, PokeResult>(
             new HostPokeParams { Address = request.Address, Value = request.Value }, token);
     }
 }

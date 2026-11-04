@@ -207,7 +207,7 @@ public sealed class SplitHeaderRuntimeTests
     public async Task WhereImplicitVariablesAreTheModules_ANameADeadBranchDeclares_IsOne()
     {
         // a BASIC declares a name a procedure uses at module level (ImplicitDeclarationScope.Module): the one the dead branch declares is not that variable.
-        SDK.Platform.Protocol.ExecuteSessionResult? result = null;
+        SDK.Platform.Protocol.ExecuteResult? result = null;
         await ModuleWorkspace.InspectAsync([], string.Join("\r\n",
             "#If Mac Then", "Dim N As Long", "#End If", "Public Sub Main()", "    N = 5", "    Debug.Print N", "End Sub", ""), (_, run, _) =>
             {

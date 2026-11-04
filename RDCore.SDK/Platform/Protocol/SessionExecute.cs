@@ -6,14 +6,14 @@ using RDCore.SDK.Model.AST;
 namespace RDCore.SDK.Platform.Protocol;
 
 /// <summary>
-/// <see cref="ExecuteSessionParams"/> as the platform's JSON-RPC handlers and senders know it: the method it is a request of, and what it is answered with.
+/// <see cref="SessionExecuteParams"/> as the platform's JSON-RPC handlers and senders know it: the method it is a request of, and what it is answered with.
 /// </summary>
 [Method(RDCorePlatformProtocol.SessionExecute, Direction.ClientToServer)]
-public sealed record class ExecuteSessionRequest : ExecuteSessionParams, IRequest, IRequest<ExecuteSessionResult>;
+public sealed record class ExecuteSessionRequest : SessionExecuteParams, IRequest, IRequest<ExecuteResult>;
 
 /// <summary>
 /// Request for <c>rdcore/host/execute</c>: the language-server side of
-/// <see cref="ExecuteSessionParams"/>, addressed to the component that owns the runtime session.
+/// <see cref="SessionExecuteParams"/>, addressed to the component that owns the runtime session.
 /// </summary>
 /// <remarks>
 /// The parsed module rides a <see cref="System.Text.Json"/> string for the same reason
@@ -23,7 +23,7 @@ public sealed record class ExecuteSessionRequest : ExecuteSessionParams, IReques
 /// lowers and runs rather than re-deriving any of it.
 /// </remarks>
 [Method(RDCorePlatformProtocol.HostExecute, Direction.ClientToServer)]
-public record class HostExecuteParams : IRequest, IRequest<ExecuteSessionResult>
+public record class HostExecuteParams : IRequest, IRequest<ExecuteResult>
 {
     /// <summary>
     /// The <see cref="System.Text.Json"/> representation of a <see cref="HostExecutePayload"/>.
@@ -41,12 +41,12 @@ public record class HostExecuteParams : IRequest, IRequest<ExecuteSessionResult>
     public string EntryPoint { get; init; } = string.Empty;
 
     /// <summary>
-    /// Whether the program runs under a debugger. See <see cref="ExecuteSessionParams.Debug"/>.
+    /// Whether the program runs under a debugger. See <see cref="SessionExecuteParams.Debug"/>.
     /// </summary>
     public bool Debug { get; init; }
 
     /// <summary>
-    /// Whether the entry point is a statement typed at a prompt. See <see cref="ExecuteSessionParams.Immediate"/>.
+    /// Whether the entry point is a statement typed at a prompt. See <see cref="SessionExecuteParams.Immediate"/>.
     /// </summary>
     public bool Immediate { get; init; }
 

@@ -209,18 +209,18 @@ public sealed class DocumentDiagnosticsServiceTests
         ParseYields();
         ProvidersAre(Provider("RDCore.Diagnostics", 1));
         var debugging = Substitute.For<IProgramDebugService>();
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
         {
             Suspended = true,
             Edits =
             [
-                new HostDebugEdit
+                new DebugEdit
                 {
-                    Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1"),
+                    Name = "Mod1.Foo", Kind = DebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1"),
                     Range = new SourceRange(new SourcePosition(0, 0), new SourcePosition(1, 7)),
                 },
-                new HostDebugEdit { Name = "Mod1", Kind = HostDebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") },
-                new HostDebugEdit { Name = "Other.Bar", Kind = HostDebugEditKind.NotYet, Reason = "a local was added", ModuleUri = new Uri("file:///c:/ws#Other") },
+                new DebugEdit { Name = "Mod1", Kind = DebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") },
+                new DebugEdit { Name = "Other.Bar", Kind = DebugEditKind.NotYet, Reason = "a local was added", ModuleUri = new Uri("file:///c:/ws#Other") },
             ],
         });
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
@@ -246,7 +246,7 @@ public sealed class DocumentDiagnosticsServiceTests
         ParseYields();
         ProvidersAre(Provider("RDCore.Diagnostics", 1));
         var debugging = Substitute.For<IProgramDebugService>();
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
 
         Assert.IsFalse(await editStatus.CheckAsync(CancellationToken.None), "nothing changed");
@@ -258,10 +258,10 @@ public sealed class DocumentDiagnosticsServiceTests
     private async Task<EditStatusMonitor> OneEditListedAsync()
     {
         var debugging = Substitute.For<IProgramDebugService>();
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
         {
             Suspended = true,
-            Edits = [new HostDebugEdit { Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
+            Edits = [new DebugEdit { Name = "Mod1.Foo", Kind = DebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
         });
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
         await editStatus.CheckAsync(CancellationToken.None);
@@ -463,7 +463,7 @@ public sealed class DocumentDiagnosticsServiceTests
     {
         var debugging = Substitute.For<IProgramDebugService>();
         var suspended = false;
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(_ => new HostDebugEditStatusResult { Suspended = suspended });
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(_ => new DebugEditStatusResult { Suspended = suspended });
         var monitor = new EditStatusMonitor(debugging, refresh, NullLogger<EditStatusMonitor>.Instance);
         return (monitor, async waits =>
         {

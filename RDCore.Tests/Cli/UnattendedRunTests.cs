@@ -24,7 +24,7 @@ public sealed class UnattendedRunTests
     private static string Program(params string[] body)
         => $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
 
-    private static void FailedWithNobodyToAnswer(ExecuteSessionResult result)
+    private static void FailedWithNobodyToAnswer(ExecuteResult result)
     {
         Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
         Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
