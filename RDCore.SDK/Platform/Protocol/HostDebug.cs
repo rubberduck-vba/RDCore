@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Server;
 
 namespace RDCore.SDK.Platform.Protocol;
 
@@ -30,6 +31,8 @@ public record class HostDebugResumeParams : IRequest, IRequest<ExecuteSessionRes
 /// Request for <c>rdcore/host/debug/pause</c>: stops a program that is running, at the next instruction, so that it waits there. The request that is running
 /// the program answers <see cref="ExecutionOutcome.Suspended"/>.
 /// </summary>
+/// <remarks>Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>).</remarks>
+[HandledOnArrival]
 [Method(RDCorePlatformProtocol.HostDebugPause, Direction.ClientToServer)]
 public record class HostDebugPauseParams : IRequest, IRequest<HostDebugAck>;
 
@@ -37,6 +40,11 @@ public record class HostDebugPauseParams : IRequest, IRequest<HostDebugAck>;
 /// Request for <c>rdcore/host/debug/terminate</c>: ends a program that is running or waits. Its variables stay, as they do when a program is stopped, unless
 /// <see cref="Wipe"/> says they go.
 /// </summary>
+/// <remarks>
+/// Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>): a program that is running is stopped at its
+/// next instruction, and ended by the request that runs it, which this answers after.
+/// </remarks>
+[HandledOnArrival]
 [Method(RDCorePlatformProtocol.HostDebugTerminate, Direction.ClientToServer)]
 public record class HostDebugTerminateParams : IRequest, IRequest<HostDebugAck>
 {
@@ -54,7 +62,9 @@ public record class HostDebugTerminateParams : IRequest, IRequest<HostDebugAck>
 /// A program that waits at an error is answered as one that waits at a <c>Stop</c> (<see cref="ExecutionOutcome.Suspended"/>), with the error in
 /// <see cref="ExecuteSessionResult.ErrorNumber"/>, <see cref="ExecuteSessionResult.ErrorMessage"/>, <see cref="ExecuteSessionResult.ErrorCode"/> and
 /// <see cref="ExecuteSessionResult.ErrorTitle"/>. Resumed, it deals with the error as it would have.
+/// <para>Handled as it arrives, while a request that runs a program runs (<see cref="HandledOnArrivalAttribute"/>): the next error raised is weighed by it.</para>
 /// </remarks>
+[HandledOnArrival]
 [Method(RDCorePlatformProtocol.HostDebugErrorBreak, Direction.ClientToServer)]
 public record class HostDebugErrorBreakParams : IRequest, IRequest<HostDebugAck>
 {
