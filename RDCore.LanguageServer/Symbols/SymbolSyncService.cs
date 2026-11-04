@@ -212,7 +212,7 @@ internal sealed class SymbolSyncService(
         var host = orchestration.RuntimeEnvironment;
         await host.WaitForReadyAsync(token);
 
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
         // the module is one of the project's, and its names are bound among the others' as a module of the workspace binds its own: a shell's program calls a
@@ -507,7 +507,7 @@ internal sealed class SymbolSyncService(
 
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
         return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token,
             fromShell: true);
     }
