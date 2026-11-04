@@ -546,6 +546,30 @@ public sealed class CompiledDirectCallTests
         StringAssert.Contains(observed, "error  28");
     }
 
+    // error 28 is raised as deep in a recursion compiled code makes directly as in one the interpreter makes: the activations without a frame are counted as the
+    // frames are (IR lowering S2.3b2). Not handled, the error's stack trace has every one of them.
+    [TestMethod]
+    public async Task ARecursionThatNeverEnds_IsOutOfStackSpace_AsDeepAsWhenTheInterpreterMakesIt()
+    {
+        var (observed, direct, _) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Deep(1)",
+            "End Sub",
+            "Private Function Deep(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Deep(n + 1)",
+            "    Deep = r",
+            "End Function"), "Deep");
+
+        StringAssert.Contains(observed, "| 28 ");
+        var depth = observed.Split(" < ").Length;
+        Assert.IsGreaterThan(1000, depth, "the trace has every activation");
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.IsGreaterThan(1000L, direct, "Deep calls itself through its typed entry");
+        }
+    }
+
     // the stack trace of an error is the one captured where it was raised: every activation it unwinds, and the location in the innermost one only - not what
     // is left of the stack where a handler catches it.
     [TestMethod]
@@ -572,6 +596,126 @@ public sealed class CompiledDirectCallTests
                     CollectionAssert.AreEqual(new[] { "Divide", "Outer", "Main" }, result.StackTrace.Select(frame => frame.Procedure).ToArray(), engine.ToString());
                     return Task.CompletedTask;
                 }, engine: engine);
+        }
+    }
+
+    // how many activations of the procedures named, called directly, were given a frame after the call, and how many were made (IR lowering S2.3b2): the
+    // program run compiled.
+    private static async Task<(long Frames, long Activations)> MadeAsync(string program, params string[] callees)
+    {
+        (long Frames, long Activations) made = default;
+        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
+        await ModuleWorkspace.InspectAsync([], program, (provider, _, _) =>
+        {
+            made = (callees.Sum(callee => BodyOf(provider, callee).FramesMade), callees.Sum(callee => BodyOf(provider, callee).ActivationsMade));
+            return Task.CompletedTask;
+        }, engine: VBExecutionEngine.Compiled);
+        return made;
+    }
+
+    private static async Task<long> FramesMadeAsync(string program, params string[] callees) => (await MadeAsync(program, callees)).Frames;
+
+    // an activation of a call made directly is on the stack without a frame while nothing looks at the stack (IR lowering S2.3b2): Twice is called a hundred
+    // times, and given no frame, each call in the activation the call before was in.
+    [TestMethod]
+    public async Task ACalleeCalledDirectly_IsGivenNoFrame_WhileNothingLooksAtTheStack()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Sum(100)",
+            "End Sub",
+            "Private Function Sum(ByVal n As Long) As Long",
+            "    Dim i As Long, t As Long, u As Long",
+            "    For i = 1 To n",
+            "        u = Twice(i)",
+            "        t = t + u",
+            "    Next",
+            "    Sum = t",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function");
+        var (observed, direct, indirect) = await AssertAlikeAsync(program, "Sum");
+
+        StringAssert.Contains(observed, "| 10100 |");
+        AssertCalls(100, (direct, indirect));
+
+        // under the random walk-back, an activation handed to the interpreter is given its frame to be run in.
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual((0L, 1L), await MadeAsync(program, "Twice"), "no frame; one activation, each call made in it again");
+        }
+    }
+
+    // a procedure that calls itself from two places in its body: every call is the one it is, and the calls are made in as many activations as the recursion
+    // goes deep - each place of the stack's, made again - not in one for each call.
+    [TestMethod]
+    public async Task AProcedureThatCallsItselfTwice_ReturnsWhatEachCallReturns_InAsManyActivationsAsItGoesDeep()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Fib(15)",
+            "End Sub",
+            "Private Function Fib(ByVal n As Long) As Long",
+            "    Dim a As Long, b As Long",
+            "    If n < 2 Then",
+            "        Fib = n",
+            "    Else",
+            "        a = Fib(n - 1)",
+            "        b = Fib(n - 2)",
+            "        Fib = a + b",
+            "    End If",
+            "End Function");
+        var (observed, direct, indirect) = await AssertAlikeAsync(program, "Fib");
+
+        // Fib(15) makes 1,972 calls of Fib besides the first, at most 14 deep below it.
+        StringAssert.Contains(observed, "| 610 |");
+        AssertCalls(1972, (direct, indirect));
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            var (frames, activations) = await MadeAsync(program, "Fib");
+            Assert.AreEqual(0L, frames);
+            Assert.IsLessThanOrEqualTo(15L, activations, "one for each place of the stack, at most");
+        }
+    }
+
+    // an error raised in a procedure the interpreter runs, called by the innermost of three activations compiled code made directly: each of the three is
+    // given its frame when the procedure's is pushed above it, and the stack trace of the error has every activation, in order, as the interpreter has it: the
+    // location of the innermost only, as for any error (TheStackTraceOfAnError_IsTheOneWhereItWasRaised).
+    [TestMethod]
+    public async Task AnErrorBelowThreeCallsMadeDirectly_IsTracedWithEveryActivationInOrder()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print First(4)",
+            "End Sub",
+            "Private Function First(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Second(n + 1)",
+            "    First = r",
+            "End Function",
+            "Private Function Second(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Third(n + 1)",
+            "    Second = r",
+            "End Function",
+            "Private Function Third(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Interpreted(n + 1)",
+            "    Third = r",
+            "End Function",
+            "Private Function Interpreted(ByVal n As Long) As Long",
+            "    Dim s As String",
+            "    s = \"x\"",
+            "    Interpreted = n \\ 0",
+            "End Function");
+        var (observed, direct, _) = await AssertAlikeAsync(program, "First", "Second");
+
+        StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@\d+:\d+ < Third@-1:-1 < Second@-1:-1 < First@-1:-1 < Main@"));
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(2L, direct, "First calls Second, and Second calls Third, through their typed entries");
+            Assert.AreEqual(2L, await FramesMadeAsync(program, "Second", "Third"), "Second and Third, given their frames when Interpreted's is pushed");
         }
     }
 }
