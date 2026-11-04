@@ -104,6 +104,10 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     /// whatever then looks at the stack - an error's trace, a debugger, the handler an error is looked for in, the directives of the current activation - sees
     /// every activation as the interpreter has it.
     /// </summary>
+    /// <remarks>
+    /// All of them or none: every frame is made before the stack changes, so one that can't be made leaves the stack as it was, every activation without a
+    /// frame still on it, and counted once.
+    /// </remarks>
     internal void MaterializeLights()
     {
         if (_lightCount == 0 || _materializing)
@@ -111,16 +115,22 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
             return;
         }
 
+        var frames = new CallStackFrame[_lightCount];
+        for (var i = 0; i < frames.Length; i++)
+        {
+            frames[i] = _lights[i].MakeFrame();
+        }
+
         _materializing = true;
         try
         {
-            for (var i = 0; i < _lightCount; i++)
+            _lightCount = 0;
+            for (var i = 0; i < frames.Length; i++)
             {
-                _ = base.TryPush(_lights[i].Materialize());
+                _ = base.TryPush(frames[i]);
+                _lights[i].HeldIn(frames[i]);
                 _lights[i] = null!;
             }
-
-            _lightCount = 0;
         }
         finally
         {

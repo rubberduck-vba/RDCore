@@ -43,7 +43,7 @@ public sealed class CompiledActivation : ILightActivation
     private readonly RuntimeProcedureInvoker _invoker;
 
     // the activation's frame; none for one of a call compiled code made directly, until something is to see it (IR lowering S2.3b2): it is then made
-    // (ILightActivation.Materialize), and the activation is held in it from then on.
+    // (RuntimeCallStack.MaterializeLights), and the activation is held in it from then on.
     private CallStackFrame? _frame;
 
     // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making, and its
@@ -86,7 +86,7 @@ public sealed class CompiledActivation : ILightActivation
         }
     }
 
-    CallStackFrame ILightActivation.Materialize()
+    CallStackFrame ILightActivation.MakeFrame()
     {
         var frame = _invoker.CreateCompiledFrame(_procedure!, _list);
         (frame.Pc, frame.RunsCompiled) = (_pc, true);
@@ -95,8 +95,13 @@ public sealed class CompiledActivation : ILightActivation
             frame.AssignResult(_result);
         }
 
+        return frame;
+    }
+
+    void ILightActivation.HeldIn(CallStackFrame frame)
+    {
+        _frame = frame;
         _body.CountFrameMade();
-        return _frame = frame;
     }
 
     // the activation's frame, made now when it has none: the frames of every activation below it on the stack that has none are made with it, first.

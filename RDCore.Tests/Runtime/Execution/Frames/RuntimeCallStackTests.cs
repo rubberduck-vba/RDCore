@@ -119,4 +119,57 @@ public sealed class RuntimeCallStackTests
 
         Assert.AreSame(frame, popped);
     }
+
+    // an activation compiled code put on the stack without a frame (IR lowering S2.3b2), whose frame can be made, or not.
+    private sealed class Light(CallStackFrame frame) : ILightActivation
+    {
+        public bool Fails { get; set; }
+
+        public CallStackFrame? Held { get; private set; }
+
+        public CallStackFrame MakeFrame() => Fails ? throw new InvalidOperationException("no frame") : frame;
+
+        public void HeldIn(CallStackFrame made) => Held = made;
+    }
+
+    [TestMethod]
+    public void ActivationsWithoutAFrame_AreGivenTheirFrames_BottomFirst_WhenTheStackIsLookedAt()
+    {
+        var sut = new RuntimeCallStack();
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var (bottomFrame, topFrame) = (Frame(storage), Frame(storage));
+        var (bottom, top) = (new Light(bottomFrame), new Light(topFrame));
+        Assert.IsTrue(sut.TryPushLight(bottom));
+        Assert.IsTrue(sut.TryPushLight(top));
+        Assert.AreEqual(2, sut.Depth);
+
+        // Frames is innermost first.
+        var frames = sut.Frames.ToArray();
+        CollectionAssert.AreEqual(new[] { topFrame, bottomFrame }, frames);
+        Assert.AreSame(bottomFrame, bottom.Held);
+        Assert.AreSame(topFrame, top.Held);
+        Assert.AreEqual(2, sut.Depth);
+    }
+
+    [TestMethod]
+    public void AFrameThatCantBeMade_LeavesTheStackAsItWas()
+    {
+        var sut = new RuntimeCallStack();
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var (bottomFrame, topFrame) = (Frame(storage), Frame(storage));
+        var (bottom, top) = (new Light(bottomFrame), new Light(topFrame) { Fails = true });
+        sut.TryPushLight(bottom);
+        sut.TryPushLight(top);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => sut.MaterializeLights());
+
+        Assert.AreEqual(2, sut.Depth, "both still on the stack, each counted once");
+        Assert.IsNull(bottom.Held, "the frame made of the bottom one is not the stack's");
+
+        // made, they are given them as if nothing had failed.
+        top.Fails = false;
+        var frames = sut.Frames.ToArray();
+        CollectionAssert.AreEqual(new[] { topFrame, bottomFrame }, frames);
+        Assert.AreEqual(2, sut.Depth);
+    }
 }
