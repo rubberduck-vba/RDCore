@@ -223,6 +223,10 @@ public static class ExpressionStaticSemanticsEvaluator
             return StaticSemanticsEvaluationResult.Error(reservedNameError);
         }
 
+        // the subscripts of an element of an array - a variable's, a field's: a call of a function that returns one is given arguments (MS-VBA, oracle\s55 A04).
+        var indexesAnArray = calleeResult.Result is VBArrayType
+            && ProcedureNamedBy(context, indexExpression.Callee) is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
+
         // an argument written ByVal is valid where MS-VBA compiles it, and not only before an argument of an external procedure as MS-VBAL §5.6.13.1 says
         // (RD-VBAL §5.6.13.1): only the parameter it is written for says which.
         if (ByValArgumentStaticSemantics.Error(context, indexExpression, calleeResult.Result) is { } byValError)
@@ -243,7 +247,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
             // a subscript of an element is let-coerced to a Long (RD-VBAL §5.6.13), which MS-VBA refuses a LongLong to at compile time, whatever its value
             // (Excel-verified): not for a call, whose parameters say what they take.
-            if (argumentResult is { Result: VBLongLongType } && calleeResult.Result is VBArrayType && ProcedureNamedBy(context, indexExpression.Callee) is null)
+            if (argumentResult is { Result: VBLongLongType } && indexesAnArray)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, argument.Location,
                     Exceptions.VBIndex_LongLongSubscript_Verbose));
@@ -251,7 +255,7 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         // an index of an array is no argument: any other callee may take what is written in its argument list by reference.
-        if (calleeResult.Result is not VBArrayType)
+        if (!indexesAnArray)
         {
             MarkPassedAsArguments(context, indexExpression.Arguments);
         }
@@ -260,7 +264,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
         // a ParamArray is no variable a ByRef parameter can be bound to (MS-VBAL §5.3.1.11), and an object given to a parameter that expects a value of it
         // must have one (MS-VBAL §5.5.1.1).
-        if (calleeResult.Result is not VBArrayType && ObjectValueStaticSemantics.MemberOfCallee(context, indexExpression.Callee) is { } calledMember
+        if (!indexesAnArray && ObjectValueStaticSemantics.MemberOfCallee(context, indexExpression.Callee) is { } calledMember
             && ObjectValueStaticSemantics.ParametersOfCallee(context, indexExpression.Callee) is { } parameters
             && (ArgumentListStaticSemantics.Error(context, indexExpression, calledMember, parameters, indexExpression.Arguments)
                 ?? ParamArrayStaticSemantics.ArgumentsError(context, calledMember, parameters, indexExpression.Arguments)
@@ -271,7 +275,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
         // MS-VBAL §5.6.13: the arguments are those of a call when the callee is a procedure, and the result of the call has the type the procedure
         // returns - however that type is shaped: `Whole()` of a function that returns Long() is no element of an array. A procedure that declares no
-        // parameters is not given the arguments written after it: it is called, and they index what it returns.
+        // parameters, and returns a Variant or an object, is not given the arguments written after it: it is called, and they index what it returns.
         if (ProcedureNamedBy(context, indexExpression.Callee) is { } procedure)
         {
             // Abs, Int and Fix of a number are of its declared type, as MS-VBA types them (ArgumentTypedFunctions).
