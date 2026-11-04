@@ -21,15 +21,15 @@ public sealed class CompiledDirectCallTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Terminate(EnvironmentSessionProvider provider)
+    private static Task<DebugAck> Terminate(EnvironmentSessionProvider provider)
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
     // what a run is to the person who runs it: what it printed, the error it raised, where, and the stack trace of it.
-    private static string Observed(ExecuteSessionResult result)
+    private static string Observed(ExecuteResult result)
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorCode} {result.ErrorMessage} "
             + $"@{result.ErrorLine}:{result.ErrorCharacter} | {string.Join(" < ", result.StackTrace.Select(frame => $"{frame.Procedure}@{frame.Line}:{frame.Character}"))}";
 
@@ -237,7 +237,7 @@ public sealed class CompiledDirectCallTests
                 Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
                 var stack = provider.Execution.Stack().Frames;
                 var middle = stack.Single(frame => frame.Procedure == "Middle");
-                var variables = provider.Execution.Variables(middle.Id, HostVariableScope.Locals, 0).Variables;
+                var variables = provider.Execution.Variables(middle.Id, DebugVariableScope.Locals, 0).Variables;
                 observed = $"{string.Join(" < ", stack.Select(frame => $"{frame.Procedure}@{frame.Line}"))} | "
                     + $"{string.Join(", ", variables.Select(variable => $"{variable.Name}={variable.Value}"))}";
                 if (engine is VBExecutionEngine.Compiled && !CompiledExecution.WalksBackAtRandom)
@@ -436,7 +436,7 @@ public sealed class CompiledDirectCallTests
         }
     }
 
-    private static Task<ExecuteSessionResult> RunWithAsync(EnvironmentSessionProvider provider, string source)
+    private static Task<ExecuteResult> RunWithAsync(EnvironmentSessionProvider provider, string source)
     {
         var uri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Program" }.Uri;
         var parse = new RDCore.Parsing.ModuleParser().Parse(Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), source);
