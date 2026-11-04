@@ -569,7 +569,25 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Host_NoStatementAtOrAfterLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to the line is not in {0}, the procedure the program waits in.
+        /// </summary>
+        public static string Host_GotoOutsideTheProcedure {
+            get {
+                return ResourceManager.GetString("Host_GotoOutsideTheProcedure", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to the line is in {0}, and the program waits in {1}.
+        /// </summary>
+        public static string Host_GotoInAnotherModule {
+            get {
+                return ResourceManager.GetString("Host_GotoInAnotherModule", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to there is no such activation.
         /// </summary>

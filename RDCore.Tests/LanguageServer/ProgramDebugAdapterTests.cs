@@ -1014,15 +1014,61 @@ public sealed class ProgramDebugAdapterTests
 
     // ---- the point the program goes on from ----
 
+    // what the host says a goto to a line would do, without moving anything.
+    private static void Peeks(Session session, int line, DebugGotoResult result)
+        => session.Debugging.GotoAsync("Prog", line, true, Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
+
+    private static async Task<GotoTarget> TargetAsync(Session session, int line)
+        => (await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = line })).Targets.Single();
+
     [TestMethod]
     public async Task ALineIsATarget_ToGoOnFrom()
     {
         await using var session = new Session();
-        await session.StartAsync();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 13 });
 
-        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 14 });
+        var target = await TargetAsync(session, 14);
 
-        Assert.AreEqual(14, targets.Targets.Single().Line);
+        Assert.AreEqual(14, target.Line);
+    }
+
+    // a line no statement begins on goes to the next one: that is the target, and not the line asked for.
+    [TestMethod]
+    public async Task ALineWithNoStatement_IsTheTargetOfTheLineTheProgramWouldGoOnFrom()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 15, Character = 4 });
+
+        var target = await TargetAsync(session, 14);
+
+        Assert.AreEqual(16, target.Line);
+        Assert.AreEqual(5, target.Column);
+    }
+
+    [TestMethod]
+    public async Task ALineTheProgramCannotGoOnFrom_IsNoTarget()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 2, new DebugGotoResult { Moved = false, Reason = "the line is not in Prog.Callee, the procedure the program waits in" });
+
+        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 3 });
+
+        Assert.IsEmpty(targets.Targets);
+    }
+
+    [TestMethod]
+    public async Task ALineOfASourceNotInTheWorkspace_IsNoTarget()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+
+        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path + ".other" }, Line = 3 });
+
+        Assert.IsEmpty(targets.Targets);
+        await session.Debugging.DidNotReceiveWithAnyArgs().GotoAsync(default!, default, default, default);
     }
 
     [TestMethod]
@@ -1030,10 +1076,11 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.GotoAsync(13, null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 13 }));
-        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 14 });
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 15 });
+        session.Debugging.GotoAsync("Prog", 15, false, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 15 }));
+        var target = await TargetAsync(session, 14);
 
-        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = targets.Targets.Single().Id });
+        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id });
 
         var stopped = await session.NextAsync<StoppedEvent>();
         Assert.AreEqual(StoppedEventReason.Goto, stopped.Reason);
@@ -1045,12 +1092,44 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())
+        Peeks(session, 2, new DebugGotoResult { Moved = true, Line = 2 });
+        session.Debugging.GotoAsync("Prog", 2, false, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new DebugGotoResult { Moved = false, Reason = "that line is in another procedure" }));
+        var target = await TargetAsync(session, 3);
 
-        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 }));
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id }));
 
         StringAssert.Contains(refusal.Message, "another procedure");
+    }
+
+    // a target is a line as the program waited at it: the program has gone on since, and may wait in other code.
+    [TestMethod]
+    public async Task AGoto_ToATargetGivenBeforeTheProgramWentOn_IsRefused()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 13 });
+        session.Debugging.GotoAsync("Prog", 13, false, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 13 }));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+        var target = await TargetAsync(session, 14);
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        _ = await session.NextAsync<StoppedEvent>();
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id }));
+
+        await session.Debugging.DidNotReceive().GotoAsync("Prog", 13, false, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AGoto_ToATargetTheClientWasNotGiven_IsRefused()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 }));
+
+        await session.Debugging.DidNotReceiveWithAnyArgs().GotoAsync(default!, default, default, default);
+        await session.Debugging.DidNotReceiveWithAnyArgs().GotoAsync(default, default, default);
     }
 
     // ---- edit and continue ----
@@ -1262,12 +1341,14 @@ public sealed class ProgramDebugAdapterTests
         await StartedAndWaitingAsync(session);
         var order = new List<string>();
         session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
-        session.Debugging.When(debugging => debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())).Do(_ => order.Add("goto"));
-        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true }));
+        session.Debugging.When(debugging => debugging.GotoAsync("Prog", Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()))
+            .Do(call => order.Add(call.ArgAt<bool>(2) ? "peek" : "goto"));
+        session.Debugging.GotoAsync("Prog", Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 2 }));
 
-        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 });
+        var target = await TargetAsync(session, 3);
+        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id });
 
-        CollectionAssert.AreEqual(new[] { "reload", "goto" }, order.ToArray());
+        CollectionAssert.AreEqual(new[] { "reload", "peek", "reload", "goto" }, order.ToArray());
     }
 
     // what is saved can't be gone on with - a file that can't be read, a module the host could not load, one renamed - or could not be loaded at all: the client

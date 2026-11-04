@@ -288,8 +288,14 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// </summary>
     /// <param name="line">The zero-based line of the source to go on from. Ignored when <paramref name="label"/> is given.</param>
     /// <param name="label">A statement label or line number of the procedure to go on from.</param>
+    /// <param name="moduleName">The module <paramref name="line"/> is a line of, or <see langword="null"/> for the module of the procedure the program waits in.</param>
+    /// <param name="peek">Whether nothing is moved, and the answer only says where the program would go on from.</param>
     /// <returns>Where the program goes on from, or why it was not moved.</returns>
-    public DebugGotoResult Goto(int line, string? label)
+    /// <remarks>
+    /// A line is a line of the procedure the program waits in, as the session defines it now: the first statement that begins on it or after it is one of that
+    /// procedure only when the line is, and a line of another procedure or module would otherwise land on a statement nobody pointed at.
+    /// </remarks>
+    public DebugGotoResult Goto(int line, string? label, string? moduleName = null, bool peek = false)
     {
         lock (_sync)
         {
@@ -303,12 +309,21 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 return NotMoved(string.Format(Resources.Host_ChangedWhileWaiting_Goto, string.Join(", ", changed)));
             }
 
-            // the line to go on from is a line of the code as it is now.
-            GoOnInTheEditedCode();
-
-            if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
+            if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } waitedIn } frame)
             {
                 return NotMoved(Resources.Host_WaitsInNoProcedure);
+            }
+
+            // the line to go on from is a line of the code as it is now, which a move goes on in and a peek only looks at.
+            var body = waitedIn;
+            if (!peek)
+            {
+                GoOnInTheEditedCode();
+                body = frame.Body ?? waitedIn;
+            }
+            else if (frame.Procedure is { } waiting && provider.Image.TryGetValue(waiting.SemanticId, out var edited))
+            {
+                body = edited;
             }
 
             int offset;
@@ -319,20 +334,48 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                     return NotMoved(string.Format(Resources.Host_NoSuchLabel, label));
                 }
             }
-            else if (!body.TryGetOffsetAtLine(line, out offset))
+            else
             {
-                return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
+                if (frame.Procedure is { } procedure)
+                {
+                    var module = ProgramInspector.ModuleNameOf(frame);
+                    if (moduleName is { Length: > 0 } && !string.Equals(moduleName, module, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return NotMoved(string.Format(Resources.Host_GotoInAnotherModule, moduleName, module));
+                    }
+
+                    var extent = (ProgramEdits.CurrentProcedureOf(provider.Session, frame) ?? procedure).Range;
+                    if (line < extent.Start.Line || line > extent.End.Line)
+                    {
+                        return NotMoved(string.Format(Resources.Host_GotoOutsideTheProcedure, $"{module}.{procedure.Name}"));
+                    }
+                }
+
+                if (!body.TryGetOffsetAtLine(line, out offset))
+                {
+                    return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
+                }
+            }
+
+            if (peek)
+            {
+                return MovedTo(body, offset);
             }
 
             frame.MoveTo(offset);
-            var location = offset < body.Items.Length ? body.Items[offset].Location : null;
-            return new DebugGotoResult
-            {
-                Moved = true,
-                Line = location?.Range.Start.Line ?? -1,
-                Character = location?.Range.Start.Character ?? -1,
-            };
+            return MovedTo(body, offset);
         }
+    }
+
+    private static DebugGotoResult MovedTo(InstructionList body, int offset)
+    {
+        var location = offset < body.Items.Length ? body.Items[offset].Location : null;
+        return new DebugGotoResult
+        {
+            Moved = true,
+            Line = location?.Range.Start.Line ?? -1,
+            Character = location?.Range.Start.Character ?? -1,
+        };
     }
 
     private static DebugGotoResult NotMoved(string reason) => new() { Reason = reason };

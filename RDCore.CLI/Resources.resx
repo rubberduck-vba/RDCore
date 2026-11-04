@@ -547,6 +547,12 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
     <value>no statement of the procedure begins at that line or after it</value>
   </data>
+  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
+    <value>the line is not in {0}, the procedure the program waits in</value>
+  </data>
+  <data name="Host_GotoInAnotherModule" xml:space="preserve">
+    <value>the line is in {0}, and the program waits in {1}</value>
+  </data>
   <data name="Host_NoSuchActivation" xml:space="preserve">
     <value>there is no such activation</value>
   </data>
