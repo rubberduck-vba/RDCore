@@ -41,6 +41,25 @@ public sealed class ServerConnectionTests
         await input.CompleteAsync();
     }
 
+    // OmniSharp stops its loop as the server is disposed by cancelling the read it waits on; the loop's catch then copies out the buffer of its last read, which
+    // it has advanced past and the reader has taken back.
+    [TestMethod]
+    public async Task AReadCancelledByTheLoop_IsAnsweredWithTheEndOfTheInput()
+    {
+        var pipe = new Pipe();
+        var input = new ServerInput(pipe.Reader);
+        using var stopping = new CancellationTokenSource();
+
+        var waiting = input.ReadAsync(stopping.Token).AsTask();
+        await stopping.CancelAsync();
+
+        var read = await waiting.WaitAsync(Hung);
+        Assert.IsTrue(read.IsCompleted, "the end of the input");
+        Assert.IsTrue(read.Buffer.IsEmpty);
+        input.AdvanceTo(read.Buffer.Start, read.Buffer.End);
+        await input.CompleteAsync().AsTask().WaitAsync(Hung);
+    }
+
     // the exit completes the reader while the loop parses what it has read.
     [TestMethod]
     public async Task AReaderCompletedWhileItsReadIsParsed_LeavesTheBufferToTheLoop_ThenAnswersWithTheEndOfTheInput()

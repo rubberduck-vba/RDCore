@@ -19,6 +19,9 @@ namespace RDCore.SDK.Server;
 /// completes it, and ends its own pipe: the loop parses what it holds, reads the end of the input, and stops as it stops when the client closes the
 /// connection. Only the loop's own reads complete the pipe it reads.
 /// </para>
+/// <para>
+/// A read that the loop cancels, as OmniSharp stops the loop when the server is disposed, is answered with the end of the input as well.
+/// </para>
 /// </remarks>
 public sealed class ServerInput : PipeReader
 {
@@ -52,7 +55,18 @@ public sealed class ServerInput : PipeReader
             return End;
         }
 
-        return Finish(await _received.Reader.ReadAsync(cancellationToken));
+        try
+        {
+            return Finish(await _received.Reader.ReadAsync(cancellationToken));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // the loop is stopped as the server is disposed, by cancelling its read: a read that fails sends the loop to a catch that copies out the buffer of
+            // its last read, which it has advanced past. The loop holds no buffer of the pipe while it waits.
+            _received.Reader.Complete();
+            _finished = true;
+            return End;
+        }
     }
 
     /// <inheritdoc/>
