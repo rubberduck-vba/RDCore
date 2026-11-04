@@ -72,4 +72,17 @@ public sealed class SelectCaseSelectorTypeTests
     [DataRow("Dim h: h = 100 ;; Select Case h ;; Case Is > \"9\": P \"7 matched\" ;; Case Else: P \"7 else\" ;; End Select", "7 else", DisplayName = "F15g a Variant 100, Case Is > \"9\": compared as text")]    [DataRow("Dim e ;; Select Case e ;; Case 0: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Select Case e ;; Case \"\": P \"m\" ;; Case Else: P \"e\" ;; End Select", "m/m", DisplayName = "G19 an Empty Variant")]
     public void AVariantSelector_IsComparedWithTheValueAsItIs(string body, string expected)
         => Assert.AreEqual(expected, Run(body));
+
+    // an expression over a Variant is declared Variant (MS-VBAL §5.6.9.3), and so is a selector it is: its value is compared as a Variant's, where a Long
+    // expression converts the value of a clause (s56 R08-R14; HexIDE's findings desk, select-case-variant-expr).
+    [TestMethod]
+    [DataRow("Dim v As Variant ;; v = 1 ;; Select Case v + 1 ;; Case \"2\": P \"match\" ;; Case Else: P \"else\" ;; End Select", "match", DisplayName = "R08 v + 1, Case \"2\"")]
+    [DataRow("Dim v As Variant ;; v = \"2.5\" ;; Select Case v ;; Case 2: P \"two\" ;; Case Else: P \"else\" ;; End Select", "else", DisplayName = "R09 v of \"2.5\", Case 2")]
+    [DataRow("Dim v As Variant ;; v = \"2.5\" ;; Select Case v + 0 ;; Case 2: P \"two\" ;; Case Else: P \"else\" ;; End Select", "else", DisplayName = "R10 v + 0 of \"2.5\", Case 2")]
+    [DataRow("Dim v As Variant ;; v = \"2.5\" ;; Select Case v & \"\" ;; Case 2.5: P \"match\" ;; Case Else: P \"else\" ;; End Select", "match", DisplayName = "R11 v & \"\", Case 2.5")]
+    [DataRow("Dim v As Variant ;; v = 1 ;; Select Case v + 1 ;; Case \"2.0\": P \"match\" ;; Case Else: P \"else\" ;; End Select", "else", DisplayName = "R12 v + 1, Case \"2.0\"")]
+    [DataRow("Dim n As Long ;; n = 1 ;; Select Case n + 1 ;; Case \"2.0\": P \"match\" ;; Case Else: P \"else\" ;; End Select", "match", DisplayName = "R13 a Long n + 1, Case \"2.0\"")]
+    [DataRow("Dim v As Variant ;; v = \"abc\" ;; Select Case v + 1 ;; Case 1: P \"one\" ;; Case Else: P \"else\" ;; End Select ;; P \"err \" & Err.Number", "err 13", DisplayName = "R14 v + 1 of \"abc\"")]
+    public void AnExpressionOverAVariant_IsAVariantSelector(string body, string expected)
+        => Assert.AreEqual(expected, Run(body));
 }

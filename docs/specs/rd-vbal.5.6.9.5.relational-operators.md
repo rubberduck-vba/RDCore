@@ -106,7 +106,9 @@ is not a `Variant` (a variable declared with the type, a literal). RD-VBA compar
 - When the coercion is a type mismatch, nothing is raised, and the `String` ranks above the other operand, whatever its
   value, as it does when both operands are `Variant` values ([above](#variant-stringnumeric-comparison)): `"abc" > 5` is
   `True`, `"abc" = 5` is `False`, and `5 < "abc"` is `True`.
-- Any other error of the coercion is raised: a number's text too large for the type overflows (6).
+- Any other error of the coercion is raised. A number's text too large for a `Byte`, an `Integer` or a `Long` is no
+  error: the two are compared as `Double` values ([below](#a-string-compared-with-a-byte-an-integer-or-a-long)), and
+  `"40000" > 2` is `True` with an `Integer` `2` (`oracle\s56` H01, H06).
 
 🎯 This departs from **MS-VBAL §5.6.9.5**. Its table makes the `String`'s coercion to the effective type a type mismatch
 (13), and so does Microsoft Learn's
@@ -127,6 +129,43 @@ A `String` declared as one is not a `Variant`: `s < 5`, with `s` holding `"abc"`
 the table says, and in RD-VBA. The analysis states the departure as a fact of the operation
 (`ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked`), and RDCore.Diagnostics reports it as
 [`RDC11020`](../diagnostics/rdc11020.md), a warning that stands in for the type mismatch the specification raises.
+
+### A String compared with a Byte, an Integer or a Long
+
+RD-VBA compares a `String` with a `Byte`, an `Integer` or a `Long` **as `Double` values**, as MS-VBA does. This holds whether the
+`String` is a `Variant`'s or one declared `As String`: the effective value type is `Double`, and `"2.5" = 2` is `False`.
+
+🎯 This departs from **MS-VBAL §5.6.9.5**. Its table gives the two the integral type, which Let-coerces `"2.5"` to `2` and
+makes `"2.5" = 2` `True`. [Microsoft Learn](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators)
+calls the comparison "numeric" and names no type. These results were measured in Excel (`oracle\s56` G01-G12):
+
+|`String`|Other operand|Comparison|MS-VBA|MS-VBAL §5.6.9.5|
+|---|---|---|---|---|
+|a `Variant` `"2.5"`|`2`, `CLng(2)`, an `Integer`, a `Byte` of `2`|`=`|`False`|`True`|
+|a `Variant` `"2.5"`|`2`|`>`|`True`|`False`|
+|a `String` `"2.5"`|`2`|`=`|`False`|`True`|
+|a `Variant` `"2.5"`|`2.5`, a `Double`, a `Currency` of `2.5`|`=`|`True`|`True`|
+|a `Variant` `"2.5"`|`True`|`=`|`True`, compared as `Boolean` values, as the table says|`True`|
+
+A `Variant` `String` compared with a `Single` or a `LongLong` is compared as `Double` values too (`oracle\s56` H02-H04):
+
+|`String`|Other operand|Comparison|MS-VBA|MS-VBAL §5.6.9.5|
+|---|---|---|---|---|
+|a `Variant` `"0.1"`|a `Single` of `0.1`|`=`|`False`|`True`|
+|a `String` `"0.1"`|a `Single` of `0.1`|`=`|`True`, compared as `Single` values, as the table says|`True`|
+|a `Variant` `"2.5"`|a `LongLong` of `2`|`=`, `>`|`False`, `True`|`True`, `False`|
+|a `Variant` `"9007199254740993"`|a `LongLong` of `9007199254740992`|`=`|`True`, as the two are the same `Double`|`False`|
+
+A `String` declared as one, compared with a `LongLong`, is not measured, and keeps the table's type.
+
+### An expression over a Variant
+
+An arithmetic operator, `&`, and a pair of parentheses with a `Variant` operand are declared `Variant`
+(**MS-VBAL §5.6.9.3**, **§5.6.9.4**, **§5.6.6**), and what they evaluate to is a `Variant`'s value. So `v + 1`, `v * 1`, `-v`,
+`v & ""` and `(v + 1)` are compared as `v` itself is ([above](#variant-compared-with-a-string)). With `v` holding `1`,
+`(v + 1) = "2.0"` is `False`, compared as text, and `CInt(v) = "1.0"` is `True`, as `CInt` returns an `Integer`. These were
+measured in Excel (`oracle\s56` G02, G09, G10), and a `Select Case` over such an expression compares its `Case` values the same way
+([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)).
 
 ### A String compared with a Date
 

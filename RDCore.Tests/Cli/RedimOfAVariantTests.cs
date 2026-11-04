@@ -55,6 +55,32 @@ public sealed class RedimOfAVariantTests
     public async Task AnUpperBoundBelowTheLower(string body, string expected)
         => Assert.AreEqual(expected, (await RunAsync([], Program(body))).Last());
 
+    // what an array is left with (oracle\s56 R03-R07, F01-F13; HexIDE's findings desk, redim-one-below): a variable declared as an array raises 9 and loses its
+    // dimensions, and keeps them with Preserve; a Variant one below raises 9 and keeps what it held, and further below raises 7 and is left Empty. Each
+    // row prints the error, then each read on its own line, a read that fails as e and its error.
+    [TestMethod]
+    [DataRow("Dim v() As Long ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(5 To 4)", "LBound(v) ;; UBound(v) ;; v(5)", "9|e9|e9|e9", DisplayName = "F01 a Long(), one below")]
+    [DataRow("Dim v() As Long ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(5 To 2)", "LBound(v) ;; UBound(v) ;; v(5)", "9|e9|e9|e9", DisplayName = "F02 a Long(), further below")]
+    [DataRow("Dim v() As Long ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(1 To 0, 1 To 2)", "LBound(v)", "9|e9", DisplayName = "F08 a Long(), the first of two")]
+    [DataRow("Dim v() As Long ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(1 To 2, 1 To 0)", "LBound(v)", "9|e9", DisplayName = "F09 a Long(), the last of two")]
+    [DataRow("Dim v() As Long ;; ReDim v(0 To -1)", "LBound(v)", "9|e9", DisplayName = "F11 a Long() never dimensioned")]
+    [DataRow("Dim v() As Long ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim Preserve v(5 To 2)", "LBound(v) & \",\" & UBound(v) & \",\" & v(5)", "9|5,10,3", DisplayName = "F07 a Long(), Preserve")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(5 To 4)", "LBound(v) & \",\" & UBound(v) & \",\" & v(5)", "9|5,10,3", DisplayName = "R06 a Variant, one below")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(5 To 3)", "TypeName(v)", "7|Empty", DisplayName = "F04 a Variant, two below")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(5 To 2)", "TypeName(v)", "7|Empty", DisplayName = "F03 a Variant, further below")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 4)", "TypeName(v)", "9|Empty", DisplayName = "F05 an Empty Variant, one below")]
+    [DataRow("Dim v As Variant ;; v = 5 ;; ReDim v(5 To 4)", "TypeName(v)", "9|Integer", DisplayName = "F06 a Variant of 5, one below")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(1 To 2, 3 To 2)", "TypeName(v) ;; UBound(v)", "9|Variant()|10", DisplayName = "F10 a Variant, the last of two one below")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim Preserve v(5 To 4)", "UBound(v)", "9|10", DisplayName = "F12 a Variant, Preserve one below")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim Preserve v(5 To 2)", "TypeName(v) ;; UBound(v)", "9|Variant()|10", DisplayName = "F13 a Variant, Preserve further below")]
+    public async Task WhatAnUpperBoundBelowTheLower_LeavesTheVariableWith(string statements, string reads, string expected)
+    {
+        var lines = reads.Split(" ;; ").SelectMany(read => new[] { "Err.Clear", $"Debug.Print {read}", "If Err.Number <> 0 Then Debug.Print \"e\" & Err.Number" });
+        var output = await RunAsync([], Program($"{statements} ;; Debug.Print Err.Number ;; {string.Join(" ;; ", lines)}"));
+
+        Assert.AreEqual(expected, string.Join("|", output));
+    }
+
     [TestMethod]
     [DataRow("Dim a() As Long ;; a = 5", DisplayName = "A03 a Long()")]
     [DataRow("Dim a() As Variant ;; a = 5", DisplayName = "A04 a Variant()")]

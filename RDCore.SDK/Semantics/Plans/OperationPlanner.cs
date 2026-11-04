@@ -271,6 +271,12 @@ public static class OperationPlanner
     // type; a Date comparison compares the operands as Doubles (OperationPlan.OperandDestination).
     private static VBType? RelationalEffectiveType(VBType left, VBType right) => left switch
     {
+        // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL makes the effective type the number's: "2.5" = 2 is False and
+        // "2.5" > 2 True, a Variant String or a declared one (recorded in Excel: oracle\s56 G01, G03, G04, G12; RD-VBAL 5.6.9.5). A declared String and a
+        // Single are the table's; a Variant String and a Single or a LongLong are Doubles too, by the value it holds (BinaryRelationalOperatorRuntimeSemantics).
+        VBByteType or VBIntegerType or VBLongType when right is VBStringType => VBDoubleType.TypeInfo,
+        VBStringType when right is VBByteType or VBIntegerType or VBLongType => VBDoubleType.TypeInfo,
+
         VBByteType when right is VBByteType or VBStringType or VBEmptyType => VBByteType.TypeInfo,
         VBByteType or VBStringType or VBEmptyType when right is VBByteType => VBByteType.TypeInfo,
 

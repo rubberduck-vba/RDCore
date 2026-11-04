@@ -280,7 +280,16 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             ? DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo)
             : ComparesValues && IsComparedAsText(frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand])
                 ? DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo)
-                : PlannedEffectiveType(expression, frame);
+                : ComparesValues && IsVariantStringAgainstASingleOrALongLong(frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand])
+                    ? DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo)
+                    : PlannedEffectiveType(expression, frame);
+
+    // MS-VBA compares a Variant holding a String with a Single or a LongLong as Doubles, as it compares any String with a Byte, an Integer or a Long
+    // (OperationPlanner): with v holding "0.1", v = a Single of 0.1 is False, and with v holding "9007199254740993", v = a LongLong of 9007199254740992 is
+    // True (recorded in Excel: oracle\s56 H02-H04; RD-VBAL 5.6.9.5). A String declared as one is compared with a Single as MS-VBAL's table says (H02).
+    private static bool IsVariantStringAgainstASingleOrALongLong(VBTypedValue left, VBTypedValue right)
+        => IsVariantStringAgainstAScalar(left, right, out _, out var leftIsNumeric)
+            && (leftIsNumeric ? left : right).TypeInfo is VBSingleType or VBLongLongType;
 
     /// <summary>
     /// The effective type the plan of the operation says, for the value types of its operands.
