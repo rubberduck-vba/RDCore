@@ -260,6 +260,50 @@ public sealed class RDCorePlatformJsonWireTests
         }
     }
 
+    /// <summary>
+    /// The name on the wire of each method a client sends or answers, as a client that has only the Protocol package must send or answer it: what a change of a
+    /// value of <see cref="RDCorePlatformProtocol"/> would change, and a client and a language server built from the same source would not see.
+    /// </summary>
+    private static readonly (string Constant, string Method)[] MethodGoldens =
+    [
+        ("PlatformInitialize", "rdcore/platform/initialize"),
+        ("SessionStatus", "rdcore/session/status"),
+        ("SessionExecute", "rdcore/session/execute"),
+        ("SessionDiscard", "rdcore/session/discard"),
+        ("SessionMessageBox", "rdcore/session/interaction/msgBox"),
+        ("SessionInputBox", "rdcore/session/interaction/inputBox"),
+        ("SessionDebugResume", "rdcore/session/debug/resume"),
+        ("SessionDebugPause", "rdcore/session/debug/pause"),
+        ("SessionDebugGoto", "rdcore/session/debug/goto"),
+        ("SessionDebugEditStatus", "rdcore/session/debug/editStatus"),
+        ("SessionDebugTerminate", "rdcore/session/debug/terminate"),
+        ("SessionDebugBreakpoints", "rdcore/session/debug/breakpoints"),
+        ("SessionDebugStack", "rdcore/session/debug/stack"),
+        ("SessionDebugVariables", "rdcore/session/debug/variables"),
+        ("SessionDebugEvaluate", "rdcore/session/debug/evaluate"),
+        ("SessionDebugExecute", "rdcore/session/debug/execute"),
+        ("SessionAnalyze", "rdcore/session/analyze"),
+        ("SessionCompletion", "rdcore/session/completion"),
+        ("RubberduckIndenterSettings", "rdcore/rubberduck-indenter-settings"),
+        ("RubberduckIndenterSettingsApply", "rdcore/rubberduck-indenter-settings/apply"),
+        ("SessionSignatureHelp", "rdcore/session/signatureHelp"),
+        ("SessionSemanticTokens", "rdcore/session/semanticTokens"),
+        ("SessionCommands", "rdcore/session/commands"),
+        ("SessionPeek", "rdcore/session/memory/peek"),
+        ("SessionPoke", "rdcore/session/memory/poke"),
+    ];
+
+    [TestMethod]
+    public void EveryMethodOfTheClient_IsNamedAsItsGoldenSays()
+    {
+        var methods = typeof(RDCorePlatformProtocol).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.IsLiteral)
+            .Select(field => (field.Name, (string)field.GetRawConstantValue()!))
+            .ToArray();
+
+        CollectionAssert.AreEqual(MethodGoldens, methods, "\n" + string.Join("\n", methods));
+    }
+
     [TestMethod]
     public void EveryTypeOfTheProtocol_IsInAMessageAbove()
     {
