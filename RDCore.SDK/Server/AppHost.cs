@@ -338,18 +338,22 @@ public abstract class AppHost<TApp>() : IDisposable
                 // logger, whether or not its override calls the base.
                 if (!WritesToConsole)
                 {
-                    RemoveConsoleLogger(services);
+                    RemoveDefaultLogger(services, typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider));
                 }
+
+                // a component logs to its file. The generic host also writes every warning and error to the Windows Application event log, which one
+                // session fills with dozens of entries, and back-to-back sessions overwrite in an hour.
+                RemoveDefaultLogger(services, typeof(Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider));
             });
     }
 
-    // the console logger the generic host adds by default.
-    private static void RemoveConsoleLogger(IServiceCollection services)
+    // a logger the generic host adds by default.
+    private static void RemoveDefaultLogger(IServiceCollection services, Type provider)
     {
-        foreach (var console in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
-            && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider)).ToList())
+        foreach (var registered in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
+            && descriptor.ImplementationType == provider).ToList())
         {
-            _ = services.Remove(console);
+            _ = services.Remove(registered);
         }
     }
 

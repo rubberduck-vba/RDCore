@@ -301,7 +301,8 @@ public abstract class RDCoreServerApp(
     private void ConfigureServer(LanguageServerOptions serverOptions)
     {
         serverOptions
-            .WithInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe)))
+            // completed under a read, as OmniSharp completes it on exit, the reader answers the read with the end of the input rather than fail it:
+            .WithInput(new ServerInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe))))
             .WithOutput(PipeWriter.Create(_namedPipe))
             // basic server app information:
             .WithServerInfo(GetServerInfo())
@@ -354,6 +355,7 @@ public abstract class RDCoreServerApp(
                 builder.Services.AddSingleton<ILoggerProvider, ScrubbingLanguageServerLoggerProvider>();
                 // and to the file, which otherwise has nothing of the connection's own failures.
                 builder.Services.AddSingleton<ILoggerProvider>(new ContainerFileLoggerProvider(logger));
+                builder.WithoutDeferredOutputWarnings();
             });
 
             // app-specific service registrations:

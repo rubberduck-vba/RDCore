@@ -44,6 +44,19 @@ public class AppHostRegistrationTests
             provider.GetRequiredService<IRDCoreServerProcess>());
     }
 
+    [TestMethod]
+    public void AComponent_DoesNotLogToTheWindowsEventLog()
+    {
+        // the services as the generic host makes them, which on Windows log warnings and errors to the Application event log.
+        var services = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder().Services;
+        var configuration = new ConfigurationBuilder().Build();
+
+        new TestAppHost().Configure(services, configuration);
+
+        Assert.IsFalse(services.Any(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
+            && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider)));
+    }
+
     // exposes AppHost's protected external-service registration for assertions.
     private sealed class TestAppHost : AppHost<TestAppHost.FakeApp>
     {
