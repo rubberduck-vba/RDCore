@@ -123,4 +123,12 @@ public enum ValueExpressionSemanticFlags
     /// already been specified for the array; <strong>MS-VBA</strong> compiles it as the array, and raises run-time error 9 (Subscript out of range) when it runs.
     /// </summary>
     ArrayGivenASecondEmptyArgumentList = 1 << 18,
+
+    /// <summary>
+    /// It is a public variable of an object named as a member of it (<c>b.Count</c>, <c>Me.Count</c>, <c>.Count</c> in a <c>With</c> block), given to a
+    /// <c>ByRef</c> parameter of a procedure of the workspace. <strong>MS-VBAL §5.6.12</strong> classifies it as a variable, which <strong>§5.3.1.11</strong>
+    /// passes by reference; <strong>MS-VBA</strong> passes a copy, and what the procedure assigns to the parameter is not written back to the object's
+    /// variable (RD-VBAL §5.3.1.11). Named by itself in its own class, the variable is passed by reference.
+    /// </summary>
+    ObjectVariablePassedAsACopy = 1 << 19,
 }

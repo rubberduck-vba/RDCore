@@ -148,6 +148,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ProcedureTooLarge, 11023),
         (RDCoreDiagnosticId.ImplementsInDocumentModule, 11024),
         (RDCoreDiagnosticId.ArrayGivenASecondEmptyArgumentList, 11025),
+        (RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy, 11026),
     ];
 
     [TestMethod]
