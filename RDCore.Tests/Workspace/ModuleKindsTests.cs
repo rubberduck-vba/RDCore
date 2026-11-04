@@ -92,10 +92,10 @@ public sealed class ModuleKindsTests
         => Assert.AreEqual(DocClassType.Unknown, SuperRead(written));
 
     [TestMethod]
-    public void Super_IsWrittenByItsName_AndNoneAsNull()
+    public void Super_IsWrittenByItsName_AndAModuleWithNoneIsItsPath()
     {
         StringAssert.Contains(JsonSerializer.Serialize(new RDCoreModule { RelativeUri = "Sheet1.doccls", Super = DocClassType.ExcelWorksheet }), "\"Super\":\"ExcelWorksheet\"");
-        StringAssert.Contains(JsonSerializer.Serialize(new RDCoreModule { RelativeUri = "Module1.bas" }), "\"Super\":null");
+        Assert.AreEqual("\"Module1.bas\"", JsonSerializer.Serialize(new RDCoreModule { RelativeUri = "Module1.bas" }));
         Assert.IsNull(SuperRead("null"));
     }
 }

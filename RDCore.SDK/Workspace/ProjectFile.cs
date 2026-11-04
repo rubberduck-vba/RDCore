@@ -124,8 +124,8 @@ public record class RDCoreProject
     /// </summary>
     /// <remarks>
     /// The standard library (<c>VBA</c>) is none of them: every project has it, in every dialect (<strong>RD-VBAL §6.0</strong>), and a project file does not
-    /// list it. A project file written before lists it - with the path of Office's <c>VBE7.DLL</c> - and is read without it
-    /// (<see cref="ProjectFileLoader"/>), so that it is written without it the next time (<see cref="RDCoreReference.IsStandardLibrary"/>).
+    /// list it. A project file that does - with the path of Office's <c>VBE7.DLL</c>, as a VB6 project's references do - is read without it
+    /// (<see cref="ProjectFileLoader"/>), and written without it (<see cref="RDCoreReference.IsStandardLibrary"/>).
     /// </remarks>
     public RDCoreReference[] References { get; init; } = [];
 
@@ -184,7 +184,7 @@ public record class RDCoreProject
 public sealed record class RDCoreReference : IEquatable<RDCoreReference>
 {
     /// <summary>
-    /// The identifier of the type library of <c>VBA</c>, the standard library, by which a VB6 project or a project file written before references it.
+    /// The identifier of the type library of <c>VBA</c>, the standard library, by which a VB6 project references it.
     /// </summary>
     public static readonly Guid StandardLibraryGuid = new("000204ef-0000-0000-c000-000000000046");
 
@@ -210,6 +210,14 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
     public bool Equals(RDCoreReference? other) => other?.Name is string name && Name.Equals(name);
 }
 
+/// <summary>
+/// A file of a project that is not a module: a <c>README.md</c>, a licence, a picture (<see cref="RDCoreProject.OtherFiles"/>).
+/// </summary>
+/// <remarks>
+/// A project file writes it as its path alone, <c>"README.md"</c>, so that a <c>.rdproj</c> reads as the list of its files (<see cref="RDCoreFileJsonConverter"/>);
+/// an object with a <c>RelativeUri</c> is read the same.
+/// </remarks>
+[JsonConverter(typeof(RDCoreFileJsonConverter))]
 public record class RDCoreFile : IEquatable<RDCoreFile>
 {
     public string RelativeUri { get; init; } = string.Empty;
@@ -230,7 +238,7 @@ public record class RDCoreFile : IEquatable<RDCoreFile>
 /// module's object has.
 /// </summary>
 /// <remarks>
-/// A project file says it by name (<c>"ExcelWorksheet"</c>); one that says it by number, as earlier project files did, is read the same. A name or a number
+/// A project file says it by name (<c>"ExcelWorksheet"</c>), and a number (<c>2</c>) is read the same. A name or a number
 /// this does not have is <see cref="Unknown"/>: the project still loads, and the module is one RD-VBA does not support.
 /// </remarks>
 [JsonConverter(typeof(DocClassTypeJsonConverter))]
@@ -281,6 +289,12 @@ public sealed class DocClassTypeJsonConverter : JsonConverter<DocClassType>
 /// <summary>
 /// A module of a project: a source file, and what the project says of it that its text does not.
 /// </summary>
+/// <remarks>
+/// A project file writes a standard or class module as its path alone, <c>"Module1.bas"</c>, and a document module as an object that also says its document:
+/// <c>{ "RelativeUri": "Sheet1.doccls", "Super": "ExcelWorksheet" }</c> (<see cref="RDCoreModuleJsonConverter"/>). Either form is read, and an object whose
+/// <c>Super</c> is <c>null</c> or absent is a standard or class module.
+/// </remarks>
+[JsonConverter(typeof(RDCoreModuleJsonConverter))]
 public record class RDCoreModule : RDCoreFile
 {
     /// <summary>
@@ -288,4 +302,87 @@ public record class RDCoreModule : RDCoreFile
     /// for a standard or class module.
     /// </summary>
     public DocClassType? Super { get; init; }
+}
+
+/// <summary>
+/// Reads an <see cref="RDCoreFile"/> from its path, or from an object with a <c>RelativeUri</c>; writes it as its path.
+/// </summary>
+public sealed class RDCoreFileJsonConverter : JsonConverter<RDCoreFile>
+{
+    /// <inheritdoc/>
+    public override RDCoreFile Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        => new() { RelativeUri = ProjectFileEntry.Read(ref reader, options, out _) };
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, RDCoreFile value, JsonSerializerOptions options) => writer.WriteStringValue(value.RelativeUri);
+}
+
+/// <summary>
+/// Reads an <see cref="RDCoreModule"/> from its path, or from an object with a <c>RelativeUri</c> and a <c>Super</c>; writes it as its path unless it is a
+/// document module.
+/// </summary>
+public sealed class RDCoreModuleJsonConverter : JsonConverter<RDCoreModule>
+{
+    /// <inheritdoc/>
+    public override RDCoreModule Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var relativeUri = ProjectFileEntry.Read(ref reader, options, out var super);
+        return new() { RelativeUri = relativeUri, Super = super };
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, RDCoreModule value, JsonSerializerOptions options)
+    {
+        if (value.Super is not { } super)
+        {
+            writer.WriteStringValue(value.RelativeUri);
+            return;
+        }
+
+        writer.WriteStartObject();
+        writer.WriteString(nameof(RDCoreFile.RelativeUri), value.RelativeUri);
+        writer.WritePropertyName(nameof(RDCoreModule.Super));
+        JsonSerializer.Serialize(writer, super, options);
+        writer.WriteEndObject();
+    }
+}
+
+// an entry of a project file's list of files: a path, or an object that names it (and, for a module, its document).
+internal static class ProjectFileEntry
+{
+    public static string Read(ref Utf8JsonReader reader, JsonSerializerOptions options, out DocClassType? super)
+    {
+        super = null;
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return reader.GetString()!;
+        }
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            throw new JsonException($"A file of a project is its path or an object, not a {reader.TokenType}.");
+        }
+
+        var relativeUri = string.Empty;
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+        {
+            var name = reader.GetString();
+            reader.Read();
+            if (string.Equals(name, nameof(RDCoreFile.RelativeUri), StringComparison.OrdinalIgnoreCase))
+            {
+                relativeUri = reader.GetString() ?? string.Empty;
+            }
+            else if (string.Equals(name, nameof(RDCoreModule.Super), StringComparison.OrdinalIgnoreCase))
+            {
+                super = JsonSerializer.Deserialize<DocClassType?>(ref reader, options);
+            }
+            else
+            {
+                // a member this model has no use for.
+                reader.Skip();
+            }
+        }
+
+        return relativeUri;
+    }
 }
