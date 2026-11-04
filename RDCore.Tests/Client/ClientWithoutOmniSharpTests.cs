@@ -151,6 +151,39 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(6);
     }
 
+    // a clean start and a clean shutdown log no fault: not the messages held until the client was initialized, nor the input read as it was completed. What
+    // OmniSharp's own container logs reaches each server's file: the platform handshake, which each server's container logs as it answers it - the language
+    // server's, of this client, and the parse server's, of the language server. The container logs what the client's trace asks for, and warnings whatever it
+    // asks for: a client that traces messages is told of the handshake. A program run has both servers up; a log is read once its server has exited, and its
+    // file log is flushed: the language server exits once the parse server it started has.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task AServerStartedThenShutDown_LogsNoFault_AndWhatItsConnectionLogsReachesItsFile()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var parameters = platform.InitializeParams(AsHexIdeDeclares);
+        parameters["trace"] = "messages";
+
+        var initialize = await rpc.RequestAsync(1, "initialize", parameters);
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+        var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute,
+            new JsonObject { ["source"] = "Public Sub Main()\r\n    Debug.Print 6\r\nEnd Sub\r\n", ["moduleName"] = "Program", ["entryPoint"] = "Main" });
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]?["outcome"]?.GetValue<int>(), executed.ToJsonString());
+        await platform.ShutdownAsync(4);
+
+        foreach (var component in new[] { "RDCore.LanguageServer", "RDCore.ParseServer" })
+        {
+            var log = WholeLogOf(platform.Root, component);
+            StringAssert.Contains(log, "\"OmniSharp.Extensions.JsonRpc.IJsonRpcHandler\": \"Platform handshake: ", $"what OmniSharp's own container logs is in the file of {component}");
+            Assert.DoesNotContain("Tried to send", log, component);
+            Assert.DoesNotContain("Reading is not allowed", log, component);
+        }
+    }
+
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
     // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once.
     [TestMethod]
@@ -408,12 +441,12 @@ public sealed class ClientWithoutOmniSharpTests
     // the end of the language server's log, which says what it did with what it was sent.
     private static string LogOf(string root) => string.Join('\n', WholeLogOf(root).Split('\n').TakeLast(60));
 
-    private static string WholeLogOf(string root)
+    private static string WholeLogOf(string root, string component = "RDCore.LanguageServer")
     {
-        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, "RDCore.LanguageServer*.log", SearchOption.AllDirectories).ToArray() : [];
+        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).ToArray() : [];
         if (logs.Length == 0)
         {
-            return "(no language server log)";
+            return $"(no {component} log)";
         }
 
         using var stream = new FileStream(logs[0], FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
