@@ -25,6 +25,17 @@ public sealed class ProgramControlOverTheConnectionTests
     // what keeps a test from hanging: no answer it waits for takes nearly as long, on any machine.
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
 
+    // run again, it loops from the start: the module's variables are the session's, and stay from one run to the next.
+    private static readonly string StopsTheFirstTimeThenLoops = string.Join("\r\n",
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Total = Total + 1",
+        "    If Total = 1 Then Stop",
+        "    Do While True",
+        "        Total = Total + 1",
+        "    Loop",
+        "End Sub") + "\r\n";
+
     private static readonly string StopsThenLoops = string.Join("\r\n",
         "Public Total As Long",
         "Public Sub Main()",
@@ -85,7 +96,7 @@ public sealed class ProgramControlOverTheConnectionTests
 
     [TestMethod]
     public async Task APause_AskedOfAProgramThatIsStartedAndNotExecutingYet_StopsIt()
-        => await ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, run) =>
+        => await ModuleWorkspace.InspectAsync(NoClasses, StopsTheFirstTimeThenLoops, async (provider, first, run) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
             var paused = false;
@@ -99,7 +110,7 @@ public sealed class ProgramControlOverTheConnectionTests
 
     [TestMethod]
     public async Task ATerminate_AskedOfAProgramThatIsStartedAndNotExecutingYet_EndsIt()
-        => await ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, run) =>
+        => await ModuleWorkspace.InspectAsync(NoClasses, StopsTheFirstTimeThenLoops, async (provider, first, run) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
             Task<bool>? terminated = null;
@@ -114,7 +125,7 @@ public sealed class ProgramControlOverTheConnectionTests
     // a program in a call outside it stops when the call returns: the end asked of it stands, and whoever asked is not kept waiting for it.
     [TestMethod]
     public async Task ATerminate_WhoseWaitIsStopped_IsAnsweredAtOnce_AndTheEndStands()
-        => await ModuleWorkspace.InspectAsync(NoClasses, StopsThenLoops, async (provider, first, run) =>
+        => await ModuleWorkspace.InspectAsync(NoClasses, StopsTheFirstTimeThenLoops, async (provider, first, run) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
             Task<bool>? terminated = null;
