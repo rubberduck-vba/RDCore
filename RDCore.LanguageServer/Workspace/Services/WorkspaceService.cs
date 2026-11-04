@@ -264,7 +264,8 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
         await projectFileService.LoadAsync(workspaceRoot);
         var version = projectFileService.Project.Version;
-        if (new Version(version) > serverVersion)
+        // a project no platform wrote yet - synthesized for a folder, or a .rdproj written by hand - has no version, and any platform loads it.
+        if (!string.IsNullOrEmpty(version) && new Version(version) > serverVersion)
         {
             logger.LogWarning("This project was created with an ulterior version and will not be loaded; an exception will be thrown.");
             throw new NotSupportedException($"This project was created with a version ({version}) greater than the currently running version ({serverVersion.ToString(3)}).");

@@ -107,6 +107,35 @@ public sealed class WorkspaceLoaderTests
     }
 
     [TestMethod]
+    [DataRow("{ \"ProjectInfo\": { \"Name\": \"ByHand\", \"Modules\": [ \"Module1.bas\" ] } }", DisplayName = "no Version")]
+    [DataRow("{ \"Version\": \"\", \"ProjectInfo\": { \"Name\": \"ByHand\", \"Modules\": [ \"Module1.bas\" ] } }", DisplayName = "an empty Version")]
+    public async Task WorkspaceService_LoadAsync_AProjectFileNoPlatformWrote_Loads(string json)
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData(json),
+            [Path.Combine(Root, "Module1.bas")] = new MockFileData("Attribute VB_Name = \"Module1\"\r\n"),
+        });
+        var sut = WorkspaceService(fs);
+
+        await sut.LoadAsync(Root);
+    }
+
+    [TestMethod]
+    public async Task WorkspaceService_LoadAsync_AProjectFileALaterPlatformWrote_IsRefused()
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData("{ \"Version\": \"100.0.0\", \"ProjectInfo\": { \"Name\": \"Later\" } }"),
+        });
+        var sut = WorkspaceService(fs);
+
+        var error = await Assert.ThrowsExactlyAsync<NotSupportedException>(() => sut.LoadAsync(Root));
+
+        StringAssert.Contains(error.Message, "100.0.0");
+    }
+
+    [TestMethod]
     public async Task WorkspaceService_LoadAsync_LoadsModuleContent_AndMarksItLoaded()
     {
         var fs = FileSystemWith(("src/Mod1.bas", "Public Sub Foo()\r\nEnd Sub"));
