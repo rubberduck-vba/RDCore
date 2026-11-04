@@ -182,6 +182,19 @@ public static class ConstantExpressionStaticSemantics
                 yield return VBCompileErrorInfo.For(VBCompileErrorId.RangeHasNoValues, upper.Location, array.Name);
             }
         }
+
+        // RD-VBA holds each element in a cell of its own, and an array of more than VBArrayValue.MaximumLength of them is out of memory, as a ReDim of one is
+        // when it runs (RD-VBAL §5.4.3.3): MS-VBA (64-bit) allocates `Dim b(100000000) As Byte` (recorded in Excel: oracle\s56 C12). Bounds written as literals
+        // are known here; a dimension with no lower bound is counted from 1, the fewest elements Option Base gives it.
+        var literal = bounds.Select(bound => (Lower: bound.LowerExpression is { } lower ? LiteralValue(lower) : 1, Upper: bound.UpperExpression is { } upper ? LiteralValue(upper) : null))
+            .ToArray();
+        if (literal.All(bound => bound is { Lower: >= int.MinValue and <= int.MaxValue, Upper: >= int.MinValue and <= int.MaxValue })
+            && VBArrayValue.LengthOf(literal.Select(bound => ((int)bound.Lower!.Value, (int)bound.Upper!.Value))) > VBArrayValue.MaximumLength
+            && bounds[^1].UpperExpression is { } last)
+        {
+            yield return VBCompileErrorInfo.For(VBCompileErrorId.OutOfMemory, last.Location,
+                string.Format(Exceptions.VBCompileError_OutOfMemory_ArrayElements_Verbose, array.Name, VBArrayValue.MaximumLength));
+        }
     }
 
     // the value of a numeric literal, or of a negated one.

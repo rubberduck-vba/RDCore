@@ -64,6 +64,10 @@ public static class DeclaredSizeStaticSemantics
         foreach (var array in ArraysOf(members))
         {
             errors.AddRange(BoundErrors(session, bounds, array));
+            if (SizeError(session, bounds, array) is { } size)
+            {
+                errors.Add(size);
+            }
         }
 
         return errors.ToImmutable();
@@ -191,6 +195,37 @@ public static class DeclaredSizeStaticSemantics
                 yield return VBCompileErrorInfo.For(VBCompileErrorId.RangeHasNoValues, upperExpression.Location, array.Name);
             }
         }
+    }
+
+    // an array of more elements than RD-VBA holds (VBArrayValue.MaximumLength) is out of memory, its bounds reduced: one whose bounds are all literals is
+    // ConstantExpressionStaticSemantics's to report. A dimension with no lower bound is counted from 1, the fewest elements Option Base gives it.
+    private static VBCompileErrorInfo? SizeError(IRuntimeSession session, ArrayBoundEvaluator bounds, Symbol array)
+    {
+        if (!array.TryGetProperty(SymbolProperties.ArrayBounds, out var declared) || declared.IsDefaultOrEmpty
+            || declared.All(bound => new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>().All(IsLiteral))
+            || declared[^1].UpperExpression is not { } last)
+        {
+            return null;
+        }
+
+        var context = new RuntimeEvaluationContext(array.ParentUri);
+        var dimensions = new List<(int, int)>();
+        foreach (var bound in declared)
+        {
+            var lower = 1;
+            if (bound.LowerExpression is { } lowerExpression && !bounds.TryEvaluate(session, context, lowerExpression, out lower, out _)
+                || bound.UpperExpression is not { } upperExpression || !bounds.TryEvaluate(session, context, upperExpression, out var upper, out _))
+            {
+                return null;
+            }
+
+            dimensions.Add((lower, upper));
+        }
+
+        return VBArrayValue.LengthOf(dimensions) > VBArrayValue.MaximumLength
+            ? VBCompileErrorInfo.For(VBCompileErrorId.OutOfMemory, last.Location,
+                string.Format(Exceptions.VBCompileError_OutOfMemory_ArrayElements_Verbose, array.Name, VBArrayValue.MaximumLength))
+            : null;
     }
 
     private static bool IsLiteral(ExpressionNode expression) => expression is LiteralExpressionNode

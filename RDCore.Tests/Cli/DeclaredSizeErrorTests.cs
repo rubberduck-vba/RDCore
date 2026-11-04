@@ -125,7 +125,7 @@ public sealed class DeclaredSizeErrorTests
         => AssertError(expected, [], statement);
 
     [TestMethod]
-    [DataRow("Dim a(2147483647) As Byte", "2147483647")]
+    [DataRow("Dim a(2147483640 To 2147483647) As Byte", "2147483647")]
     [DataRow("Const K = 3: Dim a(K) As Byte", "3")]
     [DataRow("Const K = \"abcd\": Dim a(Len(K)) As Long", "4")]
     [DataRow("Const K = \"abcd\": Dim a(LenB(K)) As Long", "8")]

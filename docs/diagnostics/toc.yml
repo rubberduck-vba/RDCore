@@ -196,6 +196,10 @@
   href: vbc09379.md
 - name: VBC09380 — Out of memory
   href: vbc09380.md
+- name: VBC09381 — User-defined type may not be passed ByVal
+  href: vbc09381.md
+- name: VBC09382 — Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions
+  href: vbc09382.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

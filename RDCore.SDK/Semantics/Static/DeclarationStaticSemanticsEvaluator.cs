@@ -264,6 +264,12 @@ public static class DeclarationStaticSemanticsEvaluator
             {
                 CheckDeclaredType(module, parameter, parameter.SelectionRange, member.ParentUri, resolver, errors,
                     mayBeAny: member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol);
+                // TODO measure in MS-VBA a record parameter declared ByVal of a property, an event and a Declare: only a Sub's and a Function's are (oracle\s56).
+                if (member is not (VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol or VBEventMemberSymbol
+                    or VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol))
+                {
+                    CheckByValRecord(module, parameter, member.ParentUri, resolver, errors);
+                }
             }
 
             // a local constant's type is refused only for a procedural module, as a field's is: a name that does not resolve loads, as it did when the
@@ -396,6 +402,30 @@ public static class DeclarationStaticSemanticsEvaluator
             string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProject_Verbose, name)),
         _ => null,
     };
+
+    // a record is passed by reference: MS-VBA refuses a parameter of a user-defined type declared ByVal, "User-defined type may not be passed ByVal" (recorded in
+    // Excel: oracle\s56 I10, C06, C15), where MS-VBAL §5.3.1.5 sets no such rule. An array of records is no record, and an array parameter is refused ByVal anyway.
+    private static void CheckByValRecord(
+        Symbol module, VBParameterSymbol parameter, Uri document, ISymbolResolver resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors)
+    {
+        if (parameter.ParameterKind is not ParameterKind.ExplicitByVal)
+        {
+            return;
+        }
+
+        var record = parameter.ResolvedType switch
+        {
+            VBUserDefinedType declared => declared.Symbol.Name,
+            VBUnresolvedType { DeclaredName: var name } when resolver.ResolveType(name, ScopeKind.Global, module.Uri).Symbol is VBUserDefinedTypeMemberSymbol => name,
+            _ => null,
+        };
+
+        if (record is not null)
+        {
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeMayNotBePassedByVal, new SourceLocation(document, parameter.SelectionRange),
+                string.Format(Exceptions.VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose, parameter.Name, record)));
+        }
+    }
 
     // the name a declared type was written with, when it did not resolve; for an array, its element's.
     private static string? Unresolved(VBType type) => type switch

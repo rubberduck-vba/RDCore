@@ -99,6 +99,13 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return failure;
         }
 
+        // an array RD-VBA can't hold a cell for each element of is out of memory, and the variable keeps what it held: MS-VBA (64-bit) allocates the
+        // 2,147,483,648 bytes of `ReDim b(2147483647) As Byte` and a billion Longs (recorded in Excel: oracle\s56 I07, I09, B09).
+        if (VBArrayValue.LengthOf(bounds) > VBArrayValue.MaximumLength)
+        {
+            return Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: more than {VBArrayValue.MaximumLength} elements");
+        }
+
         // the array a ReDim makes is known - whatever the variable held before, and so whether it was known - unless its bounds are not: then
         // it has the shape its type assumes, and nothing that is read from it is known. (Its elements are the declared defaults either way.)
         VBArrayValue Redimensioned(VBArrayValue array) => boundsKnown ? array : (VBArrayValue)array.AsIndeterminate();
@@ -304,7 +311,11 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return false;
         }
 
-        var declared = (symbol as ITypedSymbol)?.ResolvedType;
+        // MS-VBAL §5.3.1.11: a Variant reference parameter given a variable of another type is that variable - `Grow arr` of `Grow(a As Variant)` with
+        // `Dim arr() As Long` re-dimensions arr, which stays a Long() (MS-VBA, recorded in Excel: oracle\s56 I03, I04), and raises 10 for a fixed-size one (I05).
+        var declared = session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out var referenced)
+            ? referenced
+            : (symbol as ITypedSymbol)?.ResolvedType;
         var current = declared?.CreateValue(session.Symbols.Resolver.GetValue(symbol).ForReading());
 
         target = new(symbol, null, declared, current);

@@ -130,8 +130,10 @@ public sealed class LetAssignmentEvaluator(
             _ => null,
         };
 
-        return symbol is ITypedSymbol { ResolvedType: var declared }
+        // a Variant reference parameter given a variable of another type holds what that variable is declared as (MS-VBAL §5.3.1.11).
+        return symbol is ITypedSymbol { ResolvedType: var own }
             && session.Symbols.Resolver.TryGetAddress(symbol, out _)
+            && (session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out var referenced) ? referenced : own) is var declared
             && Held(declared.CreateValue(session.Symbols.Resolver.GetValue(symbol).ForReading())) is VBArrayValue array
             && session.CallStack.Frames.Any(frame => frame.LocksArray(array));
     }
@@ -720,10 +722,11 @@ public sealed class LetAssignmentEvaluator(
 
         if (owner is not VBUserDefinedTypeValue udt)
         {
-            // a public variable of an object, or a Property Let of it.
+            // a public variable of an object, or a Property Let of it. A Variant that holds neither an object nor a record - an array, a number - has no
+            // member to assign: 424 (MS-VBA, recorded in Excel: oracle\s56 I01, C04); a variable declared as one is a compile error, Invalid qualifier.
             return owner is VBObjectValue objectOwner
                 ? AssignObjectMember(session, context, statement, memberAccess, [], objectOwner, source, value, isSet: false)
-                : RuntimeExecutionOutcome.InternalError;
+                : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, memberAccess.Member.IdentifierName));
         }
 
         var name = memberAccess.Member.IdentifierName;

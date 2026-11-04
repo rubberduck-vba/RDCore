@@ -141,6 +141,22 @@ a `ReDim` of that parameter, with `Preserve` or without, is runtime error 10, an
 > name for the variable, a `ReDim` of either is a `ReDim` of both, and each sees the dimensions the other gives it. RD-VBA does what MS-VBA does. The new array is
 > written where the variable is, which is what keeps the parameter's name for it.
 
+A `Variant` reference parameter - `a As Variant`, or `a` with no type - given an array variable is that variable too
+([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)): a `ReDim` of the parameter re-dimensions the caller's array, which keeps
+the element type it is declared with (`TypeName` is still `Long()`), and a `ReDim Preserve` keeps its elements. A fixed-size array given to one is runtime
+error 10, and keeps its bounds, as **MS-VBA** has it (recorded in Excel, `oracle\s56` I03-I06).
+
+### The most elements an array holds
+
+RD-VBA holds each element of an array in a cell of its own, and an array holds at most 16,777,216 (2<sup>24</sup>) elements, in every dimension together
+([VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html)`.MaximumLength`). A `ReDim` of more, with `Preserve` or without, is runtime error 7,
+`Out of memory`, before any element is made, and the variable keeps what it held. A fixed-size array declared with more is the compile error
+[VBC09380](../diagnostics/vbc09380.md) _Out of memory_.
+
+> [!NOTE]
+> MS-VBA (64-bit) allocates an array as long as the memory for its data is there: `ReDim b(2147483647) As Byte`, a billion `Long`s, `Dim b(100000000) As Byte`
+> (recorded in Excel, `oracle\s56` I07-I09, B09, C12). The limit is RD-VBA's own, and the error is the one MS-VBA raises for memory it doesn't have.
+
 A target that is a member access - the field of a record (`r.Buffer`, `.Buffer` in a `With r` block), a variable of a module named through it
 (`Module1.Buffer`) - is an expression: the array is read from it, and the new array is written back through it, as an assignment to it is. The element type
 of an array that has no dimensions yet is the one the member is declared with.

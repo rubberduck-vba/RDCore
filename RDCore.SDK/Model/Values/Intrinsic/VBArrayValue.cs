@@ -109,6 +109,43 @@ public abstract record class VBArrayValue : VBTypedValue
     /// </summary>
     public int Length => _cells.Length;
 
+    /// <summary>
+    /// The most elements an array holds in RD-VBA: 16,777,216 (2<sup>24</sup>), in every dimension together.
+    /// </summary>
+    /// <remarks>
+    /// Each element of an array is a cell of its own (<see cref="IBindingHandle"/>), where an element of an MS-VBA array is the bytes of its data type in one
+    /// block of memory: MS-VBA (64-bit) allocates <c>ReDim b(2147483647) As Byte</c> as long as the memory is there, and RD-VBA refuses an array that size
+    /// before making a cell of it. A <c>ReDim</c> of more elements is run-time error 7, <em>Out of memory</em>
+    /// (<strong>RD-VBAL §5.4.3.3</strong>).
+    /// </remarks>
+    public const long MaximumLength = 1 << 24;
+
+    /// <summary>
+    /// The number of elements an array of the given bounds has, which may be more than an <see cref="int"/> holds: <c>(0, 2147483647)</c> is
+    /// 2,147,483,648 of them.
+    /// </summary>
+    /// <param name="bounds">The lower and upper bound of each dimension.</param>
+    /// <returns>
+    /// The product of the lengths of the dimensions, or <see cref="MaximumLength"/> + 1 for any product greater than that (which three dimensions of
+    /// 2<sup>31</sup> elements would overflow); <c>0</c> when a dimension has an upper bound below its lower bound.
+    /// </returns>
+    public static long LengthOf(IEnumerable<(int LBound, int UBound)> bounds)
+    {
+        var lengths = bounds.Select(dimension => Math.Max(0L, (long)dimension.UBound - dimension.LBound + 1)).ToArray();
+        if (lengths.Contains(0L))
+        {
+            return 0;
+        }
+
+        var total = 1L;
+        foreach (var length in lengths)
+        {
+            total = Math.Min(total * length, MaximumLength + 1);
+        }
+
+        return total;
+    }
+
     /// <inheritdoc/>
     public override int Size => _cells.Length == 0 ? 0 : ItemType.DefaultValue.Size * _cells.Length;
 

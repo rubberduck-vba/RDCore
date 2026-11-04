@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -55,6 +56,13 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             }
 
             sourceType = value.Result!;
+        }
+
+        // a record a Variant can't hold is refused with what MS-VBA says of it (recorded in Excel: oracle\s56 C07), rather than as a type mismatch.
+        if (sourceType is VBUserDefinedType { Symbol.Name: var record } and not VBExternalUserDefinedType && destinationType is VBVariantType)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant, expression.Location,
+                string.Format(Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose, record)));
         }
 
         return !IsLetCoercionInvalid(sourceType, destinationType)

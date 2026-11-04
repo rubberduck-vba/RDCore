@@ -41,6 +41,20 @@ declared `ByVal` is refused, as **MS-VBA** refuses it (recorded in Excel), where
 `DeclarationStaticSemanticsEvaluator.CheckSyntax` reports them, off the declarations of the syntax tree. An argument written `ByVal` for an array parameter
 is `VBC09371` too ([**RD-VBAL §5.6.13.1** Argument Lists](rd-vbal.5.6.13.index-expressions.md#56131-argument-lists)).
 
+### Parameters of a user-defined type
+
+A record of a user-defined type is passed by reference, to a parameter of its type. A parameter of one declared `ByVal` - of a `Sub` or a `Function` - is
+[VBC09381](../diagnostics/vbc09381.md) _User-defined type may not be passed ByVal_, where the module's declarations are checked, whether the procedure is called
+or not.
+
+> [!IMPORTANT]
+> **MS-VBAL §5.3.1.5** sets no such rule: a `ByVal` parameter "defines a local variable", and a record is a value a variable holds. **MS-VBA** refuses the
+> declaration (recorded in Excel, `oracle\s56` I10, C06, C15), and so does **RD-VBA**: a module RD-VBA compiles is one MS-VBA compiles.
+
+What a call gives such a parameter is checked with the call ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)): a record
+given to a `Variant` is [VBC09382](../diagnostics/vbc09382.md), and one given in parentheses, `F (pt)`, is a value and no variable to pass,
+[VBC09333](../diagnostics/vbc09333.md) _Variable required_.
+
 A parameter is an array by the `()` after its name: a trailing `()` on its `As` clause (`a As Long()`, `ByVal a As Long()`) is a syntax error, as it is in
 **MS-VBA** ([**RD-VBAL §5.2.3.1.3**](rd-vbal.5.2.3.module-declarations.md#52313-array-dimensions-and-bounds)).
 
