@@ -17,7 +17,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// of the lines that came before it.
 /// </para>
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostOutput, Direction.ServerToClient)]
+[Method(RDCoreComponentProtocol.HostOutput, Direction.ServerToClient)]
 public record class HostOutputNotification : IRequest
 {
     /// <summary>The lines, in the order they were printed, each without its line terminator.</summary>

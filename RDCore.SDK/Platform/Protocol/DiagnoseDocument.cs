@@ -20,7 +20,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <see cref="Diagnostic"/> is the transport serializer's own model. Only extensions whose manifest
 /// advertises the <see cref="DiagnoseDocument"/> capability receive this request.
 /// </remarks>
-[Method(RDCorePlatformProtocol.DiagnoseDocument, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.DiagnoseDocument, Direction.ClientToServer)]
 public record class DiagnoseDocumentParams : IRequest, IRequest<DiagnoseDocumentResult>
 {
     /// <summary>

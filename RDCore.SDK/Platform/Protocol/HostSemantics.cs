@@ -25,7 +25,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// each; this is the language-server side of asking for them, never sent by a client. The answer is the semantic facts, which a diagnostics extension
 /// analyzes: the host says what is, and an analyzer decides what is worth saying. A module the host does not have, or has not loaded, has no model.
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostSemantics, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostSemantics, Direction.ClientToServer)]
 public record class HostSemanticsParams : IRequest, IRequest<HostSemanticsResult>
 {
     /// <summary>

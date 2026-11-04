@@ -17,7 +17,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// run again, which picks the changes up, or the changes undone.
 /// </para>
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostDebugResume, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugResume, Direction.ClientToServer)]
 public record class HostDebugResumeParams : IRequest, IRequest<ExecuteResult>
 {
     /// <summary>
@@ -30,14 +30,14 @@ public record class HostDebugResumeParams : IRequest, IRequest<ExecuteResult>
 /// Request for <c>rdcore/host/debug/pause</c>: stops a program that is running, at the next instruction, so that it waits there. The request that is running
 /// the program answers <see cref="ExecutionOutcome.Suspended"/>.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDebugPause, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugPause, Direction.ClientToServer)]
 public record class HostDebugPauseParams : IRequest, IRequest<DebugAck>;
 
 /// <summary>
 /// Request for <c>rdcore/host/debug/terminate</c>: ends a program that is running or waits. Its variables stay, as they do when a program is stopped, unless
 /// <see cref="Wipe"/> says they go.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDebugTerminate, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugTerminate, Direction.ClientToServer)]
 public record class HostDebugTerminateParams : IRequest, IRequest<DebugAck>
 {
     /// <summary>
@@ -55,7 +55,7 @@ public record class HostDebugTerminateParams : IRequest, IRequest<DebugAck>
 /// <see cref="ExecuteResult.ErrorNumber"/>, <see cref="ExecuteResult.ErrorMessage"/>, <see cref="ExecuteResult.ErrorCode"/> and
 /// <see cref="ExecuteResult.ErrorTitle"/>. Resumed, it deals with the error as it would have.
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostDebugErrorBreak, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugErrorBreak, Direction.ClientToServer)]
 public record class HostDebugErrorBreakParams : IRequest, IRequest<DebugAck>
 {
     /// <summary>Which errors the program waits at. It is the session's, and it stays until it is said otherwise.</summary>
@@ -74,7 +74,7 @@ public record class HostDebugErrorBreakParams : IRequest, IRequest<DebugAck>
 /// Moving into or out of a block statement is moving as <c>GoTo</c> does: the state a block keeps (a <c>With</c> object, a <c>For</c> counter) is the state it had.
 /// </para>
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostDebugGoto, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugGoto, Direction.ClientToServer)]
 public record class HostDebugGotoParams : IRequest, IRequest<DebugGotoResult>
 {
     /// <summary>
@@ -94,14 +94,14 @@ public record class HostDebugGotoParams : IRequest, IRequest<DebugGotoResult>
 /// its point of execution would be refused for (<see cref="DebugEditStatusResult"/>). A client asks after each edit it sends, to say so of the edit as it is
 /// made, before the program is asked to go on.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDebugEditStatus, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugEditStatus, Direction.ClientToServer)]
 public record class HostDebugEditStatusParams : IRequest, IRequest<DebugEditStatusResult>;
 
 /// <summary>
 /// Request for <c>rdcore/host/debug/breakpoints</c>: sets the lines of a module a program that runs under a debugger waits at before it runs them. Replaces the
 /// breakpoints the module had (<see cref="DebugBreakpointsResult"/>).
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDebugBreakpoints, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugBreakpoints, Direction.ClientToServer)]
 public record class HostDebugBreakpointsParams : IRequest, IRequest<DebugBreakpointsResult>
 {
     /// <summary>The programmatic name of the module.</summary>
@@ -135,13 +135,13 @@ public record class HostBreakpointLine
 /// <summary>
 /// Request for <c>rdcore/host/debug/stack</c>: the activations of the program that waits, innermost first.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDebugStack, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugStack, Direction.ClientToServer)]
 public record class HostDebugStackParams : IRequest, IRequest<DebugStackResult>;
 
 /// <summary>
 /// Request for <c>rdcore/host/debug/variables</c>: the variables of an activation of the program that waits, or the parts of one of them.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDebugVariables, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugVariables, Direction.ClientToServer)]
 public record class HostDebugVariablesParams : IRequest, IRequest<DebugVariablesResult>
 {
     /// <summary>The activation, by <see cref="DebugStackFrame.Id"/>. Ignored when <see cref="Reference"/> is given.</summary>
@@ -166,7 +166,7 @@ public record class HostDebugVariablesParams : IRequest, IRequest<DebugVariables
 /// locals and parameters, then its module, then the project - and a call in it is made, in the session as it is: what the expression does stays done, as it does in the
 /// immediate window of the VBA editor. A <c>Stop</c> in it stops it and not the program.
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostDebugEvaluate, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugEvaluate, Direction.ClientToServer)]
 public record class HostDebugEvaluateParams : IRequest, IRequest<DebugEvaluateResult>
 {
     /// <summary>The activation, by its <see cref="DebugStackFrame.Id"/>.</summary>
@@ -183,7 +183,7 @@ public record class HostDebugEvaluateParams : IRequest, IRequest<DebugEvaluateRe
 /// <remarks>
 /// What it does stays done: an assignment to a local is the value the program goes on with. It is answered as <c>rdcore/host/debug/evaluate</c> is, with no value.
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostDebugExecute, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDebugExecute, Direction.ClientToServer)]
 public record class HostDebugExecuteParams : IRequest, IRequest<DebugEvaluateResult>
 {
     /// <summary>The activation, by its <see cref="DebugStackFrame.Id"/>.</summary>

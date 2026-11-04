@@ -7,13 +7,13 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <summary>
 /// Request <c>rdcore/host/interaction/msgBox</c>: the environment host asks the language server to have a program's <c>MsgBox</c> answered by the client.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostMessageBox, Direction.ServerToClient)]
+[Method(RDCoreComponentProtocol.HostMessageBox, Direction.ServerToClient)]
 public sealed record class HostMessageBoxParams : MessageBoxParams, IRequest<MessageBoxResult>;
 
 /// <summary>
 /// Request <c>rdcore/host/interaction/inputBox</c>: the environment host asks the language server to have a program's <c>InputBox</c> answered by the client.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostInputBox, Direction.ServerToClient)]
+[Method(RDCoreComponentProtocol.HostInputBox, Direction.ServerToClient)]
 public sealed record class HostInputBoxParams : InputBoxParams, IRequest<InputBoxResult>;
 
 /// <summary>

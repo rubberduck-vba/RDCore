@@ -57,7 +57,7 @@ public sealed class RDCorePlatformClientWireTests
     public async Task TheHandshake_IsAnsweredByTheServersHandler()
     {
         JObject? received = null;
-        using var connected = await ConnectAsync(server => server.OnJsonRequest(RDCorePlatformHandshake.Method, (JToken request, CancellationToken _) =>
+        using var connected = await ConnectAsync(server => server.OnJsonRequest(RDCorePlatformProtocol.PlatformInitialize, (JToken request, CancellationToken _) =>
         {
             received = (JObject)request;
             return Task.FromResult<JToken>(JObject.Parse("""{ "component": 1, "provided": ["SessionExecute"] }"""));

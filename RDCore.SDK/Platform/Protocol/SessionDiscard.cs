@@ -14,7 +14,7 @@ public sealed record class SessionDiscardRequest : SessionDiscardParams, IReques
 /// Request for <c>rdcore/host/discard</c>: the language-server side of <see cref="SessionDiscardParams"/>, addressed to the component that owns the
 /// session.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostDiscard, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostDiscard, Direction.ClientToServer)]
 public record class HostDiscardParams : IRequest, IRequest<DiscardResult>
 {
     /// <summary>

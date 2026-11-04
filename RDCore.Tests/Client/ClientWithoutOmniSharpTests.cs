@@ -67,7 +67,7 @@ public sealed class ClientWithoutOmniSharpTests
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
 
-        var handshake = await rpc.RequestAsync(2, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         Assert.IsNull(handshake["error"], handshake.ToJsonString());
 
         var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = Program, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
@@ -95,7 +95,7 @@ public sealed class ClientWithoutOmniSharpTests
         });
 
         var diagnostics = rpc.RequestAsync(3, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        var handshake = await rpc.RequestAsync(4, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = await rpc.RequestAsync(4, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         Assert.IsNull(handshake["error"], handshake.ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
@@ -131,7 +131,7 @@ public sealed class ClientWithoutOmniSharpTests
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
         });
 
-        var handshake = rpc.RequestAsync(3, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
         Assert.IsNull((await handshake)["error"]);
 
@@ -164,7 +164,7 @@ public sealed class ClientWithoutOmniSharpTests
         var initialize = await rpc.RequestAsync(2, "initialize", platform.InitializeParams(AsHexIdeDeclares));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
-        var handshake = rpc.RequestAsync(3, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         await rpc.NotifyAsync("textDocument/didOpen", new JsonObject
         {
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
@@ -215,7 +215,7 @@ public sealed class ClientWithoutOmniSharpTests
         {
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
         });
-        var handshake = rpc.RequestAsync(3, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
         Assert.IsNull((await handshake)["error"]);
 
@@ -247,7 +247,7 @@ public sealed class ClientWithoutOmniSharpTests
         var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
-        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformHandshake.Method, JsonNode.Parse(ClaimsDialogs)!.AsObject()))["error"]);
+        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject()))["error"]);
 
         var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = OkOnly, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 

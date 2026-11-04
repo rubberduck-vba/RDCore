@@ -8,7 +8,7 @@ using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Diagnostics.Handlers;
 
-[Method(RDCorePlatformProtocol.DiagnoseDocument)]
+[Method(RDCoreComponentProtocol.DiagnoseDocument)]
 internal sealed class DiagnoseDocumentHandler(
     ICoreDiagnosticsFactory diagnostics, IEnumerable<IModuleAnalyzer> analyzers, ILogger<DiagnoseDocumentHandler> logger)
     : RDCoreRequestHandler<DiagnoseDocumentParams, DiagnoseDocumentResult>
@@ -63,7 +63,7 @@ internal sealed class DiagnoseDocumentHandler(
         }
 
         logger.LogInformation("📥 {method}: {uri} → {count} diagnostic(s)",
-            RDCorePlatformProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);
+            RDCoreComponentProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);
 
         return Task.FromResult(new DiagnoseDocumentResult
         {

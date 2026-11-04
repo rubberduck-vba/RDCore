@@ -22,7 +22,7 @@ public sealed record class SessionExecuteRequest : SessionExecuteParams, IReques
 /// server has already parsed and defined the module's symbols by the time it sends this, so the host
 /// lowers and runs rather than re-deriving any of it.
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostExecute, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostExecute, Direction.ClientToServer)]
 public record class HostExecuteParams : IRequest, IRequest<ExecuteResult>
 {
     /// <summary>

@@ -14,7 +14,7 @@ public sealed record class SessionPeekRequest : SessionPeekParams, IRequest, IRe
 /// Request for <c>rdcore/host/memory/peek</c>: the language-server side of
 /// <see cref="SessionPeekParams"/>, addressed to the component that owns the session.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostPeek, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostPeek, Direction.ClientToServer)]
 public record class HostPeekParams : IRequest, IRequest<PeekResult>
 {
     /// <summary>The address to read.</summary>
@@ -31,7 +31,7 @@ public sealed record class SessionPokeRequest : SessionPokeParams, IRequest, IRe
 /// Request for <c>rdcore/host/memory/poke</c>: the language-server side of
 /// <see cref="SessionPokeParams"/>, addressed to the component that owns the session.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostPoke, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostPoke, Direction.ClientToServer)]
 public record class HostPokeParams : IRequest, IRequest<PokeResult>
 {
     /// <summary>The address to write.</summary>

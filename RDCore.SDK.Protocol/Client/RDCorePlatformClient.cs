@@ -25,7 +25,7 @@ public sealed class RDCorePlatformClient(IRDCorePlatformChannel channel)
     public IRDCorePlatformChannel Channel { get; } = channel;
 
     /// <summary>
-    /// Performs the platform handshake (<see cref="RDCorePlatformHandshake.Method"/>): says what the client expects of the component it connected to, and learns what
+    /// Performs the platform handshake (<see cref="RDCorePlatformProtocol.PlatformInitialize"/>): says what the client expects of the component it connected to, and learns what
     /// that component provides.
     /// </summary>
     /// <param name="expectedComponent">The component the client expects to be connected to: <see cref="CoreServerComponent.LanguageServer"/>, for a client of the platform.</param>
@@ -33,7 +33,7 @@ public sealed class RDCorePlatformClient(IRDCorePlatformChannel channel)
     /// <param name="token">Cancels the request.</param>
     /// <returns>The component the client is connected to, and the capabilities it provides.</returns>
     public Task<PlatformInitializeResult> InitializeAsync(CoreServerComponent expectedComponent, CorePlatformClientCapabilities expected, CancellationToken token)
-        => Send<PlatformInitializeParams, PlatformInitializeResult>(RDCorePlatformHandshake.Method, new PlatformInitializeParams { ExpectedComponent = expectedComponent, Expected = expected }, token);
+        => Send<PlatformInitializeParams, PlatformInitializeResult>(RDCorePlatformProtocol.PlatformInitialize, new PlatformInitializeParams { ExpectedComponent = expectedComponent, Expected = expected }, token);
 
     /// <summary>Asks for the state of the runtime session (<see cref="RDCorePlatformProtocol.SessionStatus"/>).</summary>
     /// <param name="request">The request.</param>

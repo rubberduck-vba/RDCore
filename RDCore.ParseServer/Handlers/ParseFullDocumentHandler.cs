@@ -12,7 +12,7 @@ using RDCore.Parsing;
 
 namespace RDCore.ParseServer.Handlers;
 
-[Method(RDCorePlatformProtocol.ParseFullDocument)]
+[Method(RDCoreComponentProtocol.ParseFullDocument)]
 public class ParseFullDocumentHandler(
     IModuleParser moduleParser,
     ILogger<ParseFullDocumentHandler> logger,
@@ -23,16 +23,16 @@ public class ParseFullDocumentHandler(
     {
         if (request?.DocumentUri is not Uri uri)
         {
-            logger.LogWarning("📥 {method}: request had no DocumentUri.", RDCorePlatformProtocol.ParseFullDocument);
+            logger.LogWarning("📥 {method}: request had no DocumentUri.", RDCoreComponentProtocol.ParseFullDocument);
             throw new InvalidParametersException(request);
         }
         if (request.Fragment is not string content)
         {
-            logger.LogWarning("📥 {method}: request for {uri} had no Fragment.", RDCorePlatformProtocol.ParseFullDocument, uri);
+            logger.LogWarning("📥 {method}: request for {uri} had no Fragment.", RDCoreComponentProtocol.ParseFullDocument, uri);
             throw new InvalidParametersException(request);
         }
 
-        logger.LogInformation("📥 {method}: {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
+        logger.LogInformation("📥 {method}: {uri}", RDCoreComponentProtocol.ParseFullDocument, uri);
         try
         {
             // a parse the client no longer waits for (it cancelled the request: the text has changed since) stops, and the request is answered as cancelled
@@ -49,7 +49,7 @@ public class ParseFullDocumentHandler(
         {
             // a parser or serialization failure on one module degrades to a failed result carrying the
             // detail, rather than a bare JSON-RPC "-32603 Internal error" the caller can't act on.
-            logger.LogError(exception, "❌ {method} failed for {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
+            logger.LogError(exception, "❌ {method} failed for {uri}", RDCoreComponentProtocol.ParseFullDocument, uri);
             return PlatformJsonEnvelope.Of(ModuleParseResult.Failed(
                 new SourceLocation(uri, SourceRange.Empty), exception.ToString(), serverOptions.Value.WireErrorDetail));
         }
