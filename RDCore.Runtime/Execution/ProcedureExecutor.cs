@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -955,13 +956,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var startResult = forLoop.EvaluateOperand(session, forStatement.StartExpression, counterType, context);
         if (!startResult.IsSuccess)
         {
-            return ToFailureOutcome(startResult);
+            return Unevaluated(session, instruction, activation, forStatement, counterSymbol, counterType, ToFailureOutcome(startResult));
         }
 
         var endResult = forLoop.EvaluateOperand(session, forStatement.EndExpression, counterType, context);
         if (!endResult.IsSuccess)
         {
-            return ToFailureOutcome(endResult);
+            return Unevaluated(session, instruction, activation, forStatement, counterSymbol, counterType, ToFailureOutcome(endResult));
         }
 
         // MS-VBAL §5.4.2.3: "if no step-clause is present, the step-increment value is the integer data
@@ -972,7 +973,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             var stepResult = forLoop.EvaluateOperand(session, stepExpression, counterType, context);
             if (!stepResult.IsSuccess)
             {
-                return ToFailureOutcome(stepResult);
+                return Unevaluated(session, instruction, activation, forStatement, counterSymbol, counterType, ToFailureOutcome(stepResult));
             }
 
             step = stepResult.Result!;
@@ -980,7 +981,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         if (forLoop.Operands(session, forStatement, counterType, startResult.Result!, endResult.Result!, step, out var counted) is { } operandError)
         {
-            return ToFailureOutcome(RuntimeSemanticsEvaluationResult.Error(operandError));
+            return Unevaluated(session, instruction, activation, forStatement, counterSymbol, counterType,
+                ToFailureOutcome(RuntimeSemanticsEvaluationResult.Error(operandError)));
         }
 
         var state = new ForLoopState(counterSymbol, forStatement.ControlExpression, counted.End, counted.Step)
@@ -993,7 +995,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var assignResult = forLoop.AssignCounter(session, state, forStatement.StartExpression, counted.Start, context);
         if (!assignResult.IsSuccess)
         {
-            return ToFailureOutcome(assignResult);
+            return Unevaluated(session, instruction, activation, forStatement, counterSymbol, counterType, ToFailureOutcome(assignResult));
         }
 
         // stashed before the entry test below, exactly as MS-VBAL frames it: start/end/step are
@@ -1020,6 +1022,26 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             activation.Pc = instruction.Offset + 1;
         }
         return null;
+    }
+
+    // MS-VBAL §5.4.4.1: a For statement whose start, end or step raised an error, or whose counter could not be given the start, keeps nothing of what it
+    // evaluated - the counter is not assigned, and its loop has the end and the step it had before. Under Resume Next its body runs, untested, and its Next
+    // steps the counter with them: what an earlier pass through the statement left, or a 0 end and a 0 step (a step of 1 for a loop that writes none) when
+    // there was none (MS-VBA, recorded in Excel: oracle\s54 F01-F07, X01-X04).
+    private RuntimeExecutionOutcome Unevaluated(IRuntimeSession session, Instruction instruction, CallStackFrame activation, ForStatementNode forStatement,
+        Symbol counterSymbol, VBType counterType, RuntimeExecutionOutcome failure)
+    {
+        if (!activation.TryGetForLoopState(instruction.Offset, out _)
+            && forLoop.Operands(session, forStatement, counterType, new VBIntegerValue(0), new VBIntegerValue(0),
+                forStatement.StepExpression is null ? null : new VBIntegerValue(0), out var unset) is null)
+        {
+            activation.SetForLoopState(instruction.Offset, new ForLoopState(counterSymbol, forStatement.ControlExpression, unset.End, unset.Step)
+            {
+                RuntimeState = new ForLoopPayloads(),
+            });
+        }
+
+        return failure;
     }
 
     // Returns null when the counter was incremented and re-tested successfully and the loop should keep

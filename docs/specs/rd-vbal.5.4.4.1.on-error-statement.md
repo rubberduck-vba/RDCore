@@ -50,6 +50,9 @@ A `Select Case` is one statement, up to its `End Select`: an error in its select
 `End Select`, and no `Case` runs, `Case Else` included (MS-VBA). The same holds for `Resume Next`
 ([**RD-VBAL §5.4.4.2**](rd-vbal.5.4.4.2.resume-statement.md)).
 
+A `For` is not: an error in its start, its end or its step goes on at the first statement of its body, and the loop
+keeps nothing the header evaluated ([**RD-VBAL §5.4.2.3**](rd-vbal.5.4.2.3.for-statement.md#an-error-in-the-header-under-on-error-resume-next)).
+
 ### In an active handler
 
 A handler is active from the moment an `On Error GoTo` catches an error until a `Resume`, an `On Error GoTo -1`, an `Exit` or the end of the procedure.
