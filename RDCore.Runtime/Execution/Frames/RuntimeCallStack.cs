@@ -100,6 +100,22 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     }
 
     /// <summary>
+    /// Takes <paramref name="activation"/> off the stack when it is the activation without a frame on top of it, as a CLR exception goes by it: it is the spare
+    /// of no place, since what it holds is what the exception left.
+    /// </summary>
+    /// <returns>Whether it was on top.</returns>
+    internal bool TryPopLight(ILightActivation activation)
+    {
+        if (_lightCount == 0 || !ReferenceEquals(_lights[_lightCount - 1], activation))
+        {
+            return false;
+        }
+
+        _lights[--_lightCount] = null!;
+        return true;
+    }
+
+    /// <summary>
     /// Gives each activation compiled code put on the stack without a frame its frame, bottom first, as a call through the invoker would have pushed it:
     /// whatever then looks at the stack - an error's trace, a debugger, the handler an error is looked for in, the directives of the current activation - sees
     /// every activation as the interpreter has it.

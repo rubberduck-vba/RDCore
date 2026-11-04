@@ -1,3 +1,4 @@
+using NSubstitute;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Execution.Memory;
@@ -171,5 +172,42 @@ public sealed class RuntimeCallStackTests
         var frames = sut.Frames.ToArray();
         CollectionAssert.AreEqual(new[] { topFrame, bottomFrame }, frames);
         Assert.AreEqual(2, sut.Depth);
+    }
+
+    // a CLR exception going by the activations compiled code put on the stack without a frame takes each off as it goes by it, innermost first: one that is
+    // not on top is not taken off.
+    [TestMethod]
+    public void AnActivationWithoutAFrame_IsTakenOffByAnException_OnlyWhenOnTop()
+    {
+        var sut = new RuntimeCallStack();
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var (bottom, top) = (new Light(Frame(storage)), new Light(Frame(storage)));
+        sut.TryPushLight(bottom);
+        sut.TryPushLight(top);
+
+        Assert.IsFalse(sut.TryPopLight(bottom));
+        Assert.IsTrue(sut.TryPopLight(top));
+        Assert.IsTrue(sut.TryPopLight(bottom));
+
+        Assert.AreEqual(0, sut.Depth);
+        Assert.IsNull(sut.TakeSpare(), "an activation an exception went by is made again for no call");
+    }
+
+    // what a program a CLR exception ended leaves on the stack, without a frame or with one, is let go of when the next starts: no activation of it is there
+    // to be seen, nor counted against the next one's depth.
+    [TestMethod]
+    public void WhatAProgramLeftOnTheStack_IsLetGoOf_WhenTheNextStarts()
+    {
+        var sut = new RuntimeCallStack();
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var session = Substitute.For<IRuntimeSession>();
+        session.CallStack.Returns(sut);
+        sut.TryPush(Frame(storage));
+        sut.TryPushLight(new Light(Frame(storage)));
+
+        SessionWipe.Abandon(session);
+
+        Assert.AreEqual(0, sut.Depth);
+        Assert.IsEmpty(sut.Frames);
     }
 }

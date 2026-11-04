@@ -351,6 +351,23 @@ public sealed class CompiledActivation : ILightActivation
         return true;
     }
 
+    /// <summary>
+    /// Takes <paramref name="callee"/>, the activation of a call compiled code made through the callee's typed entry (<see cref="EnterDirectly"/>), off the
+    /// stack when a CLR exception goes by it - a defect of the platform, which ends the program: the activations the callee made are off it already, each
+    /// taken off as the exception went by it, and what is left is what the stack was before the call.
+    /// </summary>
+    public void AbandonDirectCall(CompiledActivation callee)
+    {
+        if (callee._frame is null)
+        {
+            _ = _stack?.TryPopLight(callee);
+        }
+        else if (ReferenceEquals(_session.CallStack.Current, callee._frame))
+        {
+            _ = _session.CallStack.TryPop(out _);
+        }
+    }
+
     private int Suspensions => (_halt as SessionHalt)?.Suspensions ?? 0;
 
     /// <summary>
