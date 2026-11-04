@@ -29,8 +29,9 @@ namespace RDCore.SDK.Semantics.Static;
 /// <see cref="VBCompileErrorId.ArgumentNotOptional"/>.</item>
 /// <item>A subroutine given as an argument has no value to give: <see cref="VBCompileErrorId.ExpectedFunctionOrVariable"/>.</item>
 /// </list>
-/// A <c>Function</c> or <c>Property Get</c> that declares no parameter, and returns what can be indexed - a <c>Variant</c>, an array, an object - is not given
-/// the arguments written after it: they index what it returns, and are not this check's.
+/// A <c>Function</c> or <c>Property Get</c> that declares no parameter, and returns a <c>Variant</c> or an object, is not given the arguments written after
+/// it: they index what it returns, and are not this check's. One that returns an array is given them, as MS-VBA gives them (recorded in Excel, oracle\s55 A01),
+/// though <strong>MS-VBAL §5.6.13</strong> lets them index the array: its result is indexed by a second argument list, <c>F()(1)</c>.
 /// </remarks>
 internal static class ArgumentListStaticSemantics
 {
@@ -51,7 +52,7 @@ internal static class ArgumentListStaticSemantics
 
         // `F()` is written with an empty argument list, which is not an argument: it is the call itself.
         var written = arguments.IsDefault || arguments is [MissingArgumentNode] ? [] : arguments;
-        if (own.IsEmpty && !written.IsEmpty && procedure is VBReturningMemberSymbol { ResolvedType: VBVariantType or VBObjectType or VBClassType or VBArrayType or VBUnknownType })
+        if (own.IsEmpty && !written.IsEmpty && procedure is VBReturningMemberSymbol { ResolvedType: VBVariantType or VBObjectType or VBClassType or VBUnknownType })
         {
             return null;
         }
