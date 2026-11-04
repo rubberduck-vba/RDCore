@@ -85,4 +85,17 @@ public sealed class SelectCaseSelectorTypeTests
     [DataRow("Dim v As Variant ;; v = \"abc\" ;; Select Case v + 1 ;; Case 1: P \"one\" ;; Case Else: P \"else\" ;; End Select ;; P \"err \" & Err.Number", "err 13", DisplayName = "R14 v + 1 of \"abc\"")]
     public void AnExpressionOverAVariant_IsAVariantSelector(string body, string expected)
         => Assert.AreEqual(expected, Run(body));
+
+    // a String selector and a number, a Variant or declared, compared as MS-VBA compares them (s56 G03, G06, G07; RD-VBAL 5.6.9.5).
+    [TestMethod]
+    [DataRow("Dim s As String ;; s = \"2.5\" ;; P (s = 2) ;; Select Case s ;; Case 2: P \"two\" ;; Case Else: P \"else\" ;; End Select", "False/else",
+        DisplayName = "G03 a String \"2.5\", Case 2")]
+    [DataRow("Dim v As Variant ;; v = \"2.5\" ;; Select Case v ;; Case 2.5: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Select Case v ;; Case Is > 2: P \"m\" ;; Case Else: P \"e\" ;; End Select",
+        "m/m", DisplayName = "G06 a Variant \"2.5\", Case 2.5 and Case Is > 2")]
+    [DataRow("Dim v As Variant ;; v = \"2\" ;; Select Case v ;; Case 2: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P (v = 2)", "m/True",
+        DisplayName = "G07 a Variant \"2\", Case 2")]
+    [DataRow("Dim i As Integer ;; i = 3 ;; Select Case i ;; Case Is < \"5\": P \"lt\" ;; Case Else: P \"else\" ;; End Select ;; i = 2 ;; Select Case i ;; Case \"2.5\": P \"eq\" ;; Case Else: P \"else\" ;; End Select ;; P (i = \"2.5\")",
+        "lt/eq/False", DisplayName = "I07 an Integer selector and a String, converted to Integer where i = \"2.5\" is compared as Doubles")]
+    public void AStringSelector_IsComparedWithANumberAsMSVBACompares(string body, string expected)
+        => Assert.AreEqual(expected, Run(body));
 }

@@ -71,6 +71,10 @@ public sealed class RedimOfAVariantTests
     [DataRow("Dim v As Variant ;; ReDim v(5 To 4)", "TypeName(v)", "9|Empty", DisplayName = "F05 an Empty Variant, one below")]
     [DataRow("Dim v As Variant ;; v = 5 ;; ReDim v(5 To 4)", "TypeName(v)", "9|Integer", DisplayName = "F06 a Variant of 5, one below")]
     [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim v(1 To 2, 3 To 2)", "TypeName(v) ;; UBound(v)", "9|Variant()|10", DisplayName = "F10 a Variant, the last of two one below")]
+    [DataRow("Dim v As Variant ;; ReDim v(1 To 3, 1 To 3) ;; v(1, 1) = 7 ;; ReDim v(5 To 4, 5 To 2)", "TypeName(v) ;; v(1, 1)", "9|Variant()|7",
+        DisplayName = "I05 a Variant, one dimension one below and the next further")]
+    [DataRow("Dim v As Variant ;; ReDim v(1 To 3, 1 To 3) ;; v(1, 1) = 7 ;; ReDim v(5 To 2, 5 To 4)", "TypeName(v) ;; v(1, 1)", "9|Variant()|7",
+        DisplayName = "I06 a Variant, one dimension further below and the next one below")]
     [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim Preserve v(5 To 4)", "UBound(v)", "9|10", DisplayName = "F12 a Variant, Preserve one below")]
     [DataRow("Dim v As Variant ;; ReDim v(5 To 10) ;; v(5) = 3 ;; ReDim Preserve v(5 To 2)", "TypeName(v) ;; UBound(v)", "9|Variant()|10", DisplayName = "F13 a Variant, Preserve further below")]
     public async Task WhatAnUpperBoundBelowTheLower_LeavesTheVariableWith(string statements, string reads, string expected)

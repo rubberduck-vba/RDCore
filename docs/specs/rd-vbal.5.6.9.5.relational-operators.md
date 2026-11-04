@@ -146,6 +146,10 @@ calls the comparison "numeric" and names no type. These results were measured in
 |a `String` `"2.5"`|`2`|`=`|`False`|`True`|
 |a `Variant` `"2.5"`|`2.5`, a `Double`, a `Currency` of `2.5`|`=`|`True`|`True`|
 |a `Variant` `"2.5"`|`True`|`=`|`True`, compared as `Boolean` values, as the table says|`True`|
+|a `Variant` or a `String` `"2.00001"`|a `Currency` of `2`|`=`|`True`, compared as `Currency` values, to 4 decimals, as the table says|`True`|
+|a `Variant` `"9007199254740993"`|a `Decimal` of `9007199254740992`|`=`|`False`, compared as `Decimal` values, as the table says|`False`|
+
+A `Currency` and a `Decimal` keep the table's types (`oracle\s56` I02-I04).
 
 A `Variant` `String` compared with a `Single` or a `LongLong` is compared as `Double` values too (`oracle\s56` H02-H04):
 

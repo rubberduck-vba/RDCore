@@ -118,9 +118,11 @@ the conversion makes a `Case Is` clause a different comparison from that express
 [`RDC11014`](../diagnostics/rdc11014.md), a warning that stands in for the comparison the specification states.
 
 The runtime states it as a `CaseClauseStatementFact` with `CaseClauseSemanticFlags.ComparedInSelectorType`: the
-conversion is stated when the relational operator's effective type for the two
-([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md)) is not the selector's type. With `n As Long`,
-`Case Is < 5` is not stated: an `Integer` compared with a `Long` is compared as a `Long` either way.
+conversion is stated when the effective type **MS-VBAL §5.6.9.5**'s table gives the two is not the selector's type. With `n As Long`,
+`Case Is < 5` is not stated: an `Integer` compared with a `Long` is compared as a `Long` either way. Nor is `Case Is < "5"` with
+`i As Integer`: the table compares the two as `Integer` values, as the clause is. MS-VBA compares the expression `i < "5"` as `Double` values
+([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md#a-string-compared-with-a-byte-an-integer-or-a-long)), and
+that departure is the expression's, not the clause's.
 
 ## Implementation
 

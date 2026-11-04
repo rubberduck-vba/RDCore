@@ -90,4 +90,13 @@ public sealed class VariantComparedWithStringTests
         new[] { "False", "True", "0" }, DisplayName = "H04 a LongLong")]
     public async Task AVariantStringComparedWithASingleOrALongLong_IsComparedAsADouble(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
+
+    // a Currency and a Decimal keep the table's types: a String is let-coerced to Currency, to 4 decimals, and to Decimal, exact (oracle\s56 I02-I04).
+    [TestMethod]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.00001\"", "Dim c As Currency: c = 2", "Debug.Print v = c", "Debug.Print v > c", "Dim s As String: s = \"2.00001\"", "Debug.Print s = c" },
+        new[] { "True", "False", "True", "0" }, DisplayName = "I02 a Currency")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.00001\"", "Debug.Print v = CDec(2)", "Debug.Print v > CDec(2)", "v = \"9007199254740993\"", "Debug.Print v = CDec(\"9007199254740992\")" },
+        new[] { "False", "True", "False", "0" }, DisplayName = "I03, I04 a Decimal")]
+    public async Task AStringComparedWithACurrencyOrADecimal_IsComparedInItsType(string[] body, string[] printed)
+        => CollectionAssert.AreEqual(printed, await RunAsync(body));
 }

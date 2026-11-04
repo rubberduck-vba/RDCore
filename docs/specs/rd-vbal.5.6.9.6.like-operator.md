@@ -115,7 +115,8 @@ The analysis states each of these as a fact of the operation: `ComparisonOperato
 Where MS-VBAL is silent or leaves a choice to the implementation, RD-VBA does what MS-VBA does, and nothing is reported:
 
 - A `]` right after `[` or `[!` closes the list.
-- `#` matches the digits `0` to `9` and their fullwidth forms only. A list `[0-9]` matches no fullwidth digit.
+- `#` matches the digits `0` to `9` and their fullwidth forms only. A list `[0-9]` matches no fullwidth digit, and a fullwidth digit is not
+  the digit it stands for: `"１" Like "1"` is `False`. That holds under `Option Compare Text` as under `Binary` (`oracle\s56` R15, I01, I01t).
 - `?` and `*` match a line feed.
 - Text mode ignores case by the regional settings, only where the case maps both ways, and ignores no accent. It expands `æ`, `œ`, `ß` and
   `þ`. MS-VBAL leaves text collation to the regional settings.

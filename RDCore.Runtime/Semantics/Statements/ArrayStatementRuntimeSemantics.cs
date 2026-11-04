@@ -495,6 +495,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
         var optionBase = session.CallStack.Current?.Directives.Base ?? 0;
 
         var evaluated = new (int, int)[declared.Dimensions.Length];
+        var invertedFailure = RuntimeExecutionOutcome.Next;
         for (var dimension = 0; dimension < declared.Dimensions.Length; dimension++)
         {
             var spec = declared.Dimensions[dimension];
@@ -523,19 +524,30 @@ public sealed record class ArrayStatementRuntimeSemantics(
             {
                 // inverted bounds are error 9 - unless a bound is not known: the one it assumes may be what inverts them. The array then has
                 // the one element its lower bound gives it, which nothing read from it relies on. An upper bound one below the lower gives the
-                // dimension no element, which a Variant is told apart by.
+                // dimension no element, which a Variant is told apart by: any dimension of it, the second deciding in I06 (oracle\s56 I05, I06):
+                // every bound is evaluated, then the first inverted dimension's error raised.
                 if (dimensionKnown)
                 {
-                    inverted = true;
-                    oneBelow = upper == lower - 1;
-                    failure = Failed(redim, VBRuntimeErrorId.SubscriptOutOfRange, $"{lower} To {upper}");
-                    return false;
+                    oneBelow |= upper == lower - 1;
+                    if (!inverted)
+                    {
+                        inverted = true;
+                        invertedFailure = Failed(redim, VBRuntimeErrorId.SubscriptOutOfRange, $"{lower} To {upper}");
+                    }
+
+                    continue;
                 }
 
                 upper = lower;
             }
 
             evaluated[dimension] = (lower, upper);
+        }
+
+        if (inverted)
+        {
+            failure = invertedFailure;
+            return false;
         }
 
         bounds = evaluated;
