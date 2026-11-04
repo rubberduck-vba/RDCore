@@ -139,12 +139,32 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
+        StringAssert.Contains(WholeLogOf(platform.Root), "OmniSharp.Extensions.", "what OmniSharp's own container logs is in the language server's file as well");
         await platform.ShutdownAsync(6);
+    }
 
-        // a clean start and a clean shutdown log no fault: not the messages held until the client was initialized, nor the input read as it was completed.
-        var log = WholeLogOf(platform.Root);
-        Assert.DoesNotContain("Tried to send", log);
-        Assert.DoesNotContain("Reading is not allowed", log);
+    // a clean start and a clean shutdown log no fault: not the messages held until the client was initialized, nor the input read as it was completed. What
+    // OmniSharp's own container logs reaches each server's file. A log is read once its server has exited, and its file log is flushed: the language server
+    // exits once the parse server it started has.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task AServerStartedThenShutDown_LogsNoFault_AndWhatItsConnectionLogsReachesItsFile()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        await platform.ShutdownAsync(2);
+
+        foreach (var component in new[] { "RDCore.LanguageServer", "RDCore.ParseServer" })
+        {
+            var log = WholeLogOf(platform.Root, component);
+            StringAssert.Contains(log, "OmniSharp.Extensions.", $"what OmniSharp's own container logs is in the file of {component}");
+            Assert.DoesNotContain("Tried to send", log, component);
+            Assert.DoesNotContain("Reading is not allowed", log, component);
+        }
     }
 
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
@@ -393,12 +413,12 @@ public sealed class ClientWithoutOmniSharpTests
     // the end of the language server's log, which says what it did with what it was sent.
     private static string LogOf(string root) => string.Join('\n', WholeLogOf(root).Split('\n').TakeLast(60));
 
-    private static string WholeLogOf(string root)
+    private static string WholeLogOf(string root, string component = "RDCore.LanguageServer")
     {
-        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, "RDCore.LanguageServer*.log", SearchOption.AllDirectories).ToArray() : [];
+        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).ToArray() : [];
         if (logs.Length == 0)
         {
-            return "(no language server log)";
+            return $"(no {component} log)";
         }
 
         using var stream = new FileStream(logs[0], FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);

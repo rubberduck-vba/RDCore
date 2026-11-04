@@ -20,7 +20,14 @@ public static class DeferredOutputLogging
     /// <summary>
     /// Logs only the errors of the category that warns of a message held until the client is initialized (<see cref="Category"/>).
     /// </summary>
+    /// <remarks>
+    /// A component's file log (<c>AddFile</c>) comes with a rule of its own for every category, and a rule of a provider is chosen over one that names only the
+    /// category: the file log is given the category's rule as well.
+    /// </remarks>
     /// <param name="builder">The logging of the language server's container.</param>
     /// <returns>The same builder.</returns>
-    public static ILoggingBuilder WithoutDeferredOutputWarnings(this ILoggingBuilder builder) => builder.AddFilter(Category, LogLevel.Error);
+    public static ILoggingBuilder WithoutDeferredOutputWarnings(this ILoggingBuilder builder)
+        => builder
+            .AddFilter(Category, LogLevel.Error)
+            .AddFilter<Serilog.Extensions.Logging.SerilogLoggerProvider>(Category, LogLevel.Error);
 }

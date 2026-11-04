@@ -45,7 +45,9 @@ public class AppHostRegistrationTests
             provider.GetRequiredService<IRDCoreServerProcess>());
     }
 
+    // only Windows has the event log: elsewhere the generic host adds no provider of it, and there is nothing to remove.
     [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void AComponent_DoesNotLogToTheWindowsEventLog()
     {
         // the services as the generic host makes them, which on Windows log warnings and errors to the Application event log.
@@ -58,8 +60,11 @@ public class AppHostRegistrationTests
             && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider)));
     }
 
+    // a component's file log has a rule of its own for every category, which is chosen over one that names only the category.
     [TestMethod]
-    public void AComponent_DoesNotLogTheWarningOfAMessageHeldUntilTheClientIsInitialized()
+    [DataRow(false, DisplayName = "a component without a file log")]
+    [DataRow(true, DisplayName = "a component with its file log")]
+    public void AComponent_DoesNotLogTheWarningOfAMessageHeldUntilTheClientIsInitialized(bool fileLog)
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder().Build();
@@ -71,7 +76,7 @@ public class AppHostRegistrationTests
         var everything = Substitute.For<ILoggerProvider>();
         everything.CreateLogger(Arg.Any<string>()).Returns(writesEverything);
         services.AddLogging(builder => builder.AddProvider(everything));
-        new TestAppHost().Configure(services, configuration);
+        new TestAppHost(fileLog ? $"rdcore-tests-held-warning-{Guid.NewGuid():N}.log" : null).Configure(services, configuration);
 
         using var provider = services.BuildServiceProvider();
         var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger(RDCore.SDK.Server.Logging.DeferredOutputLogging.Category);
@@ -81,8 +86,10 @@ public class AppHostRegistrationTests
     }
 
     // exposes AppHost's protected external-service registration for assertions.
-    private sealed class TestAppHost : AppHost<TestAppHost.FakeApp>
+    private sealed class TestAppHost(string? logFileName = null) : AppHost<TestAppHost.FakeApp>
     {
+        protected override string? LogFileName => logFileName;
+
         public void Configure(IServiceCollection services, IConfiguration configuration)
             => ConfigureExternalServices(services, configuration);
 
