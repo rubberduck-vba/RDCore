@@ -110,10 +110,11 @@ public sealed class UnattendedRunTests
         return buffer.ToArray();
     }
 
-    // MVVM's ExampleView - its designer and the attributes of the module - with no code behind it.
+    // MVVM's ExampleView - its designer and the attributes of the module - with no code behind it. The file is read with the VBE's CRLF whatever the checkout
+    // made of it: git stores it with LF, and checks it out with LF on Linux, where a header split at CRLF has no attributes - no VB_PredeclaredId, no ExampleView.
     private static (string Name, string Source, FormDescriptor Designer) ExampleView()
     {
-        var frm = Encoding.UTF8.GetString(Fixture("ExampleView.frm"));
+        var frm = Encoding.UTF8.GetString(Fixture("ExampleView.frm")).ReplaceLineEndings("\r\n");
         var lines = frm.Split("\r\n");
         var header = string.Join("\r\n", lines.Take(Array.FindLastIndex(lines, line => line.StartsWith("Attribute VB_", StringComparison.Ordinal)) + 1));
         return ("ExampleView", header + "\r\nOption Explicit\r\n", FormDesigner.Read(frm, Fixture("ExampleView.frx"))!);
@@ -158,7 +159,6 @@ public sealed class UnattendedRunTests
     }
 
     [TestMethod]
-    [Ignore("MG20261031: Tests passed locally on Windows, failed on CI (Linux) with VBR00424, expected VBR50001 | modal: VBR00449")]
     [DataRow("ExampleView.Show", DisplayName = "Show, modal")]
     [DataRow("ExampleView.Show vbModal", DisplayName = "Show vbModal")]
     [DataRow("ExampleView.Show vbModeless", DisplayName = "Show vbModeless")]
@@ -177,7 +177,6 @@ public sealed class UnattendedRunTests
 
     // the forms of a program that an external host hosts (rdc's automation host): the run fails before the host is asked for one.
     [TestMethod]
-    [Ignore("MG20261031: Tests passed locally on Windows, failed on CI (Linux) with VBR00424, expected VBR50001")]
     public async Task AFormOfTheExternalHost_FailsTheRun_BeforeTheHostIsAsked()
     {
         using var host = ExternalHosts.New();
