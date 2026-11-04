@@ -4,7 +4,9 @@ using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
@@ -54,6 +56,10 @@ public sealed class CompiledActivation : ILightActivation
     private ScalarPayload _result;
     private bool _hasResult;
 
+    // the cell of each slot held in one (CompiledBody.CellSlots), by its number: what compiled code reads and writes the variable in, and what the frame
+    // holds, given it as soon as there is one (TakeReference).
+    private readonly object?[] _cells;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body, RuntimeProcedureInvoker invoker)
         : this(session, list, executor, context, body, invoker, procedure: null)
@@ -69,12 +75,14 @@ public sealed class CompiledActivation : ILightActivation
         (_session, _list, _executor, _context, _body, _invoker, _procedure) = (session, list, executor, context, body, invoker, procedure);
         _halt = session.Halt;
         _stack = session.CallStack as RuntimeCallStack;
+        _cells = body.CellSlots.Count == 0 ? [] : new object?[body.CellSlots.Count];
         Begin();
     }
 
     // what every activation begins with, one made again too (EnterDirectly).
     private void Begin()
     {
+        Array.Clear(_cells);
         _scopes = _session.Symbols.Scopes;
         (_pc, _hasResult, _failed) = (0, false, null);
         _untilPoll = PollInterval;
@@ -95,8 +103,122 @@ public sealed class CompiledActivation : ILightActivation
             frame.AssignResult(_result);
         }
 
+        for (var number = 0; number < _cells.Length; number++)
+        {
+            Hold(frame, number);
+        }
+
         return frame;
     }
+
+    // the frame given the cell numbered number, when it has none for its slot: a parameter passed by reference's is its caller's variable, which the frame
+    // has a second name for (PushAlias); any other is the activation's own.
+    private void Hold(CallStackFrame frame, int number)
+    {
+        var slot = _body.CellSlots[number];
+        if (_cells[number] is not ScalarCell cell || frame.IsSlotFilled(slot))
+        {
+            return;
+        }
+
+        var symbol = _body.SlotSymbols[slot];
+        if (symbol is VBParameterSymbol parameter && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
+        {
+            frame.PushAlias(symbol, cell, slot);
+        }
+        else
+        {
+            frame.PushCell(symbol, cell, slot);
+        }
+    }
+
+    /// <summary>
+    /// Holds <paramref name="cell"/>, the argument of a parameter passed by reference - its caller's variable, or a cell of its own a value was copied into -
+    /// as the cell numbered <paramref name="number"/>: the frame has the parameter as a second name for it, now or when it is made.
+    /// </summary>
+    public void TakeReference(int number, object cell)
+    {
+        _cells[number] = cell;
+        if (_frame is { } frame)
+        {
+            Hold(frame, number);
+        }
+    }
+
+    /// <summary>
+    /// The cell numbered <paramref name="number"/>, of a slot of an integral kind that is not a parameter passed by reference: the frame's, when it holds
+    /// one for it - the cell an interpreted caller gave a parameter, a variable it declared - and one holding <paramref name="value"/> otherwise, which the
+    /// frame is given.
+    /// </summary>
+    /// <returns><see langword="null"/> when the frame holds the variable in no cell of its kind: the activation is then the interpreter's.</returns>
+    public object? CellOfIntegral(int number, long value) => CellOf(number, value, 0);
+
+    /// <summary>The cell numbered <paramref name="number"/>, of a slot of a floating-point kind (<see cref="CellOfIntegral"/>).</summary>
+    public object? CellOfFloating(int number, double value) => CellOf(number, 0, value);
+
+    private ScalarCell? CellOf(int number, long integral, double floating)
+    {
+        var slot = _body.CellSlots[number];
+        var type = ((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType;
+        if (_frame is { } frame && frame.IsSlotFilled(slot))
+        {
+            var held = frame.TryGetSlotCell(slot, out var cell) && cell is ScalarCell scalar && scalar.Type.Equals(type) ? scalar : null;
+            _cells[number] = held;
+            return held;
+        }
+
+        var made = ScalarCell.Of(new ScalarPayload(type, integral, floating));
+        TakeReference(number, made);
+        return made;
+    }
+
+    /// <summary>
+    /// The cell of the parameter passed by reference in <paramref name="slot"/>, as an interpreted caller gave it: its variable, or a cell its value was
+    /// copied into.
+    /// </summary>
+    /// <returns><see langword="false"/> when the parameter is bound to an address - a field, an element - which is the interpreter's to read.</returns>
+    public bool TryReadReference(int slot, out object? cell)
+    {
+        cell = Frame.TryGetSlotCell(slot, out var held) && held is ScalarCell scalar ? scalar : null;
+        return cell is not null;
+    }
+
+    /// <summary>The payload of a cell of an integral kind, when it holds one.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool ReadIntegral(object cell, out long value)
+    {
+        var read = Unsafe.As<ScalarCell>(cell).TryRead(out var payload);
+        value = payload.Integral;
+        return read;
+    }
+
+    /// <summary>The payload of a cell of a floating-point kind, when it holds one.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool ReadFloating(object cell, out double value)
+    {
+        var read = Unsafe.As<ScalarCell>(cell).TryRead(out var payload);
+        value = payload.Floating;
+        return read;
+    }
+
+    /// <summary>Writes a payload of the cell's integral kind into it.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteIntegral(object cell, long value)
+    {
+        var scalar = Unsafe.As<ScalarCell>(cell);
+        scalar.Write(new ScalarPayload(scalar.Type, value, 0));
+    }
+
+    /// <summary>Writes a payload of the cell's floating-point kind into it.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void WriteFloating(object cell, double value)
+    {
+        var scalar = Unsafe.As<ScalarCell>(cell);
+        scalar.Write(new ScalarPayload(scalar.Type, 0, value));
+    }
+
+    /// <summary>A cell of its own for the argument of a parameter passed by reference that is no variable, holding its value (MS-VBAL §5.3.1.11).</summary>
+    public static object NewCell(ScalarKind kind, long integral, double floating) => ScalarCell.Of(new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating));
 
     void ILightActivation.HeldIn(CallStackFrame frame)
     {
@@ -199,6 +321,23 @@ public sealed class CompiledActivation : ILightActivation
         _arguments[index] = (integral, floating);
     }
 
+    // the cells of the arguments of the call compiled code is making that are passed by reference, by index; none for one passed by value.
+    private object?[] _references = [];
+
+    /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a parameter passed by reference: the cell of the variable
+    /// given. A value given to such a parameter is given with <see cref="SetArgument"/>.
+    /// </summary>
+    public void SetReference(int index, object cell)
+    {
+        if (index >= _references.Length)
+        {
+            Array.Resize(ref _references, Math.Max(index + 1, _references.Length * 2));
+        }
+
+        _references[index] = cell;
+    }
+
     /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
     /// in its callee.
@@ -206,9 +345,11 @@ public sealed class CompiledActivation : ILightActivation
     public bool SpillsBeforeCalls => _halt.Gate is not null;
 
     /// <summary>
-    /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>), as the interpreter calls a
-    /// procedure every parameter of which is a scalar passed by value: the instruction at <paramref name="pc"/> is the one that makes the call, which the
-    /// frame says while the callee runs.
+    /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
+    /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
+    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>), and the value of anything else, of which the callee
+    /// makes a cell of its own: the instruction at <paramref name="pc"/> is the one that makes
+    /// the call, which the frame says while the callee runs.
     /// </summary>
     /// <returns>Whether the call returned: what it returned is then a payload of its kind. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>).</returns>
     public bool Call(int pc, int callee, out long integral, out double floating)
@@ -220,17 +361,12 @@ public sealed class CompiledActivation : ILightActivation
         var called = _body.Callees[callee];
         if (_executor.Expressions.ScalarInvokerOf(called.Procedure) is not { } invoker)
         {
+            ForgetReferences(called);
             return false;
         }
 
-        var arguments = new ScalarPayload[called.Parameters.Count];
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating);
-        }
-
         _suspensionsBeforeCall = Suspensions;
-        var result = invoker.InvokeScalars(called.Procedure, arguments);
+        var result = called.TakesReferences ? invoker.Invoke(called.Procedure, _session.Symbols.Resolver, ArgumentsOf(called)) : invoker.InvokeScalars(called.Procedure, PayloadsOf(called));
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
@@ -251,6 +387,42 @@ public sealed class CompiledActivation : ILightActivation
 
         (integral, floating) = (payload.Integral, payload.Floating);
         return true;
+    }
+
+    private ScalarPayload[] PayloadsOf(CompiledCallee called)
+    {
+        var arguments = new ScalarPayload[called.Parameters.Count];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating);
+        }
+
+        return arguments;
+    }
+
+    // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
+    // of which the callee makes a cell of its own when the parameter is passed by reference.
+    private IRuntimeValue[] ArgumentsOf(CompiledCallee called)
+    {
+        var arguments = new IRuntimeValue[called.Parameters.Count];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            arguments[i] = i < _references.Length && _references[i] is { } cell
+                ? new CellReference(Unsafe.As<ScalarCell>(cell))
+                : new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating).Box();
+        }
+
+        ForgetReferences(called);
+        return arguments;
+    }
+
+    // the cells given for a call are let go of once it is made, or once the interpreter is to make it: the next call is given its own.
+    private void ForgetReferences(CompiledCallee called)
+    {
+        if (called.TakesReferences)
+        {
+            Array.Clear(_references, 0, Math.Min(called.Parameters.Count, _references.Length));
+        }
     }
 
     /// <summary>
@@ -595,6 +767,12 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>The typed entry of the body: its compiled activation, then each parameter. Set once the body's type is created.</summary>
     public System.Reflection.MethodInfo? Entry { get; init; }
+
+    /// <summary>
+    /// The slots its activations hold in cells, by the number compiled code knows each cell by (<see cref="ProcedureAnalysis.CellSlots"/>): each parameter
+    /// passed by reference, and each parameter or variable the body passes by reference (IR lowering S2.3c).
+    /// </summary>
+    public IReadOnlyList<int> CellSlots { get; init; } = [];
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -

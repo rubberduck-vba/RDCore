@@ -12,7 +12,7 @@ A program does the same thing in either engine: what it prints, the errors it ra
 
 A procedure is compiled when it is a `Sub`, a `Function` or a `Property Get` of a standard module and its signature meets these conditions:
 
-- every parameter is a scalar passed `ByVal`;
+- every parameter is a scalar, passed `ByVal` or `ByRef`, and none is a `ParamArray`;
 - every variable is a scalar and none is `Static`;
 - a function returns a scalar.
 
@@ -25,13 +25,22 @@ Its body may contain only these:
 |Expressions|Literals, constants, the procedure's parameters and variables, the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types.|
 |Statements|`Let` of a variable or of the function's result.|
-|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure and not a `Boolean`; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`.|
+|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module whose parameters are scalars. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`.|
 
-Anything else keeps the procedure in the interpreter, for example an error handler, `GoTo`, `GoSub`, `With`, `Select Case` or `For Each`, or a call, a member, an
+Anything else keeps the procedure in the interpreter, for example an error handler, `GoTo`, `GoSub`, `With`, `Select Case` or `For Each`, a member, an
 element of an array, a `String` or a `Variant`. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled, and what keeps it in
 the interpreter.
 
-No procedure runs compiled under a debugger or during an analysis.
+No procedure runs compiled during an analysis. Under a debugger, compiled code writes its variables into its frame before each call, so the debugger sees
+every activation while the program waits.
+
+## Parameters passed by reference
+
+A `ByRef` parameter is a second name for its caller's variable (MS-VBAL §5.3.1.11) in either engine. Compiled code holds a `ByRef` parameter, and every
+variable it passes `ByRef`, in a cell for the whole activation, and the activation's frame holds the same cell. So what the callee writes, the caller reads.
+The same is true when either is handed to the interpreter, when a debugger reads or assigns the variable, and when the same variable is passed to two
+parameters. A parameter bound to something other than a variable's cell, such as a field or an element of an array, is the interpreter's from the start.
 
 ## The semantics are the interpreter's
 
@@ -58,7 +67,7 @@ activation under the debugger.
 |`ProcedureAnalysis`|Decides whether a procedure is compiled, and translates its instructions into the payload operations they are made of.|
 |`ProcedureEmitter`|Writes one static method per procedure, `Run(CompiledActivation)`, with an IL label for each instruction.|
 |`ProcedureCompiler`|Compiles each procedure on its first call, into one collectible assembly for each program image, and keeps the result for as long as the session's scopes are the same.|
-|`CompiledActivation`|What compiled code is given: its parameters, the poll, and the hand-over to the interpreter.|
+|`CompiledActivation`|What compiled code is given: its parameters, the cells of its `ByRef` variables, its calls, the poll, and the hand-over to the interpreter.|
 |`PayloadOperations`|The operations compiled code and the interpreter share.|
 |`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 
