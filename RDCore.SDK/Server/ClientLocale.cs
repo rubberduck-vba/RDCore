@@ -37,6 +37,12 @@ public static class ClientLocale
     public static string? Of(string? locale, Platform.Protocol.RDCoreInitializationOptions? initializationOptions)
         => !string.IsNullOrWhiteSpace(locale) ? locale : initializationOptions?.Locale;
 
+    // the request's own locale, which OmniSharp 0.19.9 gives its handlers none of: the one the receiver kept from the message (InitializeLocale).
+    internal static string? Said(OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer server, OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams request)
+        => !string.IsNullOrWhiteSpace(request.Locale)
+            ? request.Locale
+            : (server.Services.GetService(typeof(Services.InitializeLocale)) as Services.InitializeLocale)?.Locale;
+
     /// <summary>
     /// Makes the language a client says it shows the language of the user interface.
     /// </summary>
