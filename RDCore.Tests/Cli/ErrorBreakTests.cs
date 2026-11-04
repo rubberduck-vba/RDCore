@@ -43,7 +43,7 @@ public sealed class ErrorBreakTests
         "End Sub");
 
     // runs the program once as it is, and then again with the mode said.
-    private static Task RunAsync(string source, ErrorBreakMode mode, bool debug, Func<EnvironmentSessionProvider, ExecuteSessionResult, Task> test)
+    private static Task RunAsync(string source, ErrorBreakMode mode, bool debug, Func<EnvironmentSessionProvider, ExecuteResult, Task> test)
         => ModuleWorkspace.InspectAsync([], source, async (provider, first, again) =>
         {
             Assert.AreNotEqual(ExecutionOutcome.NotFound, first.Outcome, first.ErrorMessage);
@@ -51,7 +51,7 @@ public sealed class ErrorBreakTests
             await test(provider, await again());
         }, debug: debug);
 
-    private static Task<ExecuteSessionResult> ResumeAsync(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> ResumeAsync(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 

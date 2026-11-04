@@ -36,12 +36,12 @@ internal sealed class SessionExecuteHandler(
     IOptions<SdkAppOptions> options,
     ILogger<SessionExecuteHandler> logger,
     IEditStatusMonitor? editStatus = null)
-    : RDCoreRequestHandler<ExecuteSessionRequest, ExecuteSessionResult>
+    : RDCoreRequestHandler<SessionExecuteRequest, ExecuteResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
     private const int InvalidRequestCode = -32600;
 
-    protected override async Task<ExecuteSessionResult> HandleAsync(ExecuteSessionRequest request, CancellationToken token)
+    protected override async Task<ExecuteResult> HandleAsync(SessionExecuteRequest request, CancellationToken token)
     {
         if (!clientCapabilities.Expects(capabilities => capabilities.SessionExecute))
         {
@@ -62,7 +62,7 @@ internal sealed class SessionExecuteHandler(
         var parseResult = await parsing.ParseFragmentAsync(moduleUri, request.Source, token);
         if (!parseResult.IsSuccess || parseResult.SyntaxTree is null)
         {
-            return new ExecuteSessionResult
+            return new ExecuteResult
             {
                 Outcome = ExecutionOutcome.SyntaxError,
                 Diagnostics = [.. parseResult.SyntaxErrors.Select(error => error.Description)],
@@ -74,7 +74,7 @@ internal sealed class SessionExecuteHandler(
         moduleUri = await symbols.SyncModuleAsync(request.ModuleName, parseResult, token);
 
         await environment.WaitForReadyAsync(token);
-        var result = await environment.SendRequestAsync<HostExecuteParams, ExecuteSessionResult>(new HostExecuteParams
+        var result = await environment.SendRequestAsync<HostExecuteParams, ExecuteResult>(new HostExecuteParams
         {
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parseResult)),
             ModuleName = request.ModuleName,
@@ -101,6 +101,6 @@ internal sealed class SessionExecuteHandler(
         return result;
     }
 
-    private static ExecuteSessionResult NotFound(string reason)
+    private static ExecuteResult NotFound(string reason)
         => new() { Outcome = ExecutionOutcome.NotFound, ErrorMessage = reason };
 }

@@ -18,7 +18,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// A program that is running or waits keeps the session it runs in, and nothing is composed (<see cref="HostProjectReloadResult.IsProgramRunning"/>).
 /// </para>
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostProjectReload, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostProjectReload, Direction.ClientToServer)]
 public record class HostProjectReloadParams : IRequest, IRequest<HostProjectReloadResult>
 {
     /// <summary>

@@ -8,17 +8,17 @@ namespace RDCore.CLI.Host.Handlers;
 /// Handles <c>rdcore/host/memory/peek</c>: reads one byte of this host's runtime session memory.
 /// </summary>
 internal sealed class HostPeekHandler(IEnvironmentSessionProvider sessionProvider)
-    : RDCoreRequestHandler<HostPeekParams, PeekSessionResult>
+    : RDCoreRequestHandler<HostPeekParams, PeekResult>
 {
-    protected override Task<PeekSessionResult> HandleAsync(HostPeekParams request, CancellationToken token)
+    protected override Task<PeekResult> HandleAsync(HostPeekParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(new PeekSessionResult { Address = request.Address });
+            return Task.FromResult(new PeekResult { Address = request.Address });
         }
 
         var found = sessionProvider.Session.Storage.TryPeek(new MemoryAddress(request.Address), out var value);
-        return Task.FromResult(new PeekSessionResult
+        return Task.FromResult(new PeekResult
         {
             Address = request.Address,
             IsAllocated = found,
@@ -32,16 +32,16 @@ internal sealed class HostPeekHandler(IEnvironmentSessionProvider sessionProvide
 /// unchecked.
 /// </summary>
 internal sealed class HostPokeHandler(IEnvironmentSessionProvider sessionProvider)
-    : RDCoreRequestHandler<HostPokeParams, PokeSessionResult>
+    : RDCoreRequestHandler<HostPokeParams, PokeResult>
 {
-    protected override Task<PokeSessionResult> HandleAsync(HostPokeParams request, CancellationToken token)
+    protected override Task<PokeResult> HandleAsync(HostPokeParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(new PokeSessionResult { Address = request.Address });
+            return Task.FromResult(new PokeResult { Address = request.Address });
         }
 
         var written = sessionProvider.Session.Storage.TryPoke(new MemoryAddress(request.Address), request.Value);
-        return Task.FromResult(new PokeSessionResult { Address = request.Address, IsWritten = written });
+        return Task.FromResult(new PokeResult { Address = request.Address, IsWritten = written });
     }
 }

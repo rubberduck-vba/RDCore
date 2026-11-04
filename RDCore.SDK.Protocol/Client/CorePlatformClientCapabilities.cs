@@ -172,8 +172,8 @@ public class LanguageServerCapabilities
     public Unattended Unattended { get; set; } = new();
 
     /// <summary>
-    /// If supported, the language server asks the client for the indenter settings its user had in Rubberduck, over <c>rdcore/rubberduck-indenter-settings</c>, and
-    /// asks it to take the <c>Formatting</c> settings it mapped from them as its own, over <c>rdcore/rubberduck-indenter-settings/apply</c>.
+    /// If supported, the language server asks the client for the indenter settings its user had in Rubberduck, over <c>rdcore/formatting/indenterSettings</c>, and
+    /// asks it to take the <c>Formatting</c> settings it mapped from them as its own, over <c>rdcore/formatting/indenterSettings/apply</c>.
     /// </summary>
     public RubberduckIndenterSettings RubberduckIndenterSettings { get; set; } = new();
 }
@@ -317,8 +317,8 @@ public record class SessionInteraction(bool IsSupported = false) : CorePlatformC
 public record class Unattended(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
-/// Advertises that the language server asks the client for the indenter settings its user had in Rubberduck - <c>rdcore/rubberduck-indenter-settings</c> - and asks it to
-/// take the <c>Formatting</c> settings mapped from them as its own - <c>rdcore/rubberduck-indenter-settings/apply</c>; a client that expects it answers both.
+/// Advertises that the language server asks the client for the indenter settings its user had in Rubberduck - <c>rdcore/formatting/indenterSettings</c> - and asks it to
+/// take the <c>Formatting</c> settings mapped from them as its own - <c>rdcore/formatting/indenterSettings/apply</c>; a client that expects it answers both.
 /// </summary>
 /// <remarks>
 /// A client owns its configuration and the platform writes none of it: only a client that expects this is asked, and it stores what it applies as a change of its own.

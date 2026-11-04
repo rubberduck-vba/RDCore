@@ -8,7 +8,7 @@ using RDCore.Parsing;
 
 namespace RDCore.ParseServer.Handlers;
 
-[Method(RDCorePlatformProtocol.ParseTokens)]
+[Method(RDCoreComponentProtocol.ParseTokens)]
 public class ParseTokensHandler(ISyntaxTokenizer tokenizer, ILogger<ParseTokensHandler> logger)
     : RDCoreRequestHandler<ParseTokensParams, ParseTokensResult>
 {
@@ -16,7 +16,7 @@ public class ParseTokensHandler(ISyntaxTokenizer tokenizer, ILogger<ParseTokensH
     {
         if (request?.Text is not string text)
         {
-            logger.LogWarning("📥 {method}: request had no Text.", RDCorePlatformProtocol.ParseTokens);
+            logger.LogWarning("📥 {method}: request had no Text.", RDCoreComponentProtocol.ParseTokens);
             throw new InvalidParametersException(request);
         }
 

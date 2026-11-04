@@ -19,7 +19,7 @@ public sealed record class PlatformComponentContext(CoreServerComponent Componen
 /// capabilities its entry assembly declares via <c>[assembly: ProvidesCorePlatformClientCapability&lt;T&gt;]</c>,
 /// and records what the caller said it expects of this server.
 /// </summary>
-[Method(RDCorePlatformHandshake.Method, Direction.ClientToServer)]
+[Method(RDCorePlatformProtocol.PlatformInitialize, Direction.ClientToServer)]
 public class PlatformInitializeHandler(
     ILogger<IJsonRpcHandler> logger,
     PlatformComponentContext context,

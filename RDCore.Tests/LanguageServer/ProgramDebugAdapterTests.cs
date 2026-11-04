@@ -58,11 +58,11 @@ public sealed class ProgramDebugAdapterTests
             });
             Workspace.TryGetModule(Arg.Is<string>(path => path != Path), out Arg.Any<string>()).Returns(false);
             Debugging.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-                .Returns(call => Task.FromResult(new HostDebugBreakpointsResult
+                .Returns(call => Task.FromResult(new DebugBreakpointsResult
                 {
-                    Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint => new HostBreakpoint(breakpoint.Line, true))],
+                    Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint => new DebugBreakpoint(breakpoint.Line, true))],
                 }));
-            Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+            Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
             Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
             EditStatus = new EditStatusMonitor(Debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
             Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, NullLogger<ProgramDebugAdapter>.Instance);
@@ -149,10 +149,10 @@ public sealed class ProgramDebugAdapterTests
         }
     }
 
-    private static ExecuteSessionResult Suspended(params string[] output) => new() { Outcome = ExecutionOutcome.Suspended, Output = output };
+    private static ExecuteResult Suspended(params string[] output) => new() { Outcome = ExecutionOutcome.Suspended, Output = output };
 
-    private static HostDebugStackResult StackAt(int line, string module = "Prog", string procedure = "Main")
-        => new() { Frames = [new HostStackFrame(0, procedure, module, line, 4)] };
+    private static DebugStackResult StackAt(int line, string module = "Prog", string procedure = "Main")
+        => new() { Frames = [new DebugStackFrame(0, procedure, module, line, 4)] };
 
     // ---- initialize ----
 
@@ -276,7 +276,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         session.Debugging.SetBreakpointsAsync("Prog", Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(11, true, "expected an expression")], Judged = true }));
+            .Returns(Task.FromResult(new DebugBreakpointsResult { Breakpoints = [new DebugBreakpoint(11, true, "expected an expression")], Judged = true }));
         await session.StartAsync();
         await session.LaunchAsync();
 
@@ -295,7 +295,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         session.Debugging.SetBreakpointsAsync("Prog", Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(3, false)] }));
+            .Returns(Task.FromResult(new DebugBreakpointsResult { Breakpoints = [new DebugBreakpoint(3, false)] }));
         await session.StartAsync();
         await session.LaunchAsync();
 
@@ -361,7 +361,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task TheProgram_IsStartedWhenTheClientIsDoneConfiguring_AndTheClientIsAnsweredAtOnce()
     {
         await using var session = new Session();
-        var running = new TaskCompletionSource<ExecuteSessionResult>();
+        var running = new TaskCompletionSource<ExecuteResult>();
         var started = new TaskCompletionSource();
         session.Workspace.StartAsync("Prog", "Main", Arg.Any<CancellationToken>()).Returns(_ =>
         {
@@ -374,7 +374,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ConfigurationDoneArguments());
 
         await started.Task.WaitAsync(Patience);
-        running.SetResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
@@ -443,7 +443,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(
-            new ExecuteSessionResult { Outcome = ExecutionOutcome.Suspended, StreamedLines = 2 }));
+            new ExecuteResult { Outcome = ExecutionOutcome.Suspended, StreamedLines = 2 }));
         session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 12)));
         await session.StartAsync();
         await session.LaunchAsync();
@@ -488,7 +488,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed, Output = ["done"] }));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["done"] }));
 
         var response = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
 
@@ -541,7 +541,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task AProgramThatWaitsAtAnError_IsSaidToHaveStoppedOnAnException_AndTheClientCanAskWhich()
     {
         await using var session = new Session();
-        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteSessionResult
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.Suspended,
             ErrorNumber = 11,
@@ -580,9 +580,9 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        var running = new TaskCompletionSource<ExecuteSessionResult>();
+        var running = new TaskCompletionSource<ExecuteResult>();
         session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(running.Task);
-        session.Debugging.PauseAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck { Acted = true }));
+        session.Debugging.PauseAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true }));
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
 
         _ = await session.SendAsync(new PauseArguments { ThreadId = 1 });
@@ -610,7 +610,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()
     {
         await using var session = new Session();
-        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteSessionResult
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             ErrorNumber = 11,
@@ -638,8 +638,8 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed }));
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck()));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed }));
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck()));
 
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
         _ = await session.NextAsync<TerminatedEvent>();
@@ -657,7 +657,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" }));
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" }));
 
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
 
@@ -674,7 +674,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.ExecuteAsync(1, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true }));
+        session.Debugging.ExecuteAsync(1, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugEvaluateResult { Success = true }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "k = 5", FrameId = 1, Context = EvaluateArgumentsContext.Repl });
 
@@ -688,7 +688,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.ExecuteAsync(0, "k = 1 \\ 0", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Error = "Division by zero" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Error = "Division by zero" }));
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "k = 1 \\ 0", FrameId = 0, Context = EvaluateArgumentsContext.Repl }));
 
@@ -701,7 +701,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.ExecuteAsync(0, "?k + 1", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Output = [" 8 "] }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Output = [" 8 "] }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "?k + 1", FrameId = 0, Context = EvaluateArgumentsContext.Repl });
 
@@ -719,7 +719,7 @@ public sealed class ProgramDebugAdapterTests
         var context = kind == "watch" ? EvaluateArgumentsContext.Watch : EvaluateArgumentsContext.Hover;
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.EvaluateAsync(0, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "False", Type = "Boolean" }));
+        session.Debugging.EvaluateAsync(0, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "False", Type = "Boolean" }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "k = 5", FrameId = 0, Context = context });
 
@@ -732,7 +732,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck { Acted = true }));
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true }));
 
         _ = await session.SendAsync(new TerminateArguments());
 
@@ -746,7 +746,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck { Acted = true }));
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true }));
 
         _ = await session.SendAsync(new DisconnectArguments { TerminateDebuggee = true });
 
@@ -786,12 +786,12 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
             Frames =
             [
-                new HostStackFrame(0, "Helper", "Prog", 11, 4, Handler: "ErrHandler"),
-                new HostStackFrame(1, "Main", "Prog", 6, 4),
+                new DebugStackFrame(0, "Helper", "Prog", 11, 4, Handler: "ErrHandler"),
+                new DebugStackFrame(1, "Main", "Prog", 6, 4),
             ],
         }));
 
@@ -812,18 +812,18 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
             Frames =
             [
-                new HostStackFrame(0, "Helper", "Prog", 20, 4, ReturnLines: [14, 6]),
-                new HostStackFrame(1, "Main", "Prog", 3, 4),
+                new DebugStackFrame(0, "Helper", "Prog", 20, 4, ReturnLines: [14, 6]),
+                new DebugStackFrame(1, "Main", "Prog", 3, 4),
             ],
         }));
-        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugVariablesResult { Variables = [new HostVariable("k", "7", "Long")] }));
+        session.Debugging.VariablesAsync(0, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DebugVariablesResult { Variables = [new DebugVariable("k", "7", "Long")] }));
         session.Debugging.EvaluateAsync(0, "k", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "7", Type = "Long" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "7", Type = "Long" }));
 
         var stack = await session.SendAsync(new StackTraceArguments { ThreadId = 1 });
 
@@ -846,9 +846,9 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
-            Frames = [new HostStackFrame(0, "C", "Prog", 1, 0), new HostStackFrame(1, "B", "Prog", 1, 0), new HostStackFrame(2, "A", "Prog", 1, 0)],
+            Frames = [new DebugStackFrame(0, "C", "Prog", 1, 0), new DebugStackFrame(1, "B", "Prog", 1, 0), new DebugStackFrame(2, "A", "Prog", 1, 0)],
         }));
 
         var stack = await session.SendAsync(new StackTraceArguments { ThreadId = 1, StartFrame = 1, Levels = 1 });
@@ -862,9 +862,9 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.VariablesAsync(1, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        session.Debugging.VariablesAsync(1, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("k", "7", "Long"), new HostVariable("arr", "", "Long(1 To 2)", Reference: 5)],
+            Variables = [new DebugVariable("k", "7", "Long"), new DebugVariable("arr", "", "Long(1 To 2)", Reference: 5)],
         }));
 
         var scopes = await session.SendAsync(new ScopesArguments { FrameId = 1 });
@@ -882,13 +882,13 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        session.Debugging.VariablesAsync(0, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("arr", "", "Long(1 To 2)", Reference: 5)],
+            Variables = [new DebugVariable("arr", "", "Long(1 To 2)", Reference: 5)],
         }));
-        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 5, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        session.Debugging.VariablesAsync(0, DebugVariableScope.Locals, 5, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("(1)", "9", "Long"), new HostVariable("(2)", "8", "Long")],
+            Variables = [new DebugVariable("(1)", "9", "Long"), new DebugVariable("(2)", "8", "Long")],
         }));
         var scopes = await session.SendAsync(new ScopesArguments { FrameId = 0 });
         var locals = await session.SendAsync(new VariablesArguments { VariablesReference = scopes.Scopes.First().VariablesReference });
@@ -923,7 +923,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(1, "k + 1", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "8", Type = "Long" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "8", Type = "Long" }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "k + 1", FrameId = 1, Context = EvaluateArgumentsContext.Watch });
 
@@ -937,7 +937,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.EvaluateAsync(0, "1", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Integer" }));
+        session.Debugging.EvaluateAsync(0, "1", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "1", Type = "Integer" }));
 
         _ = await session.SendAsync(new EvaluateArguments { Expression = "1", Context = EvaluateArgumentsContext.Watch });
 
@@ -950,7 +950,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "Nope", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Error = "'Nope' is not defined" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Error = "'Nope' is not defined" }));
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "Nope", FrameId = 0 }));
 
@@ -963,7 +963,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "Noisy()", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Long", Output = ["from the call"] }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "1", Type = "Long", Output = ["from the call"] }));
 
         _ = await session.SendAsync(new EvaluateArguments { Expression = "Noisy()", FrameId = 0, Context = EvaluateArgumentsContext.Watch });
 
@@ -978,9 +978,9 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "arr", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Type = "Long(1 To 2)", Reference = 4 }));
-        session.Debugging.VariablesAsync(0, Arg.Any<HostVariableScope>(), 4, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugVariablesResult { Variables = [new HostVariable("(1)", "5", "Long")] }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Type = "Long(1 To 2)", Reference = 4 }));
+        session.Debugging.VariablesAsync(0, Arg.Any<DebugVariableScope>(), 4, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DebugVariablesResult { Variables = [new DebugVariable("(1)", "5", "Long")] }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "arr", FrameId = 0 });
         var parts = await session.SendAsync(new VariablesArguments { VariablesReference = response.VariablesReference });
@@ -1007,7 +1007,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.GotoAsync(13, null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true, Line = 13 }));
+        session.Debugging.GotoAsync(13, null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 13 }));
         var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 14 });
 
         _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = targets.Targets.Single().Id });
@@ -1023,7 +1023,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugGotoResult { Moved = false, Reason = "that line is in another procedure" }));
+            .Returns(Task.FromResult(new DebugGotoResult { Moved = false, Reason = "that line is in another procedure" }));
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 }));
 
@@ -1033,17 +1033,17 @@ public sealed class ProgramDebugAdapterTests
     // ---- edit and continue ----
 
 
-    private static readonly HostDebugEdit CalleeLocalRemoved = new()
+    private static readonly DebugEdit CalleeLocalRemoved = new()
     {
         Name = "Prog.Callee",
-        Kind = HostDebugEditKind.Restart,
+        Kind = DebugEditKind.Restart,
         Reason = "a local was removed",
         ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
         Range = new RDCore.SDK.Model.Source.SourceRange(new(3, 0), new(5, 7)),
     };
 
-    private static void Listing(Session session, params HostDebugEdit[] edits)
-        => session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult { Suspended = true, Edits = [.. edits] });
+    private static void Listing(Session session, params DebugEdit[] edits)
+        => session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [.. edits] });
 
     // what the adapter wrote before it answered a request it answers at once has come.
     private static async Task FlushedAsync(Session session) => _ = await session.SendAsync(new ThreadsArguments());
@@ -1092,10 +1092,10 @@ public sealed class ProgramDebugAdapterTests
         await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
     }
 
-    private static readonly HostDebugEdit CallerDoesNotCompile = new()
+    private static readonly DebugEdit CallerDoesNotCompile = new()
     {
         Name = "Prog.Caller",
-        Kind = HostDebugEditKind.DoesNotCompile,
+        Kind = DebugEditKind.DoesNotCompile,
         Reason = "Variable not defined",
         ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
         Range = new RDCore.SDK.Model.Source.SourceRange(new(7, 4), new(7, 14)),
@@ -1182,8 +1182,8 @@ public sealed class ProgramDebugAdapterTests
         Listing(session, CalleeLocalRemoved);
         await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
         Assert.HasCount(1, session.EditStatus.Current.Edits);
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck()));
-        session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck()));
+        session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
 
         _ = await session.SendAsync(new TerminateArguments());
 
@@ -1240,7 +1240,7 @@ public sealed class ProgramDebugAdapterTests
         var order = new List<string>();
         session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
         session.Debugging.When(debugging => debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())).Do(_ => order.Add("goto"));
-        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true }));
+        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true }));
 
         _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 });
 

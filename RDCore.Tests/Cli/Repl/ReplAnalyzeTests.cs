@@ -29,7 +29,7 @@ public sealed class ReplAnalyzeTests
         _program.Store(20, "y = ");
         _platform.Provides<SessionAnalyze>().Returns(true);
         _platform.AnalyzeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new AnalyzeSessionResult { Diagnostics = findings, Providers = 3 });
+            .Returns(new SessionAnalyzeResult { Diagnostics = findings, Providers = 3 });
         var workspace = await ReplWorkspace.CreateAsync(new MockFileSystem(), Substitute.For<IProjectFileWriter>());
         var context = new ReplCommandContext(_program, _console, _platform, new ReplDocument(_program, _platform, workspace), []);
 

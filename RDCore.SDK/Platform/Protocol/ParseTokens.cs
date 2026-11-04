@@ -12,7 +12,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// The answer is lexical and nothing else (<see cref="SyntaxTokenKind"/>): the parsing server is stateless, and what a name means is the language server's to
 /// add. It is how the text of a listing is highlighted, which the syntax tree cannot say - it keeps neither the keywords nor the comments.
 /// </remarks>
-[Method(RDCorePlatformProtocol.ParseTokens, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.ParseTokens, Direction.ClientToServer)]
 public record class ParseTokensParams : IRequest, IRequest<ParseTokensResult>
 {
     /// <summary>The URI of the document, which identifies it and does not say where its text comes from.</summary>

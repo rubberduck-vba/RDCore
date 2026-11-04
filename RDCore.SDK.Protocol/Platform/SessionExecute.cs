@@ -16,7 +16,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// program that will never finish on its own still stops.
 /// </para>
 /// </remarks>
-public record class ExecuteSessionParams
+public record class SessionExecuteParams
 {
     /// <summary>
     /// The complete source of the module to run — every procedure of it, not just the one being
@@ -52,7 +52,7 @@ public record class ExecuteSessionParams
 /// The result of a run. The same result answers both hops — the language server passes the host's
 /// answer back to the client unchanged, except for a parse that never reached the host at all.
 /// </summary>
-public record class ExecuteSessionResult
+public record class ExecuteResult
 {
     /// <summary>How the run ended.</summary>
     public ExecutionOutcome Outcome { get; init; }
@@ -106,7 +106,7 @@ public record class ExecuteSessionResult
     public string ErrorSource { get; init; } = string.Empty;
 
     /// <summary>
-    /// Where in the submitted <see cref="ExecuteSessionParams.Source"/> the error was raised, zero-based
+    /// Where in the submitted <see cref="SessionExecuteParams.Source"/> the error was raised, zero-based
     /// as every position in the platform is: the line, and <see cref="ErrorCharacter"/> within it. Both
     /// <c>-1</c> when the outcome is not a run-time error, or when nothing located it.
     /// </summary>

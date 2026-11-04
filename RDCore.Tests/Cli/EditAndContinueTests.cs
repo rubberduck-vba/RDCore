@@ -129,9 +129,9 @@ public sealed class EditAndContinueTests
     }
 
     // the program run to its Stop, the edits sent as the language server sends them - only the edited modules defined and loaded again - and the program resumed.
-    private static async Task<ExecuteSessionResult> EditedAtTheStopAsync(params string[] edits)
+    private static async Task<ExecuteResult> EditedAtTheStopAsync(params string[] edits)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -145,11 +145,11 @@ public sealed class EditAndContinueTests
         return resumed!;
     }
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
 
-    private static string[] Output(ExecuteSessionResult result) => [.. result.Output.Select(line => line.Trim())];
+    private static string[] Output(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
     [TestMethod]
     public async Task NoEdit_TheProgramGoesOnAsItWas()
@@ -164,7 +164,7 @@ public sealed class EditAndContinueTests
     public async Task EveryModuleDefinedAgain_WithNoEdit_TheProgramGoesOnWithWhatItHeld()
     {
         // a class's symbol is a new one each time its module is defined: a variable of the class still holds the object it held.
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             _ = await ModuleWorkspace.ReloadAsync(provider, ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, Program));
@@ -294,7 +294,7 @@ public sealed class EditAndContinueTests
         "the signature of a procedure the program is in", DisplayName = "the signature of the procedure the program is stopped in, which has a constant")]
     public async Task AConstantOfAProcedureTheProgramIsIn_Revalued_IsAValueItRead_NotItsSignature(string find, string replace, string reason)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -319,7 +319,7 @@ public sealed class EditAndContinueTests
             .Replace("    Outer = Inner(n) + K", "    Outer = n + K", StringComparison.Ordinal)
             .Replace("Private Function Inner(ByVal x As Long) As Long\r\n    Const J As Long = 1\r\n    Stop\r\n    Inner = x + J\r\nEnd Function\r\n", "", StringComparison.Ordinal);
         Assert.IsFalse(edited.Contains("Inner", StringComparison.Ordinal), "Inner, and its call, are removed");
-        HostDebugEditStatusResult? status = null;
+        DebugEditStatusResult? status = null;
         await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -329,14 +329,14 @@ public sealed class EditAndContinueTests
 
         var listed = string.Join("; ", status!.Edits.Select(edit => $"{edit.Name}: {edit.Reason}"));
         var inner = status.Edits.Single(edit => edit.Name == "Program.Inner");
-        Assert.AreEqual((HostDebugEditKind.Restart, "a procedure the program is in, removed"), (inner.Kind, inner.Reason), listed);
+        Assert.AreEqual((DebugEditKind.Restart, "a procedure the program is in, removed"), (inner.Kind, inner.Reason), listed);
         Assert.IsFalse(status.Edits.Any(edit => edit.Reason.Contains("signature", StringComparison.Ordinal)), listed);
     }
 
     [TestMethod]
     public async Task AConstantOfAProcedureTheProgramIsNotIn_Revalued_IsApplied()
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], LocalConstants, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -368,7 +368,7 @@ public sealed class EditAndContinueTests
             "    Value = 5",
             "    Debug.Print \"main:\" & Value",
             "End Sub");
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -455,7 +455,7 @@ public sealed class EditAndContinueTests
             "End Sub");
         var edited = program
             .Replace("    Stop\r\n", "    Dim o As D\r\n    Stop\r\n    Set o = New D\r\n", StringComparison.Ordinal);
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([("D", owned)], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -468,9 +468,9 @@ public sealed class EditAndContinueTests
     }
 
     // a program of one module run to its Stop, edited into another, and resumed.
-    private static async Task<ExecuteSessionResult> ProgramEditedAtItsStopAsync(string program, string edited)
+    private static async Task<ExecuteResult> ProgramEditedAtItsStopAsync(string program, string edited)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -635,9 +635,9 @@ public sealed class EditAndContinueTests
     }
 
     // the program, and a module beside it, run to the program's Stop; the module edited into another, alone, as the language server sends it; and resumed.
-    private static async Task<ExecuteSessionResult> OtherModuleEditedAtTheStopAsync(string other, string edited, string program)
+    private static async Task<ExecuteResult> OtherModuleEditedAtTheStopAsync(string other, string edited, string program)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectWithModulesAsync([("Other", other)], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -753,8 +753,8 @@ public sealed class EditAndContinueTests
     public async Task AVariableRetypedWhileTheProgramWaits_IsHeld_AndTheEditTakenBack_GoesOnWithItsValue(string edit, string reason)
     {
         var retyped = Edited(Program, [edit], "Program");
-        HostDebugEditStatusResult? status = null;
-        ExecuteSessionResult? whileRetyped = null, takenBack = null;
+        DebugEditStatusResult? status = null;
+        ExecuteResult? whileRetyped = null, takenBack = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, retyped));
@@ -765,7 +765,7 @@ public sealed class EditAndContinueTests
         }, debug: true);
 
         var held = Assert.ContainsSingle(status!.Edits, string.Join("; ", status.Edits.Select(listed => $"{listed.Name} ({listed.Reason})")));
-        Assert.AreEqual(HostDebugEditKind.Restart, held.Kind);
+        Assert.AreEqual(DebugEditKind.Restart, held.Kind);
         StringAssert.Contains(held.Reason, reason);
         Assert.AreEqual(ExecutionOutcome.Refused, whileRetyped!.Outcome, whileRetyped.ErrorMessage);
         Assert.AreEqual(ExecutionOutcome.Completed, takenBack!.Outcome, takenBack.ErrorMessage);
@@ -773,7 +773,7 @@ public sealed class EditAndContinueTests
     }
 
     // a run of the program as the language server makes it: the module's source as it reads now, parsed, in the request.
-    private static Task<ExecuteSessionResult> RunWithAsync(EnvironmentSessionProvider provider, string source)
+    private static Task<ExecuteResult> RunWithAsync(EnvironmentSessionProvider provider, string source)
     {
         var uri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Program" }.Uri;
         var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), source);
@@ -802,7 +802,7 @@ public sealed class EditAndContinueTests
             "    Debug.Print \"G=\" & G & \" \" & TypeName(G)",
             "End Sub");
         var edited = program.Replace("G As Long", "G As Integer", StringComparison.Ordinal);
-        ExecuteSessionResult? again = null, done = null;
+        ExecuteResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -838,8 +838,8 @@ public sealed class EditAndContinueTests
             "    Stop",
             "    Debug.Print \"G=\" & G.Count",
             "End Sub");
-        HostDebugEditStatusResult? status = null;
-        ExecuteSessionResult? again = null, done = null;
+        DebugEditStatusResult? status = null;
+        ExecuteResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -850,7 +850,7 @@ public sealed class EditAndContinueTests
         }, debug: true);
 
         var held = Assert.ContainsSingle(status!.Edits, string.Join("; ", status.Edits.Select(listed => $"{listed.Name} ({listed.Reason})")));
-        Assert.AreEqual(("Program.G", HostDebugEditKind.Restart), (held.Name, held.Kind));
+        Assert.AreEqual(("Program.G", DebugEditKind.Restart), (held.Name, held.Kind));
         Assert.AreEqual(ExecutionOutcome.Suspended, again!.Outcome, string.Join("; ", again.Diagnostics ?? []));
         Assert.AreEqual(ExecutionOutcome.Completed, done!.Outcome, done.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "G=0" }, Output(done));
@@ -879,8 +879,8 @@ public sealed class EditAndContinueTests
     [TestMethod]
     public async Task ATypeGivenAFieldWhileTheProgramHoldsAValueOfIt_IsHeld_AndTheEditTakenBack_GoesOn()
     {
-        HostDebugEditStatusResult? status = null;
-        ExecuteSessionResult? refused = null, takenBack = null;
+        DebugEditStatusResult? status = null;
+        ExecuteResult? refused = null, takenBack = null;
         await ModuleWorkspace.InspectAsync([], Recording, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -892,7 +892,7 @@ public sealed class EditAndContinueTests
         }, debug: true);
 
         var held = Assert.ContainsSingle(status!.Edits, string.Join("; ", status.Edits.Select(listed => $"{listed.Name} ({listed.Reason})")));
-        Assert.AreEqual(("Program.P", HostDebugEditKind.Restart), (held.Name, held.Kind));
+        Assert.AreEqual(("Program.P", DebugEditKind.Restart), (held.Name, held.Kind));
         StringAssert.Contains(held.Reason, "a Type whose values the program may hold, given other fields");
         Assert.AreEqual(ExecutionOutcome.Refused, refused!.Outcome, refused.ErrorMessage);
         Assert.AreEqual(ExecutionOutcome.Completed, takenBack!.Outcome, takenBack.ErrorMessage);
@@ -904,7 +904,7 @@ public sealed class EditAndContinueTests
     [TestMethod]
     public async Task ATypeHeldWhileTheProgramWaited_IsAppliedWithWhatWasDefinedAgainstIt_WhenTheProgramIsRunAgain()
     {
-        ExecuteSessionResult? again = null, done = null;
+        ExecuteResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([], Recording, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -939,7 +939,7 @@ public sealed class EditAndContinueTests
             "End Sub");
         var edited = program.Replace("    X As Long\r\n", "    X As Long\r\n    Y As String\r\n", StringComparison.Ordinal)
             .Replace("\"X=\" & s.X", "\"X=\" & s.X & \" Y=[\" & s.Y & \"]\"", StringComparison.Ordinal);
-        ExecuteSessionResult? again = null, done = null;
+        ExecuteResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -981,7 +981,7 @@ public sealed class EditAndContinueTests
             "End Sub");
         var editedProgram = program.Replace("    X As Long\r\n", "    X As Long\r\n    Y As String\r\n", StringComparison.Ordinal);
         var editedHolder = holder.Replace("\"X=\" & V.X", "\"X=\" & V.X & \" Y=[\" & V.Y & \"]\"", StringComparison.Ordinal);
-        ExecuteSessionResult? again = null, done = null;
+        ExecuteResult? again = null, done = null;
         await ModuleWorkspace.InspectAsync([("C", holder)], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1013,7 +1013,7 @@ public sealed class EditAndContinueTests
             "    Mod2.Show",
             "End Sub");
         var edited = program.Replace("    X As Long\r\n", "    Z As Long\r\n", StringComparison.Ordinal).Replace("    R.X = 1\r\n", "    R.Z = 1\r\n", StringComparison.Ordinal);
-        ExecuteSessionResult? again = null;
+        ExecuteResult? again = null;
         await ModuleWorkspace.InspectWithModulesAsync([("Mod2", shown)], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1052,7 +1052,7 @@ public sealed class EditAndContinueTests
             "    End If",
             "End Sub");
         var edited = program.Replace("Held As D", "Held As Object", StringComparison.Ordinal);
-        ExecuteSessionResult? again = null;
+        ExecuteResult? again = null;
         await ModuleWorkspace.InspectAsync([("D", owned)], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1086,7 +1086,7 @@ public sealed class EditAndContinueTests
     public async Task AStaticRetyped_IsOfItsNewType_WhenTheProgramIsRunAgain(bool whileWaiting)
     {
         var edited = Counting("Integer");
-        ExecuteSessionResult? first = null, again = null, done = null;
+        ExecuteResult? first = null, again = null, done = null;
         await ModuleWorkspace.InspectAsync([], Counting("Long"), async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1138,7 +1138,7 @@ public sealed class EditAndContinueTests
             "    Stop",
             "    Debug.Print X.Count",
             "End Sub");
-        ExecuteSessionResult? first = null, again = null, done = null;
+        ExecuteResult? first = null, again = null, done = null;
         await ModuleWorkspace.InspectAsync([("D", CountingClass("Long"))], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1185,13 +1185,13 @@ public sealed class EditAndContinueTests
             "    Debug.Print \"main:end\"",
             "End Sub");
         string? whileWaiting = null;
-        ExecuteSessionResult? takenBack = null;
+        ExecuteResult? takenBack = null;
         await ModuleWorkspace.InspectAsync([("D", owned)], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("D", ModuleType.ClassModule, owned),
                 ("Program", ModuleType.StdModule, program.Replace("Held As D", "Held As Object", StringComparison.Ordinal)));
-            whileWaiting = provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Single(variable => variable.Name == "Terminated").Value;
+            whileWaiting = provider.Execution.Variables(0, DebugVariableScope.Module, 0).Variables.Single(variable => variable.Name == "Terminated").Value;
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("D", ModuleType.ClassModule, owned), ("Program", ModuleType.StdModule, program));
             takenBack = await Resume(provider);
         }, debug: true);
@@ -1202,9 +1202,9 @@ public sealed class EditAndContinueTests
     }
 
     // a program of one module run to its Stop, made to wait where `before` makes it, edited into another, and resumed.
-    private static async Task<ExecuteSessionResult> EditedWhereItWaitsAsync(string program, string edited, Func<EnvironmentSessionProvider, Task<ExecuteSessionResult>> before)
+    private static async Task<ExecuteResult> EditedWhereItWaitsAsync(string program, string edited, Func<EnvironmentSessionProvider, Task<ExecuteResult>> before)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1217,7 +1217,7 @@ public sealed class EditAndContinueTests
         return resumed!;
     }
 
-    private static Task<ExecuteSessionResult> AtTheNextErrorAsync(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> AtTheNextErrorAsync(EnvironmentSessionProvider provider)
     {
         provider.Execution.SetErrorBreak(ErrorBreakMode.All);
         return Resume(provider);
@@ -1343,7 +1343,7 @@ public sealed class EditAndContinueTests
     public async Task AProgramThatWaitsAtAnErrorNothingCatches_RunsTheStatementThatRaisedItAgain_AndWaitsAgain()
     {
         var program = Lines("Option Explicit", "Public Sub Main()", "    Dim d As Long", "    Dim r As Double", "    Stop", "    r = 10 / d", "    Debug.Print \"r=\" & r", "End Sub");
-        ExecuteSessionResult? first = null, again = null;
+        ExecuteResult? first = null, again = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             provider.Execution.SetErrorBreak(ErrorBreakMode.Unhandled);
@@ -1361,7 +1361,7 @@ public sealed class EditAndContinueTests
     {
         var program = Lines("Option Explicit", "Public Sub Main()", "    Dim d As Long", "    Dim r As Double", "    Stop", "    r = 10 / d",
             "    Debug.Print \"r=\" & r & \" err=\" & Err.Number", "End Sub");
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             provider.Execution.SetErrorBreak(ErrorBreakMode.Unhandled);
@@ -1466,7 +1466,7 @@ public sealed class EditAndContinueTests
         CollectionAssert.AreEqual(new[] { "h2-edited 5", "after 0" }, Output(resumed));
     }
 
-    private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
+    private static Task<DebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
         => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams
         {
             ModuleName = "Program",
@@ -1485,7 +1485,7 @@ public sealed class EditAndContinueTests
             "    x = 1",
             "    Debug.Print \"x=\" & x",
             "End Sub");
-        ExecuteSessionResult? hit = null, resumed = null;
+        ExecuteResult? hit = null, resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, stopped, runAgain) =>
         {
             _ = await SetBreakpoints(provider, 4);
@@ -1505,7 +1505,7 @@ public sealed class EditAndContinueTests
     {
         var edited = Edited(Program, ["Program|InsertAfter|Private Const K |Private Const K2 As Long = 2"], "Program");
         var done = edited.Split("\r\n").ToList().FindIndex(line => line.Contains("Debug.Print \"callee:done", StringComparison.Ordinal));
-        ExecuteSessionResult? hit = null, resumed = null;
+        ExecuteResult? hit = null, resumed = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("C", ModuleType.ClassModule, Class), ("Program", ModuleType.StdModule, edited));
@@ -1528,8 +1528,8 @@ public sealed class EditAndContinueTests
     {
         var edited = Edited(Program, [edit], "Program");
         var done = edited.Split("\r\n").ToList().FindIndex(line => line.Contains("Debug.Print \"callee:done", StringComparison.Ordinal));
-        HostDebugGotoResult? moved = null;
-        ExecuteSessionResult? resumed = null;
+        DebugGotoResult? moved = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1549,7 +1549,7 @@ public sealed class EditAndContinueTests
     [TestMethod]
     public async Task TheEditStatus_ListsWhatIsNotApplied_WithWhereItIs()
     {
-        HostDebugEditStatusResult? clean = null, edited = null;
+        DebugEditStatusResult? clean = null, edited = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program, async (provider, stopped, runAgain) =>
         {
             clean = provider.Execution.EditStatus();
@@ -1565,7 +1565,7 @@ public sealed class EditAndContinueTests
         // the Const revalued applies, and is not listed; the signature of the procedure the program is in can't be applied.
         Assert.IsTrue(edited!.Suspended);
         var edit = Assert.ContainsSingle(edited.Edits);
-        Assert.AreEqual(("Program.Callee", HostDebugEditKind.Restart), (edit.Name, edit.Kind));
+        Assert.AreEqual(("Program.Callee", DebugEditKind.Restart), (edit.Name, edit.Kind));
         StringAssert.Contains(edit.Reason, "the signature of a procedure the program is in");
         StringAssert.EndsWith(edit.ModuleUri!.AbsoluteUri, "#Program");
         Assert.AreEqual(Program.Split("\r\n").ToList().FindIndex(line => line.StartsWith("Public Sub Callee", StringComparison.Ordinal)), edit.Range!.Value.Start.Line);
@@ -1591,10 +1591,10 @@ public sealed class EditAndContinueTests
     private static readonly string[] Holding = ["Private mChild As Object"];
 
     // the fields of an object edited while it lives, with what is done with it at the stop, and the program resumed then.
-    private static async Task<(ExecuteSessionResult Resumed, T After)> OwnerEditedAsync<T>(string[] fields, Func<EnvironmentSessionProvider,
-        Func<Task<ExecuteSessionResult>>, Task<T>> then)
+    private static async Task<(ExecuteResult Resumed, T After)> OwnerEditedAsync<T>(string[] fields, Func<EnvironmentSessionProvider,
+        Func<Task<ExecuteResult>>, Task<T>> then)
     {
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         T after = default!;
         await ModuleWorkspace.InspectAsync([("Child", Child), ("Owner", Owner(true, Holding))], Owning, async (provider, stopped, runAgain) =>
         {
@@ -1636,7 +1636,7 @@ public sealed class EditAndContinueTests
             "Private mOther As Object",
             "Public Sub Adopt()", "    Set mOther = New Child", "End Sub",
             "Private Sub Class_Terminate()", "    Debug.Print \"owner gone\"", "End Sub");
-        ExecuteSessionResult? resumed = null;
+        ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([("Child", Child), ("Owner", Owner(true, Holding))], program, async (provider, stopped, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
@@ -1671,7 +1671,7 @@ public sealed class EditAndContinueTests
     [TestMethod]
     public async Task TheEditStatus_OfNoProgramThatWaits_IsNotSuspended()
     {
-        HostDebugEditStatusResult? status = null;
+        DebugEditStatusResult? status = null;
         await ModuleWorkspace.InspectAsync([("C", Class)], Program.Replace("    Stop\r\n", string.Empty), (provider, _, _) =>
         {
             status = provider.Execution.EditStatus();

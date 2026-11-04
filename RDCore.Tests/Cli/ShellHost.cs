@@ -76,19 +76,19 @@ internal sealed class ShellHost
     /// <summary>
     /// Runs the program, the way <c>RUN</c> does: defined in the session, then <c>Main</c> invoked.
     /// </summary>
-    public Task<ExecuteSessionResult> RunAsync(IEnumerable<(int Number, string Statement)> lines, bool debug = false, bool streamOutput = false)
+    public Task<ExecuteResult> RunAsync(IEnumerable<(int Number, string Statement)> lines, bool debug = false, bool streamOutput = false)
         => ExecuteAsync(Program(lines).ToModuleSource(), ReplProgram.EntryPointName, debug, streamOutput: streamOutput);
 
     /// <summary>
     /// Runs a line typed at the prompt, the way the shell does: the program and the line, as a second procedure of the module.
     /// </summary>
-    public Task<ExecuteSessionResult> ImmediateAsync(IEnumerable<(int Number, string Statement)> lines, string statement, bool alongside = false)
+    public Task<ExecuteResult> ImmediateAsync(IEnumerable<(int Number, string Statement)> lines, string statement, bool alongside = false)
         => ExecuteAsync(Program(lines).ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, debug: false, immediate: alongside);
 
     /// <summary>
     /// Takes the program's module out of the session (<c>rdcore/host/discard</c>).
     /// </summary>
-    public async Task<DiscardSessionResult> DiscardAsync(string? moduleName = null)
+    public async Task<DiscardResult> DiscardAsync(string? moduleName = null)
         => await new HostDiscardHandler(_provider, NullLogger<HostDiscardHandler>.Instance)
             .Handle(new HostDiscardParams
             {
@@ -107,7 +107,7 @@ internal sealed class ShellHost
         return program;
     }
 
-    private async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint, bool debug = false, bool immediate = false, bool streamOutput = false)
+    private async Task<ExecuteResult> ExecuteAsync(string source, string entryPoint, bool debug = false, bool immediate = false, bool streamOutput = false)
     {
         var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{ModuleName}.bas")), source);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));

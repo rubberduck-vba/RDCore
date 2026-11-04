@@ -149,11 +149,11 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
     /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
-    public static async Task<ExecuteSessionResult> RunUnattendedAsync(
+    public static async Task<ExecuteResult> RunUnattendedAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries? libraries = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
     {
-        ExecuteSessionResult? ran = null;
+        ExecuteResult? ran = null;
         await RunCoreAsync(classes, program, errorsOnly: false, inspect: (_, result, _) =>
         {
             ran = result;
@@ -232,7 +232,7 @@ internal static class ModuleWorkspace
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
@@ -248,7 +248,7 @@ internal static class ModuleWorkspace
     /// <param name="debug">Whether the program runs under a debugger.</param>
     public static Task InspectWithModulesAsync(
         IReadOnlyList<(string Name, string Source)> modules, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, bool debug = false)
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, bool debug = false)
         => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
 
     /// <summary>
@@ -260,7 +260,7 @@ internal static class ModuleWorkspace
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
@@ -338,7 +338,7 @@ internal static class ModuleWorkspace
         }
 
         var entry = parsed.Single(module => module.Name == "Program");
-        Task<ExecuteSessionResult> Execute(CancellationToken cancellation)
+        Task<ExecuteResult> Execute(CancellationToken cancellation)
             => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
                 .Handle(new HostExecuteParams
                 {

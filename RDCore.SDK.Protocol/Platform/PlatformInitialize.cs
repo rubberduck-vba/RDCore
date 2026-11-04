@@ -3,19 +3,8 @@ using RDCore.SDK.Client;
 namespace RDCore.SDK.Platform.Protocol;
 
 /// <summary>
-/// The non-LSP handshake that follows the LSP <c>initialize</c>/<c>initialized</c> exchange on a
-/// platform connection: advertised capabilities become <em>provided</em> ones. Keeps the LSP layer pure LSP.
-/// </summary>
-public static class RDCorePlatformHandshake
-{
-    /// <summary>
-    /// The JSON-RPC method name of the platform handshake request.
-    /// </summary>
-    public const string Method = "rdcore/platform/initialize";
-}
-
-/// <summary>
-/// Request for <c>rdcore/platform/initialize</c>: the caller tells the component it connected to what it expects, once LSP's <c>initialize</c> is answered;
+/// Request for <c>rdcore/platform/initialize</c> (<see cref="RDCorePlatformProtocol.PlatformInitialize"/>), the non-LSP handshake that follows LSP's
+/// <c>initialize</c>/<c>initialized</c> exchange and keeps the LSP layer pure LSP: the caller tells the component it connected to what it expects, once LSP's <c>initialize</c> is answered;
 /// answered a <see cref="PlatformInitializeResult"/>. A client of the language server sends it as the platform's own components do of one another.
 /// </summary>
 public record class PlatformInitializeParams

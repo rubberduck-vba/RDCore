@@ -63,7 +63,7 @@ public sealed class SupportedLanguageTests
 
     // the whole path of a program, as the platform makes it: the language server's composition over the workspace, the host's session, the run.
     // `statement` is the body of Main when it is not just a Debug.Print of the expression; `language` is the one the environment is a dialect of.
-    internal static async Task<ExecuteSessionResult> RunAsync(string expression, string? statement = null, SupportedLanguage? language = null)
+    internal static async Task<ExecuteResult> RunAsync(string expression, string? statement = null, SupportedLanguage? language = null)
     {
         const string ModuleName = "Program";
         var source = $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main()\r\n{statement ?? $"Debug.Print {expression}"}\r\nEnd Sub\r\n";

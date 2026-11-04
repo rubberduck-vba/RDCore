@@ -8,7 +8,7 @@ namespace RDCore.LanguageServer.Debugging;
 /// </summary>
 /// <remarks>
 /// A notification and the response to the request that runs the program travel apart, and the response can be handled first. The relay counts the lines that arrived, so
-/// that whoever got the response (<see cref="ExecuteSessionResult.StreamedLines"/>) can wait for the lines that came before it instead of saying what the program did
+/// that whoever got the response (<see cref="ExecuteResult.StreamedLines"/>) can wait for the lines that came before it instead of saying what the program did
 /// before what it printed.
 /// </remarks>
 internal interface IHostOutputRelay

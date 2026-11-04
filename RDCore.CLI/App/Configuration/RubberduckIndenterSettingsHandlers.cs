@@ -6,7 +6,7 @@ using RDCore.SDK.Server.Configuration;
 namespace RDCore.CLI.App.Configuration;
 
 /// <summary>
-/// Handles <c>rdcore/rubberduck-indenter-settings</c>: the language server asks what the user had of Rubberduck's indenter settings, and the shell reads them where
+/// Handles <c>rdcore/formatting/indenterSettings</c>: the language server asks what the user had of Rubberduck's indenter settings, and the shell reads them where
 /// Rubberduck keeps them (<see cref="RubberduckIndenterSettingsReader"/>) and says them as they are - on Windows; elsewhere it found none.
 /// </summary>
 /// <param name="reader">Reads Rubberduck's settings.</param>
@@ -24,7 +24,7 @@ internal sealed class RubberduckIndenterSettingsHandler(RubberduckIndenterSettin
 internal sealed record class LiveSettingsNotifier(Func<CancellationToken, Task> Notify);
 
 /// <summary>
-/// Handles <c>rdcore/rubberduck-indenter-settings/apply</c>: the language server mapped the indenter settings the shell read to <c>Formatting</c> settings, and asks the shell
+/// Handles <c>rdcore/formatting/indenterSettings/apply</c>: the language server mapped the indenter settings the shell read to <c>Formatting</c> settings, and asks the shell
 /// to take them as its own - the shell's settings are the user's: it sets them as <c>CONFIG</c> does, and says its settings changed.
 /// </summary>
 /// <param name="settings">The settings the user can set.</param>

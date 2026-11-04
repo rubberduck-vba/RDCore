@@ -51,17 +51,17 @@ public sealed class FrameStatementTests
         return parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<StatementNode>().Single();
     }
 
-    private static Task<HostDebugEvaluateResult> Execute(EnvironmentSessionProvider provider, int frame, string statement)
+    private static Task<DebugEvaluateResult> Execute(EnvironmentSessionProvider provider, int frame, string statement)
         => new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
             .Handle(new HostDebugExecuteParams { FrameId = frame, Json = PlatformJson.Serialize(Statement(statement)) }, CancellationToken.None).WaitAsync(Patience);
 
     private static async Task<string> ValueOf(EnvironmentSessionProvider provider, int frame, string name)
     {
-        var variables = provider.Execution.Variables(frame, HostVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name);
+        var variables = provider.Execution.Variables(frame, DebugVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name);
         return variables[name].Value;
     }
 
-    private static async Task<ExecuteSessionResult> ResumeAsync(EnvironmentSessionProvider provider)
+    private static async Task<ExecuteResult> ResumeAsync(EnvironmentSessionProvider provider)
         => await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 
@@ -238,8 +238,8 @@ public sealed class FrameStatementTests
             var done = await Execute(provider, 0, "kept = 7");
 
             Assert.IsTrue(done.Success, done.Error);
-            Assert.IsFalse(provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.Any(variable => variable.Name == "kept"), "not a local of the activation");
-            Assert.IsTrue(provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Any(variable => variable.Name == "kept"), "a variable of the module");
+            Assert.IsFalse(provider.Execution.Variables(0, DebugVariableScope.Locals, 0).Variables.Any(variable => variable.Name == "kept"), "not a local of the activation");
+            Assert.IsTrue(provider.Execution.Variables(0, DebugVariableScope.Module, 0).Variables.Any(variable => variable.Name == "kept"), "a variable of the module");
             var read = await Execute(provider, 1, "Debug.Print KEPT");
             CollectionAssert.AreEqual(new[] { "7" }, read.Output.Select(line => line.Trim()).ToArray(), "the caller's activation sees it too: it is the module's");
         }, debug: true, language: SupportedLanguages.BASIC);

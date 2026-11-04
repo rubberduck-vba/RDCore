@@ -15,7 +15,7 @@ public sealed record class SessionStatusRequest : SessionStatusParams, IRequest,
 /// Request for <c>rdcore/host/session/status</c>: the language-server side of
 /// <see cref="SessionStatusParams"/>, addressed to the component that owns the session.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostSessionStatus, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostSessionStatus, Direction.ClientToServer)]
 public record class HostSessionStatusParams : IRequest, IRequest<SessionStatusResult>;
 
 /// <summary>
