@@ -67,6 +67,7 @@ public sealed class RDCorePlatformJsonWireTests
         yield return Same(new PeekResult { Address = 16, IsAllocated = true, Value = 255 });
         yield return Same(new SessionPokeParams { Address = 16, Value = 7 });
         yield return Same(new PokeResult { Address = 16, IsWritten = true });
+        yield return Same(new PokeResult { Address = 16, Error = "the program is running" });
 
         yield return Same(new SessionMessageBoxParams { Prompt = "Hello", Title = "Title", Style = 4, Output = ["before"] });
         yield return Same(new MessageBoxResult { Handled = true, Result = 6 });
@@ -159,7 +160,8 @@ public sealed class RDCorePlatformJsonWireTests
         ("SessionPeekParams", """{"address":16}"""),
         ("PeekResult", """{"address":16,"isAllocated":true,"value":255}"""),
         ("SessionPokeParams", """{"address":16,"value":7}"""),
-        ("PokeResult", """{"address":16,"isWritten":true}"""),
+        ("PokeResult", """{"address":16,"isWritten":true,"error":null}"""),
+        ("PokeResult", """{"address":16,"isWritten":false,"error":"the program is running"}"""),
         ("SessionMessageBoxParams", """{"prompt":"Hello","title":"Title","style":4,"output":["before"]}"""),
         ("MessageBoxResult", """{"handled":true,"result":6,"declined":false,"failure":null}"""),
         ("SessionInputBoxParams", """{"prompt":"Name?","title":"Title","default":"x","xPos":10,"yPos":20,"output":["before"]}"""),

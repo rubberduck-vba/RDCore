@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using RDCore.CLI;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Platform.Protocol;
@@ -21,23 +22,31 @@ public sealed class PokeAtAReferenceParameterTests
     private static string Observed(ExecuteResult result)
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorMessage}";
 
-    // Go passes n, holding 1, to Fill, which waits at a Stop with p = VarPtr(x) + offset; 42 is written at p, and the program goes on.
-    private static async Task<string> PokedBelowFillAsync(string declaredType, int offset, string takenIn = "Fill")
+    // Go passes n, holding value, to Fill, which waits at a Stop with p = VarPtr(x) + offset and q = StrPtr(other), other being "xy"; the bytes are written from
+    // p on - 42 unless the row says what, from the module's variables - and the program goes on to print what Go returned (r).
+    private static async Task<string> PokedBelowFillAsync(string declaredType, int offset, string takenIn = "Fill", string value = "1", string printed = "r",
+        Func<Func<string, long>, byte[]>? bytes = null)
     {
         var observed = string.Empty;
         await ModuleWorkspace.InspectAsync([], Program(
             "Public p As LongPtr",
+            "Public q As LongPtr",
+            "Public other As String",
             "Public Sub Main()",
-            "    Debug.Print Go()",
+            "    Dim r As Variant",
+            "    r = Go()",
+            $"    Debug.Print {printed}",
             "End Sub",
             $"Private Function Go() As {declaredType}",
             $"    Dim n As {declaredType}",
-            "    n = 1",
+            $"    n = {value}",
             takenIn == "Go" ? $"    p = VarPtr(n) + {offset}" : "",
             "    Fill n",
             "    Go = n",
             "End Function",
             $"Private Sub Fill(ByRef x As {declaredType})",
+            "    other = \"xy\"",
+            "    q = StrPtr(other)",
             takenIn == "Fill" ? $"    p = VarPtr(x) + {offset}" : "",
             "    Stop",
             "End Sub"), async (provider, first, runAgain) =>
@@ -46,10 +55,16 @@ public sealed class PokeAtAReferenceParameterTests
             try
             {
                 var fill = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Fill").Id;
-                var address = int.Parse(provider.Execution.Variables(fill, DebugVariableScope.Module, 0).Variables.Single(variable => variable.Name == "p").Value,
-                    System.Globalization.CultureInfo.InvariantCulture);
-                var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = address, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
-                Assert.IsTrue(poked.IsWritten);
+                var module = provider.Execution.Variables(fill, DebugVariableScope.Module, 0).Variables;
+                long ValueOf(string name) => long.Parse(module.Single(variable => variable.Name == name).Value, System.Globalization.CultureInfo.InvariantCulture);
+                var address = (int)ValueOf("p");
+                foreach (var (written, at) in (bytes?.Invoke(ValueOf) ?? [42]).Select((written, at) => (written, at)))
+                {
+                    var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = address + at, Value = written }, CancellationToken.None)
+                        .WaitAsync(Patience);
+                    Assert.IsTrue(poked.IsWritten, $"the byte at p + {at}");
+                }
+
                 observed = Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
                     .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
             }
@@ -77,4 +92,43 @@ public sealed class PokeAtAReferenceParameterTests
     [DataRow("Variant", 8, DisplayName = "a Variant holding an Integer, at its data")]
     public async Task AByteWrittenAtTheAddressTheCallerTookOfItsVariable_IsWhatTheCallerReads(string declaredType, int offset)
         => StringAssert.Contains(await PokedBelowFillAsync(declaredType, offset, takenIn: "Go"), "| 42 |");
+
+    // the data of a VARIANT holding a String is the pointer the String is: the address of the characters of another BSTR makes it that String.
+    [TestMethod]
+    public async Task ThePointerOfAStringInAVariantParameter_WrittenWithTheAddressOfAnotherString_MakesTheCallersVariantThatString()
+        => StringAssert.Contains(await PokedBelowFillAsync("Variant", 8, value: "\"ab\"", bytes: valueOf => BitConverter.GetBytes(valueOf("q"))), "| xy |");
+
+    // the first two bytes of a VARIANT are its VarType: vbLong (3) over an Integer's makes it a Long of the bytes it holds.
+    [TestMethod]
+    public async Task TheTypeOfAVariantParameter_Written_IsTheTypeOfTheCallersVariant()
+        => StringAssert.Contains(await PokedBelowFillAsync("Variant", 0, printed: "TypeName(r) & \" \" & r", bytes: _ => [3]), "| Long 1 |");
+
+    // a program that runs owns its memory: a byte is written at a stop, or with no program.
+    [TestMethod]
+    public async Task AByteWritten_WhileAProgramRuns_IsRefused()
+        => await ModuleWorkspace.InspectAsync([], Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Do While True",
+            "        Total = Total + 1",
+            "    Loop",
+            "End Sub"), async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, "the cancellation of the request is a break");
+            var running = new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
+            var deadline = DateTime.UtcNow + Patience;
+            while (provider.Execution.State is not ProgramState.Running)
+            {
+                Assert.IsLessThan(deadline, DateTime.UtcNow, "timed out");
+                await Task.Delay(10);
+            }
+
+            var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = 16, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
+
+            Assert.IsFalse(poked.IsWritten);
+            Assert.AreEqual(Resources.Host_TheProgramIsRunning, poked.Error);
+            _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+            Assert.AreEqual(ExecutionOutcome.Halted, (await running).Outcome);
+        }, provider => provider.Execution.State is ProgramState.Running, debug: true);
 }
