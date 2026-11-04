@@ -357,8 +357,15 @@ public sealed class FormattingTabSizeTests
 
         private int _tabSizeRequests;
 
-        public Wire()
+        private readonly bool _declaresDidChangeConfiguration;
+
+        /// <param name="declaresDidChangeConfiguration">
+        /// Whether the client declares <c>workspace.didChangeConfiguration</c> as well as <c>workspace.configuration</c>; a client may send the notification
+        /// without declaring that it registers for it dynamically.
+        /// </param>
+        public Wire(bool declaresDidChangeConfiguration = true)
         {
+            _declaresDidChangeConfiguration = declaresDidChangeConfiguration;
             var schema = SettingsSchema.Platform;
             Live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, Options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
             Live.Changed += (_, _) => Seen.Add(Options.Formatting.IndentSpaces);
@@ -372,7 +379,7 @@ public sealed class FormattingTabSizeTests
             var serving = OmniSharpLanguageServer.From(server => server
                 .WithInput(toServer.Reader)
                 .WithOutput(toClient.Writer)
-                .WithConfigurationSection(LiveSettingsProtocol.Section)
+                .WithClientConfiguration(LiveSettingsProtocol.Section)
                 .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
                 {
                     Follower = ClientConfigurationFollower.Follow(services, started, () =>
@@ -398,7 +405,11 @@ public sealed class FormattingTabSizeTests
                     .WithOutput(toServer.Writer)
                     .WithClientCapabilities(new ClientCapabilities
                     {
-                        Workspace = new WorkspaceClientCapabilities { Configuration = true, DidChangeConfiguration = new DidChangeConfigurationCapability() },
+                        Workspace = new WorkspaceClientCapabilities
+                        {
+                            Configuration = true,
+                            DidChangeConfiguration = _declaresDidChangeConfiguration ? new DidChangeConfigurationCapability() : null,
+                        },
                     });
                 OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(client, async (request, _) =>
                 {
@@ -464,6 +475,24 @@ public sealed class FormattingTabSizeTests
         Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces, "the setting is not the editor's tab size");
 
         CollectionAssert.AreEqual(new[] { 2, 8, 3 }, wire.Seen, "whoever listens sees the indentation the settings end up with, never the default in between");
+    }
+
+    // workspace.configuration is what says a client answers workspace/configuration (LSP 3.17 §Configuration Request); workspace.didChangeConfiguration only
+    // says whether it registers for the notification dynamically, and a client that declares no such thing still says its configuration changed.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatAnswersWorkspaceConfiguration_ButDeclaresNoDidChangeConfiguration_IsAskedAndFollowed()
+    {
+        await using var wire = new Wire(declaresDidChangeConfiguration: false);
+        await wire.StartAsync();
+
+        Assert.IsTrue(await wire.FollowedAsync(), "asked once it is initialized");
+        Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces);
+
+        wire.TabSize = 8;
+        wire.ClientSaysConfigurationChanged();
+        Assert.IsTrue(await wire.FollowedAsync(), "asked again when it says its configuration changed");
+        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
     }
 
     [TestMethod]
