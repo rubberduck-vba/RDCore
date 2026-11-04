@@ -24,6 +24,14 @@ public sealed class SymbolUriTests
     public void AModule_IsWhatItsSymbolSaysItIs()
         => Assert.AreEqual(new VBStandardModuleSymbol(Root, Root, "GameBoard").Uri, SymbolUri.Module(Root, "GameBoard"));
 
+    // the fragment of an address is escaped: Modèle is Mod%C3%A8le there.
+    [TestMethod]
+    [DataRow("GameBoard", DisplayName = "an ASCII name")]
+    [DataRow("Modèle", DisplayName = "a name with an accented letter")]
+    [DataRow("Feuille 1", DisplayName = "a name with a space")]
+    public void TheNameOfAModule_IsTheNameItIsAddressedBy(string name)
+        => Assert.AreEqual(name, SymbolUri.ModuleNameOf(SymbolUri.Module(Root, name)));
+
     [TestMethod]
     public void TheRootAsAPath_AndAsAUri_AddressTheSameModule()
         => Assert.AreEqual(SymbolUri.Module(Root, "GameBoard"), SymbolUri.Module(Root.LocalPath, "GameBoard"));

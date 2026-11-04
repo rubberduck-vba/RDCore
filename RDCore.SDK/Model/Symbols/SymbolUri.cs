@@ -94,6 +94,21 @@ public static class SymbolUri
     }
 
     /// <summary>
+    /// The name of a module, as its address has it (<see cref="Module(Uri, string)"/>): the fragment, as the module's name was written, and not as an address
+    /// escapes it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Uri.Fragment"/> is escaped: the address of <c>Modèle</c> has the fragment <c>#Mod%C3%A8le</c>. A name read from it is unescaped.
+    /// </remarks>
+    /// <param name="module">The address of a module.</param>
+    /// <returns>The module's name, or an empty string when the address has no fragment.</returns>
+    public static string ModuleNameOf(Uri module)
+    {
+        ArgumentNullException.ThrowIfNull(module);
+        return Uri.UnescapeDataString(module.Fragment.TrimStart('#'));
+    }
+
+    /// <summary>
     /// The address of a symbol that is a member of another - a procedure of a module, a variable of a procedure, a field of a type - or of a module, when the
     /// parent is the root of a project or a library.
     /// </summary>

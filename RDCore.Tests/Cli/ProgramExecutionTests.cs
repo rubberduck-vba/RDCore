@@ -527,6 +527,39 @@ public sealed class ProgramExecutionTests
             CollectionAssert.AreEqual(new[] { "20" }, Lines(await Resume(provider)));
         });
 
+    // a module's name is the fragment of its address, which escapes a letter that is not ASCII: Modèle is Mod%C3%A8le there.
+    private static readonly (string Name, string Source)[] AnAccentedClass =
+    [
+        ("Modèle", ModuleWorkspace.ClassModule("Modèle",
+            "Public Sub Attend()",
+            "    Stop",
+            "    Total = Total + 10",
+            "    Total = Total + 100",
+            "End Sub")),
+    ];
+
+    private static readonly string CallsTheAccentedClass = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Dim m As New Modèle",
+        "    m.Attend",
+        "    Debug.Print Total",
+        "End Sub");
+
+    [TestMethod]
+    public async Task AGoto_InAModuleWhoseNameIsNotAscii_NamedAsItIs_GoesOnFromThere_AndItsFrameSaysTheName()
+        => await ModuleWorkspace.InspectAsync(AnAccentedClass, CallsTheAccentedClass, async (provider, stopped, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            Assert.AreEqual("Modèle", provider.Execution.Stack().Frames[0].Module);
+            var line = provider.Execution.Stack().Frames[0].Line + 2;
+
+            var moved = await Goto(provider, line: line, moduleName: "Modèle");
+
+            Assert.IsTrue(moved.Moved, moved.Reason);
+            CollectionAssert.AreEqual(new[] { "100" }, Lines(await Resume(provider)));
+        }, debug: true);
+
     private static readonly string WaitsAboveABlankLine = Program(
         "Public Total As Long",
         "Public Sub Main()",
