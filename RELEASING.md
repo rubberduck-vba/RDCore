@@ -171,6 +171,7 @@ RDCore.LanguageServer/       RDCore.LanguageServer.exe (langService)
 RDCore.Parsing/              RDCore.ParseServer.exe (parseServer)
 Extensions/                  extensionsDirectory
   RDCore.Diagnostics/        RDCore.Diagnostics.exe, extension.manifest.json
+Symbols/                     <Library>.json: the libraries a project can reference (see NOTICE.md)
 ```
 
 There is no `Logs/` and no `Config/` folder: `Logs/` is created on first run.
