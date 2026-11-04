@@ -85,12 +85,12 @@ public static class RDCorePlatformProtocol
     /// <summary>
     /// Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them. A request the language server sends.
     /// </summary>
-    public const string RubberduckIndenterSettings = "rdcore/rubberduck-indenter-settings";
+    public const string RubberduckIndenterSettings = "rdcore/formatting/indenterSettings";
 
     /// <summary>
     /// Asks the client to take the <c>Formatting</c> settings the language server mapped from Rubberduck's indenter settings as its own. A request the language server sends.
     /// </summary>
-    public const string RubberduckIndenterSettingsApply = "rdcore/rubberduck-indenter-settings/apply";
+    public const string RubberduckIndenterSettingsApply = "rdcore/formatting/indenterSettings/apply";
 
     /// <summary>
     /// Asks the language server what the call being written at a position of a module the client supplies takes.
