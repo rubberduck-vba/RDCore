@@ -206,3 +206,32 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
 /// <param name="Parameters">The kind of each parameter, each a scalar passed by value.</param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind> Parameters, ScalarKind? Result);
+
+/// <summary>
+/// A call compiled code makes of a procedure that is compiled too (IR lowering S2.3b): the callee's typed entry, which the caller's IL calls with the
+/// arguments as they are, and what its activation is made of.
+/// </summary>
+/// <remarks>
+/// The callee is compiled for the scopes its caller is, before the caller: the call is made this way while the session's scopes are still those
+/// (<see cref="CompiledActivation.EnterDirectly"/>), and through the invoker otherwise. A procedure that calls itself calls its own entry, which is not
+/// created yet when the call is written: its body is known once it is (<see cref="Body"/>).
+/// </remarks>
+/// <param name="Entry">The callee's typed entry: its compiled activation, then each parameter as a <see cref="long"/> or a <see cref="double"/>.</param>
+/// <param name="Procedure">The callee.</param>
+/// <param name="List">
+/// The callee's instructions, which its activation is of: the call is made this way only while they are the callee's body still, and not after its module
+/// was loaded again.
+/// </param>
+/// <remarks>Nothing of a session is held: the body is shared by every session composed over the same scopes, each of which makes the activations itself.</remarks>
+internal sealed class DirectCall(System.Reflection.MethodInfo Entry, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, SDK.Semantics.Instructions.InstructionList List)
+{
+    public System.Reflection.MethodInfo Entry { get; } = Entry;
+    public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure { get; } = Procedure;
+    public SDK.Semantics.Instructions.InstructionList List { get; } = List;
+
+    /// <summary>The callee's compiled body; set once it is created, for a procedure that calls itself.</summary>
+    public CompiledBody? Body { get; set; }
+
+    /// <summary>The context the callee's code is evaluated in, the same for each of its activations.</summary>
+    public Semantics.RuntimeEvaluationContext Context { get; } = new(Procedure.Uri);
+}

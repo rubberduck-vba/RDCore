@@ -61,6 +61,11 @@ internal sealed class ProcedureAnalysis
     /// <summary>The kind of each slot: its parameters', then its variables'.</summary>
     public IReadOnlyDictionary<int, ScalarKind> Slots => _slots;
 
+    /// <summary>The parameter or the variable each slot holds.</summary>
+    public IReadOnlyDictionary<int, Symbol> SlotSymbols => _slotSymbols;
+
+    private readonly Dictionary<int, Symbol> _slotSymbols = [];
+
     /// <summary>The slot of each parameter, in the order they are declared, and its kind.</summary>
     public List<(int Slot, ScalarKind Kind)> Parameters { get; } = [];
 
@@ -148,6 +153,7 @@ internal sealed class ProcedureAnalysis
             }
 
             _slots[_layout.ParameterSlots[i]] = kind;
+            _slotSymbols[_layout.ParameterSlots[i]] = parameter;
             Parameters.Add((_layout.ParameterSlots[i], kind));
         }
 
@@ -163,6 +169,7 @@ internal sealed class ProcedureAnalysis
                     continue;
                 case VBLocalVariableSymbol variable when ScalarKinds.Of(variable.ResolvedType) is { } kind && _layout.LocalSlots[i] >= 0:
                     _slots[_layout.LocalSlots[i]] = kind;
+                    _slotSymbols[_layout.LocalSlots[i]] = variable;
                     continue;
                 default:
                     Refuse(IneligibilityKind.NotAScalar, $"{locals[i].Name} As {locals[i].ResolvedType.Name}", LocationOf(locals[i]));

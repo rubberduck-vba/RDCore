@@ -26,6 +26,7 @@ internal sealed class ProcedureEmitter
     private static readonly Type Activation = typeof(CompiledActivation);
 
     private readonly ProcedureAnalysis _analysis;
+    private readonly IReadOnlyList<DirectCall?> _directs;
     private readonly ILGenerator _il;
     private readonly Dictionary<int, LocalBuilder> _slots = [];
     private readonly Dictionary<int, Label> _instructions = [];
@@ -37,18 +38,58 @@ internal sealed class ProcedureEmitter
 
     private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder IsOpen, ScalarKind Kind);
 
-    private ProcedureEmitter(ProcedureAnalysis analysis, ILGenerator il)
+    private ProcedureEmitter(ProcedureAnalysis analysis, IReadOnlyList<DirectCall?> directs, ILGenerator il)
     {
-        (_analysis, _il) = (analysis, il);
+        (_analysis, _directs, _il) = (analysis, directs, il);
         _pc = il.DeclareLocal(typeof(int));
         _walkBack = il.DefineLabel();
     }
 
     /// <summary>
-    /// Writes the body of <paramref name="method"/>, a static method of one <see cref="CompiledActivation"/> parameter that returns a
-    /// <see cref="RuntimeExecutionOutcome"/>, from <paramref name="analysis"/>.
+    /// Writes the procedure's two methods from <paramref name="analysis"/>, each a static method that returns a <see cref="RuntimeExecutionOutcome"/>:
+    /// <paramref name="entry"/>, the typed entry, whose parameters are the <see cref="CompiledActivation"/> and then each parameter of the procedure as a
+    /// <see cref="long"/> or a <see cref="double"/>, which is the procedure's code; and <paramref name="run"/>, of the activation alone, which reads the
+    /// parameters from the frame's cells and calls the entry with them.
     /// </summary>
-    public static void Emit(ProcedureAnalysis analysis, MethodBuilder method) => new ProcedureEmitter(analysis, method.GetILGenerator()).Emit();
+    /// <param name="directs">For each callee of the analysis, the compiled procedure the body calls through its typed entry, or none.</param>
+    public static void Emit(ProcedureAnalysis analysis, MethodBuilder run, MethodBuilder entry, IReadOnlyList<DirectCall?> directs)
+    {
+        EmitRun(analysis, run.GetILGenerator(), entry);
+        new ProcedureEmitter(analysis, directs, entry.GetILGenerator()).Emit();
+    }
+
+    // the parameters, read from their cells - a cell that holds no payload is the interpreter's to read, and the activation is handed to it before anything
+    // runs - and the typed entry called with them.
+    private static void EmitRun(ProcedureAnalysis analysis, ILGenerator il, MethodBuilder entry)
+    {
+        var interpret = il.DefineLabel();
+        var read = new List<LocalBuilder>(analysis.Parameters.Count);
+        foreach (var (slot, kind) in analysis.Parameters)
+        {
+            var local = il.DeclareLocal(ClrTypeOf(kind));
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldc_I4, slot);
+            il.Emit(OpCodes.Ldloca, local);
+            il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
+            il.Emit(OpCodes.Brfalse, interpret);
+            read.Add(local);
+        }
+
+        il.Emit(OpCodes.Ldarg_0);
+        foreach (var local in read)
+        {
+            il.Emit(OpCodes.Ldloc, local);
+        }
+
+        il.Emit(OpCodes.Call, entry);
+        il.Emit(OpCodes.Ret);
+
+        il.MarkLabel(interpret);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldc_I4_0);
+        il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Interpret))!);
+        il.Emit(OpCodes.Ret);
+    }
 
     private void Emit()
     {
@@ -97,29 +138,17 @@ internal sealed class ProcedureEmitter
         EmitWalkBack();
     }
 
-    private static Type ClrTypeOf(ScalarKind kind) => ScalarKinds.IsIntegral(kind) ? typeof(long) : typeof(double);
+    /// <summary>The CLR type a payload of <paramref name="kind"/> is held in: a <see cref="long"/> of an integral kind, a <see cref="double"/> of a floating-point one.</summary>
+    internal static Type ClrTypeOf(ScalarKind kind) => ScalarKinds.IsIntegral(kind) ? typeof(long) : typeof(double);
 
-    // the parameters, read from their cells: a cell that holds no payload is the interpreter's to read, and the activation is handed to it before anything runs.
+    // the parameters, as the entry is given them: its arguments after the activation.
     private void EmitEntry()
     {
-        var interpret = _il.DefineLabel();
-        foreach (var (slot, kind) in _analysis.Parameters)
+        for (var i = 0; i < _analysis.Parameters.Count; i++)
         {
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Ldc_I4, slot);
-            _il.Emit(OpCodes.Ldloca, _slots[slot]);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
-            _il.Emit(OpCodes.Brfalse, interpret);
+            _il.Emit(OpCodes.Ldarg, (short)(i + 1));
+            _il.Emit(OpCodes.Stloc, _slots[_analysis.Parameters[i].Slot]);
         }
-
-        var body = _il.DefineLabel();
-        _il.Emit(OpCodes.Br, body);
-        _il.MarkLabel(interpret);
-        _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Ldc_I4_0);
-        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Interpret))!);
-        _il.Emit(OpCodes.Ret);
-        _il.MarkLabel(body);
     }
 
     private void EmitStep(CompiledStep step)
@@ -177,14 +206,12 @@ internal sealed class ProcedureEmitter
     // activation is the interpreter's at the next instruction when the interpreter is wanted, or the symbols it was compiled against were defined again.
     private void EmitCall(CallStep call)
     {
+        // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
         var failure = FailureAt(call.Offset);
-        for (var i = 0; i < call.Arguments.Count; i++)
+        var arguments = new Operand[call.Arguments.Count];
+        for (var i = 0; i < arguments.Length; i++)
         {
-            var argument = EmitPayload(call.Arguments[i], failure);
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Ldc_I4, i);
-            LoadAsBoth(argument, call.Arguments[i].Kind);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetArgument))!);
+            arguments[i] = EmitPayload(call.Arguments[i], failure);
         }
 
         var called = _il.DefineLabel();
@@ -196,6 +223,51 @@ internal sealed class ProcedureEmitter
 
         var integral = _il.DeclareLocal(typeof(long));
         var floating = _il.DeclareLocal(typeof(double));
+        var returned = _il.DefineLabel();
+
+        // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
+        // way (CompiledActivation.EnterDirectly); through the invoker otherwise.
+        if (_directs[call.Callee] is { } direct)
+        {
+            var indirect = _il.DefineLabel();
+            var callee = _il.DeclareLocal(typeof(CompiledActivation));
+            var outcome = _il.DeclareLocal(typeof(RuntimeExecutionOutcome));
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Offset);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.EnterDirectly))!);
+            _il.Emit(OpCodes.Stloc, callee);
+            _il.Emit(OpCodes.Ldloc, callee);
+            _il.Emit(OpCodes.Brfalse, indirect);
+
+            _il.Emit(OpCodes.Ldloc, callee);
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                Load(arguments[i], call.Arguments[i].Kind);
+            }
+
+            _il.Emit(OpCodes.Call, direct.Entry);
+            _il.Emit(OpCodes.Stloc, outcome);
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldloc, callee);
+            _il.Emit(OpCodes.Ldloc, outcome);
+            _il.Emit(OpCodes.Ldloca, integral);
+            _il.Emit(OpCodes.Ldloca, floating);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ReturnedDirectly))!);
+            _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
+            _il.Emit(OpCodes.Br, returned);
+            _il.MarkLabel(indirect);
+        }
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, i);
+            LoadAsBoth(arguments[i], call.Arguments[i].Kind);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetArgument))!);
+        }
+
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldc_I4, call.Offset);
         _il.Emit(OpCodes.Ldc_I4, call.Callee);
@@ -203,6 +275,7 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ldloca, floating);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Call))!);
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
+        _il.MarkLabel(returned);
 
         var current = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);

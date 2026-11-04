@@ -53,6 +53,19 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     public TimeSpan CompilationTime => Compiler.Elapsed;
 
     /// <summary>
+    /// How the procedures of the image that are compiled made their calls, all told: of compiled procedures through their typed entries (direct), and
+    /// through the invoker (indirect).
+    /// </summary>
+    public (long Direct, long Indirect) CompiledCalls
+    {
+        get
+        {
+            var bodies = Compiler.Results.Select(result => result.Result.Body).OfType<Compiled.CompiledBody>().ToList();
+            return (bodies.Sum(body => body.DirectCalls), bodies.Sum(body => body.IndirectCalls));
+        }
+    }
+
+    /// <summary>
     /// What the designers of the session's forms declare, by the name of the form's module: what a form is created from - its state, its caption, where it starts
     /// up - when the program first uses it.
     /// </summary>

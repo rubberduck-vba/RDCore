@@ -61,9 +61,11 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
 /// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
 /// </param>
+/// <param name="DirectCalls">How many calls compiled code made of compiled procedures through their typed entries, over every run of every case.</param>
+/// <param name="IndirectCalls">How many calls compiled code made through the invoker, over every run of every case.</param>
 internal sealed record class BenchReport(
     BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
-    IReadOnlyList<string> Problems, TimeSpan? Indent = null);
+    IReadOnlyList<string> Problems, TimeSpan? Indent = null, long DirectCalls = 0, long IndirectCalls = 0);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -127,7 +129,11 @@ internal sealed class BenchRunner(
         }
 
         var indent = options.ListOnly ? (TimeSpan?)null : IndentProgram(options.Runs);
-        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems, indent);
+
+        // how compiled code made its calls: what says which way a case that calls ran.
+        var (direct, indirect) = provider.Image.CompiledCalls;
+        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems, indent,
+            direct, indirect);
     }
 
     /// <summary>

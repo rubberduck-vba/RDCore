@@ -82,10 +82,11 @@ internal sealed class ProcedureCompiler
             var stopwatch = Stopwatch.StartNew();
             CompiledBody? body;
             IReadOnlyList<Ineligibility> reasons;
+            _ = _inProgress.Add(procedure.SemanticId);
             try
             {
                 var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
-                body = analysis.Reasons.Count == 0 ? Emit(analysis, procedure) : null;
+                body = analysis.Reasons.Count == 0 ? Emit(session, evaluator, analysis, procedure, list) : null;
                 reasons = analysis.Reasons;
             }
             catch (Exception exception)
@@ -95,6 +96,10 @@ internal sealed class ProcedureCompiler
                 body = null;
                 reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
                 failure = exception;
+            }
+            finally
+            {
+                _ = _inProgress.Remove(procedure.SemanticId);
             }
 
             stopwatch.Stop();
@@ -132,18 +137,66 @@ internal sealed class ProcedureCompiler
     /// </summary>
     public event Action<VBTypeMemberSymbol, Exception>? Refused;
 
-    // a type of its own for each procedure, created as soon as its one method is written: what is created is what can be called. The IL is compiled now,
-    // rather than at the first call, so that code the runtime refuses is refused here.
-    private CompiledBody Emit(ProcedureAnalysis analysis, VBTypeMemberSymbol procedure)
+    // the procedures being compiled, by identity: a callee that is one of them - a procedure that calls the one that calls it - is not compiled for its caller
+    // before it, and is called through the invoker (DirectCall).
+    private readonly HashSet<SemanticId> _inProgress = [];
+
+    // a type of its own for each procedure, created as soon as its methods are written: what is created is what can be called. The IL is compiled now,
+    // rather than at the first call, so that code the runtime refuses is refused here. Two methods: the typed entry (Body), which a compiled caller calls with
+    // the arguments as it holds them, and Run, which reads them from the frame's cells, as an interpreted caller gives them, and calls it.
+    private CompiledBody Emit(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
     {
         var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
+        Type[] parameters = [typeof(CompiledActivation), .. analysis.Parameters.Select(parameter => ProcedureEmitter.ClrTypeOf(parameter.Kind))];
+        var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), parameters);
         var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
-        ProcedureEmitter.Emit(analysis, method);
 
-        var run = type.CreateType().GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
+        var directs = analysis.Callees.Select(callee => Link(session, evaluator, procedure, entry, list, callee)).ToArray();
+        ProcedureEmitter.Emit(analysis, method, entry, directs);
+
+        var created = type.CreateType();
+        var run = created.GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
+        var body = created.GetMethod("Body") ?? throw new MissingMethodException(type.Name, "Body");
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
-        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees);
+        RuntimeHelpers.PrepareMethod(body.MethodHandle);
+        var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
+            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body };
+
+        // a call the body makes of itself is of the body just created.
+        foreach (var direct in directs)
+        {
+            if (direct is not null && ReferenceEquals(direct.Entry, entry))
+            {
+                direct.Body = compiled;
+            }
+        }
+
+        return compiled;
+    }
+
+    // how the body calls callee: directly through its typed entry when the callee is compiled - for the same scopes, before its caller - or is the body
+    // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
+    // calls the one that calls it).
+    private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
+        CompiledCallee callee)
+    {
+        if (evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        {
+            return null;
+        }
+
+        if (callee.Procedure.SemanticId == caller.SemanticId)
+        {
+            return new DirectCall(entry, callee.Procedure, list);
+        }
+
+        if (_inProgress.Contains(callee.Procedure.SemanticId) || invoker.BodyOf(callee.Procedure) is not { } calleeList
+            || Compile(session, evaluator, callee.Procedure, calleeList).Body is not { Entry: { } calleeEntry } calleeBody)
+        {
+            return null;
+        }
+
+        return new DirectCall(calleeEntry, callee.Procedure, calleeList) { Body = calleeBody };
     }
 }
 

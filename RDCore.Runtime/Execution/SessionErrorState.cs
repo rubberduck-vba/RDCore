@@ -46,11 +46,18 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     /// <inheritdoc/>
     public void Raise(IVBRaisableError error, long lineNumber = 0)
     {
+        // the error a callee raised, reaching each caller it unwinds into: it is the one Err is already of - its line is the caller's now (Erl), and its
+        // stack trace is the one captured where it was raised, all of it. Capturing the trace again at each caller would keep only the callers' part of it,
+        // with the callee's location on the caller's frame, and cost as many frames again at each - quadratic in the depth of the stack it unwinds.
+        var unwinding = ReferenceEquals(Current, error);
         Current = error;
         Number = error.ErrorId;
         Description = error.Description;
         LineNumber = lineNumber;
-        StackTrace = Capture(error);
+        if (!unwinding)
+        {
+            StackTrace = Capture(error);
+        }
     }
 
     /// <inheritdoc/>
