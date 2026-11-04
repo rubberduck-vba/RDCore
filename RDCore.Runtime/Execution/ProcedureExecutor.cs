@@ -1037,6 +1037,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             activation.SetForLoopState(instruction.Offset, new ForLoopState(counterSymbol, forStatement.ControlExpression, unset.End, unset.Step)
             {
+                CountsDown = ForLoopEvaluator.CountsDown(unset.Step),
                 RuntimeState = new ForLoopPayloads(),
             });
         }
