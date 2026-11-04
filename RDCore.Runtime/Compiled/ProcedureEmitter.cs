@@ -12,7 +12,8 @@ namespace RDCore.Runtime.Compiled;
 /// <remarks>
 /// <para>
 /// Each instruction is an IL label, so the control flow is the interpreter's one to one. Each parameter and variable of the activation is a local of the
-/// method, a <see cref="long"/> or a <see cref="double"/>, and so are the end and the step of each <c>For</c> loop. Every operation that can fail is a call
+/// method, a <see cref="long"/> or a <see cref="double"/>, and so are the end and the step of each <c>For</c> loop - but one held in a cell
+/// (<see cref="ProcedureAnalysis.CellSlots"/>), which is a local holding the cell, read and written through <see cref="CompiledActivation"/>. Every operation that can fail is a call
 /// of a payload operation or of <see cref="Extended"/>, which says so; compiled code then writes the activation into its frame and hands it to the
 /// interpreter at the instruction that failed (<see cref="CompiledActivation.Interpret"/>), which evaluates it as it always does.
 /// </para>
@@ -29,6 +30,10 @@ internal sealed class ProcedureEmitter
     private readonly IReadOnlyList<DirectCall?> _directs;
     private readonly ILGenerator _il;
     private readonly Dictionary<int, LocalBuilder> _slots = [];
+
+    // the slots held in cells, each by the local its cell is held in, and by its number of the activation's cells (CompiledActivation.TakeReference).
+    private readonly Dictionary<int, LocalBuilder> _cells = [];
+    private readonly Dictionary<int, int> _cellNumbers = [];
     private readonly Dictionary<int, Label> _instructions = [];
     private readonly Dictionary<int, Label> _failures = [];
     private readonly List<LoopLocals> _loops = [];
@@ -59,18 +64,21 @@ internal sealed class ProcedureEmitter
     }
 
     // the parameters, read from their cells - a cell that holds no payload is the interpreter's to read, and the activation is handed to it before anything
-    // runs - and the typed entry called with them.
+    // runs - and the typed entry called with them. A parameter passed by reference is given its cell, the caller's variable, which compiled code reads as it
+    // goes; one bound to an address - a field, an element - is the interpreter's.
     private static void EmitRun(ProcedureAnalysis analysis, ILGenerator il, MethodBuilder entry)
     {
         var interpret = il.DefineLabel();
         var read = new List<LocalBuilder>(analysis.Parameters.Count);
-        foreach (var (slot, kind) in analysis.Parameters)
+        foreach (var (slot, kind, byReference) in analysis.Parameters)
         {
-            var local = il.DeclareLocal(ClrTypeOf(kind));
+            var local = il.DeclareLocal(byReference ? typeof(object) : ClrTypeOf(kind));
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldc_I4, slot);
             il.Emit(OpCodes.Ldloca, local);
-            il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
+            il.Emit(OpCodes.Call, Activation.GetMethod(byReference
+                ? nameof(CompiledActivation.TryReadReference)
+                : ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
             il.Emit(OpCodes.Brfalse, interpret);
             read.Add(local);
         }
@@ -93,9 +101,19 @@ internal sealed class ProcedureEmitter
 
     private void Emit()
     {
+        var cellSlots = _analysis.CellSlots;
+        for (var i = 0; i < cellSlots.Count; i++)
+        {
+            _cells[cellSlots[i]] = _il.DeclareLocal(typeof(object));
+            _cellNumbers[cellSlots[i]] = i;
+        }
+
         foreach (var (slot, kind) in _analysis.Slots)
         {
-            _slots[slot] = _il.DeclareLocal(ClrTypeOf(kind));
+            if (!_cells.ContainsKey(slot))
+            {
+                _slots[slot] = _il.DeclareLocal(ClrTypeOf(kind));
+            }
         }
 
         if (_analysis.ResultKind is { } resultKind)
@@ -141,22 +159,67 @@ internal sealed class ProcedureEmitter
     /// <summary>The CLR type a payload of <paramref name="kind"/> is held in: a <see cref="long"/> of an integral kind, a <see cref="double"/> of a floating-point one.</summary>
     internal static Type ClrTypeOf(ScalarKind kind) => ScalarKinds.IsIntegral(kind) ? typeof(long) : typeof(double);
 
-    // the parameters, as the entry is given them: its arguments after the activation.
+    // the parameters, as the entry is given them: its arguments after the activation - the cell of one passed by reference, which the activation holds for
+    // its frame. Then the cell of each other slot held in one: a parameter passed by value given one holding its argument, a variable one holding its
+    // type's default; the frame's own, when the activation has a frame that holds one, and the interpreter's from the start when it holds another binding.
     private void EmitEntry()
     {
         for (var i = 0; i < _analysis.Parameters.Count; i++)
         {
-            _il.Emit(OpCodes.Ldarg, (short)(i + 1));
-            _il.Emit(OpCodes.Stloc, _slots[_analysis.Parameters[i].Slot]);
+            var (slot, kind, byReference) = _analysis.Parameters[i];
+            if (byReference)
+            {
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, _cellNumbers[slot]);
+                _il.Emit(OpCodes.Ldarg, (short)(i + 1));
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TakeReference))!);
+                _il.Emit(OpCodes.Ldarg, (short)(i + 1));
+                _il.Emit(OpCodes.Stloc, _cells[slot]);
+            }
+            else if (_cells.TryGetValue(slot, out var cell))
+            {
+                EmitCellOf(slot, kind, cell, () => _il.Emit(OpCodes.Ldarg, (short)(i + 1)));
+            }
+            else
+            {
+                _il.Emit(OpCodes.Ldarg, (short)(i + 1));
+                _il.Emit(OpCodes.Stloc, _slots[slot]);
+            }
         }
+
+        foreach (var slot in _analysis.CellSlots)
+        {
+            if (!_analysis.Parameters.Exists(parameter => parameter.Slot == slot))
+            {
+                var kind = _analysis.Slots[slot];
+                EmitCellOf(slot, kind, _cells[slot], () => LoadZero(kind));
+            }
+        }
+    }
+
+    // the cell of a slot that is not a parameter passed by reference, holding what loadValue loads: the activation is the interpreter's from the start when
+    // its frame holds no cell for it.
+    private void EmitCellOf(int slot, ScalarKind kind, LocalBuilder cell, Action loadValue)
+    {
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, _cellNumbers[slot]);
+        loadValue();
+        _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.CellOfIntegral) : nameof(CompiledActivation.CellOfFloating))!);
+        _il.Emit(OpCodes.Stloc, cell);
+        _il.Emit(OpCodes.Ldloc, cell);
+        _il.Emit(OpCodes.Brfalse, FailureAt(0));
     }
 
     private void EmitStep(CompiledStep step)
     {
         switch (step)
         {
+            case LetStep let when let.Slot < 0:
+                Store(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, _result!);
+                break;
+
             case LetStep let:
-                Store(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, let.Slot < 0 ? _result! : _slots[let.Slot]);
+                StoreSlot(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, let.Slot);
                 break;
 
             case BranchStep branch:
@@ -211,7 +274,7 @@ internal sealed class ProcedureEmitter
         var arguments = new Operand[call.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = EmitPayload(call.Arguments[i], failure);
+            arguments[i] = EmitArgument(call.Arguments[i], failure);
         }
 
         var called = _il.DefineLabel();
@@ -273,6 +336,13 @@ internal sealed class ProcedureEmitter
         {
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
+            if (call.Arguments[i] is ReferenceNode or TemporaryNode)
+            {
+                Load(arguments[i], call.Arguments[i].Kind);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetReference))!);
+                continue;
+            }
+
             LoadAsBoth(arguments[i], call.Arguments[i].Kind);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetArgument))!);
         }
@@ -296,8 +366,15 @@ internal sealed class ProcedureEmitter
         if (call.Result != CallStep.NoResult)
         {
             var kind = _analysis.Callees[call.Callee].Result!.Value;
-            _il.Emit(OpCodes.Ldloc, ScalarKinds.IsIntegral(kind) ? integral : floating);
-            _il.Emit(OpCodes.Stloc, call.Result < 0 ? _result! : _slots[call.Result]);
+            var returnedValue = new Operand(ScalarKinds.IsIntegral(kind) ? integral : floating, 0, 0);
+            if (call.Result < 0)
+            {
+                Store(returnedValue, kind, _result!);
+            }
+            else
+            {
+                StoreSlot(returnedValue, kind, call.Result);
+            }
         }
 
         _il.Emit(OpCodes.Ldarg_0);
@@ -338,11 +415,17 @@ internal sealed class ProcedureEmitter
         }
     }
 
-    // every variable read back from its cell, which a debugger may have changed while the program waited.
+    // every variable read back from its cell, which a debugger may have changed while the program waited - but one held in a cell, which compiled code
+    // reads where it is.
     private void EmitReload()
     {
         foreach (var (slot, kind) in _analysis.Slots)
         {
+            if (_cells.ContainsKey(slot))
+            {
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, _slots[slot]);
@@ -543,11 +626,17 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ret);
     }
 
-    // every variable written into its cell, the function result into its variable, each loop that is open into the frame.
+    // every variable written into its cell, the function result into its variable, each loop that is open into the frame. A variable held in a cell is in
+    // it already, and the frame holds the cell (CompiledActivation.TakeReference).
     private void EmitSpill()
     {
         foreach (var (slot, kind) in _analysis.Slots)
         {
+            if (_cells.ContainsKey(slot))
+            {
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloc, _slots[slot]);
@@ -644,11 +733,61 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Stloc, destination);
     }
 
+    // a variable of the activation assigned: its local, or the cell it is held in, which can't fail - the value is of its kind.
+    private void StoreSlot(Operand operand, ScalarKind kind, int slot)
+    {
+        if (!_cells.TryGetValue(slot, out var cell))
+        {
+            Store(operand, kind, _slots[slot]);
+            return;
+        }
+
+        _il.Emit(OpCodes.Ldloc, cell);
+        Load(operand, kind);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
+    }
+
+    // the argument of a call: a value, or the cell of a parameter passed by reference - the variable's, or one of its own made of the value.
+    private Operand EmitArgument(PayloadNode node, Label failure)
+    {
+        switch (node)
+        {
+            case ReferenceNode reference:
+                return new Operand(_cells[reference.Slot], 0, 0);
+
+            case TemporaryNode temporary:
+            {
+                var value = EmitPayload(temporary.Value, failure);
+                var cell = _il.DeclareLocal(typeof(object));
+                _il.Emit(OpCodes.Ldc_I4, (int)temporary.Kind);
+                LoadAsBoth(value, temporary.Kind);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.NewCell))!);
+                _il.Emit(OpCodes.Stloc, cell);
+                return new Operand(cell, 0, 0);
+            }
+
+            default:
+                return EmitPayload(node, failure);
+        }
+    }
+
     // evaluates a payload into a local - or names the local or the constant it is - leaving nothing on the stack, so that a failure branches from an empty one.
     private Operand EmitPayload(PayloadNode node, Label failure)
     {
         switch (node)
         {
+            // a variable held in a cell is read where it is: a cell that holds no payload - what the interpreter wrote into it, of another representation - is
+            // the interpreter's to read.
+            case SlotNode slot when _cells.TryGetValue(slot.Slot, out var cell):
+            {
+                var read = _il.DeclareLocal(ClrTypeOf(slot.Kind));
+                _il.Emit(OpCodes.Ldloc, cell);
+                _il.Emit(OpCodes.Ldloca, read);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(slot.Kind) ? nameof(CompiledActivation.ReadIntegral) : nameof(CompiledActivation.ReadFloating))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                return new Operand(read, 0, 0);
+            }
+
             case SlotNode slot:
                 return new Operand(_slots[slot.Slot], 0, 0);
 

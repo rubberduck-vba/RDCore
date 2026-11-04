@@ -630,7 +630,7 @@
     <value>un membre d'une classe</value>
   </data>
   <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
-    <value>un paramètre passé par référence : {0}</value>
+    <value>un paramètre ParamArray : {0}</value>
   </data>
   <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
     <value>ni un nombre, ni un Boolean, ni une Date : {0}</value>
@@ -648,7 +648,7 @@
     <value>une affectation de ce qui n'est pas une variable de la procédure : {0}</value>
   </data>
   <data name="Compilation_Reason_ForCounter" xml:space="preserve">
-    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure : {0}</value>
+    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure, ou est passé par référence : {0}</value>
   </data>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>un appel : {0}</value>

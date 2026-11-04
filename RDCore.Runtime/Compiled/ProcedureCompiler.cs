@@ -143,11 +143,12 @@ internal sealed class ProcedureCompiler
 
     // a type of its own for each procedure, created as soon as its methods are written: what is created is what can be called. The IL is compiled now,
     // rather than at the first call, so that code the runtime refuses is refused here. Two methods: the typed entry (Body), which a compiled caller calls with
-    // the arguments as it holds them, and Run, which reads them from the frame's cells, as an interpreted caller gives them, and calls it.
+    // the arguments as it holds them, and Run, which reads them from the frame's cells, as an interpreted caller gives them, and calls it. The argument of a
+    // parameter passed by reference is a cell, which the IL holds as an object it only hands back to CompiledActivation.
     private CompiledBody Emit(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
     {
         var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
-        Type[] parameters = [typeof(CompiledActivation), .. analysis.Parameters.Select(parameter => ProcedureEmitter.ClrTypeOf(parameter.Kind))];
+        Type[] parameters = [typeof(CompiledActivation), .. analysis.Parameters.Select(parameter => parameter.ByReference ? typeof(object) : ProcedureEmitter.ClrTypeOf(parameter.Kind))];
         var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), parameters);
         var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
 
@@ -160,7 +161,7 @@ internal sealed class ProcedureCompiler
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
         RuntimeHelpers.PrepareMethod(body.MethodHandle);
         var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body };
+            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots };
 
         // a call the body makes of itself is of the body just created.
         foreach (var direct in directs)
