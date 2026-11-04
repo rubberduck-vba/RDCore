@@ -505,6 +505,16 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     /// <returns><see langword="null"/> when the call stack is full: the call is then made as any other, which says so (<see cref="VBRuntimeErrorId.OutOfStackSpace"/>).</returns>
     internal CallStackFrame? PushCompiledActivation(VBTypeMemberSymbol procedure, InstructionList body)
     {
+        var frame = CreateCompiledFrame(procedure, body);
+        return Session.CallStack.TryPush(frame) ? frame : null;
+    }
+
+    /// <summary>
+    /// The frame of an activation of <paramref name="procedure"/> a call compiled code made of it, as <see cref="PushCompiledActivation"/> makes it, but not
+    /// pushed: the frame of an activation that was on the stack without one (IR lowering S2.3b2), which the stack pushes where the activation is.
+    /// </summary>
+    internal CallStackFrame CreateCompiledFrame(VBTypeMemberSymbol procedure, InstructionList body)
+    {
         if (!_activations.TryGetValue(procedure, out var activation))
         {
             activation = _activations.GetOrAdd(procedure, ActivationOf);
@@ -513,16 +523,16 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         var frame = (CallStackFrame)Session.Symbols.CreateFrame(activation.NodeId, activation.Symbol, activation.Directives);
         (frame.Procedure, frame.Body) = (procedure, body);
         frame.LayOut(activation.Layout);
-        return Session.CallStack.TryPush(frame) ? frame : null;
+        return frame;
     }
 
     /// <summary>
     /// The end of an activation <see cref="PushCompiledActivation"/> made, as <see cref="InvokeScalars"/> ends one: what an error a <c>Class_Terminate</c> left
     /// unhandled makes of its outcome, and the frame off the stack - unless the program was stopped in it, which leaves it there. Its parameters and variables
-    /// are scalars, which hold no object to let go of.
+    /// are scalars, which hold no object to let go of. An activation that is on the stack without a frame (<paramref name="light"/>) is taken off it as it is.
     /// </summary>
     /// <returns>The activation's outcome, as its caller is to see it.</returns>
-    internal RuntimeExecutionOutcome PopCompiledActivation(RuntimeExecutionOutcome outcome)
+    internal RuntimeExecutionOutcome PopCompiledActivation(RuntimeExecutionOutcome outcome, bool light = false)
     {
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Error)
             && Session.Errors.Untrappable is { } untrappable)
@@ -530,7 +540,11 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             outcome = RuntimeExecutionOutcome.Error(untrappable);
         }
 
-        if (outcome.Kind is not RuntimeExecutionOutcomeKind.Break)
+        if (light)
+        {
+            ((RuntimeCallStack)Session.CallStack).PopLight();
+        }
+        else if (outcome.Kind is not RuntimeExecutionOutcomeKind.Break)
         {
             Session.CallStack.TryPop(out _);
         }

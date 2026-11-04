@@ -29,10 +29,9 @@ namespace RDCore.Runtime.Compiled;
 /// the rest of the activation from that instruction.
 /// </para>
 /// </remarks>
-public sealed class CompiledActivation
+public sealed class CompiledActivation : ILightActivation
 {
     private readonly IRuntimeSession _session;
-    private readonly CallStackFrame _frame;
     private readonly InstructionList _list;
     private readonly ProcedureExecutor _executor;
     private readonly RuntimeEvaluationContext _context;
@@ -43,19 +42,111 @@ public sealed class CompiledActivation
     // session's own, never one the body was compiled with - a body is shared by every session composed over the same scopes.
     private readonly RuntimeProcedureInvoker _invoker;
 
+    // the activation's frame; none for one of a call compiled code made directly, until something is to see it (IR lowering S2.3b2): it is then made
+    // (ILightActivation.Materialize), and the activation is held in it from then on.
+    private CallStackFrame? _frame;
+
+    // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making, and its
+    // function result variable.
+    private readonly VBTypeMemberSymbol? _procedure;
+    private readonly RuntimeCallStack? _stack;
+    private int _pc;
+    private ScalarPayload _result;
+    private bool _hasResult;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body, RuntimeProcedureInvoker invoker)
+        : this(session, list, executor, context, body, invoker, procedure: null)
     {
-        (_session, _frame, _list, _executor, _context, _body, _invoker) = (session, frame, list, executor, context, body, invoker);
-        _halt = session.Halt;
-        _scopes = session.Symbols.Scopes;
+        _frame = frame;
         frame.RunsCompiled = true;
+    }
+
+    // an activation of a call compiled code makes directly, on the stack without a frame (EnterDirectly).
+    private CompiledActivation(IRuntimeSession session, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context, CompiledBody body,
+        RuntimeProcedureInvoker invoker, VBTypeMemberSymbol? procedure)
+    {
+        (_session, _list, _executor, _context, _body, _invoker, _procedure) = (session, list, executor, context, body, invoker, procedure);
+        _halt = session.Halt;
+        _stack = session.CallStack as RuntimeCallStack;
+        Begin();
+    }
+
+    // what every activation begins with, one made again too (EnterDirectly).
+    private void Begin()
+    {
+        _scopes = _session.Symbols.Scopes;
+        (_pc, _hasResult, _failed) = (0, false, null);
+        _untilPoll = PollInterval;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
         if (CompiledExecution.WalksBackAtRandom)
         {
-            _untilPoll = body.NextRandomSafepoint();
+            _untilPoll = _body.NextRandomSafepoint();
         }
+    }
+
+    CallStackFrame ILightActivation.Materialize()
+    {
+        var frame = _invoker.CreateCompiledFrame(_procedure!, _list);
+        (frame.Pc, frame.RunsCompiled) = (_pc, true);
+        if (_hasResult)
+        {
+            frame.AssignResult(_result);
+        }
+
+        _body.CountFrameMade();
+        return _frame = frame;
+    }
+
+    // the activation's frame, made now when it has none: the frames of every activation below it on the stack that has none are made with it, first.
+    private CallStackFrame Frame
+    {
+        get
+        {
+            if (_frame is null)
+            {
+                _stack!.MaterializeLights();
+            }
+
+            return _frame!;
+        }
+    }
+
+    // the instruction the activation is at, which its frame says, or says once it has one.
+    private void SetPc(int pc)
+    {
+        if (_frame is { } frame)
+        {
+            frame.Pc = pc;
+        }
+        else
+        {
+            _pc = pc;
+        }
+    }
+
+    // the function result variable, as the activation's frame holds it, or as the activation does while it has none.
+    private bool TryReadResult(out ScalarPayload payload)
+    {
+        if (_frame is { } frame)
+        {
+            return frame.TryReadResult(out payload);
+        }
+
+        payload = _result;
+        return _hasResult;
+    }
+
+    private void AssignResult(ScalarPayload payload)
+    {
+        if (_frame is { } frame)
+        {
+            frame.AssignResult(payload);
+            return;
+        }
+
+        (_result, _hasResult) = (payload, true);
     }
 
     // how many polls go by before the next looks: a program is stopped within a few microseconds all the same.
@@ -118,7 +209,7 @@ public sealed class CompiledActivation
     public bool Call(int pc, int callee, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        _frame.Pc = pc;
+        SetPc(pc);
         _failed = null;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
@@ -176,17 +267,49 @@ public sealed class CompiledActivation
             return null;
         }
 
-        _frame.Pc = pc;
+        SetPc(pc);
         _failed = null;
-        if (_invoker.PushCompiledActivation(direct.Procedure, direct.List) is not { } frame)
+
+        // under a debugger, which may look at the stack while the program waits in it, the callee's frame is made as it is called; any other is on the stack
+        // without one until something is to see it (IR lowering S2.3b2), and is made once for the call site: each call it makes after is in it again.
+        CompiledActivation activation;
+        if (_halt.Gate is not null || _stack is null)
         {
-            return null;
+            if (_invoker.PushCompiledActivation(direct.Procedure, direct.List) is not { } frame)
+            {
+                return null;
+            }
+
+            activation = new CompiledActivation(_session, frame, direct.List, _executor, direct.Context, body, _invoker);
+        }
+        else
+        {
+            _callees ??= new CompiledActivation?[_body.Directs.Count];
+            if (_callees[callee] is { } made && ReferenceEquals(made._list, direct.List) && ReferenceEquals(made._body, body))
+            {
+                made._frame = null;
+                made.Begin();
+                activation = made;
+            }
+            else
+            {
+                activation = _callees[callee] = new CompiledActivation(_session, direct.List, _executor, direct.Context, body, _invoker, direct.Procedure);
+            }
+
+            if (!_stack.TryPushLight(activation))
+            {
+                return null;
+            }
         }
 
         _body.CountDirectCall();
         _suspensionsBeforeCall = Suspensions;
-        return new CompiledActivation(_session, frame, direct.List, _executor, direct.Context, body, _invoker);
+        return activation;
     }
+
+    // the activation each call site of the body that calls a compiled procedure directly last made, which its next call is made in again: a call site makes
+    // one call at a time, and a call that did not return is the interpreter's, which goes on in the frame it was given.
+    private CompiledActivation?[]? _callees;
 
     /// <summary>
     /// Ends the activation <paramref name="callee"/> of the call numbered <paramref name="call"/> of the body, which compiled code made through the callee's
@@ -199,7 +322,7 @@ public sealed class CompiledActivation
     public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        outcome = _invoker.PopCompiledActivation(outcome);
+        outcome = _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure)
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
@@ -214,7 +337,7 @@ public sealed class CompiledActivation
         }
 
         // a function of a scalar type returns a payload of it: its compiled code assigned it when it returned, and so did the interpreter it was handed to.
-        if (!callee._frame.TryReadResult(out var payload))
+        if (!callee.TryReadResult(out var payload))
         {
             _failed = RuntimeExecutionOutcome.InternalError;
             return false;
@@ -233,7 +356,7 @@ public sealed class CompiledActivation
 
     // the symbols compiled code was compiled against: a procedure it calls, defined again since - its parameters retyped, passed another way, one added - is
     // another call than the one compiled.
-    private readonly ScopeTree _scopes;
+    private ScopeTree _scopes = null!;
 
     /// <summary>
     /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
@@ -241,7 +364,11 @@ public sealed class CompiledActivation
     /// or the session's symbols were defined again while the callee ran - an edit made while the program waited - and what compiled code calls, and how,
     /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call.
     /// </summary>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _frame.HasPendingRebase || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
+    /// <remarks>
+    /// An activation without a frame has no edit to go on in: the program waited in none, since what looks at the stack while it waits gives every activation
+    /// its frame (<see cref="RuntimeCallStack.MaterializeLights"/>).
+    /// </remarks>
+    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _frame is { HasPendingRebase: true } || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
@@ -250,30 +377,31 @@ public sealed class CompiledActivation
     /// </summary>
     public RuntimeExecutionOutcome AfterFailedCall(int pc)
     {
-        _frame.RunsCompiled = false;
+        var frame = Frame;
+        frame.RunsCompiled = false;
 
         // the procedure edited while the program waited in the callee: the error is the call's, where the call now is.
-        if (_frame.ApplyPendingRebase(atTheCall: true))
+        if (frame.ApplyPendingRebase(atTheCall: true))
         {
-            pc = _frame.Pc;
+            pc = frame.Pc;
         }
 
         var list = Body;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
         if (_failed is not { } outcome)
         {
-            _frame.Pc = pc;
-            return _executor.Run(_session, _frame, list, _context);
+            frame.Pc = pc;
+            return _executor.Run(_session, frame, list, _context);
         }
 
-        return _executor.RunAfter(_session, _frame, list, _context, pc, outcome);
+        return _executor.RunAfter(_session, frame, list, _context, pc, outcome);
     }
 
     /// <summary>The payload of the parameter in <paramref name="slot"/>, of an integral kind, when its cell holds one.</summary>
     public bool TryReadIntegral(int slot, out long value)
     {
         value = 0;
-        if (!_frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
+        if (!Frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
         {
             return false;
         }
@@ -286,7 +414,7 @@ public sealed class CompiledActivation
     public bool TryReadFloating(int slot, out double value)
     {
         value = 0;
-        if (!_frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
+        if (!Frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
         {
             return false;
         }
@@ -298,7 +426,7 @@ public sealed class CompiledActivation
     /// <summary>The payload of the function result variable, of an integral kind, when it holds one: what a debugger may have assigned it while the program waited.</summary>
     public bool TryReadResultIntegral(out long value)
     {
-        var read = _frame.TryReadResult(out var payload);
+        var read = TryReadResult(out var payload);
         value = read ? payload.Integral : 0;
         return read;
     }
@@ -306,7 +434,7 @@ public sealed class CompiledActivation
     /// <summary>The payload of the function result variable, of a floating-point kind, when it holds one.</summary>
     public bool TryReadResultFloating(out double value)
     {
-        var read = _frame.TryReadResult(out var payload);
+        var read = TryReadResult(out var payload);
         value = read ? payload.Floating : 0;
         return read;
     }
@@ -319,7 +447,8 @@ public sealed class CompiledActivation
 
     private void Spill(int slot, long integral, double floating)
     {
-        if (_frame.TryGetSlotCell(slot, out var cell))
+        var frame = Frame;
+        if (frame.TryGetSlotCell(slot, out var cell))
         {
             if (cell is ScalarCell scalar)
             {
@@ -333,15 +462,15 @@ public sealed class CompiledActivation
         // it would have been given at the call, holding what the variable holds now.
         if (_body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && ScalarPayload.IsScalar(type))
         {
-            _frame.PushPayload(symbol, new ScalarPayload(type, integral, floating), slot);
+            frame.PushPayload(symbol, new ScalarPayload(type, integral, floating), slot);
         }
     }
 
     /// <summary>Assigns the function result variable a payload of an integral kind.</summary>
-    public void AssignResultIntegral(long value) => _frame.AssignResult(new ScalarPayload(ScalarKinds.TypeOf(_body.ResultKind!.Value), value, 0));
+    public void AssignResultIntegral(long value) => AssignResult(new ScalarPayload(ScalarKinds.TypeOf(_body.ResultKind!.Value), value, 0));
 
     /// <summary>Assigns the function result variable a payload of a floating-point kind.</summary>
-    public void AssignResultFloating(double value) => _frame.AssignResult(new ScalarPayload(ScalarKinds.TypeOf(_body.ResultKind!.Value), 0, value));
+    public void AssignResultFloating(double value) => AssignResult(new ScalarPayload(ScalarKinds.TypeOf(_body.ResultKind!.Value), 0, value));
 
     /// <summary>
     /// Writes the state of the <c>For</c> loop numbered <paramref name="loop"/> into the frame, as its opener would have stashed it: its end and its step,
@@ -353,7 +482,7 @@ public sealed class CompiledActivation
         var type = ScalarKinds.TypeOf(info.Kind);
         var end = new ScalarPayload(type, endIntegral, endFloating);
         var step = new ScalarPayload(type, stepIntegral, stepFloating);
-        _frame.SetForLoopState(info.Opener, new ForLoopState(info.Counter, info.Control, type.CreateValue(new ValueBindingHandle(end.Box())),
+        Frame.SetForLoopState(info.Opener, new ForLoopState(info.Counter, info.Control, type.CreateValue(new ValueBindingHandle(end.Box())),
             type.CreateValue(new ValueBindingHandle(step.Box())))
         {
             CountsDown = ScalarKinds.IsIntegral(info.Kind) ? stepIntegral < 0 : stepFloating < 0,
@@ -368,22 +497,27 @@ public sealed class CompiledActivation
     public RuntimeExecutionOutcome Interpret(int pc)
     {
         // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body.
-        (_frame.Pc, _frame.RunsCompiled) = (pc, false);
-        _ = _frame.ApplyPendingRebase(atTheCall: false);
+        var frame = Frame;
+        (frame.Pc, frame.RunsCompiled) = (pc, false);
+        _ = frame.ApplyPendingRebase(atTheCall: false);
         var list = Body;
-        pc = _frame.Pc;
+        pc = frame.Pc;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
-        return _executor.Run(_session, _frame, list, _context);
+        return _executor.Run(_session, frame, list, _context);
     }
 
     // the body the interpreter goes on in: the frame's, which an edit made while the program waited may have given it, the same instructions at the same
     // offsets as the one compiled code was compiled from (CallStackFrame.TryRebase).
-    private InstructionList Body => _frame.Body ?? _list;
+    private InstructionList Body => _frame?.Body ?? _list;
 
     /// <summary>What an activation that reached its end, or an <c>Exit</c>, returns.</summary>
     public RuntimeExecutionOutcome Return()
     {
-        _frame.RunsCompiled = false;
+        if (_frame is { } frame)
+        {
+            frame.RunsCompiled = false;
+        }
+
         return RuntimeExecutionOutcome.ExitProcedure;
     }
 }
@@ -414,6 +548,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long IndirectCalls => Interlocked.Read(ref _indirectCalls);
 
     internal void CountDirectCall() => Interlocked.Increment(ref _directCalls);
+
+    private long _framesMade;
+
+    /// <summary>
+    /// How many activations of the body that compiled code called directly were given a frame after the call: because something looked at the stack while
+    /// they were on it, or they were handed to the interpreter (IR lowering S2.3b2). One called under a debugger, which is given its frame as it is called, is
+    /// not counted.
+    /// </summary>
+    public long FramesMade => Interlocked.Read(ref _framesMade);
+
+    internal void CountFrameMade() => Interlocked.Increment(ref _framesMade);
 
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 

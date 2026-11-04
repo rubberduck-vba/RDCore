@@ -574,4 +574,113 @@ public sealed class CompiledDirectCallTests
                 }, engine: engine);
         }
     }
+
+    // how many activations of the procedures named, called directly, were given a frame after the call (IR lowering S2.3b2): the program run compiled.
+    private static async Task<long> FramesMadeAsync(string program, params string[] callees)
+    {
+        long made = 0;
+        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
+        await ModuleWorkspace.InspectAsync([], program, (provider, _, _) =>
+        {
+            made = callees.Sum(callee => BodyOf(provider, callee).FramesMade);
+            return Task.CompletedTask;
+        }, engine: VBExecutionEngine.Compiled);
+        return made;
+    }
+
+    // an activation of a call made directly is on the stack without a frame while nothing looks at the stack (IR lowering S2.3b2): Twice is called a hundred
+    // times, and given no frame, each call in the activation the call before was in.
+    [TestMethod]
+    public async Task ACalleeCalledDirectly_IsGivenNoFrame_WhileNothingLooksAtTheStack()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Sum(100)",
+            "End Sub",
+            "Private Function Sum(ByVal n As Long) As Long",
+            "    Dim i As Long, t As Long, u As Long",
+            "    For i = 1 To n",
+            "        u = Twice(i)",
+            "        t = t + u",
+            "    Next",
+            "    Sum = t",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function");
+        var (observed, direct, indirect) = await AssertAlikeAsync(program, "Sum");
+
+        StringAssert.Contains(observed, "| 10100 |");
+        AssertCalls(100, (direct, indirect));
+
+        // under the random walk-back, an activation handed to the interpreter is given its frame to be run in.
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(0L, await FramesMadeAsync(program, "Twice"));
+        }
+    }
+
+    // a procedure that calls itself from two places in its body: each place's activation is made once for each activation of the caller, and every call is
+    // the one it is.
+    [TestMethod]
+    public async Task AProcedureThatCallsItselfTwice_ReturnsWhatEachCallReturns()
+    {
+        var (observed, direct, indirect) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Fib(15)",
+            "End Sub",
+            "Private Function Fib(ByVal n As Long) As Long",
+            "    Dim a As Long, b As Long",
+            "    If n < 2 Then",
+            "        Fib = n",
+            "    Else",
+            "        a = Fib(n - 1)",
+            "        b = Fib(n - 2)",
+            "        Fib = a + b",
+            "    End If",
+            "End Function"), "Fib");
+
+        // Fib(15) makes 1,972 calls of Fib besides the first.
+        StringAssert.Contains(observed, "| 610 |");
+        AssertCalls(1972, (direct, indirect));
+    }
+
+    // an error raised in a procedure the interpreter runs, called by the innermost of three activations compiled code made directly: each of the three is
+    // given its frame when the procedure's is pushed above it, and the stack trace of the error has every activation, in order, as the interpreter has it.
+    [TestMethod]
+    public async Task AnErrorBelowThreeCallsMadeDirectly_IsTracedWithEachCallerAtItsCall()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print First(4)",
+            "End Sub",
+            "Private Function First(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Second(n + 1)",
+            "    First = r",
+            "End Function",
+            "Private Function Second(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Third(n + 1)",
+            "    Second = r",
+            "End Function",
+            "Private Function Third(ByVal n As Long) As Long",
+            "    Dim r As Long",
+            "    r = Interpreted(n + 1)",
+            "    Third = r",
+            "End Function",
+            "Private Function Interpreted(ByVal n As Long) As Long",
+            "    Dim s As String",
+            "    s = \"x\"",
+            "    Interpreted = n \\ 0",
+            "End Function");
+        var (observed, direct, _) = await AssertAlikeAsync(program, "First", "Second");
+
+        StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@\d+:\d+ < Third@[-\d:]+ < Second@[-\d:]+ < First@[-\d:]+ < Main@"));
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(2L, direct, "First calls Second, and Second calls Third, through their typed entries");
+            Assert.AreEqual(2L, await FramesMadeAsync(program, "Second", "Third"), "Second and Third, given their frames when Interpreted's is pushed");
+        }
+    }
 }
