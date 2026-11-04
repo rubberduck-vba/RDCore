@@ -348,7 +348,7 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         // an Error has no length: MS-VBA raises a type mismatch, where MS-VBAL does not say (recorded in Excel: oracle\s56 G07, s57 E01).
         if (value is VBErrorValue)
         {
-            return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch, inMemory ? nameof(LenB) : nameof(Len), "Expression is no Error value");
+            return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch, inMemory ? nameof(LenB) : nameof(Len), "Expression is an Error value, which has no length");
         }
 
         return RuntimeSemanticsEvaluationResult<VBVariantValue>.Success(new VBVariantValue(new VBLongValue(Length(value, inMemory))));

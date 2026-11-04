@@ -132,7 +132,7 @@ public sealed class CallByNameTests
     // MS-VBA, recorded in Excel: oracle\s56 G04, s57 C03 - where a call written in source on Nothing is 91.
     [TestMethod]
     public async Task Nothing_IsError5()
-        => StringAssert.Contains(await FailsWith("Set c = Nothing", "Debug.Print CallByName(c, \"Add\", VbMethod, 1, 2)"), "5");
+        => Assert.AreEqual("VBR00005", await FailsWith("Set c = Nothing", "Debug.Print CallByName(c, \"Add\", VbMethod, 1, 2)"));
 
     [TestMethod]
     public async Task TooManyArguments_IsError450()

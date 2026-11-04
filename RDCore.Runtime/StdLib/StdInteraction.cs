@@ -189,8 +189,10 @@ public sealed class StdInteraction(
     /// <c>Function</c> (or, failing those, a <c>Property Get</c>); <see cref="VBCallType.VBGet"/> a <c>Property Get</c>, a <c>Function</c> or a public variable;
     /// <see cref="VBCallType.VBLet"/> and <see cref="VBCallType.VBSet"/> a <c>Property Let</c> and a <c>Property Set</c>, the value assigned being the last argument.
     /// <para>
-    /// The arguments are passed by value, each Let-coerced to the type of its parameter. An omitted <c>Optional</c> parameter is given what a call written in
-    /// source gives it: its declared default, or Missing for a <c>Variant</c> that declares none. <see cref="VBCallType.VBLet"/> and
+    /// A variable given to a <c>ByRef</c> parameter of a member of the workspace's classes is passed by reference, as MS-VBA passes it: the member writes it. A
+    /// <c>Variant</c> parameter is given a variable of any type, which keeps its type; a variable of another type than a typed parameter's is a type mismatch.
+    /// Any other argument - a value, an argument of a late-bound object's member - is passed by value, Let-coerced to the type of its parameter. An omitted
+    /// <c>Optional</c> parameter is given what a call written in source gives it: its declared default, or Missing for a <c>Variant</c> that declares none. <see cref="VBCallType.VBLet"/> and
     /// <see cref="VBCallType.VBSet"/> of a public variable assign it, as an assignment written in source does.
     /// </para>
     /// </remarks>
