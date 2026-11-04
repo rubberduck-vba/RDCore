@@ -153,7 +153,8 @@ public sealed record class ExtractionSelection(SourceRange Range, ImmutableArray
         return [.. own, .. branches.SelectMany(BlocksOf)];
     }
 
-    // the instructions of the statements, and the closers lowering emitted for their blocks, which have no statement of their own.
+    // the instructions of the statements, and the closers lowering emitted for their blocks, which have no statement of their own: a Next, a Loop, and the jump
+    // to its end the last branch of an If or a Select Case ends with, which has no line either.
     private static IReadOnlySet<int> RegionOf(ImmutableArray<StatementNode> statements, SourceRange range, InstructionList instructions)
     {
         var offsets = statements
@@ -171,7 +172,8 @@ public sealed record class ExtractionSelection(SourceRange Range, ImmutableArray
         var last = offsets.Max();
         while (last + 1 < instructions.Items.Length && instructions.Items[last + 1] is { Node: null } synthesized
                && (synthesized.Matching is { } opener && opener >= first && opener <= last
-                   || synthesized.Location is { } location && location.Range.Start >= range.Start && location.Range.End <= range.End))
+                   || synthesized.Location is { } location && location.Range.Start >= range.Start && location.Range.End <= range.End
+                   || synthesized is { Kind: InstructionKind.Jump, Target: { } end } && instructions.Items[first..(last + 1)].Any(opener => opener.End == end)))
         {
             last++;
         }

@@ -36,6 +36,26 @@ public sealed class ExtractionControlFlowTests
     public void AJumpFromOutside_ToALabelOnTheSelectionsFirstLine_IsRefused()
         => CollectionAssert.Contains(RefusalsOf(Plan("If n > 0 Then GoTo L\nL:\nDebug.Print 1", 1, 2)), ExtractionRefusalKind.JumpIntoTheSelection);
 
+    // 2b found it: the last branch of an If or a Select Case ends with a jump to the block's end, which has no line; left out of the selection, a block the
+    // selection ends with branched past its end.
+    [TestMethod]
+    [DataRow("Dim i As Long\nIf n > 2 Then\ni = 1\nEnd If\nDebug.Print i", 1, 3, DisplayName = "If")]
+    [DataRow("Dim i As Long\nIf n > 2 Then\ni = 1\nElseIf n > 1 Then\ni = 2\nElse\ni = 3\nEnd If\nDebug.Print i", 1, 7, DisplayName = "If, ElseIf, Else")]
+    [DataRow("Dim i As Long\nSelect Case n\nCase 1\ni = 1\nCase 2\ni = 2\nEnd Select\nDebug.Print i", 1, 6, DisplayName = "Select Case")]
+    [DataRow("Dim i As Long\nSelect Case n\nCase 1\ni = 1\nCase Else\ni = 2\nEnd Select\nDebug.Print i", 1, 6, DisplayName = "Select Case, Case Else")]
+    [DataRow("Dim i As Long\nFor i = 1 To n\nDebug.Print i\nIf i > 2 Then\nDebug.Print n\nEnd If\nNext", 2, 5, DisplayName = "If last in a loop's body")]
+    public void ABlockTheSelectionEndsWith_IsNoExit(string body, int first, int last)
+    {
+        var plan = Plan(body, first, last);
+
+        Assert.IsTrue(plan.IsExtractable, string.Join(", ", RefusalsOf(plan)));
+        Assert.IsEmpty(plan.Exits);
+    }
+
+    [TestMethod]
+    public void AGoToTheInstructionAfter_IsAnExitAllTheSame()
+        => Assert.AreEqual("L", Plan("If n > 2 Then GoTo L\nL:\nDebug.Print 0", 0, 0).Exits.Single().Label);
+
     // the label stays where it is, and names the call.
     [TestMethod]
     public void AJumpFromOutside_ToALabelJustBeforeTheSelection_LandsOnTheCall()
