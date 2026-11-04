@@ -32,6 +32,11 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     private int _lightCount;
     private bool _materializing;
 
+    // the activation that last left each place of the stack an activation without a frame can be put in, which the next one put there may be made of again
+    // (TakeSpare): as many as the stack was ever deep in them, whatever many calls were made - not one for each call of a recursion. Let go of when the
+    // program ends (OnFramePopped).
+    private ILightActivation?[] _spares = [];
+
     /// <summary>How many activations are on the stack, with those compiled code made without a frame.</summary>
     public new int Depth => base.Depth + _lightCount;
 
@@ -60,16 +65,38 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
         if (_lightCount == _lights.Length)
         {
             Array.Resize(ref _lights, Math.Max(16, _lights.Length * 2));
+            Array.Resize(ref _spares, _lights.Length);
         }
 
         _lights[_lightCount++] = activation;
         return true;
     }
 
-    /// <summary>Takes off the stack the activation on top of it, which compiled code put there without a frame and which still has none.</summary>
+    /// <summary>
+    /// The activation that last left the place of the stack the next activation without a frame goes in, when it left it returning, without a frame: the
+    /// next one may be it, begun again. It is taken: an activation that is on the stack is the spare of no place, so none is made again while it runs.
+    /// </summary>
+    /// <returns><see langword="null"/> when none is.</returns>
+    internal ILightActivation? TakeSpare()
+    {
+        if (_lightCount >= _spares.Length || _spares[_lightCount] is not { } spare)
+        {
+            return null;
+        }
+
+        _spares[_lightCount] = null;
+        return spare;
+    }
+
+    /// <summary>
+    /// Takes off the stack the activation on top of it, which compiled code put there without a frame, which still has none, and which returned: it is the
+    /// spare of its place (<see cref="TakeSpare"/>).
+    /// </summary>
     internal void PopLight()
     {
-        _lights[--_lightCount] = null!;
+        var top = --_lightCount;
+        _spares[top] = _lights[top];
+        _lights[top] = null!;
     }
 
     /// <summary>
@@ -106,6 +133,7 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     {
         Array.Clear(_lights, 0, _lightCount);
         _lightCount = 0;
+        Array.Clear(_spares);
     }
 
     /// <inheritdoc cref="ICallStack.Current"/>
@@ -167,7 +195,16 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     }
 
     /// <inheritdoc/>
-    protected override void OnFramePopped(CallStackFrame? frame) => frame?.ReleaseAll();
+    protected override void OnFramePopped(CallStackFrame? frame)
+    {
+        frame?.ReleaseAll();
+
+        // the program ended: what it made of its compiled code is let go of with it, which a body loaded again since would otherwise keep.
+        if (base.Depth == 0 && _lightCount == 0)
+        {
+            Array.Clear(_spares);
+        }
+    }
 
     int ICallStack.Depth => Depth;
 

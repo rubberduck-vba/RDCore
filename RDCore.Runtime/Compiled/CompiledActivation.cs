@@ -271,7 +271,8 @@ public sealed class CompiledActivation : ILightActivation
         _failed = null;
 
         // under a debugger, which may look at the stack while the program waits in it, the callee's frame is made as it is called; any other is on the stack
-        // without one until something is to see it (IR lowering S2.3b2), and is made once for the call site: each call it makes after is in it again.
+        // without one until something is to see it (IR lowering S2.3b2), in the activation that last left its place of the stack, begun again, when that
+        // was an activation of the same procedure: a loop of calls is made in one, a recursion in as many as it goes deep.
         CompiledActivation activation;
         if (_halt.Gate is not null || _stack is null)
         {
@@ -284,16 +285,18 @@ public sealed class CompiledActivation : ILightActivation
         }
         else
         {
-            _callees ??= new CompiledActivation?[_body.Directs.Count];
-            if (_callees[callee] is { } made && ReferenceEquals(made._list, direct.List) && ReferenceEquals(made._body, body))
+            // the context the callee is evaluated in is its procedure's (DirectCall.Context).
+            if (_stack.TakeSpare() is CompiledActivation spare && ReferenceEquals(spare._procedure, direct.Procedure) && ReferenceEquals(spare._list, direct.List)
+                && ReferenceEquals(spare._body, body) && ReferenceEquals(spare._invoker, _invoker))
             {
-                made._frame = null;
-                made.Begin();
-                activation = made;
+                spare._frame = null;
+                spare.Begin();
+                activation = spare;
             }
             else
             {
-                activation = _callees[callee] = new CompiledActivation(_session, direct.List, _executor, direct.Context, body, _invoker, direct.Procedure);
+                activation = new CompiledActivation(_session, direct.List, _executor, direct.Context, body, _invoker, direct.Procedure);
+                body.CountActivationMade();
             }
 
             if (!_stack.TryPushLight(activation))
@@ -306,10 +309,6 @@ public sealed class CompiledActivation : ILightActivation
         _suspensionsBeforeCall = Suspensions;
         return activation;
     }
-
-    // the activation each call site of the body that calls a compiled procedure directly last made, which its next call is made in again: a call site makes
-    // one call at a time, and a call that did not return is the interpreter's, which goes on in the frame it was given.
-    private CompiledActivation?[]? _callees;
 
     /// <summary>
     /// Ends the activation <paramref name="callee"/> of the call numbered <paramref name="call"/> of the body, which compiled code made through the callee's
@@ -559,6 +558,16 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long FramesMade => Interlocked.Read(ref _framesMade);
 
     internal void CountFrameMade() => Interlocked.Increment(ref _framesMade);
+
+    private long _activationsMade;
+
+    /// <summary>
+    /// How many activations of the body were made for calls compiled code made directly without a frame: each call is made in the activation that last left
+    /// its place of the stack when it can be, so a loop of calls makes one, and a recursion as many as it goes deep (IR lowering S2.3b2).
+    /// </summary>
+    public long ActivationsMade => Interlocked.Read(ref _activationsMade);
+
+    internal void CountActivationMade() => Interlocked.Increment(ref _activationsMade);
 
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 

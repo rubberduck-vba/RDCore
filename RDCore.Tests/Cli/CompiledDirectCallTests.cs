@@ -575,18 +575,21 @@ public sealed class CompiledDirectCallTests
         }
     }
 
-    // how many activations of the procedures named, called directly, were given a frame after the call (IR lowering S2.3b2): the program run compiled.
-    private static async Task<long> FramesMadeAsync(string program, params string[] callees)
+    // how many activations of the procedures named, called directly, were given a frame after the call, and how many were made (IR lowering S2.3b2): the
+    // program run compiled.
+    private static async Task<(long Frames, long Activations)> MadeAsync(string program, params string[] callees)
     {
-        long made = 0;
+        (long Frames, long Activations) made = default;
         using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
         await ModuleWorkspace.InspectAsync([], program, (provider, _, _) =>
         {
-            made = callees.Sum(callee => BodyOf(provider, callee).FramesMade);
+            made = (callees.Sum(callee => BodyOf(provider, callee).FramesMade), callees.Sum(callee => BodyOf(provider, callee).ActivationsMade));
             return Task.CompletedTask;
         }, engine: VBExecutionEngine.Compiled);
         return made;
     }
+
+    private static async Task<long> FramesMadeAsync(string program, params string[] callees) => (await MadeAsync(program, callees)).Frames;
 
     // an activation of a call made directly is on the stack without a frame while nothing looks at the stack (IR lowering S2.3b2): Twice is called a hundred
     // times, and given no frame, each call in the activation the call before was in.
@@ -616,16 +619,16 @@ public sealed class CompiledDirectCallTests
         // under the random walk-back, an activation handed to the interpreter is given its frame to be run in.
         if (!CompiledExecution.WalksBackAtRandom)
         {
-            Assert.AreEqual(0L, await FramesMadeAsync(program, "Twice"));
+            Assert.AreEqual((0L, 1L), await MadeAsync(program, "Twice"), "no frame; one activation, each call made in it again");
         }
     }
 
-    // a procedure that calls itself from two places in its body: each place's activation is made once for each activation of the caller, and every call is
-    // the one it is.
+    // a procedure that calls itself from two places in its body: every call is the one it is, and the calls are made in as many activations as the recursion
+    // goes deep - each place of the stack's, made again - not in one for each call.
     [TestMethod]
-    public async Task AProcedureThatCallsItselfTwice_ReturnsWhatEachCallReturns()
+    public async Task AProcedureThatCallsItselfTwice_ReturnsWhatEachCallReturns_InAsManyActivationsAsItGoesDeep()
     {
-        var (observed, direct, indirect) = await AssertAlikeAsync(Program(
+        var program = Program(
             "Public Sub Main()",
             "    Debug.Print Fib(15)",
             "End Sub",
@@ -638,11 +641,18 @@ public sealed class CompiledDirectCallTests
             "        b = Fib(n - 2)",
             "        Fib = a + b",
             "    End If",
-            "End Function"), "Fib");
+            "End Function");
+        var (observed, direct, indirect) = await AssertAlikeAsync(program, "Fib");
 
-        // Fib(15) makes 1,972 calls of Fib besides the first.
+        // Fib(15) makes 1,972 calls of Fib besides the first, at most 14 deep below it.
         StringAssert.Contains(observed, "| 610 |");
         AssertCalls(1972, (direct, indirect));
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            var (frames, activations) = await MadeAsync(program, "Fib");
+            Assert.AreEqual(0L, frames);
+            Assert.IsLessThanOrEqualTo(15L, activations, "one for each place of the stack, at most");
+        }
     }
 
     // an error raised in a procedure the interpreter runs, called by the innermost of three activations compiled code made directly: each of the three is
