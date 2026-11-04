@@ -35,6 +35,13 @@ internal interface IProgramDebugService
     /// <param name="token">A token that cancels the request.</param>
     Task<HostDebugGotoResult> GotoAsync(int line, string? label, CancellationToken token);
 
+    /// <summary>Moves the point the program that waits goes on from to a line of a module, or only says where it would land.</summary>
+    /// <param name="module">The programmatic name of the module the line is a line of: a line of a module the program does not wait in is refused.</param>
+    /// <param name="line">The zero-based line.</param>
+    /// <param name="peek">Whether nothing is moved, and the answer only says where the program would go on from.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugGotoResult> GotoAsync(string module, int line, bool peek, CancellationToken token);
+
     /// <summary>Which edits made while the program waits are not applied to it.</summary>
     /// <param name="token">A token that cancels the request.</param>
     Task<HostDebugEditStatusResult> EditStatusAsync(CancellationToken token);
@@ -118,7 +125,13 @@ internal sealed class ProgramDebugService(
         return await environment.SendRequestAsync<HostDebugPauseParams, HostDebugAck>(new HostDebugPauseParams(), token);
     }
 
-    public async Task<HostDebugGotoResult> GotoAsync(int line, string? label, CancellationToken token)
+    public Task<HostDebugGotoResult> GotoAsync(int line, string? label, CancellationToken token)
+        => GotoAsync(new HostDebugGotoParams { Line = line, Label = label }, token);
+
+    public Task<HostDebugGotoResult> GotoAsync(string module, int line, bool peek, CancellationToken token)
+        => GotoAsync(new HostDebugGotoParams { Line = line, ModuleName = module, Peek = peek }, token);
+
+    private async Task<HostDebugGotoResult> GotoAsync(HostDebugGotoParams request, CancellationToken token)
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
@@ -126,7 +139,7 @@ internal sealed class ProgramDebugService(
         }
 
         await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDebugGotoParams, HostDebugGotoResult>(new HostDebugGotoParams { Line = line, Label = label }, token);
+        return await environment.SendRequestAsync<HostDebugGotoParams, HostDebugGotoResult>(request, token);
     }
 
     public async Task<HostDebugEditStatusResult> EditStatusAsync(CancellationToken token)
