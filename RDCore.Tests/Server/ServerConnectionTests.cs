@@ -94,9 +94,10 @@ public sealed class ServerConnectionTests
         await Task.WhenAll(serverPipe.WaitForConnectionAsync(timeout.Token), clientPipe.ConnectAsync(timeout.Token));
 
         var input = new ServerInput(PipeReader.Create(serverPipe));
+        var loop = new ProbedReader(input);
         var serving = OmniSharpLanguageServer.From(server => server
-            .WithInput(input)
-            .WithOutput(PipeWriter.Create(serverPipe))
+            .WithInput(loop)
+            .WithOutput(ServerOutput.Over(serverPipe))
             .WithUnhandledExceptionHandler(exception => reported.TrySetResult(exception)), timeout.Token);
         var connecting = LanguageClient.From(client => client.WithInput(clientPipe).WithOutput(clientPipe), timeout.Token);
         await Task.WhenAll(serving, connecting);
@@ -107,9 +108,73 @@ public sealed class ServerConnectionTests
         await languageClient.Shutdown();
         await server.WaitForExit.WaitAsync(Hung);
 
-        // completed, the reader has nothing reading it: the read that waited was answered with the end of the input, and nothing is left to fail.
-        await input.CompleteAsync().AsTask().WaitAsync(Hung);
+        // the loop reports what fails its read before it completes its reader: once it has, all it would report is reported.
+        var failure = await loop.LoopEnded.WaitAsync(Hung);
+        Assert.IsNull(failure, failure?.ToString());
         Assert.IsFalse(reported.Task.IsCompleted, reported.Task.IsCompleted ? reported.Task.Result.ToString() : null);
+    }
+
+    // OmniSharp completes the server's output before its input as it handles exit: a stream disposed with the output fails the read that waits on it.
+    [TestMethod]
+    public async Task AServerOutputOverAStream_LeavesItOpen_AsItIsCompleted()
+    {
+        using var stream = new MemoryStream();
+        var output = ServerOutput.Over(stream);
+        await output.WriteAsync("{}"u8.ToArray());
+
+        await output.CompleteAsync().AsTask().WaitAsync(Hung);
+
+        Assert.IsTrue(stream.CanRead, "the stream is still open");
+        CollectionAssert.AreEqual("{}"u8.ToArray(), stream.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AServerOutputThatIsCompleted_WritesNothingMore_AndSaysTheWritingIsOver()
+    {
+        using var stream = new MemoryStream();
+        var output = ServerOutput.Over(stream);
+        await output.CompleteAsync().AsTask().WaitAsync(Hung);
+
+        var written = await output.WriteAsync("{}"u8.ToArray());
+        "{}"u8.CopyTo(output.GetSpan(2));
+        output.Advance(2);
+        var flushed = await output.FlushAsync();
+
+        Assert.IsTrue(written.IsCompleted, "a write");
+        Assert.IsTrue(flushed.IsCompleted, "a flush");
+        Assert.AreEqual(0, stream.Length);
+    }
+
+    // the loop is stopped as the server is disposed, by cancelling its read: what arrives after it is read by nothing.
+    [TestMethod]
+    public async Task AReaderWhoseLoopIsStopped_StopsReceiving_AndCompletesTheReaderItWraps()
+    {
+        var pipe = new Pipe();
+        var received = new ProbedReader(pipe.Reader);
+        var input = new ServerInput(received);
+        using var stopping = new CancellationTokenSource();
+        var waiting = input.ReadAsync(stopping.Token).AsTask();
+        stopping.Cancel();
+        Assert.IsTrue((await waiting.WaitAsync(Hung)).IsCompleted, "the end of the input");
+
+        await pipe.Writer.WriteAsync("Content-Length: 2\r\n\r\n{}"u8.ToArray());
+
+        await received.Completed.WaitAsync(Hung);
+    }
+
+    // the stream a server reads can fail as it is closed, as the server's input is completed.
+    [TestMethod]
+    public async Task AReaderWhoseStreamFailsAsItIsClosed_IsCompletedWithoutFault_AndAnswersWithTheEndOfTheInput()
+    {
+        var pipe = new Pipe();
+        var input = new ServerInput(new ProbedReader(pipe.Reader, failsAsItIsCompleted: new IOException("The pipe is broken.")));
+
+        await input.CompleteAsync().AsTask().WaitAsync(Hung);
+        input.Complete();
+
+        var end = await input.ReadAsync().AsTask().WaitAsync(Hung);
+        Assert.IsTrue(end.IsCompleted, "the end of the input");
+        Assert.IsFalse(end.IsCanceled);
     }
 
     [TestMethod]
@@ -195,6 +260,75 @@ public sealed class ServerConnectionTests
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    // a reader read as the one it wraps, which says when it is completed, and when its loop has read its last and completed it.
+    private sealed class ProbedReader(PipeReader inner, Exception? failsAsItIsCompleted = null) : PipeReader
+    {
+        private readonly TaskCompletionSource _completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<Exception?> _loopEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private volatile bool _readTheLast;
+        private Exception? _readFailure;
+
+        public Task Completed => _completed.Task;
+
+        // the failure of its last read, or none: the first completion after the read that ended the input, or that failed.
+        public Task<Exception?> LoopEnded => _loopEnded.Task;
+
+        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var read = await inner.ReadAsync(cancellationToken);
+                _readTheLast |= read.IsCompleted;
+                return read;
+            }
+            catch (Exception exception)
+            {
+                _readFailure = exception;
+                _readTheLast = true;
+                throw;
+            }
+        }
+
+        public override bool TryRead(out ReadResult result)
+        {
+            var read = inner.TryRead(out result);
+            _readTheLast |= read && result.IsCompleted;
+            return read;
+        }
+
+        public override void AdvanceTo(SequencePosition consumed) => inner.AdvanceTo(consumed);
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) => inner.AdvanceTo(consumed, examined);
+
+        public override void CancelPendingRead() => inner.CancelPendingRead();
+
+        public override void Complete(Exception? exception = null)
+        {
+            inner.Complete(exception);
+            Completing();
+        }
+
+        public override async ValueTask CompleteAsync(Exception? exception = null)
+        {
+            await inner.CompleteAsync(exception);
+            Completing();
+        }
+
+        private void Completing()
+        {
+            _completed.TrySetResult();
+            if (_readTheLast)
+            {
+                _loopEnded.TrySetResult(_readFailure);
+            }
+
+            if (failsAsItIsCompleted is not null)
+            {
+                throw failsAsItIsCompleted;
+            }
+        }
     }
 
     // every record of the container, as it is logged.

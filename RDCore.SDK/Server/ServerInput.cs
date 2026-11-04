@@ -29,10 +29,14 @@ public sealed class ServerInput : PipeReader
 
     private readonly PipeReader _inner;
 
-    // the loop reads a message whole before it consumes any of it: the pipe never waits for it to consume, however long the message.
+    // the loop reads a message whole before it consumes any of it: the pipe never waits for it to consume, however long the message. A pipe that paused its
+    // writer at the default threshold (64 KB) would wait forever on the loop, which waits for the rest of a message longer than that.
     private readonly Pipe _received = new(new PipeOptions(pauseWriterThreshold: 0, resumeWriterThreshold: 0, useSynchronizationContext: false));
     private readonly CancellationTokenSource _ending = new();
     private readonly Task _receiving;
+
+    // the first completion ends the receiving; the ones after it wait for it.
+    private int _completing;
 
     // the loop has read the end of the input, and the pipe it read is completed: there is nothing left to advance past or to read.
     private bool _finished;
@@ -143,16 +147,18 @@ public sealed class ServerInput : PipeReader
                 }
 
                 _inner.AdvanceTo(read.Buffer.End);
-                await _received.Writer.FlushAsync(_ending.Token);
-                if (read.IsCompleted)
+
+                // the loop has read the end of the input, or was stopped: nothing reads what is received now.
+                var flushed = await _received.Writer.FlushAsync(_ending.Token);
+                if (read.IsCompleted || flushed.IsCompleted)
                 {
                     break;
                 }
             }
         }
-        catch (OperationCanceledException) when (_ending.IsCancellationRequested)
+        catch (Exception) when (_ending.IsCancellationRequested)
         {
-            // completed: the read of the reader it wraps came back, and nothing reads it now.
+            // completed: the read of the reader it wraps came back, cancelled or failed as the stream was closed under it, and nothing reads it now.
         }
         catch (Exception exception)
         {
@@ -160,15 +166,32 @@ public sealed class ServerInput : PipeReader
             failure = exception;
         }
 
-        await _inner.CompleteAsync(failure);
+        try
+        {
+            await _inner.CompleteAsync(failure);
+        }
+        catch (Exception exception)
+        {
+            // the stream failed as it was closed: the loop reads it, unless it reads another failure or the input is ending.
+            if (failure is null && !_ending.IsCancellationRequested)
+            {
+                failure = exception;
+            }
+        }
+
         await _received.Writer.CompleteAsync(failure);
     }
 
     // completed once, however many times it is told to: by the exit, by the loop as it stops, and by the server as it is disposed.
-    // receiving ends by completing the reader it wraps and the pipe it fills.
+    // receiving ends by completing the reader it wraps and the pipe it fills, and never fails: what a completion waits for doesn't fault.
     private Task CompleteAfterReceiving()
     {
-        _ending.Cancel();
+        if (Interlocked.Exchange(ref _completing, 1) == 0)
+        {
+            _ending.Cancel();
+            _ = _receiving.ContinueWith(_ => _ending.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+
         return _receiving;
     }
 }
