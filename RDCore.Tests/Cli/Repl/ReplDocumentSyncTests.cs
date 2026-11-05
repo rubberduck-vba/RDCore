@@ -78,11 +78,13 @@ public sealed class ReplDocumentSyncTests
         var first = document.SynchronizeAsync(CancellationToken.None);
         await _firstSent.Task.WaitAsync(TimeSpan.FromSeconds(20));
         _program.Store(30, "Z = 3");
-        var second = Task.Run(() => document.SynchronizeAsync(CancellationToken.None));
-        var third = Task.Run(() => document.SynchronizeAsync(CancellationToken.None));
+        // asked on this thread while the first is being sent: each call has come as far as it can when it returns, and the others wait for the one that is
+        // being sent.
+        var second = document.SynchronizeAsync(CancellationToken.None);
+        var third = document.SynchronizeAsync(CancellationToken.None);
 
-        // the others wait for the one that is being sent.
-        Assert.IsFalse(second.Wait(TimeSpan.FromMilliseconds(200)), "a change waits for the one being sent");
+        Assert.IsFalse(second.IsCompleted, "a change waits for the one being sent");
+        Assert.IsFalse(third.IsCompleted);
         lock (_sent)
         {
             Assert.HasCount(1, _sent);
@@ -109,9 +111,11 @@ public sealed class ReplDocumentSyncTests
         var document = new ReplDocument(_program, _platform, workspace);
         _program.Store(10, "X = 1");
 
-        var one = Task.Run(() => document.EnsureOpenAsync(CancellationToken.None));
-        var two = Task.Run(() => document.EnsureOpenAsync(CancellationToken.None));
-        Assert.IsFalse(Task.WhenAll(one, two).Wait(TimeSpan.FromMilliseconds(200)));
+        // asked on this thread: the first is opening the document when it returns, and the second waits for it.
+        var one = document.EnsureOpenAsync(CancellationToken.None);
+        var two = document.EnsureOpenAsync(CancellationToken.None);
+        Assert.IsFalse(one.IsCompleted);
+        Assert.IsFalse(two.IsCompleted);
         opening.SetResult();
 
         CollectionAssert.AreEqual(new[] { true, true }, await Task.WhenAll(one, two).WaitAsync(TimeSpan.FromSeconds(20)));
@@ -127,8 +131,9 @@ public sealed class ReplDocumentSyncTests
 
         var telling = document.SynchronizeAsync(CancellationToken.None);
         await _firstSent.Task.WaitAsync(TimeSpan.FromSeconds(20));
-        var saving = Task.Run(() => document.WillSaveAsync(CancellationToken.None));
-        Assert.IsFalse(saving.Wait(TimeSpan.FromMilliseconds(200)), "the save waits for the change being sent");
+        // asked on this thread: the save has come as far as it can when it returns.
+        var saving = document.WillSaveAsync(CancellationToken.None);
+        Assert.IsFalse(saving.IsCompleted, "the save waits for the change being sent");
         await _platform.DidNotReceiveWithAnyArgs().WillSaveDocumentAsync(default!, default);
 
         _program.Store(30, "Z = 3");
