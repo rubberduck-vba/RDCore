@@ -14,6 +14,11 @@ A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes 
 
 The interactive shell, given no workspace, runs in a scratch one of its own: a project named `VBAProject` whose one module is `Program`. MS-VBA refuses a module named as its project ("Name conflicts with existing module, project, or object library"), so the two names differ. `VBAProject` is the name that a project-qualified reference to the program's members uses (`VBAProject.Program.Main`), and the name that `Err.Source` and the dialogs' title give.
 
+A project's name is the language core's default until a client gives it another: a client may rename its project, `Untitled1` say, as an IDE names a new project on startup. The name the platform reports follows the project file. When the `.rdproj` names the project anew, the workspace is reloaded and the environment host composes its session again, so that `Err.Source`, a dialog's default title, the session's status and a project-qualified reference all give the new name. A host whose program is running keeps its session, and the name it had, until it composes the session again.
+
+> [!NOTE]
+> **Not implemented.** No request of the platform renames a project. The language server is the only writer of a `.rdproj`, so a client renames its project only by changing the file outside the editor, which the platform reads as any other change to its project file ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md)).
+
 The synthesized project is written to `.rdproj` on its first change, a file the client created, renamed or deleted (see [**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles)), and is a project file like any other from then on. The language server is the only writer of a `.rdproj`.
 
 ```javascript
