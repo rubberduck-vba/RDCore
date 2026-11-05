@@ -68,18 +68,20 @@ public sealed class NamesakeDeclarationsTests
     }
 
     [TestMethod]
-    [DataRow("Public V As Long", true, DisplayName = "E14: a variable after the Enum")]
-    [DataRow("Public V As Long", false, DisplayName = "E20: a variable before the Enum")]
-    [DataRow("Private V As Long", true, DisplayName = "E23: a Private variable")]
-    [DataRow("Public Const V As Long = 3", false, DisplayName = "E22: a constant")]
-    public async Task InAStandardModule_AVariableOrConstantAndAnEnumOfOneName_TheNameIsTheEnum(string variable, bool enumFirst)
+    // MS-VBA stops at the first error, `V = 5` where the variable is assigned: each use of the name is reported here.
+    [DataRow("Public V As Long", true, "    V = 5\r\n    Debug.Print V", DisplayName = "E14: a variable after the Enum")]
+    [DataRow("Public V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "E20: a variable before the Enum")]
+    [DataRow("Private V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "E23: a Private variable")]
+    [DataRow("Public Const V As Long = 3", false, "    Debug.Print V", DisplayName = "E22: a constant")]
+    public async Task InAStandardModule_AVariableOrConstantAndAnEnumOfOneName_TheNameIsTheEnum(string variable, bool enumFirst, string main)
     {
         const string enumV = "Public Enum V\r\n    Zero\r\n    One\r\nEnd Enum";
         var declarations = enumFirst ? $"{enumV}\r\n{variable}" : $"{variable}\r\n{enumV}";
 
-        var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(declarations, string.Empty, "    Debug.Print V"));
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(declarations, string.Empty, main));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType);
+        Assert.HasCount(main.Split("\r\n").Length, errors, string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
     }
 
     [TestMethod]
@@ -170,7 +172,7 @@ public sealed class NamesakeDeclarationsTests
         => Assert.AreEqual("1", await RunAsync(Changed, "    s.Changed\r\n    Debug.Print s.Count"));
 
     [TestMethod]
-    public async Task AnEventAndASubOfOneName_RaiseEvent_RaisesTheEvent_AndDoesNotCallTheSub()
+    public async Task AnEventAndASubOfOneName_RaiseEvent_DoesNotCallTheSub()
         // E09
         => Assert.AreEqual("0", await RunAsync([.. Changed, "Public Sub Fire()", "    RaiseEvent Changed", "End Sub"], "    s.Fire\r\n    Debug.Print s.Count"));
 }
