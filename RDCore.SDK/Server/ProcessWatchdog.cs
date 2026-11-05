@@ -17,8 +17,8 @@ public static class ProcessWatchdog
     /// <param name="graceSeconds">Seconds to wait for a clean exit before terminating (minimum 1).</param>
     public static void Arm(int exitCode, int graceSeconds = 10) => Arm(exitCode, graceSeconds, Environment.Exit, Thread.Sleep);
 
-    // the grace period is waited by wait, on the watchdog's own thread, and not on a timer of the thread pool: a process wedged badly enough to need the
-    // watchdog may have no pool thread left to run a timer's callback.
+    // wait waits out the grace period on the watchdog's own thread, not on a timer of the thread pool: a process wedged badly enough to need the watchdog
+    // may have no pool thread left to run a timer's callback.
     internal static void Arm(int exitCode, int graceSeconds, Action<int> terminate, Action<TimeSpan> wait)
     {
         var watchdog = new Thread(() =>

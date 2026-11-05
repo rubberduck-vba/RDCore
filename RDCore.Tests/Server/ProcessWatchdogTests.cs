@@ -20,11 +20,12 @@ public class ProcessWatchdogTests
         var graceOver = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var terminated = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // a watchdog that waited on the caller's thread would never return from Arm: the grace period ends only when the test says so, after Arm returns.
+        // the grace period ends when the test says so, after Arm returns. A watchdog that waited on the caller's thread would hold Arm until the hang guard
+        // ends the wait, and the process would be terminated by then.
         ProcessWatchdog.Arm(7, graceSeconds: 30, terminate: terminated.SetResult, wait: grace =>
         {
             waiting.SetResult(grace);
-            graceOver.Task.Wait();
+            _ = graceOver.Task.Wait(HangGuard);
         });
 
         Assert.AreEqual(TimeSpan.FromSeconds(30), await waiting.Task.WaitAsync(HangGuard));
