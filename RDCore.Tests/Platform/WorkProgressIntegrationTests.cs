@@ -174,6 +174,7 @@ public sealed class WorkProgressIntegrationTests
     }
 
     [TestMethod]
+    [Ignore("Nondeterministic: failed on #590's Linux CI with ContentModifiedException from SendRequest (WorkProgressIntegrationTests.cs:184), and its reporter's 50 ms threshold is a wall clock. To be rewritten with an injected clock and gated on counted events.")]
     public async Task TheWorkDoneForARequest_IsReportedToItsToken_BegunReportedAndEnded()
     {
         await using var connected = await ConnectAsync(new WorkProgressReporter(TimeSpan.FromMilliseconds(50)));
