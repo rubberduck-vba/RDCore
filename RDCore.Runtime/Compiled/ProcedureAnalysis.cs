@@ -180,8 +180,9 @@ internal sealed class ProcedureAnalysis
         }
     }
 
-    // what compiled code does of a body that steps instructions: something in a loop - a Let, a call or a condition, the loop's own counting and back edge
-    // aside, which cost what a step around them saves; or, when it steps nothing in a loop, anything at all.
+    // what compiled code does of a body that steps instructions: something at each pass of a loop - a Let, a call, a condition, the loop's back edge with its
+    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. Or,
+    // when it steps nothing in a loop, anything at all.
     private bool GainsAnything(InstructionList list)
     {
         var loops = new List<(int First, int Last)>();
@@ -198,7 +199,7 @@ internal sealed class ProcedureAnalysis
         }
 
         bool InALoop(int offset) => loops.Exists(loop => offset >= loop.First && offset <= loop.Last);
-        if (Steps.Exists(step => step is LetStep or CallStep or BranchStep && InALoop(step.Offset)))
+        if (Steps.Exists(step => step is LetStep or CallStep or BranchStep or LoopBackStep or ForNextStep && InALoop(step.Offset)))
         {
             return true;
         }

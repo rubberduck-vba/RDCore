@@ -19,12 +19,11 @@ public sealed class CompiledSteppingTests
             "    Debug.Print Built(3)",
             "End Sub",
             "Private Function Built(ByVal N As Long) As Long",
-            "    Dim I As Long, S As String, T As Long",
+            "    Dim I As Long, S As String",
             "    For I = 1 To N",
             "        S = S & \"x\"",
-            "        T = T + I",
             "    Next",
-            "    Built = Len(S) + T",
+            "    Built = Len(S)",
             "End Function"), "Built", recoveries: 4);
 
     [TestMethod]
