@@ -47,9 +47,10 @@ public sealed class BenchCommandTests
         "Public Sub NotNamedForACase()",
         "End Sub",
         "Public Sub AppendsInALoop()",
-        "    Dim I As Long, S As String",
+        "    Dim I As Long, S As String, T As Long",
         "    For I = 1 To 3",
         "        S = S & \"x\"",
+        "        T = T + I",
         "    Next",
         "End Sub");
 

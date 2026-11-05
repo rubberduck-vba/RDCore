@@ -19,11 +19,12 @@ public sealed class CompiledSteppingTests
             "    Debug.Print Built(3)",
             "End Sub",
             "Private Function Built(ByVal N As Long) As Long",
-            "    Dim I As Long, S As String",
+            "    Dim I As Long, S As String, T As Long",
             "    For I = 1 To N",
             "        S = S & \"x\"",
+            "        T = T + I",
             "    Next",
-            "    Built = Len(S)",
+            "    Built = Len(S) + T",
             "End Function"), "Built", recoveries: 4);
 
     [TestMethod]
@@ -81,14 +82,15 @@ public sealed class CompiledSteppingTests
             "    mValue = T",
             "End Property",
             "Public Property Get Value() As Long",
-            "    Dim I As Long",
+            "    Dim I As Long, T As Long",
             "    For I = 1 To 2",
-            "        Value = Value + mValue",
+            "        T = T + I",
             "    Next",
+            "    Value = mValue + T",
             "End Property"))];
 
         await AssertAlikeAsync(program, "Let Value", recoveries: 1, classes: box);
-        await AssertAlikeAsync(program, "Value", recoveries: 2, classes: box);
+        await AssertAlikeAsync(program, "Value", recoveries: 1, classes: box);
     }
 
     // a Property Set: its object parameter is the frame's, and what it does with it the interpreter's.
@@ -99,19 +101,21 @@ public sealed class CompiledSteppingTests
             "    Dim H As New Holder",
             "    Set H.Items = New Collection",
             "    Debug.Print H.Total",
-            "End Sub"), "Set Items", recoveries: 4, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
+            "End Sub"), "Set Items", recoveries: 5, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
                 "Private mItems As Collection",
                 "Private mTotal As Long",
                 "Public Property Set Items(ByVal Value As Collection)",
-                "    Dim I As Long",
+                "    Dim I As Long, T As Long",
                 "    Set mItems = Value",
                 "    For I = 1 To 3",
                 "        mItems.Add I",
+                "        T = T + I",
                 "    Next",
+                "    mTotal = T",
                 "End Property",
                 "Public Function Total() As Long",
-                "    Total = mItems.Count",
+                "    Total = mItems.Count + mTotal",
                 "End Function"))]);
 
     // a Static outlives the activation: the frame's, from one call to the next.
@@ -123,10 +127,11 @@ public sealed class CompiledSteppingTests
             "End Sub",
             "Private Function Counted() As Long",
             "    Static Calls As Long",
-            "    Dim I As Long",
+            "    Dim I As Long, T As Long",
             "    Calls = Calls + 1",
             "    For I = 1 To 3",
-            "        Counted = Counted + Calls",
+            "        T = T + I",
+            "        Counted = Counted + Calls + T",
             "    Next",
             "End Function"), "Counted", recoveries: 8);
 
@@ -206,6 +211,7 @@ public sealed class CompiledSteppingTests
             "    On Error Resume Next",
             "    Dim I As Long",
             "    For I = 1 To 3",
+            "        Tolerant = Tolerant + I",
             "        Tolerant = Tolerant + CLng(S)",
             "    Next",
             "    Tolerant = Tolerant + 100",
@@ -335,8 +341,9 @@ public sealed class CompiledSteppingTests
             "    Set C = New Collection",
             "    For I = 1 To 3",
             "        C.Add I",
+            "        N = N + I",
             "    Next",
-            "    N = C.Count",
+            "    N = N + C.Count",
             "    Counted = N * 2",
             "End Function"), "Counted", recoveries: 5);
 
@@ -367,11 +374,13 @@ public sealed class CompiledSteppingTests
             "    Debug.Print Routed()",
             "End Sub",
             "Private Function Routed() As Long",
-            "    Dim S As String, I As Long",
+            "    Dim S As String, I As Long, T As Long",
             "    For I = 1 To 2",
             "        GoSub Build",
             "        Routed = Routed + Len(S)",
+            "        T = T + I",
             "    Next",
+            "    Routed = Routed * 10 + T",
             "    Exit Function",
             "Build:",
             "    S = S & \"ab\"",
@@ -407,15 +416,41 @@ public sealed class CompiledSteppingTests
                 "Option Explicit",
                 "Private mTotal As Long",
                 "Public Function AddUpTo(ByVal N As Long) As Long",
-                "    Dim I As Long",
+                "    Dim I As Long, T As Long",
                 "    For I = 1 To N",
                 "        Bump I",
+                "        T = T + I",
                 "    Next",
-                "    AddUpTo = mTotal",
+                "    AddUpTo = mTotal + T",
                 "End Function",
                 "Private Sub Bump(ByVal N As Long)",
                 "    mTotal = mTotal + N",
                 "End Sub"))]);
+
+    // a body whose loop does nothing compiled - each statement of it the interpreter's - is the interpreter's whole, though compiled code would do a statement
+    // outside it: around each statement of the loop it would only write its variables into the frame and read them back, which costs more than it saves.
+    [TestMethod]
+    public async Task ABodyWhoseLoopIsTheInterpreters_IsInterpreted_WithItsReasons()
+    {
+        var compiled = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Cheap()",
+            "End Sub",
+            "Private Function Cheap() As Long",
+            "    Dim N As Long, K As Variant",
+            "    N = 7",
+            "    Do",
+            "        K = K + 1",
+            "    Loop Until K >= 5",
+            "    Cheap = N + K",
+            "End Function"));
+
+        var cheap = compiled["Cheap"];
+        Assert.IsNull(cheap.Body);
+        Assert.IsEmpty(cheap.Stepped);
+        CollectionAssert.AreEqual(new[] { 7, 8, 9 }, cheap.Reasons.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(),
+            string.Join("; ", cheap.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+    }
 
     // a body that would do nothing of its own compiled - every statement that does something the interpreter's - is the interpreter's whole, and says why.
     [TestMethod]

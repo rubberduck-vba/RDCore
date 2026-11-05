@@ -171,13 +171,40 @@ internal sealed class ProcedureAnalysis
             }
         }
 
-        // a body that does nothing of its own in compiled code - each instruction that does something is the interpreter's - is the interpreter's whole: what
-        // it steps is why, and compiled code would only write its variables into the frame and read them back around each one.
-        if (_stepped.Count > 0 && !Steps.Exists(step => step is LetStep or CallStep or BranchStep or LoopBackStep or ForOpenStep or ForNextStep))
+        // a body that does nothing of its own in compiled code where it spends its time is the interpreter's whole: what it steps is why, and compiled code
+        // would only write its variables into the frame and read them back around each instruction it steps.
+        if (_stepped.Count > 0 && !GainsAnything(list))
         {
             _reasons.AddRange(_stepped);
             _stepped.Clear();
         }
+    }
+
+    // what compiled code does of a body that steps instructions: something in a loop - a Let, a call or a condition, the loop's own counting and back edge
+    // aside, which cost what a step around them saves; or, when it steps nothing in a loop, anything at all.
+    private bool GainsAnything(InstructionList list)
+    {
+        var loops = new List<(int First, int Last)>();
+        foreach (var instruction in list.Items)
+        {
+            if (instruction.Kind is InstructionKind.LoopBack or InstructionKind.Jump && instruction.Target is { } target && target <= instruction.Offset)
+            {
+                loops.Add((target, instruction.Offset));
+            }
+            else if (instruction.Kind is InstructionKind.ForNext && instruction.Matching is { } opener)
+            {
+                loops.Add((opener, instruction.Offset));
+            }
+        }
+
+        bool InALoop(int offset) => loops.Exists(loop => offset >= loop.First && offset <= loop.Last);
+        if (Steps.Exists(step => step is LetStep or CallStep or BranchStep && InALoop(step.Offset)))
+        {
+            return true;
+        }
+
+        return !Steps.Exists(step => step is SteppedStep && InALoop(step.Offset))
+            && Steps.Exists(step => step is LetStep or CallStep or BranchStep or LoopBackStep or ForOpenStep or ForNextStep);
     }
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));

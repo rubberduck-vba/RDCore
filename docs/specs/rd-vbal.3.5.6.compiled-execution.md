@@ -39,7 +39,10 @@ Then the interpreter runs the rest of the activation, with the variables as the 
 These keep the whole procedure in the interpreter:
 
 - a `With`, a `Select Case` or a `For Each`;
-- a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something.
+- a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
+- a procedure whose loops the interpreter would run, but for their counting and their back edges: compiled code does no assignment, call or condition in
+  any loop, and the interpreter runs a statement in one. Around each such statement compiled code would only write its variables into the frame and read
+  them back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code doesn't is always called with its frame, through the interpreter's call, never through the
 compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
