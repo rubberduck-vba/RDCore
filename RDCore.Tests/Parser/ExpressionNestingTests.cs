@@ -220,6 +220,26 @@ public sealed class ExpressionNestingTests
         Assert.AreEqual(2, result.SyntaxErrors.Count(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(result));
     }
 
+    // a directive's expression is read by the directive pass, a parse of its own, and has the same limit: the first term of a chain of 2,501 terms is nested in
+    // 2,500 additions, and of 2,502 terms in 2,501.
+    [TestMethod]
+    [DataRow("#If {0} Then\r\nx = 1\r\n#End If")]
+    [DataRow("#If False Then\r\n#ElseIf {0} Then\r\nx = 1\r\n#End If")]
+    [DataRow("#Const LIMIT = {0}")]
+    public void ADirectivesExpressionAtTheLimit_IsRead_AndOnePast_IsExpressionNestedTooDeeply_Once(string directive)
+    {
+        ModuleParseResult ParseWith(int terms)
+            => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n{string.Format(directive, Chain(terms))}\r\nEnd Sub\r\n");
+
+        var atTheLimit = ParseWith(ModuleParser.MaxExpressionNesting + 1);
+        var pastIt = ParseWith(ModuleParser.MaxExpressionNesting + 2);
+
+        Assert.IsTrue(atTheLimit.IsSuccess, Describe(atTheLimit));
+        var error = Assert.ContainsSingle(pastIt.SyntaxErrors, Describe(pastIt));
+        Assert.AreEqual((VBCompileErrorId.ExpressionNestedTooDeeply, directive.StartsWith("#If False") ? 2 : 1), ((VBCompileErrorId)error.ErrorId, error.Location.Range.Start.Line));
+        Assert.IsTrue(pastIt.PrecompilerTrivia.SelectMany(node => node.Descendants()).Any(node => node is UnbuiltExpressionTriviaNode), "what is past the limit is an error node");
+    }
+
     // what MS-VBA runs, RD-VBA runs: on the test's own thread, which is no larger than a thread of the language server.
     [TestMethod]
     public async Task TwoThousandNestedParentheses_Run()

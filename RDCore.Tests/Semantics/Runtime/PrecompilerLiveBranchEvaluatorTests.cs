@@ -101,6 +101,23 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
         Assert.AreEqual(4, Assert.ContainsSingle(deadRanges).Start.Line, "the #Else branch");
     }
 
+    // what is nested past the limit (VBC00060) is an error node of its text, which is not evaluated: the condition has no value, neither branch is dead, and
+    // the syntax error is the module's only error.
+    [TestMethod]
+    public void ACondition_PastTheLimit_IsNotEvaluated_AndNoBranchIsDead()
+    {
+        var condition = "DEBUGMODE" + string.Concat(Enumerable.Repeat(" + 0", 3_000));
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Sub Foo()\r\n#If {condition} Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+        var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
+
+        PrecompilerEvaluation evaluation = default;
+        var thrown = SmallStack.Run(() => evaluation = PrecompilerLiveBranchEvaluator.Evaluate(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.IsEmpty(evaluation.DeadRanges);
+        Assert.IsEmpty(evaluation.Errors);
+    }
+
     [TestMethod]
     public void IfElse_TheFalseCondition_ReportsTheIfBranchDeadInstead()
     {

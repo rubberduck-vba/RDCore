@@ -163,6 +163,9 @@ public partial class ModuleParser(
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
             ast = PruneExpressionsNestedTooDeeply(ast, content, anchorOffset, errorListener);
 
+            // a directive's expression (#If, #ElseIf, #Const) is of the directive pass's own tree, and has the same limit.
+            precompilerTrivia = [.. precompilerTrivia.Select(directive => PruneExpressionsNestedTooDeeply(directive, content, anchorOffset, errorListener))];
+
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
             return ModuleParseResult.Success(ast) with
@@ -659,10 +662,10 @@ public partial class ModuleParser(
     // implementation. RD-VBAL: a deeper expression is a syntax error, kept as text and not analyzed.
     internal const int MaxExpressionNesting = 2500;
 
-    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in, and prunes each: the module comes
-    // back with every expression nested that deep an error node of its source text (UnbuiltExpressionTriviaNode), so that no stage after the parser is handed an
-    // expression deeper than the limit. The tree is walked with a stack of its own, as deep as the expression may be.
-    private static ModuleNode PruneExpressionsNestedTooDeeply(ModuleNode module, string content, SourcePosition anchorOffset, ErrorListener errors)
+    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in, and prunes each: the tree - the
+    // module, or a directive of its own parse - comes back with every expression nested that deep an error node of its source text (UnbuiltExpressionTriviaNode),
+    // so that no stage after the parser is handed an expression deeper than the limit. The tree is walked with a stack of its own, as deep as the expression may be.
+    private static TNode PruneExpressionsNestedTooDeeply<TNode>(TNode module, string content, SourcePosition anchorOffset, ErrorListener errors) where TNode : SyntaxNode
     {
         var pending = new Stack<(SyntaxNode Node, int Depth, int Nesting, ExpressionNode? Outermost)>();
         var path = new List<SyntaxNode>();
@@ -732,7 +735,7 @@ public partial class ModuleParser(
             }
         }
 
-        return pruned.Count == 0 ? module : (ModuleNode)SyntaxTreePruning.Replaced(module, pruned, holders);
+        return pruned.Count == 0 ? module : (TNode)SyntaxTreePruning.Replaced(module, pruned, holders);
     }
 
     // a tree salvaged from a parse that failed, pruned as a module that was read is (PruneExpressionsNestedTooDeeply), or none if that fails too: no tree comes
