@@ -92,27 +92,7 @@ public sealed class RDCoreLanguageServerLaunch
     /// <exception cref="InvalidDataException">The manifest is not one, or names no language server.</exception>
     public static RDCoreLanguageServerLaunch Prepare(RDCoreLanguageServerLaunchOptions options)
     {
-        if (!Uri.TryCreate(options.Workspace, UriKind.Absolute, out var workspace) || !workspace.IsFile)
-        {
-            throw new ArgumentException($"The workspace '{options.Workspace}' is not an absolute file: URI.", nameof(options));
-        }
-
-        var root = Path.GetFullPath(options.PlatformRoot);
-        if (!Directory.Exists(root))
-        {
-            throw new DirectoryNotFoundException($"The platform root '{root}' does not exist.");
-        }
-
-        var manifest = ReadManifest(root);
-        if (string.IsNullOrWhiteSpace(manifest.LangService))
-        {
-            throw new InvalidDataException($"The platform manifest of '{root}' names no language server ('langService').");
-        }
-
-        var named = Path.GetFullPath(Path.Combine(root, manifest.LangService.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar)));
-        var executable = ExecutableOf(named)
-            ?? throw new FileNotFoundException($"The platform manifest of '{root}' names a language server that is not there.", named);
-
+        var (root, manifest, executable) = LanguageServerOf(options.PlatformRoot, options.Workspace, nameof(options));
         var pipe = options.PipeName ?? NewPipeName();
         List<string> arguments = ["--pipe-name", pipe, "--workspace", options.Workspace];
         if (options.ClientProcessId is { } clientProcessId)
@@ -130,6 +110,33 @@ public sealed class RDCoreLanguageServerLaunch
             Arguments = arguments,
             Environment = new Dictionary<string, string> { [PlatformRootEnvironmentVariable] = root },
         };
+    }
+
+    // the language server's executable of a platform root, for a workspace: what starting it as a language server and as a debug adapter both need, and are
+    // refused for the same reasons.
+    internal static (string Root, PlatformManifest Manifest, string Executable) LanguageServerOf(string platformRoot, string workspace, string parameter)
+    {
+        if (!Uri.TryCreate(workspace, UriKind.Absolute, out var uri) || !uri.IsFile)
+        {
+            throw new ArgumentException($"The workspace '{workspace}' is not an absolute file: URI.", parameter);
+        }
+
+        var root = Path.GetFullPath(platformRoot);
+        if (!Directory.Exists(root))
+        {
+            throw new DirectoryNotFoundException($"The platform root '{root}' does not exist.");
+        }
+
+        var manifest = ReadManifest(root);
+        if (string.IsNullOrWhiteSpace(manifest.LangService))
+        {
+            throw new InvalidDataException($"The platform manifest of '{root}' names no language server ('langService').");
+        }
+
+        var named = Path.GetFullPath(Path.Combine(root, manifest.LangService.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar)));
+        var executable = ExecutableOf(named)
+            ?? throw new FileNotFoundException($"The platform manifest of '{root}' names a language server that is not there.", named);
+        return (root, manifest, executable);
     }
 
     // the executable as named, or else as this platform names it: a manifest written on Windows names an .exe, which an apphost elsewhere has no extension for.

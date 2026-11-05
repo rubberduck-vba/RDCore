@@ -183,6 +183,31 @@ public sealed class ProgramDebugAdapterTests
         await session.Workspace.Received(1).OpenAsync(Arg.Any<CancellationToken>());
     }
 
+    // what a client that prepared the launch (RDCoreDebugAdapterLaunch) says beyond what every launch says, as a client that knows nothing of this adapter's
+    // arguments sends it: the module and the entry point it names are what is run.
+    [TestMethod]
+    public async Task TheLaunchArguments_APreparedLaunchSays_AreWhatIsRun()
+    {
+        await using var session = new Session();
+        var started = new TaskCompletionSource();
+        session.Workspace.StartAsync("Prog", "Start", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return new ExecuteResult { Outcome = ExecutionOutcome.Completed };
+        });
+        await session.StartAsync();
+        var prepared = new Dictionary<string, object>
+        {
+            [RDCore.SDK.Client.RDCoreDebugAdapterLaunch.ModuleArgument] = "Prog",
+            [RDCore.SDK.Client.RDCoreDebugAdapterLaunch.EntryPointArgument] = "Start",
+        };
+
+        _ = await session.SendAsync(new LaunchRequestArguments { ExtensionData = prepared });
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        await started.Task.WaitAsync(Patience);
+    }
+
     [TestMethod]
     public async Task ALaunch_ThatNamesNoModule_IsRefused()
     {
