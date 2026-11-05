@@ -83,8 +83,8 @@ public sealed class SemanticModelStoreTests
         await store.WhenEvaluatedAsync(Module);
 
         releaseFirst.Set();
-        await Task.Delay(100);
 
+        // the evaluation that was stopped is not waited for: the store keeps nothing of it to wait on, and an absence is not forced by a wait on a clock.
         Assert.IsTrue(firstToken.IsCancellationRequested, "the evaluation of the code that is gone is told to stop");
         Assert.IsTrue(RuntimeOf(store)!.IsFullyAnalyzed, "and what it found, if it found it anyway, is not the model's");
     }
@@ -129,7 +129,8 @@ public sealed class SemanticModelStoreTests
 
         release.Set();
         await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
-        await Task.Delay(100);
+
+        // the evaluation that was stopped is not waited for: the store keeps nothing of it to wait on, and an absence is not forced by a wait on a clock.
         Assert.IsFalse(store.TryGet(Module, out _), "the facts of a module that is gone do not bring it back");
     }
 

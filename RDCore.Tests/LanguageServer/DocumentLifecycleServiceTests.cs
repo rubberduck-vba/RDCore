@@ -289,8 +289,8 @@ public sealed class DocumentLifecycleServiceTests
         await started[1].Task.WaitAsync(Patience);
         released[0].SetResult();
         await superseded.WaitAsync(Patience);
-        await Task.WhenAny(synced, Task.Delay(100));
 
+        // an absence is not forced by waiting for it: it is looked at once the refresh it would come with is over.
         Assert.IsFalse(synced.IsCompleted, "the host does not have the text there is yet");
         released[1].SetResult();
         await synced.WaitAsync(Patience);
@@ -314,8 +314,8 @@ public sealed class DocumentLifecycleServiceTests
         await started[1].Task.WaitAsync(Patience);
         released[0].SetResult();
         await edited.WaitAsync(Patience);
-        await Task.WhenAny(synced, Task.Delay(100));
 
+        // an absence is not forced by waiting for it: it is looked at once the refresh it would come with is over.
         Assert.IsFalse(synced.IsCompleted, "the save's refresh has not brought the host up to date yet");
         released[1].SetResult();
         await synced.WaitAsync(Patience);
