@@ -31,6 +31,30 @@ public sealed class LargeStackThreadTests
     }
 
     [TestMethod]
+    public void Run_OnTheThreadOfAProgram_RunsOnThatThread()
+    {
+        var (outer, inner) = (0, 0);
+        var program = LargeStackThread.NewThread(() => (outer, inner) = (Environment.CurrentManagedThreadId, LargeStackThread.Run(() => Environment.CurrentManagedThreadId)), "test program");
+
+        program.Start();
+        program.Join();
+
+        Assert.AreEqual(outer, inner);
+    }
+
+    [TestMethod]
+    public void TheThreadOfAProgram_HasALargeStack()
+    {
+        var depth = 0;
+        var program = LargeStackThread.NewThread(() => depth = Recurse(50_000), "test program");
+
+        program.Start();
+        program.Join();
+
+        Assert.AreEqual(50_000, depth);
+    }
+
+    [TestMethod]
     public void Run_InsideRun_RunsOnTheSameThread()
     {
         var (outer, inner) = LargeStackThread.Run(() => (Environment.CurrentManagedThreadId, LargeStackThread.Run(() => Environment.CurrentManagedThreadId)));

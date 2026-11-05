@@ -137,6 +137,28 @@ public static class LargeStackThread
         return completion.Task;
     }
 
+    /// <summary>
+    /// A thread of <see cref="StackSize"/>, not started, that runs <paramref name="work"/> for as long as it takes: the thread a program runs on. Work it waits
+    /// for (<see cref="Run{T}"/>) runs on it, as on a thread <see cref="Run{T}"/> makes.
+    /// </summary>
+    /// <param name="work">The work.</param>
+    /// <param name="name">The name of the thread.</param>
+    /// <returns>The thread, a background thread: it does not keep the process running.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="work"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// The thread starts in the culture every thread starts in, and not the caller's: what runs on it for as long as a program pleases sets its own. It is not
+    /// counted among the threads of <see cref="Start"/>.
+    /// </remarks>
+    public static Thread NewThread(Action work, string name)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        return new Thread(() =>
+        {
+            _isLargeStack = true;
+            work();
+        }, StackSize) { IsBackground = true, Name = name };
+    }
+
     // a thread of StackSize that runs work in the culture of the thread that creates it.
     private static Thread Create(Action work) => Create(work, CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
 

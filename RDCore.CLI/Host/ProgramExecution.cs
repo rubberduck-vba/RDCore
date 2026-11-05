@@ -97,7 +97,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     internal static Task<T> OffTheConnection<T>(Func<T> run)
     {
         var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var thread = new Thread(() =>
+        var thread = SDK.Platform.LargeStackThread.NewThread(() =>
         {
             try
             {
@@ -107,7 +107,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             {
                 done.SetException(exception);
             }
-        }, RuntimeCallStack.ProgramThreadStackSize) { IsBackground = true, Name = "RDCore program" };
+        }, "RDCore program");
         thread.Start();
         return done.Task;
     }
