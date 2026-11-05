@@ -124,11 +124,22 @@ public sealed class ExcelMeasuredGapsRowsTests
     public async Task TheNegationOfTheLeastLong_InAConstantExpression_IsTheLeastLong(string id, string module, string probe, string printed)
         => await AssertPrintedAsync(id, "", module, probe, printed);
 
-    // oracle\s58 H06: Err.Raise given no source is the project's: VBAProject in Excel.
+    // oracle\s58 H06, s61 H07-H12: an error's source is the project's - VBAProject in Excel, Project1 here - unless Err.Raise is given one, or keeps the one
+    // Err has: a run-time error, the Error statement and an automation object's error are the project's, whatever source Err had, in a class too.
     [TestMethod]
-    [Ignore("RD-VBA leaves Err.Source empty for an error raised with no source, which MS-VBA gives the project's name (oracle\\s58 H06)")]
-    public async Task AnErrorRaisedWithNoSource_IsTheProjects()
-        => await AssertPrintedAsync("s58 H06", "", "", """Err.Raise 13 ;; P Err.Source""", "VBAProject|");
+    [DataRow("s58 H06", "", """Err.Raise 13 ;; P Err.Source""", "Project1|")]
+    [DataRow("s61 H07", "", """Err.Source = "x" ;; Dim z As Variant ;; z = 1 / 0 ;; P Err.Source ;; P Err.Number""", "Project1|11|")]
+    [DataRow("s61 H08", "", """Err.Raise 5, "lib" ;; Dim z As Variant ;; z = 1 / 0 ;; P Err.Source ;; P Err.Number""", "Project1|11|")]
+    [DataRow("s61 H09", "",
+        """Dim z As Variant ;; z = 1 / 0 ;; P Err.Source ;; Err.Clear ;; P "[" & Err.Source & "]" ;; Err.Raise 5 ;; P Err.Source ;; Err.Clear ;; Error 9 ;; P Err.Source""",
+        "Project1|[]|Project1|Project1|")]
+    [DataRow("s61 H10", "", """Err.Raise 5, "lib" ;; Err.Raise 6 ;; P Err.Source ;; P Err.Number""", "lib|6|")]
+    [DataRow("s61 H11", "", """Dim d As Object ;; Set d = CreateObject("Scripting.Dictionary") ;; d.Add 1, 1 ;; d.Add 1, 1 ;; P Err.Number ;; P Err.Source""",
+        "457|Project1|")]
+    [DataRow("s61 H12", "Public Sub Fail() ;;     Dim z As Variant ;;     z = 1 / 0 ;; End Sub ;; Public Sub RaiseIt() ;;     Err.Raise 5 ;; End Sub",
+        """Dim b As New Box ;; b.Fail ;; P Err.Source ;; Err.Clear ;; b.RaiseIt ;; P Err.Source""", "Project1|Project1|")]
+    public async Task AnErrorGivenNoSource_IsTheProjects(string id, string boxExtras, string probe, string printed)
+        => await AssertPrintedAsync(id, boxExtras, "", probe, printed);
 
     private static async Task AssertPrintedAsync(string id, string boxExtras, string module, string probe, string printed)
     {

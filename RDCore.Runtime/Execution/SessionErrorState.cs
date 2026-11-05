@@ -61,8 +61,15 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
             // an error has the help context of its message - one an Error statement, an automation object or a RegExp raises too, whatever one Err had
             // (a Dictionary's 457 is 1000457, recorded in Excel: oracle\s58 H05) - unless Err.Raise gave it the one it was given, or kept the one Err had.
             HelpContext = error is VBApplicationErrorInfo { HelpContext: { } given } ? given : HelpContextOf(error.ErrorId);
+
+            // and the source of the project whose code runs - a run-time error, one an Error statement or an automation object raises, whatever source Err
+            // had, in a class as in a standard module (recorded in Excel: oracle\s61 H07-H12) - unless Err.Raise gave it one, or kept the one Err had (H10).
+            Source = error is VBApplicationErrorInfo { Source: { Length: > 0 } source } ? source : ProjectName;
         }
     }
+
+    /// <inheritdoc/>
+    public string ProjectName { get; set; } = "VBAProject";
 
     /// <summary>
     /// The help context ID of an error raised with no help context of its own: MS-VBAL §6.1.3.2.2.2's "implementation-defined VBA Help context ID for
