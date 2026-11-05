@@ -166,17 +166,27 @@ public sealed class ChildConnection(
     /// in-progress restart); faults only once the connection is terminally <see cref="ConnectionStateValue.Exited"/>.
     /// </summary>
     /// <param name="token">Cancels the wait.</param>
+    /// <remarks>
+    /// A connection whose child process has exited is not Ready from the moment its exit is seen, before its state says so: what completes this wait is the
+    /// process a request sent next goes to, and not the one that a request in flight was lost with. A connection disposed before it is ready again faults the
+    /// wait with an <see cref="ObjectDisposedException"/>.
+    /// </remarks>
     public Task WaitForReadyAsync(CancellationToken token)
     {
-        if (State.IsUsable)
+        Task ready;
+        lock (_gate)
         {
-            return Task.CompletedTask;
+            if (State.IsTerminal)
+            {
+                return Task.FromException(new ServerProtocolSdkException("The connection has exited."));
+            }
+            if (State.IsUsable && !_lost.Task.IsCompleted)
+            {
+                return Task.CompletedTask;
+            }
+            ready = _ready.Task;
         }
-        if (State.IsTerminal)
-        {
-            return Task.FromException(new ServerProtocolSdkException("The connection has exited."));
-        }
-        return _ready.Task.WaitAsync(token);
+        return ready.WaitAsync(token);
     }
 
     /// <summary>
@@ -395,10 +405,15 @@ public sealed class ChildConnection(
                 // the exit reason is inspected below via serverProcess.ExitCode.
             }
 
-            // what the process was asked and did not answer is lost with it, whether the connection restarts or not.
+            // what the process was asked and did not answer is lost with it, whether the connection restarts or not; and from then on, the connection is ready
+            // only once the next process is. Both at once: whoever is told its request was lost and waits for the connection waits for the next process.
             lock (_gate)
             {
                 _lost.TrySetResult();
+                if (!State.IsTerminal && _ready.Task.IsCompletedSuccessfully)
+                {
+                    _ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
             }
 
             if (_shuttingDown || State.Value is ConnectionStateValue.Exited or ConnectionStateValue.ShuttingDown)
@@ -432,9 +447,6 @@ public sealed class ChildConnection(
 
     private async Task<bool> TryRestartAsync()
     {
-        // a fresh readiness gate for the restart window, so WaitForReadyAsync callers wait rather than fault.
-        _ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
         // _restartCount is a lifetime counter: a child that keeps dying (even if each restart itself
         // succeeds) is given up on after MaxRestartAttempts, not restarted forever.
         while (_restartCount < _request!.MaxRestartAttempts)
@@ -482,18 +494,20 @@ public sealed class ChildConnection(
 
     private void Transition(ConnectionState target)
     {
+        TaskCompletionSource ready;
         lock (_gate)
         {
             State = State.AdvanceTo(target);
+            ready = _ready;
         }
         logger.LogInformation("Connection state -> {State}", State.Value);
         if (State.IsUsable)
         {
-            _ready.TrySetResult();
+            ready.TrySetResult();
         }
         if (State.IsTerminal)
         {
-            _ready.TrySetException(new ServerProtocolSdkException("The connection has exited."));
+            ready.TrySetException(new ServerProtocolSdkException("The connection has exited."));
             _terminated.TrySetResult();
         }
         StateChanged?.Invoke(State);
@@ -524,6 +538,11 @@ public sealed class ChildConnection(
         }
         _disposed = true;
         _shuttingDown = true;
+        lock (_gate)
+        {
+            // a connection disposed during a restart is never ready: whoever waits for it is told.
+            _ready.TrySetException(new ObjectDisposedException(nameof(ChildConnection)));
+        }
 
         if (!_connectionCts.IsCancellationRequested)
         {

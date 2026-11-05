@@ -40,7 +40,6 @@ public sealed class ChildConnectionRestartTests
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    [Ignore("nondeterministic on Linux CI: the request after WaitForReadyAsync can still be failed as lost to the process that exited. Its root cause is to fix before this runs again")]
     public async Task ARequestInFlight_WhenTheChildExits_Fails_AndTheRestartedChildAnswersTheNext()
     {
         using var child = new InProcessChild();
@@ -62,7 +61,6 @@ public sealed class ChildConnectionRestartTests
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    [Ignore("nondeterministic on Linux CI: the request after WaitForReadyAsync can still be failed as lost to the process that exited. Its root cause is to fix before this runs again")]
     public async Task ARequestInFlightOnTheChannel_WhenTheChildExits_Fails_AndTheRestartedChildAnswersTheNext()
     {
         using var child = new InProcessChild();
@@ -82,6 +80,47 @@ public sealed class ChildConnectionRestartTests
         Assert.AreEqual(1, child.RequestsReceivedBy(1), "the request in flight is not sent again to the next process");
     }
 
+    // the connection is looked at whenever it calls out, on its own thread, between the exit and the next process being ready: when it reads the exit code,
+    // starts the next process, and changes state. Each look is where the connection is at that moment, whatever the other threads do.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AfterTheChildExits_TheConnectionIsNotReady_UntilTheNextProcessIs()
+    {
+        using var child = new InProcessChild();
+        using var connection = await child.ConnectAsync();
+        using var hang = new CancellationTokenSource(HangGuard);
+        var readyAt = new List<string>();
+        var looks = 0;
+        var restarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Look(string where)
+        {
+            looks++;
+            if (connection.WaitForReadyAsync(CancellationToken.None).IsCompletedSuccessfully)
+            {
+                readyAt.Add(where);
+            }
+        }
+
+        child.Looking = Look;
+        connection.StateChanged += state =>
+        {
+            if (state.Value is ConnectionStateValue.Ready)
+            {
+                restarted.TrySetResult();
+            }
+            else
+            {
+                Look($"state {state.Value}");
+            }
+        };
+        child.Crash();
+
+        await restarted.Task.WaitAsync(hang.Token);
+        CollectionAssert.AreEqual(Array.Empty<string>(), readyAt, $"ready while the child that exited was the one a request would go to: at {string.Join(", ", readyAt)}");
+        Assert.IsGreaterThanOrEqualTo(6, looks, "the exit code read, the start of the next process, and Faulted, Spawning, Connecting, Initializing");
+        Assert.IsTrue(connection.WaitForReadyAsync(CancellationToken.None).IsCompletedSuccessfully);
+    }
+
     // what ChildConnection starts: each start is a process of its own, an OmniSharp server on the pipe, which answers the platform handshake and holds the
     // first request it is sent until it exits; the processes after it answer at once, with their number.
     private sealed class InProcessChild : IRDCoreServerProcess
@@ -94,13 +133,31 @@ public sealed class ChildConnectionRestartTests
         private OmniSharpLanguageServer? _server;
         private int _incarnation;
 
+        private int _exitCode;
+        private bool _crashed;
+
         public Task FirstRequestReceived => _firstRequestReceived.Task;
+
+        // called, once the first process has crashed, where the connection asks something of the process: on the connection's own thread.
+        public Action<string>? Looking { get; set; }
 
         public int ProcessId => _incarnation;
 
         public bool HasExited { get; private set; } = true;
 
-        public int ExitCode { get; private set; }
+        public int ExitCode
+        {
+            get
+            {
+                if (_crashed)
+                {
+                    Looking?.Invoke("exit code");
+                }
+
+                return _exitCode;
+            }
+            private set => _exitCode = value;
+        }
 
         public int RequestsReceivedBy(int incarnation)
         {
@@ -128,6 +185,11 @@ public sealed class ChildConnectionRestartTests
 
         public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, string? mode = null)
         {
+            if (_crashed)
+            {
+                Looking?.Invoke("start");
+            }
+
             var incarnation = ++_incarnation;
             _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
             HasExited = false;
@@ -170,6 +232,7 @@ public sealed class ChildConnectionRestartTests
             _pipe?.Dispose();
             ExitCode = 1;
             HasExited = true;
+            _crashed = true;
             _exit.TrySetResult();
         }
 
