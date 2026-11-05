@@ -127,6 +127,8 @@ public sealed class SymbolIdentityTests
     [DataRow("Cls.Tok]Type.Let", "Let", "Cls.Tok.Let", DisplayName = "a field of a Type named Let")]
     [DataRow("Worksheet.Type", "Type", "Worksheet.Type", DisplayName = "a library's member named Type")]
     [DataRow("Shapes.AddShape.Type", "Type", "Shapes.AddShape.Type", DisplayName = "a library's parameter named Type")]
+    [DataRow("Cls.a[b]c", "a[b]c", "Cls.a[b]c", DisplayName = "a foreign name with brackets of its own")]
+    [DataRow("Cls.a[b]c]Let", "a[b]c", "Cls.a[b]c", DisplayName = "a Property Let of a foreign name with brackets of its own")]
     [DataRow("Cls", "Cls", "Cls", DisplayName = "a module")]
     [DataRow("", "", "", DisplayName = "a root")]
     public void TheNameOfASymbol_IsTheLastNameOfItsAddress_WithoutTheSuffixAfterIt(string path, string name, string qualifiedName)
@@ -144,6 +146,17 @@ public sealed class SymbolIdentityTests
 
         CollectionAssert.AreEqual(new[] { "Type", "Let" }, fields.Select(field => SymbolUri.NameOf(field.Uri)).ToArray());
         CollectionAssert.AreEqual(new[] { "Cls.Tok.Type", "Cls.Tok.Let" }, fields.Select(field => SymbolUri.QualifiedNameOf(field.Uri)).ToArray());
+    }
+
+    [TestMethod]
+    public void AGetAndALetOfAForeignNameWithBracketsOfItsOwn_AreNamedSo()
+    {
+        var properties = SymbolsOfClass("Public Property Get [a[b]c]() As Long\r\nEnd Property\r\nPublic Property Let [a[b]c](ByVal v As Long)\r\nEnd Property")
+            .Where(symbol => symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol).ToList();
+
+        Assert.HasCount(2, properties);
+        Assert.AreEqual(2, properties.Select(property => property.Uri.AbsoluteUri).Distinct().Count(), "two addresses");
+        CollectionAssert.AreEqual(new[] { "a[b]c", "a[b]c" }, properties.Select(property => SymbolUri.NameOf(property.Uri)).ToArray());
     }
 
     [TestMethod]

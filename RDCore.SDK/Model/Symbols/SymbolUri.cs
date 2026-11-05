@@ -12,9 +12,9 @@ namespace RDCore.SDK.Model.Symbols;
 /// the environment host address the same symbol by the same <see cref="Uri"/>, and a symbol's address is its identity (<see cref="Abstract.Symbol.SemanticId"/>).
 /// </para>
 /// <para>
-/// No two declarations of a module have one address. Where a module may declare a name twice, one of the two has a suffix after its name: a <c>]</c>, which
-/// no name has (an identifier is letters, digits and underscores, and a foreign name ends at its first <c>]</c>: <strong>MS-VBAL §3.3.5</strong>,
-/// <strong>§3.3.5.3</strong>), then the reserved word of what it declares:
+/// No two declarations of a module have one address. Where a module may declare a name twice, one of the two has a suffix after its name: a <c>]</c> that closes
+/// no <c>[</c>, then the reserved word of what it declares. An identifier is letters, digits and underscores (<strong>MS-VBAL §3.3.5</strong>); a foreign name
+/// (<strong>§3.3.5.3</strong>) may have brackets of its own, and each <c>]</c> of it closes a <c>[</c> before it (<c>[a[b]c]</c> is named <c>a[b]c</c>):
 /// </para>
 /// <list type="bullet">
 /// <item>a <c>Property Let</c> and a <c>Property Set</c> are <c>Item]Let</c> and <c>Item]Set</c>, beside their <c>Property Get</c>, <c>Item</c>;</item>
@@ -24,7 +24,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// <para>
 /// What such a symbol declares is addressed under that: <c>GameBoard.PlayerType]Enum.HumanControlled</c>, <c>GameBoard.Item]Let.value</c>. A name is read off
 /// an address with <see cref="NameOf"/>, and a symbol is shown with <see cref="QualifiedNameOf"/>, which leave the suffixes out. A name may be the suffix's word
-/// itself (a field of a Type named <c>Type</c>, Excel's <c>Worksheet.Type</c>): only what follows the <c>]</c> is a suffix.
+/// itself (a field of a Type named <c>Type</c>, Excel's <c>Worksheet.Type</c>): only what follows the <c>]</c> that closes no <c>[</c> is a suffix.
 /// </para>
 /// <para>
 /// This is the one place the rule is written: a symbol, the descriptors of symbols on the wire, and every component that names a module address them with it.
@@ -163,8 +163,9 @@ public static class SymbolUri
         return dot < 0 ? path : path[..dot];
     }
 
-    // what tells a name from the suffix after it: no name has it. An identifier is letters, digits and underscores (MS-VBAL §3.3.5), and a foreign name
-    // ends at its first ']' (§3.3.5.3). A field of a Type may be named Let or Type, and a library's member Type: the word alone tells nothing.
+    // what tells a name from the suffix after it: a ']' that closes no '['. An identifier has no bracket (MS-VBAL §3.3.5), and each ']' of a foreign name
+    // closes a '[' of it (§3.3.5.3, as the grammar reads one). A field of a Type may be named Let or Type, and a library's member Type: the word alone tells
+    // nothing.
     private const char SuffixDelimiter = ']';
 
     // the reserved words a symbol's address has after its name, when the name alone is a namesake's (Symbol.UriSuffix).
@@ -174,8 +175,27 @@ public static class SymbolUri
     internal const string TypeSuffix = "Type";
     internal const string EventSuffix = "Event";
 
-    // a name of a path, without the suffix after it.
-    private static string WithoutSuffix(string name) => name.IndexOf(SuffixDelimiter, StringComparison.Ordinal) is >= 0 and var at ? name[..at] : name;
+    // a name of a path, without the suffix after it: what follows the first ']' that closes no '['.
+    private static string WithoutSuffix(string name)
+    {
+        var open = 0;
+        for (var at = 0; at < name.Length; at++)
+        {
+            switch (name[at])
+            {
+                case '[':
+                    open++;
+                    break;
+                case SuffixDelimiter when open == 0:
+                    return name[..at];
+                case SuffixDelimiter:
+                    open--;
+                    break;
+            }
+        }
+
+        return name;
+    }
 
     /// <summary>
     /// The name of the symbol an address is of: the last name of its path (<see cref="PathOf"/>), without the suffix that tells the symbol from a namesake of
