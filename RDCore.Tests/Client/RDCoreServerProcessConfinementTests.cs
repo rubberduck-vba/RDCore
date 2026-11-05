@@ -47,6 +47,12 @@ public sealed class RDCoreServerProcessConfinementTests
             Directory.Delete(link);
         }
 
+        var linkedRoot = Path.Combine(_folder, "opt", "rdcore");
+        if (new DirectoryInfo(linkedRoot).LinkTarget is not null)
+        {
+            Directory.Delete(linkedRoot);
+        }
+
         Directory.Delete(_folder, recursive: true);
     }
 
@@ -102,6 +108,60 @@ public sealed class RDCoreServerProcessConfinementTests
         var refused = await StartAsync($"Extensions/Linked/{Executable}");
 
         Assert.IsInstanceOfType<InvalidDataException>(refused, refused.Message);
+    }
+
+    // links that lead to each other lead nowhere: where the executable is can't be told, and it is refused as one outside the root is.
+    [TestMethod]
+    public async Task AnExtensionThroughACycleOfLinks_IsNotStarted()
+    {
+        var extensions = Path.Combine(_root, "Extensions");
+        RDCoreLanguageServerLaunchTests.WithLinkedFolder(Path.Combine(extensions, "A"), Path.Combine(extensions, "B"));
+        RDCoreLanguageServerLaunchTests.WithLinkedFolder(Path.Combine(extensions, "B"), Path.Combine(extensions, "A"));
+
+        var refused = await StartAsync($"Extensions/A/{Executable}");
+
+        Assert.IsInstanceOfType<InvalidDataException>(refused, refused.Message);
+        Assert.IsInstanceOfType<IOException>(refused.InnerException, refused.InnerException?.Message);
+    }
+
+    // a root that is a link, as /opt/rdcore -> /srv/rdcore-1.2 is (and macOS's /var -> /private/var): the kernel takes ".." where the path is so far, in the
+    // folder the link leads to, so a path that climbs out of an extension's folder as far as Path.GetFullPath stops at the root is outside it.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+    public async Task AnExtensionThatClimbsOutOfALinkedRoot_IsNotStarted()
+    {
+        var real = Directory.CreateDirectory(Path.Combine(_folder, "srv", "rdcore-1.2", "Extensions", "Title")).Parent!.Parent!.FullName;
+        Directory.CreateDirectory(Path.Combine(_folder, "srv", "rdcore"));
+        File.WriteAllText(Path.Combine(_folder, "srv", "rdcore", Executable), string.Empty);
+        var linked = Path.Combine(Directory.CreateDirectory(Path.Combine(_folder, "opt")).FullName, "rdcore");
+        Directory.CreateSymbolicLink(linked, real);
+        Environment.SetEnvironmentVariable(PlatformEnvironment.RootEnvironmentVariable, linked);
+
+        var refused = await StartAsync($"Extensions/Title/../../../rdcore/{Executable}");
+
+        Assert.IsInstanceOfType<InvalidDataException>(refused, refused.Message);
+    }
+
+    // what is checked is what is started: the real path, with ".." taken as the system takes it - folded first on Windows, where the path is so far elsewhere.
+    [TestMethod]
+    public void TheExecutableStarted_IsTheRealPathOfTheOneChecked()
+    {
+        var inner = Directory.CreateDirectory(Path.Combine(_root, "deep", "a", "b")).FullName;
+        RDCoreLanguageServerLaunchTests.WithLinkedFolder(Path.Combine(_root, "Extensions", "Inner"), inner);
+
+        var started = PlatformRootConfinement.Confined(_root, Path.Combine(_root, "Extensions", "Inner", "..", Executable));
+
+        var expected = OperatingSystem.IsWindows() ? Path.Combine(_root, "Extensions", Executable) : Path.Combine(_root, "deep", "a", Executable);
+        Assert.AreEqual(PlatformRootConfinement.RealPath(expected), started);
+    }
+
+    // the external host is rdc, in the folder of the rdc that starts it: that is this process's own, and it is started whatever the platform root is said to be.
+    [TestMethod]
+    public async Task AnExecutableOfThisProcesssOwnFolder_IsStarted_UnderAnotherRoot()
+    {
+        var failed = await StartAsync(Path.Combine(AppContext.BaseDirectory, $"not-there-{Executable}"));
+
+        Assert.IsInstanceOfType<Win32Exception>(failed, failed.Message);
     }
 
     // one under the root is started: it isn't there, and the system says so, as it does for any executable it can't find.

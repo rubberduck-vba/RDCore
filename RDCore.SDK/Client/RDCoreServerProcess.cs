@@ -152,8 +152,9 @@ public class RDCoreServerProcess(
         _serverProcess?.Dispose();
         _serverProcess = null;
 
-        // the path is the platform manifest's, or an extension's that its manifest names: a platform starts only what is under its root.
-        var fullPath = PlatformRootConfinement.Confined(PlatformEnvironment.Root, PlatformEnvironment.Resolve(relativePath));
+        // the path is the platform manifest's, or an extension's that its manifest names: a platform starts only what is under its root, and starts it where the
+        // check found it. What is in this process's own folder is its own (rdc starting rdc, its external host), whatever the root is said to be.
+        var fullPath = PlatformRootConfinement.Confined(PlatformEnvironment.Root, PlatformEnvironment.Resolve(relativePath), AppContext.BaseDirectory);
         var workspace = Options.Value.Workspace.WorkspaceUri;
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;

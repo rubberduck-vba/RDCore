@@ -123,6 +123,12 @@
   <data name="ExecutableStartedOutsideThePlatformRoot" xml:space="preserve">
     <value>La plateforme '{0}' devait démarrer '{1}', qui n'est pas sous la racine de la plateforme : une plateforme ne démarre que ses propres exécutables.</value>
   </data>
+  <data name="ExecutableStartedThroughALinkThatCannotBeFollowed" xml:space="preserve">
+    <value>La plateforme '{0}' devait démarrer '{1}', par un lien qui ne peut pas être suivi : une plateforme ne démarre que ses propres exécutables, et elle ne peut pas dire où est celui-ci.</value>
+  </data>
+  <data name="TooManyLinks" xml:space="preserve">
+    <value>'{0}' passe par plus de {1} liens : un cycle de liens ne mène nulle part.</value>
+  </data>
   <data name="LanguageServerIsNotThere" xml:space="preserve">
     <value>Le manifeste de la plateforme '{0}' nomme un serveur de langage qui n'y est pas.</value>
   </data>

@@ -125,6 +125,14 @@
     <value>The platform at '{0}' was to start '{1}', which is not under the platform root: a platform starts only its own executables.</value>
     <comment>{0}: the platform root; {1}: the full path of the executable, from the platform manifest or an extension's.</comment>
   </data>
+  <data name="ExecutableStartedThroughALinkThatCannotBeFollowed" xml:space="preserve">
+    <value>The platform at '{0}' was to start '{1}', through a link that can't be followed: a platform starts only its own executables, and it can't tell where this one is.</value>
+    <comment>{0}: the platform root; {1}: the path of the executable, or of the root.</comment>
+  </data>
+  <data name="TooManyLinks" xml:space="preserve">
+    <value>'{0}' leads through more than {1} links: a cycle of links leads nowhere.</value>
+    <comment>{0}: the path; {1}: the most links followed.</comment>
+  </data>
   <data name="LanguageServerIsNotThere" xml:space="preserve">
     <value>The platform manifest of '{0}' names a language server that is not there.</value>
     <comment>{0}: the platform root.</comment>

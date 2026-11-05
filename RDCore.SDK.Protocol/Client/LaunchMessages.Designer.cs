@@ -79,6 +79,24 @@ namespace RDCore.SDK.Client {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The platform at &apos;{0}&apos; was to start &apos;{1}&apos;, through a link that can&apos;t be followed: a platform starts only its own executables, and it can&apos;t tell where this one is..
+        /// </summary>
+        internal static string ExecutableStartedThroughALinkThatCannotBeFollowed {
+            get {
+                return ResourceManager.GetString("ExecutableStartedThroughALinkThatCannotBeFollowed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; leads through more than {1} links: a cycle of links leads nowhere..
+        /// </summary>
+        internal static string TooManyLinks {
+            get {
+                return ResourceManager.GetString("TooManyLinks", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The platform manifest of &apos;{0}&apos; names a language server that is not there..
         /// </summary>
         internal static string LanguageServerIsNotThere {
