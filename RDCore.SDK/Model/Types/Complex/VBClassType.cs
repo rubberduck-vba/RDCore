@@ -71,7 +71,10 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
             .FirstOrDefault(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
                 && member.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
 
-        return new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend)])
+        // MS-VBAL §2.5: the public interface of a class is its public procedures and variables (and the events an object raises). An Enum or a Type the
+        // class declares is a type of the project, not a member of an object: `obj.PlayerType` is the Property Get, whatever Enum takes its name.
+        return new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend
+            && member is not (VBEnumMemberSymbol or VBUserDefinedTypeMemberSymbol))])
         {
             Supertypes = supertypes,
             DefaultMember = defaultMember,
