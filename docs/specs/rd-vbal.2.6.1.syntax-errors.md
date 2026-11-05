@@ -34,12 +34,13 @@ An argument list that ends with an omitted argument - `Total(1, )`, `Report 1,` 
 A logical line joins at most 25 physical lines: 24 line-continuations in a row, and the 25th is a syntax error (`VBC00001`), "Too many line continuations", at its underscore, once for the line. **MS-VBAL §3.2.1** leaves the length of a line to the implementation, and this is MS-VBA's limit (MS Learn, and recorded in Excel). Two logical lines of 20 line-continuations each are valid: the limit is of one line.
 
 An expression is nested in at most 2,500 others: one nested deeper is `ExpressionNestedTooDeeply` (`VBC00060`), at the expression that passes the limit,
-once for each expression of a statement. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
+once for each expression of a statement; the callee and the arguments of a call statement are one expression. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
 term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. It is also nested in
 the member access it is the owner of (`a.b`, `a!b`), in the index expression it is the callee of (`a(1)`), and in a `New`, `TypeOf … Is` or `AddressOf`
 expression: each of them holds what it is written around as deep as an operator holds its operand. So a fluent chain `b.Add(1).Add(2)…` costs two levels a
 link, a member access and an index expression: `b` is nested in 2,500 expressions at 1,250 links, and 1,251 links are `VBC00060`. The arguments of a call
-statement are nested in the call, with or without `Call`: `F (…)` as `Call F(…)`, and `F 1, …` as `Call F(1, …)`. A named argument (`a:=`) and a `ByVal`
+statement are nested in the call, with or without `Call`: `F 1, …` as `Call F(1, …)`. Without `Call`, the parentheses of `F (…)` are not the call's: they
+group its one argument, which is a level of its own, so what they hold is nested as in `Call F((…))`, one level deeper than in `Call F(…)`. A named argument (`a:=`) and a `ByVal`
 argument are nested in the call and in nothing more. `Debug.Print` takes an output list (**MS-VBAL §5.4.5.8.1**, the list of the `Print` statement of
 §5.4.5.8), not an argument list: an item of it, and the expression of its `Spc` or `Tab` clause, are nested in nothing the statement writes around them, as
 the expression of an assignment is not. **MS-VBAL** leaves the depth of an expression to the implementation.

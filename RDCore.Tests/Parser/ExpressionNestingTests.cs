@@ -81,7 +81,8 @@ public sealed class ExpressionNestingTests
     }
 
     // a statement, the {0} in it the parenthesized literal, and the levels of nesting it writes around it: a call's argument is nested in the call, but neither
-    // passing it by name or ByVal nor printing it nests it in anything more.
+    // passing it by name or ByVal nor printing it nests it in anything more. The parentheses after a bare call's name group its one argument, a level of their
+    // own: `F (x)` nests x as `Call F((x))` does.
     [TestMethod]
     [DataRow("x = {0}", 0)]
     [DataRow("Debug.Print {0}", 0)]
@@ -93,6 +94,8 @@ public sealed class ExpressionNestingTests
     [DataRow("Call F(ByVal {0})", 1)]
     [DataRow("x = F(1, a:={0})", 1)]
     [DataRow("F {0}", 1)]
+    [DataRow("F ({0})", 2)]
+    [DataRow("Call F(({0}))", 2)]
     [DataRow("F 1, {0}", 1)]
     [DataRow("F a:={0}", 1)]
     [DataRow("x = TypeOf {0} Is Object", 1)]
