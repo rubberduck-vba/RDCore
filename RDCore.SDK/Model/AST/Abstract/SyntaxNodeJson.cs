@@ -40,10 +40,8 @@ public static class SyntaxNodeJson
     {
         PropertyNameCaseInsensitive = true,
 
-        // System.Text.Json defaults to 64, which an AST reaches on source a person could have written:
-        // a nested block statement still costs a JSON level or two with the spine omitted, so the parse
-        // server answered a bogus L0C0 diagnostic for perfectly valid code (measured on this shape: 40
-        // nested `If`s failed to serialize, 18 still fit).
+        // a tree is written flat, so its depth costs no JSON level: what is nested is what one node is written with (a location, a record it holds, the
+        // indexes of the nodes it holds). The limit guards the reader against a payload nested for no reason a tree has.
         MaxDepth = MaxNodeDepth,
 
         // a null is what an absent property deserializes to: writing it says nothing a reader needs (measured: a parse result of a 2,400-line module was
@@ -329,10 +327,8 @@ public static class SyntaxNodeJson
     /// The maximum nesting depth an AST payload may reach, in JSON levels.
     /// </summary>
     /// <remarks>
-    /// A guard against a cyclic or hostile payload, not a language limit — VBA imposes no nesting depth
-    /// of its own, so this is set well past anything anyone writes by hand rather than to a number
-    /// derived from the language. At roughly three or four levels per nested source construct it admits
-    /// a couple of hundred levels of nested statements.
+    /// A guard against a hostile payload, not a language limit. A syntax tree is written flat, an array of its nodes, so the depth of the code it holds costs
+    /// it no level: a payload reaches a few levels per node, whatever the depth of its tree.
     /// </remarks>
     public const int MaxNodeDepth = 1024;
 

@@ -197,46 +197,68 @@ internal static class FlatSyntaxTreeJson
         }
     }
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> _mayHoldNodes = new();
+    // by the options a type is written with: the options of a tree (Options, LocationFreeOptions, HeaderOptions) write a type with different properties.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type, JsonSerializerOptions), bool> _mayHoldNodes = new();
 
     [ThreadStatic]
-    private static HashSet<Type>? _deciding;
+    private static HashSet<(Type, JsonSerializerOptions)>? _deciding;
+
+    // how many times a type that was being decided was answered "no" before it was: an answer that relied on one is not kept, unless it is the outermost.
+    [ThreadStatic]
+    private static int _provisional;
 
     // whether a value declared as a type can hold a node: a node, a sequence of what can, or an object one of whose written properties can. A type that holds
     // itself (a value's type, whose default value is a value of it) is decided by its other properties.
     private static bool MayHoldNodes(Type declared, JsonSerializerOptions nodes)
     {
-        if (_mayHoldNodes.TryGetValue(declared, out var known))
+        var key = (declared, nodes);
+        if (_mayHoldNodes.TryGetValue(key, out var known))
         {
             return known;
         }
 
         if (typeof(SyntaxNode).IsAssignableFrom(declared))
         {
-            return _mayHoldNodes[declared] = true;
+            return _mayHoldNodes[key] = true;
         }
 
         _deciding ??= [];
-        if (!_deciding.Add(declared))
+        if (!_deciding.Add(key))
         {
+            _provisional++;
             return false;
         }
 
+        var provisional = _provisional;
+        var mayHold = false;
         try
         {
             var typeInfo = nodes.GetTypeInfo(declared);
-            var mayHold = typeInfo.Kind switch
+            mayHold = typeInfo.Kind switch
             {
                 JsonTypeInfoKind.Enumerable or JsonTypeInfoKind.Dictionary => MayHoldNodes(typeInfo.ElementType!, nodes),
                 JsonTypeInfoKind.Object => typeInfo.Properties.Any(property => MayHoldNodes(property.PropertyType, nodes)),
                 _ => false,
             };
-            return _mayHoldNodes[declared] = mayHold;
         }
         finally
         {
-            _deciding.Remove(declared);
+            _deciding.Remove(key);
         }
+
+        // "yes" is never provisional. "No" is, where it relied on a type still being decided, which may yet be "yes": it is kept once the outermost type
+        // is decided, which every type it relied on was.
+        if (mayHold || _provisional == provisional || _deciding.Count == 0)
+        {
+            _mayHoldNodes[key] = mayHold;
+        }
+
+        if (_deciding.Count == 0)
+        {
+            _provisional = 0;
+        }
+
+        return mayHold;
     }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Func<object, bool>?> _isDefault = new();
