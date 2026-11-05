@@ -44,6 +44,22 @@ public readonly record struct StaticEvaluationContext(
     ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null, IExpressionFactSink? Facts = null,
     Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null)
 {
-    // what the expressions of the tree being evaluated evaluated to, which the evaluation of the tree gives every evaluation inside it.
+    // what the expressions of the tree being evaluated evaluated to, which the evaluation of the tree gives every evaluation inside it. It is no part of what
+    // the context is: two contexts that differ only by it are equal.
     internal ExpressionEvaluations? Evaluations { get; init; }
+
+    /// <summary>
+    /// Whether <paramref name="other"/> is the same context: the same resolver, scope, <c>With</c> target, sinks and environment.
+    /// </summary>
+    /// <param name="other">The context to compare with.</param>
+    public bool Equals(StaticEvaluationContext other)
+        => EqualityComparer<ISymbolResolver>.Default.Equals(Resolver, other.Resolver)
+            && EqualityComparer<LexicalScope>.Default.Equals(Scope, other.Scope)
+            && EqualityComparer<VBType?>.Default.Equals(EnclosingWithTargetType, other.EnclosingWithTargetType)
+            && EqualityComparer<IExpressionFactSink?>.Default.Equals(Facts, other.Facts)
+            && EqualityComparer<Binding.ExpressionBindings?>.Default.Equals(Bindings, other.Bindings)
+            && EqualityComparer<StaticEnvironment?>.Default.Equals(Environment, other.Environment);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => HashCode.Combine(Resolver, Scope, EnclosingWithTargetType, Facts, Bindings, Environment);
 }

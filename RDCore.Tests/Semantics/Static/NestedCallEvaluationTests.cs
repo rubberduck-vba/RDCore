@@ -1,6 +1,10 @@
+using RDCore.LanguageServer.Symbols;
+using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -10,8 +14,11 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics.Binding;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Symbols;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Tests.Semantics.Static;
@@ -24,6 +31,7 @@ namespace RDCore.Tests.Semantics.Static;
 public sealed class NestedCallEvaluationTests
 {
     private static readonly Uri Root = new("file://rdcore-test");
+    private static readonly Uri Main = new UriBuilder(Root) { Fragment = "Main" }.Uri;
     private static readonly SourceRange R = SourceRange.Empty;
 
     // the names an evaluation looks up, and how many times each.
@@ -33,8 +41,7 @@ public sealed class NestedCallEvaluationTests
 
         public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
         {
-            Lookups[name] = Lookups.GetValueOrDefault(name) + 1;
-            return resolver.ResolveValue(name, scope, handle);
+            Lookups[name] = Lookups.GetValueOrDefault(name) + 1;            return resolver.ResolveValue(name, scope, handle);
         }
 
         public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => resolver.ResolveType(name, scope, handle);
@@ -48,16 +55,18 @@ public sealed class NestedCallEvaluationTests
         public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address) => resolver.TryAllocate(symbol, value, out address);
     }
 
-    private static SimpleNameExpressionNode NameOf(string identifier)
-        => new(new(TestUri.TestModuleUri().AbsolutePath, [1]), TestLocations.TestLocation, identifier);
+    // a node of its own identity: the n-th made for one tree.
+    private static SyntaxNodeId Identity(int n) => new(TestUri.TestModuleUri().AbsolutePath, [n]);
 
     // F(F(...F(x)...)), F written depth times.
     private static ExpressionNode Nested(int depth)
     {
-        ExpressionNode expression = NameOf("x");
+        var next = 0;
+        ExpressionNode expression = new SimpleNameExpressionNode(Identity(next++), TestLocations.TestLocation, "x");
         for (var level = 0; level < depth; level++)
         {
-            expression = new IndexExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [2]), TestLocations.TestLocation, NameOf("F"), [expression]);
+            var callee = new SimpleNameExpressionNode(Identity(next++), TestLocations.TestLocation, "F");
+            expression = new IndexExpressionNode(Identity(next++), TestLocations.TestLocation, callee, [expression]);
         }
 
         return expression;
@@ -85,4 +94,40 @@ public sealed class NestedCallEvaluationTests
     [DataRow(10)]
     public void TheInnermostArgumentOfANestedCall_IsLookedUpAsOftenAsTheArgumentOfOneCall(int depth)
         => Assert.AreEqual(LookupsOfTheInnermostArgument(1), LookupsOfTheInnermostArgument(depth), $"x is looked up as often in {depth} calls as in one");
+
+    // how many times the static pass of `x = Abs(Abs(...Abs(n)...)) + 1`, Abs written depth times, looks up n, recording the facts and the bindings of the
+    // expressions: the pass looks at Abs's argument again for the type of the call, and at each operand of the addition for whether it overflows.
+    private static int RecordedLookupsOfTheInnermostArgument(int depth)
+    {
+        var expression = string.Concat(Enumerable.Repeat("Abs(", depth)) + "n" + new string(')', depth) + " + 1";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"),
+            $"Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    Dim n As Long, x As Long\r\n    x = {expression}\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Main, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+        var symbols = new SyntaxTreeSymbolProvider(Root, Main, ModuleType.StdModule, parse, composition.Resolver, withImplicitDeclarations: true).ProvideSymbols();
+        var run = symbols.OfType<VBProcedureMemberSymbol>().Single(member => member.Name == "Run");
+        var declaration = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var resolver = new CountingResolver(composition.Resolver);
+        var bindings = new ExpressionBindings();
+
+        var model = StatementStaticSemanticsEvaluator.Analyze(run.SemanticId, new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
+            context: new StaticEvaluationContext(resolver, composition.ScopeTree.ScopeFor(run.Uri), Bindings: bindings));
+
+        Assert.IsTrue(model.CompileErrors.IsEmpty, string.Join("; ", model.CompileErrors.Select(error => error.Description)));
+        Assert.IsTrue(model.Expressions.Values.Any(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.OverflowsWhereVariantWidens)),
+            "the addition is looked at for whether it overflows");
+        Assert.IsTrue(bindings.Bound.Count > depth, "the expressions are bound");
+        return resolver.Lookups.GetValueOrDefault("n");
+    }
+
+    [TestMethod]
+    [DataRow(2)]
+    [DataRow(10)]
+    public void TheInnermostArgumentOfANestedCall_IsLookedUpAsOftenAsTheArgumentOfOneCall_WhereItsFactsAndBindingsAreRecorded(int depth)
+    {
+        var (one, nested) = (RecordedLookupsOfTheInnermostArgument(1), RecordedLookupsOfTheInnermostArgument(depth));
+
+        Assert.AreEqual(one, nested, $"n is looked up as often in {depth} calls ({nested}) as in one ({one})");
+    }
 }

@@ -54,6 +54,10 @@ public sealed class ExpressionBindings
     private readonly Dictionary<SyntaxNodeId, BoundExpression> _bound = [];
     private readonly Dictionary<SyntaxNodeId, BoundNode> _nodes = [];
 
+    // whether each expression asked of is a constant expression: what is constant does not depend on where in the procedure it is written, and a call is
+    // asked of after its argument, which it is not asked of again.
+    private readonly Dictionary<ExpressionNode, bool> _constant = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
     /// The layout of the activations of the procedure the expressions are written in, which binds its parameters and variables to their slots;
     /// <see langword="null"/> when the expressions are bound outside a procedure, and no variable is bound to a slot.
@@ -120,7 +124,7 @@ public sealed class ExpressionBindings
             VBBinaryOperatorExpressionNode binary => new BoundBinary(binary, plan, ChildNode(binary.Left), ChildNode(binary.Right)),
 
             VBUnaryOperatorExpressionNode unary => new BoundUnary(unary, plan, ChildNode(unary.Operand),
-                unary.Token is Tokens.NegationOp && ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, unary.Operand)),
+                unary.Token is Tokens.NegationOp && ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, unary.Operand, _constant)),
 
             // a call by the bare name of a procedure, resolved as the evaluation resolves it.
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index
@@ -129,7 +133,7 @@ public sealed class ExpressionBindings
                 => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
                 {
                     ResultType = ResultTypeOf(procedure, result),
-                    IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index),
+                    IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index, _constant),
                 },
 
             // MS-VBAL §5.6.12: a member of a project or a procedural module - `Constants.vbCrLf`, `Module1.Count` - is what the name means unqualified there,
@@ -145,7 +149,7 @@ public sealed class ExpressionBindings
                     ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
                     {
                         ResultType = ResultTypeOf(procedure, result),
-                        IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index),
+                        IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index, _constant),
                     }
                     : new BoundIndex(index, new BoundQualifiedName(access, member), ArgumentNodes(index)),
 
