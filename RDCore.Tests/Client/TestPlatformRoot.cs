@@ -14,27 +14,77 @@ public static class TestPlatformRoot
     // the folder under the root the build output is copied to.
     private const string Components = "Platform";
 
-    private static readonly Lazy<string> _directory = new(Create, LazyThreadSafetyMode.ExecutionAndPublication);
+    // what a root's folder is named, under the folder the roots are made in.
+    private const string Prefix = "platform-";
 
-    /// <summary>The root, made the first time a test asks for it.</summary>
-    public static string Directory => _directory.Value;
+    // a root left by a run that was stopped before its cleanup (a killed test host) is taken away by a later run, once it is this old: a run that is still
+    // going is never as old as that.
+    internal static readonly TimeSpan Abandoned = TimeSpan.FromDays(1);
+
+    private static readonly Lock Gate = new();
+    private static string? _directory;
+
+    /// <summary>The root, made the first time a test asks for it. A copy that failed is not kept: the next test to ask makes the root again.</summary>
+    public static string Directory
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _directory ??= Create(Path.Combine(Path.GetTempPath(), "RDCore"), new DirectoryInfo(AppContext.BaseDirectory), DateTime.UtcNow);
+            }
+        }
+    }
 
     private static string AppHost(string name) => $"{Components}/{(OperatingSystem.IsWindows() ? $"{name}.exe" : name)}";
 
-    private static string Create()
+    /// <summary>
+    /// Makes a root in <paramref name="folder"/>, with a copy of <paramref name="components"/>, after taking away the roots there that were abandoned at
+    /// <paramref name="now"/>. A copy that fails takes away the root it was making.
+    /// </summary>
+    internal static string Create(string folder, DirectoryInfo components, DateTime now)
     {
-        var root = Path.Combine(Path.GetTempPath(), "RDCore", $"platform-{Environment.ProcessId}-{Guid.NewGuid():N}");
-        Copy(new DirectoryInfo(AppContext.BaseDirectory), System.IO.Directory.CreateDirectory(Path.Combine(root, Components)));
-        File.WriteAllText(Path.Combine(root, PlatformManifest.FileName), JsonSerializer.Serialize(new PlatformManifest
+        Sweep(folder, now);
+
+        var root = Path.Combine(folder, $"{Prefix}{Environment.ProcessId}-{Guid.NewGuid():N}");
+        try
         {
-            PlatformVersion = "0.1",
-            GeneratedUtc = DateTime.UtcNow,
-            ExtensionsDirectory = "Extensions",
-            LangService = AppHost("RDCore.LanguageServer"),
-            ParseServer = AppHost("RDCore.ParseServer"),
-            HostService = AppHost("rdc"),
-        }));
-        return root;
+            Copy(components, System.IO.Directory.CreateDirectory(Path.Combine(root, Components)));
+            File.WriteAllText(Path.Combine(root, PlatformManifest.FileName), JsonSerializer.Serialize(new PlatformManifest
+            {
+                PlatformVersion = "0.1",
+                GeneratedUtc = DateTime.UtcNow,
+                ExtensionsDirectory = "Extensions",
+                LangService = AppHost("RDCore.LanguageServer"),
+                ParseServer = AppHost("RDCore.ParseServer"),
+                HostService = AppHost("rdc"),
+            }));
+            return root;
+        }
+        catch
+        {
+            Delete(root);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Takes away the roots in <paramref name="folder"/> that were last written <see cref="Abandoned"/> or longer before <paramref name="now"/>, and no other folder.
+    /// </summary>
+    internal static void Sweep(string folder, DateTime now)
+    {
+        if (!System.IO.Directory.Exists(folder))
+        {
+            return;
+        }
+
+        foreach (var root in new DirectoryInfo(folder).EnumerateDirectories($"{Prefix}*"))
+        {
+            if (now - root.LastWriteTimeUtc >= Abandoned)
+            {
+                Delete(root.FullName);
+            }
+        }
     }
 
     private static void Copy(DirectoryInfo from, DirectoryInfo to)
@@ -51,21 +101,30 @@ public static class TestPlatformRoot
         }
     }
 
-    [AssemblyCleanup]
-    public static void Cleanup()
+    private static void Delete(string root)
     {
-        if (!_directory.IsValueCreated)
-        {
-            return;
-        }
-
         try
         {
-            System.IO.Directory.Delete(_directory.Value, recursive: true);
+            if (System.IO.Directory.Exists(root))
+            {
+                System.IO.Directory.Delete(root, recursive: true);
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // a process of a test that timed out may still hold a file: the folder is a temporary one.
+            // a process of a test that timed out may still hold a file: the folder is a temporary one, and a later run's sweep takes it away.
+        }
+    }
+
+    [AssemblyCleanup]
+    public static void Cleanup()
+    {
+        lock (Gate)
+        {
+            if (_directory is { } root)
+            {
+                Delete(root);
+            }
         }
     }
 }
