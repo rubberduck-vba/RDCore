@@ -89,7 +89,6 @@ public sealed class ClientWithoutOmniSharpTests
     // the order HexIDE's add-in sent its messages in (C:\Dev\Claude\hexide-msgbox-wire-2026-10-30.txt): the document opened and its diagnostics asked for before the
     // platform handshake, which is sent without waiting for them; its requests numbered from 2, so that the handshake is 4, as the language server's msgBox is.
     [TestMethod]
-    [Ignore("Nondeterministic: in one full suite run (compiled mode) the language server's log, read after shutdown, lacked the \"The client expects LanguageServer to provide\" line. To be fixed so that the log is complete when it is read, or so that the claim is asserted from the wire.")]
     public async Task AClientInHexIdesOrder_AnswersTheMsgBoxOfAProgram_AndTheProgramCompletes()
     {
         await using var platform = await Platform.StartAsync();
@@ -113,8 +112,7 @@ public sealed class ClientWithoutOmniSharpTests
         Assert.IsNull((await diagnostics)["error"]);
         await platform.ShutdownAsync(6);
 
-        // the log is read once the language server has exited: its file is written from a queue in the background, so a line logged may not be in it until the server
-        // has flushed it as it exits.
+        // the log is read once the language server has exited, from every file it wrote: a server that runs past midnight writes the line to the next day's.
         StringAssert.Contains(WholeLogOf(platform.Root), "The client expects LanguageServer to provide \"LanguageServer: SessionExecute, SessionInteraction\"",
             "what the client claimed is in the language server's file");
     }
@@ -511,16 +509,23 @@ public sealed class ClientWithoutOmniSharpTests
     // the end of the language server's log, which says what it did with what it was sent.
     private static string LogOf(string root) => string.Join('\n', WholeLogOf(root).Split('\n').TakeLast(60));
 
+    // every file of the component's log, in the order they were written: the file logger names each day's file after its date (RDCore.LanguageServer-20261105.log),
+    // so a server that runs past midnight writes two, and the directory lists them in no particular order.
     private static string WholeLogOf(string root, string component = "RDCore.LanguageServer")
     {
-        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).ToArray() : [];
+        var logs = Directory.Exists(root)
+            ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToArray()
+            : [];
         if (logs.Length == 0)
         {
             return $"(no {component} log)";
         }
 
-        using var stream = new FileStream(logs[0], FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        return new StreamReader(stream).ReadToEnd();
+        return string.Concat(logs.Select(log =>
+        {
+            using var stream = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return new StreamReader(stream).ReadToEnd();
+        }));
     }
 
     // JSON-RPC 2.0 over the pipe, as LSP frames it, written by hand as a client that is not OmniSharp's writes it: both ways at once, a request answered whenever its
