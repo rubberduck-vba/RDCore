@@ -52,11 +52,11 @@ public sealed class ProtocolProjectFileTests
         => ProjectFile.ReadAsync(new MemoryStream([.. byteOrderMark ? new byte[] { 0xEF, 0xBB, 0xBF } : [], .. System.Text.Encoding.UTF8.GetBytes(json)]), Root);
 
     [TestMethod]
-    [DataRow("""{ "ProjectInfo": null }""", DisplayName = "a null project")]
-    [DataRow("""{ "ProjectInfo": { "Name": null, "Modules": null, "OtherFiles": null, "Folders": null, "References": null, "PrecompilerConstants": null } }""", DisplayName = "null lists")]
-    [DataRow("""{ "ProjectInfo": { "Modules": [ null, "Module1.bas" ], "OtherFiles": [ null ], "Folders": [ null ], "References": [ null ] } }""", DisplayName = "null items")]
-    [DataRow("""{ }""", DisplayName = "nothing at all")]
-    public async Task WhatAFileLeavesOut_ReadsAsEmpty_NeverNull(string json)
+    [DataRow("""{ "ProjectInfo": null }""", new string[0], DisplayName = "a null project")]
+    [DataRow("""{ "ProjectInfo": { "Name": null, "Modules": null, "OtherFiles": null, "Folders": null, "References": null, "PrecompilerConstants": null } }""", new string[0], DisplayName = "null lists")]
+    [DataRow("""{ "ProjectInfo": { "Modules": [ null, "Module1.bas" ], "OtherFiles": [ null ], "Folders": [ null ], "References": [ null ] } }""", new[] { "Module1.bas" }, DisplayName = "null items")]
+    [DataRow("""{ }""", new string[0], DisplayName = "nothing at all")]
+    public async Task WhatAFileLeavesOut_ReadsAsEmpty_NeverNull(string json, string[] modules)
     {
         var project = await ReadAsync(json);
 
@@ -64,8 +64,11 @@ public sealed class ProtocolProjectFileTests
         Assert.AreEqual(string.Empty, project.Version);
         Assert.IsNotNull(project.Configuration);
         var info = project.ProjectInfo;
-        Assert.IsNotNull(info.Name);
-        Assert.IsTrue(info.Modules.All(module => module is not null) && info.OtherFiles.Length == 0 && info.Folders.Length == 0 && info.References.Length == 0);
+        Assert.AreEqual(string.Empty, info.Name);
+        CollectionAssert.AreEqual(modules, info.Modules.Select(module => module.RelativeUri).ToArray());
+        Assert.IsEmpty(info.OtherFiles);
+        Assert.IsEmpty(info.Folders);
+        Assert.IsEmpty(info.References);
         Assert.IsNotNull(info.PrecompilerConstants);
     }
 

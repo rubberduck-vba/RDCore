@@ -28,8 +28,7 @@ public interface IProjectFileLoader
     /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
     /// <param name="token">A token that cancels the read.</param>
     /// <exception cref="FileNotFoundException">No <c>.rdproj</c> exists under the workspace root.</exception>
-    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
-    /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
+    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON, or is no JSON object; the message says where.</exception>
     Task<ProjectFile> LoadAsync(string workspaceRoot, CancellationToken token = default);
 
     /// <summary>
@@ -53,8 +52,7 @@ public interface IProjectFileLoader
     /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
     /// <param name="language">The language the workspace is written in, whose <see cref="SupportedLanguage.FileTypes"/> are its source files.</param>
     /// <param name="token">A token that cancels the read.</param>
-    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
-    /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
+    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON, or is no JSON object; the message says where.</exception>
     Task<ProjectFile> LoadOrSynthesizeAsync(string workspaceRoot, SupportedLanguage language, CancellationToken token = default);
 
     /// <summary>

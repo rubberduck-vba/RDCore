@@ -25,7 +25,7 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     /// <remarks>
     /// A list the file gives as <c>null</c> (<c>"Modules": null</c>), or a project the file gives as <c>null</c>, reads as empty, and a <c>null</c> item of a
     /// list is left out. The file is UTF-8, with or without a byte order mark; its member names are matched as <see cref="JsonSerializer"/> matches them by
-    /// default. A file that is no JSON throws the <see cref="JsonException"/> that says where.
+    /// default, case-sensitively, except a file entry's <c>RelativeUri</c> and <c>Super</c>, which are matched whatever their case. A file that is no JSON throws the <see cref="JsonException"/> that says where.
     /// </remarks>
     /// <param name="stream">The file's content.</param>
     /// <param name="workspaceRoot">The workspace root the project file is at (<see cref="Uri"/>).</param>
