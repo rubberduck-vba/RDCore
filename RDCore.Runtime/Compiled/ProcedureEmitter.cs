@@ -60,6 +60,11 @@ internal sealed class ProcedureEmitter
     // instruction the interpreter runs alone.
     private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
 
+    // a Select Case's selector, and the same two flags: whether its Select ever ran, and whether the frame has what it last gave the selector.
+    private sealed record class SelectLocals(LocalBuilder Selector, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
+
+    private readonly List<SelectLocals> _selects = [];
+
     private ProcedureEmitter(ProcedureAnalysis analysis, IReadOnlyList<DirectCall?> directs, ILGenerator il)
     {
         (_analysis, _directs, _il) = (analysis, directs, il);
@@ -143,6 +148,11 @@ internal sealed class ProcedureEmitter
         {
             _loops.Add(new LoopLocals(_il.DeclareLocal(ClrTypeOf(loop.Kind)), _il.DeclareLocal(ClrTypeOf(loop.Kind)), _il.DeclareLocal(typeof(bool)),
                 _il.DeclareLocal(typeof(bool)), _il.DeclareLocal(typeof(bool)), loop.Kind));
+        }
+
+        foreach (var select in _analysis.Selects)
+        {
+            _selects.Add(new SelectLocals(_il.DeclareLocal(ClrTypeOf(select.Kind)), _il.DeclareLocal(typeof(bool)), _il.DeclareLocal(typeof(bool)), select.Kind));
         }
 
         for (var offset = 0; offset <= _analysis.Length; offset++)
@@ -316,7 +326,44 @@ internal sealed class ProcedureEmitter
             case SteppedStep stepped:
                 EmitStepped(stepped.Offset);
                 break;
+
+            case SelectStep select:
+            {
+                var locals = _selects[select.Select];
+                Store(EmitPayload(select.Selector, FailureAt(select.Offset)), select.Selector.Kind, locals.Selector);
+                _il.Emit(OpCodes.Ldc_I4_1);
+                _il.Emit(OpCodes.Stloc, locals.Opened);
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Stloc, locals.Spilled);
+                break;
+            }
+
+            case CaseStep caseStep:
+                EmitCase(caseStep);
+                break;
         }
+    }
+
+    // CaseMatchEvaluator.TryMatchUnboxed: the first clause that matches falls through into the Case's block - the two comparisons of a To range both made -
+    // and none goes to the next Case. A comparison that fails fails the whole Case, which the interpreter matches from its first clause.
+    private void EmitCase(CaseStep caseStep)
+    {
+        var failure = FailureAt(caseStep.Offset);
+        var matched = _il.DefineLabel();
+        foreach (var clause in caseStep.Clauses)
+        {
+            EmitCompare(clause.Lower, failure);
+            if (clause.Upper is { } upper)
+            {
+                EmitCompare(upper, failure);
+                _il.Emit(OpCodes.And);
+            }
+
+            _il.Emit(OpCodes.Brtrue, matched);
+        }
+
+        _il.Emit(OpCodes.Br, _instructions[caseStep.Else]);
+        _il.MarkLabel(matched);
     }
 
     // the instruction at offset run by the interpreter alone (CompiledActivation.Recover). When it falls through to the next instruction, nothing changed
@@ -819,6 +866,21 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.Spilled);
         }
 
+        // and each selector: a Select the interpreter ran gave it, on payloads - one it evaluated boxed is no place compiled code goes on (CanGoOnAt).
+        for (var i = 0; i < _selects.Count; i++)
+        {
+            var select = _selects[i];
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, i);
+            _il.Emit(OpCodes.Ldloca, select.Selector);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(select.Kind)
+                ? nameof(CompiledActivation.ReloadSelectorIntegral)
+                : nameof(CompiledActivation.ReloadSelectorFloating))!);
+            _il.Emit(OpCodes.Dup);
+            _il.Emit(OpCodes.Stloc, select.Opened);
+            _il.Emit(OpCodes.Stloc, select.Spilled);
+        }
+
         _il.Emit(OpCodes.Br, _dispatch);
     }
 
@@ -891,6 +953,24 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillForLoop))!);
             _il.Emit(OpCodes.Ldc_I4_1);
             _il.Emit(OpCodes.Stloc, loop.Spilled);
+            _il.MarkLabel(closed);
+        }
+
+        // each selector a Select gave, which its Case headers compare when the interpreter runs them (CompiledActivation.SpillSelector).
+        for (var i = 0; i < _selects.Count; i++)
+        {
+            var select = _selects[i];
+            var closed = _il.DefineLabel();
+            _il.Emit(OpCodes.Ldloc, select.Opened);
+            _il.Emit(OpCodes.Brfalse, closed);
+            _il.Emit(OpCodes.Ldloc, select.Spilled);
+            _il.Emit(OpCodes.Brtrue, closed);
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, i);
+            LoadAsBoth(select.Selector, select.Kind);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillSelector))!);
+            _il.Emit(OpCodes.Ldc_I4_1);
+            _il.Emit(OpCodes.Stloc, select.Spilled);
             _il.MarkLabel(closed);
         }
     }
@@ -1032,6 +1112,9 @@ internal sealed class ProcedureEmitter
 
             case ResultNode:
                 return new Operand(_result!, 0, 0);
+
+            case SelectorNode selector:
+                return new Operand(_selects[selector.Select].Selector, 0, 0);
 
             case ConstantNode constant:
                 return new Operand(null, constant.Integral, constant.Floating);

@@ -23,7 +23,7 @@ Compiled code does these itself:
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types.|
 |Statements|`Let` of a variable or of the function's result.|
 |Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module whose parameters are scalars (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
-|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
+|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
@@ -38,14 +38,20 @@ address from then on. Bytes a debugger writes at that address while the program 
 compiled code can't read a variable back from the frame, or write it there, the interpreter runs the rest of the activation, with the variables as the frame
 has them.
 
+A `Select Case` of a scalar selector evaluates the selector once, and compares it with the values of each `Case` in order, as the interpreter does
+([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)): each value converted to the selector's type, except an integer compared with a `Single`
+selector, which is compared at its exact value. When a value can't be converted exactly, such as a fraction compared with a `Single` or a `Long` too large for
+an `Integer` selector, compiled code hands the activation to the interpreter at that `Case`, as it does when an operation declines (below). A `Case` whose
+value is no scalar, such as a `String`, keeps the procedure in the interpreter.
+
 These keep the whole procedure in the interpreter:
 
-- a `With`, a `Select Case` or a `For Each`;
+- a `With`, a `For Each`, or a `Select Case` of a selector that is no scalar, such as a `String` or a `Variant`;
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
 - a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
-  it, no assignment, call or condition, no `Loop While` or `Loop Until`, no `Next`. The loop is the innermost one around the statement: what an outer loop
-  or a loop beside it does is no gain for this one. Around each such statement compiled code would only write its variables into the frame and read them
-  back, which costs more than it saves.
+  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next`. The loop is the innermost one around the statement: what an
+  outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write its variables into the frame and
+  read them back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code doesn't is always called with its frame, through the interpreter's call, never through the
 compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
@@ -73,10 +79,10 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   Otherwise it computes in the 80-bit format.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
-cell, the function result into its variable, and the state of each `For` loop whose `For` statement ran into the frame. A loop that ended keeps the end and
-the step it last had, as it does in the interpreter: a `Resume` can go back into it, and its `For` statement can fail when it runs again. The interpreter
-then evaluates the instruction as it always does, so the error raised, its message and its location are the interpreter's. The rest of the activation runs
-in the interpreter.
+cell, the function result into its variable, the state of each `For` loop whose `For` statement ran, and the selector of each `Select Case` whose `Select`
+ran, into the frame. A loop that ended keeps the end and the step it last had, as it does in the interpreter: a `Resume` can go back into it, and its `For`
+statement can fail when it runs again. The interpreter then evaluates the instruction as it always does, so the error raised, its message and its location
+are the interpreter's. The rest of the activation runs in the interpreter.
 
 Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
 activation under the debugger.

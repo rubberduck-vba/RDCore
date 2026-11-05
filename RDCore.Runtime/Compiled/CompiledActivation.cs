@@ -824,9 +824,10 @@ public sealed class CompiledActivation : ILightActivation
 
         // an instruction that falls through goes on inside the loops it was inside, whose state the frame has: compiled code was there. A For statement is the
         // one that falls through into a loop, when its start, end or step failed under Resume Next - and the interpreter gave the loop a state then, the one
-        // it had or a 0 end and step (ProcedureExecutor.Unevaluated, as MS-VBA does), which the re-entry reads back.
+        // it had or a 0 end and step (ProcedureExecutor.Unevaluated, as MS-VBA does), which the re-entry reads back. A Select falls through into the block
+        // it gave its selector - boxed, when the interpreter evaluated it boxed - which is checked as a jump's destination is.
         if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list)
-            || (frame.Pc != pc + 1 && !CanGoOnAt(frame, list, frame.Pc)))
+            || ((frame.Pc != pc + 1 || list.Items[pc].Kind is InstructionKind.Select) && !CanGoOnAt(frame, list, frame.Pc)))
         {
             _recovered = Interpret(frame.Pc);
             return -1;
@@ -840,7 +841,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>What the activation returns when <see cref="Recover"/> said it goes on nowhere.</summary>
     public RuntimeExecutionOutcome Recovered() => _recovered;
 
-    // whether compiled code can go on at pc: every For loop it is inside has its state in the frame, of the kind compiled code steps it in.
+    // whether compiled code can go on at pc: every For loop it is inside has its state in the frame, of the kind compiled code steps it in; and every
+    // Select Case its selector, of the kind compiled code compares it in - one the interpreter evaluated boxed is compared boxed.
     private bool CanGoOnAt(CallStackFrame frame, InstructionList list, int pc)
     {
         for (var i = 0; i < _body.Loops.Count; i++)
@@ -852,7 +854,50 @@ public sealed class CompiledActivation : ILightActivation
             }
         }
 
+        for (var i = 0; i < _body.Selects.Count; i++)
+        {
+            var select = _body.Selects[i];
+            if (pc > select.Opener && pc < select.End && !TryReadSelector(frame, select, out _))
+            {
+                return false;
+            }
+        }
+
         return true;
+    }
+
+    private static bool TryReadSelector(CallStackFrame frame, CompiledSelect select, out ScalarPayload selector)
+        => frame.TryGetSelectorPayload(select.Opener, out selector) && ScalarKinds.Of(selector.Type) == select.Kind;
+
+    /// <summary>
+    /// Writes the selector of the <c>Select Case</c> numbered <paramref name="select"/> into the frame, as the interpreter stashes a selector evaluated on
+    /// payloads (<c>CallStackFrame.SetSelectorPayload</c>).
+    /// </summary>
+    public void SpillSelector(int select, long integral, double floating)
+    {
+        var info = _body.Selects[select];
+        Frame.SetSelectorPayload(info.Opener, new ScalarPayload(ScalarKinds.TypeOf(info.Kind), integral, floating));
+    }
+
+    /// <summary>
+    /// The selector of the <c>Select Case</c> numbered <paramref name="select"/>, of an integral kind, read back from the frame: whether it was evaluated.
+    /// </summary>
+    public bool ReloadSelectorIntegral(int select, out long selector)
+    {
+        var evaluated = TryReadSelector(Frame, _body.Selects[select], out var payload);
+        selector = payload.Integral;
+        return evaluated;
+    }
+
+    /// <summary>
+    /// The selector of the <c>Select Case</c> numbered <paramref name="select"/>, of a floating-point kind, read back from the frame: whether it was
+    /// evaluated.
+    /// </summary>
+    public bool ReloadSelectorFloating(int select, out double selector)
+    {
+        var evaluated = TryReadSelector(Frame, _body.Selects[select], out var payload);
+        selector = payload.Floating;
+        return evaluated;
     }
 
     private static bool TryReadForLoop(CallStackFrame frame, CompiledForLoop info, out ScalarPayload end, out ScalarPayload step, out bool countsDown)
@@ -986,6 +1031,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// </summary>
     public bool NeedsFrame { get; init; }
 
+    /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
+    public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
+
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -
     /// under that mode every instruction boundary is one. It is chosen from the body's name, how many activations of it came before, and the seed
@@ -1059,3 +1107,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 /// <param name="Control">The counter's expression.</param>
 /// <param name="Kind">The kind it counts in, the counter's.</param>
 internal sealed record class CompiledForLoop(int Opener, Symbol Counter, ExpressionNode Control, ScalarKind Kind);
+
+/// <summary>
+/// A <c>Select Case</c> of a scalar selector, of a compiled body (MS-VBAL §5.4.2.10).
+/// </summary>
+/// <param name="Opener">The offset of its <c>Select</c>, which its selector is stashed by.</param>
+/// <param name="End">The offset right past its block.</param>
+/// <param name="Kind">The kind of its selector.</param>
+internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind);

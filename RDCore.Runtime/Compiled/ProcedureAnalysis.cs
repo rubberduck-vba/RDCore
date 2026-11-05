@@ -47,7 +47,12 @@ namespace RDCore.Runtime.Compiled;
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
 /// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
 /// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A <c>With</c>, a <c>For Each</c> and a
-/// <c>Select Case</c> keep their procedure in the interpreter, and so does a body none of whose instructions that do something are compiled code's.
+/// <c>Select Case</c> of a selector that is no scalar keep their procedure in the interpreter, and so does a body none of whose instructions that do
+/// something are compiled code's.
+/// </para>
+/// <para>
+/// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
+/// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>).
 /// </para>
 /// <para>
 /// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation (IR lowering S2.3c),
@@ -181,9 +186,9 @@ internal sealed class ProcedureAnalysis
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
-    // have compiled code do something at each pass - a Let, a call, a condition, the loop's back edge with its condition or a Next counting - which saves
-    // more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another loop does saves nothing of this
-    // one's passes. When it steps nothing in a loop, anything at all will do.
+    // have compiled code do something at each pass - a Let, a call, a condition, a Select Case and its comparisons, the loop's back edge with its condition
+    // or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another
+    // loop does saves nothing of this one's passes. When it steps nothing in a loop, anything at all will do.
     private bool GainsAnything(InstructionList list)
     {
         var loops = new List<(int First, int Last)>();
@@ -199,7 +204,7 @@ internal sealed class ProcedureAnalysis
             }
         }
 
-        static bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or LoopBackStep or ForNextStep;
+        static bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or SelectStep or CaseStep or LoopBackStep or ForNextStep;
         var steppedInALoop = false;
         foreach (var stepped in Steps)
         {
@@ -373,6 +378,13 @@ internal sealed class ProcedureAnalysis
 
             case InstructionKind.ForNext when instruction.Matching is { } opener && instruction.Target is { } body && _loopOfOpener.TryGetValue(opener, out var loop):
                 return new ForNextStep(instruction.Offset, loop, CounterSlotOf(loop), _loops[loop].Kind, body);
+
+            case InstructionKind.Select when instruction.Node is SelectCaseStatementNode selectCase && instruction.End is { } end:
+                return AnalyzeSelect(instruction.Offset, selectCase, end);
+
+            case InstructionKind.ConditionalBranch when instruction.Matching is { } select && instruction.Else is { } next
+                && instruction.Node is CaseExpressionStatementNode caseBlock && _selectOfOpener.TryGetValue(select, out var selectNumber):
+                return AnalyzeCase(instruction.Offset, caseBlock, selectNumber, next);
 
             case InstructionKind.ExitProcedure:
                 return new ExitStep(instruction.Offset);
@@ -575,6 +587,89 @@ internal sealed class ProcedureAnalysis
     private readonly List<int> _counterSlots = [];
 
     private int CounterSlotOf(int loop) => _counterSlots[loop];
+
+    /// <summary>The <c>Select Case</c> statements of a scalar selector, numbered.</summary>
+    public IReadOnlyList<CompiledSelect> Selects => _selects;
+
+    private readonly List<CompiledSelect> _selects = [];
+    private readonly Dictionary<int, int> _selectOfOpener = [];
+
+    // MS-VBAL §5.4.2.10, as ProcedureExecutor.ExecuteSelect does it on payloads (TryEvaluateSelectorUnboxed): a selector of a scalar type, evaluated once. A
+    // selector declared Variant is compared as a Variant, its Case values not converted to its type (RD-VBAL §5.4.2.10): the interpreter's.
+    private CompiledStep? AnalyzeSelect(int offset, SelectCaseStatementNode selectCase, int end)
+    {
+        var bound = Bind(selectCase.ControlExpression);
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(bound))
+        {
+            Refuse(IneligibilityKind.VariantOperand, "Select Case", selectCase.ControlExpression.Location);
+            return null;
+        }
+
+        if (Payload(bound) is not { } selector)
+        {
+            return null;
+        }
+
+        _selectOfOpener[offset] = _selects.Count;
+        _selects.Add(new CompiledSelect(offset, end, selector.Kind));
+        return new SelectStep(offset, _selects.Count - 1, selector);
+    }
+
+    // CaseMatchEvaluator.TryMatchUnboxed: each range clause compared with the selector, in order - a To range as both its comparisons - each value converted
+    // to the type of the selector, then both to the type the comparison is made in. A conversion that is not exact fails the Case, which the interpreter then
+    // matches boxed, as it does when its own payload comparison declines.
+    private CompiledStep? AnalyzeCase(int offset, CaseExpressionStatementNode caseBlock, int select, int next)
+    {
+        var selector = new SelectorNode(select, _selects[select].Kind);
+        var clauses = new List<CaseClause>(caseBlock.RangeClauses.Length);
+        foreach (var clause in caseBlock.RangeClauses)
+        {
+            var compared = clause switch
+            {
+                CaseValueRangeClauseNode value => CaseComparison(Tokens.CompareEqualOp, selector, value.Value) is { } equal ? new CaseClause(equal) : null,
+                CaseComparisonRangeClauseNode comparison
+                    => CaseComparison(comparison.ComparisonOperator, selector, comparison.Value) is { } compare ? new CaseClause(compare) : null,
+                CaseToRangeClauseNode range => CaseComparison(Tokens.CompareGreaterThanOrEqualOp, selector, range.Start) is { } above
+                    && CaseComparison(Tokens.CompareLessThanOrEqualOp, selector, range.End) is { } below ? new CaseClause(above, below) : null,
+                _ => null,
+            };
+
+            if (compared is null)
+            {
+                if (_reasons.Count == 0)
+                {
+                    Refuse(IneligibilityKind.Instruction, "Case", clause.SourceLocation);
+                }
+
+                return null;
+            }
+
+            clauses.Add(compared);
+        }
+
+        return new CaseStep(offset, clauses, next);
+    }
+
+    // TryCompareUnboxed: selector operator value, on payloads.
+    private CompareNode? CaseComparison(string token, SelectorNode selector, ExpressionNode value)
+    {
+        if (Payload(Bind(value)) is not { } evaluated)
+        {
+            return null;
+        }
+
+        var selectorType = ScalarKinds.TypeOf(selector.Kind);
+        var valueType = RuntimeExpressionEvaluator.CaseValueTypeOf(selectorType, ScalarKinds.TypeOf(evaluated.Kind));
+        if (ScalarKinds.Of(valueType) is not { } valueKind
+            || OperationPlanner.ForValues(token, selectorType, valueType) is not { OperandDestination: { } destinationType }
+            || ScalarKinds.Of(destinationType) is not { } destination || OperatorTokens.ComparisonOf(token) is not { } comparison)
+        {
+            Refuse(IneligibilityKind.Operator, token, value.Location);
+            return null;
+        }
+
+        return new CompareNode(comparison, Converted(selector, destination), Converted(Converted(evaluated, valueKind), destination));
+    }
 
     private BoundNode Bind(ExpressionNode expression) => _evaluator.BindInProcedure(_session, expression, _procedure);
 
