@@ -24,7 +24,7 @@ public sealed class ExpressionNestingTests
 
     private static string NestedAbs(int depth) => string.Concat(Enumerable.Repeat("Abs(", depth)) + "-1" + new string(')', depth);
 
-    private static string Chain(int terms) => string.Join(" + ", Enumerable.Repeat("1", terms));
+    internal static string Chain(int terms) => string.Join(" + ", Enumerable.Repeat("1", terms));
 
     private static ModuleParseResult Parse(string expression)
         => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    Dim x As Variant\r\n    x = {expression}\r\nEnd Sub\r\n");
@@ -85,27 +85,6 @@ public sealed class ExpressionNestingTests
     public async Task AChainOf2500Terms_Runs()
         => Assert.AreEqual("2500", await RunAsync(Chain(2500)));
 
-    // runs work on a thread with a 256 KB stack, a quarter of a thread's default and as small as one the language server or an extension may ask on, and says
-    // what it threw, if anything. A module past the limit is still declared and walked there: its error is the one to report, not a crash.
-    private static Exception? OnASmallStack(Action work)
-    {
-        Exception? thrown = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                work();
-            }
-            catch (Exception exception)
-            {
-                thrown = exception;
-            }
-        }, 256 * 1024);
-        thread.Start();
-        thread.Join();
-        return thrown;
-    }
-
     private static readonly Uri Root = new("file://rdcore-test");
     private static readonly Uri Main = new UriBuilder(Root) { Fragment = "Main" }.Uri;
 
@@ -117,7 +96,7 @@ public sealed class ExpressionNestingTests
         Assert.IsTrue(parse.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(parse));
 
         string[] declared = [];
-        var thrown = OnASmallStack(() =>
+        var thrown = SmallStack.Run(() =>
         {
             var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Main, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
             declared = [.. new SyntaxTreeSymbolProvider(Root, Main, ModuleType.StdModule, parse, composition.Resolver, withImplicitDeclarations: true)
@@ -134,7 +113,7 @@ public sealed class ExpressionNestingTests
         var parse = Parse(Chain(40_000));
 
         var count = 0;
-        var thrown = OnASmallStack(() => count = parse.SyntaxTree!.Descendants().Count(node => node is LiteralExpressionNode));
+        var thrown = SmallStack.Run(() => count = parse.SyntaxTree!.Descendants().Count(node => node is LiteralExpressionNode));
 
         Assert.IsNull(thrown, thrown?.ToString());
         Assert.AreEqual(40_000, count);

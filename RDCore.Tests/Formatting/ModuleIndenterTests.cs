@@ -23,6 +23,18 @@ public sealed class ModuleIndenterTests
     private static string Lines(params string[] lines) => string.Join("\r\n", lines);
 
     [TestMethod]
+    public void AModuleWithAnExpressionPastTheLimitOfNesting_IsIndented()
+    {
+        var chain = Parser.ExpressionNestingTests.Chain(40_000);
+
+        var indented = string.Empty;
+        var thrown = SmallStack.Run(() => indented = Indented(Lines("Public Sub Foo()", $"x = {chain}", "End Sub")));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.AreEqual(Lines("Public Sub Foo()", $"    x = {chain}", "End Sub"), indented);
+    }
+
+    [TestMethod]
     public void NestedBlocks_AreALevelEach_TheirBranchesAtTheLevelOfTheBlock()
     {
         var text = Lines(
