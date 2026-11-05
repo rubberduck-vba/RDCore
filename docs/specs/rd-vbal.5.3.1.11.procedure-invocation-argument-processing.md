@@ -290,9 +290,11 @@ What takes the argument makes no difference, and an element of a public `Variant
 |`.Inner.V(0)` in `With b`, `.V(0)` in `With b.Inner`, `.V(0)` in `With .Inner` in `With b`|`ByRef x As Variant`|Unchanged: a copy.|
 |`V(0)`|`ByRef x As Variant`, in `Box`'s own code|Written: the element itself.|
 
-[**RDC11026**](../diagnostics/rdc11026.md) warns of each copy: for a `ByRef` parameter, a `ParamArray`, a `Declare`d procedure and a raised event, whose
-parameters are known; and for a procedure called late, which may take the argument `ByRef` or `ByVal`. It does not warn of a member of an object bound late
-(`u.Count`), which is not known to be a variable, nor of what a member of a referenced library is given.
+[**RDC11026**](../diagnostics/rdc11026.md) warns of each copy given to a `ByRef` parameter, a `ParamArray`, a `Declare`d procedure and a raised event,
+whose parameters are known. [**RDC11029**](../diagnostics/rdc11029.md), a hint, says the same of a copy given to a procedure called late, which may take
+the argument `ByRef` or `ByVal`. Neither is raised for a member of an object bound late (`u.Count`), which is not known to be a variable, nor for what a
+member of a referenced library is given. An element is flagged only of a `Variant`: of a variable of any other type (`b.Items(1)`, `Items` a `Collection`)
+it is what the default member of the object returns, which MS-VBAL passes as a copy too.
 
 A field of a variable of a user-defined type is a variable, however it is named. In a `With` block of a record, a member with no object before the dot is
 one of the With block variable (**MS-VBAL §5.4.2.21**), which is the record variable itself when the `With` expression is one, and a nested `With` block of

@@ -291,6 +291,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11025](rdc11025.md)|Array given a second empty argument list — `f()()`, which MS-VBAL makes invalid, MS-VBA compiles and fails with 9 when it runs|
 |[RDC11026](rdc11026.md)|Public variable of an object passed ByRef as a copy — MS-VBAL passes the variable, MS-VBA a copy|
 |[RDC11027](rdc11027.md)|String compared with a number as a Double — MS-VBA compares the two as Doubles, where MS-VBAL compares them in the number's type|
+|[RDC11029](rdc11029.md)|Public variable of an object passed late as a copy — what a procedure called late assigns to it is not written back|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program — made while it waits in the debugger, which can't go on with it|
 
 ---

@@ -358,10 +358,10 @@
     <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
   </data>
   <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
-    <value>Cette variable publique d&apos;un objet, ou cet élément d&apos;une telle variable, est passé à un paramètre ByRef comme une copie : ce que la procédure assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
+    <value>Cet argument, une variable publique d&apos;un objet ou un élément d&apos;une telle variable, est passé à un paramètre ByRef comme une copie : ce que la procédure assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
   </data>
   <data name="ObjectVariablePassedLateIsACopy_Message" xml:space="preserve">
-    <value>Cette variable publique d&apos;un objet, ou cet élément d&apos;une telle variable, est passé comme une copie à une procédure appelée tardivement : si la procédure le prend ByRef, ce qu&apos;elle assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
+    <value>Cet argument, une variable publique d&apos;un objet ou un élément d&apos;une telle variable, est passé comme une copie à une procédure appelée tardivement, comme MS-VBA le passe : si la procédure le prend ByRef, ce qu&apos;elle assigne au paramètre ne lui est pas réécrit.</value>
   </data>
   <data name="StringComparedWithANumberAsADouble_Message" xml:space="preserve">
     <value>&apos;{0}&apos; compare une String à un entier ou à un Single : MS-VBA compare les deux comme des valeurs Double, et MS-VBAL §5.6.9.5 les compare dans le type du nombre; le résultat peut différer (&quot;2.5&quot; = 2 est False; &quot;40000&quot; comparé à un Integer ne dépasse pas sa capacité).</value>

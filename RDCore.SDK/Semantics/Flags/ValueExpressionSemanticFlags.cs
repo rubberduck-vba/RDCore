@@ -135,8 +135,9 @@ public enum ValueExpressionSemanticFlags
 
     /// <summary>
     /// It is a public variable of an object named as a member of it, or an element of one, as <see cref="ObjectVariablePassedAsACopy"/> has it, given to a
-    /// procedure called late (<c>o.Twice b.Count</c>, <c>o</c> an <c>Object</c>), whose parameters are not known until it runs: <strong>MS-VBA</strong>
-    /// passes a copy, which what the procedure assigns to the parameter, if it takes it <c>ByRef</c>, is not written back to (RD-VBAL §5.3.1.11).
+    /// procedure called late (<c>o.Twice b.Count</c>, <c>o</c> an <c>Object</c>), whose parameters are not known until it runs. If the procedure takes it
+    /// <c>ByRef</c>, <strong>MS-VBAL §5.3.1.11</strong> passes the variable by reference; <strong>MS-VBA</strong> passes a copy, which what the procedure
+    /// assigns to the parameter is not written back to (oracle\s58 F04, RD-VBAL §5.3.1.11).
     /// </summary>
     ObjectVariablePassedLateAsACopy = 1 << 20,
 }

@@ -27,8 +27,9 @@ namespace RDCore.SDK.Semantics.Static;
 /// is named (<c>Counter</c>, <c>Globals.Counter</c>).
 /// </para>
 /// <para>
-/// An object bound late (<c>Object</c>, <c>Variant</c>) is given a copy too: what it has is not known until the program runs, and nothing is flagged. Nor is
-/// what a member of a referenced library is given, whose <c>ByRef</c> parameters are mostly what the library only reads.
+/// A member of an object bound late (<c>u.Count</c>, <c>u</c> an <c>Object</c> or a <c>Variant</c>) is passed as a copy too, but whether it is a variable is
+/// not known until the program runs, and it is not flagged. Nor is what a member of a referenced library is given, whose <c>ByRef</c> parameters are mostly
+/// what the library only reads.
 /// </para>
 /// </remarks>
 public static class ObjectVariableArgumentStaticSemantics
@@ -73,6 +74,10 @@ public static class ObjectVariableArgumentStaticSemantics
     /// <c>ByRef</c> parameter or a <c>ParamArray</c> (<see cref="ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy"/>): a call's, or a
     /// <c>RaiseEvent</c>'s, whose arguments are its event's.
     /// </summary>
+    /// <remarks>
+    /// <strong>MS-VBAL §5.3.1.11</strong> passes such an argument of a <c>ByRef</c> parameter by reference, and so does <strong>§5.4.2.20</strong> for the
+    /// arguments of a <c>RaiseEvent</c>, which it processes as a call's; MS-VBA passes a copy (RD-VBAL §5.3.1.11).
+    /// </remarks>
     /// <param name="context">The compile-time context the arguments are evaluated against; nothing is recorded without its facts.</param>
     /// <param name="parameters">The parameters the arguments are given to, in order.</param>
     /// <param name="arguments">The arguments, as written; they have been evaluated.</param>
@@ -97,11 +102,14 @@ public static class ObjectVariableArgumentStaticSemantics
         }
     }
 
-    // b.Count, or b.V(0): an element of it, whose variable is the copy that is passed (s58 B01).
+    // b.Count, or b.V(0): an element of the array a Variant variable holds, whose variable is the copy that is passed (s58 B01); a class has no public array
+    // variable. Of a variable of any other type (b.Items(1), Items a Collection) it is the value of the default member of what the variable holds, which
+    // MS-VBAL passes as a copy too.
     private static bool IsObjectVariableOrElement(StaticEvaluationContext context, ExpressionNode passed) => passed switch
     {
-        MemberAccessExpressionNode access => IsObjectVariable(context, access),
-        IndexExpressionNode { Callee: MemberAccessExpressionNode access, Arguments.IsEmpty: false } => IsObjectVariable(context, access),
+        MemberAccessExpressionNode access => ObjectVariableOf(context, access) is not null,
+        IndexExpressionNode { Callee: MemberAccessExpressionNode access, Arguments.IsEmpty: false }
+            => ObjectVariableOf(context, access) is ITypedSymbol { ResolvedType: VBVariantType },
         _ => false,
     };
 
@@ -116,7 +124,7 @@ public static class ObjectVariableArgumentStaticSemantics
 
     // a public variable of a class, named as a member of an object of it, or of the target of the enclosing With block (MS-VBAL §5.6.15) - never a member of a
     // module the owner names, which is the module's variable.
-    private static bool IsObjectVariable(StaticEvaluationContext context, MemberAccessExpressionNode access)
+    private static Symbol? ObjectVariableOf(StaticEvaluationContext context, MemberAccessExpressionNode access)
     {
         var classType = access.Owner switch
         {
@@ -129,8 +137,8 @@ public static class ObjectVariableArgumentStaticSemantics
         };
 
         // a class's own variables are among its interface's members as the variables of its module they are declared as.
-        return classType is not null && (VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol).DefaultInterfaceMembers
-            .Any(candidate => candidate is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol
+        return classType is null ? null : (VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol).DefaultInterfaceMembers
+            .FirstOrDefault(candidate => candidate is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol
                 && string.Equals(candidate.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase));
     }
 
