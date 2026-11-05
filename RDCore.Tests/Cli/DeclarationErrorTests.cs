@@ -57,6 +57,17 @@ public sealed class DeclarationErrorTests
     }
 
     [TestMethod]
+    public async Task AMemberOfTwoEnums_IsAnAmbiguousName_NamedAfterEachEnum()
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
+            "Public Enum A", "Red", "End Enum", "Public Enum B", "Red", "End Enum", "Public Sub Paint()", "Dim x As Long", "x = Red", "End Sub"));
+
+        var error = Assert.ContainsSingle(errors);
+        StringAssert.Contains(error, "Program.A, Program.B");
+        Assert.DoesNotContain("]", error, "an address's suffix is not shown");
+    }
+
+    [TestMethod]
     public async Task TwoTypesOfTheSameName_AreAnAmbiguousName()
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync(

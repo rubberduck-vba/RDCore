@@ -119,5 +119,5 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     internal static VBCompileErrorInfo GetResolutionErrorInfo(
         ExpressionNode expression, string name, VBCompileErrorId errorId, ImmutableArray<Symbol> candidates)
         => VBCompileErrorInfo.For(errorId, expression.Location,
-            $"'{name}' — {candidates.Length} candidates: {string.Join(", ", candidates.Select(candidate => SymbolUri.PathOf(candidate.ParentUri)))}");
+            $"'{name}' — {candidates.Length} candidates: {string.Join(", ", candidates.Select(candidate => SymbolUri.QualifiedNameOf(candidate.ParentUri)))}");
 }
