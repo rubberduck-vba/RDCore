@@ -42,8 +42,11 @@
   <data name="ComponentLost" xml:space="preserve">
     <value>the {0} was lost: the program cannot go on.</value>
   </data>
-  <data name="LaunchNeedsModule" xml:space="preserve">
-    <value>A launch configuration names the module that has the entry point: "module".</value>
+  <data name="NoModuleDeclaresTheEntryPoint" xml:space="preserve">
+    <value>No standard module of the program declares a Public Sub {0}() or a Public Sub {0}(ParamArray Args()) to start with. Declare one, or name the module that has the entry point in the launch configuration: "module".</value>
+  </data>
+  <data name="ModulesDeclaringTheEntryPoint" xml:space="preserve">
+    <value>More than one standard module declares a Sub {0} the program could start with: {1}. Name the one to run in the launch configuration: "module".</value>
   </data>
   <data name="NoProgramToStart" xml:space="preserve">
     <value>There is no program to start: launch first.</value>

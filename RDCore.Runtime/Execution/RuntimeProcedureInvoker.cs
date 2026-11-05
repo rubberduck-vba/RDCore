@@ -53,6 +53,16 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         => Activate(procedure, arguments, [], sweep: false);
 
     /// <summary>
+    /// The arguments a program's entry point is invoked with (<see cref="RDCore.SDK.Workspace.ProgramEntryPoint"/>): none, which a <c>ParamArray</c> it declares
+    /// collects as an array with no elements, as it does in a call that passes it none (<strong>MS-VBAL §5.3.1.11</strong>).
+    /// </summary>
+    /// <param name="entryPoint">The procedure the program starts with.</param>
+    public static IRuntimeValue[] ProgramArguments(VBTypeMemberSymbol entryPoint)
+        => GetParameters(entryPoint) is [ParamArrayParameterSymbol]
+            ? [new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])))]
+            : [];
+
+    /// <summary>
     /// Invokes <paramref name="procedure"/>, every parameter of which is a scalar passed by value, with <paramref name="arguments"/> - payloads of the
     /// parameters' types, in order: each is what the parameter's cell is made of (IR lowering S1.3), and no value is made of it.
     /// </summary>
