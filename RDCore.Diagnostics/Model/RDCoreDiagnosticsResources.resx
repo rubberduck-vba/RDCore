@@ -358,6 +358,9 @@
     <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
   </data>
   <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
-    <value>This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
+    <value>This public variable of an object, or element of one, is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
+  </data>
+  <data name="ObjectVariablePassedLateIsACopy_Message" xml:space="preserve">
+    <value>This public variable of an object, or element of one, is passed as a copy to a procedure called late: if the procedure takes it ByRef, what it assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
   </data>
 </root>

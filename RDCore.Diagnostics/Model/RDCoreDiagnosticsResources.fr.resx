@@ -358,6 +358,9 @@
     <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
   </data>
   <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
-    <value>Cette variable publique d&apos;un objet est passée à un paramètre ByRef comme une copie : ce que la procédure assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
+    <value>Cette variable publique d&apos;un objet, ou cet élément d&apos;une telle variable, est passé à un paramètre ByRef comme une copie : ce que la procédure assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
+  </data>
+  <data name="ObjectVariablePassedLateIsACopy_Message" xml:space="preserve">
+    <value>Cette variable publique d&apos;un objet, ou cet élément d&apos;une telle variable, est passé comme une copie à une procédure appelée tardivement : si la procédure le prend ByRef, ce qu&apos;elle assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
   </data>
 </root>

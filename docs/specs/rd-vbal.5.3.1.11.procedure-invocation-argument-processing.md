@@ -206,7 +206,7 @@ its bounds kept.
 |---|---|---|
 |`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
 |`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
-|`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
+|`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`), or an element of one (`obj.V(0)`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
 |`ByRef`, declared `Variant`|An addressable, writable variable, of either of those|A reference binding.|
 |`ByRef`, declared as a class or `Object`|A variable of a different declared type|A `ByVal`-style copy: the class/`Object` copy-back is not modeled.|
 |`ByRef`|Not recognized as aliasable: an expression, a literal, a variable of mismatched declared type, a read-only target|The same `ByVal`-style Let-coerced copy: **MS-VBAL §5.3.1.11**'s "otherwise" case. Never an error.|
@@ -253,6 +253,23 @@ With `Public Count As Long` in a class `Box`, `b` a `Box`, and `Sub Bump(ByRef n
 |`b.Count`, to `ByRef v As Variant`|Any module|Unchanged: a copy.|
 |`Count`|`Box`'s own code|Written: the variable itself.|
 |`Globals.Counter`, `Counter`, a standard module's `Public Counter As Long`|Any module|Written: the variable itself, however it is named.|
+
+What takes the argument makes no difference, and an element of a public `Variant` of an object is passed the same way as the variable is. Recorded in Excel
+(`oracle\s58` B01, F01-F05, `s59` M04), with `Public V As Variant` holding `Array(1, 2)` and `Public Event Changed(ByRef n As Long)` in `Box`:
+
+|Argument|Given to|After the call|
+|---|---|---|
+|`b.Count`, `.Count`|A `ParamArray` (`Sub SetFirst(ParamArray a() As Variant)`)|Unchanged: a copy. A local variable given to it is written.|
+|`b.C`, `Public C As Currency`|A `Declare`d procedure's `ByRef` parameter (`QueryPerformanceCounter`)|Unchanged: a copy.|
+|`t.Count`, `u.Count` (`u` an `Object` holding `t`)|A procedure called late (`o.Twice t.Count`, `o` an `Object` or a `Variant`)|Unchanged: a copy. A local variable given to it is written.|
+|`o.Count`, `Me.Count`|The handlers of `RaiseEvent Changed(...)`|Unchanged: a copy.|
+|`Count`, a local variable|The handlers of `RaiseEvent Changed(...)`|Written.|
+|`b.V(0)`, `.V(0)`, `Me.V(0)`, `.Inner.V(0)`|`ByRef x As Variant`|Unchanged: a copy.|
+|`V(0)`|`ByRef x As Variant`, in `Box`'s own code|Written: the element itself.|
+
+[**RDC11026**](../diagnostics/rdc11026.md) warns of each copy: for a `ByRef` parameter, a `ParamArray`, a `Declare`d procedure and a raised event, whose
+parameters are known; and for a procedure called late, which may take the argument `ByRef` or `ByVal`. It does not warn of a member of an object bound late
+(`u.Count`), which is not known to be a variable, nor of what a member of a referenced library is given.
 
 The `ByVal` and `ByRef`-fallback copy is made by a direct Let-coercion call, since there is no addressable
 symbol to Let-assign through. A Let-assignment to the function result variable makes the same lower-level call,
