@@ -525,7 +525,8 @@ public sealed record class ArrayStatementRuntimeSemantics(
                 // inverted bounds are error 9 - unless a bound is not known: the one it assumes may be what inverts them. The array then has
                 // the one element its lower bound gives it, which nothing read from it relies on. An upper bound one below the lower gives the
                 // dimension no element, which a Variant is told apart by: any dimension of it, the second deciding in I06 (oracle\s56 I05, I06):
-                // every bound is evaluated, then the first inverted dimension's error raised.
+                // every bound is evaluated, then the first inverted dimension's error raised. A bound after an inverted dimension is evaluated too, its
+                // side effects with it, and one that is no number raises 13, or 6 when it overflows, rather than the 9 (oracle\s58 R01-R05).
                 if (dimensionKnown)
                 {
                     oneBelow |= upper == lower - 1;

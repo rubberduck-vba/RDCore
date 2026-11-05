@@ -90,7 +90,10 @@ dial rather than something the statement wrote.
 
 ## Runtime Semantics
 
-`ReDim` evaluates each bound where the statement stands, then re-allocates the array.
+`ReDim` evaluates each bound where the statement stands, then re-allocates the array. Every bound is evaluated before
+an upper bound below its lower raises its error, in whichever dimension it is: a function called for a later bound is
+called, and a later bound that is no number raises `13`, or `6` when it overflows, as **MS-VBA** has it (recorded in
+Excel, `oracle\s58` R01-R05).
 
 |Target|Effect|
 |---|---|

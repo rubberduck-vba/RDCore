@@ -85,6 +85,36 @@ public sealed class RedimOfAVariantTests
         Assert.AreEqual(expected, string.Join("|", output));
     }
 
+    // every bound is evaluated, its side effects with it, before an inverted dimension's 9, whichever dimension is inverted: a bound that is no number
+    // is 13 and one that overflows 6 (oracle\s58 R01-R05). Bump counts its calls; each P prints the error and clears it.
+    [TestMethod]
+    [DataRow("Dim a() As Long ;; ReDim a(5 To 4, 1 To \"x\") ;; P ;; ReDim a(1 To \"x\", 5 To 4) ;; P ;; ReDim a(5 To 4, 1 To 2 ^ 40) ;; P", "e13|e13|e6",
+        DisplayName = "R01 a Long(), a bound that is no number or overflows")]
+    [DataRow("Dim a() As Long ;; ReDim a(5 To 4, 1 To Bump()) ;; P ;; Debug.Print Counter ;; ReDim a(1 To Bump(), 5 To 4) ;; P ;; Debug.Print Counter ;; ReDim a(5 To 4, Bump() To 1) ;; P ;; Debug.Print Counter",
+        "e9|1|e9|2|e9|3", DisplayName = "R02 a Long(), a bound with a side effect")]
+    [DataRow("Dim v As Variant ;; ReDim v(5 To 4, 1 To \"x\") ;; P ;; ReDim v(5 To 4, 1 To Bump()) ;; P ;; Debug.Print Counter", "e13|e9|1",
+        DisplayName = "R03 a Variant")]
+    [DataRow("ReDim z(5 To 4, 1 To Bump()) ;; P ;; Debug.Print Counter ;; ReDim y(5 To 4, 1 To \"x\") ;; P", "e9|1|e13", DisplayName = "R04 one a ReDim declares")]
+    [DataRow("Dim a() As Long ;; ReDim a(1 To 2) ;; ReDim Preserve a(5 To 4) ;; P ;; Dim m() As Long ;; ReDim m(1 To 2, 1 To 2) ;; ReDim Preserve m(1 To 2, 5 To Bump()) ;; P ;; Debug.Print Counter",
+        "e9|e9|1", DisplayName = "R05 Preserve")]
+    public async Task EveryBound_IsEvaluated_BeforeAnInvertedDimensionsError(string body, string expected)
+    {
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Private Counter As Long",
+            "Private Function Bump() As Long",
+            "    Counter = Counter + 1",
+            "    Bump = 2",
+            "End Function",
+            "Public Sub Main()",
+            "    On Error Resume Next",
+            "    " + string.Join("\r\n    ", body.Split(" ;; ").Select(line => line == "P" ? "Debug.Print \"e\" & Err.Number: Err.Clear" : line)),
+            "End Sub",
+            string.Empty);
+
+        Assert.AreEqual(expected, string.Join("|", await RunAsync([], program)));
+    }
+
     [TestMethod]
     [DataRow("Dim a() As Long ;; a = 5", DisplayName = "A03 a Long()")]
     [DataRow("Dim a() As Variant ;; a = 5", DisplayName = "A04 a Variant()")]
