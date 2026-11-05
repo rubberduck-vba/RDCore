@@ -49,20 +49,25 @@ internal sealed class OpenDialogs
             _declined |= running.Length > 0;
         }
 
-        foreach (var pull in running)
-        {
-            try
-            {
-                await pull.CancelAsync();
-            }
-            catch (ObjectDisposedException)
-            {
-                // the pull was over before the dialog opened.
-            }
-        }
-
         try
         {
+            foreach (var pull in running)
+            {
+                try
+                {
+                    await pull.CancelAsync();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // the pull was over before the dialog opened.
+                }
+                catch (AggregateException)
+                {
+                    // what was registered on the pull's token threw as it was cancelled - $/cancelRequest, as the host connection goes down: the pull is cancelled
+                    // all the same, and the dialog is asked, and counted, as any other.
+                }
+            }
+
             return await ask();
         }
         finally
