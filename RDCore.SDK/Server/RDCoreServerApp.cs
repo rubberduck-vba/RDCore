@@ -464,7 +464,7 @@ public abstract class RDCoreServerApp(
         // what the client says of itself comes before everything that is built from it: the capabilities below, and whatever an
         // application brings up in its own handler - the children a language server starts are told the same locale.
         ApplyInitializationOptions(request);
-        var locale = ClientLocale.Of(request.Locale, ReadInitializationOptions(request.InitializationOptions));
+        var locale = ClientLocale.Of(ClientLocale.Said(server, request), ReadInitializationOptions(request.InitializationOptions));
         if (ClientLocale.Apply(locale) is { } culture)
         {
             LogIfEnabled(LogLevel.Information, $"🌐 The client's user interface is in '{culture.Name}'.");
@@ -621,9 +621,14 @@ internal static class LanguageServerOptionsExtensions
         // OmniSharp's own IReceiver drops a bare Exit sent before Initialize instead of letting it
         // through per spec, so ExitHandler above never runs and the host hangs instead of exiting
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
-        // registered first, so registering ours here pre-empts it. It also keeps a request that acts on a running program, which is handled as it arrives rather
-        // than after the request that runs the program (ArrivalRequests).
-        .WithServices(services => services
+        // registered first, so registering ours here pre-empts it.
+        .WithLifecycleReceiver();
+
+    // the receiver; the requests it keeps once the server is initialized, which act on a running program and are handled as they arrive rather than after the
+    // request that runs the program (ArrivalRequests); and the locale of the initialize request it keeps (InitializeLocale).
+    internal static LanguageServerOptions WithLifecycleReceiver(this LanguageServerOptions options)
+        => options.WithServices(services => services
             .AddSingleton<ArrivalRequests>()
+            .AddSingleton<InitializeLocale>()
             .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }
