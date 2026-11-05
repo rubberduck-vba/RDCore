@@ -60,6 +60,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00310`](../diagnostics/rdc00310.md)|Redundant ByVal argument|Hint|`ValueExpressionSemanticFlags.RedundantByVal`|
 |[`RDC00311`](../diagnostics/rdc00311.md)|Early binding opportunity|Information|`ExpressionFact.Creates` (`ObjectClassSource.ReferencedLibrary`)|
 |[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
+|[`RDC00407`](../diagnostics/rdc00407.md)|Unmatched event handler|Hint|`DeclarationFact.Role` (`DeclarationRole.UnmatchedEventHandler`) and `DeclarationFact.References`|
 |[`RDC01001`](../diagnostics/rdc01001.md)|Use meaningful identifier names|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.MeaningfulNames`|
 |[`RDC01002`](../diagnostics/rdc01002.md)|Hungarian notation|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.HungarianNotation`|
 |[`RDC01005`](../diagnostics/rdc01005.md)|Hosted document code|Error|the host's `DocumentModuleFact` of a document module whose code presumes its host, with the bindings of its expressions and its procedures named as the host's event handlers; and `ValueExpressionSemanticFlags.HostedDocumentName` of a name in another module, which it reports in place of _Variable not defined_|
@@ -68,14 +69,20 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11005`](../diagnostics/rdc11005.md)|Bitwise operator|Hint|`ProcedureSemanticModel.Runtime`: `LogicalOperatorSemanticFlags.IsBitwiseSemantics` of the `LogicalOperatorFact`s|
 |[`RDC11006`](../diagnostics/rdc11006.md)|Ambiguous concatenation|Information|`ProcedureSemanticModel.Runtime`: `ArithmeticOperatorSemanticFlags.VBStringEffectiveType` of the `ArithmeticOperatorFact`s of `+`|
 |[`RDC11011`](../diagnostics/rdc11011.md)|Variant number compared with a Variant String|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantStringNumericException` of the `ComparisonOperatorFact`s|
+|[`RDC11012`](../diagnostics/rdc11012.md)|Set of a call that always fails|Error|`ValueExpressionSemanticFlags.SetHasNoDefaultMemberToSet`, on a line where `ProcedureSemanticModel.Runtime` does not already report the error 438|
 |[`RDC11013`](../diagnostics/rdc11013.md)|Variant compared with a String as text|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText` of the `ComparisonOperatorFact`s|
 |[`RDC11014`](../diagnostics/rdc11014.md)|Case Is compared in the selector's type|Warning|`ProcedureSemanticModel.Runtime`: `CaseClauseSemanticFlags.ComparisonForm` and `ComparedInSelectorType` of the `CaseClauseStatementFact`s|
 |[`RDC11015`](../diagnostics/rdc11015.md)|Object with no default member used as a value|Warning|`ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember`|
 |[`RDC11016`](../diagnostics/rdc11016.md)|Empty or Null assigned to an array|Warning|`ValueExpressionSemanticFlags.EmptyLetToArray`|
 |[`RDC11017`](../diagnostics/rdc11017.md)|Like pattern MS-VBA matches otherwise than specified|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.LikePatternHasEmptyCharList` and `LikePatternIsInvalid` of the `ComparisonOperatorFact`s|
+|[`RDC11018`](../diagnostics/rdc11018.md)|Integer arithmetic of Abs, Int or Fix that can overflow|Warning|`ValueExpressionSemanticFlags.OverflowsWhereVariantWidens`|
+|[`RDC11019`](../diagnostics/rdc11019.md)|Type character ignored on a function of the library|Warning|`ValueExpressionSemanticFlags.IgnoredTypeCharacter`|
 |[`RDC11020`](../diagnostics/rdc11020.md)|Variant String that is no number, compared with a number|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked` of the `ComparisonOperatorFact`s|
+|[`RDC11021`](../diagnostics/rdc11021.md)|Constant of a procedure valued with Len|Warning|the syntax tree: a `Const` of a procedure whose value calls `Len`|
+|[`RDC11022`](../diagnostics/rdc11022.md)|ReDim of a variable declared implicitly|Warning|the syntax tree's `ReDim` statements, and `ModuleSemanticModel.Declarations`: a local whose `DeclarationFact.DeclaredBy` is `Implicit`, used before the `ReDim`|
 |[`RDC11023`](../diagnostics/rdc11023.md)|Procedure MS-VBA refuses as too large|Warning|the syntax tree: the statements of a procedure|
 |[`RDC11024`](../diagnostics/rdc11024.md)|Implements in a document module|Warning|the host's `DocumentModuleFact`, and the module's `Implements` directives|
+|[`RDC11025`](../diagnostics/rdc11025.md)|Array given a second empty argument list|Warning|`ValueExpressionSemanticFlags.ArrayGivenASecondEmptyArgumentList`|
 |[`RDC11026`](../diagnostics/rdc11026.md)|Public variable of an object passed ByRef as a copy|Warning|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy` of the `ExpressionFact`s|
 |[`RDC11027`](../diagnostics/rdc11027.md)|String compared with a number as a Double|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsStringComparedAsADouble` of the `ComparisonOperatorFact`s|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
