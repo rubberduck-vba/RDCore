@@ -254,6 +254,39 @@ With `Public Count As Long` in a class `Box`, `b` a `Box`, and `Sub Bump(ByRef n
 |`Count`|`Box`'s own code|Written: the variable itself.|
 |`Globals.Counter`, `Counter`, a standard module's `Public Counter As Long`|Any module|Written: the variable itself, however it is named.|
 
+An element of an array that a public `Variant` of an object holds is a copy the same way, and the element itself only when the variable is named by
+itself in its own class (recorded in Excel, `oracle\s58` B01). With `Public V As Variant` holding `Array(1, 2)` and
+`Sub BumpV(ByRef x As Variant)`:
+
+|Argument|Where|After the call|
+|---|---|---|
+|`b.V(0)`|Any module|Unchanged: a copy.|
+|`.V(0)`, in `With b`|Any module|Unchanged: a copy.|
+|`Me.V(0)`|`Box`'s own code|Unchanged: a copy.|
+|`V(0)`|`Box`'s own code|Written: the element itself.|
+
+Through a `With` block of an object, a nested one too, it is a copy as well (`oracle\s59` M04): `.Inner.V(0)` in `With b`, `.V(0)` in `With b.Inner`, and
+`.V(0)` in `With .Inner` in `With b`. [**RDC11026**](../diagnostics/rdc11026.md) does not warn of an element passed so yet: it warns of the variable itself
+(`b.V`), not of an element of the array it holds.
+
+A field of a variable of a user-defined type is a variable, however it is named. In a `With` block of a record, a member with no object before the dot is
+one of the With block variable (**MS-VBAL §5.4.2.21**), which is the record variable itself when the `With` expression is one, and a nested `With` block of
+a field of it holds the field's record itself. With `r` a `TOuter`, `t` an array of them, and `Sub BumpLong(ByRef n As Long)`, all of these are written
+(recorded in Excel, `oracle\s58` W01, `oracle\s59` M01-M03):
+
+|Argument|Where|
+|---|---|
+|`.X`|`With r` (a `TPair`), `With t(0)`|
+|`r.X`, `t(0).X`|Any|
+|`.Inner.X`|`With r`, `With t(0)`|
+|`.X`|`With .Inner`, in `With r` or `With t(0)`|
+|`.A(0)`, `A(1) As Long` a fixed-size array field|`With r`, `With t(0)`|
+|`.B(0)`, `B() As Long` a resizable array field|`With r`|
+|`.V(0)`, `.V`, `V As Variant` a field holding an array or a number (to a `ByRef` `Variant`)|`With r`|
+|`r.A(0)`, `r.B(0)`, `r.Inner.X`, `r.V(0)`|Any|
+
+RD-VBA writes `r.V` too, as it writes `.V` in `With r`.
+
 The `ByVal` and `ByRef`-fallback copy is made by a direct Let-coercion call, since there is no addressable
 symbol to Let-assign through. A Let-assignment to the function result variable makes the same lower-level call,
 for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
