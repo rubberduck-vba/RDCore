@@ -59,7 +59,7 @@ public sealed class ObjectVariableArgumentFormsTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task AnElementOfAnObjectsVariable_PassedByRef_IsACopy_ButNamedByItself_IsTheElement(VBExecutionEngine engine)
-        => AssertPrintsAsync(["1", "1", "1", "11"], "s58 B01", engine,
+        => await AssertPrintsAsync(["1", "1", "1", "11"], "s58 B01", engine,
             "b.V = Array(1, 2)",
             "BumpV b.V(0)", "Debug.Print b.V(0)",
             "With b", "    BumpV .V(0)", "End With", "Debug.Print b.V(0)",
@@ -70,7 +70,7 @@ public sealed class ObjectVariableArgumentFormsTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task AnElementOfAnInnerObjectsVariable_PassedByRef_IsACopy(VBExecutionEngine engine)
-        => AssertPrintsAsync(["1", "1"], "s59 M04", engine,
+        => await AssertPrintsAsync(["1", "1"], "s59 M04", engine,
             "Set b.Inner = New Box", "b.Inner.V = Array(1, 2)",
             "With b", "    BumpV .Inner.V(0)", "End With", "Debug.Print b.Inner.V(0)",
             "With b.Inner", "    BumpV .V(0)", "End With", "Debug.Print b.Inner.V(0)");
@@ -79,7 +79,7 @@ public sealed class ObjectVariableArgumentFormsTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task AnObjectsVariable_GivenToAParamArray_IsACopy(VBExecutionEngine engine)
-        => AssertPrintsAsync(["1", "99", "1"], "s58 F01", engine,
+        => await AssertPrintsAsync(["1", "99", "1"], "s58 F01", engine,
             "b.Field = 1", "SetFirst b.Field", "Debug.Print b.Field",
             "Dim x As Long", "x = 1", "SetFirst x", "Debug.Print x",
             "With b", "    SetFirst .Field", "End With", "Debug.Print b.Field");
@@ -88,7 +88,7 @@ public sealed class ObjectVariableArgumentFormsTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task AnObjectsVariable_GivenToAProcedureCalledLate_IsACopy(VBExecutionEngine engine)
-        => AssertPrintsAsync(["3", "6", "3", "3"], "s58 F04", engine,
+        => await AssertPrintsAsync(["3", "6", "3", "3"], "s58 F04", engine,
             "Dim o As Object", "Set o = New Box",
             "Dim t As New Box", "t.Field = 3", "o.Twice t.Field", "Debug.Print t.Field",
             "Dim x As Long", "x = 3", "o.Twice x", "Debug.Print x",
@@ -99,7 +99,7 @@ public sealed class ObjectVariableArgumentFormsTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task AnObjectsVariable_RaisedWithAnEvent_IsACopy_ButNamedByItself_IsTheVariable(VBExecutionEngine engine)
-        => AssertPrintsAsync(["1", "99", "1", "99"], "s58 F05", engine,
+        => await AssertPrintsAsync(["1", "99", "1", "99"], "s58 F05", engine,
             "Dim h As New Sink", "h.Hook b",
             "Dim t As New Box", "t.Field = 1", "b.Fire t", "Debug.Print t.Field",
             "b.Field = 1", "b.FireOwn", "Debug.Print b.Field",
