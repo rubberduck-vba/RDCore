@@ -82,13 +82,11 @@ public sealed class StdMath(IRuntimeSession session) : IStdMathModule
                 return Variant(new VBIntegerValue((short)((bool)boolean.Value ? 1 : 0)));
 
             // "If Number is of a numeric value type, returns a value of the same value type": so the absolute value of the smallest value of a type is an
-            // overflow, there being no value of that type that is its absolute value - except for a Long: MS-VBA answers Abs(CLng(-2147483648)) with that
-            // same negative Long, as a 32-bit negation wraps, and RD-VBA does what MS-VBA does.
-            case VBLongValue { Value: int.MinValue }:
-                return Variant(source);
-
+            // overflow, there being no value of that type that is its absolute value: the least Long too, which a variable holds (recorded in Excel:
+            // oracle\s60 A01, A03). Abs of the least Long in a constant expression is that Long, which MS-VBA evaluates as it compiles the code: the call's
+            // (RuntimeExpressionEvaluator.AbsOfAConstantExpression).
             case VBNumericTypedValue when source.TypeInfo is IIntegralNumericType && ValueConversions.WholeValueOf(source) is { } whole:
-                return whole == long.MinValue
+                return whole == long.MinValue || source is VBLongValue { Value: int.MinValue }
                     ? Fail<VBVariantValue>(VBRuntimeErrorId.Overflow, $"The smallest {source.TypeInfo.Name} has no absolute value of its own type.")
                     : InVariant(ValueConversions.FromWhole(Math.Abs(whole), (VBNumericType)source.TypeInfo), source);
 

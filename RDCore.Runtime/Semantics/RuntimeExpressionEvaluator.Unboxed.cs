@@ -343,7 +343,8 @@ public sealed partial class RuntimeExpressionEvaluator
             case BoundBinary binary when PlanOf(binary) is { IsDeferred: false } plan && (IsWide(binary.Left) || IsWide(binary.Right)):
                 return TryOperateWithWide(session, binary, plan, out payload);
             case BoundUnary { Plan: not null } unary when PlanOf(unary) is { IsDeferred: false, OperandDestination: { } destination } plan && IsWide(unary.Operand):
-                return TryEvaluatePayloadAs(session, unary.Operand, destination, out var converted) && TryOperateUnary(plan, converted, out payload);
+                return TryEvaluatePayloadAs(session, unary.Operand, destination, out var converted)
+                    && TryOperateUnary(plan, converted, unary.NegatesAConstantExpression, out payload);
             case BoundLiteral literal:
                 return ScalarPayload.TryOf(literal.Literal.StaticValue.TypeInfo, literal.Literal.StaticValue.RuntimeValue, out payload);
             case BoundVariable variable:
@@ -364,8 +365,9 @@ public sealed partial class RuntimeExpressionEvaluator
             case BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp
                 or SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return TryEvaluatePayload(session, enclosed, out payload);
-            case BoundUnary { Plan: { } plan, Operand: var operand } when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
-                return TryEvaluatePayload(session, operand, out var value) && TryOperateUnary(PlanFor(plan, value), value, out payload);
+            case BoundUnary { Plan: { } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
+                return TryEvaluatePayload(session, operand, out var value)
+                    && TryOperateUnary(PlanFor(plan, value), value, unary.NegatesAConstantExpression, out payload);
             // two Strings compared (S1.4b).
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } plan, Left: var left, Right: var right }:
                 return TryCompareText(session, plan, left, right, out payload);
@@ -556,11 +558,11 @@ public sealed partial class RuntimeExpressionEvaluator
     private static OperationPlan PlanFor(OperationPlan plan, ScalarPayload left, ScalarPayload right)
         => plan.IsDeferred ? OperationPlanner.ForValues(plan.Operator, left.Type, right.Type) : plan;
 
-    private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, out ScalarPayload result)
+    private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
     {
         result = default;
         return plan.EffectiveType is { } effective && TryConvertPayload(operand, effective, out var converted)
-            && (plan.Operator == Tokens.NegationOp ? TryNegate(converted, out result) : TryNot(converted, out result));
+            && (plan.Operator == Tokens.NegationOp ? TryNegate(converted, ofAConstantExpression, out result) : TryNot(converted, out result));
     }
 
     private static bool TryOperateBinary(OperationPlan plan, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
@@ -915,8 +917,9 @@ public sealed partial class RuntimeExpressionEvaluator
         return true;
     }
 
-    // the negation of the least value of an integer type is not in its range (MS-VBA: Overflow), which the boxed evaluation raises.
-    private static bool TryNegate(ScalarPayload operand, out ScalarPayload result)
+    // the negation of the least value of an integer type is not in its range (MS-VBA: Overflow), which the boxed evaluation raises - but the least Long of a
+    // constant expression, which MS-VBA negates as itself (BoundUnary.NegatesAConstantExpression).
+    private static bool TryNegate(ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
     {
         result = default;
         if (ScalarKinds.Of(operand.Type) is not { } kind)
@@ -935,7 +938,9 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        if (PayloadOperations.Negate(kind, operand.Integral, out var integral) is not PayloadStatus.Ok)
+        if ((ofAConstantExpression
+                ? PayloadOperations.NegateConstant(kind, operand.Integral, out var integral)
+                : PayloadOperations.Negate(kind, operand.Integral, out integral)) is not PayloadStatus.Ok)
         {
             return false;
         }

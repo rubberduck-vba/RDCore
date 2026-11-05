@@ -244,6 +244,21 @@ public static class PayloadOperations
         return kind is ScalarKind.Currency ? PayloadStatus.Ok : Ranged(kind, result);
     }
 
+    /// <summary>
+    /// <c>-operand</c> of a constant expression, of an integer type or a <c>Currency</c>: MS-VBA negates the least <c>Long</c> as the <c>Long</c> it is
+    /// (recorded in Excel: oracle\s58 N07, N10, N12), and any other value as <see cref="Negate(ScalarKind, long, out long)"/> does.
+    /// </summary>
+    public static PayloadStatus NegateConstant(ScalarKind kind, long operand, out long result)
+    {
+        if (kind is ScalarKind.Long && operand == int.MinValue)
+        {
+            result = operand;
+            return PayloadStatus.Ok;
+        }
+
+        return Negate(kind, operand, out result);
+    }
+
     /// <summary><c>-operand</c>, of a <c>Single</c>, a <c>Double</c> or a <c>Date</c>: a <c>Date</c> that is no date's serial is not one.</summary>
     public static PayloadStatus Negate(ScalarKind kind, double operand, out double result)
         => Floating(kind, -operand, out result);

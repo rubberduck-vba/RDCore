@@ -58,9 +58,11 @@ internal static class NumericLiteral
     /// Negates a resolved numeric literal (VBA has no negative-literal token — the sign is a unary
     /// operator). Returns <c>null</c> for a value that is not one of the numeric intrinsics
     /// <see cref="Resolve"/> produces, and for one whose negation its type cannot hold: the least
-    /// <c>Integer</c>, <c>Long</c> or <c>LongLong</c>, which the unary operator overflows (MS-VBA:
-    /// <c>-&amp;H8000</c> raises 6 at run time, and is a compile error in a <c>Const</c>; Excel, oracle\s56
-    /// G14, s57 N01-N06).
+    /// <c>Integer</c>, <c>Long</c> or <c>LongLong</c>, which the unary operator negates. Of the least
+    /// <c>Integer</c> and <c>LongLong</c> that is an overflow (MS-VBA: <c>-&amp;H8000</c> raises 6 at run
+    /// time, and is a compile error in a <c>Const</c>; Excel, oracle\s56 G14, s57 N01-N06, s58 N09-N11);
+    /// the least <c>Long</c> of a constant expression is its own negation (s58 N07, N08), which the
+    /// operator's binding says (<c>BoundUnary.NegatesAConstantExpression</c>).
     /// </summary>
     public static VBTypedValue? Negate(VBTypedValue value) => value switch
     {

@@ -17,7 +17,8 @@ public sealed class ExcelMeasuredGapsRowsTests
              "Public Sub Twice(ByRef n As Long)", "    n = n * 2", "End Sub",
              "Public Function Half(ByVal n As Long) As Long", "    Half = n \\ 2", "End Function"]);
         var program = StandardModule("Program",
-            ["Option Explicit", "Private acc As String", "Private Sub P(ByVal x As Variant)", "    acc = acc & CStr(x) & \"|\"", "End Sub", .. Lines(module),
+            // a declaration of the module goes before its first procedure, as the oracle's does.
+            ["Option Explicit", "Private acc As String", .. Lines(module), "Private Sub P(ByVal x As Variant)", "    acc = acc & CStr(x) & \"|\"", "End Sub",
              "Public Sub Main()", "    On Error Resume Next", .. Lines(probe), "    Debug.Print acc", "End Sub"]);
 
         return (await RunAsync([("Box", box)], program)).Last().Trim();
@@ -116,7 +117,6 @@ public sealed class ExcelMeasuredGapsRowsTests
     // oracle\s58 N07, N08, N10, N12: MS-VBA negates the least Long of a constant expression - a literal, a Const - as the Long it is, where the negation of a
     // Long variable overflows, and so does that of the least Integer or LongLong in any expression.
     [TestMethod]
-    [Ignore("RD-VBA overflows (6) the negation of the least Long in a constant expression, which MS-VBA evaluates as -2147483648 (oracle\\s58 N07, N08, N12)")]
     [DataRow("s58 N07", "",
         """P -&H80000000 ;; P "e" & Err.Number ;; Err.Clear ;; P -&H8000000000000000^ ;; P "e" & Err.Number ;; Err.Clear ;; P -&H80000000^ ;; P TypeName(-&H80000000^) ;; P -&H80000000& ;; P "e" & Err.Number""",
         "-2147483648|e0|e6|-2147483648|LongLong|-2147483648|e0|")]
