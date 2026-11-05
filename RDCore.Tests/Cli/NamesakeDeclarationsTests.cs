@@ -30,6 +30,105 @@ public sealed class NamesakeDeclarationsTests
     private static Task<string[]> LoadErrorsAsync(string[] sink)
         => ModuleWorkspace.LoadErrorsAsync([("Sink", ModuleWorkspace.ClassModule("Sink", ["Option Explicit", .. sink]))], Program(string.Empty));
 
+    private const string EnumF = "Public Enum F\r\n    Zero\r\n    One\r\nEnd Enum";
+
+    private const string FunctionF = "Public Function F(ByVal n As Long) As Long\r\n    F = n * 2\r\nEnd Function";
+
+    // Program, with `declarations` before its procedures, `procedures` after them, and Main.
+    private static string StandardProgram(string declarations, string procedures, string main)
+        => $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n{declarations}\r\n{procedures}\r\nPublic Sub Main()\r\n{main}\r\nEnd Sub\r\n";
+
+    private static async Task<string> RunStandardAsync(string declarations, string procedures, string main)
+        => string.Join(" ", await ModuleWorkspace.RunAsync([], StandardProgram(declarations, procedures, main)));
+
+    [TestMethod]
+    public async Task InAStandardModule_TheBareNameInAnotherProcedure_IsTheFunction()
+        // E11
+        => Assert.AreEqual("8", await RunStandardAsync(EnumF, FunctionF, "    Debug.Print F(4)"));
+
+    [TestMethod]
+    public async Task InAStandardModule_TheFunctionCallsItself_AndAssignsItsResult()
+        // E12
+        => Assert.AreEqual("10", await RunStandardAsync(EnumF,
+            "Public Function F(ByVal n As Long) As Long\r\n    If n <= 0 Then F = 0 Else F = n + F(n - 1)\r\nEnd Function", "    Debug.Print Program.F(4)"));
+
+    [TestMethod]
+    public async Task InAStandardModule_TheNameAsAType_IsTheEnum_AndAsAValue_TheFunction()
+        // E16
+        => Assert.AreEqual("1 2", await RunStandardAsync(EnumF, FunctionF, "    Dim e As F\r\n    e = One\r\n    Debug.Print e\r\n    Debug.Print F(e)"));
+
+    [TestMethod]
+    [Ignore("A bare call of a function that takes an argument (Debug.Print F) compiles: MS-VBA's Argument not optional is not checked for it, and F.One is an invalid qualifier instead.")]
+    public async Task InAStandardModule_TheNameQualifyingAMember_IsTheFunction_CalledWithoutItsArgument()
+    {
+        // E17: F.One is F called with no argument, which its parameter is not optional for.
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(EnumF, FunctionF, "    Debug.Print F.One"));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ArgumentNotOptional);
+    }
+
+    [TestMethod]
+    [DataRow("Public V As Long", true, DisplayName = "E14: a variable after the Enum")]
+    [DataRow("Public V As Long", false, DisplayName = "E20: a variable before the Enum")]
+    [DataRow("Private V As Long", true, DisplayName = "E23: a Private variable")]
+    [DataRow("Public Const V As Long = 3", false, DisplayName = "E22: a constant")]
+    public async Task InAStandardModule_AVariableOrConstantAndAnEnumOfOneName_TheNameIsTheEnum(string variable, bool enumFirst)
+    {
+        const string enumV = "Public Enum V\r\n    Zero\r\n    One\r\nEnd Enum";
+        var declarations = enumFirst ? $"{enumV}\r\n{variable}" : $"{variable}\r\n{enumV}";
+
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(declarations, string.Empty, "    Debug.Print V"));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType);
+    }
+
+    [TestMethod]
+    public async Task InAClass_AVariableAndAnEnumOfOneName_TheNameIsTheEnum()
+    {
+        // E21: `V = 5` and `Get5 = V` each, where MS-VBA stops at the first.
+        string[] sink = ["Public Enum V", "    Zero", "    One", "End Enum", "Public V As Long", "Public Function Get5() As Long", "    V = 5", "    Get5 = V", "End Function"];
+
+        var errors = await LoadErrorsAsync(sink);
+
+        Assert.HasCount(2, errors);
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+    }
+
+    [TestMethod]
+    public async Task InAStandardModule_TheNameQualifyingAMember_IsTheFunctionsValue_AnInvalidQualifier()
+    {
+        // E24: F takes no argument, and F.One is a member of the Long it returns.
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(EnumF, "Public Function F() As Long\r\n    F = 7\r\nEnd Function", "    Debug.Print F.One"));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+    }
+
+    [TestMethod]
+    public async Task FromAnotherModule_AClassesEnumQualifiesItsMember()
+        // E18
+        => Assert.AreEqual("1", await RunAsync(PlayerType[..4], "    Dim t As PlayerType\r\n    t = PlayerType.ComputerControlled\r\n    Debug.Print t"));
+
+    [TestMethod]
+    public async Task FromAnotherModule_AClassesEnumBesideAGetOfItsName_IsAType_AndQualifiesNoMember()
+    {
+        // E15, and E19: the member unqualified is the Enum's.
+        Assert.AreEqual("1", await RunAsync(PlayerType, "    Dim t As PlayerType\r\n    t = ComputerControlled\r\n    Debug.Print t"));
+        var errors = await ModuleWorkspace.LoadErrorsAsync([("Sink", ModuleWorkspace.ClassModule("Sink", ["Option Explicit", .. PlayerType]))],
+            Program("    Dim t As PlayerType\r\n    t = PlayerType.ComputerControlled"));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+    }
+
+    [TestMethod]
+    public async Task ThroughAnObject_TheGetsValueQualifyingAMember_IsAnInvalidQualifier()
+    {
+        // E25
+        var errors = await ModuleWorkspace.LoadErrorsAsync([("Sink", ModuleWorkspace.ClassModule("Sink", ["Option Explicit", .. PlayerType]))],
+            Program("    Debug.Print s.PlayerType.ComputerControlled"));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+    }
+
     [TestMethod]
     public async Task InThePropertyGet_TheNameQualifyingAMember_IsItsResultVariable_AnInvalidQualifier()
     {

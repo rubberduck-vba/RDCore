@@ -215,7 +215,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         return SelectTier(
             moduleScope,
-            moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate))))
+            ValuesOverEnums(moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate)))))
             ?? SymbolResolutionResult.Unbound;
     }
 
@@ -360,14 +360,27 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return [.. candidates.Where(candidate => Rank(candidate) == highest)];
     }
 
-    // an Enum and a procedure or a variable of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
-    // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only.
-    // Excel-verified, oracle\s64 E03, E04.
+    // an Enum and a procedure of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
+    // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only. An Enum
+    // and a variable or a constant of one name: the name is the Enum, whichever is declared first and whatever their access (`V = 5` is "Expected variable or
+    // procedure, not enum type"). Excel-verified, oracle\s64 E03, E04, E11, E14, E20-E23.
     private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
     {
         var matches = candidates.ToArray();
-        return matches.Any(candidate => candidate is not VBEnumMemberSymbol) ? matches.Where(candidate => candidate is not VBEnumMemberSymbol) : matches;
+        if (!matches.Any(candidate => candidate is VBEnumMemberSymbol))
+        {
+            return matches;
+        }
+
+        return matches.Any(IsProcedure)
+            ? matches.Where(candidate => candidate is not VBEnumMemberSymbol)
+            : matches.Where(candidate => candidate is VBEnumMemberSymbol);
     }
+
+    /// <summary>
+    /// Whether <paramref name="symbol"/> is a procedure: a <c>Sub</c>, a <c>Function</c>, a property accessor, or a <c>Declare</c>d one.
+    /// </summary>
+    internal static bool IsProcedure(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol;
 
     // MS-VBAL §5.6.10 lists no user-defined type, no class module and no event among the default binding context's
     // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2), and an event is only ever raised
