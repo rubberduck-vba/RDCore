@@ -204,7 +204,8 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return new Held(_sync);
     }
 
-    private readonly struct Held(object sync) : IDisposable
+    // a ref struct can't be held across an await: as with lock, the compiler refuses an await while the lock is held.
+    private readonly ref struct Held(object sync)
     {
         public void Dispose() => Monitor.Exit(sync);
     }
