@@ -331,7 +331,6 @@ public sealed class WorkProgressIntegrationTests
     }
 
     [TestMethod]
-    [Ignore("Nondeterministic: failed on #590's CI (Debug) with ContentModifiedException, as its neighbour did: the test's server isn't configured with WithEveryRequestAnswered, as RDCore's servers are. fix/work-progress-clock fixes the class.")]
     [DataRow(false, DisplayName = "work that is done")]
     [DataRow(true, DisplayName = "work that fails")]
     public async Task WorkThatIsBegun_IsEndedOnce(bool throws)
