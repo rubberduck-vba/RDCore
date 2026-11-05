@@ -59,10 +59,10 @@ internal interface IClientInteractionRelay
 }
 
 // while the client is asked, its diagnostics pulls are declined (OpenDialogs): what they are made of waits for the program, which waits for the client.
-internal sealed class ClientInteractionRelay(ILogger<ClientInteractionRelay>? logger = null, OpenDialogs? dialogs = null) : IClientInteractionRelay
+internal sealed class ClientInteractionRelay(OpenDialogs dialogs, ILogger<ClientInteractionRelay>? logger = null) : IClientInteractionRelay
 {
     private readonly ILogger _logger = logger ?? NullLogger<ClientInteractionRelay>.Instance;
-    private readonly OpenDialogs _dialogs = dialogs ?? new OpenDialogs();
+    private readonly OpenDialogs _dialogs = dialogs;
     private IInteractionClient? _client;
 
     public void Attach(IInteractionClient client) => _client = client;

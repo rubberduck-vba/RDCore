@@ -199,6 +199,8 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileWriter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileLoader>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<RDCore.SDK.Runtime.Libraries.ILibrarySource>());
+        // the one gate both the relay and the diagnostics pulls see: the pulls are declined while a dialog the relay asked is open.
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<Runtime.OpenDialogs>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>());
 
         // the commands a client asks the server to run (workspace/executeCommand).
