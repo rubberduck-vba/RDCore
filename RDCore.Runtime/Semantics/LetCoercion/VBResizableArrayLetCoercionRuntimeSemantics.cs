@@ -24,7 +24,9 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// destination is a resizable array. Any array source whose element type is the destination's is copied — a shallow
 /// copy, bounds and rank preserved exactly, so a whole-array Let-assignment implicitly ReDims the destination to the
 /// source's own bounds; an array of any other element type, and a numeric, Boolean, Date or String source, is a Type
-/// mismatch (runtime error 13). The Byte() rows are <see cref="VBResizableByteArrayLetCoercionRuntimeSemantics"/>'s.
+/// mismatch (runtime error 13), except that an array of objects is copied into one of objects of another class, or of
+/// <c>Object</c>, as MS-VBA copies it (RD-VBAL §5.5.1.2.7). The Byte() rows are
+/// <see cref="VBResizableByteArrayLetCoercionRuntimeSemantics"/>'s.
 /// </remarks>
 public record class VBResizableArrayLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
@@ -46,6 +48,11 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
             // MS-VBAL 5.5.1.2.7: "Any non-Byte array -> Array with same element type as source type: the result is a
             // shallow copy of the array."
             VBArrayValue source when SameElementType(source.ItemType, destination.ItemType)
+                => LetCoercionResult.Success(CopyOf(source, destination.ItemType)),
+
+            // MS-VBA copies an array of objects into one of objects of another type as well, Object or any class, and checks no element's class: a Box()
+            // is given a Collection (RD-VBAL §5.5.1.2.7; recorded in Excel, oracle\s57 A06-A08). An array of Variants is still another type.
+            VBArrayValue source when HoldsObjects(source.ItemType) && HoldsObjects(destination.ItemType)
                 => LetCoercionResult.Success(CopyOf(source, destination.ItemType)),
 
             // "... -> Any other type except Variant: Runtime error 13 (Type mismatch) is raised." - an array of
@@ -74,6 +81,8 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
         (VBEnumType s, VBEnumType d) => s.Symbol.SemanticId == d.Symbol.SemanticId,
         _ => source.Equals(destination),
     };
+
+    private static bool HoldsObjects(VBType elementType) => elementType is VBObjectType or VBClassType;
 
     private static VBResizableArrayValue CopyOf(VBArrayValue source, VBType itemType)
     {
