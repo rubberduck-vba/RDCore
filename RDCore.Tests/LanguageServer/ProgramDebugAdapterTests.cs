@@ -13,6 +13,8 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
+using System.Text;
+using System.Text.Json.Nodes;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -30,6 +32,7 @@ public sealed class ProgramDebugAdapterTests
     {
         private readonly ConcurrentQueue<object> _events = new();
         private readonly TaskCompletionSource<string> _lost = new();
+        private readonly WireTap _wire = new();
 
         public IDebugWorkspace Workspace { get; } = Substitute.For<IDebugWorkspace>();
         public IProgramDebugService Debugging { get; } = Substitute.For<IProgramDebugService>();
@@ -76,7 +79,7 @@ public sealed class ProgramDebugAdapterTests
             var toClient = new Pipe();
 
             // the server is started when the client has initialized it.
-            var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()), Adapter);
+            var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), new WireTap.Stream(toClient.Writer.AsStream(), _wire)), Adapter);
             Client = await DebugAdapterClient.From(options =>
             {
                 options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
@@ -141,11 +144,112 @@ public sealed class ProgramDebugAdapterTests
         /// <summary>Everything that was said and not asked for yet, of one kind.</summary>
         public IReadOnlyList<TEvent> Pending<TEvent>() => [.. _events.OfType<TEvent>()];
 
+        /// <summary>
+        /// How many events of a kind the adapter wrote since the session started, read off the wire as they were written, whether the client was told of them
+        /// yet or not: what the adapter wrote before the answer to a request the client has is counted.
+        /// </summary>
+        public int Said(string @event, Func<JsonNode?, bool>? where = null) => _wire.Events(@event, where);
+
         public async ValueTask DisposeAsync()
         {
             Client?.Dispose();
             Server?.Dispose();
             await Task.CompletedTask;
+        }
+    }
+
+    // what the adapter writes, message by message, in the order it writes them: each message is read off as it is written, before it is passed on to the client,
+    // so it is here before the client can read it.
+    private sealed class WireTap
+    {
+        private static readonly byte[] EndOfHeader = "\r\n\r\n"u8.ToArray();
+        private readonly List<byte> _pending = [];
+        private readonly List<JsonNode> _messages = [];
+
+        public int Events(string @event, Func<JsonNode?, bool>? where)
+        {
+            lock (_messages)
+            {
+                return _messages.Count(message => (string?)message["type"] == "event" && (string?)message["event"] == @event && (where?.Invoke(message["body"]) ?? true));
+            }
+        }
+
+        private void Wrote(ReadOnlySpan<byte> bytes)
+        {
+            lock (_messages)
+            {
+                _pending.AddRange(bytes);
+                while (true)
+                {
+                    var buffered = _pending.ToArray();
+                    var end = buffered.AsSpan().IndexOf(EndOfHeader);
+                    if (end < 0)
+                    {
+                        return;
+                    }
+
+                    var header = Encoding.ASCII.GetString(buffered, 0, end);
+                    var length = int.Parse(header.Split("\r\n").Single(line => line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))["Content-Length:".Length..].Trim());
+                    var start = end + EndOfHeader.Length;
+                    if (buffered.Length < start + length)
+                    {
+                        return;
+                    }
+
+                    _messages.Add(JsonNode.Parse(buffered.AsSpan(start, length))!);
+                    _pending.RemoveRange(0, start + length);
+                }
+            }
+        }
+
+        public sealed class Stream(System.IO.Stream inner, WireTap tap) : System.IO.Stream
+        {
+            public override bool CanRead => false;
+
+            public override bool CanSeek => false;
+
+            public override bool CanWrite => true;
+
+            public override long Length => throw new NotSupportedException();
+
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+            public override void Flush() => inner.Flush();
+
+            public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+            public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+            public override void SetLength(long value) => throw new NotSupportedException();
+
+            public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
+
+            public override void Write(ReadOnlySpan<byte> buffer)
+            {
+                tap.Wrote(buffer);
+                inner.Write(buffer);
+            }
+
+            public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+                => WriteAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+            public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                tap.Wrote(buffer.Span);
+                return inner.WriteAsync(buffer, cancellationToken);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    inner.Dispose();
+                }
+
+                base.Dispose(disposing);
+            }
         }
     }
 
@@ -719,10 +823,9 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
         _ = await session.SendAsync(new TerminateArguments());
 
-        // what the adapter sent before it answered a request it answers at once has come.
-        _ = await session.SendAsync(new ThreadsArguments());
-        Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
-        Assert.AreEqual(0, session.Pending<ExitedEvent>().Count - 1, "the one exit that was not asked for yet");
+        await FlushedAsync(session);
+        Assert.AreEqual(1, session.Said("terminated"), "said once");
+        Assert.AreEqual(1, session.Said("exited"));
     }
 
     [TestMethod]
@@ -738,9 +841,8 @@ public sealed class ProgramDebugAdapterTests
         var output = await session.NextAsync<OutputEvent>();
         StringAssert.Contains(output.Output, "the program is running");
 
-        // what the adapter sent before it answered a request it answers at once has come.
-        _ = await session.SendAsync(new ThreadsArguments());
-        Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
+        await FlushedAsync(session);
+        Assert.AreEqual(0, session.Said("terminated"));
     }
 
     [TestMethod]
@@ -831,7 +933,8 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new TerminateArguments());
 
         Assert.AreEqual(DebuggerMessages.StillStopping + "\n", (await session.NextAsync<OutputEvent>()).Output);
-        Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
+        await FlushedAsync(session);
+        Assert.AreEqual(0, session.Said("terminated"));
         await session.Debugging.DidNotReceiveWithAnyArgs().EditStatusAsync(default);
 
         running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
@@ -1221,7 +1324,7 @@ public sealed class ProgramDebugAdapterTests
     private static void Listing(Session session, params DebugEdit[] edits)
         => session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [.. edits] });
 
-    // what the adapter wrote before it answered a request it answers at once has come.
+    // what the adapter wrote before it answered a request it answers at once is on the wire, and counted (Session.Said), once the client has the answer.
     private static async Task FlushedAsync(Session session) => _ = await session.SendAsync(new ThreadsArguments());
 
     // the edit is said as soon as it is loaded, which is the closest to the edit the client can be told: once, and not again while it is still listed.
@@ -1239,7 +1342,7 @@ public sealed class ProgramDebugAdapterTests
 
         Assert.AreEqual(OutputEventCategory.Console, said.Category);
         StringAssert.Contains(said.Output, "a local was removed");
-        Assert.IsFalse(session.Pending<OutputEvent>().Any(output => output.Output.Contains("Prog.Callee", StringComparison.Ordinal)), "said once");
+        Assert.AreEqual(1, session.Said("output", body => ((string?)body?["output"])?.Contains("Prog.Callee", StringComparison.Ordinal) == true), "said once");
     }
 
     // a program that waits with an edit it does not have is not asked to go on: the client is refused, with the edit, and told it too.
@@ -1346,7 +1449,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<StoppedEvent>();
         await FlushedAsync(session);
 
-        Assert.AreEqual(0, session.Pending<InvalidatedEvent>().Count);
+        Assert.AreEqual(0, session.Said("invalidated"));
     }
 
     // the program is over: it has no edits it does not have, and what was said of them is not so any more.
