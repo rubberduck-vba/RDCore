@@ -213,10 +213,24 @@ public sealed class ClientWithoutOmniSharpTests
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
-        Assert.IsNull((await diagnostics)["error"]);
+        AssertAnsweredOrDeclinedForTheDialog(await diagnostics);
         Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
-        Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
+        AssertAnsweredOrDeclinedForTheDialog(await pulledAgain, "the second pull");
         await platform.ShutdownAsync(7);
+    }
+
+    // a pull that comes while the program's MsgBox is open is declined, ServerCancelled and not to be retriggered, and the client is asked to pull again once
+    // the box is answered; one that comes before or after it is answered. Which it is, is the order the pull and the box come in, which these tests don't force.
+    private static void AssertAnsweredOrDeclinedForTheDialog(JsonObject reply, string pull = "the pull")
+    {
+        if (reply["error"] is not { } error)
+        {
+            Assert.IsNotNull(reply["result"], $"{pull} is answered: {reply.ToJsonString()}");
+            return;
+        }
+
+        Assert.AreEqual(-32802, error["code"]!.GetValue<int>(), $"{pull} is declined for the dialog, ServerCancelled, or answered: {reply.ToJsonString()}");
+        Assert.IsFalse(error["data"]!["retriggerRequest"]!.GetValue<bool>(), $"and not to be retriggered: {reply.ToJsonString()}");
     }
 
     // the third byte tap (C:\Dev\Claude\hexide-msgbox-tap3-2026-10-30.log), in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
@@ -258,9 +272,9 @@ public sealed class ClientWithoutOmniSharpTests
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
-        Assert.IsNull((await diagnostics)["error"]);
+        AssertAnsweredOrDeclinedForTheDialog(await diagnostics);
         Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
-        Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
+        AssertAnsweredOrDeclinedForTheDialog(await pulledAgain, "the second pull");
         await platform.ShutdownAsync(7);
     }
 
