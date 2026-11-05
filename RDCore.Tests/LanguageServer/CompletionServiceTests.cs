@@ -306,6 +306,29 @@ public sealed class CompletionServiceTests
         CollectionAssert.AreEquivalent(new[] { "Name", "Grow", "Parts" }, labels);
     }
 
+    // the object of a With block nested past the limit (VBC00060) is still evaluated for the list, on a thread as small as one the server answers on: the static
+    // semantics run on a large-stack thread of their own.
+    [TestMethod]
+    [DataRow(3)]
+    [DataRow(40_000)]
+    public void TheMembersOfAWithBlocksObjectNestedPastTheLimit_AreOfferedOnASmallStack(int terms)
+    {
+        var deep = $"w.Grow({Parser.ExpressionNestingTests.Chain(terms)})";
+        string[] labels = [];
+        var thrown = SmallStack.Run(() => labels = LabelsAsync($"""
+            Attribute VB_Name = "Main"
+            Public Sub Run()
+                Dim w As New Widget
+                With {deep}
+                    .|
+                End With
+            End Sub
+            """).GetAwaiter().GetResult());
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        CollectionAssert.AreEquivalent(new[] { "Name", "Grow", "Parts" }, labels);
+    }
+
     [TestMethod]
     public async Task TheMembersOfAModule_AreItsPublicOnes()
         => CollectionAssert.AreEqual(new[] { "Twice" }, await LabelsAsync("""

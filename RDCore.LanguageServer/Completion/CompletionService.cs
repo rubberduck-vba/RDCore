@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -514,9 +515,16 @@ internal sealed class CompletionService(
             : [];
     }
 
+    // the static semantics of the qualifier, of the With blocks around the line and of what the module Sets the qualifier to recurse once for each level of
+    // each of them: they run on a large-stack thread, one for the list.
     private IReadOnlyList<CompletionCandidate> MembersOf(
         WorkspaceComposition composition, Uri workspaceRoot, Uri moduleUri, Uri origin, CompletionSite context, ModuleNode module, int line)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line));
+        }
+
         var scope = composition.ScopeTree.ScopeFor(origin);
         var site = new MemberSite(composition, workspaceRoot, moduleUri, module, scope,
             new StaticEnvironment(options.Value.Environment.Is64Bit) { Libraries = librarySource });
