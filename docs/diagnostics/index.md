@@ -114,7 +114,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09359](vbc09359.md)|Invalid Next control variable reference — a `Next` statement names a variable that is not the control variable of its loop|
 |[VBC09360](vbc09360.md)|Can't assign to array — an array declared with fixed dimensions is assigned an array|
 |[VBC09361](vbc09361.md)|ByRef argument type mismatch — a variable is passed to a `ByRef` parameter of another type|
-|[VBC09362](vbc09362.md)|Type mismatch: array or user-defined type expected — an array is passed to a parameter declared as an array of another type|
+|[VBC09362](vbc09362.md)|Type mismatch: array or user-defined type expected — a parameter declared as an array is given what is no array of its element type|
 |[VBC09363](vbc09363.md)|Expected variable or procedure, not module — the name of a standard module is used by itself, as a value or a procedure|
 |[VBC09364](vbc09364.md)|Expected Sub, Function, or Property — a call statement names a variable or a constant of the procedure, not a procedure|
 |[VBC09365](vbc09365.md)|Range has no values — an array is declared with an upper bound less than its lower bound|
