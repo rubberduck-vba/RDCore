@@ -101,7 +101,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         foreach (var (tier, isCandidate) in tiers)
         {
-            if (tier is not null && SelectTier(tier, tier.DeclaredAs(name).Where(isCandidate)) is { } result)
+            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(tier.DeclaredAs(name).Where(isCandidate))) is { } result)
             {
                 return result;
             }
@@ -247,7 +247,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // 3. otherwise the member exactly one of its procedural modules has - a class's default instance variable among them, which §5.2.4.1.2 declares
         // as if at module level, under the class's name (MVVM.AppContext.Create), and which the global scope holds as it does for the name unqualified.
         if (projectScope is not null
-            && SelectTier(projectScope, projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))) is { } member)
+            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))))
+                is { } member)
         {
             return member;
         }
@@ -364,6 +365,12 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only. An Enum
     // and a variable or a constant of one name: the name is the Enum, whichever is declared first and whatever their access (`V = 5` is "Expected variable or
     // procedure, not enum type"). Excel-verified, oracle\s64 E03, E04, E11, E14, E20-E23.
+    // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two
+    // modules' declarations of the name are still an ambiguous name. Seen from another module, an Enum and a Function of one module is the Function, an Enum
+    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (Excel-verified, oracle\s66 X01-X06, X08, X09).
+    private static IEnumerable<Symbol> ValuesOverEnumsOfEachModule(IEnumerable<Symbol> candidates)
+        => candidates.GroupBy(candidate => candidate.ParentUri.AbsoluteUri, StringComparer.Ordinal).SelectMany(ValuesOverEnums);
+
     private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
     {
         var matches = candidates.ToArray();

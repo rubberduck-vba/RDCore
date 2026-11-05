@@ -73,6 +73,8 @@ public sealed class NamesakeDeclarationsTests
     [DataRow("Public V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "E20: a variable before the Enum")]
     [DataRow("Private V As Long", false, "    V = 5\r\n    Debug.Print V", DisplayName = "E23: a Private variable")]
     [DataRow("Public Const V As Long = 3", false, "    Debug.Print V", DisplayName = "E22: a constant")]
+    [DataRow("Public V As Long", true, "    Debug.Print V", DisplayName = "s66 E14R: a variable after the Enum, read alone")]
+    [DataRow("Private V As Long", false, "    Debug.Print V", DisplayName = "s66 E23R: a Private variable, read alone")]
     public async Task InAStandardModule_AVariableOrConstantAndAnEnumOfOneName_TheNameIsTheEnum(string variable, bool enumFirst, string main)
     {
         const string enumV = "Public Enum V\r\n    Zero\r\n    One\r\nEnd Enum";
@@ -94,6 +96,54 @@ public sealed class NamesakeDeclarationsTests
 
         Assert.HasCount(2, errors);
         Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+    }
+
+    // Program, and Second, and Globals when it has `globals`: the names of Second and Globals seen from Program (oracle\s66).
+    private static IReadOnlyList<(string Name, string Source)> OtherModules(string second, string globals = "")
+        => globals.Length == 0
+            ? [("Second", ModuleWorkspace.StandardModule("Second", "Option Explicit", second))]
+            : [("Second", ModuleWorkspace.StandardModule("Second", "Option Explicit", second)), ("Globals", ModuleWorkspace.StandardModule("Globals", "Option Explicit", globals))];
+
+    private const string EnumV = "Public Enum V\r\n    Zero\r\n    One\r\nEnd Enum";
+
+    private const string FunctionFOfNoArgument = "Public Function F() As Long\r\n    F = 7\r\nEnd Function";
+
+    [TestMethod]
+    public async Task FromAnotherModule_AnEnumAndAFunctionOfOneModule_TheBareNameIsTheFunction()
+        // s66 X01, and X07: as a type, the name is the Enum.
+        => Assert.AreEqual("8 0", string.Join(" ", await ModuleWorkspace.RunAsync([], OtherModules($"{EnumF}\r\n{FunctionF}"),
+            StandardProgram(string.Empty, string.Empty, "    Debug.Print F(4)\r\n    Dim t As F\r\n    t = Zero\r\n    Debug.Print t"))));
+
+    [TestMethod]
+    [DataRow("    V = 5\r\n    Debug.Print V", DisplayName = "s66 X02: assigned and read")]
+    [DataRow("    Debug.Print V", DisplayName = "s66 X03: read")]
+    public async Task FromAnotherModule_AnEnumAndAVariableOfOneModule_TheNameIsTheEnum(string main)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules($"{EnumV}\r\nPublic V As Long"), StandardProgram(string.Empty, string.Empty, main));
+
+        Assert.HasCount(main.Split("\r\n").Length, errors, string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+    }
+
+    [TestMethod]
+    public async Task FromAnotherModule_AnEnumAndAFunctionOfOneModule_TheNameQualifyingAMember_IsTheFunctionsValue_AnInvalidQualifier()
+    {
+        // s66 X08
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules($"{EnumF}\r\n{FunctionFOfNoArgument}"), StandardProgram(string.Empty, string.Empty, "    Debug.Print F.One"));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+    }
+
+    [TestMethod]
+    [DataRow(EnumF, FunctionF, "    Debug.Print F(4)", DisplayName = "s66 X04: an Enum and a Function")]
+    [DataRow(EnumF, FunctionFOfNoArgument, "    Debug.Print F", DisplayName = "s66 X09: an Enum and a Function of no argument")]
+    [DataRow(EnumV, "Public V As Long", "    V = 5", DisplayName = "s66 X05: an Enum and a variable, assigned")]
+    [DataRow(EnumV, "Public V As Long", "    Debug.Print V", DisplayName = "s66 X06: an Enum and a variable, read")]
+    public async Task FromAnotherModule_AnEnumAndANamesakeOfTwoOtherModules_IsAnAmbiguousName(string second, string globals, string main)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules(second, globals), StandardProgram(string.Empty, string.Empty, main));
+
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_AmbiguousName.Split('{')[0].TrimEnd());
     }
 
     [TestMethod]
