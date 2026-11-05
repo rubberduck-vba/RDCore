@@ -27,7 +27,7 @@ public sealed class HostOutputRelayTests
         relay.Publish(new HostOutputNotification { Lines = ["b", "c"], Total = 3 });
 
         CollectionAssert.AreEqual(new[] { "a", "b", "c" }, heard);
-        await relay.WaitForAsync(3, Expiry,CancellationToken.None).WaitAsync(HangGuard);
+        await relay.WaitForAsync(3, Expiry, CancellationToken.None).WaitAsync(HangGuard);
     }
 
     // the line that is here is counted when the wait starts, before it returns: the wait is not over on that one, and nothing else can end it but the second.
@@ -37,7 +37,7 @@ public sealed class HostOutputRelayTests
         var relay = new HostOutputRelay(new ManualClock());
         relay.Publish(new HostOutputNotification { Lines = ["a"], Total = 1 });
 
-        var waiting = relay.WaitForAsync(2, Expiry,CancellationToken.None);
+        var waiting = relay.WaitForAsync(2, Expiry, CancellationToken.None);
         Assert.IsFalse(waiting.IsCompleted, "one of the two lines is not here");
 
         relay.Publish(new HostOutputNotification { Lines = ["b"], Total = 2 });
@@ -50,7 +50,7 @@ public sealed class HostOutputRelayTests
     {
         var clock = new ManualClock();
         var relay = new HostOutputRelay(clock);
-        var waiting = relay.WaitForAsync(5, Expiry,CancellationToken.None);
+        var waiting = relay.WaitForAsync(5, Expiry, CancellationToken.None);
 
         clock.Advance(Expiry - TimeSpan.FromTicks(1));
         Assert.IsFalse(waiting.IsCompleted, "the timeout is not reached");
@@ -64,7 +64,7 @@ public sealed class HostOutputRelayTests
     {
         var relay = new HostOutputRelay(new ManualClock());
         using var cancel = new CancellationTokenSource();
-        var waiting = relay.WaitForAsync(5, Expiry,cancel.Token);
+        var waiting = relay.WaitForAsync(5, Expiry, cancel.Token);
 
         await cancel.CancelAsync();
 
