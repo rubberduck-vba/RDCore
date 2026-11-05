@@ -50,7 +50,8 @@ internal sealed class ProcedureEmitter
     private bool _dispatches;
     private LocalBuilder? _result;
 
-    private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder IsOpen, ScalarKind Kind);
+    // Opened: whether the loop's statement ever ran, and gave it an end and a step - kept when the loop ends, and when its statement, run again, fails.
+    private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, ScalarKind Kind);
 
     private ProcedureEmitter(ProcedureAnalysis analysis, IReadOnlyList<DirectCall?> directs, ILGenerator il)
     {
@@ -220,7 +221,7 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.CellOfIntegral) : nameof(CompiledActivation.CellOfFloating))!);
         _il.Emit(OpCodes.Stloc, cell);
         _il.Emit(OpCodes.Ldloc, cell);
-        _il.Emit(OpCodes.Brfalse, FailureAt(0));
+        _il.Emit(OpCodes.Brfalse, WalkBackAt(0));
     }
 
     private void EmitStep(CompiledStep step)
@@ -428,7 +429,9 @@ internal sealed class ProcedureEmitter
 
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WantsInterpreterAfterCall))!.GetMethod!);
-        _il.Emit(OpCodes.Brtrue, FailureAt(call.Offset + 1));
+        // the procedure edited while the program waited in the callee, or the interpreter wanted: the activation is the interpreter's from after the call, in
+        // the body it goes on in - never stepped in the body it was compiled from (CompiledActivation.Interpret).
+        _il.Emit(OpCodes.Brtrue, WalkBackAt(call.Offset + 1));
     }
 
     private readonly Dictionary<int, Label> _failedCalls = [];
@@ -532,7 +535,7 @@ internal sealed class ProcedureEmitter
 
         Store(start, open.Kind, _slots[open.Counter]);
         _il.Emit(OpCodes.Ldc_I4_1);
-        _il.Emit(OpCodes.Stloc, loop.IsOpen);
+        _il.Emit(OpCodes.Stloc, loop.Opened);
 
         EmitPastTheEnd(loop, open.Counter, _instructions[open.Past]);
     }
@@ -579,12 +582,11 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, counter);
         }
 
+        // a loop that ends keeps its end and its step, as the interpreter's does: a Resume may go back into it, and its statement, run again, may fail.
         var exit = _il.DefineLabel();
         EmitPastTheEnd(loop, next.Counter, exit);
         _il.Emit(OpCodes.Br, _instructions[next.Body]);
         _il.MarkLabel(exit);
-        _il.Emit(OpCodes.Ldc_I4_0);
-        _il.Emit(OpCodes.Stloc, loop.IsOpen);
     }
 
     // goes to past when the counter is past the end: below it counting down, above it counting up.
@@ -721,7 +723,7 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recovered))!);
         _il.Emit(OpCodes.Ret);
 
-        // the re-entry: every variable and the function result, and the state of each loop - which an opener the interpreter ran gave it, or a Next closed.
+        // the re-entry: every variable and the function result, and the state of each loop - which an opener the interpreter ran gave it.
         _il.MarkLabel(_reentry);
         EmitReload();
         for (var i = 0; i < _loops.Count; i++)
@@ -735,7 +737,7 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(loop.Kind)
                 ? nameof(CompiledActivation.ReloadForLoopIntegral)
                 : nameof(CompiledActivation.ReloadForLoopFloating))!);
-            _il.Emit(OpCodes.Stloc, loop.IsOpen);
+            _il.Emit(OpCodes.Stloc, loop.Opened);
         }
 
         _il.Emit(OpCodes.Br, _dispatch);
@@ -768,8 +770,9 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ret);
     }
 
-    // every variable written into its cell, the function result into its variable, each loop that is open into the frame. A variable held in a cell is in
-    // it already, and the frame holds the cell (CompiledActivation.TakeReference).
+    // every variable written into its cell, the function result into its variable, each loop that was ever opened into the frame - with the end and the step
+    // it last had, as the interpreter keeps them (ExecuteForOpener). A variable held in a cell is in it already, and the frame holds the cell
+    // (CompiledActivation.TakeReference).
     private void EmitSpill()
     {
         foreach (var (slot, kind) in _analysis.Slots)
@@ -798,7 +801,7 @@ internal sealed class ProcedureEmitter
         {
             var loop = _loops[i];
             var closed = _il.DefineLabel();
-            _il.Emit(OpCodes.Ldloc, loop.IsOpen);
+            _il.Emit(OpCodes.Ldloc, loop.Opened);
             _il.Emit(OpCodes.Brfalse, closed);
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);

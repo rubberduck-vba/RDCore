@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.Host;
+using RDCore.CLI.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -26,9 +28,9 @@ public sealed class CompiledErrorHandlingTests
         return made;
     }
 
-    // the program run both ways: the compiled run is the interpreted one, and the procedure named was compiled, and ran to its end in compiled code, having
-    // the interpreter run recovered instructions alone.
-    private static async Task<CompiledBody> AssertAlikeAsync(string program, string compiled, long recoveries)
+    // the program run both ways: the compiled run is the interpreted one, and the procedure named was compiled, and ran to its end in compiled code - or was
+    // handed to the interpreter as often as walkBacks says - having the interpreter run recovered instructions alone.
+    private static async Task<CompiledBody> AssertAlikeAsync(string program, string compiled, long recoveries, long walkBacks = 0)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
@@ -41,7 +43,7 @@ public sealed class CompiledErrorHandlingTests
         // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
         if (!CompiledExecution.WalksBackAtRandom)
         {
-            Assert.AreEqual(0L, result.Body.WalkBacks, $"{compiled} was handed to the interpreter");
+            Assert.AreEqual(walkBacks, result.Body.WalkBacks, $"{compiled}'s walk-backs");
             Assert.AreEqual(recoveries, result.Body.Recoveries, $"{compiled}'s recoveries");
         }
 
@@ -174,7 +176,7 @@ public sealed class CompiledErrorHandlingTests
             "    Unguarded = 1 \\ D",
             "    On Error GoTo 0",
             "    Unguarded = 2 \\ D",
-            "End Function"));
+            "End Function"), "Unguarded", recoveries: 1);
 
     // the handler is running: a second error goes to the caller, as the interpreter has it.
     [TestMethod]
@@ -189,7 +191,7 @@ public sealed class CompiledErrorHandlingTests
             "    Exit Function",
             "Failed:",
             "    Twice = 2 \\ D",
-            "End Function"));
+            "End Function"), "Twice", recoveries: 1);
 
     // MS-VBAL §6.1.3.2.1: the Exit of a handler clears Err; an error On Error Resume Next went past is still Err when the procedure returns.
     [TestMethod]
@@ -301,7 +303,7 @@ public sealed class CompiledErrorHandlingTests
             "    Return",
             "End Function"), "Summed", recoveries: 1);
 
-    // an error in a For header gone past: the body the interpreter goes on in has no loop state compiled code could step it with.
+    // an error in a For header gone past: the loop the interpreter gave its state - a 0 end and a step of 1 (oracle s54) - is stepped in compiled code.
     [TestMethod]
     public async Task AnErrorInAForHeader_GonePast_RunsTheSameAsTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -315,7 +317,7 @@ public sealed class CompiledErrorHandlingTests
             "        Headed = Headed + 1",
             "    Next",
             "    Headed = Headed + 100",
-            "End Function"));
+            "End Function"), "Headed", recoveries: 1);
 
     // a Resume into a loop that was never opened: its Next is error 92 (MS-VBAL §5.4.2.3), which compiled code, with no state to step the loop with, leaves
     // to the interpreter.
@@ -338,8 +340,9 @@ public sealed class CompiledErrorHandlingTests
             "Inside:",
             "        Jumped = Jumped + 1",
             "    Next",
-            "End Function"));
+            "End Function"), "Jumped", recoveries: 1, walkBacks: 1);
 
+    // Erl is a library function, which compiled code does not call: the procedure is the interpreter's whole, and runs the same.
     [TestMethod]
     public async Task Erl_IsTheLineTheHandledErrorWasRaisedAt()
         => await AssertAlikeAsync(Program(
@@ -354,4 +357,229 @@ public sealed class CompiledErrorHandlingTests
             "Failed:",
             "    Numbered = Erl",
             "End Function"));
+
+    // a Resume back into a loop that ended: the loop has the end and the step it had, as the interpreter keeps them, and its Next steps it with them.
+    [TestMethod]
+    public async Task AResumeIntoALoopThatEnded_StepsItWithTheEndAndTheStepItHad()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Again(0)",
+            "End Sub",
+            "Private Function Again(ByVal D As Long) As Long",
+            "    Dim I As Long, N As Long",
+            "    On Error GoTo Fixing",
+            "    For I = 1 To 2",
+            "Inside:",
+            "        N = N + 1",
+            "    Next I",
+            "    N = N \\ D",
+            "    Again = N",
+            "    Exit Function",
+            "Fixing:",
+            "    D = 1",
+            "    Resume Inside",
+            "End Function"), "Again", recoveries: 2);
+
+    // a For statement that fails the second time it runs, gone past: its loop has the end and the step the first time gave it (oracle s54), which the
+    // counter, not assigned, is stepped to.
+    [TestMethod]
+    public async Task AForHeaderThatFailsTheSecondTime_GonePast_KeepsTheEndAndTheStepTheFirstTimeGaveIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rerun(1)",
+            "End Sub",
+            "Private Function Rerun(ByVal D As Long) As Long",
+            "    Dim I As Long, K As Long",
+            "    On Error Resume Next",
+            "    For K = 1 To 2",
+            "        For I = 1 To 10 \\ D",
+            "            Rerun = Rerun + 1",
+            "        Next",
+            "        D = 0",
+            "        I = 5",
+            "    Next",
+            "End Function"), "Rerun", recoveries: 1);
+
+    [TestMethod]
+    public async Task ANestedGoSub_ReturnsToEachCallerInTurn()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Nested(1)",
+            "End Sub",
+            "Private Function Nested(ByVal N As Long) As Long",
+            "    GoSub Adding",
+            "    Nested = N",
+            "    Exit Function",
+            "Adding:",
+            "    N = N + 1",
+            "    GoSub Doubling",
+            "    N = N * 10",
+            "    Return",
+            "Doubling:",
+            "    N = N * 2",
+            "    Return",
+            "End Function"), "Nested", recoveries: 0);
+
+    [TestMethod]
+    public async Task AGoSubInAForLoop_ReturnsIntoTheLoop()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Looped()",
+            "End Sub",
+            "Private Function Looped() As Long",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        GoSub Adding",
+            "    Next",
+            "    Exit Function",
+            "Adding:",
+            "    Looped = Looped + I",
+            "    Return",
+            "End Function"), "Looped", recoveries: 0);
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+
+    private static Task<ExecuteResult> ResumeAsync(EnvironmentSessionProvider provider)
+        => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
+
+    // the error a handler of compiled code catches is waited at when every error is, while the interpreter runs the instruction that raised it; the program
+    // goes on to the handler, and to its end.
+    [TestMethod]
+    public async Task AnErrorACompiledHandlerCatches_IsWaitedAt_WhenEveryErrorIs_AndGoesToTheHandler()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectAsync([], Program(
+            "Public Sub Main()",
+            "    Debug.Print Ratio(1, 0)",
+            "End Sub",
+            "Private Function Ratio(ByVal A As Long, ByVal B As Long) As Long",
+            "    On Error GoTo Failed",
+            "    Ratio = A \\ B",
+            "    Exit Function",
+            "Failed:",
+            "    Ratio = -1",
+            "End Function"), async (provider, first, again) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+            Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "Ratio" && result.Result.Body is not null), "Ratio is compiled");
+            _ = await new HostDebugErrorBreakHandler(provider).Handle(new HostDebugErrorBreakParams { Mode = ErrorBreakMode.All }, CancellationToken.None);
+
+            var stopped = await again();
+            Assert.AreEqual((ExecutionOutcome.Suspended, 11, 5), (stopped.Outcome, stopped.ErrorNumber, stopped.ErrorLine), stopped.ErrorMessage);
+            Assert.AreEqual("Ratio", provider.Execution.Stack().Frames[0].Procedure);
+
+            var resumed = await ResumeAsync(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "-1" }, resumed.Output.Select(line => line.Trim()).ToArray());
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
+    // the program run to the Stop in Inner, at stopLine, while Outer, compiled and with an error handler, is in the middle of its call; Outer edited - a
+    // line added above its body - and the program resumed to its end.
+    private static async Task<ExecuteResult> EditedWhileACompiledCallerWaitsAsync(string program, string above, int stopLine)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], program, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            var stopped = await ResumeAsync(provider);
+            Assert.AreEqual((ExecutionOutcome.Suspended, stopLine), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+            if (!CompiledExecution.WalksBackAtRandom)
+            {
+                Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
+                    "Outer is running compiled, in the middle of its call");
+            }
+
+            var edited = program.Replace(above, "    n = n\r\n" + above, StringComparison.Ordinal);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, edited));
+            resumed = await ResumeAsync(provider);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+
+        return resumed!;
+    }
+
+    // the call returns into the edited code, where compiled code wants the interpreter: the statement after the call runs once, in the edited body.
+    [TestMethod]
+    public async Task ACompiledCallerWithAHandler_EditedInTheMiddleOfItsCall_RunsTheStatementAfterTheCallOnce()
+    {
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(Program(
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print Outer(5)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    On Error Resume Next",
+            "    Dim i As Long, t As Long, k As Long",
+            "    For i = 1 To n",
+            "        t = Inner(i)",
+            "        k = k + 1",
+            "    Next",
+            "    Outer = t + k",
+            "End Function",
+            "Private Function Inner(ByVal x As Long) As Long",
+            "    If x = 3 Then Stop",
+            "    Inner = x * 10",
+            "End Function"), "    For i = 1 To n\r\n", 14);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "55" }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // the GoSub the compiled caller is in returns where its GoSub now is, in the edited code.
+    [TestMethod]
+    public async Task ACompiledCallerInAGoSub_EditedInTheMiddleOfItsCall_ReturnsAfterTheGoSubWhereItNowIs()
+    {
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(Program(
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print Outer(3)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Dim t As Long",
+            "    GoSub Work",
+            "    t = t + 1",
+            "    Outer = t",
+            "    Exit Function",
+            "Work:",
+            "    t = Inner(n)",
+            "    Return",
+            "End Function",
+            "Private Function Inner(ByVal x As Long) As Long",
+            "    If x = 3 Then Stop",
+            "    Inner = x * 10",
+            "End Function"), "    GoSub Work\r\n", 15);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "31" }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // the error the callee raises after the edit goes to the compiled caller's handler where its label now is.
+    [TestMethod]
+    public async Task ACompiledCallersHandler_EditedInTheMiddleOfItsCall_IsWhereItsLabelNowIs()
+    {
+        var resumed = await EditedWhileACompiledCallerWaitsAsync(Program(
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print Outer(3)",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    On Error GoTo Failed",
+            "    Dim t As Long",
+            "    t = Inner(n)",
+            "    Outer = t",
+            "    Exit Function",
+            "Failed:",
+            "    Outer = -1",
+            "End Function",
+            "Private Function Inner(ByVal x As Long) As Long",
+            "    If x = 3 Then Stop",
+            "    Inner = x * 1000000000",
+            "End Function"), "    t = Inner(n)\r\n", 14);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "-1" }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
 }

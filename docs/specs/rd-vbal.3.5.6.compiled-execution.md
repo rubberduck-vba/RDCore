@@ -55,8 +55,10 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   Otherwise it computes in the 80-bit format.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
-cell, the function result into its variable, and the state of each `For` loop it is in into the frame. The interpreter then evaluates the instruction as it
-always does, so the error raised, its message and its location are the interpreter's. The rest of the activation runs in the interpreter.
+cell, the function result into its variable, and the state of each `For` loop whose `For` statement ran into the frame. A loop that ended keeps the end and
+the step it last had, as it does in the interpreter: a `Resume` can go back into it, and its `For` statement can fail when it runs again. The interpreter
+then evaluates the instruction as it always does, so the error raised, its message and its location are the interpreter's. The rest of the activation runs
+in the interpreter.
 
 Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
 activation under the debugger.
@@ -80,8 +82,9 @@ The rest of the activation runs in the interpreter instead when any of these hol
 
 - the program waited while the instruction ran;
 - a debugger wants the interpreter;
-- the code was edited;
-- the activation goes on inside a `For` loop whose state the frame doesn't have, such as after an error in the loop's own `For` statement.
+- the code was edited (while the program waited in a callee, the activation goes on after the call in the edited code, with its handler, its `GoSub` returns
+  and its loops where they now are);
+- the activation goes on inside a `For` loop whose state the frame doesn't have: a `Resume` to a label inside a loop whose `For` statement never ran.
 
 `Exit` and the end of the body clear `Err` after an error a handler caught, as in the interpreter (MS-VBAL §6.1.3.2.1).
 

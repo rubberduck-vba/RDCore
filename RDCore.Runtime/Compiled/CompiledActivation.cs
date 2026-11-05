@@ -566,7 +566,7 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
     /// interpreter gives the activation's handler as it would have; with the program stopped in the callee, which stops this activation too; or, when compiled
-    /// code could not make the call, to make it as it always does. The frame has every variable and every open loop.
+    /// code could not make the call, to make it as it always does. The frame has every variable and every loop that was opened.
     /// </summary>
     public RuntimeExecutionOutcome AfterFailedCall(int pc)
     {
@@ -685,7 +685,7 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Hands the activation to the interpreter, which runs it from the instruction at <paramref name="pc"/>: what the activation returns is what the
-    /// interpreter's run of it does. Every variable and every open loop has been written into the frame.
+    /// interpreter's run of it does. Every variable and every loop that was opened has been written into the frame.
     /// </summary>
     public RuntimeExecutionOutcome Interpret(int pc)
     {
@@ -705,7 +705,7 @@ public sealed class CompiledActivation : ILightActivation
     /// Has the interpreter run the instruction at <paramref name="pc"/> alone - or, after a call there that raised an error, give the error to the
     /// activation's handler - and says where compiled code goes on (IR lowering S2.4): at the offset the interpreter left the activation at, every variable,
     /// the function result and each loop read back from the frame; or nowhere (<c>-1</c>), when the activation returned, the program stopped, or the
-    /// interpreter goes on with it (<see cref="Recovered"/>). Every variable and every open loop has been written into the frame.
+    /// interpreter goes on with it (<see cref="Recovered"/>). Every variable and every loop that was opened has been written into the frame.
     /// </summary>
     /// <remarks>
     /// The interpreter goes on with the activation when the program waited while the instruction ran - at its error, which a debugger asked to see - or the
@@ -772,7 +772,8 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The end and the step of the <c>For</c> loop numbered <paramref name="loop"/>, of an integral kind, read back from the frame: whether the loop is open.
+    /// The end and the step of the <c>For</c> loop numbered <paramref name="loop"/>, of an integral kind, read back from the frame: whether the loop was
+    /// opened.
     /// </summary>
     public bool ReloadForLoopIntegral(int loop, out long end, out long step, out bool countsDown)
     {
@@ -782,8 +783,8 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The end and the step of the <c>For</c> loop numbered <paramref name="loop"/>, of a floating-point kind, read back from the frame: whether the loop is
-    /// open.
+    /// The end and the step of the <c>For</c> loop numbered <paramref name="loop"/>, of a floating-point kind, read back from the frame: whether the loop
+    /// was opened.
     /// </summary>
     public bool ReloadForLoopFloating(int loop, out double end, out double step, out bool countsDown)
     {
