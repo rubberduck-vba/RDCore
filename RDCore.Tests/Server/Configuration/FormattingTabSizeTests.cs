@@ -308,7 +308,10 @@ public sealed class FormattingTabSizeTests
 
         public ClientConfigurationFollower? Follower { get; private set; }
 
-        /// <summary>The indentation as each listener of the change saw it.</summary>
+        /// <summary>
+        /// The indentation as each listener of the change saw it, each time it saw another: a server that follows its configuration twice as it starts is
+        /// told the same settings twice.
+        /// </summary>
         public List<int> Seen { get; } = [];
 
         public Dictionary<string, string> Said { get; } = [];
@@ -371,7 +374,16 @@ public sealed class FormattingTabSizeTests
             _declaresDidChangeConfiguration = declaresDidChangeConfiguration;
             var schema = SettingsSchema.Platform;
             Live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, Options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
-            Live.Changed += (_, _) => Seen.Add(Options.Formatting.IndentSpaces);
+            Live.Changed += (_, _) =>
+            {
+                lock (Seen)
+                {
+                    if (Seen.Count == 0 || Seen[^1] != Options.Formatting.IndentSpaces)
+                    {
+                        Seen.Add(Options.Formatting.IndentSpaces);
+                    }
+                }
+            };
         }
 
         public async Task StartAsync()
@@ -387,7 +399,7 @@ public sealed class FormattingTabSizeTests
                 {
                     Follower = ClientConfigurationFollower.Follow(services, started, () =>
                     {
-                        _followed.Release();
+                        Followed();
                         return Task.CompletedTask;
                     }, line =>
                     {
@@ -439,12 +451,91 @@ public sealed class FormattingTabSizeTests
             _client = await connecting;
         }
 
-        public Task<bool> FollowedAsync(TimeSpan? wait = null) => _followed.WaitAsync(wait ?? TimeSpan.FromSeconds(20));
+        /// <summary>
+        /// Waits for a change the follower applied that read what the client said as change number <paramref name="change"/>
+        /// (<see cref="ClientSaysConfigurationChanged()"/>), or a later one; any change it applied, when none is given.
+        /// </summary>
+        /// <remarks>
+        /// A server may follow its configuration twice as it starts, and the second can be applied after the first was waited for: a wait for whichever
+        /// change is applied next can end on that one, before the change a test made is.
+        /// </remarks>
+        public async Task<bool> FollowedAsync(int change = 0)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+            while (Volatile.Read(ref _followedChange) < change)
+            {
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero || !await _followed.WaitAsync(left))
+                {
+                    return false;
+                }
+            }
 
-        public void ClientSaysConfigurationChanged() => _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
+            return true;
+        }
+
+        // the change each change the follower applied read, in the order they were applied.
+        private readonly List<int> _applied = [];
+
+        /// <summary>
+        /// The changes the follower applied that read change number <paramref name="change"/> or a later one, each once, in the order they were first applied.
+        /// </summary>
+        public int[] AppliedSince(int change)
+        {
+            lock (_applied)
+            {
+                return [.. _applied.Where(applied => applied >= change).Distinct()];
+            }
+        }
+
+        /// <summary>How many requests for the tab size the client was sent: one for each change the follower follows.</summary>
+        public int TabSizeRequests => Volatile.Read(ref _tabSizeRequests);
+
+        /// <summary>
+        /// The client says its configuration changed, as change number this returns: what it answers from then on says that number
+        /// (<see cref="ChangeKey"/>), and what a change the follower applies read is the number it has.
+        /// </summary>
+        public int ClientSaysConfigurationChanged()
+        {
+            var change = NextChange();
+            _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
+            return change;
+        }
 
         /// <summary>The client says its configuration changed, with settings of its own in the notification.</summary>
-        public void ClientSaysConfigurationChanged(JToken settings) => _client!.DidChangeConfiguration(new DidChangeConfigurationParams { Settings = settings });
+        public int ClientSaysConfigurationChanged(JToken settings)
+        {
+            var change = NextChange();
+            _client!.DidChangeConfiguration(new DidChangeConfigurationParams { Settings = settings });
+            return change;
+        }
+
+        // a setting no schema has, which the live settings keep among what the client said as they keep any other: what tells one change from another.
+        private const string ChangeKey = "Wire:Change";
+
+        private int _changes;
+
+        // -1 until a change is applied: the first, as the server starts, reads change 0.
+        private int _followedChange = -1;
+
+        private int NextChange()
+        {
+            var change = Interlocked.Increment(ref _changes);
+            Said[ChangeKey] = change.ToString(CultureInfo.InvariantCulture);
+            return change;
+        }
+
+        private void Followed()
+        {
+            var change = Live.Said.TryGetValue(ChangeKey, out var said) ? int.Parse(said, CultureInfo.InvariantCulture) : 0;
+            lock (_applied)
+            {
+                _applied.Add(change);
+                _followedChange = Math.Max(_followedChange, change);
+            }
+
+            _followed.Release();
+        }
 
         public ValueTask DisposeAsync()
         {
@@ -470,14 +561,12 @@ public sealed class FormattingTabSizeTests
 
         // the user changes the tab size of the editor: a change of configuration like any other.
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync());
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()));
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "followed when it changes");
 
         // and the user sets the indentation: it is what the server has.
         wire.Said["Formatting:IndentSpaces"] = "3";
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync());
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()));
         Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces, "the setting is not the editor's tab size");
 
         CollectionAssert.AreEqual(new[] { 2, 8, 3 }, wire.Seen, "whoever listens sees the indentation the settings end up with, never the default in between");
@@ -496,8 +585,7 @@ public sealed class FormattingTabSizeTests
         Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces);
 
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync(), "asked again when it says its configuration changed");
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()), "asked again when it says its configuration changed");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
     }
 
@@ -687,14 +775,9 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(await wire.FollowedAsync());
 
         wire.Said["Formatting:IndentSpaces"] = "3";
-        wire.ClientSaysConfigurationChanged(new JObject());
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged(new JObject())), "the section as the client answers it, not the empty object it pushed");
 
-        // each change followed is waited for - the server may be told of more than one as it starts - until the section as the client answers it.
-        while (wire.Options.Formatting.IndentSpaces != 3)
-        {
-            Assert.IsTrue(await wire.FollowedAsync(), "the section as the client answers it, not the empty object it pushed");
-        }
-
+        Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces);
         Assert.AreEqual("3", wire.Live.Said["Formatting:IndentSpaces"]);
     }
 
@@ -740,7 +823,7 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(await wire.FollowedAsync());
 
         // the client says its configuration changed twice; the editor's answer to the first, 5, comes after the answer to the second, 8. What the server
-        // pulled as it started was said before it was followed - more than once, on some platforms - and is counted apart.
+        // follows as it starts - more than once, at times, and still after it was first waited for - reads no change of the test's, and is told apart by that.
         var firstAsked = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         wire.BeforeAnswering = async (_, tabSize) =>
@@ -751,23 +834,23 @@ public sealed class FormattingTabSizeTests
                 await release.Task;
             }
         };
-        Assert.IsTrue(await wire.LoggedUntilAsync(log => log.Any(line => line.Contains("were applied", StringComparison.Ordinal))), "the first change was followed once it was initialized");
-        var (dropped, applied) = (wire.LinesWith("dropped"), wire.LinesWith("were applied"));
         wire.TabSize = 5;
-        wire.ClientSaysConfigurationChanged();
+        var older = wire.ClientSaysConfigurationChanged();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync(), "the newer change was followed");
-        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("were applied") == applied + 1), "and said so");
+        var newer = wire.ClientSaysConfigurationChanged();
+        Assert.IsTrue(await wire.FollowedAsync(newer), "the newer change was followed");
 
         release.SetResult();
 
-        // the older change, answered last, says what became of it: that is when it is done, whichever way it went.
-        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("dropped") == dropped + 1), "the older change was dropped, and said so");
+        // the older change, answered last, says what became of it: it is done once every follow that asked for the tab size said what became of it.
+        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("were applied") + wire.LinesWith("dropped") + wire.LinesWith("could not be applied") == wire.TabSizeRequests),
+            string.Join(Environment.NewLine, wire.Log));
+        Assert.AreEqual(0, wire.LinesWith("could not be applied"), string.Join(Environment.NewLine, wire.Log));
+        Assert.IsGreaterThanOrEqualTo(1, wire.LinesWith("dropped"), "the older change was dropped, and said so");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
-        Assert.AreEqual(applied + 1, wire.LinesWith("were applied"), "and nothing else was told as applied but the newer change");
+        CollectionAssert.AreEqual(new[] { newer }, wire.AppliedSince(older), "and nothing else was told as applied but the newer change");
     }
 
     [TestMethod]
@@ -782,8 +865,7 @@ public sealed class FormattingTabSizeTests
         // the editor has no such setting: the client answers the request with an error.
         wire.BeforeAnswering = (_, _) => throw new InvalidOperationException("no such setting");
         wire.Said["Server:Verbose"] = "True";
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync(), "the change was followed");
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()), "the change was followed");
 
         Assert.IsTrue(wire.Options.Server.Verbose, "what the client said of the other settings is set");
         Assert.AreEqual(4, wire.Options.Formatting.IndentSpaces, "and the indentation is its own, as no setting and no editor says another");
