@@ -30,11 +30,12 @@ public sealed class EditStatusPublicationTests
 
     private static readonly WorkspaceDocument Module1 = new("Module1.bas", Root, "Attribute VB_Name = \"Module1\"\r\n");
     private static readonly WorkspaceDocument Module2 = new("Module2.bas", Root, "Attribute VB_Name = \"Module2\"\r\n");
+    private static readonly WorkspaceDocument Modele = new("Modèle.bas", Root, "Attribute VB_Name = \"Modèle\"\r\n");
 
     public EditStatusPublicationTests()
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
-        documents.GetAllDocuments().Returns([Module1, Module2]);
+        documents.GetAllDocuments().Returns([Module1, Module2, Modele]);
         _diagnostics.GetAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<IProgress<SDK.Server.Progress.WorkProgressStep>?>())
             .Returns(call => DocumentDiagnosticsResult.Fresh(1, []));
         _publisher.IsEnabled.Returns(true);
@@ -75,9 +76,9 @@ public sealed class EditStatusPublicationTests
     [DataRow(true, false, DisplayName = "break mode ended")]
     public async Task BreakModeBegunOrEnded_PushesEveryModuleAgain(bool before, bool after)
     {
-        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = before }, new DebugEditStatusResult { Suspended = after }, expected: 2);
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = before }, new DebugEditStatusResult { Suspended = after }, expected: 3);
 
-        CollectionAssert.AreEquivalent(new[] { Module1.Id.Uri.ToUri(), Module2.Id.Uri.ToUri() }, published);
+        CollectionAssert.AreEquivalent(new[] { Module1.Id.Uri.ToUri(), Module2.Id.Uri.ToUri(), Modele.Id.Uri.ToUri() }, published);
     }
 
     // an edit listed while the program waits as it did is of the modules it names, and of no other.
@@ -89,5 +90,16 @@ public sealed class EditStatusPublicationTests
         var published = await PublishedAsync(new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
 
         CollectionAssert.AreEqual(new[] { Module2.Id.Uri.ToUri() }, published);
+    }
+
+    // the module an edit names is read from its address, which escapes a name with an accent.
+    [TestMethod]
+    public async Task AnEditListed_OfAModuleNamedWithAnAccent_PushesThatModuleAgain()
+    {
+        var edit = new DebugEdit { Name = "Modèle.Foo", Kind = DebugEditKind.Restart, Reason = "a local was removed", ModuleUri = SDK.Model.Symbols.SymbolUri.Module(new Uri("file:///ws"), "Modèle") };
+
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
+
+        CollectionAssert.AreEqual(new[] { Modele.Id.Uri.ToUri() }, published);
     }
 }

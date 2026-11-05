@@ -75,7 +75,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     private Func<VBParameterSymbol, IRuntimeValue> AssumedArgument(VBTypeMemberSymbol procedure) => parameter =>
     {
         if (parameter.Name == "Me"
-            && Session.Symbols.Resolver.ResolveType(procedure.ParentUri.Fragment.TrimStart('#'), ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol classModule)
+            && Session.Symbols.Resolver.ResolveType(SymbolUri.ModuleNameOf(procedure.ParentUri), ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol classModule)
         {
             var objectId = Session.Objects.CreateObject();
             Session.Symbols.CreateInstance(objectId, classModule);
@@ -563,7 +563,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // the module a procedure is declared in is its symbol's parent, a standard module or a class module. A procedure whose parent is not a module symbol
     // — one the session has no module for — runs under the defaults, which is what every activation used to do.
     private ModuleDirectives DeclaringModuleDirectives(VBTypeMemberSymbol procedure)
-        => Session.Symbols.TryGetModule(procedure.ParentUri.Fragment.TrimStart('#'), out var module)
+        => Session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(procedure.ParentUri), out var module)
             ? module.Directives
             : ModuleDirectives.None;
 

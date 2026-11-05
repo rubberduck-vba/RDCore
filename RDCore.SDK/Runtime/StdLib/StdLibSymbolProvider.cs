@@ -67,7 +67,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     public static bool IsDebugObject(Symbol symbol)
         => symbol is VBPredeclaredInstanceSymbol { ClassModule: var classModule }
             && string.Equals(classModule.Name, DebugObjectName, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(classModule.ParentUri.Fragment.TrimStart('#'), GlobalModuleName, StringComparison.OrdinalIgnoreCase);
+            && string.Equals(SymbolUri.ModuleNameOf(classModule.ParentUri), GlobalModuleName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// <c>Debug.Print</c>: writes an output list to the environment's own output

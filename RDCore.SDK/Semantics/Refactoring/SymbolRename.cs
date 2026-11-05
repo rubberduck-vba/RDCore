@@ -108,7 +108,7 @@ public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, st
     }
 
     private static string DefaultLocation(Uri module, SourcePosition position)
-        => $"{module.Fragment.TrimStart('#')} {position.Line + 1}:{position.Character + 1}";
+        => $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
 }
 
 /// <summary>

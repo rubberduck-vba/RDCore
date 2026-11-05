@@ -47,33 +47,38 @@ public sealed class DocumentModuleTests
     private static string ProgramThat(params string[] body)
         => "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n" + string.Join("\r\n", body) + "\r\nEnd Sub\r\n";
 
+    // a sheet named with an accent - Feuillé, in a French workbook - is the same module: its name is read from its address as its code was written.
     [TestMethod]
-    public async Task AWorksheetsCode_NamesTheMembersOfItsWorksheet_ThroughMeAndUnqualified_AndLoads()
+    [DataRow("GameSheet", DisplayName = "an ASCII name")]
+    [DataRow("Feuillé", DisplayName = "a name with an accented letter")]
+    public async Task AWorksheetsCode_NamesTheMembersOfItsWorksheet_ThroughMeAndUnqualified_AndLoads(string name)
     {
-        var errors = await LoadDocumentsAsync([("GameSheet", GameSheet, DocClassType.ExcelWorksheet)], Program, Excel);
+        var errors = await LoadDocumentsAsync([(name, GameSheet, DocClassType.ExcelWorksheet)], Program, Excel);
 
         Assert.IsEmpty(errors, string.Join("\n", errors));
     }
 
     [TestMethod]
-    public void InTheLanguageServersComposition_AWorksheetsCode_NamesItsWorksheetsMembers_AfterItsOwn_AndNotAsItsOwn()
+    [DataRow("GameSheet", DisplayName = "an ASCII name")]
+    [DataRow("Feuillé", DisplayName = "a name with an accented letter")]
+    public void InTheLanguageServersComposition_AWorksheetsCode_NamesItsWorksheetsMembers_AfterItsOwn_AndNotAsItsOwn(string name)
     {
         var root = new Uri(Path.Combine(Root, "doc") + Path.DirectorySeparatorChar);
-        var moduleUri = new UriBuilder(root) { Fragment = "GameSheet" }.Uri;
+        var moduleUri = SDK.Model.Symbols.SymbolUri.Module(root, name);
         // a member the worksheet has too, which the module declares itself.
         var source = GameSheet + "Public Function Visible() As Boolean\r\nEnd Function\r\n";
-        var parse = new RDCore.Parsing.ModuleParser().Parse(new Uri(Path.Combine(Root, "doc", "GameSheet.doccls")), source);
+        var parse = new RDCore.Parsing.ModuleParser().Parse(new Uri(Path.Combine(Root, "doc", name + ".doccls")), source);
         var excel = Excel;
         var libraries = new LibrarySymbolProvider(root, LibrarySymbolProvider.Load(excel.Source, [new RDCoreReference { Name = "Excel" }])).ProvideSymbols().ToList();
 
         var resolver = RDCore.Symbols.WorkspaceSymbolResolver.Compose(root, [(moduleUri, SDK.Model.AST.Declarations.ModuleType.DocumentModule, parse)],
             new RDCore.Symbols.IntrinsicSymbolResolver(), "Battleship", libraries: libraries,
-            documentHosts: new Dictionary<string, DocClassType> { ["GameSheet"] = DocClassType.ExcelWorksheet });
+            documentHosts: new Dictionary<string, DocClassType> { [name] = DocClassType.ExcelWorksheet });
         var reset = resolver.ResolveValue("Reset", SDK.Model.Symbols.Abstract.ScopeKind.Global, moduleUri).Symbol!;
 
         var range = resolver.ResolveValue("Range", SDK.Model.Symbols.Abstract.ScopeKind.Local, reset.Uri).Symbol;
         var visible = resolver.ResolveValue("Visible", SDK.Model.Symbols.Abstract.ScopeKind.Local, reset.Uri).Symbol;
-        var module = (SDK.Model.Symbols.VBClassModuleSymbol)resolver.ResolveType("GameSheet", SDK.Model.Symbols.Abstract.ScopeKind.Global, moduleUri).Symbol!;
+        var module = (SDK.Model.Symbols.VBClassModuleSymbol)resolver.ResolveType(name, SDK.Model.Symbols.Abstract.ScopeKind.Global, moduleUri).Symbol!;
 
         Assert.IsNotNull(range);
         StringAssert.EndsWith(range.ParentUri.Fragment, "Worksheet", "a member of the library's class, not one declared again as the module's");

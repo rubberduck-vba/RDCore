@@ -41,5 +41,5 @@ public static class DeclarationShadowing
 
     // the address of the symbol: the fragment of its Uri, which names it after the module or library that declares it.
     private static string QualifiedNameOf(Symbol symbol)
-        => symbol.Uri.Fragment.TrimStart('#') is { Length: > 0 } address ? address : symbol.Name;
+        => SymbolUri.PathOf(symbol.Uri) is { Length: > 0 } address ? address : symbol.Name;
 }
