@@ -12,6 +12,21 @@ namespace RDCore.SDK.Model.Symbols;
 /// the environment host address the same symbol by the same <see cref="Uri"/>, and a symbol's address is its identity (<see cref="Abstract.Symbol.SemanticId"/>).
 /// </para>
 /// <para>
+/// No two declarations of a module have one address. Where a module may declare a name twice, one of the two has a suffix after its name: a <c>]</c> that closes
+/// no <c>[</c>, then the reserved word of what it declares. An identifier is letters, digits and underscores (<strong>MS-VBAL §3.3.5</strong>); a foreign name
+/// (<strong>§3.3.5.3</strong>) may have brackets of its own, and each <c>]</c> of it closes a <c>[</c> before it (<c>[a[b]c]</c> is named <c>a[b]c</c>):
+/// </para>
+/// <list type="bullet">
+/// <item>a <c>Property Let</c> and a <c>Property Set</c> are <c>Item]Let</c> and <c>Item]Set</c>, beside their <c>Property Get</c>, <c>Item</c>;</item>
+/// <item>an Enum, a Type and an Event are <c>PlayerType]Enum</c>, <c>Point]Type</c> and <c>Changed]Event</c>, beside a variable, a constant or a procedure of
+/// the name (<strong>MS-VBAL §5.2.3.1</strong> to <strong>§5.2.3.4</strong>, <strong>§5.2.4.3</strong>).</item>
+/// </list>
+/// <para>
+/// What such a symbol declares is addressed under that: <c>GameBoard.PlayerType]Enum.HumanControlled</c>, <c>GameBoard.Item]Let.value</c>. A name is read off
+/// an address with <see cref="NameOf"/>, and a symbol is shown with <see cref="QualifiedNameOf"/>, which leave the suffixes out. A name may be the suffix's word
+/// itself (a field of a Type named <c>Type</c>, Excel's <c>Worksheet.Type</c>): only what follows the <c>]</c> that closes no <c>[</c> is a suffix.
+/// </para>
+/// <para>
 /// This is the one place the rule is written: a symbol, the descriptors of symbols on the wire, and every component that names a module address them with it.
 /// </para>
 /// </remarks>
@@ -148,18 +163,87 @@ public static class SymbolUri
         return dot < 0 ? path : path[..dot];
     }
 
+    // what tells a name from the suffix after it: a ']' that closes no '['. An identifier has no bracket (MS-VBAL §3.3.5), and each ']' of a foreign name
+    // closes a '[' of it (§3.3.5.3, as the grammar reads one). A field of a Type may be named Let or Type, and a library's member Type: the word alone tells
+    // nothing.
+    private const char SuffixDelimiter = ']';
+
+    // the reserved words a symbol's address has after its name, when the name alone is a namesake's (Symbol.UriSuffix).
+    internal const string LetSuffix = "Let";
+    internal const string SetSuffix = "Set";
+    internal const string EnumSuffix = "Enum";
+    internal const string TypeSuffix = "Type";
+    internal const string EventSuffix = "Event";
+
+    // a name of a path, without the suffix after it: what follows the first ']' that closes no '['.
+    private static string WithoutSuffix(string name)
+    {
+        var open = 0;
+        for (var at = 0; at < name.Length; at++)
+        {
+            switch (name[at])
+            {
+                case '[':
+                    open++;
+                    break;
+                case SuffixDelimiter when open == 0:
+                    return name[..at];
+                case SuffixDelimiter:
+                    open--;
+                    break;
+            }
+        }
+
+        return name;
+    }
+
+    /// <summary>
+    /// The name of the symbol an address is of: the last name of its path (<see cref="PathOf"/>), without the suffix that tells the symbol from a namesake of
+    /// its module (<c>Item]Let</c> for a <c>Property Let</c>, <c>PlayerType]Enum</c> for an Enum), as the name was written.
+    /// </summary>
+    /// <remarks>
+    /// A name read from an address is read with this, not by splitting the path: <c>GameBoard.PlayerType]Enum</c> is the address of <c>PlayerType</c>, and
+    /// <c>GameBoard.PlayerType]Enum.Human</c> of <c>Human</c>.
+    /// </remarks>
+    /// <param name="symbol">The address of a symbol.</param>
+    /// <returns>The symbol's name, or an empty string for the root of a project or a library.</returns>
+    /// <exception cref="ArgumentException"><paramref name="symbol"/> is a relative URI.</exception>
+    public static string NameOf(Uri symbol)
+    {
+        var path = PathOf(symbol);
+        return WithoutSuffix(path[(path.LastIndexOf('.') + 1)..]);
+    }
+
+    /// <summary>
+    /// A symbol as code names it, from its module down: the names of its path (<see cref="PathOf"/>), without the suffixes that tell a symbol from a namesake
+    /// (<see cref="NameOf"/>). <c>GameBoard.PlayerType]Enum.Human</c> is <c>GameBoard.PlayerType.Human</c>, and <c>Cls.Item]Let.value</c> is
+    /// <c>Cls.Item.value</c>.
+    /// </summary>
+    /// <remarks>
+    /// What is shown of a symbol is this; what identifies it is its address. Two namesakes of a module (an Enum and a Property Get of one name) have one
+    /// qualified name and two addresses.
+    /// </remarks>
+    /// <param name="symbol">The address of a symbol.</param>
+    /// <returns>The symbol's qualified name, or an empty string for the root of a project or a library.</returns>
+    /// <exception cref="ArgumentException"><paramref name="symbol"/> is a relative URI.</exception>
+    public static string QualifiedNameOf(Uri symbol) => string.Join('.', PathOf(symbol).Split('.').Select(WithoutSuffix));
+
     /// <summary>
     /// The address of a symbol that is a member of another - a procedure of a module, a variable of a procedure, a field of a type - or of a module, when the
     /// parent is the root of a project or a library.
     /// </summary>
     /// <param name="parent">The address of the symbol it is a member of, or the root of its project or library.</param>
-    /// <param name="name">Its name, and the suffix that tells it from a namesake (<c>Name.Get</c> for a property accessor), when it has one.</param>
-    public static Uri Member(Uri parent, string name)
+    /// <param name="name">Its name.</param>
+    public static Uri Member(Uri parent, string name) => Member(parent, name, suffix: null);
+
+    // the address of a member whose name alone is a namesake's (Symbol.UriSuffix): its name, then the suffix after a delimiter no name has.
+    internal static Uri Member(Uri parent, string name, string? suffix)
     {
         ArgumentNullException.ThrowIfNull(parent);
+        var last = suffix is null ? name : $"{name}{SuffixDelimiter}{suffix}";
         return new UriBuilder(parent)
         {
-            Fragment = PathOf(parent) is { Length: > 0 } path ? $"{path}.{name}" : name,
+            Fragment = PathOf(parent) is { Length: > 0 } path ? $"{path}.{last}" : last,
         }.Uri;
     }
 }

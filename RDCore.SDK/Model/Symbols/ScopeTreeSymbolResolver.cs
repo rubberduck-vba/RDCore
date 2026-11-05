@@ -70,9 +70,14 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // the procedure and the enclosing module: the tree's own order, innermost first.
         foreach (var lexicalScope in origin.TakeWhile(lexicalScope => lexicalScope.Kind is not (LexicalScopeKind.Project or LexicalScopeKind.Global)))
         {
-            if (SelectTier(lexicalScope, lexicalScope.DeclaredAs(name).Where(IsValueDeclaration)) is { } result)
+            if (SelectTier(lexicalScope, ValuesOverEnums(lexicalScope.DeclaredAs(name).Where(IsValueDeclaration))) is { } result)
             {
                 return result;
+            }
+
+            if (ResultVariableOf(lexicalScope, name) is { } function)
+            {
+                return SymbolResolutionResult.Resolved(function);
             }
         }
 
@@ -96,7 +101,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         foreach (var (tier, isCandidate) in tiers)
         {
-            if (tier is not null && SelectTier(tier, tier.DeclaredAs(name).Where(isCandidate)) is { } result)
+            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(tier.DeclaredAs(name).Where(isCandidate))) is { } result)
             {
                 return result;
             }
@@ -210,7 +215,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         return SelectTier(
             moduleScope,
-            moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate))))
+            ValuesOverEnums(moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate)))))
             ?? SymbolResolutionResult.Unbound;
     }
 
@@ -242,7 +247,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // 3. otherwise the member exactly one of its procedural modules has - a class's default instance variable among them, which §5.2.4.1.2 declares
         // as if at module level, under the class's name (MVVM.AppContext.Create), and which the global scope holds as it does for the name unqualified.
         if (projectScope is not null
-            && SelectTier(projectScope, projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))) is { } member)
+            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))))
+                is { } member)
         {
             return member;
         }
@@ -299,6 +305,15 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
     }
 
+    // MS-VBAL §5.3.1: a Function declares a local of its own name, its result variable, and a Property Get returns its value the same way, so in the
+    // body the name is bound in the procedure's tier, and a namesake of the module (an Enum of the name: `Property Get PlayerType() As PlayerType`) is
+    // no candidate. The procedure stands for its result variable, as it does when the name is bound in the module's tier.
+    private static Symbol? ResultVariableOf(LexicalScope lexicalScope, string name)
+        => lexicalScope is { Kind: LexicalScopeKind.Procedure, Parent: { } module }
+            ? module.DeclaredAs(name).FirstOrDefault(declared => declared is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
+                && declared.Uri.AbsoluteUri == lexicalScope.Uri.AbsoluteUri)
+            : null;
+
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
     // tier has none, so the caller moves on to the next one.
     private static SymbolResolutionResult? SelectTier(LexicalScope lexicalScope, IEnumerable<Symbol> candidates)
@@ -346,12 +361,42 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return [.. candidates.Where(candidate => Rank(candidate) == highest)];
     }
 
-    // MS-VBAL §5.6.10 lists no user-defined type and no class module among the default binding context's
-    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2).
+    // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two
+    // modules' declarations of the name are still an ambiguous name. Seen from another module, an Enum and a Function of one module is the Function, an Enum
+    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (Excel-verified, oracle\s66 X01-X06, X08, X09). A module is told by its
+    // address, and not by a candidate's parent: the parent of an Enum's constant is the Enum.
+    private static IEnumerable<Symbol> ValuesOverEnumsOfEachModule(IEnumerable<Symbol> candidates)
+        => candidates.GroupBy(candidate => (Root: candidate.Uri.GetLeftPart(UriPartial.Query), Module: SymbolUri.ModuleNameOf(candidate.Uri))).SelectMany(ValuesOverEnums);
+
+    // an Enum and a procedure of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
+    // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only. An Enum
+    // and a variable or a constant of one name: the name is the Enum, whichever is declared first and whatever their access (`V = 5` is "Expected variable or
+    // procedure, not enum type"). Excel-verified, oracle\s64 E03, E04, E11, E14, E20-E23.
+    private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
+    {
+        var matches = candidates.ToArray();
+        if (!matches.Any(candidate => candidate is VBEnumMemberSymbol))
+        {
+            return matches;
+        }
+
+        return matches.Any(IsProcedure)
+            ? matches.Where(candidate => candidate is not VBEnumMemberSymbol)
+            : matches.Where(candidate => candidate is VBEnumMemberSymbol);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="symbol"/> is a procedure: a <c>Sub</c>, a <c>Function</c>, a property accessor, or a <c>Declare</c>d one.
+    /// </summary>
+    internal static bool IsProcedure(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol;
+
+    // MS-VBAL §5.6.10 lists no user-defined type, no class module and no event among the default binding context's
+    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2), and an event is only ever raised
+    // (RaiseEvent finds it in its class), so an Event and a Sub of one name are no collision (Excel-verified, oracle\s64 E06-E09).
     // MS-VBAL §3.4.1: a conditional compilation constant is accessible to cc-expressions only, so it is
     // never a candidate here however the name ranks - `x = Win64` in ordinary source binds nothing.
     private static bool IsValueDeclaration(Symbol symbol)
-        => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol or PrecompilerConstantSymbol);
+        => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol or VBEventMemberSymbol or PrecompilerConstantSymbol);
 
     private static bool IsConditionalConstant(Symbol symbol) => symbol is PrecompilerConstantSymbol;
 

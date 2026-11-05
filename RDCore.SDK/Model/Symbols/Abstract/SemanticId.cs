@@ -8,7 +8,8 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// ordinally instead of deferring to <see cref="System.Uri"/>'s own <c>Equals</c>/<c>GetHashCode</c>:
 /// those deliberately ignore <see cref="System.Uri.Fragment"/>, but a symbol's discriminating name and
 /// location (module, member, nesting) is encoded entirely in the fragment — two distinct symbols
-/// sharing a workspace root would otherwise compare equal.
+/// sharing a workspace root would otherwise compare equal. No two declarations of a module share an address,
+/// namesakes included (<see cref="SymbolUri"/>).
 /// </remarks>
 /// <param name="Uri">The identified symbol's <see cref="Symbol.Uri"/>.</param>
 public readonly record struct SemanticId(Uri Uri) : IEquatable<SemanticId>

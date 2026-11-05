@@ -21,9 +21,9 @@ public sealed record class VBPropertySetMemberSymbol(Uri WorkspaceRoot, Uri Pare
     /// <remarks>
     /// The property's <c>Get</c>, <c>Let</c> and <c>Set</c> accessors share a name, and each defines a scope of its
     /// own — its parameters and locals. The <c>Get</c> accessor keeps the property's own identity; a <c>Set</c>
-    /// accessor is addressed by the reserved word <c>Set</c> after the name, which no local or parameter can be.
+    /// accessor is addressed with the suffix <c>Set</c> after the name (<see cref="SymbolUri"/>): <c>Item]Set</c>.
     /// </remarks>
-    protected override string? UriSuffix => "Set";
+    protected override string? UriSuffix => SymbolUri.SetSuffix;
 }
 
 /// <summary>

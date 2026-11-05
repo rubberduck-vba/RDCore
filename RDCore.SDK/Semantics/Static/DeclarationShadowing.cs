@@ -39,7 +39,7 @@ public static class DeclarationShadowing
             : null;
     }
 
-    // the address of the symbol: the fragment of its Uri, which names it after the module or library that declares it.
+    // the symbol as code names it, after the module or library that declares it.
     private static string QualifiedNameOf(Symbol symbol)
-        => SymbolUri.PathOf(symbol.Uri) is { Length: > 0 } address ? address : symbol.Name;
+        => SymbolUri.QualifiedNameOf(symbol.Uri) is { Length: > 0 } name ? name : symbol.Name;
 }

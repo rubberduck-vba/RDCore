@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
 
@@ -38,7 +39,7 @@ internal sealed class NewOfAClassNotCreatableAnalyzer : IModuleAnalyzer
         return declarations.Concat(expressions);
     }
 
-    // the name of the class created: the last part of the address of the class the expression is bound to.
+    // the name of the class created, as the address of the class the expression is bound to names it: an address escapes a name that is not ASCII.
     private static string NameOf(ExpressionFactDto fact)
-        => fact.Binding?.Fragment.TrimStart('#') is { Length: > 0 } address ? address[(address.LastIndexOf('.') + 1)..] : string.Empty;
+        => fact.Binding is { IsAbsoluteUri: true } binding ? SymbolUri.NameOf(binding) : string.Empty;
 }

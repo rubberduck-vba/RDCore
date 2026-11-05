@@ -149,6 +149,11 @@ public static class ExpressionStaticSemanticsEvaluator
         VBType ownerType;
         if (memberAccess.Owner is { } enumeration && NameClassificationStaticSemantics.EnumerationOf(context, enumeration) is { } enumerationType)
         {
+            if (IsTakenByAProcedureOfItsClass(context, enumerationType))
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName));
+            }
+
             // an enumeration qualifies the names of its members (`Color.Red`, `Globals.Color.Red`): as the owner of one it is the type, which by itself
             // it is no value of.
             ownerType = enumerationType;
@@ -161,6 +166,13 @@ public static class ExpressionStaticSemanticsEvaluator
                 return ownerResult;
             }
             ownerType = ownerResult.Result!;
+
+            // a value of an enumeration is a number, which has no members: only the enumeration's name qualifies them. In `Property Get PlayerType() As
+            // PlayerType`, `PlayerType.ComputerControlled` is the Get's result, or the Get, and is an invalid qualifier (Excel-verified, oracle\s64 E02, E04).
+            if (ownerType is VBEnumType)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName));
+            }
         }
         else if (context.EnclosingWithTargetType is { } withTargetType)
         {
@@ -414,6 +426,15 @@ public static class ExpressionStaticSemanticsEvaluator
             _ => Evaluate(context, target),
         };
     }
+
+    // an Enum of a class module that declares a procedure of the Enum's name qualifies no member of it, from any module: the procedure takes the name in a
+    // value, and `PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier in another module as in the class
+    // (Excel-verified, oracle\s64 E15; E18 the same without the Get). The Enum is still the type of `Dim t As PlayerType`.
+    private static bool IsTakenByAProcedureOfItsClass(StaticEvaluationContext context, VBEnumType enumeration)
+        => enumeration.Symbol.GetProperty(SymbolProperties.Library) is null
+            && context.Resolver.ResolveQualifier(SymbolUri.ModuleNameOf(enumeration.Symbol.Uri), ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol module
+            && module.Uri.AbsoluteUri == enumeration.Symbol.ParentUri.AbsoluteUri
+            && module.Members.Any(member => ScopeTreeSymbolResolver.IsProcedure(member) && string.Equals(member.Name, enumeration.Symbol.Name, StringComparison.OrdinalIgnoreCase));
 
     private static StaticSemanticsEvaluationResult EvaluateDictionaryAccess(
         StaticEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)
