@@ -878,7 +878,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         provider.Output.Target = output;
         try
         {
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
+            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint)), session, output, token);
         }
         finally
         {
@@ -907,7 +907,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         try
         {
             using var registration = token.Register(() => Pause());
-            var stop = await execution.StartAsync(() => pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []));
+            var stop = await execution.StartAsync(() => pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint)));
             return Segment(session, stop);
         }
         catch
