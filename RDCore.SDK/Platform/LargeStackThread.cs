@@ -41,6 +41,16 @@ public static class LargeStackThread
     private static bool _isLargeStack;
 
     /// <summary>
+    /// Whether the current thread is one of <see cref="StackSize"/>: one <see cref="Run{T}"/> or <see cref="Start"/> made, or a program's thread
+    /// (<see cref="NewThread"/>).
+    /// </summary>
+    /// <remarks>
+    /// An entry point that recurses as deep as the code it reads, and is called for each of many expressions, checks it first, and calls itself through
+    /// <see cref="Run{T}"/> only when it is <see langword="false"/>: the request that called it takes one thread, and what it calls next runs where it is.
+    /// </remarks>
+    public static bool IsCurrent => _isLargeStack;
+
+    /// <summary>
     /// Runs <paramref name="work"/> on a thread of <see cref="StackSize"/>, and waits for it: what it returns is returned, and what it throws is thrown, as if the
     /// work had run on the caller's own thread.
     /// </summary>
@@ -48,7 +58,14 @@ public static class LargeStackThread
     /// <param name="work">The work.</param>
     /// <returns>What <paramref name="work"/> returned.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="work"/> is <see langword="null"/>.</exception>
-    /// <remarks>An exception <paramref name="work"/> throws is rethrown with the stack trace it was thrown with.</remarks>
+    /// <remarks>
+    /// <para>An exception <paramref name="work"/> throws is rethrown with the stack trace it was thrown with.</para>
+    /// <para>
+    /// The thread is the work's own, made for it, and counted by nothing: it takes no thread of those <see cref="Start"/> runs work on, and does not wait for one
+    /// of them to be free. A request a client waits for is never queued behind work in the background. On a thread that is already one of
+    /// <see cref="StackSize"/> (<see cref="IsCurrent"/>), the work runs where it is, and makes no thread.
+    /// </para>
+    /// </remarks>
     public static T Run<T>(Func<T> work)
     {
         ArgumentNullException.ThrowIfNull(work);
