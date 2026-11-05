@@ -1027,7 +1027,8 @@ public sealed class StdInteraction(
         }
 
         var rounded = Math.Round(((VBDoubleValue)converted.Result!).Value, MidpointRounding.ToEven);
-        return rounded is >= long.MinValue and <= long.MaxValue
+        // 2^63 is the Double long.MaxValue converts to, and no LongLong: the range ends below it.
+        return rounded is >= long.MinValue and < 9223372036854775808d
             ? Succeed(new VBLongLongValue((long)rounded))
             : Fail<VBLongLongValue>(VBRuntimeErrorId.Overflow, $"{rounded} is too large a part of a partition.");
     }
