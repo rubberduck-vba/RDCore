@@ -2263,7 +2263,8 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Class not registered.
+        ///   Looks up a localized string similar to Class not registered
+        ///.
         /// </summary>
         public static string VBRuntimeError_ClassNotRegistered_Description {
             get {

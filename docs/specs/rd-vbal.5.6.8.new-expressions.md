@@ -43,8 +43,8 @@ other (recorded in Excel):
 
 Evaluating a `New` expression creates an object of the class and initializes it (**MS-VBAL §5.3.1.10**). Creating an
 object of `ErrObject` fails: the VBA library says the class can be created, and nothing creates one. Evaluating
-`New ErrObject` raises run-time error -2147221164 _Class not registered_, as **MS-VBA** does, and the variable it was to
-be assigned to keeps the object it had. A variable declared `As New ErrObject` raises the same error each time a
+`New ErrObject` raises run-time error -2147221164 _Class not registered_, as **MS-VBA** does, and a variable that was
+`Nothing` before `Set e = New ErrObject` is `Nothing` after it. A variable declared `As New ErrObject` raises the same error each time a
 reference to it would create its object; `Set e = Nothing` creates nothing, and raises nothing.
 
 What creating an object of another library's class gives when the program runs is that library's to say: an object, or the

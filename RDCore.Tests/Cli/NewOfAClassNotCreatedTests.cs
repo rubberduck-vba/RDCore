@@ -53,8 +53,16 @@ public sealed class NewOfAClassNotCreatedTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task NewErrObject_Compiles_AndRaisesClassNotRegistered_LeavingTheVariableNothing(VBExecutionEngine engine)
-        => await AssertPrintsAsync(["e-2147221164", "Class not registered", "True"], "s62 X04", engine,
-            "Dim e As VBA.ErrObject", "Set e = New VBA.ErrObject", "Debug.Print \"e\" & Err.Number", "Debug.Print Err.Description", "Debug.Print (e Is Nothing)");
+        => await AssertPrintsAsync(["e-2147221164", "True", "Project1", "True"], "s62 X04", engine,
+            "Dim e As VBA.ErrObject", "Set e = New VBA.ErrObject", "Debug.Print \"e\" & Err.Number",
+            "Debug.Print (Err.Description = \"Class not registered\" & vbCrLf)", "Debug.Print Err.Source", "Debug.Print (e Is Nothing)");
+
+    [TestMethod]
+    [DataRow(VBExecutionEngine.Interpreter)]
+    [DataRow(VBExecutionEngine.Compiled)]
+    public async Task NewErrObject_RaisesAnErrorWhoseHelpContextIsMSVBAs(VBExecutionEngine engine)
+        => await AssertPrintsAsync(["e-2147221164", "1000440"], "s62 X12", engine,
+            "Dim e As ErrObject", "Set e = New ErrObject", "Debug.Print \"e\" & Err.Number", "Debug.Print Err.HelpContext");
 
     [TestMethod]
     [DataRow(VBExecutionEngine.Interpreter)]
@@ -74,8 +82,9 @@ public sealed class NewOfAClassNotCreatedTests
     [DataRow(VBExecutionEngine.Interpreter)]
     [DataRow(VBExecutionEngine.Compiled)]
     public async Task AVariableDeclaredAsNewErrObject_RaisesClassNotRegistered_WhenItIsReferredTo(VBExecutionEngine engine)
-        => await AssertPrintsAsync(["e-2147221164", "Class not registered"], "s62 X07", engine,
-            "Dim x As New ErrObject", "Debug.Print (x Is Nothing)", "Debug.Print \"e\" & Err.Number", "Debug.Print Err.Description");
+        => await AssertPrintsAsync(["e-2147221164", "True"], "s62 X07", engine,
+            "Dim x As New ErrObject", "Debug.Print (x Is Nothing)", "Debug.Print \"e\" & Err.Number",
+            "Debug.Print (Err.Description = \"Class not registered\" & vbCrLf)");
 
     [TestMethod]
     [DataRow(VBExecutionEngine.Interpreter)]

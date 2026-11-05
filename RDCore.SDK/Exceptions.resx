@@ -154,7 +154,7 @@
     <value>'{$TYPENAME}' does not reference an instantiable class and cannot be used with New.</value>
   </data>
   <data name="VBRuntimeError_ClassNotRegistered_Description" xml:space="preserve">
-    <value>Class not registered</value>
+    <value>Class not registered&#xD;&#xA;</value>
   </data>
   <data name="VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose" xml:space="preserve">
     <value>An object of {0}, a class of the {1} library, is never created: the library says the class can be created, and nothing creates one.</value>
