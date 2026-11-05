@@ -5,10 +5,20 @@
 /// </summary>
 public static class RDCoreUriNamespaces
 {
+    /// <summary>
+    /// The <c>Uri</c> every other namespace of the platform is under.
+    /// </summary>
     public const string RDCoreBaseUri = "file://uri.rdcore.sdk";
 
     // these two don't really belong here.. TODO find them a better home:
+
+    /// <summary>
+    /// The language's identifier, as the platform's documents and diagnostics give it: <c>RD-VBA</c>.
+    /// </summary>
     public const string RDCoreLanguageCode = "RD-VBA";
+    /// <summary>
+    /// The language's name, for display.
+    /// </summary>
     public const string RDCoreLanguageName = "RDCore Visual Basic for Applications";
 
     /// <summary>

@@ -24,14 +24,21 @@ namespace RDCore.SDK.Server.Services;
 /// 👉 Registered ahead of <c>OmniSharp</c>'s own <c>IReceiver</c> via <c>LanguageServerOptions.Services</c>
 /// (see <c>ConfigureCoreSdkHandlers</c>) — the internal registration uses DryIoc's <c>Keep</c> semantics,
 /// so whichever <see cref="IReceiver"/> is registered first wins.
+/// <para>
+/// Once the server is initialized, a request marked <see cref="HandledOnArrivalAttribute"/> is kept, and handled as it arrives (<see cref="ArrivalRequests"/>):
+/// what is not returned here is never scheduled.
+/// </para>
 /// </remarks>
-internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> logger) : Receiver
+internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> logger, ArrivalRequests? arrivals = null) : Receiver
 {
     public override (IEnumerable<Renor> results, bool hasResponse) GetRequests(JToken container)
     {
         if (_initialized)
         {
-            return base.GetRequests(container);
+            var (received, responds) = base.GetRequests(container);
+            return arrivals is null
+                ? (received, responds)
+                : (received.Where(renor => !(renor.IsRequest && arrivals.TryHandle(renor.Request!))).ToList(), responds);
         }
 
         var (parsed, hasResponse) = base.GetRequests(container);

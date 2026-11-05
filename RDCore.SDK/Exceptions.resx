@@ -843,6 +843,21 @@
   <data name="VBCompileError_OutOfMemory_ModuleNames_Verbose" xml:space="preserve">
     <value>The module declares more than {0:N0} names at module level: variables, constants, procedures, properties, Declare statements, enumerations and types, all together. Move some of them to another module.</value>
   </data>
+  <data name="VBCompileError_OutOfMemory_ArrayElements_Verbose" xml:space="preserve">
+    <value>The array '{0}' is declared with more than {1:N0} elements, the most an array holds in RD-VBA.</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeMayNotBePassedByVal" xml:space="preserve">
+    <value>User-defined type may not be passed ByVal</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose" xml:space="preserve">
+    <value>The parameter '{0}' is a record of the type '{1}', which is passed by reference: declare it ByRef, or without ByVal.</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant" xml:space="preserve">
+    <value>Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose" xml:space="preserve">
+    <value>A record of the type '{0}' is given to a Variant, which can't hold it: give it to a variable or a parameter of the type '{0}', or copy its fields.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>

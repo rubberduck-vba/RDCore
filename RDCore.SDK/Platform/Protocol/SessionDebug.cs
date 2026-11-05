@@ -1,6 +1,7 @@
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
+using RDCore.SDK.Server;
 
 namespace RDCore.SDK.Platform.Protocol;
 
@@ -11,7 +12,8 @@ namespace RDCore.SDK.Platform.Protocol;
 [Method(RDCorePlatformProtocol.SessionDebugResume, Direction.ClientToServer)]
 public sealed record class SessionDebugResumeRequest : SessionDebugResumeParams, IRequest, IRequest<ExecuteResult>;
 
-/// <summary><see cref="SessionDebugPauseParams"/> as a request of <c>rdcore/session/debug/pause</c>.</summary>
+/// <summary><see cref="SessionDebugPauseParams"/> as a request of <c>rdcore/session/debug/pause</c>, handled as it arrives (<see cref="HandledOnArrivalAttribute"/>).</summary>
+[HandledOnArrival]
 [Method(RDCorePlatformProtocol.SessionDebugPause, Direction.ClientToServer)]
 public sealed record class SessionDebugPauseRequest : SessionDebugPauseParams, IRequest, IRequest<DebugAck>;
 
@@ -23,7 +25,8 @@ public sealed record class SessionDebugGotoRequest : SessionDebugGotoParams, IRe
 [Method(RDCorePlatformProtocol.SessionDebugEditStatus, Direction.ClientToServer)]
 public sealed record class SessionDebugEditStatusRequest : SessionDebugEditStatusParams, IRequest, IRequest<DebugEditStatusResult>;
 
-/// <summary><see cref="SessionDebugTerminateParams"/> as a request of <c>rdcore/session/debug/terminate</c>.</summary>
+/// <summary><see cref="SessionDebugTerminateParams"/> as a request of <c>rdcore/session/debug/terminate</c>, handled as it arrives (<see cref="HandledOnArrivalAttribute"/>).</summary>
+[HandledOnArrival]
 [Method(RDCorePlatformProtocol.SessionDebugTerminate, Direction.ClientToServer)]
 public sealed record class SessionDebugTerminateRequest : SessionDebugTerminateParams, IRequest, IRequest<DebugAck>;
 

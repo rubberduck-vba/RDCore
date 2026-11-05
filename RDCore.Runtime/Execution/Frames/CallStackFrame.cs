@@ -871,6 +871,18 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     internal void PushAlias(Symbol symbol, IBindingHandle cell, int slot)
         => Hold(symbol, cell, cell is ScalarCell scalar ? scalar.Type.DefaultValue.Size : 0, slot, isAlias: true);
 
+    /// <summary>
+    /// Declares <paramref name="symbol"/>, a variable of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds it in
+    /// (IR lowering S2.3c), which the activation frees as its own.
+    /// </summary>
+    /// <param name="symbol">The parameter or the variable.</param>
+    /// <param name="cell">Its cell.</param>
+    /// <param name="slot">The number of its slot.</param>
+    internal void PushCell(Symbol symbol, ScalarCell cell, int slot) => Hold(symbol, cell, cell.Type.DefaultValue.Size, slot);
+
+    /// <summary>Whether slot <paramref name="slot"/> of the activation's layout holds a variable: a cell, or an address.</summary>
+    internal bool IsSlotFilled(int slot) => (uint)slot < (uint)_slots.Length && _slots[slot].IsFilled;
+
     /// <summary>The layout the activation was laid out as (<see cref="LayOut"/>), if it was.</summary>
     internal FrameLayout? Layout => _layout;
 

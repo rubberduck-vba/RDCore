@@ -32,6 +32,25 @@ An index expression with a procedure `Callee` is the only expression form that r
 from within `Foo`'s own body). A bare `Foo`, from within `Foo`'s own body, reads the function result variable instead
 ([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)).
 
+### A Function That Returns an Array
+
+The argument list written after a function that returns an array is the call's, and an argument list after that one indexes what it returns
+(recorded in Excel, oracle\s55):
+
+|Code|Of|Is|
+|---|---|---|
+|`x = F()(1)`|`Function F() As Long()`|The element `1` of what `F` returns.|
+|`x = G(1)(0)`|`Function G(n As Long) As Long()`|The element `0` of what `G(1)` returns.|
+|`x = UBound(F)`|`Function F() As Long()`|The upper bound of what `F` returns.|
+|`x = F(1)`|`Function F() As Long()`|[VBC09342](../diagnostics/vbc09342.md) _Wrong number of arguments or invalid property assignment_.|
+|`x = G(1, 0)`|`Function G(n As Long) As Long()`|`VBC09342`, not a type mismatch of the array assigned to `x`.|
+
+> [!IMPORTANT]
+> **MS-VBAL §5.6.13** lets the arguments of a function "with a parameter list that cannot accept any parameters" index what it returns, when its
+> declared type is an array and they are as many as its rank: `F(1)` would be an element. **MS-VBA** gives them to the function, and refuses the
+> call at compile time (oracle\s55 A01). **RD-VBA** follows MS-VBA. A function that takes no parameters and returns a `Variant` or an object is
+> not given them: they index what it returns, as the spec says.
+
 ### Variant Holding an Array
 
 `RuntimeExpressionEvaluator.EvaluateIndex` unwraps a

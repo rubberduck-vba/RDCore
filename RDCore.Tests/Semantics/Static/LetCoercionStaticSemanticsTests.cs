@@ -228,6 +228,17 @@ public sealed class LetCoercionStaticSemanticsTests : StaticSemanticsTests
     public void ArrayOfExternalUdtToVariant_IsValid()
         => AssertValid(new VBResizableArrayType(Udt("Foo", external: true)), VBVariantType.TypeInfo);
 
+    // the record a Variant can't hold, which an argument given to a Variant parameter is refused for too (ArgumentListStaticSemantics).
+    [TestMethod]
+    public void TheRecordAVariantCantHold_IsAProjectsUdt_OrAnArrayOfOne()
+    {
+        Assert.AreEqual("Foo", LetCoercionStaticSemantics.RecordOf(Udt("Foo")));
+        Assert.AreEqual("Foo", LetCoercionStaticSemantics.RecordOf(new VBFixedSizeArrayType(Udt("Foo"))));
+        Assert.IsNull(LetCoercionStaticSemantics.RecordOf(Udt("Foo", external: true)));
+        Assert.IsNull(LetCoercionStaticSemantics.RecordOf(new VBResizableArrayType(Udt("Foo", external: true))));
+        Assert.IsNull(LetCoercionStaticSemantics.RecordOf(VBLongType.TypeInfo));
+    }
+
     // --- "An array of fixed-length strings" -> "Variant" is invalid. ---
 
     [TestMethod]

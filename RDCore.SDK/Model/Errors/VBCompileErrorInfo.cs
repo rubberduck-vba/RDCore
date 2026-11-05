@@ -157,5 +157,7 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant] = Exceptions.VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant,
         [VBCompileErrorId.ForEachMayOnlyIterateOverACollectionObjectOrAnArray] = Exceptions.VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray,
         [VBCompileErrorId.OutOfMemory] = Exceptions.VBCompileError_OutOfMemory,
+        [VBCompileErrorId.UserDefinedTypeMayNotBePassedByVal] = Exceptions.VBCompileError_UserDefinedTypeMayNotBePassedByVal,
+        [VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant] = Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant,
     };
 }

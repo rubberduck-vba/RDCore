@@ -115,6 +115,13 @@ internal sealed class ProgramDebugAdapter(
 
     private sealed record VariableScope(int Frame, DebugVariableScope Scope, int Reference);
 
+    // the targets a client was given to go on from, by the id it goes to one with: a line of a module, as the host said the program would go on from it. They
+    // are the targets of one stop: the program going on, or stopping again, forgets them, and an id given before is refused.
+    private readonly Dictionary<long, GotoPoint> _gotoTargets = [];
+    private long _nextGotoTarget;
+
+    private sealed record GotoPoint(string Module, int Line);
+
     /// <summary>Completes when the client has disconnected, or the adapter has nothing left to debug.</summary>
     public Task Closed => _closed.Task;
 
@@ -462,6 +469,7 @@ internal sealed class ProgramDebugAdapter(
         {
             _stepped = step is not null;
             _references.Clear();
+            _gotoTargets.Clear();
             _stoppedError = null;
         }
 
@@ -541,6 +549,7 @@ internal sealed class ProgramDebugAdapter(
             (stepped, paused, invalidate) = (_stepped, _paused, _invalidateOnStop);
             (_stepped, _paused, _invalidateOnStop) = (false, false, false);
             _stoppedError = result.ErrorNumber != 0 ? result : null;
+            _gotoTargets.Clear();
         }
 
         // the program went on with code that is not the code it waited in: the frames and the variables the client showed of it are not where they were.
@@ -779,20 +788,71 @@ internal sealed class ProgramDebugAdapter(
 
     // ---- the point the program goes on from ----
 
-    public Task<GotoTargetsResponse> Handle(GotoTargetsArguments request, CancellationToken cancellationToken)
-        => Task.FromResult(new GotoTargetsResponse
+    // a line is a target when the program could go on from it: the line of the first statement that begins on it or after it, in the procedure the program waits in,
+    // as the host says of the code as it is saved. A line of another procedure or source is none.
+    public async Task<GotoTargetsResponse> Handle(GotoTargetsArguments request, CancellationToken cancellationToken)
+    {
+        await _opened.Task.WaitAsync(cancellationToken);
+        if (request.Source?.Path is not { } path || !workspace.TryGetModule(path, out var module))
         {
-            Targets = new Container<GotoTarget>(new GotoTarget { Id = request.Line, Label = string.Format(DebuggerMessages.GotoTargetLine, request.Line), Line = (int)request.Line }),
-        });
+            return new GotoTargetsResponse { Targets = new Container<GotoTarget>() };
+        }
+
+        DebugGotoResult peeked;
+        await _going.WaitAsync(cancellationToken);
+        try
+        {
+            await LoadSavedAsync(cancellationToken);
+            peeked = await debugging.GotoAsync(module, ToLine(request.Line), peek: true, cancellationToken);
+            await editStatus.CheckAsync(cancellationToken);
+        }
+        finally
+        {
+            _going.Release();
+        }
+
+        if (!peeked.Moved)
+        {
+            return new GotoTargetsResponse { Targets = new Container<GotoTarget>() };
+        }
+
+        lock (_sync)
+        {
+            var id = ++_nextGotoTarget;
+            _gotoTargets[id] = new GotoPoint(module, peeked.Line);
+            var line = ToClientLine(peeked.Line);
+            return new GotoTargetsResponse
+            {
+                Targets = new Container<GotoTarget>(new GotoTarget
+                {
+                    Id = id,
+                    Label = string.Format(DebuggerMessages.GotoTargetLine, line),
+                    Line = line,
+                    Column = peeked.Character >= 0 ? ToClientColumn(peeked.Character) : null,
+                }),
+            };
+        }
+    }
 
     public async Task<GotoResponse> Handle(GotoArguments request, CancellationToken cancellationToken)
     {
+        GotoPoint? target;
+        lock (_sync)
+        {
+            _ = _gotoTargets.TryGetValue(request.TargetId, out target);
+        }
+
+        if (target is null)
+        {
+            throw Refusal(DebuggerMessages.CannotGoOnFromThere);
+        }
+
         // a point moved to is in the code as it is saved, which the host checks the edits against as it does when the program goes on: one request at a time.
         await _going.WaitAsync(cancellationToken);
         try
         {
             await LoadSavedAsync(cancellationToken);
-            var moved = await debugging.GotoAsync(ToLine(request.TargetId), label: null, cancellationToken);
+            var moved = await debugging.GotoAsync(target.Module, target.Line, peek: false, cancellationToken);
             await editStatus.CheckAsync(cancellationToken);
             if (!moved.Moved)
             {
@@ -805,6 +865,7 @@ internal sealed class ProgramDebugAdapter(
             lock (_sync)
             {
                 _references.Clear();
+                _gotoTargets.Clear();
                 (edited, _editedWhileWaiting) = (_editedWhileWaiting, false);
             }
 
@@ -830,7 +891,12 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<TerminateResponse> Handle(TerminateArguments request, CancellationToken cancellationToken)
     {
-        _ = await debugging.TerminateAsync(wipe: true, cancellationToken);
+        // a program in a call outside it ends when the call returns: the request that runs it answers then, and the end is told as the end of any run is.
+        if ((await debugging.TerminateAsync(wipe: true, cancellationToken)).Stopping)
+        {
+            Say(DebuggerMessages.StillStopping + "\n", OutputEventCategory.Console);
+            return new TerminateResponse();
+        }
 
         // a program that is over has no edits it does not have.
         await editStatus.CheckAsync(cancellationToken);

@@ -68,6 +68,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     private ProgramEdits? _suspendedWith;
     private bool _terminating;
     private bool _wipeOnTerminate;
+
+    // whether the program that runs was started under a debugger, which can stop it; and a stop asked of it before it executes, which it is asked as it starts.
+    private bool _debugging;
+    private bool _stopWhenStarted;
     private TaskCompletionSource _idle = Settled();
     private readonly ProgramInspector _inspector = new(provider);
     private bool _streaming;
@@ -187,6 +191,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             _state = ProgramState.Running;
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
+            (_debugging, _stopWhenStarted) = (debug, false);
             _streaming = debug && streamOutput;
             session.RunsUnattended = unattended;
         }
@@ -283,8 +288,14 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// </summary>
     /// <param name="line">The zero-based line of the source to go on from. Ignored when <paramref name="label"/> is given.</param>
     /// <param name="label">A statement label or line number of the procedure to go on from.</param>
+    /// <param name="moduleName">The module <paramref name="line"/> is a line of, or <see langword="null"/> for the module of the procedure the program waits in.</param>
+    /// <param name="peek">Whether nothing is moved, and the answer only says where the program would go on from.</param>
     /// <returns>Where the program goes on from, or why it was not moved.</returns>
-    public DebugGotoResult Goto(int line, string? label)
+    /// <remarks>
+    /// A line is a line of the procedure the program waits in, as the session defines it now: the first statement that begins on it or after it is one of that
+    /// procedure only when the line is, and a line of another procedure or module would otherwise land on a statement nobody pointed at.
+    /// </remarks>
+    public DebugGotoResult Goto(int line, string? label, string? moduleName = null, bool peek = false)
     {
         lock (_sync)
         {
@@ -298,12 +309,21 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 return NotMoved(string.Format(Resources.Host_ChangedWhileWaiting_Goto, string.Join(", ", changed)));
             }
 
-            // the line to go on from is a line of the code as it is now.
-            GoOnInTheEditedCode();
-
-            if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
+            if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } waitedIn } frame)
             {
                 return NotMoved(Resources.Host_WaitsInNoProcedure);
+            }
+
+            // the line to go on from is a line of the code as it is now, which a move goes on in and a peek only looks at.
+            var body = waitedIn;
+            if (!peek)
+            {
+                GoOnInTheEditedCode();
+                body = frame.Body ?? waitedIn;
+            }
+            else if (frame.Procedure is { } waiting && provider.Image.TryGetValue(waiting.SemanticId, out var edited))
+            {
+                body = edited;
             }
 
             int offset;
@@ -314,20 +334,48 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                     return NotMoved(string.Format(Resources.Host_NoSuchLabel, label));
                 }
             }
-            else if (!body.TryGetOffsetAtLine(line, out offset))
+            else
             {
-                return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
+                if (frame.Procedure is { } procedure)
+                {
+                    var module = ProgramInspector.ModuleNameOf(frame);
+                    if (moduleName is { Length: > 0 } && !string.Equals(moduleName, module, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return NotMoved(string.Format(Resources.Host_GotoInAnotherModule, moduleName, module));
+                    }
+
+                    var extent = (ProgramEdits.CurrentProcedureOf(provider.Session, frame) ?? procedure).Range;
+                    if (line < extent.Start.Line || line > extent.End.Line)
+                    {
+                        return NotMoved(string.Format(Resources.Host_GotoOutsideTheProcedure, $"{module}.{procedure.Name}"));
+                    }
+                }
+
+                if (!body.TryGetOffsetAtLine(line, out offset))
+                {
+                    return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
+                }
+            }
+
+            if (peek)
+            {
+                return MovedTo(body, offset);
             }
 
             frame.MoveTo(offset);
-            var location = offset < body.Items.Length ? body.Items[offset].Location : null;
-            return new DebugGotoResult
-            {
-                Moved = true,
-                Line = location?.Range.Start.Line ?? -1,
-                Character = location?.Range.Start.Character ?? -1,
-            };
+            return MovedTo(body, offset);
         }
+    }
+
+    private static DebugGotoResult MovedTo(InstructionList body, int offset)
+    {
+        var location = offset < body.Items.Length ? body.Items[offset].Location : null;
+        return new DebugGotoResult
+        {
+            Moved = true,
+            Line = location?.Range.Start.Line ?? -1,
+            Character = location?.Range.Start.Character ?? -1,
+        };
     }
 
     private static DebugGotoResult NotMoved(string reason) => new() { Reason = reason };
@@ -697,13 +745,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     {
         lock (_sync)
         {
-            if (_state is not ProgramState.Running || _execution is null)
+            if (_state is not ProgramState.Running || !_debugging)
             {
                 return false;
             }
 
-            // a step into is due at the very next instruction, whichever procedure it is in: that is a pause.
-            provider.Session.Halt.RequestStep(StepKind.Into, callDepth: 0);
+            StopAtTheNextInstruction();
             return true;
         }
     }
@@ -712,8 +759,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// Ends the program that is running or waits.
     /// </summary>
     /// <param name="wipe">Whether the session is wiped, as an <c>End</c> wipes it, or keeps what the program made of it.</param>
-    /// <returns>Whether there was a program to end.</returns>
-    public async Task<bool> TerminateAsync(bool wipe)
+    /// <param name="token">
+    /// Stops the wait for a program that is running to stop: one in a call outside it - a <c>Declare</c>, an object, a dialog - stops when the call returns, and the
+    /// end that was asked of it stands meanwhile.
+    /// </param>
+    /// <returns>Whether there was a program to end, and whether it had not stopped yet when the wait was stopped.</returns>
+    public async Task<DebugAck> TerminateAsync(bool wipe, CancellationToken token = default)
     {
         Task idle;
         lock (_sync)
@@ -721,33 +772,56 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             switch (_state)
             {
                 case ProgramState.Idle:
-                    return false;
+                    return new DebugAck();
 
                 // what runs alongside the program is let finish: it is short, and it is what the program would be ended in the middle of.
                 case ProgramState.Suspended when _alongside:
-                    return false;
+                    return new DebugAck();
 
                 case ProgramState.Suspended:
                     EndSuspended(provider.Session, wipe);
-                    return true;
+                    return new DebugAck { Acted = true };
 
                 default:
                     // a program that is not under a debugger has nothing to stop it at: it ends when it ends, or when its request is cancelled.
-                    if (_execution is null)
+                    if (!_debugging)
                     {
-                        return false;
+                        return new DebugAck();
                     }
 
                     // a program that is running is stopped first, and ended by the request that runs it when it waits.
                     (_terminating, _wipeOnTerminate) = (true, wipe);
                     idle = _idle.Task;
-                    provider.Session.Halt.RequestStep(StepKind.Into, callDepth: 0);
+                    StopAtTheNextInstruction();
                     break;
             }
         }
 
-        await idle;
-        return true;
+        try
+        {
+            await idle.WaitAsync(token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // the end stands: the program ends at its next instruction, once the call it is in returns.
+            return new DebugAck { Acted = true, Stopping = true };
+        }
+
+        return new DebugAck { Acted = true };
+    }
+
+    // a step into is due at the very next instruction, whichever procedure it is in: that is a pause. A program that was started and is not executing yet - it
+    // waits for its turn, or is being set up - would lose a step asked of it now (a run starts as one that was never stopped): it is asked of it as it starts.
+    // Called with the lock held.
+    private void StopAtTheNextInstruction()
+    {
+        if (_execution is null)
+        {
+            _stopWhenStarted = true;
+            return;
+        }
+
+        provider.Session.Halt.RequestStep(StepKind.Into, callDepth: 0);
     }
 
     // ---- a statement typed while the program waits ----
@@ -823,6 +897,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             execution = _execution = new SuspendableExecution(session);
             _output = NewSegmentOutput();
             provider.Output.Target = _output;
+            if (_stopWhenStarted)
+            {
+                _stopWhenStarted = false;
+                session.Halt.RequestStep(StepKind.Into, callDepth: 0);
+            }
         }
 
         try

@@ -16,17 +16,18 @@ public sealed class ProjectFileTests
     private static string TestFolder { get; } = "test/projectfile";
 
     [TestMethod]
-    public void Version_ServerAppVersionByDefault()
+    public void Version_IsEmptyUntilAPlatformWritesIt_ThenTheServerAppVersion()
     {
         // arrange
         var expected = RDCorePlatformServerHost<RDCoreServerApp>.Info.Version!.ToString(3);
         var sut = new ProjectFile();
 
         // act
-        var version = sut.Version;
+        var written = sut.WithCurrentVersion();
 
         // assert
-        Assert.AreEqual(expected, version);
+        Assert.AreEqual(string.Empty, sut.Version);
+        Assert.AreEqual(expected, written.Version);
     }
 
     [TestMethod]

@@ -132,7 +132,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09377](vbc09377.md)|Expected variable or procedure, not enum type — an enumeration, `Color`, is written where a value is|
 |[VBC09378](vbc09378.md)|With object must be user-defined type, Object, or Variant — a `With` block is about a value that has no members|
 |[VBC09379](vbc09379.md)|For Each may only iterate over a collection object or an array — a `For Each` loop iterates a value that has no elements|
-|[VBC09380](vbc09380.md)|Out of memory — a module declares more than 10,000 names at module level|
+|[VBC09380](vbc09380.md)|Out of memory — a module declares more than 10,000 names at module level, or a fixed-size array of more elements than RD-VBA holds|
+|[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal — a parameter of a record is declared `ByVal`|
+|[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions — a record is given to a `Variant`|
 
 ### Runtime errors
 
