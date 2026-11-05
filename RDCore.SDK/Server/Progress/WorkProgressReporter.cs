@@ -164,17 +164,36 @@ public sealed class WorkProgressReporter(TimeSpan? threshold = null, TimeProvide
                 return;
             }
 
-            lock (_gate)
+            // a step reported while the client was being told the work began found no observer to send it to, and was only kept: it is sent before the
+            // observer is kept, so that every step reported after the begin is sent, in the order the steps were reported.
+            var sent = (begin.Message, begin.Percentage);
+            while (true)
             {
-                if (!_completed)
+                (string? Message, int? Percentage) step;
+                bool completed;
+                lock (_gate)
                 {
-                    _observer = observer;
+                    (step, completed) = ((_message, _percentage), _completed);
+                    if (!completed && step == sent)
+                    {
+                        _observer = observer;
+                        return;
+                    }
+                }
+
+                if (step != sent)
+                {
+                    observer.OnNext(step.Message!, step.Percentage, false);
+                    sent = step;
+                }
+
+                if (completed)
+                {
+                    // the work was completed while the client was being told it began: it is told it ended.
+                    End(observer, _ending);
                     return;
                 }
             }
-
-            // the work was completed while the client was being told it began: it is told it ended.
-            End(observer, _ending);
         }
 
         public void Report(WorkProgressStep value)
