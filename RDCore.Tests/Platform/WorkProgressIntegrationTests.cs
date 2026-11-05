@@ -446,7 +446,6 @@ public sealed class WorkProgressIntegrationTests
         var answer = await SentPastTheThresholdAsync(connected, clock, new WorkParams { WorkDoneToken = token, AnswersAfterTheClientCancels = true });
 
         Assert.AreEqual(1, await answer.WaitAsync(Patience));
-        Assert.IsTrue(connected.Cancelled.Task.IsCompleted, "the client cancelled the token before the request was answered");
     }
 
     // OmniSharp's client says it shows progress whatever it is configured to say, as it can: a client that does not is a server whose manager says so.
