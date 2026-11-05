@@ -931,6 +931,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <param name="slot">The number of its slot.</param>
     internal void PushCell(Symbol symbol, ScalarCell cell, int slot) => Hold(symbol, cell, cell.Type.DefaultValue.Size, slot);
 
+    /// <summary>
+    /// What is bound at the address the variable in slot <paramref name="slot"/> was given, when the slot holds an address rather than a cell: the variable's
+    /// cell, unless a <c>POKE</c> bound another there since.
+    /// </summary>
+    internal bool TryGetAddressedSlot(int slot, [NotNullWhen(true)] out IBindingHandle? handle)
+    {
+        handle = null;
+        return (uint)slot < (uint)_slots.Length && _slots[slot] is { IsFilled: true, Cell: null } held && Storage.TryRead(held.Address, out handle);
+    }
+
     /// <summary>Whether slot <paramref name="slot"/> of the activation's layout holds a variable: a cell, or an address.</summary>
     internal bool IsSlotFilled(int slot) => (uint)slot < (uint)_slots.Length && _slots[slot].IsFilled;
 

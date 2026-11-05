@@ -51,6 +51,10 @@ internal sealed class ProcedureEmitter
     private bool _dispatches;
     private LocalBuilder? _result;
 
+    // a variable not read back from the frame (EmitReload): the interpreter runs the activation from pc, as the frame has it.
+    private readonly Label _unread;
+    private bool _unreads;
+
     // Opened: whether the loop's statement ever ran, and gave it an end and a step - kept when the loop ends, and when its statement, run again, fails.
     // Spilled: whether the frame has the end and the step the statement last gave it, which nothing but the statement changes: written once, not at each
     // instruction the interpreter runs alone.
@@ -60,7 +64,7 @@ internal sealed class ProcedureEmitter
     {
         (_analysis, _directs, _il) = (analysis, directs, il);
         _pc = il.DeclareLocal(typeof(int));
-        _walkBack = il.DefineLabel();
+        (_walkBack, _unread) = (il.DefineLabel(), il.DefineLabel());
         (_recover, _recovered, _reentry, _dispatch) = (il.DefineLabel(), il.DefineLabel(), il.DefineLabel(), il.DefineLabel());
     }
 
@@ -171,6 +175,7 @@ internal sealed class ProcedureEmitter
         EmitWalkBack();
         EmitRecover();
         EmitDispatch();
+        EmitUnread();
     }
 
     /// <summary>The CLR type a payload of <paramref name="kind"/> is held in: a <see cref="long"/> of an integral kind, a <see cref="double"/> of a floating-point one.</summary>
@@ -328,7 +333,7 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ldloc, _pc);
         _il.Emit(OpCodes.Ldc_I4, offset + 1);
         _il.Emit(OpCodes.Bne_Un, _recovered);
-        EmitReload();
+        EmitReload(_unread);
         _il.Emit(OpCodes.Br, _instructions[offset + 1]);
     }
 
@@ -427,11 +432,38 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
         _il.MarkLabel(returned);
 
+        // a variable the debugger left where compiled code cannot read it: the call's result written into the frame, and the activation the interpreter's from
+        // after the call.
         var current = _il.DefineLabel();
+        var unread = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
         _il.Emit(OpCodes.Brfalse, current);
-        EmitReload();
+        EmitReload(unread);
+        _il.Emit(OpCodes.Br, current);
+        _il.MarkLabel(unread);
+        if (call.Result != CallStep.NoResult)
+        {
+            var kind = _analysis.Callees[call.Callee].Result!.Value;
+            _il.Emit(OpCodes.Ldarg_0);
+            if (call.Result >= 0)
+            {
+                _il.Emit(OpCodes.Ldc_I4, call.Result);
+            }
+
+            _il.Emit(OpCodes.Ldloc, ScalarKinds.IsIntegral(kind) ? integral : floating);
+            _il.Emit(OpCodes.Call, Activation.GetMethod((call.Result >= 0, ScalarKinds.IsIntegral(kind)) switch
+            {
+                (true, true) => nameof(CompiledActivation.SpillIntegral),
+                (true, false) => nameof(CompiledActivation.SpillFloating),
+                (false, true) => nameof(CompiledActivation.AssignResultIntegral),
+                (false, false) => nameof(CompiledActivation.AssignResultFloating),
+            })!);
+        }
+
+        _il.Emit(OpCodes.Ldc_I4, call.Offset + 1);
+        _il.Emit(OpCodes.Stloc, _pc);
+        _il.Emit(OpCodes.Br, _unread);
         _il.MarkLabel(current);
 
         if (call.Result != CallStep.NoResult)
@@ -500,9 +532,11 @@ internal sealed class ProcedureEmitter
     }
 
     // every variable read back from its cell, which a debugger may have changed while the program waited - but one held in a cell, which compiled code
-    // reads where it is.
-    private void EmitReload()
+    // reads where it is. One whose cell holds no payload it knows - a callee outside the platform may have written it - goes to unread, the frame left as it
+    // is: what the interpreter reads from there on.
+    private void EmitReload(Label unread)
     {
+        _unreads = true;
         foreach (var (slot, kind) in _analysis.Slots)
         {
             if (_cells.ContainsKey(slot))
@@ -514,7 +548,7 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, _slots[slot]);
             _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
-            _il.Emit(OpCodes.Pop);
+            _il.Emit(OpCodes.Brfalse, unread);
         }
 
         // the function result variable too, which the spill before the call wrote.
@@ -525,8 +559,23 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(_analysis.ResultKind!.Value)
                 ? nameof(CompiledActivation.TryReadResultIntegral)
                 : nameof(CompiledActivation.TryReadResultFloating))!);
-            _il.Emit(OpCodes.Pop);
+            _il.Emit(OpCodes.Brfalse, unread);
         }
+    }
+
+    // the activation the interpreter's from pc, the frame as it is: a variable was not read back from it (EmitReload).
+    private void EmitUnread()
+    {
+        if (!_unreads)
+        {
+            return;
+        }
+
+        _il.MarkLabel(_unread);
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloc, _pc);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Interpret))!);
+        _il.Emit(OpCodes.Ret);
     }
 
     // the activation is handed to the interpreter between two instructions, before this one, when the program is to stop or a debugger is attached.
@@ -751,7 +800,7 @@ internal sealed class ProcedureEmitter
 
         // the re-entry: every variable and the function result, and the state of each loop - which an opener the interpreter ran gave it.
         _il.MarkLabel(_reentry);
-        EmitReload();
+        EmitReload(_unread);
         for (var i = 0; i < _loops.Count; i++)
         {
             var loop = _loops[i];

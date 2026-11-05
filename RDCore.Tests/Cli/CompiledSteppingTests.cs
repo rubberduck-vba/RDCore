@@ -221,6 +221,24 @@ public sealed class CompiledSteppingTests
         await AssertAlikeAsync(program, "Labelled", recoveries: 6);
     }
 
+    // a variable a statement the interpreter runs gives an address - its VarPtr, an argument passed by reference to a Declare - is read back and written
+    // where the frame holds it from then on: the cell bound at its address.
+    [TestMethod]
+    public async Task AVariableTheInterpreterGivesAnAddress_IsReadWhereItIs()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Touched()",
+            "End Sub",
+            "Private Function Touched() As Long",
+            "    Dim N As Long, I As Long, P As LongPtr",
+            "    N = 5",
+            "    For I = 1 To 2",
+            "        P = VarPtr(N)",
+            "        Touched = Touched + N",
+            "        N = N + 1",
+            "    Next",
+            "End Function"), "Touched", recoveries: 2);
+
     // a body that would do nothing of its own compiled - every statement that does something the interpreter's - is the interpreter's whole, and says why.
     [TestMethod]
     public async Task ABodyEveryStatementOfWhichIsTheInterpreters_IsInterpreted_WithItsReasons()

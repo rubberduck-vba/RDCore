@@ -32,6 +32,10 @@ or bounds compiled code doesn't do. Compiled code first writes its variables int
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
 
+A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
+address from then on. Sometimes compiled code can't read a variable back, for example after a debugger wrote bytes at its address while the program waited.
+Then the interpreter runs the rest of the activation, with the variables as the frame has them.
+
 These keep the whole procedure in the interpreter:
 
 - a `With`, a `Select Case` or a `For Each`;

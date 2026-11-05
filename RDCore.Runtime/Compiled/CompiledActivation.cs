@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Compiled;
@@ -84,7 +85,7 @@ public sealed class CompiledActivation : ILightActivation
     {
         Array.Clear(_cells);
         _scopes = _session.Symbols.Scopes;
-        (_pc, _hasResult, _failed) = (0, false, null);
+        (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
         _untilPoll = PollInterval;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
@@ -307,6 +308,9 @@ public sealed class CompiledActivation : ILightActivation
     // what the last call that did not return did: the error it raised, or that the program was stopped in it; none when the callee was not one compiled code
     // calls, and the interpreter makes the call.
     private RuntimeExecutionOutcome? _failed;
+
+    // a variable compiled code could not write into its frame (Spill): the frame has the activation as compiled code does not, and the interpreter goes on with it.
+    private bool _unspilled;
 
     private int _suspensionsBeforeCall;
 
@@ -590,11 +594,14 @@ public sealed class CompiledActivation : ILightActivation
         return _executor.RunAfter(_session, frame, list, _context, pc, outcome);
     }
 
-    /// <summary>The payload of the parameter in <paramref name="slot"/>, of an integral kind, when its cell holds one.</summary>
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of an integral kind, when its cell holds one it knows. When it does not, compiled code hands the
+    /// activation to the interpreter, which reads the variable where the frame has it.
+    /// </summary>
     public bool TryReadIntegral(int slot, out long value)
     {
         value = 0;
-        if (!Frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
+        if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
             return false;
         }
@@ -603,17 +610,38 @@ public sealed class CompiledActivation : ILightActivation
         return true;
     }
 
-    /// <summary>The payload of the parameter in <paramref name="slot"/>, of a floating-point kind, when its cell holds one.</summary>
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of a floating-point kind, when its cell holds one it knows. When it does not, compiled code
+    /// hands the activation to the interpreter.
+    /// </summary>
     public bool TryReadFloating(int slot, out double value)
     {
         value = 0;
-        if (!Frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
+        if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
             return false;
         }
 
         value = payload.Floating;
         return true;
+    }
+
+    // the cell of the variable in slot: the one its slot holds; or, once the variable was given an address - passed by reference to a Declare, its VarPtr
+    // taken - the cell bound at the address, while that is a cell of the variable's type.
+    private bool TryGetScalarCell(int slot, [NotNullWhen(true)] out ScalarCell? scalar)
+    {
+        var frame = Frame;
+        if (frame.TryGetSlotCell(slot, out var cell))
+        {
+            scalar = cell as ScalarCell;
+            return scalar is not null;
+        }
+
+        scalar = frame.TryGetAddressedSlot(slot, out var bound) && bound is ScalarCell held
+            && _body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && held.Type.Equals(type)
+            ? held
+            : null;
+        return scalar is not null;
     }
 
     /// <summary>The payload of the function result variable, of an integral kind, when it holds one: what a debugger may have assigned it while the program waited.</summary>
@@ -640,14 +668,17 @@ public sealed class CompiledActivation : ILightActivation
 
     private void Spill(int slot, long integral, double floating)
     {
-        var frame = Frame;
-        if (frame.TryGetSlotCell(slot, out var cell))
+        if (TryGetScalarCell(slot, out var scalar))
         {
-            if (cell is ScalarCell scalar)
-            {
-                scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
-            }
+            scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
+            return;
+        }
 
+        // a variable the frame holds where compiled code cannot write it - a cell of another kind, at its address - is the interpreter's (Recover).
+        var frame = Frame;
+        if (frame.IsSlotFilled(slot))
+        {
+            _unspilled = true;
             return;
         }
 
@@ -710,10 +741,20 @@ public sealed class CompiledActivation : ILightActivation
     /// <remarks>
     /// The interpreter goes on with the activation when the program waited while the instruction ran - at its error, which a debugger asked to see - or the
     /// interpreter is wanted, or the symbols were defined again; and when the activation goes on inside a <c>For</c> loop the frame holds no state of, which
-    /// compiled code would step with what it does not have.
+    /// compiled code would step with what it does not have. It runs the activation from <paramref name="pc"/> without stepping, when compiled code could not
+    /// write a variable into the frame.
     /// </remarks>
     public int Recover(int pc)
     {
+        // a variable not written into the frame: the interpreter runs the activation from the instruction, as the frame has it.
+        if (_unspilled)
+        {
+            _unspilled = false;
+            _recovered = _failed is null ? Interpret(pc) : AfterFailedCall(pc);
+            _failed = null;
+            return -1;
+        }
+
         var frame = Frame;
         (frame.Pc, frame.RunsCompiled) = (pc, false);
         var failed = _failed;
@@ -727,7 +768,9 @@ public sealed class CompiledActivation : ILightActivation
             return -1;
         }
 
-        // an instruction that falls through goes on inside no loop it was not inside, whose state the frame has: compiled code was there.
+        // an instruction that falls through goes on inside the loops it was inside, whose state the frame has: compiled code was there. A For statement is the
+        // one that falls through into a loop, when its start, end or step failed under Resume Next - and the interpreter gave the loop a state then, the one
+        // it had or a 0 end and step (ProcedureExecutor.Unevaluated, as MS-VBA does), which the re-entry reads back.
         if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list)
             || (frame.Pc != pc + 1 && !CanGoOnAt(frame, list, frame.Pc)))
         {

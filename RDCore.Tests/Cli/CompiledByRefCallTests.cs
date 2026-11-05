@@ -524,6 +524,67 @@ public sealed class CompiledByRefCallTests
         return observed;
     }
 
+    // a byte POKEd at the address of a variable of a compiled caller - given it by a VarPtr the interpreter ran - while the program waits in a callee compiled
+    // code called: the address holds a binding of its own then, which compiled code does not read back, and the interpreter goes on with the activation after
+    // the call.
+    private static async Task<(string Observed, long WalkBacks)> PokedAboveWaitAsync(VBExecutionEngine engine)
+    {
+        (string Observed, long WalkBacks) observed = default;
+        using var running = CompiledExecution.Running(engine);
+        await ModuleWorkspace.InspectAsync([], Program(
+            "Public Sub Main()",
+            "    Debug.Print Go()",
+            "End Sub",
+            "Private Function Go() As Long",
+            "    Dim n As Long, p As LongLong, i As Long",
+            "    n = 1",
+            "    p = VarPtr(n)",
+            "    Wait p",
+            "    For i = 1 To 2",
+            "        Go = Go + n",
+            "    Next",
+            "End Function",
+            "Private Sub Wait(ByVal p As LongLong)",
+            "    Stop",
+            "End Sub"), async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var wait = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Wait").Id;
+                var address = int.Parse(provider.Execution.Variables(wait, DebugVariableScope.Locals, 0).Variables.Single(variable => variable.Name == "p").Value,
+                    System.Globalization.CultureInfo.InvariantCulture);
+                var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = address, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
+                Assert.IsTrue(poked.IsWritten);
+                observed.Observed = Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                    .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
+                observed.WalkBacks = provider.Image.Compiler.Results.SingleOrDefault(entry => entry.Procedure.Name == "Go").Result?.Body?.WalkBacks ?? 0;            }
+            finally
+            {
+                if (provider.Execution.State is not ProgramState.Idle)
+                {
+                    _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+                }
+            }
+        }, debug: true, engine: engine);
+        return observed;
+    }
+
+    [TestMethod]
+    public async Task AByteWrittenAtTheAddressOfACompiledVariable_WhileTheProgramWaitsInACallee_IsReadByTheInterpreterAfterTheCall()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await PokedAboveWaitAsync(VBExecutionEngine.Interpreter);
+        var compiled = await PokedAboveWaitAsync(VBExecutionEngine.Compiled);
+
+        StringAssert.Contains(interpreted.Observed, "| 84 |");
+        Assert.AreEqual(interpreted.Observed, compiled.Observed);
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(1, compiled.WalkBacks, "Go's walk-backs");
+        }
+    }
+
     [TestMethod]
     public async Task AByteWrittenAtTheAddressOfAParameterPassedByReference_IsWrittenIntoTheCallersVariable()
     {
