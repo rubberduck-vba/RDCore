@@ -92,6 +92,10 @@ public sealed class ExpressionNestingTests
     [DataRow("Call F(a:={0})", 1)]
     [DataRow("Call F(ByVal {0})", 1)]
     [DataRow("x = F(1, a:={0})", 1)]
+    [DataRow("F {0}", 1)]
+    [DataRow("F 1, {0}", 1)]
+    [DataRow("F a:={0}", 1)]
+    [DataRow("x = TypeOf {0} Is Object", 1)]
     public void AnExpressionAtTheLimit_IsRead_AndOnePast_IsExpressionNestedTooDeeply(string statement, int levels)
     {
         ModuleParseResult ParseWith(int parentheses)
@@ -102,6 +106,38 @@ public sealed class ExpressionNestingTests
 
         Assert.IsTrue(atTheLimit.IsSuccess, Describe(atTheLimit));
         Assert.AreEqual(VBCompileErrorId.ExpressionNestedTooDeeply, (VBCompileErrorId)Assert.ContainsSingle(pastIt.SyntaxErrors, Describe(pastIt)).ErrorId);
+    }
+
+    // each link of a fluent chain is a member access and an index expression, and its owner is nested in both: b is nested in 2,500 expressions at 1,250 links.
+    [TestMethod]
+    [DataRow(ModuleParser.MaxExpressionNesting / 2, true)]
+    [DataRow(ModuleParser.MaxExpressionNesting / 2 + 1, false)]
+    public void AFluentChain_IsNestedTwoLevelsALink(int links, bool read)
+    {
+        var result = Parse("b" + string.Concat(Enumerable.Repeat(".Add(1)", links)));
+
+        if (read)
+        {
+            Assert.IsTrue(result.IsSuccess, Describe(result));
+        }
+        else
+        {
+            Assert.AreEqual(VBCompileErrorId.ExpressionNestedTooDeeply, (VBCompileErrorId)Assert.ContainsSingle(result.SyntaxErrors, Describe(result)).ErrorId);
+        }
+    }
+
+    [TestMethod]
+    public void TwoArgumentsOfABareCallPastTheLimit_AreReportedOnce_AsInACallWithCall()
+    {
+        var past = Parenthesized(ModuleParser.MaxExpressionNesting);
+        ModuleParseResult ParseWith(string statement)
+            => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    {statement}\r\nEnd Sub\r\n");
+
+        var bare = ParseWith($"F {past}, {past}");
+        var withCall = ParseWith($"Call F({past}, {past})");
+
+        Assert.AreEqual(1, bare.SyntaxErrors.Count(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(bare));
+        Assert.AreEqual(1, withCall.SyntaxErrors.Count(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(withCall));
     }
 
     [TestMethod]

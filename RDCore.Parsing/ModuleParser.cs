@@ -12,6 +12,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform;
@@ -640,14 +641,23 @@ public partial class ModuleParser(
             var inner = expression is null ? nesting : nesting + 1;
             foreach (var child in node.ChildNodes().Reverse())
             {
+                // the arguments of a bare call statement (`F 1, x`, `F (x)`) are nested in its call, as those of `Call F(1, x)` are in its index expression, and
+                // are reported with its callee, once for the statement.
+                if (node is CallStatementNode call && !ReferenceEquals(child, call.Callee))
+                {
+                    pending.Push((child, 1, call.Callee));
+                    continue;
+                }
+
                 pending.Push((child, outermost is null ? 0 : inner, outermost));
             }
         }
     }
 
-    // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold). What is written around an argument
-    // to pass it by name (a:=) or ByVal nests it in nothing more than its call; an object-print-expression (MS-VBAL 5.6) takes an output list, not arguments,
-    // so neither it, an item of its list, nor a Spc or Tab clause nests what it prints.
+    // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold, the owner of a member access, the
+    // callee of an index expression, what New, TypeOf...Is and AddressOf are written around). What is written around an argument to pass it by name (a:=) or
+    // ByVal nests it in nothing more than its call; Debug.Print takes an output list (MS-VBAL 5.4.5.8.1, the list of the Print statement of 5.4.5.8), not
+    // arguments, so neither it, an item of its list, nor a Spc or Tab clause nests what it prints.
     private static ExpressionNode? AsALevelOfNesting(SyntaxNode node)
         => node is ExpressionNode expression and not (NamedArgumentNode or ByValArgumentExpressionNode or ObjectPrintExpressionNode or PrintOutputItemNode
             or PrintSpcClauseNode or PrintTabClauseNode) ? expression : null;
