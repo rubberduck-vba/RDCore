@@ -74,7 +74,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(observed, "| 105 |");
         AssertCalls(100, (direct, 0));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             var (frames, activations) = (0L, 0L);
             await RunAsync(program, VBExecutionEngine.Compiled, [], provider =>
@@ -182,7 +182,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(observed, "| 65 |");
         AssertCalls(2 + 10 + 4, (direct, 0));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             var activations = (await RunAsync(program, VBExecutionEngine.Compiled, [], provider => BodyOf(provider, "Add").ActivationsMade)).Measured;
             Assert.IsGreaterThanOrEqualTo(1L, activations, "Add is called directly");
@@ -275,7 +275,7 @@ public sealed class CompiledByRefCallTests
             "End Sub"), provider => BodyOf(provider, "Increment").DirectCalls + BodyOf(provider, "Increment").WalkBacks, classes);
 
         StringAssert.StartsWith(observed, "Completed |");
-        if (CompiledExecution.WalksBackAtRandom)
+        if (CompiledExecution.HandsOverAtRandom)
         {
             Assert.IsGreaterThanOrEqualTo(2L, entered);
         }
@@ -333,7 +333,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(compiled.Observed, "| 100 |");
         Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(300L, compiled.Indirect, "Go is compiled, and calls Touch through the invoker");
         }
@@ -374,7 +374,7 @@ public sealed class CompiledByRefCallTests
             "End Sub"), provider => BodyOf(provider, "Count").IndirectCalls);
 
         StringAssert.Contains(observed, "| 10 |");
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(10L, indirect);
         }
@@ -461,7 +461,7 @@ public sealed class CompiledByRefCallTests
                         CancellationToken.None).WaitAsync(Patience);
                 Assert.IsTrue(assigned.Success, assigned.Error);
                 observed += $" | n={ValueIn("Go", "n")}";
-                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.WalksBackAtRandom)
+                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.AreEqual(1L, BodyOf(provider, "Go").DirectCalls, "Go calls Bump through its typed entry");
                 }
@@ -579,7 +579,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(interpreted.Observed, "| 84 |");
         Assert.AreEqual(interpreted.Observed, compiled.Observed);
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(0, compiled.WalkBacks, "Go's walk-backs");
         }

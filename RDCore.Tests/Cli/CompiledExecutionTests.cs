@@ -93,7 +93,7 @@ public sealed class CompiledExecutionTests
                 Assert.IsGreaterThan(0L, result.Body.WalkBacks, $"{name} ran to its end in compiled code");
             }
             // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
-            else if (!CompiledExecution.WalksBackAtRandom)
+            else if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.AreEqual(0L, result.Body.WalkBacks, $"{name} was handed to the interpreter");
             }
@@ -436,7 +436,7 @@ public sealed class CompiledExecutionTests
         Assert.AreEqual(6, run.Result.ErrorNumber);
 
         // under the random walk-back the activation may be handed over before it gets to the store, and the interpreter raises the error all the same.
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
             Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");

@@ -933,7 +933,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// What is bound at the address the variable in slot <paramref name="slot"/> was given, when the slot holds an address rather than a cell: the variable's
-    /// cell, unless a <c>POKE</c> bound another there since.
+    /// cell, unless something other than a cell is bound there.
     /// </summary>
     internal bool TryGetAddressedSlot(int slot, [NotNullWhen(true)] out IBindingHandle? handle)
     {
@@ -1020,8 +1020,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return false;
     }
 
-    // the address of a variable that has none yet: the cell is bound at it, and is reached through it from now on - a POKE rebinds what is at an address,
-    // which a slot that held the cell would not see, so the slot holds the address instead.
+    // the address of a variable that has none yet: the cell is bound at it, and is reached through it from now on - something other than a cell may be
+    // bound at an address, which a slot that held the cell would not see, so the slot holds the address instead.
     // NOTE: TryAllocate failing here (storage exhausted) needs to surface as a coded VBRuntimeErrorId.OutOfMemory runtime error once this has a caller with
     // a source location to attach it to - matches RuntimeSymbolResolver.TryAllocate's own documented contract.
     private bool TryGiveAddress(Symbol symbol, out MemoryAddress address)
@@ -1255,8 +1255,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     // the slots of the activation (IR lowering D2), filled as they are read: each holds the cell of a variable that has no address, or the address of one
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
-    // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address does (a POKE
-    // rebinds it), which is why it is read there every time rather than kept.
+    // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address may (a POKE
+    // rebinds one that is not a cell), which is why it is read there every time rather than kept.
     private readonly record struct Slot(bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType, int Size, bool IsAlias = false);
 
     private FrameLayout? _layout;

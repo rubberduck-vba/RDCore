@@ -240,8 +240,24 @@ internal static class CompiledExecution
     public static bool WalksBackAtRandom { get; set; }
 
     /// <summary>
-    /// What the random walk-back's safepoints are chosen with (<see cref="CompiledBody.NextRandomSafepoint"/>): a run that fails is replayed with the same
-    /// seed. The test assembly sets it from <c>RDCORE_WALKBACK_SEED</c>, and to 1 when that is not set.
+    /// Whether each compiled activation fails one access of its frame chosen at random - a variable read back after the interpreter ran an instruction, or
+    /// written into the frame before it does - as compiled code fails one when the frame holds a variable where it cannot read or write it: the read hands
+    /// the rest of the activation to the interpreter, and the write, made all the same, has the interpreter run the activation from the instruction instead
+    /// of that instruction alone. The frame holds what it always does, so a program runs the same; what the suite runs under to show that each of those
+    /// hand-overs leaves the interpreter what it needs. The test assembly sets it from <c>RDCORE_RELOADS=fail-at-random</c>; nothing else does.
+    /// </summary>
+    public static bool FailsReloadsAtRandom { get; set; }
+
+    /// <summary>
+    /// Whether a compiled activation may be handed to the interpreter where nothing asks for it (<see cref="WalksBackAtRandom"/>,
+    /// <see cref="FailsReloadsAtRandom"/>): how many times compiled code recovers or walks back is then not the program's.
+    /// </summary>
+    public static bool HandsOverAtRandom => WalksBackAtRandom || FailsReloadsAtRandom;
+
+    /// <summary>
+    /// What the random walk-back's safepoints, and the random failed accesses, are chosen with (<see cref="CompiledBody.NextRandomSafepoint"/>,
+    /// <see cref="CompiledBody.NextRandomFailedAccess"/>): a run that fails is replayed with the same seed. The test assembly sets it from
+    /// <c>RDCORE_WALKBACK_SEED</c>, and to 1 when that is not set.
     /// </summary>
     public static int WalkBackSeed { get; set; } = 1;
 

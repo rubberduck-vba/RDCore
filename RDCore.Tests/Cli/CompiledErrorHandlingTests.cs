@@ -43,7 +43,7 @@ public sealed class CompiledErrorHandlingTests
         Assert.IsNotNull(result.Body, $"{compiled}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
 
         // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(walkBacks, result.Body.WalkBacks, $"{compiled}'s walk-backs");
             Assert.AreEqual(recoveries, result.Body.Recoveries, $"{compiled}'s recoveries");
@@ -491,7 +491,7 @@ public sealed class CompiledErrorHandlingTests
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
             var stopped = await ResumeAsync(provider);
             Assert.AreEqual((ExecutionOutcome.Suspended, stopLine), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
-            if (!CompiledExecution.WalksBackAtRandom)
+            if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
                     "Outer is running compiled, in the middle of its call");

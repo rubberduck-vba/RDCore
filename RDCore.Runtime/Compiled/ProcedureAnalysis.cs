@@ -180,9 +180,10 @@ internal sealed class ProcedureAnalysis
         }
     }
 
-    // what compiled code does of a body that steps instructions: something at each pass of a loop - a Let, a call, a condition, the loop's back edge with its
-    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. Or,
-    // when it steps nothing in a loop, anything at all.
+    // what compiled code does of a body that steps instructions: something at each pass of every loop it steps an instruction in - the innermost loop
+    // around the instruction, a Let, a call, a condition, the loop's back edge with its condition or a Next counting - which saves more than a step around
+    // the rest costs; a jump back saves nothing, nor does a For statement, run once. What another loop does saves nothing of this one's passes. Or, when it
+    // steps nothing in a loop, anything at all.
     private bool GainsAnything(InstructionList list)
     {
         var loops = new List<(int First, int Last)>();
@@ -198,14 +199,38 @@ internal sealed class ProcedureAnalysis
             }
         }
 
-        bool InALoop(int offset) => loops.Exists(loop => offset >= loop.First && offset <= loop.Last);
-        if (Steps.Exists(step => step is LetStep or CallStep or BranchStep or LoopBackStep or ForNextStep && InALoop(step.Offset)))
+        static bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or LoopBackStep or ForNextStep;
+        var steppedInALoop = false;
+        foreach (var stepped in Steps)
         {
-            return true;
+            if (stepped is not SteppedStep)
+            {
+                continue;
+            }
+
+            // the innermost loop around the instruction: the shortest range that holds it.
+            (int First, int Last)? innermost = null;
+            foreach (var loop in loops)
+            {
+                if (stepped.Offset >= loop.First && stepped.Offset <= loop.Last && (innermost is not { } shortest || loop.Last - loop.First < shortest.Last - shortest.First))
+                {
+                    innermost = loop;
+                }
+            }
+
+            if (innermost is not { } around)
+            {
+                continue;
+            }
+
+            steppedInALoop = true;
+            if (!Steps.Exists(step => Gains(step) && step.Offset >= around.First && step.Offset <= around.Last))
+            {
+                return false;
+            }
         }
 
-        return !Steps.Exists(step => step is SteppedStep && InALoop(step.Offset))
-            && Steps.Exists(step => step is LetStep or CallStep or BranchStep or LoopBackStep or ForOpenStep or ForNextStep);
+        return steppedInALoop || Steps.Exists(step => Gains(step) || step is ForOpenStep);
     }
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));

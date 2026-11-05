@@ -93,7 +93,15 @@ public sealed class CompiledActivation : ILightActivation
         {
             _untilPoll = _body.NextRandomSafepoint();
         }
+
+        _untilFailedAccess = CompiledExecution.FailsReloadsAtRandom ? _body.NextRandomFailedAccess() : 0;
     }
+
+    // how many accesses of the frame the activation makes before the one it fails, under the random failed accesses (CompiledExecution.FailsReloadsAtRandom):
+    // 0 when it fails none.
+    private int _untilFailedAccess;
+
+    private bool FailsAccessAtRandom() => _untilFailedAccess > 0 && --_untilFailedAccess == 0;
 
     CallStackFrame ILightActivation.MakeFrame()
     {
@@ -626,6 +634,26 @@ public sealed class CompiledActivation : ILightActivation
         return true;
     }
 
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of an integral kind, read back after the interpreter ran an instruction or the program waited
+    /// (<see cref="TryReadIntegral"/>).
+    /// </summary>
+    public bool TryReloadIntegral(int slot, out long value)
+    {
+        value = 0;
+        return !FailsAccessAtRandom() && TryReadIntegral(slot, out value);
+    }
+
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of a floating-point kind, read back after the interpreter ran an instruction or the program
+    /// waited (<see cref="TryReadFloating"/>).
+    /// </summary>
+    public bool TryReloadFloating(int slot, out double value)
+    {
+        value = 0;
+        return !FailsAccessAtRandom() && TryReadFloating(slot, out value);
+    }
+
     // the cell of the variable in slot: the one its slot holds; or, once the variable was given an address - passed by reference to a Declare, its VarPtr
     // taken - the cell bound at the address, while that is a cell of the variable's type.
     private bool TryGetScalarCell(int slot, [NotNullWhen(true)] out ScalarCell? scalar)
@@ -647,7 +675,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>The payload of the function result variable, of an integral kind, when it holds one: what a debugger may have assigned it while the program waited.</summary>
     public bool TryReadResultIntegral(out long value)
     {
-        var read = TryReadResult(out var payload);
+        ScalarPayload payload = default;
+        var read = !FailsAccessAtRandom() && TryReadResult(out payload);
         value = read ? payload.Integral : 0;
         return read;
     }
@@ -655,7 +684,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>The payload of the function result variable, of a floating-point kind, when it holds one.</summary>
     public bool TryReadResultFloating(out double value)
     {
-        var read = TryReadResult(out var payload);
+        ScalarPayload payload = default;
+        var read = !FailsAccessAtRandom() && TryReadResult(out payload);
         value = read ? payload.Floating : 0;
         return read;
     }
@@ -671,6 +701,7 @@ public sealed class CompiledActivation : ILightActivation
         if (TryGetScalarCell(slot, out var scalar))
         {
             scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
+            _unspilled |= FailsAccessAtRandom();
             return;
         }
 
@@ -949,6 +980,26 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
         hash = (hash ^ (uint)CompiledExecution.WalkBackSeed) * 16777619u;
         hash = (hash ^ (uint)Interlocked.Increment(ref _activations)) * 2654435761u;
         return 1 + (int)((hash >> 27) << (int)((hash >> 8) % 8));
+    }
+
+    private int _failedAccesses;
+
+    /// <summary>
+    /// The access of its frame the next activation of the body fails, under the random failed accesses (<see cref="CompiledExecution.FailsReloadsAtRandom"/>):
+    /// how many it makes first. Chosen as <see cref="NextRandomSafepoint"/> is, with a hash of its own, and from 1 to 121 (a 4-bit count times a power of two
+    /// up to 8): an activation that steps few instructions makes few.
+    /// </summary>
+    internal int NextRandomFailedAccess()
+    {
+        var hash = 2166136261u ^ 0x5bd1e995u;
+        foreach (var character in Name)
+        {
+            hash = (hash ^ character) * 16777619u;
+        }
+
+        hash = (hash ^ (uint)CompiledExecution.WalkBackSeed) * 16777619u;
+        hash = (hash ^ (uint)Interlocked.Increment(ref _failedAccesses)) * 2654435761u;
+        return 1 + (int)((hash >> 28) << (int)((hash >> 8) % 4));
     }
 
     /// <summary>How many times an activation of the body was handed to the interpreter.</summary>

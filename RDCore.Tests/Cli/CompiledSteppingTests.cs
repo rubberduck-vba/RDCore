@@ -302,7 +302,7 @@ public sealed class CompiledSteppingTests
 
         var outer = await AssertAlikeAsync(program, "Outer", recoveries: 0);
         await AssertAlikeAsync(program, "Shown", recoveries: 3);
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(3, outer.Body!.DirectCalls, "Outer's direct calls");
         }
@@ -449,6 +449,31 @@ public sealed class CompiledSteppingTests
         Assert.IsEmpty(cheap.Stepped);
         CollectionAssert.AreEqual(new[] { 7, 8, 9 }, cheap.Reasons.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(),
             string.Join("; ", cheap.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+    }
+
+    // what each loop gains is its own: a loop whose statements are all the interpreter's keeps the body interpreted, whatever a loop beside it or around it
+    // does compiled; one that does something compiled at each pass, beside it or inside it, does not.
+    [TestMethod]
+    [DataRow("For I = 1 To 3|    T = T + I|Next|Do|    S = S & \"x\"|Loop Until Len(S) >= 10", false, DisplayName = "a compiled loop beside one that is all stepped")]
+    [DataRow("For I = 1 To 3|    T = T + I|Next|Do|    S = S & \"x\"|    T = T + 1|Loop Until Len(S) >= 10", true, DisplayName = "two loops that each do something compiled")]
+    [DataRow("For I = 1 To 3|    T = T + I|    S = \"\"|    Do|        S = S & \"x\"|    Loop Until Len(S) >= 10|Next", false,
+        DisplayName = "a compiled loop around one that is all stepped")]
+    [DataRow("For I = 1 To 3|    S = \"\"|    Do|        S = S & \"x\"|        T = T + 1|    Loop Until Len(S) >= 10|Next", true,
+        DisplayName = "a loop around one that does something compiled")]
+    public async Task EachLoop_GainsForItself(string loops, bool compiles)
+    {
+        var compiled = await AssertAlikeAsync(Program([
+            "Public Sub Main()",
+            "    Debug.Print Pad()",
+            "End Sub",
+            "Private Function Pad() As Long",
+            "    Dim S As String, I As Long, T As Long",
+            .. loops.Split('|').Select(line => "    " + line),
+            "    Pad = Len(S) + T",
+            "End Function"]));
+
+        var pad = compiled["Pad"];
+        Assert.AreEqual(compiles, pad.Body is not null, string.Join("; ", pad.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 
     // a body that would do nothing of its own compiled - every statement that does something the interpreter's - is the interpreter's whole, and says why.

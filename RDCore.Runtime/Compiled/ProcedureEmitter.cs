@@ -547,7 +547,7 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, _slots[slot]);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReadIntegral) : nameof(CompiledActivation.TryReadFloating))!);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReloadIntegral) : nameof(CompiledActivation.TryReloadFloating))!);
             _il.Emit(OpCodes.Brfalse, unread);
         }
 

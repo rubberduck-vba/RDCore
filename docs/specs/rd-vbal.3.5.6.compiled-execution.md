@@ -34,15 +34,17 @@ interpreter, errors included.
 
 A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
 address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
-compiled code can't read a variable back, the interpreter runs the rest of the activation, with the variables as the frame has them.
+compiled code can't read a variable back from the frame, or write it there, the interpreter runs the rest of the activation, with the variables as the frame
+has them.
 
 These keep the whole procedure in the interpreter:
 
 - a `With`, a `Select Case` or a `For Each`;
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
-- a procedure whose loops the interpreter would run whole: the interpreter runs a statement in a loop, and compiled code does nothing at each pass of any
-  loop, no assignment, call or condition, no `Loop While` or `Loop Until`, no `Next`. Around each such statement compiled code would only write its
-  variables into the frame and read them back, which costs more than it saves.
+- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
+  it, no assignment, call or condition, no `Loop While` or `Loop Until`, no `Next`. The loop is the innermost one around the statement: what an outer loop
+  or a loop beside it does is no gain for this one. Around each such statement compiled code would only write its variables into the frame and read them
+  back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code doesn't is always called with its frame, through the interpreter's call, never through the
 compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
@@ -60,7 +62,7 @@ parameters. A parameter bound to something other than a variable's cell, such as
 
 ## The semantics are the interpreter's
 
-Compiled code evaluates an expression exactly as the interpreter evaluates it on payloads (IR lowering S1.2). It calls the same operations, in
+Compiled code evaluates an expression exactly as the interpreter evaluates it on payloads. It calls the same operations, in
 `RDCore.Runtime.Compiled`:
 
 - `PayloadOperations`: the integer operations, the comparisons, the logical operators and the exact conversions. Each returns a status: `Ok`, `Overflow`,
@@ -80,7 +82,7 @@ activation under the debugger.
 
 ## Error handling
 
-A procedure with an `On Error` statement is handed to the interpreter for one instruction at a time (IR lowering S2.4):
+A procedure with an `On Error` statement is handed to the interpreter for one instruction at a time:
 
 - **An instruction that fails.** Compiled code writes its variables into the frame as above. The interpreter runs that instruction alone and gives its error to
   the activation's handler, as it gives any error, so `Err`, `Erl` and the error break of a debugger are the interpreter's. If the handler goes on with the
