@@ -184,19 +184,19 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
-    // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once.
+    // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once. The refresh rides the server's debounce, which no
+    // test can hold: it may come before the run is answered or after it, and the client waits for it either way.
     [TestMethod]
-    [Ignore("nondeterministic: the refresh rides a real 300 ms debounce and may come after the run is answered. To be made deterministic before this runs again")]
     public async Task AProgramRunWhileTheClientPullsItsDiagnosticsAgain_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
         var rpc = platform.Rpc;
-        Task<JsonObject>? pulledAgain = null;
+        var refreshed = new TaskCompletionSource<Task<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
         rpc.Answered = method =>
         {
-            if (method == "workspace/diagnostic/refresh")
+            if (method == "workspace/diagnostic/refresh" && !refreshed.Task.IsCompleted)
             {
-                pulledAgain ??= rpc.RequestAsync(6, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
+                refreshed.TrySetResult(rpc.RequestAsync(6, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" }));
             }
         };
 
@@ -215,28 +215,28 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
+        var pulledAgain = await Unhung(refreshed.Task, "the server's refresh: asked " + string.Join(", ", platform.Asked));
         Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
         await platform.ShutdownAsync(7);
     }
 
     // the third byte tap (C:\Dev\Claude\hexide-msgbox-tap3-2026-10-30.log), in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
     // the refresh, and writes both at once; the program's msgBox is then the language server's request 5, which is the id of the client's execute, still running.
+    // The refresh rides the server's debounce, as above: the client waits for it whenever it comes.
     [TestMethod]
-    [Ignore("nondeterministic: the refresh rides a real 300 ms debounce and may come after the run is answered. To be made deterministic before this runs again")]
     public async Task AProgramRunWhileTheClientPullsAgainBeforeItAnswersTheRefresh_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
         var rpc = platform.Rpc;
-        Task<JsonObject>? pulledAgain = null;
+        var refreshed = new TaskCompletionSource<Task<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
         rpc.Before = method =>
         {
-            if (method != "workspace/diagnostic/refresh" || pulledAgain is not null)
+            if (method != "workspace/diagnostic/refresh" || refreshed.Task.IsCompleted)
             {
                 return null;
             }
 
-            pulledAgain = rpc.Expect(6);
+            refreshed.TrySetResult(rpc.Expect(6));
             return new JsonObject
             {
                 ["jsonrpc"] = "2.0",
@@ -261,7 +261,7 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
+        var pulledAgain = await Unhung(refreshed.Task, "the server's refresh: asked " + string.Join(", ", platform.Asked));
         Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
         await platform.ShutdownAsync(7);
     }
