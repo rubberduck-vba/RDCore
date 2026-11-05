@@ -101,10 +101,10 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
         }
 
         await using var stream = fileSystem.File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        ProjectFile? project;
         try
         {
-            project = await JsonSerializer.DeserializeAsync<ProjectFile>(stream, cancellationToken: token);
+            // read as any client of the platform reads it: what the file leaves out is empty, and the standard library is no reference of it.
+            return await ProjectFile.ReadAsync(stream, workspaceRoot, token);
         }
         catch (JsonException exception)
         {
@@ -112,18 +112,6 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
             throw new InvalidDataException(string.Format(Exceptions.ProjectFile_InvalidJson, path,
                 (exception.LineNumber ?? 0) + 1, (exception.BytePositionInLine ?? 0) + 1, exception.Message), exception);
         }
-
-        if (project is null)
-        {
-            throw new InvalidOperationException($"The {ProjectFile.FileName} at '{path}' could not be deserialized.");
-        }
-
-        // the standard library is every project's own, and no reference of it: a project file written before lists it - with the path of Office's VBE7.DLL -
-        // and is read without it, which it is written without the next time.
-        var loaded = project.WithUri(workspaceRoot);
-        return loaded.ProjectInfo is { } info && info.References.Any(reference => reference.IsStandardLibrary)
-            ? loaded with { ProjectInfo = info with { References = [.. info.References.Where(reference => !reference.IsStandardLibrary)] } }
-            : loaded;
     }
 
     /// <inheritdoc/>
@@ -203,7 +191,7 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
     {
         try
         {
-            return await fileSystem.File.ReadAllTextAsync(path, token);
+            return ProjectModuleKinds.ReadText(await fileSystem.File.ReadAllBytesAsync(path, token));
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {
