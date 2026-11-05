@@ -152,7 +152,8 @@ public class RDCoreServerProcess(
         _serverProcess?.Dispose();
         _serverProcess = null;
 
-        var fullPath = PlatformEnvironment.Resolve(relativePath);
+        // the path is the platform manifest's, or an extension's that its manifest names: a platform starts only what is under its root.
+        var fullPath = PlatformRootConfinement.Confined(PlatformEnvironment.Root, PlatformEnvironment.Resolve(relativePath));
         var workspace = Options.Value.Workspace.WorkspaceUri;
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;

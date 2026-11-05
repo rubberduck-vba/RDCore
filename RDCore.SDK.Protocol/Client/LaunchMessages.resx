@@ -121,6 +121,10 @@
     <value>The platform manifest of '{0}' names '{1}' as its '{2}', which is not under the platform root: a platform starts only its own executables.</value>
     <comment>{0}: the platform root; {1}: the path the manifest gives; {2}: the manifest's property (langService, hostService, parseServer).</comment>
   </data>
+  <data name="ExecutableStartedOutsideThePlatformRoot" xml:space="preserve">
+    <value>The platform at '{0}' was to start '{1}', which is not under the platform root: a platform starts only its own executables.</value>
+    <comment>{0}: the platform root; {1}: the full path of the executable, from the platform manifest or an extension's.</comment>
+  </data>
   <data name="LanguageServerIsNotThere" xml:space="preserve">
     <value>The platform manifest of '{0}' names a language server that is not there.</value>
     <comment>{0}: the platform root.</comment>
