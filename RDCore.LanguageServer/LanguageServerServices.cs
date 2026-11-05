@@ -89,8 +89,8 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Debugging.IEditStatusMonitor, RDCore.LanguageServer.Debugging.EditStatusMonitor>()
             .AddSingleton<RDCore.LanguageServer.Debugging.EditStatusPublication>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
-            // a pull declined while a dialog of the program was open is made again once it closes: the client is asked to refresh.
-            .AddSingleton(provider => new OpenDialogs { PullAgain = provider.GetRequiredService<IWorkspaceRefresh>().Changed })
+            // a pull declined while a dialog of the program was open is made again once it closes: the client is asked to pull its diagnostics again.
+            .AddSingleton(provider => new OpenDialogs { PullAgain = provider.GetRequiredService<IWorkspaceRefresh>().PullsDeclined })
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>()
             // the indenter settings of Rubberduck, offered once and imported on demand (rdcore.importIndenterSettings).
             .AddSingleton(provider => new IndenterSettingsOffer(
