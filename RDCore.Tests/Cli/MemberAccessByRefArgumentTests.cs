@@ -16,6 +16,7 @@ public sealed class MemberAccessByRefArgumentTests
 {
     private static readonly string Box = ClassModule("Box",
         "Public V As Variant",
+        "Public Inner As Box",
         "Public Sub SelfMe()",
         "    BumpV Me.V(0)",
         "End Sub",
@@ -27,6 +28,15 @@ public sealed class MemberAccessByRefArgumentTests
         "Private Type TPair",
         "    X As Long",
         "    Y As Long",
+        "End Type",
+        "Private Type TInner",
+        "    X As Long",
+        "End Type",
+        "Private Type TOuter",
+        "    Inner As TInner",
+        "    A(1) As Long",
+        "    B() As Long",
+        "    V As Variant",
         "End Type",
         "Public Sub BumpV(ByRef x As Variant)",
         "    x = x + 10",
@@ -45,6 +55,13 @@ public sealed class MemberAccessByRefArgumentTests
     [DataRow("Dim b As New Box ;; b.V = Array(1, 2) ;; b.SelfMe ;; Debug.Print b.V(0)", "1", DisplayName = "B01 Me.V(0)")]
     [DataRow("Dim b As New Box ;; b.V = Array(1, 2) ;; b.SelfBare ;; Debug.Print b.V(0)", "11", DisplayName = "B01 V(0) in the class")]
     [DataRow("Dim w As Variant ;; w = Array(1, 2) ;; BumpV w(0) ;; Debug.Print w(0)", "11", DisplayName = "B01 w(0) of a local Variant")]
+    // through a With block whose target is an object, or one nested in a With block of an object: a copy (oracle\s59 M04).
+    [DataRow("Dim b As New Box ;; Set b.Inner = New Box ;; b.Inner.V = Array(1, 2) ;; With b ;; BumpV .Inner.V(0) ;; End With ;; Debug.Print b.Inner.V(0)", "1",
+        DisplayName = "M04 .Inner.V(0) in With b")]
+    [DataRow("Dim b As New Box ;; Set b.Inner = New Box ;; b.Inner.V = Array(1, 2) ;; With b.Inner ;; BumpV .V(0) ;; End With ;; Debug.Print b.Inner.V(0)", "1",
+        DisplayName = "M04 .V(0) in With b.Inner")]
+    [DataRow("Dim b As New Box ;; Set b.Inner = New Box ;; b.Inner.V = Array(1, 2) ;; With b ;; With .Inner ;; BumpV .V(0) ;; End With ;; End With ;; Debug.Print b.Inner.V(0)", "1",
+        DisplayName = "M04 .V(0) in With .Inner in With b")]
     public async Task AnElementOfAnObjectsVariable_IsACopy_WhereTheClassesOwnIsTheVariable(string body, string expected)
         => await AssertPrintedInEitherEngineAsync(body, expected);
 
@@ -54,6 +71,24 @@ public sealed class MemberAccessByRefArgumentTests
     [DataRow("Dim r As TPair ;; r.X = 1 ;; BumpLong r.X ;; Debug.Print r.X", "11", DisplayName = "W01 r.X")]
     [DataRow("Dim t(1) As TPair ;; t(0).X = 1 ;; With t(0) ;; BumpLong .X ;; End With ;; Debug.Print t(0).X", "11", DisplayName = "W01 .X in With t(0)")]
     [DataRow("Dim t(1) As TPair ;; t(0).X = 1 ;; BumpLong t(0).X ;; Debug.Print t(0).X", "11", DisplayName = "W01 t(0).X")]
+    // a field of a field, an element of an array field, and a field in a nested With block of a record (oracle\s59 M01-M03).
+    [DataRow("Dim r As TOuter ;; r.A(0) = 1 ;; With r ;; BumpLong .A(0) ;; End With ;; Debug.Print r.A(0)", "11", DisplayName = "M01 .A(0) in With r")]
+    [DataRow("Dim r As TOuter ;; r.A(0) = 1 ;; BumpLong r.A(0) ;; Debug.Print r.A(0)", "11", DisplayName = "M01 r.A(0)")]
+    [DataRow("Dim r As TOuter ;; r.Inner.X = 1 ;; With r ;; BumpLong .Inner.X ;; End With ;; Debug.Print r.Inner.X", "11", DisplayName = "M01 .Inner.X in With r")]
+    [DataRow("Dim r As TOuter ;; r.Inner.X = 1 ;; BumpLong r.Inner.X ;; Debug.Print r.Inner.X", "11", DisplayName = "M01 r.Inner.X")]
+    [DataRow("Dim r As TOuter ;; r.Inner.X = 1 ;; With r ;; With .Inner ;; BumpLong .X ;; End With ;; End With ;; Debug.Print r.Inner.X", "11",
+        DisplayName = "M01 .X in With .Inner in With r")]
+    [DataRow("Dim t(1) As TOuter ;; t(0).Inner.X = 1 ;; With t(0) ;; BumpLong .Inner.X ;; End With ;; Debug.Print t(0).Inner.X", "11", DisplayName = "M02 .Inner.X in With t(0)")]
+    [DataRow("Dim t(1) As TOuter ;; t(0).Inner.X = 1 ;; With t(0) ;; With .Inner ;; BumpLong .X ;; End With ;; End With ;; Debug.Print t(0).Inner.X", "11",
+        DisplayName = "M02 .X in With .Inner in With t(0)")]
+    [DataRow("Dim t(1) As TOuter ;; t(0).A(0) = 1 ;; With t(0) ;; BumpLong .A(0) ;; End With ;; Debug.Print t(0).A(0)", "11", DisplayName = "M02 .A(0) in With t(0)")]
+    [DataRow("Dim r As TOuter ;; ReDim r.B(1) ;; r.B(0) = 1 ;; With r ;; BumpLong .B(0) ;; End With ;; Debug.Print r.B(0)", "11", DisplayName = "M03 .B(0) in With r")]
+    [DataRow("Dim r As TOuter ;; ReDim r.B(1) ;; r.B(0) = 1 ;; BumpLong r.B(0) ;; Debug.Print r.B(0)", "11", DisplayName = "M03 r.B(0)")]
+    [DataRow("Dim r As TOuter ;; r.V = Array(1, 2) ;; With r ;; BumpV .V(0) ;; End With ;; Debug.Print r.V(0)", "11", DisplayName = "M03 .V(0) in With r")]
+    [DataRow("Dim r As TOuter ;; r.V = Array(1, 2) ;; BumpV r.V(0) ;; Debug.Print r.V(0)", "11", DisplayName = "M03 r.V(0)")]
+    [DataRow("Dim r As TOuter ;; r.V = 1 ;; With r ;; BumpV .V ;; End With ;; Debug.Print r.V", "11", DisplayName = "M03 .V in With r")]
+    // as M03's .V in With r, and r.X, have it.
+    [DataRow("Dim r As TOuter ;; r.V = 1 ;; BumpV r.V ;; Debug.Print r.V", "11", DisplayName = "r.V")]
     public async Task AFieldOfAUserDefinedTypeVariable_IsTheVariable(string body, string expected)
         => await AssertPrintedInEitherEngineAsync(body, expected);
 
