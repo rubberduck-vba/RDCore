@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
@@ -197,15 +198,164 @@ public sealed class ChildConnectionRestartTests
         Assert.AreEqual(ConnectionStateValue.Exited, connection.State.Value);
     }
 
+    // the next process exits while its client is initialized: the LSP initialize is held, and it crashes. Its initialization is never answered, so the
+    // attempt fails as the process has gone, and with no restart left the wait is told the connection has exited.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task TheNextProcess_ExitingBeforeItsClientIsInitialized_FailsTheRestart()
+    {
+        using var child = new InProcessChild { HoldLspInitializeOf = 2 };
+        using var connection = await child.ConnectAsync();
+        using var hang = new CancellationTokenSource(HangGuard);
+
+        child.Crash();
+        await child.LspInitializeHeld.WaitAsync(hang.Token);
+        child.Crash();
+
+        await Assert.ThrowsExactlyAsync<ServerProtocolSdkException>(() => connection.WaitForReadyAsync(CancellationToken.None).WaitAsync(hang.Token));
+        Assert.AreEqual(ConnectionStateValue.Exited, connection.State.Value);
+    }
+
+    // shut down while it waits to restart: the delay before the restart is held, the connection is shut down, and the delay is let go after. No process is
+    // started, nothing fails, the owner is not told the child went down (it asked for the end), and the connection has exited.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AConnectionShutDown_WhileItWaitsToRestart_DoesNotRestart()
+    {
+        var clock = new HeldClock();
+        var log = new MonitorLog();
+        using var child = new InProcessChild();
+        using var connection = await child.ConnectAsync(clock, log);
+        using var hang = new CancellationTokenSource(HangGuard);
+
+        child.Crash();
+        var delay = await clock.TimerMade.WaitAsync(hang.Token);
+        await connection.ShutdownAsync().WaitAsync(hang.Token);
+        delay.Fire();
+
+        Assert.AreEqual(MonitorLog.NotRestarted, await log.MonitorEnded.WaitAsync(hang.Token));
+        CollectionAssert.AreEqual(Array.Empty<string>(), log.Failures, string.Join(Environment.NewLine, log.Failures));
+        Assert.AreEqual(1, child.ProcessId, "no process is started after the shutdown");
+        Assert.AreEqual(0, child.PeerExitsTold);
+        Assert.AreEqual(ConnectionStateValue.Exited, connection.State.Value);
+    }
+
+    // shut down while the next process starts: its start is held, the connection is shut down, and the start is let go after. The process that started
+    // is shut down, nothing fails, the owner is not told the child went down, and the connection has exited.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AConnectionShutDown_WhileTheNextProcessStarts_ShutsItDown()
+    {
+        var log = new MonitorLog();
+        using var child = new InProcessChild { HoldStartOf = 2 };
+        using var connection = await child.ConnectAsync(log: log);
+        using var hang = new CancellationTokenSource(HangGuard);
+
+        child.Crash();
+        await child.StartHeld.WaitAsync(hang.Token);
+        await connection.ShutdownAsync().WaitAsync(hang.Token);
+        child.ReleaseStart();
+
+        Assert.AreEqual(MonitorLog.NotRestarted, await log.MonitorEnded.WaitAsync(hang.Token));
+        CollectionAssert.AreEqual(Array.Empty<string>(), log.Failures, string.Join(Environment.NewLine, log.Failures));
+        Assert.AreEqual(2, child.ProcessId);
+        Assert.AreEqual(1, child.ShutdownsOf(2), "the process that started after the shutdown is shut down");
+        Assert.IsTrue(child.HasExited);
+        Assert.AreEqual(0, child.PeerExitsTold);
+        Assert.AreEqual(ConnectionStateValue.Exited, connection.State.Value);
+    }
+
+    // a clock whose timers fire only when the test fires them.
+    private sealed class HeldClock : TimeProvider
+    {
+        private readonly TaskCompletionSource<HeldTimer> _timerMade = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // the first timer made.
+        public Task<HeldTimer> TimerMade => _timerMade.Task;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new HeldTimer(callback, state);
+            _timerMade.TrySetResult(timer);
+            return timer;
+        }
+    }
+
+    private sealed class HeldTimer(TimerCallback callback, object? state) : ITimer
+    {
+        public void Fire() => callback(state);
+
+        public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+        public void Dispose()
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    // what the connection logs: how its peer monitor ended, and what failed. The monitor ends by giving up the restart, by restoring the connection, or by
+    // failing.
+    private sealed class MonitorLog : ILogger<ChildConnection>
+    {
+        public const string NotRestarted = "The connection is shutting down: the child is not restarted.";
+        private const string Restored = "Child connection restored";
+        private const string MonitorFailed = "Peer monitor failed unexpectedly";
+        private const string RestartFailed = "Restart attempt";
+
+        private readonly TaskCompletionSource<string> _monitorEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly List<string> _failures = [];
+
+        public Task<string> MonitorEnded => _monitorEnded.Task;
+
+        public string[] Failures
+        {
+            get
+            {
+                lock (_failures)
+                {
+                    return [.. _failures];
+                }
+            }
+        }
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var message = formatter(state, exception);
+            if (logLevel >= LogLevel.Error || message.StartsWith(RestartFailed, StringComparison.Ordinal))
+            {
+                lock (_failures)
+                {
+                    _failures.Add($"{logLevel}: {message} {exception}");
+                }
+            }
+
+            if (message == NotRestarted || message.StartsWith(Restored, StringComparison.Ordinal) || message.StartsWith(MonitorFailed, StringComparison.Ordinal))
+            {
+                _monitorEnded.TrySetResult(message);
+            }
+        }
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    }
+
     // what ChildConnection starts: each start is a process of its own, an OmniSharp server on the pipe, which answers the platform handshake and holds the
     // first request it is sent until it exits; the processes after it answer at once, with their number. The process HoldInitializeOf names holds the
-    // platform handshake, and every request, instead.
+    // platform handshake, and every request, instead; the process HoldLspInitializeOf names holds the LSP initialize; the process HoldStartOf names is held as it starts, until ReleaseStart. Shutdown kills the process
+    // that is up.
     private sealed class InProcessChild : IRDCoreServerProcess
     {
         private readonly object _gate = new();
         private readonly TaskCompletionSource _firstRequestReceived = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _initializeHeld = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _lspInitializeHeld = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _startHeld = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _startReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Dictionary<int, int> _requests = [];
+        private readonly Dictionary<int, int> _shutdowns = [];
+        private int _peerExitsTold;
         private TaskCompletionSource _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private NamedPipeServerStream? _pipe;
         private OmniSharpLanguageServer? _server;
@@ -221,6 +371,19 @@ public sealed class ChildConnectionRestartTests
         public int HoldInitializeOf { get; init; }
 
         public Task InitializeHeld => _initializeHeld.Task;
+
+        public int HoldStartOf { get; init; }
+
+        public int HoldLspInitializeOf { get; init; }
+
+        public Task LspInitializeHeld => _lspInitializeHeld.Task;
+
+        public Task StartHeld => _startHeld.Task;
+
+        public void ReleaseStart() => _startReleased.TrySetResult();
+
+        // how often the connection told its owner the child went down for good.
+        public int PeerExitsTold => Volatile.Read(ref _peerExitsTold);
 
         // called, once the first process has crashed, where the connection asks something of the process: on the connection's own thread.
         public Action<string>? Looking { get; set; }
@@ -251,27 +414,42 @@ public sealed class ChildConnectionRestartTests
             }
         }
 
-        public async Task<ChildConnection> ConnectAsync()
+        public int ShutdownsOf(int incarnation)
         {
-            var connection = new ChildConnection(this, new RDCorePlatformDefaultTransportLayer(Options.Create(new SdkAppOptions())), NullLogger<ChildConnection>.Instance);
+            lock (_gate)
+            {
+                return _shutdowns.GetValueOrDefault(incarnation);
+            }
+        }
+
+        public async Task<ChildConnection> ConnectAsync(TimeProvider? clock = null, ILogger<ChildConnection>? log = null)
+        {
+            var connection = new ChildConnection(
+                this, new RDCorePlatformDefaultTransportLayer(Options.Create(new SdkAppOptions())), log ?? NullLogger<ChildConnection>.Instance, clock);
             await connection.ConnectAsync(new ChildConnectionRequest
             {
                 ServerExecutablePath = "child.exe",
                 PipeName = $"RDCore.Tests.ChildConnectionRestart.{Guid.NewGuid():N}",
                 ExpectedComponent = CoreServerComponent.ParsingServer,
                 ConfigureClient = _ => { },
-                OnPeerExited = () => { },
+                OnPeerExited = () => Interlocked.Increment(ref _peerExitsTold),
                 MaxRestartAttempts = 1,
                 RestartBackoffBaseMs = 1,
             }, CancellationToken.None);
             return connection;
         }
 
-        public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, string? mode = null)
+        public async Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, string? mode = null)
         {
             if (_crashed)
             {
                 Looking?.Invoke("start");
+            }
+
+            if (_incarnation + 1 == HoldStartOf)
+            {
+                _startHeld.TrySetResult();
+                await _startReleased.Task;
             }
 
             int incarnation;
@@ -286,7 +464,6 @@ public sealed class ChildConnectionRestartTests
             }
 
             _ = ServeAsync(pipe, incarnation);
-            return Task.CompletedTask;
         }
 
         private async Task ServeAsync(NamedPipeServerStream pipe, int incarnation)
@@ -296,6 +473,16 @@ public sealed class ChildConnectionRestartTests
                 .WithInput(PipeReader.Create(pipe))
                 .WithOutput(PipeWriter.Create(pipe))
                 .WithSerializer(new PullDiagnosticsLspSerializer())
+                .OnInitialize((_, _, _) =>
+                {
+                    if (incarnation == HoldLspInitializeOf)
+                    {
+                        _lspInitializeHeld.TrySetResult();
+                        return new TaskCompletionSource().Task;
+                    }
+
+                    return Task.CompletedTask;
+                })
                 .OnJsonRequest(RDCorePlatformProtocol.PlatformInitialize, (JToken _, CancellationToken _) =>
                 {
                     if (incarnation == HoldInitializeOf)
@@ -339,7 +526,7 @@ public sealed class ChildConnectionRestartTests
 
             if (down)
             {
-                made.Dispose();
+                LetGo(made);
             }
         }
 
@@ -357,6 +544,15 @@ public sealed class ChildConnectionRestartTests
 
         public void Shutdown()
         {
+            lock (_gate)
+            {
+                _shutdowns[_incarnation] = _shutdowns.GetValueOrDefault(_incarnation) + 1;
+            }
+
+            GoDown();
+            ExitCode = -1;
+            HasExited = true;
+            _exit.TrySetResult();
         }
 
         public void Dispose()
@@ -366,7 +562,8 @@ public sealed class ChildConnectionRestartTests
             _exit.TrySetResult();
         }
 
-        // the server of the process that is up, if it is made yet, and its pipe: a server made later is disposed by ServeAsync.
+        // the pipe of the process that is up, and its server if it is made yet: a server made later is let go by ServeAsync. The pipe is closed first, as a
+        // process's end of it is when it dies, whatever becomes of its server.
         private void GoDown()
         {
             OmniSharpLanguageServer? server;
@@ -378,8 +575,27 @@ public sealed class ChildConnectionRestartTests
                 (pipe, _pipe) = (_pipe, null);
             }
 
-            server?.Dispose();
             pipe?.Dispose();
+            if (server is not null)
+            {
+                LetGo(server);
+            }
+        }
+
+        // a server's dispose cancels its output loop, which can run on the disposing thread and dispose what the dispose goes on to cancel: OmniSharp then
+        // throws, on some orderings of its own threads. The process is dead either way; nothing of it is asserted.
+        private static void LetGo(OmniSharpLanguageServer server)
+        {
+            try
+            {
+                server.Dispose();
+            }
+            catch (AggregateException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 }

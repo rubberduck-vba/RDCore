@@ -84,12 +84,21 @@ public sealed record class ChildConnectionRequest
 /// Owns one supervised child process, its transport pipe, and its <c>LanguageClient</c>, and drives
 /// them through the <see cref="ConnectionState"/> lifecycle, including restart-with-backoff.
 /// </summary>
+/// <param name="serverProcess">The child process.</param>
+/// <param name="transportLayer">Makes the pipe the connection meets the child on.</param>
+/// <param name="logger">The logger.</param>
+/// <param name="clock">The clock the delay before a restart is kept by; the system's when <see langword="null"/>.</param>
 public sealed class ChildConnection(
     IRDCoreServerProcess serverProcess,
     ILanguageServerProtocolTransportLayer transportLayer,
-    ILogger<ChildConnection> logger) : IDisposable
+    ILogger<ChildConnection> logger,
+    TimeProvider? clock = null) : IDisposable
 {
     private readonly CancellationTokenSource _connectionCts = new();
+    // cancels a restart that is under way when the connection is shut down. It has no timer, so it is not disposed: a shutdown that races Dispose
+    // cancels it all the same.
+    private readonly CancellationTokenSource _shutdownCts = new();
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly object _gate = new();
 
     private ChildConnectionRequest? _request;
@@ -146,7 +155,7 @@ public sealed class ChildConnection(
     public async Task ConnectAsync(ChildConnectionRequest request, CancellationToken token)
     {
         _request = request;
-        _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token, _connectionCts.Token);
+        _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token, _connectionCts.Token, _shutdownCts.Token);
 
         try
         {
@@ -214,11 +223,17 @@ public sealed class ChildConnection(
     /// </summary>
     public async Task ShutdownAsync()
     {
-        if (_shuttingDown || State.IsTerminal)
+        lock (_gate)
         {
-            return;
+            if (_shuttingDown || State.IsTerminal)
+            {
+                return;
+            }
+            _shuttingDown = true;
         }
-        _shuttingDown = true;
+
+        // a restart under way is stopped where it waits; one past its last wait sees the shutdown before it spawns, or shuts down what it spawned.
+        _shutdownCts.Cancel();
 
         if (State.Value is ConnectionStateValue.Ready && _client is ILanguageClient client)
         {
@@ -352,6 +367,12 @@ public sealed class ChildConnection(
     {
         Transition(ConnectionState.Spawning);
         await serverProcess.StartAsync(_request!.ServerExecutablePath, _request.PipeName, _connectionCts, _request.Mode);
+        if (_shuttingDown)
+        {
+            // the connection was shut down while the process started: what started is not the connection's to keep.
+            serverProcess.Shutdown();
+            throw new OperationCanceledException("The connection was shut down while the child process started.");
+        }
 
         Transition(ConnectionState.Connecting);
         if (_pipe is not null)
@@ -372,7 +393,21 @@ public sealed class ChildConnection(
         var lost = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
-            var client = await BeforeTheChildExitsAsync(token => LanguageClient.From(ConfigureClientOptions, token), "it was initialized", ct);
+            var client = LanguageClient.Create(ConfigureClientOptions);
+            try
+            {
+                await BeforeTheChildExitsAsync(async token =>
+                {
+                    await client.Initialize(token);
+                    return true;
+                }, "it was initialized", ct);
+            }
+            catch
+            {
+                // a client whose initialization was abandoned or failed is not kept: it would hold the pipe it reads.
+                client.Dispose();
+                throw;
+            }
             OmniSharpPlatformChannel channel;
             lock (_gate)
             {
@@ -477,6 +512,13 @@ public sealed class ChildConnection(
                 continue; // reconnected — monitor the new process
             }
 
+            if (_shuttingDown)
+            {
+                // the shutdown that stopped the restart ends the connection: the owner asked for it, and is not told the child went down.
+                logger.LogInformation("The connection is shutting down: the child is not restarted.");
+                return;
+            }
+
             Transition(ConnectionState.Exited);
             _request?.OnPeerExited();
             return;
@@ -494,13 +536,22 @@ public sealed class ChildConnection(
             logger.LogWarning("Restarting child connection in {DelayMs} ms (attempt {Attempt}/{Max})", delayMs, attempt + 1, _request.MaxRestartAttempts);
             try
             {
-                await Task.Delay(delayMs, _linkedCts!.Token);
+                await Task.Delay(TimeSpan.FromMilliseconds(delayMs), _clock, _linkedCts!.Token);
+                if (_shuttingDown)
+                {
+                    return false;
+                }
                 await AttemptConnectAsync(_linkedCts.Token);
                 logger.LogInformation("Child connection restored ({Attempt} of {Max} lifetime restarts used)", attempt + 1, _request.MaxRestartAttempts);
                 return true;
             }
             catch (OperationCanceledException)
             {
+                return false;
+            }
+            catch (Exception) when (_shuttingDown)
+            {
+                // an attempt the shutdown cut short did not fail: it was stopped.
                 return false;
             }
             catch (Exception exception)
