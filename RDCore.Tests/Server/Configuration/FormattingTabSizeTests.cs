@@ -443,6 +443,9 @@ public sealed class FormattingTabSizeTests
 
         public void ClientSaysConfigurationChanged() => _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
 
+        /// <summary>The client says its configuration changed, with settings of its own in the notification.</summary>
+        public void ClientSaysConfigurationChanged(JToken settings) => _client!.DidChangeConfiguration(new DidChangeConfigurationParams { Settings = settings });
+
         public ValueTask DisposeAsync()
         {
             Follower?.Dispose();
@@ -673,6 +676,27 @@ public sealed class FormattingTabSizeTests
         }
     }
 
+    // a client that answers workspace/configuration and says its configuration changed with an object - HexIDE sends {} - is asked: what it pushes is no
+    // answer for the section.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatAnswersWorkspaceConfiguration_AndPushesAnObject_IsAskedAgain()
+    {
+        await using var wire = new Wire(declaresDidChangeConfiguration: false);
+        await wire.StartAsync();
+        Assert.IsTrue(await wire.FollowedAsync());
+
+        wire.Said["Formatting:IndentSpaces"] = "3";
+        wire.ClientSaysConfigurationChanged(new JObject());
+
+        // each change followed is waited for - the server may be told of more than one as it starts - until the section as the client answers it.
+        while (wire.Options.Formatting.IndentSpaces != 3)
+        {
+            Assert.IsTrue(await wire.FollowedAsync(), "the section as the client answers it, not the empty object it pushed");
+        }
+
+        Assert.AreEqual("3", wire.Live.Said["Formatting:IndentSpaces"]);
+    }
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
