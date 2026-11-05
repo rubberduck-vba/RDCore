@@ -69,8 +69,11 @@ public interface IWorkProgressReporter
 
 /// <inheritdoc cref="IWorkProgressReporter"/>
 /// <param name="threshold">How long work goes on before its progress is reported; <see cref="DefaultThreshold"/> unless said otherwise.</param>
-public sealed class WorkProgressReporter(TimeSpan? threshold = null) : IWorkProgressReporter
+/// <param name="clock">What the threshold is measured by; <see cref="TimeProvider.System"/> unless said otherwise.</param>
+public sealed class WorkProgressReporter(TimeSpan? threshold = null, TimeProvider? clock = null) : IWorkProgressReporter
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     /// <summary>How long work goes on before its progress is reported, unless said otherwise: longer than an answer takes, shorter than a wait is noticed.</summary>
     public static TimeSpan DefaultThreshold { get; } = TimeSpan.FromMilliseconds(300);
 
@@ -85,13 +88,13 @@ public sealed class WorkProgressReporter(TimeSpan? threshold = null) : IWorkProg
     /// <inheritdoc/>
     public IWorkProgress Begin(string title)
         => _manager is { IsSupported: true } manager
-            ? new DeferredWorkProgress(title, Threshold, begin => manager.Create(begin, Failed, null!, CancellationToken.None))
+            ? new DeferredWorkProgress(title, Threshold, _clock, begin => manager.Create(begin, Failed, null!, CancellationToken.None))
             : NoWorkProgress.Instance;
 
     /// <inheritdoc/>
     public IWorkProgress BeginFor(IWorkDoneProgressParams request, string title)
         => _manager is { } manager && request.WorkDoneToken is not null
-            ? new DeferredWorkProgress(title, Threshold, begin => Task.FromResult(manager.For(request, begin, Failed, null!)))
+            ? new DeferredWorkProgress(title, Threshold, _clock, begin => Task.FromResult(manager.For(request, begin, Failed, null!)))
             : NoWorkProgress.Instance;
 
     // work that failed is ended all the same, and says that it failed.
@@ -121,17 +124,17 @@ public sealed class WorkProgressReporter(TimeSpan? threshold = null) : IWorkProg
         private IWorkDoneObserver? _observer;
         private bool _completed;
 
-        public DeferredWorkProgress(string title, TimeSpan threshold, Func<WorkDoneProgressBegin, Task<IWorkDoneObserver>> start)
+        public DeferredWorkProgress(string title, TimeSpan threshold, TimeProvider clock, Func<WorkDoneProgressBegin, Task<IWorkDoneObserver>> start)
         {
             _title = title;
-            _ = StartAsync(threshold, start);
+            _ = StartAsync(threshold, clock, start);
         }
 
-        private async Task StartAsync(TimeSpan threshold, Func<WorkDoneProgressBegin, Task<IWorkDoneObserver>> start)
+        private async Task StartAsync(TimeSpan threshold, TimeProvider clock, Func<WorkDoneProgressBegin, Task<IWorkDoneObserver>> start)
         {
             try
             {
-                await Task.Delay(threshold, _waiting.Token).ConfigureAwait(false);
+                await Task.Delay(threshold, clock, _waiting.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
