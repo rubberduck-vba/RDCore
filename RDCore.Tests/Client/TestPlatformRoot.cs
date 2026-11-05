@@ -69,8 +69,14 @@ public static class TestPlatformRoot
     }
 
     /// <summary>
-    /// Takes away the roots in <paramref name="folder"/> that were last written <see cref="Abandoned"/> or longer before <paramref name="now"/>, and no other folder.
+    /// Takes away the roots in <paramref name="folder"/> that were last written <see cref="Abandoned"/> or longer before <paramref name="now"/>, of a run whose
+    /// process is not running, and no other folder.
     /// </summary>
+    /// <remarks>
+    /// A root's age is when it was made, not how long its run has to go: a run paused in a debugger, or another's long run on the same machine, is still using
+    /// one older than that. Deleting a folder deletes every file no process holds before it fails on one that is held, so a root is taken away only once the
+    /// process its name gives (<c>platform-&lt;pid&gt;-&lt;guid&gt;</c>) is not running.
+    /// </remarks>
     internal static void Sweep(string folder, DateTime now)
     {
         if (!System.IO.Directory.Exists(folder))
@@ -80,10 +86,30 @@ public static class TestPlatformRoot
 
         foreach (var root in new DirectoryInfo(folder).EnumerateDirectories($"{Prefix}*"))
         {
-            if (now - root.LastWriteTimeUtc >= Abandoned)
+            if (now - root.LastWriteTimeUtc >= Abandoned && !IsRunning(root.Name))
             {
                 Delete(root.FullName);
             }
+        }
+    }
+
+    // whether the process that made a root is running. A process that has since taken its id keeps the root until it ends, which errs on the side of keeping it.
+    private static bool IsRunning(string root)
+    {
+        var id = root[Prefix.Length..].Split('-')[0];
+        if (!int.TryParse(id, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var processId))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            return false;
         }
     }
 
