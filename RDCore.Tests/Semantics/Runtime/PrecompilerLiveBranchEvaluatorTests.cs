@@ -8,6 +8,7 @@ using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -16,6 +17,7 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -81,6 +83,22 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
         var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia);
 
         Assert.HasCount(1, deadRanges);
+    }
+
+    // the condition is evaluated a call a level: the module's conditions are evaluated on a large-stack thread, from a thread no larger than one the
+    // environment host defines a module's symbols on.
+    [TestMethod]
+    public void ACondition_NestedAsDeepAsRDVBAReads_IsEvaluated_OnASmallStack()
+    {
+        var condition = "DEBUGMODE" + string.Concat(Enumerable.Repeat(" + 0", ModuleParser.MaxExpressionNesting));
+        var parse = ParseSub($"Sub Foo()\r\n#If {condition} Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+        var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
+
+        ImmutableArray<SourceRange> deadRanges = [];
+        var thrown = SmallStack.Run(() => deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.AreEqual(4, Assert.ContainsSingle(deadRanges).Start.Line, "the #Else branch");
     }
 
     [TestMethod]

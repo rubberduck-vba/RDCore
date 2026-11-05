@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 
@@ -67,8 +68,17 @@ public static class PrecompilerLiveBranchEvaluator
     /// <param name="evaluator">Evaluates a condition's expression tree.</param>
     /// <param name="context">The scope a condition's constants resolve from.</param>
     /// <param name="precompilerTrivia">A module's <c>ModuleParseResult.PrecompilerTrivia</c>.</param>
+    /// <remarks>
+    /// A condition is evaluated a call for each level of its expression: the module's conditions are evaluated on a large-stack thread, one for the module
+    /// (<see cref="LargeStackThread"/>).
+    /// </remarks>
     public static PrecompilerEvaluation Evaluate(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => Evaluate(session, evaluator, context, precompilerTrivia));
+        }
+
         var state = new Evaluation(session, evaluator, context);
         if (precompilerTrivia.IsDefaultOrEmpty)
         {
