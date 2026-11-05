@@ -27,7 +27,11 @@ namespace RDCore.SDK.Client.Connection;
 /// <param name="client">The language client, connected.</param>
 /// <param name="logger">Logs each request and how it ended.</param>
 /// <param name="peer">What the client is connected to, as the log names it.</param>
-public sealed class OmniSharpPlatformChannel(ILanguageClient client, ILogger? logger = null, string? peer = null) : IRDCorePlatformChannel
+/// <param name="lost">
+/// Completes when the process the client is connected to exits: a request it has not answered by then fails with a <see cref="ServerProtocolSdkException"/>.
+/// <see langword="null"/> for a client whose peer is not a process of its own.
+/// </param>
+public sealed class OmniSharpPlatformChannel(ILanguageClient client, ILogger? logger = null, string? peer = null, Task? lost = null) : IRDCorePlatformChannel
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
     private readonly HashSet<string> _registered = new(StringComparer.Ordinal);
@@ -42,9 +46,10 @@ public sealed class OmniSharpPlatformChannel(ILanguageClient client, ILogger? lo
         _logger.LogInformation("→ {method} ({component})", method, peer);
         try
         {
-            var result = parameters is { } json
-                ? await client.SendRequest(method, ToToken(json)).Returning<JToken?>(token)
-                : await client.SendRequest(method).Returning<JToken?>(token);
+            var answer = parameters is { } json
+                ? client.SendRequest(method, ToToken(json)).Returning<JToken?>(token)
+                : client.SendRequest(method).Returning<JToken?>(token);
+            var result = lost is null ? await answer : await RequestsInFlight.AnsweredAsync(answer, lost, method);
             _logger.LogInformation("← {method} completed", method);
             return ToElement(result);
         }

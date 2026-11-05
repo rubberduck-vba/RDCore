@@ -100,6 +100,8 @@ public sealed class ChildConnection(
     private NamedPipeClientStream? _pipe;
     private LanguageClient? _client;
     private OmniSharpPlatformChannel? _channel;
+    // completes when the process _client is connected to exits: a request sent to it and not answered by then is never answered.
+    private TaskCompletionSource _lost = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile bool _shuttingDown;
     private bool _disposed;
 
@@ -269,13 +271,15 @@ public sealed class ChildConnection(
     /// <typeparam name="TResult">The response type.</typeparam>
     /// <param name="request">The request parameters.</param>
     /// <param name="token">Cancels the request.</param>
+    /// <exception cref="ServerProtocolSdkException">The child process exited before it answered: a connection that restarts does not send the request again.</exception>
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
     {
         var method = typeof(TParams).GetCustomAttribute<OmniSharp.Extensions.JsonRpc.MethodAttribute>()?.Method ?? typeof(TParams).Name;
         logger.LogInformation("→ {method} ({component})", method, _request?.ExpectedComponent);
         try
         {
-            var result = await Client.SendRequest(request, token);
+            var (client, lost) = Incarnation();
+            var result = await RequestsInFlight.AnsweredAsync(client.SendRequest(request, token), lost, method);
             logger.LogInformation("← {method} completed", method);
             return result;
         }
@@ -302,6 +306,15 @@ public sealed class ChildConnection(
     // LSP 3.17 ErrorCodes: the request was valid and refused; the content it was about changed while it was answered.
     private const int RequestFailedCode = -32803;
     private const int ContentModifiedCode = -32801;
+
+    // the client and the exit of the process it is connected to, as one: a request is sent to the process whose exit it waits for.
+    private (ILanguageClient Client, Task Lost) Incarnation()
+    {
+        lock (_gate)
+        {
+            return (Client, _lost.Task);
+        }
+    }
 
     /// <summary>
     /// Sends a notification over the connection.
@@ -337,8 +350,14 @@ public sealed class ChildConnection(
 
         Transition(ConnectionState.Initializing);
         _client?.Dispose();
-        _client = await LanguageClient.From(ConfigureClientOptions, ct);
-        _channel = new OmniSharpPlatformChannel(_client, logger, _request.ExpectedComponent.ToString());
+        var lost = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var client = await LanguageClient.From(ConfigureClientOptions, ct);
+        lock (_gate)
+        {
+            _client = client;
+            _lost = lost;
+            _channel = new OmniSharpPlatformChannel(client, logger, _request.ExpectedComponent.ToString(), lost.Task);
+        }
 
         // non-LSP platform handshake: the child's advertised capabilities become "provided" ones.
         PlatformInfo = await new RDCorePlatformClient(_channel).InitializeAsync(_request.ExpectedComponent, _request.ExpectedCapabilities, ct);
@@ -374,6 +393,12 @@ public sealed class ChildConnection(
             catch
             {
                 // the exit reason is inspected below via serverProcess.ExitCode.
+            }
+
+            // what the process was asked and did not answer is lost with it, whether the connection restarts or not.
+            lock (_gate)
+            {
+                _lost.TrySetResult();
             }
 
             if (_shuttingDown || State.Value is ConnectionStateValue.Exited or ConnectionStateValue.ShuttingDown)
