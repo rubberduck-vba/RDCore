@@ -4,7 +4,6 @@ using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Platform;
 using System.Diagnostics;
 using System.IO.Pipes;
-using System.Text.Json;
 
 namespace RDCore.Tests.Client;
 
@@ -19,29 +18,18 @@ public sealed class LanguageServerStartedByAnIdeTests
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(90);
 
-    private static string AppHost(string name) => Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{name}.exe" : name);
-
     [TestMethod]
     [Timeout(180_000, CooperativeCancellation = true)]
     public async Task TheLanguageServer_StartedWithAPipeAndAWorkspace_AnswersInitialize_AndThePlatformHandshake()
     {
-        // a platform root as a deployment has it, whose manifest names the components this test run built.
+        // the test's own workspace, user settings and logs, beside a platform root as a deployment has it.
         var root = Path.Combine(Path.GetTempPath(), "RDCore", "ide-launch", Guid.NewGuid().ToString("N"));
         var workspace = Path.Combine(root, "Workspace");
         Directory.CreateDirectory(workspace);
-        File.WriteAllText(Path.Combine(root, PlatformManifest.FileName), JsonSerializer.Serialize(new PlatformManifest
-        {
-            PlatformVersion = "0.1",
-            GeneratedUtc = DateTime.UtcNow,
-            ExtensionsDirectory = "Extensions",
-            LangService = AppHost("RDCore.LanguageServer"),
-            ParseServer = AppHost("RDCore.ParseServer"),
-            HostService = AppHost("rdc"),
-        }));
 
         var launch = RDCoreLanguageServerLaunch.Prepare(new RDCoreLanguageServerLaunchOptions
         {
-            PlatformRoot = root,
+            PlatformRoot = TestPlatformRoot.Directory,
             Workspace = new Uri(workspace).AbsoluteUri,
             PipeName = $"rdcore-ide-launch-{Environment.ProcessId}-{Guid.NewGuid():N}",
         });

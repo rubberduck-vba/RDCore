@@ -48,12 +48,12 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
 }
 
 /// <summary>
-/// Starts the language server's executable as a debug adapter: <c>RDCore.LanguageServer --dap --workspace &lt;path&gt;</c>.
+/// Starts the language server's executable as a debug adapter: <c>RDCore.LanguageServer --dap --workspace &lt;uri&gt;</c>.
 /// </summary>
 internal static class DebugAdapterEntry
 {
-    /// <summary>The switch that selects the debug adapter.</summary>
-    public const string Switch = "--dap";
+    /// <summary>The switch that selects the debug adapter, as a client that prepares its start passes it.</summary>
+    public const string Switch = RDCore.SDK.Client.RDCoreDebugAdapterLaunch.Switch;
 
     /// <summary>
     /// Whether the command line asks for the debug adapter.

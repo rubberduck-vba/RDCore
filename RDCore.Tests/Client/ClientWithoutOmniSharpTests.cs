@@ -34,8 +34,6 @@ public sealed class ClientWithoutOmniSharpTests
         }
     }
 
-    private static string AppHost(string name) => Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{name}.exe" : name);
-
     // the module a program is run as, as rdc.exe's shell sends one: its procedures, the module named apart.
     private const string Program = "Public Sub Main()\r\n    Debug.Print MsgBox(\"Continue?\", vbYesNo)\r\nEnd Sub\r\n";
 
@@ -438,18 +436,9 @@ public sealed class ClientWithoutOmniSharpTests
                 File.WriteAllText(Path.Combine(workspace, $"Other{index}.bas"), OtherModule(index));
             }
 
-            File.WriteAllText(Path.Combine(root, PlatformManifest.FileName), JsonSerializer.Serialize(new PlatformManifest
-            {
-                PlatformVersion = "0.1",
-                ExtensionsDirectory = "Extensions",
-                LangService = AppHost("RDCore.LanguageServer"),
-                ParseServer = AppHost("RDCore.ParseServer"),
-                HostService = AppHost("rdc"),
-            }));
-
             var launch = RDCoreLanguageServerLaunch.Prepare(new RDCoreLanguageServerLaunchOptions
             {
-                PlatformRoot = root,
+                PlatformRoot = TestPlatformRoot.Directory,
                 Workspace = new Uri(workspace).AbsoluteUri,
                 PipeName = $"rdcore-raw-client-{Environment.ProcessId}-{Guid.NewGuid():N}",
             });
