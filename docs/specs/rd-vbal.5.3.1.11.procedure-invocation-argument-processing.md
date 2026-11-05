@@ -228,7 +228,7 @@ its bounds kept.
 |---|---|---|
 |`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
 |`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
-|`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
+|`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`), or an element of one (`obj.V(0)`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
 |`ByRef`, declared `Variant`|An addressable, writable variable, of either of those|A reference binding.|
 |`ByRef`, declared as a class or `Object`|A variable of a different declared type|A `ByVal`-style copy: the class/`Object` copy-back is not modeled.|
 |`ByRef`|Not recognized as aliasable: an expression, a literal, a variable of mismatched declared type, a read-only target|The same `ByVal`-style Let-coerced copy: **MS-VBAL §5.3.1.11**'s "otherwise" case. Never an error.|
@@ -276,20 +276,25 @@ With `Public Count As Long` in a class `Box`, `b` a `Box`, and `Sub Bump(ByRef n
 |`Count`|`Box`'s own code|Written: the variable itself.|
 |`Globals.Counter`, `Counter`, a standard module's `Public Counter As Long`|Any module|Written: the variable itself, however it is named.|
 
-An element of an array that a public `Variant` of an object holds is a copy the same way, and the element itself only when the variable is named by
-itself in its own class (recorded in Excel, `oracle\s58` B01). With `Public V As Variant` holding `Array(1, 2)` and
-`Sub BumpV(ByRef x As Variant)`:
+What takes the argument makes no difference, and an element of a public `Variant` of an object is passed the same way as the variable is. Recorded in Excel
+(`oracle\s58` B01, F01-F05, `s59` M04), with `Public V As Variant` holding `Array(1, 2)` and `Public Event Changed(ByRef n As Long)` in `Box`:
 
-|Argument|Where|After the call|
+|Argument|Given to|After the call|
 |---|---|---|
-|`b.V(0)`|Any module|Unchanged: a copy.|
-|`.V(0)`, in `With b`|Any module|Unchanged: a copy.|
-|`Me.V(0)`|`Box`'s own code|Unchanged: a copy.|
-|`V(0)`|`Box`'s own code|Written: the element itself.|
+|`b.Count`, `.Count`|A `ParamArray` (`Sub SetFirst(ParamArray a() As Variant)`)|Unchanged: a copy. A local variable given to it is written.|
+|`b.C`, `Public C As Currency`|A `Declare`d procedure's `ByRef` parameter (`QueryPerformanceCounter`)|Unchanged: a copy.|
+|`t.Count`, `u.Count` (`u` an `Object` holding `t`)|A procedure called late (`o.Twice t.Count`, `o` an `Object` or a `Variant`)|Unchanged: a copy. A local variable given to it is written.|
+|`o.Count`, `Me.Count`|The handlers of `RaiseEvent Changed(...)`|Unchanged: a copy.|
+|`Count`, a local variable|The handlers of `RaiseEvent Changed(...)`|Written.|
+|`b.V(0)`, `.V(0)` in `With b`, `Me.V(0)`|`ByRef x As Variant`|Unchanged: a copy.|
+|`.Inner.V(0)` in `With b`, `.V(0)` in `With b.Inner`, `.V(0)` in `With .Inner` in `With b`|`ByRef x As Variant`|Unchanged: a copy.|
+|`V(0)`|`ByRef x As Variant`, in `Box`'s own code|Written: the element itself.|
 
-Through a `With` block of an object, a nested one too, it is a copy as well (`oracle\s59` M04): `.Inner.V(0)` in `With b`, `.V(0)` in `With b.Inner`, and
-`.V(0)` in `With .Inner` in `With b`. [**RDC11026**](../diagnostics/rdc11026.md) does not warn of an element passed so yet: it warns of the variable itself
-(`b.V`), not of an element of the array it holds.
+[**RDC11026**](../diagnostics/rdc11026.md) warns of each copy given to a `ByRef` parameter, a `ParamArray`, a `Declare`d procedure and a raised event,
+whose parameters are known. [**RDC11029**](../diagnostics/rdc11029.md), a hint, says the same of a copy given to a procedure called late, which may take
+the argument `ByRef` or `ByVal`. Neither is raised for a member of an object bound late (`u.Count`), which is not known to be a variable, nor for what a
+member of a referenced library is given. An element is flagged only of a `Variant`: of a variable of any other type (`b.Items(1)`, `Items` a `Collection`)
+it is what the default member of the object returns, which MS-VBAL passes as a copy too.
 
 A field of a variable of a user-defined type is a variable, however it is named. In a `With` block of a record, a member with no object before the dot is
 one of the With block variable (**MS-VBAL §5.4.2.21**), which is the record variable itself when the `With` expression is one, and a nested `With` block of

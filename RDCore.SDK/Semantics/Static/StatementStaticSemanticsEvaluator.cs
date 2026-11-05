@@ -800,6 +800,9 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
+        // the handlers are given a copy of a public variable of an object named as its member, as a procedure called is (oracle\s58 F05).
+        ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, parameters, arguments);
+
         for (var i = 0; i < Math.Min(arguments.Length, parameters.Length); i++)
         {
             var parameter = parameters[i];
