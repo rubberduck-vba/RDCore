@@ -12,7 +12,8 @@ type hint or a dictionary access. Which one a pair of parentheses is depends on 
 |Anywhere else: an argument (`Foo (x)`, `Foo a, (b)`, `Call Foo((x))`), the value of an assignment (`x = (y)`, `Set x = (o)`), a condition (`If (x) Then`)|🧩 `"__c()_op"`, the _explicit let-coercion operator_|Forces a _let-coercion_ frame: an argument written in parentheses is passed by value whatever its parameter is.|
 
 Either way, the parenthesized expression's declared type is the enclosed expression's, and it "evaluates to the simple
-data value of its enclosed expression" (MS-VBAL §5.6.6) - a value bound to nothing. For an object, that is what its
+data value of its enclosed expression" (MS-VBAL §5.6.6) - a value bound to nothing. A `Variant`'s is still a `Variant`'s
+value, which `(v + 1) = "2.0"` compares as text ([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md#an-expression-over-a-variant)). For an object, that is what its
 default member returns, read **once** for each pair of parentheses, whatever the parentheses are around (recorded in
 Excel):
 
