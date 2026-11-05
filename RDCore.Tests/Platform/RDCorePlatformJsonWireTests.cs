@@ -5,6 +5,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Serialization;
+using RDCore.SDK.Workspace;
 using System.Collections;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -174,7 +175,7 @@ public sealed class RDCorePlatformJsonWireTests
         ("SessionDebugVariablesParams", """{"frameId":1,"scope":1,"reference":9}"""),
         ("SessionDebugEvaluateParams", """{"frameId":1,"expression":"i + 1"}"""),
         ("SessionDebugExecuteParams", """{"frameId":1,"statement":"i = 2"}"""),
-        ("DebugAck", """{"acted":true}"""),
+        ("DebugAck", """{"acted":true,"stopping":false}"""),
         ("DebugGotoResult", """{"moved":true,"reason":"moved","line":4,"character":0}"""),
         ("DebugGotoResult", """{"moved":false,"reason":null,"line":-1,"character":-1}"""),
         ("DebugEditStatusResult", """{"suspended":true,"edits":[{"name":"Module1.Main","kind":1,"reason":"signature","moduleUri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}},{"name":"Module1.Other","kind":0,"reason":"","moduleUri":null,"range":null}]}"""),
@@ -315,9 +316,12 @@ public sealed class RDCorePlatformJsonWireTests
 
         // the client logic sends and answers messages, and is none; the pre-launch preparation is local to the client, and the manifest is a file of the platform root.
         Type[] notMessages = [typeof(RDCorePlatformClient), typeof(RDCoreLanguageServerLaunch), typeof(RDCoreLanguageServerLaunchOptions), typeof(PlatformManifest)];
+        // the project file model is a workspace's .rdproj, which a client reads from disk: it is no message either.
+        var projectFileModel = typeof(ProjectFile).Namespace;
 
         var unreached = typeof(RDCorePlatformJson).Assembly.GetExportedTypes()
             .Where(type => !type.IsAbstract && !type.IsEnum && !type.IsInterface && !typeof(Exception).IsAssignableFrom(type) && !notMessages.Contains(type) && !reached.Contains(type))
+            .Where(type => type.Namespace != projectFileModel)
             .Select(type => type.FullName)
             .ToList();
 

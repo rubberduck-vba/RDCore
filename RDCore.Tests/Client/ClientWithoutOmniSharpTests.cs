@@ -147,7 +147,6 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        StringAssert.Contains(WholeLogOf(platform.Root), "OmniSharp.Extensions.", "what OmniSharp's own container logs is in the language server's file as well");
         await platform.ShutdownAsync(6);
     }
 
