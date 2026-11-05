@@ -2916,10 +2916,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // whether a variable of this declared type is one a ByRef parameter can be bound to without a copy: one of the parameter's own declared type, an
     // enumeration being the declared type Long (MS-VBAL §5.2.3.4), so a variable of one and a Long parameter, or two enumerations, are the same type. An
     // array's declared type is an array of its element type, whether it has fixed bounds or none (§5.2.3.1.3): a fixed-size array is passed to an
-    // `A() As Long` parameter by reference, as a resizable one is. The element types match as they are: an array of an Enum is no array of Long.
+    // `A() As Long` parameter by reference, as a resizable one is. The element types match as they are, but for two Enums: an array of an Enum is no array
+    // of Long, and is an array of another Enum (recorded in Excel: oracle\s61 G21, s61b G22, G23).
     private static bool IsOfDeclaredType(VBParameterSymbol parameter, VBType variableType)
         => (parameter.ResolvedType, variableType) is (VBArrayType parameterArray, VBArrayType variableArray)
-            ? parameterArray.ItemType.Equals(variableArray.ItemType)
+            ? parameterArray.ItemType.Equals(variableArray.ItemType) || parameterArray.ItemType is VBEnumType && variableArray.ItemType is VBEnumType
             : VBEnumType.AsDeclaredType(parameter.ResolvedType).Equals(VBEnumType.AsDeclaredType(variableType));
 
     // MS-VBAL §5.3.1.11: a Variant parameter given a variable of another type is bound to it, and the binding knows what the variable is declared to be - the

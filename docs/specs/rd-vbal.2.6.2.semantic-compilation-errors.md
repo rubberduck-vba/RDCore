@@ -84,7 +84,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09359`](../diagnostics/vbc09359.md)|Invalid Next control variable reference|a `Next` statement names a variable that is not the control variable of its loop|
 |[`VBC09360`](../diagnostics/vbc09360.md)|Can't assign to array|an array declared with fixed dimensions is assigned an array|
 |[`VBC09361`](../diagnostics/vbc09361.md)|ByRef argument type mismatch|a variable is passed to a `ByRef` parameter of another type|
-|[`VBC09362`](../diagnostics/vbc09362.md)|Type mismatch: array or user-defined type expected|a parameter declared as an array is given what is no array of its element type: another array, a `Variant`, a scalar, an array in parentheses|
+|[`VBC09362`](../diagnostics/vbc09362.md)|Type mismatch: array or user-defined type expected|a parameter declared as an array is given what is no array of its element type: an array of another element type, a `Variant`, a scalar, an array in parentheses|
 |[`VBC09363`](../diagnostics/vbc09363.md)|Expected variable or procedure, not module|the name of a standard module is used by itself, as a value or a procedure|
 |[`VBC09364`](../diagnostics/vbc09364.md)|Expected Sub, Function, or Property|a call statement names a variable or a constant of the procedure, not a procedure|
 |[`VBC09365`](../diagnostics/vbc09365.md)|Range has no values|an array is declared with an upper bound less than its lower bound|

@@ -179,9 +179,9 @@ internal static class ArgumentListStaticSemantics
         => procedure is VBFunctionMemberSymbol { Name: var name } && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(procedure)
             && (string.Equals(name, "Len", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "LenB", StringComparison.OrdinalIgnoreCase));
 
-    // MS-VBAL §5.3.1.11: a variable given to a ByRef parameter is aliased to it, and is of its declared type - an array, of its element type. MS-VBA refuses
-    // one of another type (Excel-verified): "ByRef argument type mismatch", or for an array "Type mismatch: array or user-defined type expected". A Variant
-    // parameter takes any; a parenthesized argument is a value, which is copied (§5.6.6); and a parameter of a class or Object is not checked here.
+    // MS-VBAL §5.3.1.11: a variable given to a ByRef parameter is aliased to it, and is of its declared type. MS-VBA refuses one of another type
+    // (Excel-verified): "ByRef argument type mismatch". An array parameter is ArrayError's; a Variant parameter takes any; a parenthesized argument is a
+    // value, which is copied (§5.6.6); and a parameter of a class or Object is not checked here.
     private static VBCompileErrorInfo? ByRefError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
     {
         if (parameter.ParameterKind is not (ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef) || parameter is ParamArrayParameterSymbol
@@ -209,8 +209,12 @@ internal static class ArgumentListStaticSemantics
     // "Type mismatch: array or user-defined type expected" (recorded in Excel: oracle\s57 A05, s58 G01-G12, s59 G13-G20): an array of another element type -
     // an Integer() to a Long(), a Variant() to a Long(), a Collection() to an Object() - a Variant, whatever it holds (a variable, a parameter, an element
     // of a Variant array, what Array or Split returns, to a Variant() or a String() too), a scalar, and an array in parentheses, which is a value and no
-    // array variable, of its element type or not. What a function returns that is an array of its element type it takes, as an array field of a record.
-    // ArrayError checks those; ByRefError leaves an array parameter to it. A ParamArray and a Declare's parameter are not checked here.
+    // array variable, of its element type or not, in a statement's argument list too (`Takes (c)`, s61 G30). What a function or a Property Get returns
+    // that is an array of its element type it takes, as an array field of a record (G26); a member of a late-bound object is a Variant (s61 G24, G25).
+    // The element types are matched as they are declared, except that every Enum is the same element type: an array of an Enum is no array of Long, nor
+    // an array of Long one of an Enum (s61 G21, s61b G22), but it is an array of another Enum (s61b G23, G34); an array of String * N is no array of String
+    // (G31). The standard library's array parameters are checked too: IRR given a Variant, or an array in parentheses
+    // (G27, G28). ArrayError checks those; ByRefError leaves an array parameter to it. A ParamArray and a Declare's parameter are not checked here.
     private static VBCompileErrorInfo? ArrayError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
     {
         if (parameter.ResolvedType is not VBArrayType { ItemType: var expected } || parameter is ParamArrayParameterSymbol
@@ -224,12 +228,19 @@ internal static class ArgumentListStaticSemantics
         var mismatched = given switch
         {
             VBArrayType when argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp } => true,
-            VBArrayType { ItemType: var item } => !ParameterLists.SameType(expected, item),
+            VBArrayType { ItemType: var item } => !SameElementType(expected, item),
             VBVariantType => true,
             _ => IsIntrinsic(given),
         };
         return mismatched ? VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected, argument.Location, NameOf(argument)) : null;
     }
+
+    // the same element type, of the same kind and name - an Enum is not mapped to Long, and a String * N is a String of another kind - or two Enums, as the
+    // call binds the parameter to it (RuntimeExpressionEvaluator.IsOfDeclaredType). A type that is not known is not a type that differs.
+    private static bool SameElementType(VBType expected, VBType item)
+        => expected is VBUnknownType || item is VBUnknownType
+            || expected is VBEnumType && item is VBEnumType
+            || expected.GetType() == item.GetType() && string.Equals(expected.Name, item.Name, StringComparison.OrdinalIgnoreCase);
 
     private static string NameOf(ExpressionNode argument) => argument switch
     {

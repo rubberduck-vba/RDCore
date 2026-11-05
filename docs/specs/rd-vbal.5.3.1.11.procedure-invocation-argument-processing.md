@@ -40,18 +40,23 @@ MS-VBA defers argument-type validation to run time: it never rejects an omitted 
 
 An array parameter (`ByRef a() As Long`) is a second name for an array of its element type, which it must be given. MS-VBA refuses anything else at compile
 time, with "Type mismatch: array or user-defined type expected", and so does RD-VBA. Each row was recorded in Excel (64-bit, en-US, `oracle\s57` A05,
-`s58` G01-G12, `s59` G13-G20); a named argument (`Count(a:=v)`) is checked as a positional one is.
+`s58` G01-G12, `s59` G13-G20, `s61` G21-G34); a named argument (`Count(a:=v)`) is checked as a positional one is.
 
 |Argument, to `a() As Long` unless noted|MS-VBA|
 |---|---|
-|A `Long()` variable; an array field of a record (`r.A`); what a function returns, declared `As Long()`|Runs|
+|A `Long()` variable; an array field of a record (`r.A`); what a function or a `Property Get` of an object declared as its class returns, declared `As Long()`|Runs|
+|A `Box()` to a `Box()`; a fixed-size `Variant()` to a `Variant()`; an array of an `Enum` to an array of that `Enum`, or of another `Enum`|Runs|
 |An `Integer()`, a `Variant()`; a `Collection()` to an `Object()`; what a function returns, declared `As Integer()`|Compile error|
+|An array of an `Enum` to a `Long()`, a `Long()` to an array of an `Enum`: the element types are matched as declared, every `Enum` being the same one, and an `Enum` is not a `Long` here|Compile error|
+|A `String * 3` array to a `String()`|Compile error|
+|A member of an `Object` or a `Variant` (`o.Arr`), which is late-bound, and so a `Variant`|Compile error|
 |A `Variant`, whatever it holds: a variable, a `ByVal` `Variant` parameter, one in parentheses, an element of a `Variant` array; to a `Variant()`, a `TPair()` or an array of no declared type too|Compile error|
 |What `Array` returns, to a `Variant()`; what `Split` returns, to a `Variant()` or a `String()`: both are declared `Variant`|Compile error|
 |A scalar (`Dim n As Long`)|Compile error|
-|An array in parentheses (`Count((c))`, `c` a `Long()`): a value, and no array variable|Compile error|
+|An array in parentheses (`Count((c))`, `c` a `Long()`, and the statement `Takes (c)`): a value, and no array variable|Compile error|
 
-A `ParamArray` and a `Declare`d procedure's parameter are not checked here.
+The array parameters of the standard library are checked as a procedure's are: `IRR` given a `Variant`, or a `Double()` in parentheses, is the
+same compile error (`s61` G27, G28), and `IRR(d)` of a `Double()` runs (G29). A `ParamArray` and a `Declare`d procedure's parameter are not checked here.
 
 ## Runtime Semantics
 
@@ -210,7 +215,7 @@ allows a plain reference binding for without a class/`Object` copy-back. An `Enu
 ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)), so a variable of an `Enum`
 exactly matches a parameter declared `Long` or as another `Enum`, and a `Long` variable a parameter of an `Enum`. An
 array of an `Enum` does not match an array parameter of `Long`, nor an array of `Long` one of an `Enum`: the element
-type is not mapped. An array of another element type given to an array parameter is a compile error; see
+type is not mapped. An array of an `Enum` matches an array parameter of any `Enum`, its own or another. An array of another element type given to an array parameter is a compile error; see
 [Array parameters](#array-parameters).
 
 An array's declared type is an array of its element type, whether it was declared with fixed bounds or none: a
