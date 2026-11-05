@@ -243,8 +243,10 @@ internal static class CompiledExecution
     /// Whether each compiled activation fails one access of its frame chosen at random - a variable read back after the interpreter ran an instruction, or
     /// written into the frame before it does - as compiled code fails one when the frame holds a variable where it cannot read or write it: the read hands
     /// the rest of the activation to the interpreter, and the write, made all the same, has the interpreter run the activation from the instruction instead
-    /// of that instruction alone. The frame holds what it always does, so a program runs the same; what the suite runs under to show that each of those
-    /// hand-overs leaves the interpreter what it needs. The test assembly sets it from <c>RDCORE_RELOADS=fail-at-random</c>; nothing else does.
+    /// of that instruction alone. The first read-back after a call the program waited in fails too, whatever the seed
+    /// (<see cref="CompiledActivation.ReadsBackAfterCall"/>). The frame holds what it always does, so a program runs the same; what the suite runs under to
+    /// show that each of those hand-overs leaves the interpreter what it needs. The test assembly sets it from <c>RDCORE_RELOADS=fail-at-random</c>; nothing
+    /// else does.
     /// </summary>
     public static bool FailsReloadsAtRandom { get; set; }
 

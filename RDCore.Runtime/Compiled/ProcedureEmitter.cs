@@ -437,7 +437,7 @@ internal sealed class ProcedureEmitter
         var current = _il.DefineLabel();
         var unread = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.ReadsBackAfterCall))!.GetMethod!);
         _il.Emit(OpCodes.Brfalse, current);
         EmitReload(unread);
         _il.Emit(OpCodes.Br, current);

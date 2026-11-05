@@ -559,6 +559,29 @@ public sealed class CompiledActivation : ILightActivation
     /// </summary>
     public bool WaitedDuringCall => Suspensions != _suspensionsBeforeCall;
 
+    /// <summary>
+    /// Whether compiled code reads its variables back after the call it made returned: the program waited during it (<see cref="WaitedDuringCall"/>). Under
+    /// the random failed accesses (<see cref="CompiledExecution.FailsReloadsAtRandom"/>), the first read-back then fails, whatever the seed: every call that
+    /// waited reaches the hand-over of a variable compiled code can't read back.
+    /// </summary>
+    public bool ReadsBackAfterCall
+    {
+        get
+        {
+            if (!WaitedDuringCall)
+            {
+                return false;
+            }
+
+            if (CompiledExecution.FailsReloadsAtRandom)
+            {
+                _untilFailedAccess = 1;
+            }
+
+            return true;
+        }
+    }
+
     // the symbols compiled code was compiled against: a procedure it calls, defined again since - its parameters retyped, passed another way, one added - is
     // another call than the one compiled.
     private ScopeTree _scopes = null!;
