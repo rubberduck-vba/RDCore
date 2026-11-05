@@ -162,23 +162,32 @@ public sealed class ChildConnection(
     }
 
     /// <summary>
-    /// Completes once the connection is <see cref="ConnectionStateValue.Ready"/> (waiting through any
-    /// in-progress restart); faults only once the connection is terminally <see cref="ConnectionStateValue.Exited"/>.
+    /// Completes once the connection is <see cref="ConnectionStateValue.Ready"/> (waiting through any in-progress restart); faults once the connection is
+    /// terminally <see cref="ConnectionStateValue.Exited"/>, is shutting down, or is disposed.
     /// </summary>
     /// <param name="token">Cancels the wait.</param>
+    /// <exception cref="ServerProtocolSdkException">The connection has exited, or is shutting down.</exception>
+    /// <exception cref="ObjectDisposedException">The connection is disposed, or is disposed while the wait waits.</exception>
     /// <remarks>
     /// A connection whose child process has exited is not Ready from the moment its exit is seen, before its state says so: what completes this wait is the
-    /// process a request sent next goes to, and not the one that a request in flight was lost with. A connection disposed before it is ready again faults the
-    /// wait with an <see cref="ObjectDisposedException"/>.
+    /// process a request sent next goes to, and not the one that a request in flight was lost with.
     /// </remarks>
     public Task WaitForReadyAsync(CancellationToken token)
     {
         Task ready;
         lock (_gate)
         {
+            if (_disposed)
+            {
+                return Task.FromException(new ObjectDisposedException(nameof(ChildConnection)));
+            }
             if (State.IsTerminal)
             {
                 return Task.FromException(new ServerProtocolSdkException("The connection has exited."));
+            }
+            if (_shuttingDown || State.Value is ConnectionStateValue.ShuttingDown)
+            {
+                return Task.FromException(new ServerProtocolSdkException("The connection is shutting down."));
             }
             if (State.IsUsable && !_lost.Task.IsCompleted)
             {
@@ -361,20 +370,49 @@ public sealed class ChildConnection(
         Transition(ConnectionState.Initializing);
         _client?.Dispose();
         var lost = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var client = await LanguageClient.From(ConfigureClientOptions, ct);
-        lock (_gate)
+        try
         {
-            _client = client;
-            _lost = lost;
-            _channel = new OmniSharpPlatformChannel(client, logger, _request.ExpectedComponent.ToString(), lost.Task);
+            var client = await BeforeTheChildExitsAsync(token => LanguageClient.From(ConfigureClientOptions, token), "it was initialized", ct);
+            OmniSharpPlatformChannel channel;
+            lock (_gate)
+            {
+                _client = client;
+                _lost = lost;
+                _channel = channel = new OmniSharpPlatformChannel(client, logger, _request.ExpectedComponent.ToString(), lost.Task);
+            }
+
+            // non-LSP platform handshake: the child's advertised capabilities become "provided" ones.
+            PlatformInfo = await BeforeTheChildExitsAsync(
+                token => new RDCorePlatformClient(channel).InitializeAsync(_request.ExpectedComponent, _request.ExpectedCapabilities, token), "the platform handshake", ct);
+        }
+        catch
+        {
+            // a request sent to this process while it was initialized is answered by it or not at all: it is not, now.
+            lost.TrySetResult();
+            throw;
         }
 
-        // non-LSP platform handshake: the child's advertised capabilities become "provided" ones.
-        PlatformInfo = await new RDCorePlatformClient(_channel).InitializeAsync(_request.ExpectedComponent, _request.ExpectedCapabilities, ct);
         logger.LogInformation("Platform handshake with {Component}: provides {Provided}",
             PlatformInfo.Component, PlatformInfo.Provided);
 
         Transition(ConnectionState.Ready);
+    }
+
+    // what only the child answers: when the child exits first, nothing ever will, and the attempt fails as the child has gone. What was asked is abandoned,
+    // and whatever becomes of it is observed here.
+    private async Task<T> BeforeTheChildExitsAsync<T>(Func<CancellationToken, Task<T>> ask, string before, CancellationToken ct)
+    {
+        using var abandon = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var exited = serverProcess.WaitForExitAsync();
+        var answer = ask(abandon.Token);
+        if (await Task.WhenAny(answer, exited) == answer)
+        {
+            return await answer;
+        }
+
+        abandon.Cancel();
+        _ = answer.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        throw new ServerProtocolSdkException($"Child process exited before {before}.");
     }
 
     private async Task MonitorPeerAsync()
@@ -449,7 +487,7 @@ public sealed class ChildConnection(
     {
         // _restartCount is a lifetime counter: a child that keeps dying (even if each restart itself
         // succeeds) is given up on after MaxRestartAttempts, not restarted forever.
-        while (_restartCount < _request!.MaxRestartAttempts)
+        while (_restartCount < _request!.MaxRestartAttempts && !_shuttingDown)
         {
             var attempt = _restartCount++;
             var delayMs = RestartDelayMs(attempt, _request.RestartBackoffBaseMs, _request.RestartBackoffMaxMs);
@@ -495,36 +533,38 @@ public sealed class ChildConnection(
     private void Transition(ConnectionState target)
     {
         TaskCompletionSource ready;
+        ConnectionState state;
         lock (_gate)
         {
-            State = State.AdvanceTo(target);
+            State = state = State.AdvanceTo(target);
             ready = _ready;
         }
-        logger.LogInformation("Connection state -> {State}", State.Value);
-        if (State.IsUsable)
+        logger.LogInformation("Connection state -> {State}", state.Value);
+        if (state.IsUsable)
         {
             ready.TrySetResult();
         }
-        if (State.IsTerminal)
+        if (state.IsTerminal)
         {
             ready.TrySetException(new ServerProtocolSdkException("The connection has exited."));
             _terminated.TrySetResult();
         }
-        StateChanged?.Invoke(State);
+        StateChanged?.Invoke(state);
     }
 
     private void Fault(string reason)
     {
+        ConnectionState state;
         lock (_gate)
         {
             if (State.Value is ConnectionStateValue.Faulted)
             {
                 return;
             }
-            State = State.AdvanceTo(ConnectionState.Faulted(reason));
+            State = state = State.AdvanceTo(ConnectionState.Faulted(reason));
         }
         logger.LogWarning("Connection faulted: {Reason}", reason);
-        StateChanged?.Invoke(State);
+        StateChanged?.Invoke(state);
     }
 
     /// <summary>
@@ -532,15 +572,17 @@ public sealed class ChildConnection(
     /// </summary>
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-        _disposed = true;
-        _shuttingDown = true;
         lock (_gate)
         {
-            // a connection disposed during a restart is never ready: whoever waits for it is told.
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
+            _shuttingDown = true;
+
+            // a connection disposed during a restart is never ready: whoever waits for it is told. Whoever waits after this is told at once
+            // (WaitForReadyAsync), whatever gate an exit seen after it makes.
             _ready.TrySetException(new ObjectDisposedException(nameof(ChildConnection)));
         }
 
