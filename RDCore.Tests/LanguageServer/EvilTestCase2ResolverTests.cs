@@ -198,7 +198,7 @@ public sealed class EvilTestCase2ResolverTests
     {
         composition ??= Composed();
         var node = module.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(candidate => candidate.Name == member && candidate.MemberKind == kind);
-        var accessor = kind switch { MemberKind.PropertyLet => ".Let", MemberKind.PropertySet => ".Set", _ => string.Empty };
+        var accessor = kind switch { MemberKind.PropertyLet => "]Let", MemberKind.PropertySet => "]Set", _ => string.Empty };
         Assert.IsTrue(composition.Value.ScopeTree.TryGetScope(ModuleUri($"{module.Uri.Fragment.TrimStart('#')}.{member}{accessor}"), out var scope));
 
         return (new StaticEvaluationContext(composition.Value.Resolver, scope), new StatementBlock([.. node.Children]));

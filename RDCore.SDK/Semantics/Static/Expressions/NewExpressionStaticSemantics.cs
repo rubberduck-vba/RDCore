@@ -53,7 +53,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(result.ErrorId!.Value, expression.Location,
-                $"'{typeName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => SymbolUri.PathOf(candidate.ParentUri)))}"));
+                $"'{typeName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => SymbolUri.QualifiedNameOf(candidate.ParentUri)))}"));
         }
 
         // a document module's objects are its host's to make, in its own project too (MS-VBA: Invalid use of New keyword).

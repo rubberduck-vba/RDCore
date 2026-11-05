@@ -16,7 +16,15 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 public sealed record class VBEnumMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier) 
-    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier) { }
+    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier)
+{
+    /// <remarks>
+    /// An Enum's name is a type's, and a variable, a constant or a procedure of its module may take it (<strong>MS-VBAL §5.2.3.1</strong>,
+    /// <strong>§5.2.3.2</strong>, <strong>§5.2.3.4</strong>): <c>Property Get PlayerType() As PlayerType</c>. An Enum is addressed with the suffix
+    /// <c>Enum</c> after its name (<see cref="SymbolUri"/>), and its members under it (<c>PlayerType]Enum.HumanControlled</c>).
+    /// </remarks>
+    protected override string? UriSuffix => SymbolUri.EnumSuffix;
+}
 
 /// <summary>
 /// Represents an <c>Enum</c> type declaration symbol.

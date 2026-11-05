@@ -547,7 +547,7 @@ internal sealed class ProgramEdits
     };
 
     // a symbol as the user names it, from its module down (Module, Module.Procedure); a URI that names none is said as it is.
-    private static string NameOf(string symbol) => SymbolUri.PathOf(new Uri(symbol)) is { Length: > 0 } name ? name : symbol;
+    private static string NameOf(string symbol) => SymbolUri.QualifiedNameOf(new Uri(symbol)) is { Length: > 0 } name ? name : symbol;
 
     private static ModuleText TextOf(VBModuleSymbol module)
         => new($"{module.Directives}", module is VBClassModuleSymbol type

@@ -1052,4 +1052,32 @@ public sealed class ScopeTreeSymbolResolverTests
         Assert.IsFalse(Resolver(Module("Mod1")).TryRead(new MemoryAddress(0), out var value));
         Assert.IsNull(value);
     }
+
+    // MS-VBAL §5.3.1: a Function declares a local of its own name, its result variable; a Property Get returns its value the same way.
+    [TestMethod]
+    [DataRow(false, DisplayName = "a Function")]
+    [DataRow(true, DisplayName = "a Property Get")]
+    public void AFunctionsOwnName_InItsBody_IsItsResultVariable_BeforeAnEnumOfTheName(bool isPropertyGet)
+    {
+        var module = Module("Mod1");
+        Symbol function = isPropertyGet
+            ? PropertyGet(module.Uri, "PT")
+            : new VBFunctionMemberSymbol(Root, module.Uri, "PT", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+
+        var result = Resolver(module, EnumType(module.Uri, "PT"), function).ResolveValue("pt", ScopeKind.Unallocated, function.Uri);
+
+        Assert.IsTrue(result.IsResolved, result.ErrorId?.ToString());
+        Assert.AreSame(function, result.Symbol);
+    }
+
+    [TestMethod]
+    public void AFunctionsLocalOfItsOwnName_IsTheLocal()
+    {
+        // a Dim of the function's name is a duplicate declaration the static pass reports; the resolver still finds what the procedure declares first.
+        var module = Module("Mod1");
+        var function = new VBFunctionMemberSymbol(Root, module.Uri, "PT", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var local = Local(function.Uri, "PT");
+
+        Assert.AreSame(local, Resolver(module, function, local).ResolveValue("PT", ScopeKind.Unallocated, function.Uri).Symbol);
+    }
 }
