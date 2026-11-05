@@ -263,7 +263,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
 
         // a field of a Type is no scope's declaration: it is a member of the type.
-        var fragment = id.Uri.Fragment.TrimStart('#');
+        var fragment = SymbolUri.PathOf(id.Uri);
         var dot = fragment.LastIndexOf('.');
         if (dot <= 0)
         {
@@ -283,11 +283,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
 
     /// <summary>The address of the module a symbol is declared in: the first part of its address.</summary>
     public static Uri ModuleOf(Uri symbol)
-    {
-        var fragment = symbol.Fragment.TrimStart('#');
-        var dot = fragment.IndexOf('.');
-        return new UriBuilder(symbol) { Fragment = dot < 0 ? fragment : fragment[..dot] }.Uri;
-    }
+        => new UriBuilder(symbol) { Fragment = SymbolUri.ModuleNameOf(symbol) }.Uri;
 
     /// <summary>Whether a module of the workspace declares the symbol.</summary>
     public static bool IsDeclaredBy(RenameContext context, Symbol symbol)
@@ -312,7 +308,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
 
                 if (string.Equals(named, type.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    return module.Module.Fragment.TrimStart('#');
+                    return SymbolUri.ModuleNameOf(module.Module);
                 }
             }
         }
@@ -336,7 +332,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     }
 
     /// <summary>What a symbol is, as a reader would name it: its address in the workspace or its library.</summary>
-    public static string Describe(Symbol symbol) => symbol.Uri.Fragment.TrimStart('#') is { Length: > 0 } path ? path : symbol.Name;
+    public static string Describe(Symbol symbol) => SymbolUri.PathOf(symbol.Uri) is { Length: > 0 } path ? path : symbol.Name;
 
     // what the static pass binds the expressions of each procedure of the module to.
     private static Dictionary<SyntaxNodeId, ExpressionFact> FactsOf(RenameContext context, RenameModule module)

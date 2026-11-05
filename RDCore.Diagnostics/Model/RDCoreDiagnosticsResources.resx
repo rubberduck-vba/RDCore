@@ -358,6 +358,18 @@
     <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
   </data>
   <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
-    <value>This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
+    <value>This public variable of an object, or element of one, is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
+  </data>
+  <data name="ObjectVariablePassedLateIsACopy_Message" xml:space="preserve">
+    <value>This public variable of an object, or element of one, is passed as a copy to a procedure called late, as MS-VBA passes it: if the procedure takes it ByRef, what it assigns to the parameter is not written back to it.</value>
+  </data>
+  <data name="StringComparedWithANumberAsADouble_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; compares a String with an integer or a Single: MS-VBA compares the two as Double values, where MS-VBAL §5.6.9.5 compares them in the number&apos;s type, and the result can differ (&quot;2.5&quot; = 2 is False; &quot;40000&quot; compared with an Integer does not overflow).</value>
+  </data>
+  <data name="NewOfAClassNotCreatable_New_Message" xml:space="preserve">
+    <value>New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered).</value>
+  </data>
+  <data name="NewOfAClassNotCreatable_AsNew_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is declared As New of a class whose objects are never created: each reference to it that would create its object raises run-time error -2147221164 (Class not registered), as MS-VBA does.</value>
   </data>
 </root>

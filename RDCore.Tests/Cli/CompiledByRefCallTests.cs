@@ -525,7 +525,6 @@ public sealed class CompiledByRefCallTests
     }
 
     [TestMethod]
-    [Ignore("a POKE at the address of a ByRef parameter rebinds the address to a binding of its own (SessionStorage.TryPoke), and the caller goes on reading its old cell")]
     public async Task AByteWrittenAtTheAddressOfAParameterPassedByReference_IsWrittenIntoTheCallersVariable()
     {
         CompiledExecutionTests.RequirePayloads();

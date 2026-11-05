@@ -1,10 +1,15 @@
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json.Linq;
 using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Server;
 using System.Globalization;
+using System.IO.Pipelines;
+using System.Text;
+using OmniSharp.Extensions.LanguageServer.Server;
+using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 
 namespace RDCore.Tests.Server;
 
@@ -81,6 +86,50 @@ public sealed class ClientLocaleTests
         Assert.AreEqual("en-US", CultureInfo.CurrentUICulture.Name);
     }
 
+    // ---- what a client of the protocol says ----
+
+    // OmniSharp 0.19.9 reads an initialize request into a type of its own that has no locale, and makes the request its handlers are given of that one: what the
+    // client said is kept from the message as it came.
+    [TestMethod]
+    [DataRow("fr-CA", "fr-CA", DisplayName = "a locale")]
+    [DataRow(null, null, DisplayName = "none")]
+    public async Task TheLocaleOfTheInitializeRequest_IsTheOneTheServerIsToldTheClientSaid(string? sent, string? said)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var told = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serving = OmniSharpLanguageServer.From(options => options
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            .WithLifecycleReceiver()
+            .OnInitialize((server, request, token) =>
+            {
+                _ = told.TrySetResult(ClientLocale.Said(server, request));
+                return Task.CompletedTask;
+            }), timeout.Token);
+
+        var parameters = new JObject { ["processId"] = null, ["rootUri"] = null, ["capabilities"] = new JObject() };
+        if (sent is not null)
+        {
+            parameters["locale"] = sent;
+        }
+
+        await SendAsync(toServer.Writer, new JObject { ["jsonrpc"] = "2.0", ["id"] = 1, ["method"] = "initialize", ["params"] = parameters }, timeout.Token);
+        Assert.AreEqual(said, await told.Task.WaitAsync(timeout.Token));
+
+        await SendAsync(toServer.Writer, new JObject { ["jsonrpc"] = "2.0", ["method"] = "initialized", ["params"] = new JObject() }, timeout.Token);
+        using var server = await serving.WaitAsync(timeout.Token);
+    }
+
+    // a message as LSP frames it, written as a client that is not OmniSharp's writes it.
+    private static async Task SendAsync(PipeWriter writer, JObject message, CancellationToken token)
+    {
+        var body = Encoding.UTF8.GetBytes(message.ToString(Newtonsoft.Json.Formatting.None));
+        _ = await writer.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), token);
+        _ = await writer.WriteAsync(body, token);
+    }
+
     // ---- what a platform's client says ----
 
     [TestMethod]
@@ -99,6 +148,17 @@ public sealed class ClientLocaleTests
         Assert.AreEqual("fr-CA", ClientLocale.Of(null, options), "a platform's client, whose language client cannot say it there");
         Assert.AreEqual("fr-CA", ClientLocale.Of("  ", options));
         Assert.IsNull(ClientLocale.Of(null, null));
+    }
+
+    // a request's locale that is no culture the platform knows does not hide the one a platform's client says; when neither is known, the request's stands.
+    [TestMethod]
+    public void ARequestsLocaleThePlatformDoesNotKnow_GivesWayToTheInitializationOptions()
+    {
+        var options = new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "fr-CA" };
+
+        Assert.AreEqual("fr-CA", ClientLocale.Of("xx-YY", options));
+        Assert.AreEqual("xx-YY", ClientLocale.Of("xx-YY", new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "zz-QQ" }));
+        Assert.AreEqual("xx-YY", ClientLocale.Of("xx-YY", null));
     }
 
     [TestMethod]

@@ -61,7 +61,11 @@ public sealed class SymbolHoverTests
         "    Dim c As Class1",
         "    c.Value = \"x\"",
         "    MsgBox Total",
+        "    MsgBox Durée",
         "End Sub");
+
+    // a module of a French project: its name has an accent, which its address escapes.
+    private static readonly string Donnees = Module("Données", "Option Explicit", "Public Durée As Long");
 
     private static string Lines(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
@@ -70,7 +74,7 @@ public sealed class SymbolHoverTests
     // the workspace of the modules, with the standard library it references.
     private static RenameContext Workspace()
     {
-        (string Name, string Source)[] modules = [("Class1", Class1), ("Helpers", Helpers), ("Program", Program)];
+        (string Name, string Source)[] modules = [("Class1", Class1), ("Helpers", Helpers), ("Données", Donnees), ("Program", Program)];
         var parsed = modules.Select(module =>
         {
             var isClass = module.Source.StartsWith("VERSION", StringComparison.Ordinal);
@@ -112,6 +116,7 @@ public sealed class SymbolHoverTests
     [DataRow("Helpers", "Public Type Point", "Point", "Public Type Point", "Helpers", DisplayName = "a Type")]
     [DataRow("Program", "p.X = count", "X", "X As Long", "Helpers.Point", DisplayName = "a field of a Type")]
     [DataRow("Program", "Dim c As Class1", "Class1", "Class Class1", null, DisplayName = "a class")]
+    [DataRow("Program", "MsgBox Durée", "Durée", "Public Durée As Long", "Données", DisplayName = "a variable of a module named with an accent")]
     public void AHover_SaysTheDeclaration_AndWhatDeclaresIt(string module, string line, string text, string declaration, string? container)
     {
         var hover = HoverAt(Workspace(), module, line, text);

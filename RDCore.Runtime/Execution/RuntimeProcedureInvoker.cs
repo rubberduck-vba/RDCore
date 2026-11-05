@@ -53,6 +53,16 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         => Activate(procedure, arguments, [], sweep: false);
 
     /// <summary>
+    /// The arguments a program's entry point is invoked with (<see cref="RDCore.SDK.Workspace.ProgramEntryPoint"/>): none, which a <c>ParamArray</c> it declares
+    /// collects as an array with no elements, as it does in a call that passes it none (<strong>MS-VBAL §5.3.1.11</strong>).
+    /// </summary>
+    /// <param name="entryPoint">The procedure the program starts with.</param>
+    public static IRuntimeValue[] ProgramArguments(VBTypeMemberSymbol entryPoint)
+        => GetParameters(entryPoint) is [ParamArrayParameterSymbol]
+            ? [new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])))]
+            : [];
+
+    /// <summary>
     /// Invokes <paramref name="procedure"/>, every parameter of which is a scalar passed by value, with <paramref name="arguments"/> - payloads of the
     /// parameters' types, in order: each is what the parameter's cell is made of (IR lowering S1.3), and no value is made of it.
     /// </summary>
@@ -75,7 +85,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     private Func<VBParameterSymbol, IRuntimeValue> AssumedArgument(VBTypeMemberSymbol procedure) => parameter =>
     {
         if (parameter.Name == "Me"
-            && Session.Symbols.Resolver.ResolveType(procedure.ParentUri.Fragment.TrimStart('#'), ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol classModule)
+            && Session.Symbols.Resolver.ResolveType(SymbolUri.ModuleNameOf(procedure.ParentUri), ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol classModule)
         {
             var objectId = Session.Objects.CreateObject();
             Session.Symbols.CreateInstance(objectId, classModule);
@@ -159,7 +169,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             {
                 // a variable of the caller held in a cell, which the parameter is a second name for: the parameter's slot holds the very cell (S1.3), so
                 // what one writes the other reads, as through an address - with no address made, and none looked up.
-                frame.PushAlias(parameter, shared.Cell, activation.Layout.ParameterSlots[i]);
+                frame.PushAlias(parameter, shared.Cell, activation.Layout.ParameterSlots[i], shared.ReferencedType);
             }
             else if (IsAliased(parameter, arguments[i]) && arguments[i] is VBRuntimeReference reference)
             {
@@ -563,7 +573,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // the module a procedure is declared in is its symbol's parent, a standard module or a class module. A procedure whose parent is not a module symbol
     // — one the session has no module for — runs under the defaults, which is what every activation used to do.
     private ModuleDirectives DeclaringModuleDirectives(VBTypeMemberSymbol procedure)
-        => Session.Symbols.TryGetModule(procedure.ParentUri.Fragment.TrimStart('#'), out var module)
+        => Session.Symbols.TryGetModule(SymbolUri.ModuleNameOf(procedure.ParentUri), out var module)
             ? module.Directives
             : ModuleDirectives.None;
 

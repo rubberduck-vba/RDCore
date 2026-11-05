@@ -8,6 +8,8 @@
     <Authors>9562-7303 Québec inc.</Authors>
     <Copyright>Copyright © 2026 9562-7303 Québec inc.</Copyright>
     <Product>RDCore</Product>
+    <!-- a test method that does not await what it asserts passes without asserting it: an async method with no await, and a call whose task is dropped. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1998;CS4014</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

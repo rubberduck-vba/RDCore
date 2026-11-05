@@ -3,6 +3,8 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Flags;
 using System.Collections.Immutable;
 
@@ -89,11 +91,19 @@ public static class DeclarationUsage
                 // a parameter is a local of its procedure that no statement declares.
                 DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
                 Hides = hides?.Invoke(symbol),
+                AutoInstantiationAlwaysFails = AutoInstantiationAlwaysFails(symbol),
             });
         }
 
         return facts.ToImmutable();
     }
+
+    // a variable, or an array whose elements are, declared As New of a class whose objects are never created (Dim e As New ErrObject).
+    private static bool AutoInstantiationAlwaysFails(Symbol symbol)
+        => symbol.GetProperty(SymbolProperties.AutoInstantiated)
+            && symbol is ITypedSymbol { ResolvedType: var type }
+            && (type is VBArrayType array ? array.ItemType : type) is VBClassType { Symbol: var created }
+            && created.GetProperty(SymbolProperties.CreationAlwaysFails);
 
     /// <summary>
     /// Everything a module declares that <see cref="Of"/> states: its members, and the parameters and locals of each.

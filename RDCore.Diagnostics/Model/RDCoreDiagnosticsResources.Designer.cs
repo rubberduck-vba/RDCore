@@ -780,11 +780,47 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New of a class whose objects are never created: each reference to it that would create its object raises run-time error -2147221164 (Class not registered), as MS-VBA does..
+        /// </summary>
+        public static string NewOfAClassNotCreatable_AsNew_Message {
+            get {
+                return ResourceManager.GetString("NewOfAClassNotCreatable_AsNew_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
+        /// </summary>
+        public static string NewOfAClassNotCreatable_New_Message {
+            get {
+                return ResourceManager.GetString("NewOfAClassNotCreatable_New_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This public variable of an object, or element of one, is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA..
         /// </summary>
         public static string ObjectVariablePassedByRefIsACopy_Message {
             get {
                 return ResourceManager.GetString("ObjectVariablePassedByRefIsACopy_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This public variable of an object, or element of one, is passed as a copy to a procedure called late, as MS-VBA passes it: if the procedure takes it ByRef, what it assigns to the parameter is not written back to it..
+        /// </summary>
+        public static string ObjectVariablePassedLateIsACopy_Message {
+            get {
+                return ResourceManager.GetString("ObjectVariablePassedLateIsACopy_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; compares a String with an integer or a Single: MS-VBA compares the two as Double values, where MS-VBAL §5.6.9.5 compares them in the number&apos;s type, and the result can differ (&quot;2.5&quot; = 2 is False; &quot;40000&quot; compared with an Integer does not overflow)..
+        /// </summary>
+        public static string StringComparedWithANumberAsADouble_Message {
+            get {
+                return ResourceManager.GetString("StringComparedWithANumberAsADouble_Message", resourceCulture);
             }
         }
 

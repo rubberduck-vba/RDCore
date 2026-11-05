@@ -74,7 +74,8 @@ public sealed class ServerEventTests
 
         public List<object> Unadvised { get; } = [];
 
-        public ManualResetEventSlim Gated { get; } = new();
+        /// <summary>Set once the program is in a call to <c>Gate</c>, and waits for it.</summary>
+        public TaskCompletionSource Gated { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public bool IsAvailable => true;
 
@@ -84,9 +85,9 @@ public sealed class ServerEventTests
             valve.Raise = (name, arguments) => RaiseInCall(valve, name, arguments);
             valve.Gating = () =>
             {
-                // a call that takes as long as the server needs to raise an event of its own accord, and returns when that has been handled.
-                Gated.Set();
-                _ = Delivered.Wait(TimeSpan.FromSeconds(10));
+                // a call that takes as long as the server needs to raise an event of its own accord, and returns when that has been handled: no time decides it.
+                Gated.TrySetResult();
+                Delivered.Wait();
             };
 
             Created.Add(valve);
@@ -208,22 +209,40 @@ public sealed class ServerEventTests
         var server = new FakeServer();
 
         // while the program waits for the call, the server raises an event that nobody asked for: the program takes the call the server makes, as MS-VBA does, and the
-        // call it was waiting for returns afterwards. (The program runs on this thread until it is over, so the server is another.)
-        var raising = Task.Run(() =>
+        // call it was waiting for returns afterwards. (The program runs on this thread until it is over, so the server is another.) Nothing waits for a time: the
+        // server raises once the program is in the call, however long it took to get there, and the call returns once the event was handled - or once raising it
+        // failed, which the program's output then tells.
+        var raising = Task.Run(async () =>
         {
-            Assert.IsTrue(server.Gated.Wait(TimeSpan.FromSeconds(10)));
-            server.RaiseAsynchronously(server.Created.Single(), "Spilled", [7, false]);
+            try
+            {
+                await server.Gated.Task;
+                server.RaiseAsynchronously(server.Created.Single(), "Spilled", [7, false]);
+            }
+            finally
+            {
+                server.Delivered.Set();
+            }
         });
 
-        var output = await RunAsync(Classes, Program(
-            "Dim valve As New Rig.Valve",
-            "Dim watcher As New Watcher",
-            "watcher.Watch valve",
-            "valve.Gate",
-            "Debug.Print \"called\""), Libraries(server));
-        await raising;
+        string[] output;
+        try
+        {
+            output = await RunAsync(Classes, Program(
+                "Dim valve As New Rig.Valve",
+                "Dim watcher As New Watcher",
+                "watcher.Watch valve",
+                "valve.Gate",
+                "Debug.Print \"called\""), Libraries(server));
+        }
+        finally
+        {
+            // a program that never got to the call leaves the server nothing to raise.
+            _ = server.Gated.TrySetCanceled();
+        }
 
         CollectionAssert.AreEqual(new[] { "event 7", "called" }, output);
+        await raising;
     }
 
     [TestMethod]

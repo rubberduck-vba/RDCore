@@ -6,33 +6,41 @@ This page is for contributors, and for anyone building an extension or a client 
 ---
 ## 🚀 Contributing
 
-1. **First read and accept** the Contributor Licence Agreement (CLA) as appropriate for your situation (it will make the next steps smoother);
-1. Browse the _project roadmap_ and pick a ticket under the _current milestone_;
-1. _Fork_ the **RDCore** repository to **your GitHub account**;
-1. Download a _clone_ of the repository on a workstation that is free of rights (i.e. NOT your employer's computer);
-1. Open `RDCore.slnx` un _Microsoft Visual Studio Community Editition 2026_ (free for open-source contributions);
-  a. 👉 Alternatively, use `dotnet build` CLI tooling to build the solution.
-1. Start a new _branch_ from **main**, named in reference to the selected ticket;
-1. Implement and test your contributions in your local branch;
-1. When everything works and is ready for review, open a new _pull request_ referring to the selected ticket;
-  a. 👉 Mention `Closes #` followed by the ticket number in the body of the _pull request_.
-  b. 👉 Such a mention in a _commit_ of your branch history will appear in the ticket history as soon as your commits are _pushed_ to your _fork_, which signals work in progress to other contributors.
-1. Sign the CLA by copying the specified signature content into a comment on your PR.
-  a. 👉 This will only be need to be done once.
-1. Once your _pull request_ is completed, **destroy your feature branch** and resynchronize _main_ to start work on a new ticket.
-  a. 👉 The _squash merge_ will destroy the details of your commit history in the central repository, which quickly complicates things if additional commits get added to an already-completed branch; a patch may be submitted by starting a new branch from _main_ resynchronized to contain the _merge commit_.
+1. **First read and accept** the Contributor Licence Agreement (CLA) that fits your situation. It makes the next steps smoother.
+1. Browse the _project roadmap_ and pick a ticket under the _current milestone_.
+1. _Fork_ the **RDCore** repository to **your GitHub account**.
+1. _Clone_ the repository on a workstation that is free of rights (that is, NOT your employer's computer).
+1. Open `RDCore.slnx` in _Microsoft Visual Studio Community Edition 2026_ (free for open-source contributions).
+   - 👉 You can also build the solution with `dotnet build`.
+1. Start a new _branch_ from **main**, named after the ticket.
+1. Implement and test your contribution in your local branch.
+1. When it works and is ready for review, open a _pull request_ that refers to the ticket.
+   - 👉 Write `Closes #` and the ticket number in the body of the _pull request_.
+   - 👉 The same mention in a _commit_ of your branch shows in the ticket's history as soon as you _push_ the commit to your _fork_. Other contributors see that the ticket is being worked on.
+1. Sign the CLA: copy the signature text it gives into a comment on your pull request.
+   - 👉 You only do this once.
+1. Once your _pull request_ is merged, **delete your branch** and resynchronize _main_ before you start on another ticket.
+   - 👉 A pull request is merged as one _squash_ commit, without the commits of your branch. More commits on a branch that was already merged are hard to merge again. To submit a fix, start a new branch from _main_, once _main_ has the merged commit.
 
 
 ---
 ## 🛠️ Building the platform from source
 
-To assemble the platform tree that a preview build ships, from a clone, run `PlatformPublish.ps1` (it needs `git` on the `PATH`, to record the commit it builds): with no arguments it publishes a Debug tree to `artifacts\rdcore-dev` after asking for confirmation; `-Configuration Release -RuntimeIdentifier win-x64` matches the preview builds, `-VersionSuffix <suffix>` adds a prerelease suffix (e.g. `rc.1`), `-PlatformRoot <path>` picks the output folder (relative to the repository root) and `-Silent` skips the confirmation. The release workflow then adds `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json`; maintainers will find the whole procedure in [RELEASING.md](https://github.com/rubberduck-vba/RDCore/blob/main/RELEASING.md).
+To assemble the platform tree that a preview build ships, run `PlatformPublish.ps1` from a clone. It needs `git` on the `PATH`, to record the commit it builds.
+
+- With no arguments, it asks for confirmation, then publishes a Debug tree to `artifacts\rdcore-dev`.
+- `-Configuration Release -RuntimeIdentifier win-x64` matches the preview builds.
+- `-VersionSuffix <suffix>` adds a prerelease suffix, such as `rc.1`.
+- `-PlatformRoot <path>` picks the output folder, relative to the repository root.
+- `-Silent` skips the confirmation.
+
+The release workflow then adds `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json`. Maintainers will find the whole procedure in [RELEASING.md](https://github.com/rubberduck-vba/RDCore/blob/main/RELEASING.md).
 
 
 ---
-## 🧩 Building a RDCore extension
+## 🧩 Building an RDCore extension
 
-It only takes a few lines in your entry point to make your application a RDCore app:
+It only takes a few lines in your entry point to make your application an RDCore app:
 
 ```csharp
 public class Program
@@ -77,9 +85,9 @@ internal class CoreDiagnosticsAppHost() : RDCorePlatformServerHost<CoreDiagnosti
 
 ### Application
 
-In both cases, the role of the host is to supply services to the `IServiceCollection` such that the application can be instantiated with injected services.
+In both cases, the host adds services to the `IServiceCollection`, and the application is created with those services injected.
 
-Then for a client you would inherit `RDCoreClientApp` :
+Then, for a client, inherit `RDCoreClientApp`:
 
 ```csharp
 internal class RDCoreConsoleClientApp(
@@ -96,25 +104,18 @@ internal class RDCoreConsoleClientApp(
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
     {
-        // TODO
         return capabilities;
     }
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
-        // TODO
-    }
-
-    protected override async Task OnLanguageClientStartedAsync(ILanguageClient client, CancellationToken token)
-    {
-        // TODO
     }
 
     protected override void Dispose(bool disposing) { }
 }
 ```
 
-...and for a server app we instead inherit the LSP app from `RDCoreServerApp`:
+...and for a server, inherit `RDCoreServerApp` instead:
 
 ```csharp
 internal class CoreDiagnosticsApp(
@@ -129,22 +130,17 @@ internal class CoreDiagnosticsApp(
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
-        // TODO
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
     {
-        // TODO
     }
 
-    protected override void Dispose(bool disposing)
-    {
-        // TODO
-    }
+    protected override void Dispose(bool disposing) { }
 }
 ```
 
-In any case, the role of this abstraction layer is to configure the _capabilities_ (LSP) of the application, along with the _handlers_ that will be handling the LSP requests and notifications.
+Either way, the application configures its LSP _capabilities_, and the _handlers_ that handle the LSP requests and notifications.
 
 ### Client or Server?
 
@@ -173,18 +169,18 @@ In any case, the role of this abstraction layer is to configure the _capabilitie
 >
 > `export-library` takes a file (`scrrun.dll`), the identifier the machine gave the library, or its name; when several versions of a library are registered, the latest is described. `--dependencies` describes the libraries it depends on too, which a project needs in order to reference it.
 >
-> The description is what a project is _checked_ against; what it _runs_ against are the objects of the library on the machine that runs it. `New Scripting.Dictionary` is a real dictionary, and `New Excel.Application` starts a real Excel, driven from the sidelines through its object model. Today that is the automation servers of Windows; elsewhere, a program that creates one of these objects is told that the platform has none (error 429), while the same program is analyzed anywhere. Every such call passes through the same interception chain as any call outside the workspace, and an administrator can refuse them all with `"AllowAutomation": false` in `appsettings.json` (error 70, _Permission denied_).
+> The description is what a project is _checked_ against; what it _runs_ against are the objects of the library on the machine that runs it. `New Scripting.Dictionary` is a real dictionary, and `New Excel.Application` starts a real Excel, driven from the sidelines through its object model. These are the automation servers of Windows. On another system, a program that creates one of these objects is told that the platform has none (error 429), but the same program can be analyzed anywhere. Every such call passes through the same interception chain as any call outside the workspace, and an administrator can refuse them all with `"AllowAutomation": false` in `appsettings.json` (error 70, _Permission denied_).
 
 
 ### Capabilities
 
-RDCore platform extensions with a valid _manifest_ that gets them to initiate a _LSP handshake_ with the LSP _orchestration layer_ must supply initialization parameters that specify a complete set of both LSP (protocol) defined and _environment host-defined **capabilities**_. An extension advertises a platform capability such as [`CliCommand`](api/RDCore.SDK.Client.CliCommand.html) with an assembly attribute:
+The language server brings up each extension that has a valid _manifest_, and starts an _LSP handshake_ with it. The extension's initialization parameters must state every **capability** it has: those the protocol (LSP) defines, and those the _environment host_ defines. An extension advertises a platform capability such as [`CliCommand`](api/RDCore.SDK.Client.CliCommand.html) with an assembly attribute:
 
 ```csharp
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 ```
 
-> 👉 The complete and exhaustive list of platform capabilities shall be documented in [RD-VBAL §2.0.2](specs/rd-vbal.2.0.2.client-server-capabilities.md) as its implementation progresses.
+> 👉 [RD-VBAL §2.0.2](specs/rd-vbal.2.0.2.client-server-capabilities.md) describes the platform capabilities.
 
 > [!NOTE]
 > **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.

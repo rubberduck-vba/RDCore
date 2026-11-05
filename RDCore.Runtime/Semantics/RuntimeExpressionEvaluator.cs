@@ -442,6 +442,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     {
         SimpleNameExpressionNode name => IsAVariable(session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol),
         MemberAccessExpressionNode access when ResolveNamespaceQualified(session, context, access) is { } qualified => IsAVariable(qualified),
+
+        // a member with no object before the dot is one of the With block variable (MS-VBAL §5.4.2.21): a field of a record is a variable, in a nested block
+        // (`With .Inner`) too, which holds the field's record itself (recorded in Excel: oracle\s59 M01-M03). A member of an object is not classified here: it
+        // is passed as a copy (M04).
+        MemberAccessExpressionNode { Owner: null } => IsRecord(context.EnclosingWithTarget),
         MemberAccessExpressionNode { Owner: { } owner } access => DeclaredTypeOfOwner(session, context, owner) switch
         {
             VBUserDefinedType => true,
@@ -454,6 +459,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     };
 
     private static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
+
+    private static bool IsRecord(VBTypedValue? value) => value is VBUserDefinedTypeValue or VBVariantValue { TypedValue: VBUserDefinedTypeValue };
+
+    private static bool IsAnObject(VBTypedValue? value) => value is VBObjectValue or VBVariantValue { TypedValue: VBObjectValue };
 
     // the declared type of an expression, as the static semantics read it - without evaluating it, which a caller that only needs to classify an
     // expression must not do a second time (a call in it would be made twice).
@@ -477,6 +486,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, classModule) is { } current)
         {
             classModule = current;
+        }
+
+        // the variable is left Nothing, and the next reference to it tries again (s62 X09).
+        if (NewExpressionRuntimeSemantics.CreationFailure(classModule, default) is { } refused)
+        {
+            return refused;
         }
 
         var objectId = session.Objects.CreateObject();
@@ -2780,6 +2795,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // an element of the array a public variable of an object holds, named as its member (b.V(0), Me.V(0), .V(0) in a With block of the object, a nested
+        // one too), is a copy, as the variable itself is (MS-VBA, recorded in Excel: oracle\s58 B01, s59 M04). Named by itself in its own class (V(0)) it is
+        // the element, bound below.
+        if (element.Callee is MemberAccessExpressionNode member && (member.Owner is { } instance
+            ? DeclaredTypeOfOwner(session, context, instance) is VBClassType
+            : IsAnObject(context.EnclosingWithTarget)))
+        {
+            return false;
+        }
+
         var callee = Evaluate(session, element.Callee, context);
         var held = callee.IsSuccess ? callee.Result : null;
         while (held is VBVariantValue { TypedValue: var wrapped })
@@ -2865,23 +2890,48 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
     // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
     // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own: it is given
-    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`.
+    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`. In a With block of a record, `.X` is the field of the
+    // With block variable (MS-VBAL §5.4.2.21), which is the record variable itself when the With expression is one (MS-VBA, recorded in Excel: oracle\s58
+    // W01, s59 M01-M03).
     private bool TryResolveRecordFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, bool external)
     {
         reference = VBRuntimeReference.NullRef;
-        if (access.Owner is not { } owner || !DenotesAVariable(session, context, owner)
-            || Evaluate(session, owner, context).Result is not VBUserDefinedTypeValue { IsIndeterminate: false } record
+        VBTypedValue? held = null;
+        if (access.Owner is { } owner)
+        {
+            if (DenotesAVariable(session, context, owner))
+            {
+                held = Evaluate(session, owner, context).Result;
+            }
+        }
+        else
+        {
+            held = context.EnclosingWithTarget;
+        }
+
+        while (held is VBVariantValue { TypedValue: var wrapped })
+        {
+            held = wrapped;
+        }
+
+        if (held is not VBUserDefinedTypeValue { IsIndeterminate: false } record
             || record.TypeInfo is not VBUserDefinedType recordType
             || recordType.Field(access.Member.IdentifierName) is not { ResolvedType: { } fieldType } field)
         {
             return false;
         }
 
-        IBindingHandle? cell = fieldType is VBUserDefinedType nestedType
-            ? new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), nestedType)
-            : record.GetFieldHandle(access.Member.IdentifierName);
+        IBindingHandle? cell;
+        if (fieldType is VBUserDefinedType or VBVariantType)
+        {
+            cell = new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
+        }
+        else
+        {
+            cell = record.GetFieldHandle(access.Member.IdentifierName);
+        }
         if (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
             return false;
@@ -2916,10 +2966,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // whether a variable of this declared type is one a ByRef parameter can be bound to without a copy: one of the parameter's own declared type, an
     // enumeration being the declared type Long (MS-VBAL §5.2.3.4), so a variable of one and a Long parameter, or two enumerations, are the same type. An
     // array's declared type is an array of its element type, whether it has fixed bounds or none (§5.2.3.1.3): a fixed-size array is passed to an
-    // `A() As Long` parameter by reference, as a resizable one is. The element types match as they are: an array of an Enum is no array of Long.
+    // `A() As Long` parameter by reference, as a resizable one is. The element types match as they are, but for two Enums: an array of an Enum is no array
+    // of Long, and is an array of another Enum (recorded in Excel: oracle\s61 G21, s61b G22, G23).
     private static bool IsOfDeclaredType(VBParameterSymbol parameter, VBType variableType)
         => (parameter.ResolvedType, variableType) is (VBArrayType parameterArray, VBArrayType variableArray)
-            ? parameterArray.ItemType.Equals(variableArray.ItemType)
+            ? parameterArray.ItemType.Equals(variableArray.ItemType) || parameterArray.ItemType is VBEnumType && variableArray.ItemType is VBEnumType
             : VBEnumType.AsDeclaredType(parameter.ResolvedType).Equals(VBEnumType.AsDeclaredType(variableType));
 
     // MS-VBAL §5.3.1.11: a Variant parameter given a variable of another type is bound to it, and the binding knows what the variable is declared to be - the

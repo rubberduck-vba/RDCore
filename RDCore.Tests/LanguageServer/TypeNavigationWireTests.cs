@@ -38,7 +38,8 @@ public sealed class TypeNavigationWireTests
     private const string Square = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Square\"\r\n"
         + "Implements IShape\r\nPrivate Function IShape_Area() As Double\r\nEnd Function\r\n";
 
-    private const string Main = "Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    Dim s As IShape\r\n    Debug.Print s.Area\r\nEnd Sub\r\n";
+    // a module named with an accent, which its address escapes: an item names it as its code does.
+    private const string Main = "Attribute VB_Name = \"Modèle\"\r\nPublic Sub Run()\r\n    Dim s As IShape\r\n    Debug.Print s.Area\r\nEnd Sub\r\n";
 
     private static DocumentUri Document(string fileName) => DocumentUri.From(Path.Combine(Root, fileName));
 
@@ -47,7 +48,7 @@ public sealed class TypeNavigationWireTests
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
-        WorkspaceDocument[] held = [new("IShape.cls", Root, IShape, version: 1), new("Square.cls", Root, Square, version: 1), new("Main.bas", Root, Main, version: 1)];
+        WorkspaceDocument[] held = [new("IShape.cls", Root, IShape, version: 1), new("Square.cls", Root, Square, version: 1), new("Modèle.bas", Root, Main, version: 1)];
         documents.GetAllDocuments().Returns(held);
         foreach (var document in held)
         {
@@ -84,9 +85,9 @@ public sealed class TypeNavigationWireTests
         await Task.WhenAll(serving, connecting);
         using var server = await serving;
         using var languageClient = await connecting;
-        var main = new TextDocumentIdentifier(Document("Main.bas"));
+        var main = new TextDocumentIdentifier(Document("Modèle.bas"));
 
-        var type = (await languageClient.SendRequest(new TypeDefinitionParams { TextDocument = main, Position = new Position(3, 17) }, timeout.Token))!
+        var type =(await languageClient.SendRequest(new TypeDefinitionParams { TextDocument = main, Position = new Position(3, 17) }, timeout.Token))!
             .Single().LocationLink!;
         Assert.AreEqual(Document("IShape.cls"), type.TargetUri, "s is declared As IShape");
         Assert.AreEqual(new Range(3, 16, 3, 17), type.OriginSelectionRange);
@@ -119,7 +120,7 @@ public sealed class TypeNavigationWireTests
         await Task.WhenAll(serving, connecting);
         using var server = await serving;
         using var languageClient = await connecting;
-        var main = new TextDocumentIdentifier(Document("Main.bas"));
+        var main = new TextDocumentIdentifier(Document("Modèle.bas"));
 
         // Area, in Debug.Print s.Area: a function of IShape, which Run calls.
         var area = (await languageClient.SendRequest(new CallHierarchyPrepareParams { TextDocument = main, Position = new Position(3, 19) }, timeout.Token))!.Single();
@@ -128,6 +129,7 @@ public sealed class TypeNavigationWireTests
 
         var incoming = (await languageClient.SendRequest(new CallHierarchyIncomingCallsParams { Item = area }, timeout.Token))!.Single();
         Assert.AreEqual("Run", incoming.From.Name);
+        Assert.AreEqual("Modèle", incoming.From.Detail);
         Assert.AreEqual(new Range(3, 18, 3, 22), incoming.FromRanges.Single());
 
         var outgoing = (await languageClient.SendRequest(new CallHierarchyOutgoingCallsParams { Item = incoming.From }, timeout.Token))!.Single();

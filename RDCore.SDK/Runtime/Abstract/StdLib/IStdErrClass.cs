@@ -18,10 +18,12 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// arrangement as "a global class module with a default instance variable" named <c>Err</c>, which is
 /// what a bare <c>Err</c> resolving to the error object looks like from source; a zero-argument function
 /// of a promoted standard module produces exactly that, and leaves <c>ErrObject</c> nameable in an
-/// <c>As</c> clause the way MS-VBA has it. Not creatable: <c>New ErrObject</c> names nothing.
+/// <c>As</c> clause the way MS-VBA has it. The library says the class can be created, so
+/// <c>New ErrObject</c> compiles, and creating one fails when the program runs
+/// (<see cref="StdLibClassAttribute.CreationAlwaysFails"/>).
 /// </para>
 /// </remarks>
-[StdLibClass("ErrObject", IsCreatable = false)]
+[StdLibClass("ErrObject", CreationAlwaysFails = true)]
 public interface IStdErrClass
 {
     #region 6.1.3.2.1 Public Procedures

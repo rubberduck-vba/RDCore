@@ -111,6 +111,12 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> Creatable = new(nameof(Creatable));
     /// <summary>
+    /// Whether creating an object of a <see cref="VBClassModuleSymbol"/> of a library always fails, though it is <see cref="Creatable"/>: <c>New</c> of it
+    /// compiles, and raises run-time error -2147221164 <em>Class not registered</em> where the object is created, as <strong>MS-VBA</strong> does for
+    /// <c>New ErrObject</c> (recorded in Excel). <c>false</c> when unset.
+    /// </summary>
+    public static readonly SymbolProperty<bool> CreationAlwaysFails = new(nameof(CreationAlwaysFails));
+    /// <summary>
     /// A small documentation string about this symbol.
     /// </summary>
     /// <remarks>

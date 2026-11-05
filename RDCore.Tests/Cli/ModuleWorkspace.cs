@@ -188,6 +188,40 @@ internal static class ModuleWorkspace
     }
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host which of its modules declare a procedure the program can start with, as a
+    /// debug adapter asks of a launch that names no module.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="entryPoint">The name of the procedure; <c>Main</c> when omitted.</param>
+    /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
+    /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
+    /// <param name="documents">The document modules of the workspace (<see cref="LoadDocumentsAsync"/>).</param>
+    /// <returns>The modules the host answers with, every module of the workspace having been asked about.</returns>
+    public static async Task<string[]> EntryPointsAsync(
+        string program, IReadOnlyList<(string Name, string Source)>? classes = null, IReadOnlyList<(string Name, string Source)>? modules = null,
+        string entryPoint = "Main", WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null,
+        IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
+    {
+        string[] asked =
+        [
+            .. (classes ?? []).Select(module => module.Name), .. (modules ?? []).Select(module => module.Name), .. (forms ?? []).Select(module => module.Name),
+            .. (documents ?? []).Select(module => module.Name), "Program",
+        ];
+
+        string[] declaring = [];
+        await RunCoreAsync(classes ?? [], program, errorsOnly: true, afterLoading: async sessionProvider =>
+        {
+            var result = await new HostEntryPointsHandler(sessionProvider).Handle(
+                new HostEntryPointsParams { EntryPoint = entryPoint, Modules = asked }, CancellationToken.None);
+            declaring = result.Modules;
+        }, libraries: libraries, modules: modules, forms: forms, documents: documents);
+
+        return declaring;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and hands the host's session provider to <paramref name="inspect"/>.
     /// </summary>
     public static Task WithHostAsync(
@@ -210,7 +244,7 @@ internal static class ModuleWorkspace
         {
             // the facts of the code are evaluated in the background, after the model is stored.
             await sessionProvider.Image.Semantics.WhenAllEvaluatedAsync();
-            model = sessionProvider.Image.Semantics.All.Single(candidate => candidate.Module.Fragment.TrimStart('#') == moduleName);
+            model = sessionProvider.Image.Semantics.All.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == moduleName);
         }, language: language, libraries: libraries);
 
         return model!;

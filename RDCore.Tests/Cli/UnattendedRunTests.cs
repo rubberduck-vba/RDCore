@@ -98,7 +98,7 @@ public sealed class UnattendedRunTests
     }
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL).
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
 
     private static byte[] Fixture(string fileName)
     {
@@ -110,14 +110,15 @@ public sealed class UnattendedRunTests
         return buffer.ToArray();
     }
 
-    // MVVM's ExampleView - its designer and the attributes of the module - with no code behind it. The file is read with the VBE's CRLF whatever the checkout
-    // made of it: git stores it with LF, and checks it out with LF on Linux, where a header split at CRLF has no attributes - no VB_PredeclaredId, no ExampleView.
-    private static (string Name, string Source, FormDescriptor Designer) ExampleView()
+    // MVVM's ExampleView - its designer and the attributes of the module - with no code behind it but `code`. The file is read with the VBE's CRLF whatever the
+    // checkout made of it: git stores it with LF, and checks it out with LF on Linux, where a header split at CRLF has no attributes - no VB_PredeclaredId, no
+    // ExampleView.
+    internal static (string Name, string Source, FormDescriptor Designer) ExampleView(string code = "")
     {
         var frm = Encoding.UTF8.GetString(Fixture("ExampleView.frm")).ReplaceLineEndings("\r\n");
         var lines = frm.Split("\r\n");
         var header = string.Join("\r\n", lines.Take(Array.FindLastIndex(lines, line => line.StartsWith("Attribute VB_", StringComparison.Ordinal)) + 1));
-        return ("ExampleView", header + "\r\nOption Explicit\r\n", FormDesigner.Read(frm, Fixture("ExampleView.frx"))!);
+        return ("ExampleView", header + "\r\nOption Explicit\r\n" + code, FormDesigner.Read(frm, Fixture("ExampleView.frx"))!);
     }
 
     // forms nobody is to see: the run fails before any of them is made.

@@ -52,7 +52,7 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
             {
                 workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? parsed.Value.Path!, token);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
             {
                 writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Error).WithMessageBody(exception.Message));
                 return 1;

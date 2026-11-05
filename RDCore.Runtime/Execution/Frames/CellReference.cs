@@ -12,7 +12,11 @@ namespace RDCore.Runtime.Execution.Frames;
 /// What a <see cref="VBRuntimeReference"/> is with an address, this is with a cell: only the procedure invoker reads it, to lay the parameter out.
 /// </remarks>
 /// <param name="Cell">The cell of the caller's variable.</param>
-internal sealed record class CellReference(IBindingHandle Cell) : IRuntimeValue
+/// <param name="ReferencedType">
+/// The declared type of the caller's variable when the parameter, a <c>Variant</c>, does not have it (<see cref="CallStackFrame.TryGetReferencedType"/>);
+/// <see langword="null"/> when it does.
+/// </param>
+internal sealed record class CellReference(IBindingHandle Cell, SDK.Model.Types.Abstract.VBType? ReferencedType = null) : IRuntimeValue
 {
     /// <inheritdoc/>
     public object BoxedValue => Cell.Value.BoxedValue;

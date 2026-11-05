@@ -579,6 +579,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<DefineSymbolsHandler>()
             .WithHandler<HostSessionStatusHandler>()
             .WithHandler<HostExecuteHandler>()
+            .WithHandler<HostEntryPointsHandler>()
             .WithHandler<HostDiscardHandler>()
             .WithHandler<HostProjectReloadHandler>()
             .WithHandler<HostDebugResumeHandler>()

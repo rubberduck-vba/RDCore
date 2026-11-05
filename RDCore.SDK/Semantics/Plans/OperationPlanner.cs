@@ -267,9 +267,31 @@ public static class OperationPlanner
         _ => null,
     };
 
+    /// <summary>
+    /// The effective type <strong>MS-VBAL §5.6.9.5</strong>'s table gives a comparison of values of these types, where <see cref="ForValues"/> plans the
+    /// comparison MS-VBA makes of them.
+    /// </summary>
+    /// <param name="left">The value type of the left operand: the type of what a Variant operand holds.</param>
+    /// <param name="right">The value type of the right operand.</param>
+    /// <returns>The effective type of the table, or <see langword="null"/> where the table has none: a type mismatch.</returns>
+    /// <remarks>
+    /// The two differ for a <c>String</c> and a <c>Byte</c>, an <c>Integer</c> or a <c>Long</c>, which MS-VBA compares as <c>Double</c> values where the
+    /// table gives the number's type (<strong>RD-VBAL §5.6.9.5</strong>). An analysis that states where code departs from the comparison the specification
+    /// states compares against this type.
+    /// </remarks>
+    public static VBType? SpecifiedRelationalEffectiveType(VBType left, VBType right) => TableRelationalEffectiveType(AliasedTypeOf(left), AliasedTypeOf(right));
+
+    // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL makes the effective type the number's: "2.5" = 2 is False and
+    // "2.5" > 2 True, a Variant String or a declared one (recorded in Excel: oracle\s56 G01, G03, G04, G12; RD-VBAL 5.6.9.5). A declared String and a
+    // Single are the table's; a Variant String and a Single or a LongLong are Doubles too, by the value it holds (BinaryRelationalOperatorRuntimeSemantics).
+    private static VBType? RelationalEffectiveType(VBType left, VBType right)
+        => left is VBByteType or VBIntegerType or VBLongType && right is VBStringType || left is VBStringType && right is VBByteType or VBIntegerType or VBLongType
+            ? VBDoubleType.TypeInfo
+            : TableRelationalEffectiveType(left, right);
+
     // MS-VBAL 5.6.9.5: the effective type of a comparison, by the value types of its operands. A comparison yields a Boolean, or Null for a Null effective
     // type; a Date comparison compares the operands as Doubles (OperationPlan.OperandDestination).
-    private static VBType? RelationalEffectiveType(VBType left, VBType right) => left switch
+    private static VBType? TableRelationalEffectiveType(VBType left, VBType right) => left switch
     {
         VBByteType when right is VBByteType or VBStringType or VBEmptyType => VBByteType.TypeInfo,
         VBByteType or VBStringType or VBEmptyType when right is VBByteType => VBByteType.TypeInfo,

@@ -62,8 +62,8 @@ de vos objets.
 ## ⏸️ Ce qui attend la prochaine exécution
 
 Certaines modifications ne peuvent pas être appliquées à un programme déjà en cours, parce que le programme détient quelque chose que la modification
-changerait sous lui. RD-VBA ne devine pas, et n'applique jamais la moitié d'une modification. Quand **Continuer** ou un pas rencontre l'une d'elles, le
-programme est refusé et continue d'attendre, et la modification est nommée avec sa raison. Annulez la modification et poursuivez, ou relancez le programme
+changerait sous lui. RD-VBA ne devine pas, et n'applique jamais la moitié d'une modification. Quand **Continuer** ou un pas rencontre l'une d'elles, il est
+refusé : le programme continue d'attendre, et la modification est nommée avec sa raison. Annulez la modification et poursuivez, ou relancez le programme
 pour l'avoir.
 
 | Vous avez changé… | Pourquoi cela attend |
@@ -76,7 +76,7 @@ pour l'avoir.
 | Une ligne `Option` d'un module où se trouve le programme | La procédure en cours garde le réglage avec lequel elle a commencé. |
 | Les paramètres d'une procédure où se trouve le programme | Ses arguments ont déjà été passés, selon l'ancienne liste de paramètres. |
 | La ligne au milieu de laquelle se trouve une procédure appelante (sa ligne d'appel) | Elle est déjà exécutée à moitié. |
-| Toute modification d'une procédure appelante dont l'appel est dans une condition ou un en-tête de boucle (`If F() Then`, `For i = 1 To F()`) | Le programme est au milieu de cette ligne; pour l'instant, seul un appelant sur une simple ligne d'appel accepte des modifications. |
+| Toute modification d'une procédure appelante dont l'appel est dans une condition ou un en-tête de boucle (`If F() Then`, `For i = 1 To F()`) | Le programme est au milieu de cette ligne. Seul un appelant sur une simple ligne d'appel accepte des modifications. |
 | La ligne d'ouverture ou de fermeture d'un bloc où vous vous trouvez : un `For`, un `For Each`, un `With`, un `Select Case`, un `Do` | Le compteur de la boucle, l'objet du `With` ou la valeur du `Select` ont été faits par l'ancienne ligne. |
 | Un `GoSub` d'où le programme reviendra, ou le point où retourne un `Resume`, quand cette ligne même a été modifiée | Ils pointent dans le code tel qu'il était. |
 | Ce qu'une classe implémente (`Implements`), ou ses `Event`, pendant que des objets de la classe existent | Ces objets sont atteints par ce que la classe implémente. |

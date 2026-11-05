@@ -1138,11 +1138,20 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New {1}, a class of the {2} library that cannot be created. MS-VBA compiles it, and raises &apos;Class not registered&apos; when the variable is first referred to..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New {1}, which the {2} library does not say can be created: an interface, or a class the library makes itself..
         /// </summary>
         public static string VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to New {0}: the {1} library does not say {0} can be created: an interface, or a class the library makes itself..
+        /// </summary>
+        public static string VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose", resourceCulture);
             }
         }
 
@@ -2250,6 +2259,25 @@ namespace RDCore.SDK {
         public static string VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose {
             get {
                 return ResourceManager.GetString("VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Class not registered
+        ///.
+        /// </summary>
+        public static string VBRuntimeError_ClassNotRegistered_Description {
+            get {
+                return ResourceManager.GetString("VBRuntimeError_ClassNotRegistered_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An object of {0}, a class of the {1} library, is never created: the library says the class can be created, and nothing creates one..
+        /// </summary>
+        public static string VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose {
+            get {
+                return ResourceManager.GetString("VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose", resourceCulture);
             }
         }
         

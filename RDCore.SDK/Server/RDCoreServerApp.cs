@@ -318,8 +318,9 @@ public abstract class RDCoreServerApp(
             // a request whose handler throws is answered on one line, which a client shows as it is, and the whole exception is written to this server's own
             // log:
             .WithOneLineErrors(logger)
-            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change:
-            .WithConfigurationSection(LiveSettingsProtocol.Section)
+            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change, of any client
+            // that answers it:
+            .WithClientConfiguration(LiveSettingsProtocol.Section)
             // core SDK handlers:
             .ConfigureCoreSdkHandlers()
             // OmniSharp 0.19.9 cannot write a pull diagnostic report, and the throw takes the entire
@@ -463,7 +464,7 @@ public abstract class RDCoreServerApp(
         // what the client says of itself comes before everything that is built from it: the capabilities below, and whatever an
         // application brings up in its own handler - the children a language server starts are told the same locale.
         ApplyInitializationOptions(request);
-        var locale = ClientLocale.Of(request.Locale, ReadInitializationOptions(request.InitializationOptions));
+        var locale = ClientLocale.Of(ClientLocale.Said(server, request), ReadInitializationOptions(request.InitializationOptions));
         if (ClientLocale.Apply(locale) is { } culture)
         {
             LogIfEnabled(LogLevel.Information, $"🌐 The client's user interface is in '{culture.Name}'.");
@@ -620,9 +621,14 @@ internal static class LanguageServerOptionsExtensions
         // OmniSharp's own IReceiver drops a bare Exit sent before Initialize instead of letting it
         // through per spec, so ExitHandler above never runs and the host hangs instead of exiting
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
-        // registered first, so registering ours here pre-empts it. It also keeps a request that acts on a running program, which is handled as it arrives rather
-        // than after the request that runs the program (ArrivalRequests).
-        .WithServices(services => services
+        // registered first, so registering ours here pre-empts it.
+        .WithLifecycleReceiver();
+
+    // the receiver; the requests it keeps once the server is initialized, which act on a running program and are handled as they arrive rather than after the
+    // request that runs the program (ArrivalRequests); and the locale of the initialize request it keeps (InitializeLocale).
+    internal static LanguageServerOptions WithLifecycleReceiver(this LanguageServerOptions options)
+        => options.WithServices(services => services
             .AddSingleton<ArrivalRequests>()
+            .AddSingleton<InitializeLocale>()
             .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

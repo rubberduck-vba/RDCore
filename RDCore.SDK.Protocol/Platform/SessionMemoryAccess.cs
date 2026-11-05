@@ -61,7 +61,14 @@ public record class PokeResult
 
     /// <summary>
     /// Whether the byte was written. <c>false</c> means nothing is allocated at that address, or what
-    /// is cannot be expressed as bytes — an object reference, an array, a user-defined type.
+    /// is cannot be expressed as bytes — an object reference, an array, a user-defined type — or
+    /// that a program runs (<see cref="Error"/>).
     /// </summary>
     public bool IsWritten { get; init; }
+
+    /// <summary>
+    /// Why nothing was written when a program runs in the session: it owns its memory while it runs,
+    /// and a byte is written only at a stop or with no program. <c>null</c> otherwise.
+    /// </summary>
+    public string? Error { get; init; }
 }

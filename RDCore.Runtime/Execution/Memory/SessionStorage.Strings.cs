@@ -341,14 +341,7 @@ internal sealed partial class SessionStorage
     {
         if (TryVariableAt(holder, out var handle))
         {
-            if (handle is not ValueBindingHandle cell)
-            {
-                return TryRebind(holder, new ValueBindingHandle(StringHolders.Replacing(handle.Value, text)));
-            }
-
-            cell.Store(StringHolders.Replacing(cell.Value, text), isKnown: true);
-            Generation++;
-            return true;
+            return TryWriteBoundAt(holder, handle, StringHolders.Replacing(handle.Value, text));
         }
 
         if (!allocator.TryFindBlock(holder, out var found))

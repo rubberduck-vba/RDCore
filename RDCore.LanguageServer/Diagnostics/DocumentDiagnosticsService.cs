@@ -11,6 +11,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
@@ -108,7 +109,7 @@ internal sealed class DocumentDiagnosticsService(
         // analyzes it and has the facts to answer for it, as it has for a module of the workspace.
         progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         var phase = PhaseNow(AnalysisPhase.All);
-        var semantics = await AnalyzeInHostAsync(documentUri.Fragment.TrimStart('#'), parseResult, phase, token);
+        var semantics = await AnalyzeInHostAsync(SymbolUri.ModuleNameOf(documentUri), parseResult, phase, token);
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics, phase));
         var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
@@ -227,7 +228,7 @@ internal sealed class DocumentDiagnosticsService(
             yield break;
         }
 
-        foreach (var edit in editStatus.Current.Edits.Where(edit => string.Equals(edit.ModuleUri?.Fragment.TrimStart('#'), moduleName, StringComparison.OrdinalIgnoreCase)))
+        foreach (var edit in editStatus.Current.Edits.Where(edit => edit.ModuleUri is { } module && string.Equals(SymbolUri.ModuleNameOf(module), moduleName, StringComparison.OrdinalIgnoreCase)))
         {
             var firstLine = document.Text.Split('\n', 2)[0].TrimEnd('\r').Length;
             var range = edit.Range ?? new SourceRange(new SourcePosition(0, 0), new SourcePosition(0, firstLine));

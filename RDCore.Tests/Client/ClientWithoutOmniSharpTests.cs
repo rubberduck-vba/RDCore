@@ -34,8 +34,6 @@ public sealed class ClientWithoutOmniSharpTests
         }
     }
 
-    private static string AppHost(string name) => Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{name}.exe" : name);
-
     // the module a program is run as, as rdc.exe's shell sends one: its procedures, the module named apart.
     private const string Program = "Public Sub Main()\r\n    Debug.Print MsgBox(\"Continue?\", vbYesNo)\r\nEnd Sub\r\n";
 
@@ -112,9 +110,11 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
+        await platform.ShutdownAsync(6);
+
+        // the log is read once the language server has exited, from every file it wrote: a server that runs past midnight writes the line to the next day's.
         StringAssert.Contains(WholeLogOf(platform.Root), "The client expects LanguageServer to provide \"LanguageServer: SessionExecute, SessionInteraction\"",
             "what the client claimed is in the language server's file");
-        await platform.ShutdownAsync(6);
     }
 
     // a module of the workspace with enough code to take the language server a while to parse, bind and define.
@@ -350,6 +350,35 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(id);
     }
 
+    // LSP's own locale, which a client of the protocol says: the language server speaks the client's language, and tells the components it starts the same.
+    // OmniSharp 0.19.9 gives its handlers an initialize request without it. A document's diagnostics are pulled so that the parse server is known to have been
+    // initialized. The logs are read once the platform is shut down: a file log is written behind, and only an ended process has written all of it.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task TheLocaleOfTheInitializeRequest_IsTheLanguageOfTheLanguageServer_AndOfTheComponentsItStarts()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var parameters = platform.InitializeParams("{}");
+        parameters["locale"] = "fr-CA";
+
+        var initialize = await rpc.RequestAsync(1, "initialize", parameters);
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        await rpc.NotifyAsync("textDocument/didOpen", new JsonObject
+        {
+            ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
+        });
+        var diagnostics = await rpc.RequestAsync(2, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
+        Assert.IsNull(diagnostics["error"], diagnostics.ToJsonString());
+
+        await platform.ShutdownAsync(3);
+
+        const string Applied = "The client's user interface is in 'fr-CA'.";
+        StringAssert.Contains(WholeLogOf(platform.Root), Applied, "the language server: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Applied, "the parse server it started");
+    }
+
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.
     private sealed class Platform : IAsyncDisposable
     {
@@ -405,18 +434,9 @@ public sealed class ClientWithoutOmniSharpTests
                 File.WriteAllText(Path.Combine(workspace, $"Other{index}.bas"), OtherModule(index));
             }
 
-            File.WriteAllText(Path.Combine(root, PlatformManifest.FileName), JsonSerializer.Serialize(new PlatformManifest
-            {
-                PlatformVersion = "0.1",
-                ExtensionsDirectory = "Extensions",
-                LangService = AppHost("RDCore.LanguageServer"),
-                ParseServer = AppHost("RDCore.ParseServer"),
-                HostService = AppHost("rdc"),
-            }));
-
             var launch = RDCoreLanguageServerLaunch.Prepare(new RDCoreLanguageServerLaunchOptions
             {
-                PlatformRoot = root,
+                PlatformRoot = TestPlatformRoot.Directory,
                 Workspace = new Uri(workspace).AbsoluteUri,
                 PipeName = $"rdcore-raw-client-{Environment.ProcessId}-{Guid.NewGuid():N}",
             });
@@ -489,16 +509,23 @@ public sealed class ClientWithoutOmniSharpTests
     // the end of the language server's log, which says what it did with what it was sent.
     private static string LogOf(string root) => string.Join('\n', WholeLogOf(root).Split('\n').TakeLast(60));
 
+    // every file of the component's log, in the order they were written: the file logger names each day's file after its date (RDCore.LanguageServer-20261105.log),
+    // so a server that runs past midnight writes two, and the directory lists them in no particular order.
     private static string WholeLogOf(string root, string component = "RDCore.LanguageServer")
     {
-        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).ToArray() : [];
+        var logs = Directory.Exists(root)
+            ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToArray()
+            : [];
         if (logs.Length == 0)
         {
             return $"(no {component} log)";
         }
 
-        using var stream = new FileStream(logs[0], FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        return new StreamReader(stream).ReadToEnd();
+        return string.Concat(logs.Select(log =>
+        {
+            using var stream = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return new StreamReader(stream).ReadToEnd();
+        }));
     }
 
     // JSON-RPC 2.0 over the pipe, as LSP frames it, written by hand as a client that is not OmniSharp's writes it: both ways at once, a request answered whenever its

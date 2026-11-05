@@ -22,7 +22,7 @@ public enum IneligibilityKind
     /// <summary>A <c>Static</c> variable: it outlives the activation, and compiled code keeps its variables in locals that go with it.</summary>
     StaticVariable,
 
-    /// <summary>An instruction compiled code does not do: an error handler, a <c>GoSub</c>, a <c>With</c>, a <c>Select Case</c>, a <c>For Each</c>.</summary>
+    /// <summary>An instruction compiled code does not do: a <c>With</c>, a <c>Select Case</c>, a <c>For Each</c>.</summary>
     Instruction,
 
     /// <summary>A statement compiled code does not do: a call, a <c>Set</c>, a file statement. Its detail is the statement's node.</summary>
@@ -152,8 +152,8 @@ internal sealed record class CompareNode(ComparisonOperator Operator, PayloadNod
 // PayloadOperations.Not.
 internal sealed record class NotNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
-// PayloadOperations.Negate.
-internal sealed record class NegateNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
+// PayloadOperations.Negate; of a constant expression, PayloadOperations.NegateConstant.
+internal sealed record class NegateNode(PayloadNode Operand, ScalarKind Kind, bool OfAConstantExpression = false) : PayloadNode(Kind);
 
 // an extended intermediate converted to a kind: Extended.ToFloating, Extended.ToIntegral.
 internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind) : PayloadNode(Kind);
@@ -197,6 +197,19 @@ internal sealed record class ForNextStep(int Offset, int Loop, int Counter, Scal
 
 // an Exit Sub, Exit Function, Exit Property.
 internal sealed record class ExitStep(int Offset) : CompiledStep(Offset);
+
+// an On Error statement: GoTo a label, Resume Next, GoTo 0, GoTo -1 (ProcedureExecutor.TryApplyOnError).
+internal sealed record class OnErrorStep(int Offset) : CompiledStep(Offset);
+
+// a GoSub: the offset after it pushed onto the activation's GoSub Resumption List, then a jump to Target (MS-VBAL §5.4.2.14).
+internal sealed record class GoSubStep(int Offset, int Target) : CompiledStep(Offset);
+
+// a Return: a jump to the offset popped off the GoSub Resumption List; an empty one is the interpreter's, which raises its error (MS-VBAL §5.4.2.15).
+internal sealed record class ReturnStep(int Offset) : CompiledStep(Offset);
+
+// an instruction the interpreter runs alone, and the activation goes on compiled wherever it leaves it: a Resume, an Error statement, an On...GoTo and an
+// On...GoSub (CompiledActivation.Recover).
+internal sealed record class SteppedStep(int Offset) : CompiledStep(Offset);
 
 // the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
 // in, which the parameter is a second name for. Only an argument of a call.

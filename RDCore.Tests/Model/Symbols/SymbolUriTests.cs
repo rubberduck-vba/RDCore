@@ -33,6 +33,39 @@ public sealed class SymbolUriTests
         => Assert.AreEqual(name, SymbolUri.ModuleNameOf(SymbolUri.Module(Root, name)));
 
     [TestMethod]
+    public void ThePathOfAMember_AndTheNameOfItsModule_AreAsTheyAreWritten()
+    {
+        var member = SymbolUri.Member(SymbolUri.Member(SymbolUri.Module(Root, "Modèle"), "Durée"), "Prénom");
+
+        Assert.AreEqual("Modèle.Durée.Prénom", SymbolUri.PathOf(member));
+        Assert.AreEqual("Modèle", SymbolUri.ModuleNameOf(member));
+    }
+
+    // a member's address, built under an address that escapes its module's name, is the one built under the name.
+    [TestMethod]
+    public void AMember_IsTheSameAddress_WhetherItsParentWasBuiltFromAnEscapedNameOrNot()
+        => Assert.AreEqual(
+            SymbolUri.Member(SymbolUri.Module(Root, "Modèle"), "Durée"),
+            new UriBuilder(Root) { Fragment = "Mod%C3%A8le.Dur%C3%A9e" }.Uri);
+
+    [TestMethod]
+    public void TheRootOfAProject_HasNoPath_AndNoModule()
+    {
+        Assert.AreEqual(string.Empty, SymbolUri.PathOf(Root));
+        Assert.AreEqual(string.Empty, SymbolUri.ModuleNameOf(Root));
+    }
+
+    // every symbol is addressed under an absolute root: a relative URI is a mistake of what made it, said as one, not an empty name.
+    [TestMethod]
+    public void ARelativeUri_AddressesNoSymbol_AndIsRefusedSaying()
+    {
+        var relative = new Uri("Module1#Modèle", UriKind.Relative);
+
+        StringAssert.Contains(Assert.Throws<ArgumentException>(() => SymbolUri.ModuleNameOf(relative)).Message, "Module1#Modèle");
+        Assert.Throws<ArgumentException>(() => SymbolUri.PathOf(relative));
+    }
+
+    [TestMethod]
     public void TheRootAsAPath_AndAsAUri_AddressTheSameModule()
         => Assert.AreEqual(SymbolUri.Module(Root, "GameBoard"), SymbolUri.Module(Root.LocalPath, "GameBoard"));
 

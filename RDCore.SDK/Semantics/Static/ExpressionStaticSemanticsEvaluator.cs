@@ -92,6 +92,8 @@ public static class ExpressionStaticSemanticsEvaluator
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             // ByVal flags how an argument is passed; the argument is the expression it is written before.
             ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
+            // a name says which parameter an argument is for; the argument is the expression it names, a call statement's as an index expression's.
+            NamedArgumentNode named => Evaluate(context, named.Value),
             AddressOfExpressionNode addressOf => EvaluateAddressOf(context, addressOf),
             // what is printed is an expression like any other, which can be wrong in its own right; an item of an output list has no type of its own.
             PrintOutputItemNode item => EvaluatePrintItem(context, item),

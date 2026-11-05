@@ -41,6 +41,8 @@ public sealed class CaseComparedInSelectorTypeAnalyzerTests
     [DataRow("Dim i As Integer", "i = 5", "Case Is < 6", DisplayName = "a value of the selector's type")]
     [DataRow("Dim n As Long", "n = 5", "Case Is < 6", DisplayName = "an Integer, which a Long comparison widens")]
     [DataRow("Dim v As Variant", "v = 5", "Case Is < 5.4", DisplayName = "a Variant selector")]
+    [DataRow("Dim i As Integer", "i = 3", "Case Is < \"5\"", DisplayName = "a String and an Integer selector, compared as Integers as MS-VBAL's i < \"5\" is")]
+    [DataRow("Dim n As Long", "n = 3", "Case Is < \"5.5\"", DisplayName = "a String and a Long selector")]
     public async Task ACaseOfAnotherKind_IsNotReported(string declaration, string assignment, string clause)
     {
         Assert.IsEmpty(await FindAsync(declaration, assignment, "Select Case " + assignment[..1], clause, "Debug.Print 1", "End Select"));

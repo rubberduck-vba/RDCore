@@ -22,6 +22,12 @@ public static class RDCoreComponentProtocol
     public const string HostExecute = "rdcore/host/execute";
 
     /// <summary>
+    /// Asks the environment host which modules of its runtime session declare a procedure a program can start with: what a debug adapter asks of a launch that
+    /// names no module, before it runs one.
+    /// </summary>
+    public const string HostEntryPoints = "rdcore/host/entryPoints";
+
+    /// <summary>
     /// Asks the environment host to take a module out of its runtime session. The language-server side of <see cref="RDCorePlatformProtocol.SessionDiscard"/>.
     /// </summary>
     public const string HostDiscard = "rdcore/host/discard";

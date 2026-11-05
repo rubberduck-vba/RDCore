@@ -151,11 +151,20 @@ namespace RDCore.LanguageServer.Debugging {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A launch configuration names the module that has the entry point: &quot;module&quot;..
+        ///   Looks up a localized string similar to No standard module of the program declares a Public Sub {0}() or a Public Sub {0}(ParamArray Args()) to start with. Declare one, or name the module that has the entry point in the launch configuration: &quot;module&quot;..
         /// </summary>
-        internal static string LaunchNeedsModule {
+        internal static string NoModuleDeclaresTheEntryPoint {
             get {
-                return ResourceManager.GetString("LaunchNeedsModule", resourceCulture);
+                return ResourceManager.GetString("NoModuleDeclaresTheEntryPoint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to More than one standard module declares a Sub {0} the program could start with: {1}. Name the one to run in the launch configuration: &quot;module&quot;..
+        /// </summary>
+        internal static string ModulesDeclaringTheEntryPoint {
+            get {
+                return ResourceManager.GetString("ModulesDeclaringTheEntryPoint", resourceCulture);
             }
         }
         

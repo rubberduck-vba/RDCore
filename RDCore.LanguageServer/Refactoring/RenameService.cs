@@ -144,7 +144,7 @@ internal sealed class RenameService(
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
             documentHosts: modules.Where(module => module.Document.Super is not null)
-                .GroupBy(module => module.Module.Fragment.TrimStart('#'), StringComparer.OrdinalIgnoreCase)
+                .GroupBy(module => SymbolUri.ModuleNameOf(module.Module), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First().Document.Super!.Value, StringComparer.OrdinalIgnoreCase));
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
@@ -466,7 +466,7 @@ internal sealed class RenameWorkspace
     private static string Say(ProjectPart part, RenameRefusal refusal) => refusal.ToMessage((module, position) =>
         part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
             ? document.Locate(position)
-            : $"{module.Fragment.TrimStart('#')} {position.Line + 1}:{position.Character + 1}");
+            : $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}");
 
     /// <summary>A document, and the module it is.</summary>
     internal sealed record class DocumentModule(WorkspaceDocument Document, Uri Module, ModuleType Type, SDK.Model.AST.ModuleParseResult Parse, string Source)

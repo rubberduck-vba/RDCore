@@ -44,4 +44,59 @@ public sealed class VariantComparedWithStringTests
         DisplayName = "V08 a number in a String")]
     public async Task AComparisonOfAnotherKind_IsAsSpecified(string[] body, string[] printed)
         => CollectionAssert.AreEqual(printed, await RunAsync(body));
+
+    // an arithmetic or & expression with a Variant operand is a Variant, and is compared as one (oracle\s56 G02, G09-G11).
+    [TestMethod]
+    [DataRow(new[] { "Dim v As Variant: v = 1", "Debug.Print (v + 1) = \"2.0\"", "Debug.Print (v + 1) = \"2\"", "Debug.Print \"2.0\" = (v + 1)", "Debug.Print (v + 1) > \"10\"" },
+        new[] { "False", "True", "False", "True", "0" }, DisplayName = "G02 v + 1")]
+    [DataRow(new[] { "Dim v As Variant: v = 1", "Debug.Print (v * 1) = \"1.0\"", "Debug.Print CInt(v) = \"1.0\"", "Debug.Print (v & \"\") = 1", "Debug.Print -v = \"-1.0\"" },
+        new[] { "False", "True", "True", "False", "0" }, DisplayName = "G09 v * 1, CInt(v), v & \"\", -v")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.5\"", "Debug.Print (v & \"\") = 2", "Debug.Print (v + 0) = 2", "Debug.Print Trim(v) = 2", "Debug.Print Trim$(v) = 2" },
+        new[] { "False", "False", "False", "False", "0" }, DisplayName = "G10 v & \"\", v + 0, Trim")]
+    [DataRow(new[] { "Dim v As Variant: v = \"abc\"", "Debug.Print v = \"abc\"", "v = 1", "Debug.Print v = \"a\"", "Debug.Print v < \"a\"" },
+        new[] { "True", "False", "True", "0" }, DisplayName = "G11 text")]
+    public async Task AnExpressionOverAVariant_IsComparedAsAVariant(string[] body, string[] printed)
+        => CollectionAssert.AreEqual(printed, await RunAsync(body));
+
+    // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL's table makes the effective type the number's (oracle\s56 G01,
+    // G03-G05, G07, G08, G12).
+    [TestMethod]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.5\"", "Debug.Print v = 2", "Debug.Print 2 = v", "Debug.Print v = 2.5", "Debug.Print v > 2", "Debug.Print v = CLng(2)", "Debug.Print v = 2#" },
+        new[] { "False", "False", "True", "True", "False", "False", "0" }, DisplayName = "G01 a Variant \"2.5\"")]
+    [DataRow(new[] { "Dim s As String: s = \"2.5\"", "Debug.Print s = 2", "Debug.Print s = 2.5" }, new[] { "False", "True", "0" }, DisplayName = "G03 a String \"2.5\"")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.5\"", "Dim n As Integer: n = 2", "Debug.Print v = n", "Dim d As Double: d = 2.5", "Debug.Print v = d" },
+        new[] { "False", "True", "0" }, DisplayName = "G04 an Integer and a Double variable")]
+    [DataRow(new[] { "Dim v As Variant: v = \"abc\"", "Debug.Print v = 2", "Debug.Print v > 2" }, new[] { "False", "True", "0" }, DisplayName = "G05 a String that is no number")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2\"", "Debug.Print v = 2" }, new[] { "True", "0" }, DisplayName = "G07 a Variant \"2\"")]
+    [DataRow(new[] { "Dim v As Variant, w As Variant: v = 2: w = \"2.0\"", "Debug.Print v = w", "Debug.Print v = \"2.0\"", "Debug.Print v > \"10\"", "Debug.Print v > w" },
+        new[] { "False", "False", "True", "False", "0" }, DisplayName = "G08 two Variants")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.5\"", "Dim b As Byte: b = 2", "Debug.Print v = b", "Dim c As Currency: c = 2.5", "Debug.Print v = c", "Debug.Print v = True" },
+        new[] { "False", "True", "True", "0" }, DisplayName = "G12 a Byte, a Currency, a Boolean")]
+    [DataRow(new[] { "Dim v As Variant: v = \"40000\"", "Dim i As Integer: i = 2", "Debug.Print v > i", "Dim s As String: s = \"40000\"", "Debug.Print s > i" },
+        new[] { "True", "True", "0" }, DisplayName = "H01 no overflow for the text of a number too large for an Integer")]
+    [DataRow(new[] { "Dim v As Variant: v = \"1E3\"", "Debug.Print v = 1000", "Dim s As String: s = \"&H10\"", "Debug.Print s = 16", "Debug.Print s = CLng(16)" },
+        new[] { "True", "True", "True", "0" }, DisplayName = "H05 an exponent and a hexadecimal")]
+    [DataRow(new[] { "Dim v As Variant: v = \"40000\"", "Dim b As Byte: b = 2", "Debug.Print v > b" }, new[] { "True", "0" }, DisplayName = "H06 nor for a Byte")]
+    public async Task AStringComparedWithAnIntegralNumber_IsComparedAsADouble(string[] body, string[] printed)
+        => CollectionAssert.AreEqual(printed, await RunAsync(body));
+
+    // MS-VBA compares a Variant String with a Single or a LongLong as Doubles too, and a declared String with a Single as a Single (oracle\s56 H02-H04).
+    [TestMethod]
+    [DataRow(new[] { "Dim v As Variant: v = \"0.1\"", "Dim f As Single: f = 0.1", "Debug.Print v = f", "Dim s As String: s = \"0.1\"", "Debug.Print s = f", "Debug.Print s = CSng(0.1)" },
+        new[] { "False", "True", "True", "0" }, DisplayName = "H02 a Single")]
+    [DataRow(new[] { "Dim v As Variant: v = \"9007199254740993\"", "Dim n As LongLong: n = 9007199254740^ * 1000^ + 992^", "Debug.Print v = n", "Debug.Print v > n" },
+        new[] { "True", "False", "0" }, DisplayName = "H03 a LongLong beyond a Double's precision")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.5\"", "Dim n As LongLong: n = 2", "Debug.Print v = n", "Debug.Print v > n" },
+        new[] { "False", "True", "0" }, DisplayName = "H04 a LongLong")]
+    public async Task AVariantStringComparedWithASingleOrALongLong_IsComparedAsADouble(string[] body, string[] printed)
+        => CollectionAssert.AreEqual(printed, await RunAsync(body));
+
+    // a Currency and a Decimal keep the table's types: a String is let-coerced to Currency, to 4 decimals, and to Decimal, exact (oracle\s56 I02-I04).
+    [TestMethod]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.00001\"", "Dim c As Currency: c = 2", "Debug.Print v = c", "Debug.Print v > c", "Dim s As String: s = \"2.00001\"", "Debug.Print s = c" },
+        new[] { "True", "False", "True", "0" }, DisplayName = "I02 a Currency")]
+    [DataRow(new[] { "Dim v As Variant: v = \"2.00001\"", "Debug.Print v = CDec(2)", "Debug.Print v > CDec(2)", "v = \"9007199254740993\"", "Debug.Print v = CDec(\"9007199254740992\")" },
+        new[] { "False", "True", "False", "0" }, DisplayName = "I03, I04 a Decimal")]
+    public async Task AStringComparedWithACurrencyOrADecimal_IsComparedInItsType(string[] body, string[] printed)
+        => CollectionAssert.AreEqual(printed, await RunAsync(body));
 }

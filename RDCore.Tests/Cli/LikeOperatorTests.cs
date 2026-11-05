@@ -63,6 +63,12 @@ public sealed class LikeOperatorTests
     // ? and * match a line feed; # matches 0 to 9 only.
     [DataRow("Binary", "'a' & vbLf & 'b' Like 'a?b' ;; 'a' & vbCrLf & 'b' Like 'a*b'", "True|True", DisplayName = "F07 line feed")]
     [DataRow("Binary", "ChrW(&H660) Like '#' ;; ChrW(&H966) Like '#' ;; ChrW(&H6F5) Like '#'", "False|False|False", DisplayName = "F12 # is 0-9")]
+    // # matches the fullwidth digits too, which a [0-9] list does not; no other digit, not a superscript (oracle s56 R15).
+    [DataRow("Binary", "ChrW(&HFF11) Like '#' ;; (ChrW(&HFF10) & '1') Like '##' ;; ChrW(&HFF11) Like '[0-9]' ;; ChrW(&H661) Like '#' ;; ChrW(&HB2) Like '#'",
+        "True|True|False|False|False", DisplayName = "R15 # is 0-9 and its fullwidth forms")]
+    // and in Text mode, where a fullwidth digit is no more the digit than in Binary (oracle s56 I01t).
+    [DataRow("Text", "ChrW(&HFF11) Like '[0-9]' ;; ChrW(&HFF11) Like '#' ;; ChrW(&HFF11) Like '1' ;; '1' Like ChrW(&HFF11) ;; ChrW(&HFF11) Like '[1]' ;; ChrW(&HFF11) Like '[0-2]'",
+        "False|True|False|False|False|False", DisplayName = "I01t the fullwidth digits, Text")]
     // a range is folded like the characters it is tested against: by case alone, and only where the case maps both ways.
     [DataRow("Binary", "'_' Like '[A-z]' ;; 'M' Like '[a-Z]' ;; 'a' Like '[Z-a]'", "True|e93|True", DisplayName = "F05a ranges, Binary")]
     [DataRow("Text", "'_' Like '[A-z]' ;; 'M' Like '[a-Z]' ;; 'a' Like '[Z-a]'", "False|True|e93", DisplayName = "F05b ranges, Text")]

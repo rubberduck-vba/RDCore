@@ -71,7 +71,7 @@ public sealed class HostExecuteHandlerTests
     private static async Task<ExecuteResult> ExecuteAsync(
         (HostExecuteHandler Handler, EnvironmentSessionProvider Session, Uri WorkspaceRoot, Uri ModuleUri) composed,
         string source, string entryPoint = "Main", CancellationToken token = default,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, bool debug = false)
     {
         var (handler, sessionProvider, workspaceRoot, moduleUri) = composed;
 
@@ -104,6 +104,7 @@ public sealed class HostExecuteHandlerTests
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
             ModuleName = ModuleName,
             EntryPoint = entryPoint,
+            Debug = debug,
         }, token);
     }
 
@@ -112,6 +113,20 @@ public sealed class HostExecuteHandlerTests
 
     private static string ModuleWithDeclarations(string declarations, params string[] body)
         => $"Attribute VB_Name = \"{ModuleName}\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
+
+    // an entry point that takes what the program is given as a ParamArray (ProgramEntryPoint) is run as one: given nothing, it has an empty array, under a
+    // debugger or not.
+    [TestMethod]
+    [DataRow(false, DisplayName = "run")]
+    [DataRow(true, DisplayName = "under a debugger")]
+    public async Task AnEntryPointThatTakesAParamArray_IsRunWithNoArgument(bool debug)
+    {
+        var source = $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main(ParamArray Args())\r\nDebug.Print LBound(Args)\r\nDebug.Print UBound(Args)\r\nDebug.Print IsMissing(Args)\r\nEnd Sub\r\n";
+        var result = await ExecuteAsync(Compose(source), source, debug: debug);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorNumber} {result.ErrorMessage}");
+        CollectionAssert.AreEqual(new[] { "0", "-1", "True" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
 
     #region Arrays, declared in source and carried to the host
 

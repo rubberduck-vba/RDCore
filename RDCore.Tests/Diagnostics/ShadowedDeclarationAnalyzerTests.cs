@@ -39,12 +39,14 @@ public sealed class ShadowedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task APublicMemberOfAnotherModule_IsHidden()
+    [DataRow("Totals", DisplayName = "an ASCII name")]
+    [DataRow("Données", DisplayName = "a name with an accented letter, named as its code names it")]
+    public async Task APublicMemberOfAnotherModule_IsHidden(string module)
     {
         var finding = Assert.ContainsSingle(await FindingsAsync(
-            "Public Sub Main() ;; Dim Total As Long ;; End Sub", ("Totals", ModuleWorkspace.StandardModule("Totals", "Public Total As Long"))));
+            "Public Sub Main() ;; Dim Total As Long ;; End Sub", (module, ModuleWorkspace.StandardModule(module, "Public Total As Long"))));
 
-        StringAssert.Contains(finding.Message, "Totals");
+        StringAssert.Contains(finding.Message, $"{module}.Total");
     }
 
     [TestMethod]

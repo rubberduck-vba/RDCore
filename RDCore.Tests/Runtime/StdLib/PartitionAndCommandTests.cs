@@ -42,6 +42,11 @@ public sealed class PartitionAndCommandTests
         "[ 4: 5]|[  :-1]|0|[10:  ]|0|[ 0: 9]|0|[2147483647:          ]|0|", DisplayName = "P07 the ends of a Long")]
     public void Partition_AsMSVBA(string body, string printed) => Assert.AreEqual(printed, Run(body));
 
+    // a part no LongLong holds overflows, 2^63 - the Double nearest the largest LongLong, past it - as 1E19 does; -2^63 is the least LongLong.
+    [TestMethod]
+    public void APartNoLongLongHolds_IsAnOverflow()
+        => Assert.AreEqual("6|6|6|[  :-1]|0|", Run("""Err.Clear ;; P Partition(9223372036854775808#, 0, 9, 2) ;; P Err.Number ;; Err.Clear ;; P Partition(1E19, 0, 9, 2) ;; P Err.Number ;; Err.Clear ;; P Partition(5, 0, 9223372036854775808#, 2) ;; P Err.Number ;; Err.Clear ;; P "[" & Partition(-9223372036854775808#, 0, 9, 2) & "]" ;; P Err.Number"""));
+
     // C01: in a program an Office application runs, there are none.
     [TestMethod]
     public async Task Command_IsAString_EmptyUnlessTheHostGivesOne()
