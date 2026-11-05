@@ -1409,13 +1409,13 @@ public sealed class EditAndContinueTests
     // what a block the program has left behind kept is of no use to it: the opening of that block, edited, is applied.
     [TestMethod]
     [DataRow("    For i = 1 To 2|        Debug.Print i|    Next", "For i = 1 To 2|For i = 1 To 3", DisplayName = "a For")]
-    [DataRow("    For Each v In c|        Debug.Print v|    Next", "For Each v In c|For Each v In (c)", DisplayName = "a For Each")]
+    [DataRow("    For Each v In c|        Debug.Print v|    Next", "For Each v In c|For Each v In d", DisplayName = "a For Each")]
     [DataRow("    Select Case s|        Case 1|            Debug.Print \"one\"|    End Select", "Select Case s|Select Case s + 0", DisplayName = "a Select Case")]
     [DataRow("    With c|        .Add 2|    End With", "    With c|    With (c)", DisplayName = "a With")]
     public async Task TheOpeningOfABlockTheProgramHasLeft_Edited_IsApplied(string block, string edit)
     {
         var program = Lines(["Option Explicit", "Public Sub Main()", "    Dim i As Long", "    Dim s As Long", "    Dim v As Variant", "    Dim c As New Collection",
-            "    c.Add 1", "    s = 1", .. block.Split('|'), "    Stop", "    Debug.Print \"end\"", "End Sub"]);
+            "    Dim d As New Collection", "    c.Add 1", "    s = 1", .. block.Split('|'), "    Stop", "    Debug.Print \"end\"", "End Sub"]);
         var (find, replace) = (edit.Split('|')[0], edit.Split('|')[1]);
 
         var resumed = await ProgramEditedAtItsStopAsync(program, program.Replace(find, replace, StringComparison.Ordinal));

@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Platform.Protocol;
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
@@ -246,10 +247,11 @@ public sealed class SyntaxNodeSerializationTests
     {
         // a tree written before names carried a character has no such member at all, and still reads.
         var name = new SimpleNameExpressionNode(new("file:///t.bas", [0]), TestLocations.TestLocation, "Left", "$");
-        var json = JsonNode.Parse(JsonSerializer.Serialize<SyntaxNode>(name, Options))!.AsObject();
+        var tree = JsonNode.Parse(JsonSerializer.Serialize<SyntaxNode>(name, Options))!.AsObject();
+        var json = tree["$nodes"]![0]!.AsObject();
         Assert.IsTrue(json.Remove(nameof(SimpleNameExpressionNode.TypeHint)), json.ToJsonString());
 
-        var back = (SimpleNameExpressionNode)JsonSerializer.Deserialize<SyntaxNode>(json.ToJsonString(), Options)!;
+        var back = (SimpleNameExpressionNode)JsonSerializer.Deserialize<SyntaxNode>(tree.ToJsonString(), Options)!;
 
         Assert.AreEqual("Left", back.IdentifierName);
         Assert.IsNull(back.TypeHint);
@@ -291,5 +293,20 @@ public sealed class SyntaxNodeSerializationTests
         Assert.IsNotEmpty(result.PrecompilerTrivia);
         var triviaJson = JsonSerializer.Serialize(result.PrecompilerTrivia, Options);
         Assert.AreEqual(triviaJson, JsonSerializer.Serialize(JsonSerializer.Deserialize<ImmutableArray<SyntaxNode>>(triviaJson, Options), Options));
+    }
+
+    [TestMethod]
+    // a node that two properties hold is one node after the round trip, as it was before it: the static semantics of a For Each loop know its source by
+    // reference among the loop's inputs. A loop with a body was read back with two copies of each.
+    public void ANodeHeldByTwoProperties_IsOneNodeAfterTheRoundTrip()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Sub Test()\r\n    For Each v In c\r\n        Debug.Print v\r\n    Next\r\nEnd Sub\r\n");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var back = PlatformJson.Deserialize<SyntaxNode>(PlatformJson.Serialize<SyntaxNode>(result.SyntaxTree!))!;
+        var forEach = back.Descendants().OfType<ForEachStatementNode>().Single();
+
+        Assert.AreSame(forEach.ControlExpression, forEach.Inputs[0]);
+        Assert.AreSame(forEach.CollectionExpression, forEach.Inputs[1]);
     }
 }

@@ -146,11 +146,24 @@ what every node repeats is written once. The model each end has is the same: a r
 |A node's identity|`{"DocumentUri": …, "Lineage": […]}`, where the `DocumentUri` is written only when it is not the one written last in the payload, the same way.|
 |A node's `SourceLocation`|Not written where it is the node's own `Location`, which it is read back from.|
 |A `null`|Not written: a property that is not there reads back as `null`, or as its declared default.|
+|A syntax tree|`{"$nodes": [...], "$root": n}`: an array of every node of the tree, and the index of its root in the array.|
+|A node a node holds|Its index in the array of its tree, a bare number. A sequence of nodes is an array of indexes.|
+
+A syntax tree is written flat, so a payload's depth does not grow with the depth of the code: a chain of thousands of additions, or hundreds of nested
+parentheses, is written and read with the same stack as one addition.
+
+- The outermost node of a tree that a payload holds, a module's node in a parse result, is written as a tree: `$nodes` holds every node of it, and `$root`
+  is the index of the node itself.
+- Each node in `$nodes` is an object with the properties it always has, its `$type` among them. A property that holds a node is written as that node's
+  index in `$nodes`, and a property that holds a sequence of nodes as an array of indexes.
+- Every node comes after the nodes it holds, so an index names a node already read: a reader can construct each node in one pass, start to end. An index
+  that names no node read before it is an error in the payload.
+- A node that two properties hold is written once, and both properties hold its index: it is read back as one node, not two copies of it.
 
 A payload is written and read start to end in one call, so the document a location or an identity is read with is the one written before it. The payload of
-one module writes its path once or twice, rather than three times a node: for a module of 2,400 lines, the parse result is 1.4 MB of JSON rather than 5 MB,
-and its semantic model 1.5 MB rather than 3.6 MB. Anything serialized with the same options outside a payload
-([`SyntaxNodeJson.Options`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly) writes every document.
+one module writes its path once or twice, rather than three times a node: for a module of 2,150 lines, the parse result is about 1.3 MB of JSON. Anything
+serialized with the same options outside a payload ([`SyntaxNodeJson.Options`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly)
+writes every document.
 
 ### `rdcore/session/execute`
 
