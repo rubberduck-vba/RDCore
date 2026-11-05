@@ -46,10 +46,12 @@ public static class ModuleKinds
     /// </summary>
     /// <param name="super">What the project says the module's document is (<see cref="RDCoreModule.Super"/>).</param>
     /// <param name="source">The module's text, or <see langword="null"/> when it could not be read.</param>
-    public static ModuleType Of(DocClassType? super, string? source)
-        => super is not null ? ModuleType.DocumentModule
-            : ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule
-            : ModuleType.StdModule;
+    public static ModuleType Of(DocClassType? super, string? source) => ProjectModuleKinds.Of(super, source) switch
+    {
+        ProjectModuleKind.Document => ModuleType.DocumentModule,
+        ProjectModuleKind.Class => ModuleType.ClassModule,
+        _ => ModuleType.StdModule,
+    };
 
     /// <summary>
     /// Whether a module of this kind is a class module: its members are of each object of it, and <c>Me</c> is one of them. A document module is.

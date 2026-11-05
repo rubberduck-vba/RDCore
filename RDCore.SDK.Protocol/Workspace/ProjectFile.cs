@@ -19,6 +19,46 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     public static readonly string FileName = ".rdproj";
 
     /// <summary>
+    /// Reads a <c>.rdproj</c> as the platform reads it: the project file at <paramref name="workspaceRoot"/>, with what a file may leave out made empty and the
+    /// standard library dropped from its references (<see cref="RDCoreReference.IsStandardLibrary"/>).
+    /// </summary>
+    /// <remarks>
+    /// A list the file gives as <c>null</c> (<c>"Modules": null</c>), or a project the file gives as <c>null</c>, reads as empty, and a <c>null</c> item of a
+    /// list is left out. The file is UTF-8, with or without a byte order mark; its member names are matched as <see cref="JsonSerializer"/> matches them by
+    /// default, case-sensitively, except a file entry's <c>RelativeUri</c> and <c>Super</c>, which are matched whatever their case. A file that is no JSON throws the <see cref="JsonException"/> that says where.
+    /// </remarks>
+    /// <param name="stream">The file's content.</param>
+    /// <param name="workspaceRoot">The workspace root the project file is at (<see cref="Uri"/>).</param>
+    /// <param name="token">Cancels the read.</param>
+    /// <exception cref="JsonException">The file is no JSON, or no JSON object.</exception>
+    public static async Task<ProjectFile> ReadAsync(Stream stream, string workspaceRoot, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentException.ThrowIfNullOrWhiteSpace(workspaceRoot, nameof(workspaceRoot));
+
+        var project = await JsonSerializer.DeserializeAsync<ProjectFile>(stream, cancellationToken: token)
+            ?? throw new JsonException($"A {FileName} is a JSON object, not null.");
+        return project.WithUri(workspaceRoot).Normalized();
+    }
+
+    // what a file may leave out, as the rest of the platform expects it: empty, never null; and the standard library, which is every project's own and no
+    // reference of it - a project file written before lists it, with the path of Office's VBE7.DLL - left out.
+    private ProjectFile Normalized()
+    {
+        var info = ProjectInfo ?? new RDCoreProject();
+        info = info with
+        {
+            Name = info.Name ?? string.Empty,
+            References = [.. (info.References ?? []).Where(reference => reference is not null && !reference.IsStandardLibrary)],
+            Modules = [.. (info.Modules ?? []).Where(module => module is not null)],
+            OtherFiles = [.. (info.OtherFiles ?? []).Where(file => file is not null)],
+            Folders = [.. (info.Folders ?? []).Where(folder => folder is not null)],
+            PrecompilerConstants = info.PrecompilerConstants ?? [],
+        };
+        return this with { ProjectInfo = info, Configuration = Configuration ?? [], Version = Version ?? string.Empty };
+    }
+
+    /// <summary>
     /// A project file of an empty project, at the platform's virtual workspace (<see cref="RDCoreUriNamespaces.RDCoreWorkspaceUri"/>).
     /// </summary>
     public ProjectFile() : this(RDCoreUriNamespaces.RDCoreWorkspaceUri) { }
