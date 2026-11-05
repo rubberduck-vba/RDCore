@@ -45,6 +45,11 @@ argument are nested in the call and in nothing more. `Debug.Print` takes an outp
 §5.4.5.8), not an argument list: an item of it, and the expression of its `Spc` or `Tab` clause, are nested in nothing the statement writes around them, as
 the expression of an assignment is not. **MS-VBAL** leaves the depth of an expression to the implementation.
 
+An expression past the limit is kept as text, and isn't analyzed. What is nested in more than 2,500 expressions is an error node of the text it is written
+as (`UnbuiltExpressionTriviaNode`), and the name of a member past the limit is kept with its member access: a name in that text is bound to nothing, and is
+no reference of what it names. The rest of the module is analyzed as it would be, and its text is kept as it is written: no tool that rewrites it loses
+any of the expression.
+
 > 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**
 > was seen to run, and reports a syntax error where **MS-VBA** crashes: an expression nested in more than 2,500 others.
