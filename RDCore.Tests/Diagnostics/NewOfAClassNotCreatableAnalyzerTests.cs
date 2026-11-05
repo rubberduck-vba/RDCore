@@ -3,6 +3,8 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Model;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -37,6 +39,30 @@ public sealed class NewOfAClassNotCreatableAnalyzerTests
         Assert.AreEqual(string.Format(RDCoreDiagnosticsResources.NewOfAClassNotCreatable_New_Message, "ErrObject"), finding.Message);
         Assert.AreEqual(line, lines[finding.Range.Start.Line]);
         Assert.AreEqual(line.IndexOf("New", StringComparison.Ordinal), finding.Range.Start.Character, "where New is written");
+    }
+
+    [TestMethod]
+    // a library may name a class with letters that are not ASCII, which its address escapes: the message names the class as it is written. No library of the
+    // platform has such a class whose objects are never created, so the New ErrObject of X04 is bound to one.
+    public async Task NewOfAClassNamedWithLettersThatAreNotAscii_IsNamedAsItIsWritten()
+    {
+        var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n    Dim e As ErrObject\r\n    Set e = New ErrObject\r\nEnd Sub\r\n";
+        var payload = await ModuleWorkspace.SemanticsAsync([], program);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program");
+        var binding = SymbolUri.Member(SymbolUri.Module(new Uri("file:///libraries/"), "Bibliothèque"), "Modèle");
+        model = model with
+        {
+            Procedures = [.. model.Procedures.Select(procedure => procedure with
+            {
+                Expressions = [.. procedure.Expressions.Select(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.NewAlwaysFails) ? fact with { Binding = binding } : fact)],
+            })],
+        };
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas"));
+
+        var finding = Assert.ContainsSingle(new NewOfAClassNotCreatableAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, program), model)));
+
+        StringAssert.Contains(binding.Fragment, "Mod%C3%A8le", "the address escapes the name");
+        Assert.AreEqual(string.Format(RDCoreDiagnosticsResources.NewOfAClassNotCreatable_New_Message, "Modèle"), finding.Message);
     }
 
     [TestMethod]
