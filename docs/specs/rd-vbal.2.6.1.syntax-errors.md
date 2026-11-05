@@ -35,10 +35,14 @@ A logical line joins at most 25 physical lines: 24 line-continuations in a row, 
 
 An expression is nested in at most 2,500 others: one nested deeper is `ExpressionNestedTooDeeply` (`VBC00060`), at the expression that passes the limit,
 once for each expression of a statement. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
-term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. A named argument
-(`a:=`) and a `ByVal` argument are nested in the call and in nothing more. An `object-print-expression` (**MS-VBAL §5.6**, `Debug.Print`) takes an output
-list, not an argument list: an item of it, and the expression of its `Spc` or `Tab` clause, is nested in nothing the statement writes around it, as the
-expression of an assignment is not. **MS-VBAL** leaves the depth of an expression to the implementation.
+term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. It is also nested in
+the member access it is the owner of (`a.b`, `a!b`), in the index expression it is the callee of (`a(1)`), and in a `New`, `TypeOf … Is` or `AddressOf`
+expression: each of them holds what it is written around as deep as an operator holds its operand. So a fluent chain `b.Add(1).Add(2)…` costs two levels a
+link, a member access and an index expression: `b` is nested in 2,500 expressions at 1,250 links, and 1,251 links are `VBC00060`. The arguments of a call
+statement are nested in the call, with or without `Call`: `F (…)` as `Call F(…)`, and `F 1, …` as `Call F(1, …)`. A named argument (`a:=`) and a `ByVal`
+argument are nested in the call and in nothing more. `Debug.Print` takes an output list (**MS-VBAL §5.4.5.8.1**, the list of the `Print` statement of
+§5.4.5.8), not an argument list: an item of it, and the expression of its `Spc` or `Tab` clause, are nested in nothing the statement writes around them, as
+the expression of an assignment is not. **MS-VBAL** leaves the depth of an expression to the implementation.
 
 > 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**
