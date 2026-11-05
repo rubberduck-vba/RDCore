@@ -20,8 +20,8 @@ public sealed record class VBEnumMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, 
 {
     /// <remarks>
     /// An Enum's name is a type's, and a variable, a constant or a procedure of its module may take it (<strong>MS-VBAL §5.2.3.1</strong>,
-    /// <strong>§5.2.3.2</strong>, <strong>§5.2.3.4</strong>): <c>Property Get PlayerType() As PlayerType</c>. An Enum is addressed by the reserved word
-    /// <c>Enum</c> after its name, which no identifier can be, and its members under it (<c>PlayerType.Enum.HumanControlled</c>).
+    /// <strong>§5.2.3.2</strong>, <strong>§5.2.3.4</strong>): <c>Property Get PlayerType() As PlayerType</c>. An Enum is addressed with the suffix
+    /// <c>Enum</c> after its name (<see cref="SymbolUri"/>), and its members under it (<c>PlayerType]Enum.HumanControlled</c>).
     /// </remarks>
     protected override string? UriSuffix => SymbolUri.EnumSuffix;
 }

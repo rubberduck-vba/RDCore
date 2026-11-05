@@ -27,7 +27,7 @@ public sealed record class VBUserDefinedTypeMemberSymbol(Uri WorkspaceRoot, Uri 
 
     /// <remarks>
     /// A Type's name is a type's, and a variable, a constant or a procedure of its module may take it (<strong>MS-VBAL §5.2.3.3</strong>). A Type is
-    /// addressed by the reserved word <c>Type</c> after its name, which no identifier can be, and its fields under it (<c>Point.Type.X</c>).
+    /// addressed with the suffix <c>Type</c> after its name (<see cref="SymbolUri"/>), and its fields under it (<c>Point]Type.X</c>).
     /// </remarks>
     protected override string? UriSuffix => SymbolUri.TypeSuffix;
 }

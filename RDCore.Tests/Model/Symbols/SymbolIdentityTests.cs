@@ -13,6 +13,9 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
@@ -24,8 +27,8 @@ namespace RDCore.Tests.Model.Symbols;
 /// <summary>
 /// A symbol's address is its identity (<see cref="Symbol.SemanticId"/>), and no two declarations of one module share one. An Enum, a Type and an Event may
 /// take the name of a procedure, a variable or a constant of their module (<strong>MS-VBAL §5.2.3.1</strong> to <strong>§5.2.3.4</strong>,
-/// <strong>§5.2.4.3</strong>): they are addressed by a reserved word after the name (<c>PT.Enum</c>, <c>PT.Type</c>, <c>PT.Event</c>), and their members
-/// under it.
+/// <strong>§5.2.4.3</strong>): they are addressed with a suffix after the name, after a delimiter no name has (<c>PT]Enum</c>, <c>PT]Type</c>,
+/// <c>PT]Event</c>), and their members under it. A name may be the suffix's word itself: only what follows the delimiter is a suffix.
 /// </summary>
 [TestClass]
 public sealed class SymbolIdentityTests
@@ -100,10 +103,10 @@ public sealed class SymbolIdentityTests
     }
 
     [TestMethod]
-    [DataRow(Enum, "Cls.PT.Enum", "Cls.PT.Enum.Red", DisplayName = "Enum")]
-    [DataRow(Type, "Cls.PT.Type", "Cls.PT.Type.X", DisplayName = "Type")]
-    [DataRow(Event, "Cls.PT.Event", "Cls.PT.Event.arg", DisplayName = "Event")]
-    public void ATypeOrEvent_IsAddressedByItsReservedWordAfterItsName_ItsMembersUnderIt(string typeOrEvent, string path, string memberPath)
+    [DataRow(Enum, "Cls.PT]Enum", "Cls.PT]Enum.Red", DisplayName = "Enum")]
+    [DataRow(Type, "Cls.PT]Type", "Cls.PT]Type.X", DisplayName = "Type")]
+    [DataRow(Event, "Cls.PT]Event", "Cls.PT]Event.arg", DisplayName = "Event")]
+    public void ATypeOrEvent_IsAddressedWithASuffixAfterItsName_ItsMembersUnderIt(string typeOrEvent, string path, string memberPath)
     {
         var symbols = SymbolsOfClass(typeOrEvent);
 
@@ -114,16 +117,53 @@ public sealed class SymbolIdentityTests
     }
 
     [TestMethod]
-    [DataRow("Cls.Item", "Item", DisplayName = "a Property Get")]
-    [DataRow("Cls.Item.Let", "Item", DisplayName = "a Property Let")]
-    [DataRow("Cls.Item.Set", "Item", DisplayName = "a Property Set")]
-    [DataRow("Cls.Item.Let.value", "value", DisplayName = "a parameter of a Property Let")]
-    [DataRow("Cls.PT.Enum", "PT", DisplayName = "an Enum")]
-    [DataRow("Cls.PT.Enum.Red", "Red", DisplayName = "an enum member")]
-    [DataRow("Cls", "Cls", DisplayName = "a module")]
-    [DataRow("", "", DisplayName = "a root")]
-    public void TheNameOfASymbol_IsTheLastNameOfItsAddress_WithoutTheReservedWordAfterIt(string path, string name)
-        => Assert.AreEqual(name, SymbolUri.NameOf(new UriBuilder(Wire.FileUri(Root)) { Fragment = path }.Uri));
+    [DataRow("Cls.Item", "Item", "Cls.Item", DisplayName = "a Property Get")]
+    [DataRow("Cls.Item]Let", "Item", "Cls.Item", DisplayName = "a Property Let")]
+    [DataRow("Cls.Item]Set", "Item", "Cls.Item", DisplayName = "a Property Set")]
+    [DataRow("Cls.Item]Let.value", "value", "Cls.Item.value", DisplayName = "a parameter of a Property Let")]
+    [DataRow("Cls.PT]Enum", "PT", "Cls.PT", DisplayName = "an Enum")]
+    [DataRow("Cls.PT]Enum.Red", "Red", "Cls.PT.Red", DisplayName = "an enum member")]
+    [DataRow("Cls.Tok]Type.Type", "Type", "Cls.Tok.Type", DisplayName = "a field of a Type named Type")]
+    [DataRow("Cls.Tok]Type.Let", "Let", "Cls.Tok.Let", DisplayName = "a field of a Type named Let")]
+    [DataRow("Worksheet.Type", "Type", "Worksheet.Type", DisplayName = "a library's member named Type")]
+    [DataRow("Shapes.AddShape.Type", "Type", "Shapes.AddShape.Type", DisplayName = "a library's parameter named Type")]
+    [DataRow("Cls", "Cls", "Cls", DisplayName = "a module")]
+    [DataRow("", "", "", DisplayName = "a root")]
+    public void TheNameOfASymbol_IsTheLastNameOfItsAddress_WithoutTheSuffixAfterIt(string path, string name, string qualifiedName)
+    {
+        var address = new UriBuilder(Wire.FileUri(Root)) { Fragment = path }.Uri;
+
+        Assert.AreEqual(name, SymbolUri.NameOf(address));
+        Assert.AreEqual(qualifiedName, SymbolUri.QualifiedNameOf(address));
+    }
+
+    [TestMethod]
+    public void TheFieldsOfATypeNamedTypeAndLet_AreNamedSo()
+    {
+        var fields = SymbolsOfClass("Private Type Tok\r\n    Type As Long\r\n    Let As Long\r\nEnd Type").OfType<VBUserDefinedTypeFieldSymbol>().ToList();
+
+        CollectionAssert.AreEqual(new[] { "Type", "Let" }, fields.Select(field => SymbolUri.NameOf(field.Uri)).ToArray());
+        CollectionAssert.AreEqual(new[] { "Cls.Tok.Type", "Cls.Tok.Let" }, fields.Select(field => SymbolUri.QualifiedNameOf(field.Uri)).ToArray());
+    }
+
+    [TestMethod]
+    public void ExcelsWorksheetType_IsNamedType_AndAHoverSaysItIsAMemberOfTheWorksheet()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = ReferencedLibraries.Load(
+            new DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), Path.Combine(directory!.FullName, "Symbols")), ["Excel"], [StdLibSymbolProvider.LibraryName]);
+        var symbols = new LibrarySymbolProvider(Wire.FileUri(Root), libraries).ProvideSymbols().ToList();
+        var worksheet = symbols.OfType<VBClassModuleSymbol>().Single(symbol => symbol.Name == "Worksheet");
+        var type = worksheet.DefaultInterfaceMembers.Single(member => member.Name == "Type");
+
+        Assert.AreEqual("Type", SymbolUri.NameOf(type.Uri));
+        Assert.AreEqual("Excel.Worksheet", SymbolHover.Of(type).Container);
+    }
 
     [TestMethod]
     public void NoTwoDeclarationsOfAModuleOfTheBenchCorpus_ShareASemanticId()

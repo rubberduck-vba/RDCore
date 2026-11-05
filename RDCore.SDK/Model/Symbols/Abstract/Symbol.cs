@@ -26,7 +26,7 @@ public abstract record class Symbol
     {
         WorkspaceRoot = workspaceRoot;
         ParentUri = parentUri ?? workspaceRoot;
-        Uri = CreateUri(ParentUri, UriSuffix is { } suffix ? $"{name}.{suffix}" : name);
+        Uri = SymbolUri.Member(ParentUri, name, UriSuffix);
 
         Name = name;
         ScopeKind = scope;
@@ -34,8 +34,8 @@ public abstract record class Symbol
     }
 
     /// <summary>
-    /// A reserved word appended to the <c>name</c> to form the last segment of this symbol's <see cref="Uri"/>, for a
-    /// symbol whose name alone would not identify it (<see cref="SymbolUri"/>): the accessors of one property share a
+    /// A reserved word appended to the <c>name</c>, after a delimiter no name has, to form the last segment of this symbol's
+    /// <see cref="Uri"/>, for a symbol whose name alone would not identify it (<see cref="SymbolUri"/>): the accessors of one property share a
     /// name, and each defines a scope of its own (<c>Let</c>, <c>Set</c>); an Enum, a Type or an Event may share a name
     /// with a variable, a constant or a procedure of its module (<c>Enum</c>, <c>Type</c>, <c>Event</c>). <c>null</c>,
     /// the name alone identifying the symbol, unless overridden.
@@ -44,8 +44,6 @@ public abstract record class Symbol
     /// Read while the base constructor runs, before any derived state exists: an override must return a constant.
     /// </remarks>
     protected virtual string? UriSuffix => null;
-
-    private static Uri CreateUri(Uri parent, string name) => SymbolUri.Member(parent, name);
 
     /// <summary>
     /// A <c>Uri</c> that uniquely identifies the symbol.

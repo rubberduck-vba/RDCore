@@ -73,6 +73,17 @@ public sealed class DocumentModuleDiagnosticsTests
     private static string CodeOf(Diagnostic diagnostic) => diagnostic.Code?.String ?? string.Empty;
 
     [TestMethod]
+    public async Task AWorksheetsCode_NamingItsHostsMemberNamedType_PresumesItsHost()
+    {
+        // Worksheet.Type: a name that is a reserved word, and the word of a suffix of an address, is a name like any other.
+        var source = "Option Explicit\r\nPublic Sub Probe()\r\n    Debug.Print Me.Type\r\nEnd Sub\r\n";
+        var (_, diagnostics) = await DiagnoseAsync("GameSheet", source, DocClassType.ExcelWorksheet, Excel);
+
+        var related = diagnostics.Single(diagnostic => CodeOf(diagnostic) == "RDC01005").RelatedInformation!.Select(information => information.Message).ToArray();
+        Assert.IsTrue(related.Any(message => message.StartsWith("'Type'", StringComparison.Ordinal)), "Me.Type: " + string.Join("\n", related));
+    }
+
+    [TestMethod]
     public async Task AWorksheetsCode_IsReportedOnce_WithEachPlaceThatPresumesItsHost()
     {
         var (_, diagnostics) = await DiagnoseAsync("GameSheet", GameSheet, DocClassType.ExcelWorksheet, Excel);

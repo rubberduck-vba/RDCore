@@ -32,8 +32,10 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         var dot = path.LastIndexOf('.');
         var container = symbol is VBModuleSymbol || dot <= 0 ? null : path[..dot];
 
-        // a member of a library is a member of its module in that library: VBA.Interaction.
-        if (container is not null && symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library)
+        // a member of a library is a member of its module in that library: VBA.Interaction. A type library's classes are addressed under its name already
+        // (Excel.Worksheet), the standard library's modules are not (Interaction).
+        if (container is not null && symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library
+            && SymbolUri.ModuleNameOf(symbol.Uri) is var first && !string.Equals(first, library, StringComparison.OrdinalIgnoreCase))
         {
             container = $"{library}.{container}";
         }
