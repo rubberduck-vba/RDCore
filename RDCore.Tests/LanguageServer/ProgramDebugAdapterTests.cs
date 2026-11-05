@@ -31,6 +31,7 @@ public sealed class ProgramDebugAdapterTests
     private sealed class Session : IAsyncDisposable
     {
         private readonly ConcurrentQueue<object> _events = new();
+        private readonly SemaphoreSlim _arrived = new(0);
         private readonly TaskCompletionSource<string> _lost = new();
         private readonly WireTap _wire = new();
 
@@ -85,11 +86,11 @@ public sealed class ProgramDebugAdapterTests
                 options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
                 options.LinesStartAt1 = linesStartAt1;
                 options.ColumnsStartAt1 = linesStartAt1;
-                options.OnInvalidated(invalidated => _events.Enqueue(invalidated));
-                options.OnStopped(stopped => _events.Enqueue(stopped));
-                options.OnOutput(output => _events.Enqueue(output));
-                options.OnExited(exited => _events.Enqueue(exited));
-                options.OnTerminated(terminated => _events.Enqueue(terminated));
+                options.OnInvalidated(Arrived);
+                options.OnStopped(Arrived);
+                options.OnOutput(Arrived);
+                options.OnExited(Arrived);
+                options.OnTerminated(Arrived);
             });
             Server = await starting.WaitAsync(Patience);
             Adapter.Initialize(new InitializeRequestArguments
@@ -106,11 +107,18 @@ public sealed class ProgramDebugAdapterTests
 
         public void Lose(string component) => _lost.TrySetResult(component);
 
+        // each event the client is told of is kept, and whoever waits for one looks again.
+        private void Arrived(object @event)
+        {
+            _events.Enqueue(@event);
+            _arrived.Release();
+        }
+
         /// <summary>The next event of the type that satisfies <paramref name="where"/>, whenever it comes.</summary>
         public async Task<TEvent> NextAsync<TEvent>(Func<TEvent, bool>? where = null)
         {
-            var deadline = DateTime.UtcNow + Patience;
-            while (DateTime.UtcNow < deadline)
+            using var hangGuard = new CancellationTokenSource(Patience);
+            while (true)
             {
                 var kept = new List<object>();
                 TEvent? found = default;
@@ -134,11 +142,16 @@ public sealed class ProgramDebugAdapterTests
                     return found!;
                 }
 
-                await Task.Delay(10);
+                // an event that came since the queue was looked at has released the semaphore already: it is not missed.
+                try
+                {
+                    await _arrived.WaitAsync(hangGuard.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    Assert.Fail($"no {typeof(TEvent).Name} came");
+                }
             }
-
-            Assert.Fail($"no {typeof(TEvent).Name} came");
-            return default!;
         }
 
         /// <summary>Everything that was said and not asked for yet, of one kind.</summary>
@@ -832,6 +845,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task ARequestTheProgramCannotBeAskedNow_DoesNotEndIt()
     {
         await using var session = new Session();
+        var asked = EditStatusAsked(session, 3);
         await StartedAndWaitingAsync(session);
         session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" }));
@@ -841,8 +855,28 @@ public sealed class ProgramDebugAdapterTests
         var output = await session.NextAsync<OutputEvent>();
         StringAssert.Contains(output.Output, "the program is running");
 
+        // the edits are asked of after the stop the session started at, before the program is asked to go on, and last when what it answered is reported:
+        // all that report says is written before the flush's answer.
+        await asked[2].Task.WaitAsync(Patience);
         await FlushedAsync(session);
         Assert.AreEqual(0, session.Said("terminated"));
+    }
+
+    // each time the adapter asks which edits the program does not have, in the order it asks.
+    private static TaskCompletionSource[] EditStatusAsked(Session session, int count)
+    {
+        var asked = Enumerable.Range(0, count).Select(_ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+        var calls = -1;
+        session.Debugging.When(debugging => debugging.EditStatusAsync(Arg.Any<CancellationToken>())).Do(_ =>
+        {
+            var call = Interlocked.Increment(ref calls);
+            if (call < count)
+            {
+                asked[call].TrySetResult();
+            }
+        });
+
+        return asked;
     }
 
     [TestMethod]
