@@ -97,6 +97,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedLateAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, NewOfAClassNotCreatableAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ArgumentTypedArithmeticAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IgnoredTypeCharacterAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ArrayGivenASecondEmptyArgumentListAnalyzer>();

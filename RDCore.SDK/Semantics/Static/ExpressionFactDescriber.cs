@@ -46,7 +46,11 @@ internal static class ExpressionFactDescriber
             }
 
             case NewExpressionNode:
-                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, BoundClassOf(type)?.SemanticId, 0, error);
+            {
+                var created = BoundClassOf(type);
+                var fails = created is not null && created.GetProperty(SymbolProperties.CreationAlwaysFails) ? ValueExpressionSemanticFlags.NewAlwaysFails : 0;
+                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, created?.SemanticId, fails, error);
+            }
 
             case MemberAccessExpressionNode access:
                 return DescribeMember(context, facts, access.Owner, access.Member.IdentifierName, type, expression, 0, error);

@@ -85,6 +85,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11025`](../diagnostics/rdc11025.md)|Array given a second empty argument list|Warning|`ValueExpressionSemanticFlags.ArrayGivenASecondEmptyArgumentList`|
 |[`RDC11026`](../diagnostics/rdc11026.md)|Public variable of an object passed ByRef as a copy|Warning|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy` of the `ExpressionFact`s|
 |[`RDC11027`](../diagnostics/rdc11027.md)|String compared with a number as a Double|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsStringComparedAsADouble` of the `ComparisonOperatorFact`s|
+|[`RDC11028`](../diagnostics/rdc11028.md)|New of a class that is never created|Warning|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.NewAlwaysFails` of the `ExpressionFact`s; `ModuleSemanticModel.Declarations`: `DeclarationFact.AutoInstantiationAlwaysFails`|
 |[`RDC11029`](../diagnostics/rdc11029.md)|Public variable of an object passed late as a copy|Hint|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.ObjectVariablePassedLateAsACopy` of the `ExpressionFact`s|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 

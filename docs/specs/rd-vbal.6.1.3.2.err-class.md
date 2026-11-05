@@ -28,14 +28,14 @@ default instance, the shape MS-VBAL describes.
 
 The MS-VBA shape leaves `ErrObject` nameable in an `As` clause, instead of shadowed by its own default instance.
 
-> [!NOTE]
-> **Not implemented.** VBA source cannot read or call the error object at run time (`Err.Number`,
-> `Err.Raise(...)`), for two reasons:
->
-> - The `Err` function of the `Information` module has no runtime implementation: calling it raises the run-time
->   error "Application-defined or object-defined error".
-> - Calling a member of an object through a member access is not implemented: a member access reads only a field
->   of a class instance, and any other member reports `InternalError`.
+## New ErrObject
+
+The VBA library says the `ErrObject` class can be created, so `New ErrObject` and `Dim e As New ErrObject` compile, in
+MS-VBA and in RD-VBA (**MS-VBAL §5.6.8**, **§5.2.3.1.4**). Nothing creates one: the error object is the one `Err`
+returns. Creating another raises run-time error -2147221164 _Class not registered_, as **MS-VBA** does (recorded in
+Excel), and a variable that was `Nothing` before `Set e = New ErrObject` is `Nothing` after it. A variable declared `As New ErrObject` raises it at each reference that would
+create its object. Both forms are reported as [`RDC11028`](../diagnostics/rdc11028.md), a Warning. See
+[**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md).
 
 
 ## 6.1.3.2.1 Public Subroutines

@@ -116,10 +116,13 @@ public sealed class StdLibSymbolReaderTests
     }
 
     [TestMethod]
-    public void TheErrObjectClass_IsNotCreatable()
+    public void TheErrObjectClass_IsCreatable_ButItsCreationAlwaysFails()
     {
-        // its one instance comes from the environment: `New ErrObject` names nothing.
-        Assert.IsFalse(Class("ErrObject").GetProperty(SymbolProperties.Creatable));
+        // VBA's type library says it can be created (TYPEFLAG_FCANCREATE), and MS-VBA compiles New ErrObject; its one instance comes from the environment, and
+        // creating another raises -2147221164 (oracle\s62 X04).
+        Assert.IsTrue(Class("ErrObject").GetProperty(SymbolProperties.Creatable));
+        Assert.IsTrue(Class("ErrObject").GetProperty(SymbolProperties.CreationAlwaysFails));
+        Assert.IsFalse(Class("Collection").GetProperty(SymbolProperties.CreationAlwaysFails));
     }
 
     [TestMethod]

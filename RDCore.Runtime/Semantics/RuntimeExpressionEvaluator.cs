@@ -488,6 +488,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             classModule = current;
         }
 
+        // the variable is left Nothing, and the next reference to it tries again (s62 X09).
+        if (NewExpressionRuntimeSemantics.CreationFailure(classModule, default) is { } refused)
+        {
+            return refused;
+        }
+
         var objectId = session.Objects.CreateObject();
         session.Symbols.CreateInstance(objectId, classModule);
         if (ExternalObjectCreation.Create(session, classModule, objectId, default) is { } notCreated)
