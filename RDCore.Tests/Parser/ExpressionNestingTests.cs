@@ -260,10 +260,15 @@ public sealed class ExpressionNestingTests
     {
         var parse = Parse(ChainPastTheLimit());
 
-        var count = 0;
-        var thrown = SmallStack.Run(() => count = parse.SyntaxTree!.Descendants().Count(node => node is LiteralExpressionNode));
+        var (literals, pruned) = (0, 0);
+        var thrown = SmallStack.Run(() =>
+        {
+            literals = parse.SyntaxTree!.Descendants().Count(node => node is LiteralExpressionNode);
+            pruned = parse.SyntaxTree!.Descendants().Count(node => node is UnbuiltExpressionTriviaNode);
+        });
 
+        // the right operand of each of the 2,500 outer additions, and both operands of the addition nested in 2,500 others, which are past the limit.
         Assert.IsNull(thrown, thrown?.ToString());
-        Assert.AreEqual(ModuleParser.MaxExpressionNesting + 2, count);
+        Assert.AreEqual((ModuleParser.MaxExpressionNesting, 2), (literals, pruned));
     }
 }

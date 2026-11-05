@@ -161,7 +161,7 @@ public partial class ModuleParser(
             }
 
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
-            ReportExpressionsNestedTooDeeply(ast, errorListener);
+            ast = PruneExpressionsNestedTooDeeply(ast, content, anchorOffset, errorListener);
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
@@ -652,30 +652,53 @@ public partial class ModuleParser(
 
     // RD-VBA reads an expression nested in at most 2,500 others: MS-VBA runs a chain of 2,500 terms (2,499 additions), 2,000 nested parentheses and 1,000
     // nested calls, and crashes the host past the chain, with no error (recorded in Excel: oracle\s65). MS-VBAL leaves the depth of an expression to the
-    // implementation. RD-VBAL: a deeper expression is a syntax error.
+    // implementation. RD-VBAL: a deeper expression is a syntax error, kept as text and not analyzed.
     internal const int MaxExpressionNesting = 2500;
 
-    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in. The tree is walked with a stack
-    // of its own, as deep as the expression may be.
-    private static void ReportExpressionsNestedTooDeeply(ModuleNode module, ErrorListener errors)
+    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in, and prunes each: the module comes
+    // back with every expression nested that deep an error node of its source text (UnbuiltExpressionTriviaNode), so that no stage after the parser is handed an
+    // expression deeper than the limit. The tree is walked with a stack of its own, as deep as the expression may be.
+    private static ModuleNode PruneExpressionsNestedTooDeeply(ModuleNode module, string content, SourcePosition anchorOffset, ErrorListener errors)
     {
-        var pending = new Stack<(SyntaxNode Node, int Nesting, ExpressionNode? Outermost)>();
-        pending.Push((module, 0, null));
+        var pending = new Stack<(SyntaxNode Node, int Depth, int Nesting, ExpressionNode? Outermost)>();
+        var path = new List<SyntaxNode>();
+        var reported = new HashSet<ExpressionNode>(ReferenceEqualityComparer.Instance);
+        var pruned = new Dictionary<SyntaxNode, SyntaxNode>(ReferenceEqualityComparer.Instance);
+        var holders = new Dictionary<SyntaxNode, int>(ReferenceEqualityComparer.Instance);
+        int[]? lineStarts = null;
+
+        pending.Push((module, 0, 0, null));
         while (pending.TryPop(out var entry))
         {
-            var (node, nesting, outermost) = entry;
+            var (node, depth, nesting, outermost) = entry;
+            path.RemoveRange(depth, path.Count - depth);
+            path.Add(node);
+
             var expression = AsALevelOfNesting(node);
             if (expression is not null)
             {
                 outermost ??= expression;
                 if (nesting > MaxExpressionNesting)
                 {
-                    errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
-
-                    // what else of the outermost expression is pending is no more than this said already.
-                    while (pending.TryPeek(out var next) && ReferenceEquals(next.Outermost, outermost))
+                    // the rest of the outermost expression is no more than this says already.
+                    if (reported.Add(outermost))
                     {
-                        pending.Pop();
+                        errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
+                    }
+
+                    // what is held where only a name may be (the member of a member access) is pruned with what holds it.
+                    var at = depth;
+                    while (!SyntaxTreePruning.HoldsAnyExpressionWhere(path[at - 1], path[at]))
+                    {
+                        at--;
+                    }
+
+                    var prunedNode = path[at];
+                    lineStarts ??= LineStarts(content);
+                    pruned.TryAdd(prunedNode, new UnbuiltExpressionTriviaNode(prunedNode.Identity, prunedNode.SourceLocation,
+                        TextAt(content, lineStarts, anchorOffset, prunedNode.SourceLocation.Range), []));
+                    for (var holder = at - 1; holder >= 0 && holders.TryAdd(path[holder], holder); holder--)
+                    {
                     }
 
                     continue;
@@ -689,13 +712,41 @@ public partial class ModuleParser(
                 // are reported with its callee, once for the statement.
                 if (node is CallStatementNode call && !ReferenceEquals(child, call.Callee))
                 {
-                    pending.Push((child, 1, call.Callee));
+                    pending.Push((child, depth + 1, 1, call.Callee));
                     continue;
                 }
 
-                pending.Push((child, outermost is null ? 0 : inner, outermost));
+                pending.Push((child, depth + 1, outermost is null ? 0 : inner, outermost));
             }
         }
+
+        return pruned.Count == 0 ? module : (ModuleNode)SyntaxTreePruning.Replaced(module, pruned, holders);
+    }
+
+    // where each line of a text begins: a line ends at its line feed, as the lexer counts lines (a carriage return before it is the end of its line).
+    private static int[] LineStarts(string text)
+    {
+        var starts = new List<int> { 0 };
+        for (var index = text.IndexOf('\n'); index >= 0; index = text.IndexOf('\n', index + 1))
+        {
+            starts.Add(index + 1);
+        }
+
+        return [.. starts];
+    }
+
+    // the text at a range of the module, whose positions are in the document a module parsed as its fragment is anchored in.
+    private static string TextAt(string text, int[] lineStarts, SourcePosition anchorOffset, SourceRange range)
+    {
+        int OffsetOf(SourcePosition position)
+        {
+            var line = position.Line - anchorOffset.Line;
+            var character = line == 0 ? position.Character - anchorOffset.Character : position.Character;
+            return Math.Clamp(lineStarts[Math.Clamp(line, 0, lineStarts.Length - 1)] + character, 0, text.Length);
+        }
+
+        var start = OffsetOf(range.Start);
+        return text[start..Math.Max(start, OffsetOf(range.End))];
     }
 
     // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold, the owner of a member access, the
