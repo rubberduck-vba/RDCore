@@ -70,7 +70,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // the procedure and the enclosing module: the tree's own order, innermost first.
         foreach (var lexicalScope in origin.TakeWhile(lexicalScope => lexicalScope.Kind is not (LexicalScopeKind.Project or LexicalScopeKind.Global)))
         {
-            if (SelectTier(lexicalScope, lexicalScope.DeclaredAs(name).Where(IsValueDeclaration)) is { } result)
+            if (SelectTier(lexicalScope, ValuesOverEnums(lexicalScope.DeclaredAs(name).Where(IsValueDeclaration))) is { } result)
             {
                 return result;
             }
@@ -360,12 +360,22 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return [.. candidates.Where(candidate => Rank(candidate) == highest)];
     }
 
-    // MS-VBAL §5.6.10 lists no user-defined type and no class module among the default binding context's
-    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2).
+    // an Enum and a procedure or a variable of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
+    // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only.
+    // Excel-verified, oracle\s64 E03, E04.
+    private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
+    {
+        var matches = candidates.ToArray();
+        return matches.Any(candidate => candidate is not VBEnumMemberSymbol) ? matches.Where(candidate => candidate is not VBEnumMemberSymbol) : matches;
+    }
+
+    // MS-VBAL §5.6.10 lists no user-defined type, no class module and no event among the default binding context's
+    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2), and an event is only ever raised
+    // (RaiseEvent finds it in its class), so an Event and a Sub of one name are no collision (Excel-verified, oracle\s64 E06-E09).
     // MS-VBAL §3.4.1: a conditional compilation constant is accessible to cc-expressions only, so it is
     // never a candidate here however the name ranks - `x = Win64` in ordinary source binds nothing.
     private static bool IsValueDeclaration(Symbol symbol)
-        => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol or PrecompilerConstantSymbol);
+        => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol or VBEventMemberSymbol or PrecompilerConstantSymbol);
 
     private static bool IsConditionalConstant(Symbol symbol) => symbol is PrecompilerConstantSymbol;
 

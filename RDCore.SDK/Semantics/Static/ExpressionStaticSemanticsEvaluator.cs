@@ -161,6 +161,13 @@ public static class ExpressionStaticSemanticsEvaluator
                 return ownerResult;
             }
             ownerType = ownerResult.Result!;
+
+            // a value of an enumeration is a number, which has no members: only the enumeration's name qualifies them. In `Property Get PlayerType() As
+            // PlayerType`, `PlayerType.ComputerControlled` is the Get's result, or the Get, and is an invalid qualifier (Excel-verified, oracle\s64 E02, E04).
+            if (ownerType is VBEnumType)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName));
+            }
         }
         else if (context.EnclosingWithTargetType is { } withTargetType)
         {
