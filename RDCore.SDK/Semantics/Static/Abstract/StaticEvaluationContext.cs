@@ -42,4 +42,8 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </param>
 public readonly record struct StaticEvaluationContext(
     ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null, IExpressionFactSink? Facts = null,
-    Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null);
+    Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null)
+{
+    // what the expressions of the tree being evaluated evaluated to, which the evaluation of the tree gives every evaluation inside it.
+    internal ExpressionEvaluations? Evaluations { get; init; }
+}
