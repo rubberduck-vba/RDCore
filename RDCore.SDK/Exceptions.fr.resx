@@ -739,7 +739,7 @@
     <value>Expression trop profondément imbriquée</value>
   </data>
   <data name="VBCompileError_ExpressionNestedTooDeeply_Verbose" xml:space="preserve">
-    <value>Cette expression est imbriquée dans plus de 2 500 autres. Affectez-en d&apos;abord une partie à une variable.</value>
+    <value>Cette expression est imbriquée dans plus de 2&#160;500 autres. Affectez-en d&apos;abord une partie à une variable.</value>
   </data>
   <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
     <value>Attendu : Then. Une directive #If ou #ElseIf s&apos;écrit #If expression Then.</value>
