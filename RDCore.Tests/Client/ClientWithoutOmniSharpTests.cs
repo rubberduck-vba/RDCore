@@ -112,9 +112,12 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
+        await platform.ShutdownAsync(6);
+
+        // the log is read once the language server has exited: its file is written from a queue in the background, so a line logged may not be in it until the server
+        // has flushed it as it exits.
         StringAssert.Contains(WholeLogOf(platform.Root), "The client expects LanguageServer to provide \"LanguageServer: SessionExecute, SessionInteraction\"",
             "what the client claimed is in the language server's file");
-        await platform.ShutdownAsync(6);
     }
 
     // a module of the workspace with enough code to take the language server a while to parse, bind and define.
