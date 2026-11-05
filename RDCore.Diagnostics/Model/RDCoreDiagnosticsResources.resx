@@ -360,4 +360,10 @@
   <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
     <value>This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
   </data>
+  <data name="NewOfAClassNotCreatable_New_Message" xml:space="preserve">
+    <value>New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered).</value>
+  </data>
+  <data name="NewOfAClassNotCreatable_AsNew_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is declared As New of a class whose objects are never created: each reference to it that would create its object raises run-time error -2147221164 (Class not registered), as MS-VBA does.</value>
+  </data>
 </root>

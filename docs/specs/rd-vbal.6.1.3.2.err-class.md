@@ -37,6 +37,15 @@ The MS-VBA shape leaves `ErrObject` nameable in an `As` clause, instead of shado
 > - Calling a member of an object through a member access is not implemented: a member access reads only a field
 >   of a class instance, and any other member reports `InternalError`.
 
+## New ErrObject
+
+The VBA library says the `ErrObject` class can be created, so `New ErrObject` and `Dim e As New ErrObject` compile, in
+MS-VBA and in RD-VBA (**MS-VBAL §5.6.8**, **§5.2.3.1.4**). Nothing creates one: the error object is the one `Err`
+returns. Creating another raises run-time error -2147221164 _Class not registered_, and the variable is left `Nothing`,
+as **MS-VBA** does (recorded in Excel). A variable declared `As New ErrObject` raises it at each reference that would
+create its object. Both forms are reported as [`RDC11028`](../diagnostics/rdc11028.md), a Warning. See
+[**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md).
+
 
 ## 6.1.3.2.1 Public Subroutines
 

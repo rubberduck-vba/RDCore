@@ -153,6 +153,12 @@
   <data name="VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose" xml:space="preserve">
     <value>'{$TYPENAME}' ne fait pas référence à une classe instanciable et ne peut pas être utilisé avec New.</value>
   </data>
+  <data name="VBRuntimeError_ClassNotRegistered_Description" xml:space="preserve">
+    <value>Classe non enregistrée</value>
+  </data>
+  <data name="VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose" xml:space="preserve">
+    <value>Un objet de {0}, une classe de la bibliothèque {1}, n'est jamais créé : la bibliothèque dit que la classe peut être créée, et rien n'en crée un.</value>
+  </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
     <value>Un nombre inattendu d'arguments a été reçu par l'opérateur '{$OP}'; opérande(s): {$LENGTH}.</value>
   </data>
@@ -766,7 +772,10 @@
     <value>'{0}' est déclaré WithEvents : on lui affecte l&apos;objet dont il gère les événements, et il n&apos;en crée aucun.</value>
   </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
-    <value>'{0}' est déclaré As New {1}, une classe de la bibliothèque {2} qui ne peut pas être créée. MS-VBA le compile, et lève « Classe non enregistrée » à la première référence à la variable.</value>
+    <value>'{0}' est déclaré As New {1}, dont la bibliothèque {2} ne dit pas qu'il peut être créé : une interface, ou une classe que la bibliothèque crée elle-même.</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose" xml:space="preserve">
+    <value>New {0} : la bibliothèque {1} ne dit pas que {0} peut être créé : une interface, ou une classe que la bibliothèque crée elle-même.</value>
   </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose" xml:space="preserve">
     <value>'{0}' est le code d'un document d'une application hôte, que seul son hôte crée : aucun programme n'en crée un. RD-VBA n'héberge aucun document; le code qui en manipule un le tient dans une variable de la classe de l'hôte, obtenu d'une application que le programme automatise.</value>

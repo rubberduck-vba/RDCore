@@ -159,6 +159,8 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
         var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(workspaceRoot, new VBProjectSymbol(workspaceRoot, library.Name).Uri, description.Name)
             .With(SymbolProperties.Library, library.Name)
             .With(SymbolProperties.Creatable, description.IsCreatable)
+            // TODO (author's call, RDC11028): a host's document class (Excel's Workbook, Worksheet, Chart) is creatable by its type library, and MS-VBA raises
+            // -2147221164 or 430 when New of it runs (oracle\s62 X02, X03, s63 Y05, Y07); whether it is CreationAlwaysFails, and so RDC11028, is undecided.
             // a library's classes are the host's, and a host adds members to its objects that the library does not declare.
             .With(SymbolProperties.Extensible, true);
         if (description.ProgId is { Length: > 0 } progId)

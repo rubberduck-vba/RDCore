@@ -131,4 +131,11 @@ public enum ValueExpressionSemanticFlags
     /// variable (RD-VBAL §5.3.1.11). Named by itself in its own class, the variable is passed by reference.
     /// </summary>
     ObjectVariablePassedAsACopy = 1 << 19,
+
+    /// <summary>
+    /// It is a <c>New</c> expression of a class whose objects are never created (<c>New ErrObject</c>): its library says the class can be created, so
+    /// <strong>MS-VBAL §5.6.8</strong> makes the expression valid, and <strong>MS-VBA</strong> compiles it; it raises run-time error -2147221164 <em>Class not
+    /// registered</em> whenever it runs (recorded in Excel: <c>oracle\s62</c> X04, X08).
+    /// </summary>
+    NewAlwaysFails = 1 << 21,
 }

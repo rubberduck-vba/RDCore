@@ -106,6 +106,7 @@ public enum RDCoreDiagnosticId
     ImplementsInDocumentModule = 11024, // Implements in a document module: MS-VBAL §5.2.4.2 forbids it in an extension module; MS-VBA compiles and runs it
     ArrayGivenASecondEmptyArgumentList = 11025, // f()(): MS-VBAL §5.6.13.1 makes it invalid; MS-VBA compiles it as the array, and raises 9 when it runs
     ObjectVariablePassedByRefIsACopy = 11026, // Bump b.Count, Count a public variable of b's class, ByRef: MS-VBAL passes the variable, MS-VBA a copy
+    NewOfAClassNotCreatable = 11028, // New ErrObject, As New ErrObject: compiles, and creating the object always raises -2147221164 (Class not registered)
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits

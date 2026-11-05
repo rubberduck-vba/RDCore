@@ -339,8 +339,9 @@ public static class DeclarationStaticSemanticsEvaluator
         }
 
         // MS-VBAL §5.2.3.1.4: "The instancing mode of the specified type of an <as-auto-object> MUST NOT be Public Not Creatable unless that type is defined in
-        // the same project" - a class of a library that cannot be created. MS-VBA reports it when the variable is first referred to, as "Class not registered"
-        // (Excel-verified, oracle\s19 N26-N27); the specification says it is invalid, and so does RD-VBA, before the code runs.
+        // the same project" - a class of a library its type library does not say can be created: an interface (As New Font), a class with no
+        // TYPEFLAG_FCANCREATE (As New Office.CommandBarButton). MS-VBA says so too (recorded in Excel: oracle\s62 X10, s63 Y02, Y08). One the library says can be
+        // created compiles, whether or not anything creates it when the program runs (As New ErrObject, s62 X06-X09).
         if (type is VBClassType { Symbol: var classModule } && classModule.GetProperty(SymbolProperties.Library) is { } library
             && !classModule.GetProperty(SymbolProperties.Creatable))
         {

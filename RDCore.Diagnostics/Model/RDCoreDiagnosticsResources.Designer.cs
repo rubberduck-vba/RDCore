@@ -780,6 +780,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New of a class whose objects are never created: each reference to it that would create its object raises run-time error -2147221164 (Class not registered), as MS-VBA does..
+        /// </summary>
+        public static string NewOfAClassNotCreatable_AsNew_Message {
+            get {
+                return ResourceManager.GetString("NewOfAClassNotCreatable_AsNew_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
+        /// </summary>
+        public static string NewOfAClassNotCreatable_New_Message {
+            get {
+                return ResourceManager.GetString("NewOfAClassNotCreatable_New_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA..
         /// </summary>
         public static string ObjectVariablePassedByRefIsACopy_Message {

@@ -153,6 +153,12 @@
   <data name="VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose" xml:space="preserve">
     <value>'{$TYPENAME}' does not reference an instantiable class and cannot be used with New.</value>
   </data>
+  <data name="VBRuntimeError_ClassNotRegistered_Description" xml:space="preserve">
+    <value>Class not registered</value>
+  </data>
+  <data name="VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose" xml:space="preserve">
+    <value>An object of {0}, a class of the {1} library, is never created: the library says the class can be created, and nothing creates one.</value>
+  </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
     <value>Operator expression runtime semantics did not receive the expected number of operands for operator '{$OP}': VBTypedValue[{$LENGTH}].</value>
   </data>
@@ -766,7 +772,10 @@
     <value>'{0}' is declared WithEvents: it is assigned the object whose events it handles, and creates none of its own.</value>
   </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose" xml:space="preserve">
-    <value>'{0}' is declared As New {1}, a class of the {2} library that cannot be created. MS-VBA compiles it, and raises 'Class not registered' when the variable is first referred to.</value>
+    <value>'{0}' is declared As New {1}, which the {2} library does not say can be created: an interface, or a class the library makes itself.</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose" xml:space="preserve">
+    <value>New {0}: the {1} library does not say {0} can be created: an interface, or a class the library makes itself.</value>
   </data>
   <data name="VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose" xml:space="preserve">
     <value>'{0}' is the code of a host's document, which only its host makes: no program creates one. RD-VBA hosts no document; code that works with one holds it in a variable of the host's class, from an application the program automates.</value>
