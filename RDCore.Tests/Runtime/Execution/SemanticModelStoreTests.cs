@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using System.Collections.Immutable;
@@ -173,5 +174,73 @@ public sealed class SemanticModelStoreTests
         release.Set();
         await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.IsNotNull(RuntimeOf(store));
+    }
+
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+
+    // the evaluations run on one thread the test counts itself, and holds: the module's evaluation waits for it, as it waits when every LargeStackThread is busy.
+    private static (SemanticModelStore Store, ManualResetEventSlim Release, Task Busy) StoreWithItsOneThreadBusy(SemaphoreSlim threads)
+    {
+        var release = new ManualResetEventSlim();
+        using var running = new ManualResetEventSlim();
+        var busy = LargeStackThread.Start(() =>
+        {
+            running.Set();
+            release.Wait();
+        }, threads, CancellationToken.None);
+        Assert.IsTrue(running.Wait(HangGuard));
+
+        return (new SemanticModelStore((work, token) => LargeStackThread.Start(work, threads, token)), release, busy);
+    }
+
+    [TestMethod]
+    public async Task AnEvaluationRemovedWhileItWaitsForAThread_NeverRuns_AndTheWaitForItIsOver()
+    {
+        using var threads = new SemaphoreSlim(1, 1);
+        var (store, release, busy) = StoreWithItsOneThreadBusy(threads);
+        using var released = release;
+        var ran = false;
+        store.Store(Model(Procedure), _ =>
+        {
+            ran = true;
+            return Facts();
+        });
+        var waiting = store.WhenEvaluatedAsync(Module);
+        Assert.IsFalse(waiting.IsCompleted, "the evaluation waits for the thread");
+
+        Assert.IsTrue(store.Remove(Module));
+
+        await waiting.WaitAsync(HangGuard);
+        release.Set();
+        await busy.WaitAsync(HangGuard);
+        Assert.IsFalse(ran, "it was stopped before a thread was free");
+    }
+
+    [TestMethod]
+    public async Task AnEvaluationReplacedWhileItWaitsForAThread_NeverRuns_AndTheWaitIsForTheOneThatReplacedIt()
+    {
+        using var threads = new SemaphoreSlim(1, 1);
+        var (store, release, busy) = StoreWithItsOneThreadBusy(threads);
+        using var released = release;
+        var (first, second) = (0, 0);
+        store.Store(Model(Procedure), _ =>
+        {
+            first++;
+            return Facts();
+        });
+        var waiting = store.WhenEvaluatedAsync(Module);
+
+        store.Store(Model(Procedure), _ =>
+        {
+            second++;
+            return Facts(isFullyAnalyzed: false);
+        });
+        Assert.IsFalse(waiting.IsCompleted, "the evaluation that replaced it waits for the thread");
+
+        release.Set();
+        await busy.WaitAsync(HangGuard);
+        await waiting.WaitAsync(HangGuard);
+        Assert.AreEqual((0, 1), (first, second), "each evaluation runs at most once, and the replaced one never");
+        Assert.IsFalse(RuntimeOf(store)!.IsFullyAnalyzed);
     }
 }
