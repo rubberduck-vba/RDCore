@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
@@ -22,8 +23,103 @@ public sealed class DocumentDiagnosticHandlerTests
     private readonly IDocumentLifecycleService _lifecycle = Substitute.For<IDocumentLifecycleService>();
 
     private readonly IncomingDocumentChanges _incoming = new();
+    private readonly OpenDialogs _dialogs = new();
 
-    private DocumentDiagnosticHandler Sut() => new(_service, _lifecycle, new WorkProgressReporter(), _incoming);
+    private DocumentDiagnosticHandler Sut() => new(_service, _lifecycle, new WorkProgressReporter(), _incoming, _dialogs);
+
+    // a program that waits for its client to answer a dialog: the host takes no other text until it is answered, and the program is over then.
+    private (Task Asked, TaskCompletionSource<int> Answer) ProgramWaitingForADialog()
+    {
+        var answer = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _lifecycle.WhenSyncedAsync(DocUri, Arg.Any<CancellationToken>()).Returns(call => answer.Task.WaitAsync(call.Arg<CancellationToken>()));
+        _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(DocumentDiagnosticsResult.Fresh(2, []));
+        return (_dialogs.WhileOpenAsync(() => answer.Task), answer);
+    }
+
+    private static void AssertDeclinedNotRetriggered(RpcErrorException declined)
+    {
+        Assert.AreEqual(ErrorCodes.ServerCancelled, declined.Code);
+        Assert.IsFalse(Assert.IsInstanceOfType<DiagnosticServerCancellationData>(declined.Error).RetriggerRequest,
+            "a client that retriggers would ask again and again while the dialog is open");
+    }
+
+    // the program waits for the client, and the pull would wait for the program: it is declined at once instead.
+    [TestMethod]
+    public async Task APullWhileADialogIsOpen_IsDeclinedAtOnce_ServerCancelled_AndNotRetriggered()
+    {
+        var (_, answer) = ProgramWaitingForADialog();
+
+        var declined = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+
+        AssertDeclinedNotRetriggered(declined);
+        await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
+        answer.SetResult(1);
+    }
+
+    [TestMethod]
+    public async Task APullThatWaitsForTheHost_WhenADialogOpens_IsDeclined()
+    {
+        var waiting = new TaskCompletionSource();
+        _lifecycle.WhenSyncedAsync(DocUri, Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            waiting.TrySetResult();
+            return Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+        });
+        var pull = Sut().Handle(Request(), CancellationToken.None);
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(30));
+
+        var answer = new TaskCompletionSource<int>();
+        _ = _dialogs.WhileOpenAsync(() => answer.Task);
+
+        AssertDeclinedNotRetriggered(await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(TimeSpan.FromSeconds(30))));
+        answer.SetResult(1);
+    }
+
+    // the client is not told to pull again of its own accord: it is asked to once the dialog is answered, and its pull is answered then.
+    [TestMethod]
+    public async Task OnceTheDialogIsAnswered_TheClientIsAskedToPullAgain_AndItsPullIsAnswered()
+    {
+        var pullAgain = 0;
+        _dialogs.PullAgain = () => Interlocked.Increment(ref pullAgain);
+        var (asked, answer) = ProgramWaitingForADialog();
+        await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.AreEqual(0, pullAgain, "not while the dialog is open");
+
+        answer.SetResult(1);
+        await asked.WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.AreEqual(1, pullAgain, "once it is answered");
+        var report = await Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.AreEqual("v2.0", ((RelatedFullDocumentDiagnosticReport)report).ResultId);
+    }
+
+    [TestMethod]
+    public async Task ADialogThatDeclinedNoPull_AsksTheClientForNothing()
+    {
+        var pullAgain = 0;
+        _dialogs.PullAgain = () => Interlocked.Increment(ref pullAgain);
+        var (asked, answer) = ProgramWaitingForADialog();
+
+        answer.SetResult(1);
+        await asked.WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.AreEqual(0, pullAgain);
+    }
+
+    // a dialog the client fails to answer is closed all the same: the pull it declined is made again.
+    [TestMethod]
+    public async Task ADialogTheClientFailsToAnswer_AsksTheClientToPullAgain()
+    {
+        var pullAgain = 0;
+        _dialogs.PullAgain = () => Interlocked.Increment(ref pullAgain);
+        var (asked, answer) = ProgramWaitingForADialog();
+        await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+
+        answer.SetException(new InvalidOperationException("the client is gone"));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => asked.WaitAsync(TimeSpan.FromSeconds(30)));
+
+        Assert.AreEqual(1, pullAgain);
+    }
 
     // what is found is of the text the host has: the pull waits for the host to have the document as it is, then analyzes it.
     [TestMethod]

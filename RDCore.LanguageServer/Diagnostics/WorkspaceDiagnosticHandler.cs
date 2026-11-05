@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Progress;
+using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
@@ -32,7 +33,8 @@ namespace RDCore.LanguageServer.Diagnostics;
 /// </para>
 /// <para>
 /// What is found of a module is of the text the environment host has: the pull waits for the host to have every document as it is, each refresh that waits
-/// for more edits started at once (<see cref="IDocumentLifecycleService.WhenAllSyncedAsync"/>).
+/// for more edits started at once (<see cref="IDocumentLifecycleService.WhenAllSyncedAsync"/>). While a dialog of the program is open, the host has no other
+/// text to take, and the pull is declined (<see cref="OpenDialogs"/>).
 /// </para>
 /// </remarks>
 internal sealed class WorkspaceDiagnosticHandler(
@@ -42,7 +44,8 @@ internal sealed class WorkspaceDiagnosticHandler(
     IDocumentLifecycleService lifecycle,
     IWorkProgressReporter progress,
     IncomingDocumentChanges incoming,
-    ILanguageServerFacade server) : WorkspaceDiagnosticHandlerBase
+    ILanguageServerFacade server,
+    OpenDialogs dialogs) : WorkspaceDiagnosticHandlerBase
 {
     public override async Task<WorkspaceDiagnosticReport> Handle(WorkspaceDiagnosticParams request, CancellationToken cancellationToken)
     {
@@ -54,7 +57,8 @@ internal sealed class WorkspaceDiagnosticHandler(
         using var work = progress.BeginFor(request, ProgressMessages.AnalyzingWorkspace);
         var partial = request.PartialResultToken;
 
-        var reports = await incoming.WhileWorkspaceCurrentAsync(cancellationToken, async token =>
+        // a dialog of the program that is open, or opens, ends the pull, answered ServerCancelled: the program waits for the client (OpenDialogs).
+        var reports = await incoming.WhileWorkspaceCurrentAsync(cancellationToken, current => dialogs.UnlessADialogIsOpenAsync(current, async token =>
         {
             await lifecycle.WhenAllSyncedAsync(token);
             var modules =documents.GetAllDocuments().OrderBy(document => document.Id.Uri.ToString(), StringComparer.Ordinal).ToList();
@@ -90,7 +94,7 @@ internal sealed class WorkspaceDiagnosticHandler(
                     answered.Add(report);
                 }
             }
-        });
+        }));
 
         return WorkspaceDiagnosticReports.Of(reports);
     }
