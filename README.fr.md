@@ -1,4 +1,4 @@
-# RDCore™
+# RDCore
 <sup>_This document is available in [English](./README.md)_</sup>
 
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
