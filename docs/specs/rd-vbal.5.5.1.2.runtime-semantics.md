@@ -109,7 +109,7 @@ When the source value is outside that range, it raises `Overflow`. Otherwise:
 |---|---|
 |Widening|The value is copied, converted to the destination's representation.|
 |Narrowing to a wider-or-equal integral type|The value is copied, converted to the destination's representation.|
-|Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion.|
+|Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion. The whole number it rounds to is the one that must be within the destination's range, as **MS-VBA** checks it (recorded in Excel, `oracle\s58` K01, K02): `CInt(32767.3)` is `32767`, `CInt(-32768.5)` is `-32768`, `CByte(-0.5)` is `0`, and `CInt(32767.5)` and `CByte(255.5)` overflow. A `C*` function and an implicit Let-coercion check it alike, from a `Single`, a `Double`, a `Currency`, a `Decimal` or a `String`.|
 |Integral → floating-point|🎯 A plain widening copy (see the divergence note below).|
 |`Single` → `Decimal`|The value to 7 significant digits, ties to even, as **MS-VBA** has it: `CDec(CSng(0.1))` is `0.1`, a `Single` of `16777217` is `16777220` (recorded in Excel). A `Double` keeps 15 digits; a `Currency` is the exact value.|
 
