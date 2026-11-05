@@ -12,10 +12,14 @@ public static class TestUserData
     /// <summary>The folder, which is empty: a test that wants user settings writes its own, somewhere else.</summary>
     public static string Directory { get; } = Path.Combine(Path.GetTempPath(), "rdcore-tests-user-" + Environment.ProcessId);
 
+    /// <summary>The folder the platforms a test starts log to, unless the test gives them one of its own: never the logs of whoever runs the suite.</summary>
+    public static string LogsDirectory { get; } = Path.Combine(Path.GetTempPath(), "rdcore-tests-logs-" + Environment.ProcessId);
+
     [AssemblyInitialize]
     public static void Initialize(TestContext _)
     {
         Environment.SetEnvironmentVariable(PlatformEnvironment.UserDataEnvironmentVariable, Directory);
+        Environment.SetEnvironmentVariable(PlatformEnvironment.LogsEnvironmentVariable, LogsDirectory);
 
         // the suite runs each way the code can run, to compare the two: RDCORE_ENGINE=Compiled compiles every procedure that can be.
         if (Environment.GetEnvironmentVariable("RDCORE_ENGINE") is { } engine

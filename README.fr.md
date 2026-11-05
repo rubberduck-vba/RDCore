@@ -11,6 +11,7 @@ Ce dépôt contient différents projets **en cours de développement** produisan
 
 - **Les bibliothèques RDCore.SDK et RDCore.SDK.Protocol** (incluant leur documentation) sont sous licence **⚖️MIT**;
 - **Tout le reste** construit autour d'elle est sous licence **⚖️GPLv3**.
+- **Vos projets vous appartiennent :** le code VBA et RD-VBA que vous écrivez, et tout ce que RDCore en construit, sont à vous, sous la licence de votre choix (voir [NOTICE.md](NOTICE.md)).
 
 Cet arrangement protège les contributeurs historiques et actuels tout en permettant l'avenir : **l'implémentation du runtime RDCore demeurera open-source**.
 
@@ -19,7 +20,7 @@ Cet arrangement protège les contributeurs historiques et actuels tout en permet
 <a id="projectstatus"/>
 
 ## 📊 Statut du projet
-RDCore est en développement actif **pré-alpha**. La **spécification** et la **documentation** sont les livrables stables; la plateforme s'exécute de bout en bout (workspace → parse → symbols) mais n'est pas terminée ni publiée.
+RDCore est en développement actif **pré-alpha**. La **spécification** et la **documentation** sont les livrables stables; la plateforme s'exécute de bout en bout (workspace → parse → symbols) mais n'est pas encore terminée : des préversions sont publiées comme _prereleases_ GitHub ([Releases](https://github.com/rubberduck-vba/RDCore/releases)) tant qu'elle demeure au stade pré-alpha.
 
 **Contributions**
 
