@@ -83,7 +83,8 @@ where the project is `VBAProject`:
 |`Err.Raise` with none, and `Err` none (after `Err.Clear`)|The project's name|
 
 `Err.Clear` empties it. The project's name is the one the project file gives it, or its folder's
-([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)); the shell's project is named `Program`, as its one module is.
+([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). The shell's project is named `VBAProject`, as MS-VBA names a new
+project; its one module is `Program`.
 The `rdcore/session/execute` result reports the same source for the error a run ends with
 ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md)).
 

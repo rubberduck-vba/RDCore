@@ -213,7 +213,7 @@ public sealed class EnvironmentSessionProvider(
             => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
         Execution = new ProgramExecution(this, logger);
         ProjectName = project.Name;
-        // an error raised with no source is the project's (Err.Source): the shell's is named as its one module, Program.
+        // an error raised with no source is the project's (Err.Source).
         if (project.Name is { Length: > 0 } name)
         {
             _session.Errors.ProjectName = name;

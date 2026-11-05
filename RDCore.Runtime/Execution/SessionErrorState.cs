@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Execution;
@@ -69,7 +70,7 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     }
 
     /// <inheritdoc/>
-    public string ProjectName { get; set; } = "VBAProject";
+    public string ProjectName { get; set; } = RDCoreProject.DefaultName;
 
     /// <summary>
     /// The help context ID of an error raised with no help context of its own: MS-VBAL §6.1.3.2.2.2's "implementation-defined VBA Help context ID for

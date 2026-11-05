@@ -12,6 +12,8 @@ A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes 
 - Paths are relative to the root, separated by `/`, in ordinal order. Of two files that declare the same `VB_Name`, the first in that order is the module (**RD-VBAL §2.2.3.3**).
 - The project is named after the folder when the folder's name is a valid _identifier name_ other than `VBA`, and `VBAProject` otherwise, as the VBE names a new project.
 
+The interactive shell, given no workspace, runs in a scratch one of its own: a project named `VBAProject` whose one module is `Program`. MS-VBA refuses a module named as its project ("Name conflicts with existing module, project, or object library"), so the two names differ. `VBAProject` is the name that a project-qualified reference to the program's members uses (`VBAProject.Program.Main`), and the name that `Err.Source` and the dialogs' title give.
+
 The synthesized project is written to `.rdproj` on its first change, a file the client created, renamed or deleted (see [**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles)), and is a project file like any other from then on. The language server is the only writer of a `.rdproj`.
 
 ```javascript
