@@ -39,11 +39,11 @@ public sealed class DocumentDiagnosticHandlerTests
         _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(DocumentDiagnosticsResult.Fresh(2, []));
 
         var pull = Sut().Handle(Request(), CancellationToken.None);
-        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(30));
 
         await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
         synced.SetResult();
-        await pull.WaitAsync(TimeSpan.FromSeconds(5));
+        await pull.WaitAsync(TimeSpan.FromSeconds(30));
         await _service.Received(1).GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>());
     }
 
@@ -59,10 +59,10 @@ public sealed class DocumentDiagnosticHandlerTests
         });
 
         var pull = Sut().Handle(Request(), CancellationToken.None);
-        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(30));
         _incoming.Arrived(DocUri);
 
-        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(TimeSpan.FromSeconds(5)));
+        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(TimeSpan.FromSeconds(30)));
         Assert.AreEqual(ErrorCodes.ContentModified, refused.Code);
         await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
     }

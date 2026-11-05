@@ -12,6 +12,7 @@ permissions:
 jobs:
  build-and-test:
   runs-on: ubuntu-latest
+  timeout-minutes: 60
 
   steps:
    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,14 +31,14 @@ jobs:
      run: |
        dotnet tool install --global dotnet-coverage
        dotnet-coverage collect \
-         "dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal" \
+         "dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m" \
          --output-format cobertura --output coverage.cobertura.xml
 
    - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
 
    - name: Test (Release)
-     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal
+     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
 
    - name: Coverage badge
      if: github.event_name == 'push' && github.ref == 'refs/heads/main'

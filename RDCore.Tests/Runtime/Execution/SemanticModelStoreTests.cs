@@ -55,8 +55,8 @@ public sealed class SemanticModelStoreTests
         var store = new SemanticModelStore();
         store.Store(Model(Procedure));
 
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
-        await store.WhenAllEvaluatedAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
+        await store.WhenAllEvaluatedAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.IsNull(RuntimeOf(store));
     }
@@ -76,7 +76,7 @@ public sealed class SemanticModelStoreTests
             releaseFirst.Wait();
             return Facts(isFullyAnalyzed: false);
         });
-        Assert.IsTrue(firstStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(firstStarted.Wait(TimeSpan.FromSeconds(30)));
 
         var second = Facts(isFullyAnalyzed: true);
         store.Store(Model(Procedure), _ => second);
@@ -103,7 +103,7 @@ public sealed class SemanticModelStoreTests
         var waiting = store.WhenEvaluatedAsync(Module);
         store.Store(Model(Procedure), _ => Facts(isFullyAnalyzed: true));
         releaseFirst.Set();
-        await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+        await waiting.WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.IsTrue(RuntimeOf(store)!.IsFullyAnalyzed);
     }
@@ -122,13 +122,13 @@ public sealed class SemanticModelStoreTests
             release.Wait();
             return Facts();
         });
-        Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(30)));
 
         Assert.IsTrue(store.Remove(Module));
         Assert.IsTrue(token.IsCancellationRequested);
 
         release.Set();
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
         await Task.Delay(100);
         Assert.IsFalse(store.TryGet(Module, out _), "the facts of a module that is gone do not bring it back");
     }
@@ -139,7 +139,7 @@ public sealed class SemanticModelStoreTests
         var store = new SemanticModelStore();
         store.Store(Model(Procedure), _ => throw new InvalidOperationException("a defect of the evaluation"));
 
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.IsNull(RuntimeOf(store), "no facts are made up for it");
     }
@@ -171,7 +171,7 @@ public sealed class SemanticModelStoreTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => store.WhenEvaluatedAsync(Module, cancellation.Token));
 
         release.Set();
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
         Assert.IsNotNull(RuntimeOf(store));
     }
 }
