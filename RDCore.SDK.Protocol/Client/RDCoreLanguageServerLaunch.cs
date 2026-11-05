@@ -16,8 +16,9 @@ public sealed record class RDCoreLanguageServerLaunchOptions
     public required string PlatformRoot { get; init; }
 
     /// <summary>
-    /// The workspace the language server opens, as the client names it: its folder's absolute <c>file:</c> URI.
+    /// The workspace the language server opens, as the client names it: its folder's absolute <c>file:</c> URI, or its absolute path.
     /// </summary>
+    /// <remarks>The language server is given it as a URI, escaped (<see cref="Uri.AbsoluteUri"/>), whichever way the client named it.</remarks>
     public required string Workspace { get; init; }
 
     /// <summary>
@@ -48,7 +49,8 @@ public sealed record class RDCoreLanguageServerLaunchOptions
 /// </para>
 /// <para>
 /// The executable is the one the manifest names, with or without <c>.exe</c>: a platform deployed on Windows names <c>RDCore.LanguageServer.exe</c>, which is
-/// <c>RDCore.LanguageServer</c> elsewhere.
+/// <c>RDCore.LanguageServer</c> elsewhere. Every executable the manifest names is to be under the platform root, through whatever links the path goes: a
+/// manifest that names one elsewhere (<c>..</c>, an absolute path, a link out of the root) is refused, and nothing is started.
 /// </para>
 /// </remarks>
 public sealed class RDCoreLanguageServerLaunch
@@ -86,15 +88,15 @@ public sealed class RDCoreLanguageServerLaunch
     /// </summary>
     /// <param name="options">The platform, the workspace, and the pipe.</param>
     /// <returns>How to start it.</returns>
-    /// <exception cref="ArgumentException">The workspace is not an absolute <c>file:</c> URI.</exception>
+    /// <exception cref="ArgumentException">The workspace is not an absolute <c>file:</c> URI, nor an absolute path.</exception>
     /// <exception cref="DirectoryNotFoundException">The platform root does not exist.</exception>
     /// <exception cref="FileNotFoundException">The platform root has no manifest, or the manifest names a language server that is not there.</exception>
-    /// <exception cref="InvalidDataException">The manifest is not one, or names no language server.</exception>
+    /// <exception cref="InvalidDataException">The manifest is not one, names no language server, or names an executable that is not under the platform root.</exception>
     public static RDCoreLanguageServerLaunch Prepare(RDCoreLanguageServerLaunchOptions options)
     {
-        var (root, manifest, executable) = LanguageServerOf(options.PlatformRoot, options.Workspace, nameof(options));
+        var (root, manifest, executable, workspace) = LanguageServerOf(options.PlatformRoot, options.Workspace, nameof(options));
         var pipe = options.PipeName ?? NewPipeName();
-        List<string> arguments = ["--pipe-name", pipe, "--workspace", options.Workspace];
+        List<string> arguments = ["--pipe-name", pipe, "--workspace", workspace.AbsoluteUri];
         if (options.ClientProcessId is { } clientProcessId)
         {
             arguments.AddRange(["--client-process-id", clientProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
@@ -113,30 +115,74 @@ public sealed class RDCoreLanguageServerLaunch
     }
 
     // the language server's executable of a platform root, for a workspace: what starting it as a language server and as a debug adapter both need, and are
-    // refused for the same reasons.
-    internal static (string Root, PlatformManifest Manifest, string Executable) LanguageServerOf(string platformRoot, string workspace, string parameter)
+    // refused for the same reasons. The workspace is given back as the URI the server is to be given.
+    internal static (string Root, PlatformManifest Manifest, string Executable, Uri Workspace) LanguageServerOf(string platformRoot, string workspace, string parameter)
     {
+        // an absolute path is a file: URI to Uri, on the platform it is a path of.
         if (!Uri.TryCreate(workspace, UriKind.Absolute, out var uri) || !uri.IsFile)
         {
-            throw new ArgumentException($"The workspace '{workspace}' is not an absolute file: URI.", parameter);
+            throw new ArgumentException(string.Format(LaunchMessages.WorkspaceIsNotAnAbsoluteFileUri, workspace), parameter);
         }
 
         var root = Path.GetFullPath(platformRoot);
         if (!Directory.Exists(root))
         {
-            throw new DirectoryNotFoundException($"The platform root '{root}' does not exist.");
+            throw new DirectoryNotFoundException(string.Format(LaunchMessages.PlatformRootDoesNotExist, root));
         }
 
         var manifest = ReadManifest(root);
         if (string.IsNullOrWhiteSpace(manifest.LangService))
         {
-            throw new InvalidDataException($"The platform manifest of '{root}' names no language server ('langService').");
+            throw new InvalidDataException(string.Format(LaunchMessages.ManifestNamesNoLanguageServer, root));
         }
 
-        var named = Path.GetFullPath(Path.Combine(root, manifest.LangService.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar)));
+        // the language server starts the others itself: a manifest that names any of them elsewhere is refused before anything is started.
+        var realRoot = RealPath(root);
+        foreach (var (property, path) in new[] { ("hostService", manifest.HostService), ("parseServer", manifest.ParseServer) })
+        {
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                _ = Confined(root, realRoot, property, path, Named(root, path));
+            }
+        }
+
+        var named = Confined(root, realRoot, "langService", manifest.LangService, Named(root, manifest.LangService));
         var executable = ExecutableOf(named)
-            ?? throw new FileNotFoundException($"The platform manifest of '{root}' names a language server that is not there.", named);
-        return (root, manifest, executable);
+            ?? throw new FileNotFoundException(string.Format(LaunchMessages.LanguageServerIsNotThere, root), named);
+        return (root, manifest, Confined(root, realRoot, "langService", manifest.LangService, executable), uri);
+    }
+
+    // a path of the manifest, which is relative to the platform root and written with either slash.
+    private static string Named(string root, string path) => Path.GetFullPath(Path.Combine(root, path.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar)));
+
+    // the executable, when it is under the platform root as the file system resolves it: Path.GetFullPath folds "..", but follows no link.
+    private static string Confined(string root, string realRoot, string property, string named, string executable)
+    {
+        var relative = Path.GetRelativePath(realRoot, RealPath(executable));
+        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        {
+            throw new InvalidDataException(string.Format(LaunchMessages.ExecutableOutsideThePlatformRoot, root, named, property));
+        }
+
+        return executable;
+    }
+
+    // a full path through every link on the way: each folder, and the file, that is a link is where it leads.
+    private static string RealPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var real = Path.GetPathRoot(full)!;
+        foreach (var part in full[real.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            real = Path.Combine(real, part);
+            FileSystemInfo entry = Directory.Exists(real) ? new DirectoryInfo(real) : new FileInfo(real);
+            if (entry.Exists && entry.LinkTarget is not null && entry.ResolveLinkTarget(returnFinalTarget: true) is { } target)
+            {
+                real = RealPath(target.FullName);
+            }
+        }
+
+        return real;
     }
 
     // the executable as named, or else as this platform names it: a manifest written on Windows names an .exe, which an apphost elsewhere has no extension for.
@@ -162,17 +208,17 @@ public sealed class RDCoreLanguageServerLaunch
         var path = Path.Combine(platformRoot, PlatformManifest.FileName);
         if (!File.Exists(path))
         {
-            throw new FileNotFoundException($"The platform root '{platformRoot}' has no manifest.", path);
+            throw new FileNotFoundException(string.Format(LaunchMessages.PlatformRootHasNoManifest, platformRoot), path);
         }
 
         try
         {
             return JsonSerializer.Deserialize<PlatformManifest>(File.ReadAllText(path), ManifestOptions)
-                ?? throw new InvalidDataException($"The platform manifest '{path}' is empty.");
+                ?? throw new InvalidDataException(string.Format(LaunchMessages.ManifestIsEmpty, path));
         }
         catch (JsonException exception)
         {
-            throw new InvalidDataException($"The platform manifest '{path}' is not one: {exception.Message}", exception);
+            throw new InvalidDataException(string.Format(LaunchMessages.ManifestIsNotOne, path, exception.Message), exception);
         }
     }
 

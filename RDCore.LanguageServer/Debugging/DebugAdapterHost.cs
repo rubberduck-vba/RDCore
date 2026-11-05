@@ -48,7 +48,7 @@ internal sealed class DebugAdapterHost(DebugAdapterTransport transport) : AppHos
 }
 
 /// <summary>
-/// Starts the language server's executable as a debug adapter: <c>RDCore.LanguageServer --dap --workspace &lt;path&gt;</c>.
+/// Starts the language server's executable as a debug adapter: <c>RDCore.LanguageServer --dap --workspace &lt;uri&gt;</c>.
 /// </summary>
 internal static class DebugAdapterEntry
 {

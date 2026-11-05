@@ -15,8 +15,9 @@ public sealed record class RDCoreDebugAdapterLaunchOptions
     public required string PlatformRoot { get; init; }
 
     /// <summary>
-    /// The workspace the program is in, as the client names it: its folder's absolute <c>file:</c> URI.
+    /// The workspace the program is in, as the client names it: its folder's absolute <c>file:</c> URI, or its absolute path.
     /// </summary>
+    /// <remarks>The debug adapter is given it as a URI, escaped (<see cref="Uri.AbsoluteUri"/>), whichever way the client named it.</remarks>
     public required string Workspace { get; init; }
 
     /// <summary>
@@ -90,13 +91,13 @@ public sealed class RDCoreDebugAdapterLaunch
     /// </summary>
     /// <param name="options">The platform, the workspace, and what to run.</param>
     /// <returns>How to start it, and what to launch.</returns>
-    /// <exception cref="ArgumentException">The workspace is not an absolute <c>file:</c> URI.</exception>
+    /// <exception cref="ArgumentException">The workspace is not an absolute <c>file:</c> URI, nor an absolute path.</exception>
     /// <exception cref="DirectoryNotFoundException">The platform root does not exist.</exception>
     /// <exception cref="FileNotFoundException">The platform root has no manifest, or the manifest names a language server that is not there.</exception>
-    /// <exception cref="InvalidDataException">The manifest is not one, or names no language server.</exception>
+    /// <exception cref="InvalidDataException">The manifest is not one, names no language server, or names an executable that is not under the platform root.</exception>
     public static RDCoreDebugAdapterLaunch Prepare(RDCoreDebugAdapterLaunchOptions options)
     {
-        var (root, manifest, executable) = RDCoreLanguageServerLaunch.LanguageServerOf(options.PlatformRoot, options.Workspace, nameof(options));
+        var (root, manifest, executable, workspace) = RDCoreLanguageServerLaunch.LanguageServerOf(options.PlatformRoot, options.Workspace, nameof(options));
 
         var launch = new Dictionary<string, string>();
         if (!string.IsNullOrWhiteSpace(options.Module))
@@ -115,7 +116,7 @@ public sealed class RDCoreDebugAdapterLaunch
             Manifest = manifest,
             ExecutablePath = executable,
             WorkingDirectory = Path.GetDirectoryName(executable)!,
-            Arguments = [Switch, "--workspace", options.Workspace],
+            Arguments = [Switch, "--workspace", workspace.AbsoluteUri],
             Environment = new Dictionary<string, string> { [RDCoreLanguageServerLaunch.PlatformRootEnvironmentVariable] = root },
             LaunchArguments = launch,
         };

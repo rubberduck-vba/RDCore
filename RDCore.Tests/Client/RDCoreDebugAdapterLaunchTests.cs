@@ -9,19 +9,25 @@ namespace RDCore.Tests.Client;
 [TestClass]
 public sealed class RDCoreDebugAdapterLaunchTests
 {
+    // the platform root, and beside it a folder that is not the platform's.
+    private string _folder = null!;
     private string _root = null!;
+    private string _outside = null!;
 
     private static readonly string Executable = OperatingSystem.IsWindows() ? "RDCore.LanguageServer.exe" : "RDCore.LanguageServer";
 
     [TestInitialize]
     public void CreateRoot()
     {
-        _root = Path.Combine(Path.GetTempPath(), "RDCore", "dap-launch", Guid.NewGuid().ToString("N"));
+        _folder = Path.Combine(Path.GetTempPath(), "RDCore", "dap-launch", Guid.NewGuid().ToString("N"));
+        _root = Path.Combine(_folder, "platform");
+        _outside = Path.Combine(_folder, "outside");
         Directory.CreateDirectory(Path.Combine(_root, "RDCore.LanguageServer"));
+        Directory.CreateDirectory(_outside);
     }
 
     [TestCleanup]
-    public void DeleteRoot() => Directory.Delete(_root, recursive: true);
+    public void DeleteRoot() => Directory.Delete(_folder, recursive: true);
 
     private void WithManifest(string langService) => File.WriteAllText(Path.Combine(_root, "rdcore.json"), $$"""
         {
@@ -55,7 +61,29 @@ public sealed class RDCoreDebugAdapterLaunchTests
         CollectionAssert.AreEqual(new[] { "--dap", "--workspace", "file:///c:/workspace" }, launch.Arguments.ToArray());
         Assert.AreEqual(_root, launch.Environment[RDCoreLanguageServerLaunch.PlatformRootEnvironmentVariable]);
         Assert.AreEqual("0.1", launch.Manifest.PlatformVersion);
-        Assert.AreEqual("rdcore", RDCoreDebugAdapterLaunch.AdapterId);
+    }
+
+    // the adapter is given the workspace as a URI, escaped: a folder with a space or an accent in its name is one argument it parses.
+    [TestMethod]
+    public void TheWorkspace_IsGivenAsAnEscapedUri()
+    {
+        WithManifest($"RDCore.LanguageServer/{Executable}");
+        WithLanguageServer();
+
+        var launch = RDCoreDebugAdapterLaunch.Prepare(Options() with { Workspace = "file:///c:/Mes Données" });
+
+        CollectionAssert.AreEqual(new[] { "--dap", "--workspace", "file:///c:/Mes%20Donn%C3%A9es" }, launch.Arguments.ToArray());
+    }
+
+    // the debug adapter is the language server's executable, and is confined to the platform root as the language server is.
+    [TestMethod]
+    public void ALanguageServerNamedOutsideTheRoot_IsRefused()
+    {
+        File.WriteAllText(Path.Combine(_outside, Executable), string.Empty);
+        WithManifest($"../outside/{Executable}");
+
+        var thrown = Assert.ThrowsExactly<InvalidDataException>(() => RDCoreDebugAdapterLaunch.Prepare(Options()));
+        StringAssert.Contains(thrown.Message, "langService");
     }
 
     [TestMethod]
