@@ -220,6 +220,7 @@ A pull analyzes every module, so:
 - **A client that gives a `partialResultToken` is sent each module's report as it is made,** as a partial result (`$/progress`), and an empty answer. A client that does not is answered every report at once.
 - **The work is reported to the `workDoneToken`,** module by module.
 - **A change to any document gives the pull up,** answered `ContentModified` (-32801) as the change arrives: the keystroke, and the client's next request, don't wait for the whole workspace ([`IncomingDocumentChanges.WhileWorkspaceCurrentAsync`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)). The client pulls again, sending the result ids it has, and is answered `unchanged` for every module that did not change.
+- **A dialog of a program that is open declines the pull,** as it does `textDocument/diagnostic`'s ([below](#rdcoresessioninteraction)).
 
 ### Refreshing what the client shows
 
@@ -238,6 +239,7 @@ Each is a request, which the client answers; a client that sent none of a capabi
 - **A module that is gone,** closed with no file under it.
 - **A reload of the project** that changed the workspace ([`workspace/didChangeWatchedFiles`](#workspacedidchangewatchedfiles), [file operations](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles), `rdcore.importProject`).
 - **A change of the live settings** ([`workspace/configuration`](#workspaceconfiguration-and-workspacedidchangeconfiguration)).
+- **A dialog of a program that declined a pull,** once it is closed ([`rdcore/session/interaction`](#rdcoresessioninteraction)).
 
 The client is asked once for a burst of changes (each keystroke of a name is one), when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
 
@@ -717,6 +719,8 @@ A program runs in the environment host; the person it asks is at a client. A `Ms
 2. The language server asks its client (`rdcore/session/interaction/msgBox`, `.../inputBox`) when the client expects [`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html). Otherwise it answers that nobody was asked (`Handled = false`), and the environment host shows the dialog of the platform it runs on: a Windows dialog on Windows, and none elsewhere (the dialog answers as though it had been confirmed at once).
 
 The request carries the lines the program completed before it opened the dialog (`Output`), so that the client shows them first; they are not repeated in the answer to `rdcore/session/execute`. An `InputBox` that was cancelled answers `Cancelled = true`, which the program is told with `vbNullString`.
+
+While a dialog is open, the program waits for the client, and what the server finds of the documents waits for the program. So a diagnostics pull from the client (`textDocument/diagnostic` or `workspace/diagnostic`) is not left waiting: one that comes while a dialog is open, or is still running when one opens, is answered at once with `ServerCancelled` (-32802) and `DiagnosticServerCancellationData { retriggerRequest: false }` (**LSP 3.17** §Document Diagnostics). A client must not retrigger it: it would only ask again, and be declined again, while the dialog is open. Once the dialog is answered, or the client fails to answer it, the server asks the client to refresh its diagnostics (`workspace/diagnostic/refresh`, [above](#refreshing-what-the-client-shows)), and the client pulls again. A client that takes no refresh is declined all the same: its next pull, after the next edit, is answered. Nothing else the client asks is declined while a dialog is open.
 
 The interactive shell draws a dialog as a box with a border, centred on the console, with its title in the top edge and its message wrapped inside. A `MsgBox` ends with a row of buttons, chosen with the arrow keys, <kbd>Tab</kbd>, <kbd>Enter</kbd>, or a button's key. Its icon has a column of its own, and the lines of the message hang under it. An `InputBox` ends with a line to type on, which starts with the default text selected and scrolls inside the box. <kbd>Esc</kbd> closes either at window level.
 
