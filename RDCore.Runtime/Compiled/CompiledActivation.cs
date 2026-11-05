@@ -566,7 +566,7 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
     /// interpreter gives the activation's handler as it would have; with the program stopped in the callee, which stops this activation too; or, when compiled
-    /// code could not make the call, to make it as it always does. The frame has every variable and every open loop.
+    /// code could not make the call, to make it as it always does. The frame has every variable and every loop that was opened.
     /// </summary>
     public RuntimeExecutionOutcome AfterFailedCall(int pc)
     {
@@ -685,7 +685,7 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Hands the activation to the interpreter, which runs it from the instruction at <paramref name="pc"/>: what the activation returns is what the
-    /// interpreter's run of it does. Every variable and every open loop has been written into the frame.
+    /// interpreter's run of it does. Every variable and every loop that was opened has been written into the frame.
     /// </summary>
     public RuntimeExecutionOutcome Interpret(int pc)
     {
@@ -699,6 +699,112 @@ public sealed class CompiledActivation : ILightActivation
         return _executor.Run(_session, frame, list, _context);
     }
 
+    private RuntimeExecutionOutcome _recovered;
+
+    /// <summary>
+    /// Has the interpreter run the instruction at <paramref name="pc"/> alone - or, after a call there that raised an error, give the error to the
+    /// activation's handler - and says where compiled code goes on (IR lowering S2.4): at the offset the interpreter left the activation at, every variable,
+    /// the function result and each loop read back from the frame; or nowhere (<c>-1</c>), when the activation returned, the program stopped, or the
+    /// interpreter goes on with it (<see cref="Recovered"/>). Every variable and every loop that was opened has been written into the frame.
+    /// </summary>
+    /// <remarks>
+    /// The interpreter goes on with the activation when the program waited while the instruction ran - at its error, which a debugger asked to see - or the
+    /// interpreter is wanted, or the symbols were defined again; and when the activation goes on inside a <c>For</c> loop the frame holds no state of, which
+    /// compiled code would step with what it does not have.
+    /// </remarks>
+    public int Recover(int pc)
+    {
+        var frame = Frame;
+        (frame.Pc, frame.RunsCompiled) = (pc, false);
+        var failed = _failed;
+        _failed = null;
+        var list = Body;
+        var suspensions = Suspensions;
+        var outcome = _executor.Step(_session, frame, list, _context, failed);
+        if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
+        {
+            _recovered = outcome;
+            return -1;
+        }
+
+        if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list) || !CanGoOnAt(frame, list, frame.Pc))
+        {
+            _recovered = Interpret(frame.Pc);
+            return -1;
+        }
+
+        _body.CountRecovered();
+        frame.RunsCompiled = true;
+        return frame.Pc;
+    }
+
+    /// <summary>What the activation returns when <see cref="Recover"/> said it goes on nowhere.</summary>
+    public RuntimeExecutionOutcome Recovered() => _recovered;
+
+    // whether compiled code can go on at pc: every For loop it is inside has its state in the frame, of the kind compiled code steps it in.
+    private bool CanGoOnAt(CallStackFrame frame, InstructionList list, int pc)
+    {
+        for (var i = 0; i < _body.Loops.Count; i++)
+        {
+            var info = _body.Loops[i];
+            if (pc > info.Opener && list.Items[info.Opener].End is { } past && pc < past && !TryReadForLoop(frame, info, out _, out _, out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryReadForLoop(CallStackFrame frame, CompiledForLoop info, out ScalarPayload end, out ScalarPayload step, out bool countsDown)
+    {
+        (end, step, countsDown) = (default, default, false);
+        var type = ScalarKinds.TypeOf(info.Kind);
+        if (!frame.TryGetForLoopState(info.Opener, out var state)
+            || state.End is not { Handle: ValueBindingHandle boxedEnd } || !ScalarPayload.TryOf(type, boxedEnd.Value, out end)
+            || state.Step is not { Handle: ValueBindingHandle boxedStep } || !ScalarPayload.TryOf(type, boxedStep.Value, out step))
+        {
+            return false;
+        }
+
+        countsDown = state.CountsDown;
+        return true;
+    }
+
+    /// <summary>
+    /// The end and the step of the <c>For</c> loop numbered <paramref name="loop"/>, of an integral kind, read back from the frame: whether the loop was
+    /// opened.
+    /// </summary>
+    public bool ReloadForLoopIntegral(int loop, out long end, out long step, out bool countsDown)
+    {
+        var open = TryReadForLoop(Frame, _body.Loops[loop], out var endPayload, out var stepPayload, out countsDown);
+        (end, step) = (endPayload.Integral, stepPayload.Integral);
+        return open;
+    }
+
+    /// <summary>
+    /// The end and the step of the <c>For</c> loop numbered <paramref name="loop"/>, of a floating-point kind, read back from the frame: whether the loop
+    /// was opened.
+    /// </summary>
+    public bool ReloadForLoopFloating(int loop, out double end, out double step, out bool countsDown)
+    {
+        var open = TryReadForLoop(Frame, _body.Loops[loop], out var endPayload, out var stepPayload, out countsDown);
+        (end, step) = (endPayload.Floating, stepPayload.Floating);
+        return open;
+    }
+
+    /// <summary>
+    /// What the <c>On Error</c> statement at <paramref name="pc"/> does, to the activation's frame (MS-VBAL §5.4.4): its error handling policy set, and the
+    /// Err object cleared.
+    /// </summary>
+    public bool OnError(int pc) => ProcedureExecutor.TryApplyOnError(_session, Frame, Body.Items[pc]);
+
+    /// <summary>A <c>GoSub</c>: <paramref name="returnPc"/> pushed onto the activation's GoSub Resumption List (MS-VBAL §5.4.2.14).</summary>
+    public void GoSub(int returnPc) => Frame.PushGoSubReturn(returnPc);
+
+    /// <summary>A <c>Return</c>: the offset popped off the GoSub Resumption List; <see langword="false"/> when it is empty (MS-VBAL §5.4.2.15).</summary>
+    public bool TryReturnFromGoSub(out int pc) => Frame.TryPopGoSubReturn(out pc);
+
     // the body the interpreter goes on in: the frame's, which an edit made while the program waited may have given it, the same instructions at the same
     // offsets as the one compiled code was compiled from (CallStackFrame.TryRebase).
     private InstructionList Body => _frame?.Body ?? _list;
@@ -709,6 +815,7 @@ public sealed class CompiledActivation : ILightActivation
         if (_frame is { } frame)
         {
             frame.RunsCompiled = false;
+            ProcedureExecutor.ClearHandledError(_session, frame);
         }
 
         return RuntimeExecutionOutcome.ExitProcedure;
@@ -807,6 +914,16 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
         LastWalkedBackAt = at;
         _ = Interlocked.Increment(ref _walkedBack);
     }
+
+    private long _recovered;
+
+    /// <summary>
+    /// How many times an activation of the body had the interpreter run one instruction and went on compiled (IR lowering S2.4): an error its handler
+    /// caught, a <c>Resume</c>, an <c>On...GoTo</c> (<see cref="CompiledActivation.Recover"/>).
+    /// </summary>
+    public long Recoveries => Interlocked.Read(ref _recovered);
+
+    internal void CountRecovered() => Interlocked.Increment(ref _recovered);
 }
 
 /// <summary>

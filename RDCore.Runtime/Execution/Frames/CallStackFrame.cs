@@ -175,7 +175,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // edit pending from an earlier wait is replaced by this one, which is aligned with the same body.
         if (rebased.Deferred)
         {
-            _pendingRebase = (body, alignment, Pc);
+            _pendingRebase = (body, alignment, Pc, rebased.ErrorHandler);
             return true;
         }
 
@@ -217,7 +217,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     // the edited body an activation running compiled code goes on in once its call returns, how it aligns with the body it runs, and the call.
-    private (InstructionList Body, InstructionAlignment Alignment, int Call)? _pendingRebase;
+    private (InstructionList Body, InstructionAlignment Alignment, int Call, ErrorHandlerState Handler)? _pendingRebase;
 
     /// <summary>
     /// Whether the activation, running compiled code, is to go on in an edited body once the call it is in the middle of returns
@@ -234,17 +234,26 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <returns>Whether there was an edited body to move into.</returns>
     public bool ApplyPendingRebase(bool atTheCall)
     {
-        if (_pendingRebase is not var (body, alignment, call))
+        if (_pendingRebase is not var (body, alignment, call, handler))
         {
             return false;
         }
 
-        // the call and the loops around it are as they were: TryRebase found it so.
+        // the call, the loops around it, the handler and each GoSub it is in are as they were: TryRebase found it so.
         var kept = alignment[call]!.Value;
-        (Body, Pc, _pendingRebase) = (body, atTheCall ? kept : kept + 1, null);
-        if (_occasional is { ForLoopState: { } loops } occasional)
+        (Body, Pc, ErrorHandler, _pendingRebase) = (body, atTheCall ? kept : kept + 1, handler, null);
+        if (_occasional is { } occasional)
         {
-            occasional.ForLoopState = loops.Where(loop => alignment[loop.Key] is not null).ToDictionary(loop => alignment[loop.Key]!.Value, loop => loop.Value);
+            if (occasional.ForLoopState is { } loops)
+            {
+                occasional.ForLoopState = loops.Where(loop => alignment[loop.Key] is not null).ToDictionary(loop => alignment[loop.Key]!.Value, loop => loop.Value);
+            }
+
+            if (occasional.GoSubReturns is { } returns)
+            {
+                // a stack enumerates from its top, and is pushed from its bottom.
+                occasional.GoSubReturns = new Stack<int>(returns.Select(offset => alignment[offset - 1]!.Value + 1).Reverse());
+            }
         }
 
         return true;
@@ -252,8 +261,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     // an activation running compiled code, in the middle of a call: the call, and the For loops around it, are kept, for certain, and around it still - no
     // loop of the edited body is around it that was not - so that its loops' state, which compiled code writes into the frame when the call returns, is of
-    // the loops it is in. Its If, Do and While blocks hold no state in its frame, and compiled code has no With, no GoSub and no handler. Its variables are
-    // its layout's, as any frame's.
+    // the loops it is in. Its If, Do and While blocks hold no state in its frame, and compiled code has no With; its handler and its GoSub Resumption List are
+    // in its frame, and are moved as an interpreted activation's are (ApplyPendingRebase). Its variables are its layout's, as any frame's.
     private FrameRebaseRefusal? CompiledRebased(InstructionList before, InstructionList body, InstructionAlignment alignment, [NotNullWhen(false)] out Rebasing? rebased)
     {
         rebased = null;
@@ -290,7 +299,74 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return FrameRebaseRefusal.BlockChanged;
         }
 
-        rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Deferred = true };
+        // the handler and the GoSub Resumption List compiled code keeps in the frame (IR lowering S2.4) are moved as an interpreted activation's are.
+        if (RebasedGoSubReturns(alignment) is { } goSubRefusal)
+        {
+            return goSubRefusal;
+        }
+
+        if (RebasedHandler(before, body, alignment, ErrorHandler, out var handler) is { } handlerRefusal)
+        {
+            return handlerRefusal;
+        }
+
+        rebased = new Rebasing(Pc, false, WaitedAt, handler, new Dictionary<int, int>()) { Deferred = true };
+        return null;
+    }
+
+    // the handler of an On Error GoTo is its label, as it was named or where it was; where an error being handled was raised is where its Resume goes back
+    // to. Both must be in the edited body.
+    private static FrameRebaseRefusal? RebasedHandler(InstructionList before, InstructionList body, InstructionAlignment alignment, ErrorHandlerState handler,
+        out ErrorHandlerState rebased)
+    {
+        rebased = handler;
+        int? Handler(int? offset)
+            => offset is not { } target ? null
+                : before.LabelAt(target) is { } label && body.TryGetLabelOffset(label, out var named) ? named
+                : alignment[target];
+        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null))
+        {
+            return FrameRebaseRefusal.HandlerChanged;
+        }
+
+        if (handler.IsHandling && handler.FaultStatementOffset is { } fault)
+        {
+            if (!alignment.IsCertain(fault))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[fault] is null)
+            {
+                return FrameRebaseRefusal.HandlerChanged;
+            }
+        }
+
+        rebased = handler with
+        {
+            HandlerTarget = Handler(handler.HandlerTarget),
+            HandlerEntry = Handler(handler.HandlerEntry),
+            FaultStatementOffset = handler.FaultStatementOffset is { } raisedAt ? alignment[raisedAt] : null,
+        };
+        return null;
+    }
+
+    // a GoSub returns to the instruction after it, which is after the GoSub as it now is: each GoSub the activation is in must be in the edited body.
+    private FrameRebaseRefusal? RebasedGoSubReturns(InstructionAlignment alignment)
+    {
+        foreach (var offset in _occasional?.GoSubReturns ?? (IEnumerable<int>)[])
+        {
+            if (!alignment.IsCertain(offset - 1))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[offset - 1] is null)
+            {
+                return FrameRebaseRefusal.BlockChanged;
+            }
+        }
+
         return null;
     }
 
@@ -426,51 +502,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 offsets[opener] = kept;
             }
 
-            // a GoSub returns to the instruction after it, which is after the GoSub as it now is.
-            foreach (var offset in returns)
+            if (RebasedGoSubReturns(alignment) is { } goSubRefusal)
             {
-                if (!alignment.IsCertain(offset - 1))
-                {
-                    return FrameRebaseRefusal.Uncertain;
-                }
-
-                if (alignment[offset - 1] is null)
-                {
-                    return FrameRebaseRefusal.BlockChanged;
-                }
+                return goSubRefusal;
             }
         }
 
-        // the handler of an On Error GoTo is its label, as it was named or where it was; where an error being handled was raised is where its Resume goes
-        // back to.
-        int? Handler(int? offset)
-            => offset is not { } target ? null
-                : before.LabelAt(target) is { } label && body.TryGetLabelOffset(label, out var named) ? named
-                : alignment[target];
-        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null))
+        if (RebasedHandler(before, body, alignment, handler, out handler) is { } handlerRefusal)
         {
-            return FrameRebaseRefusal.HandlerChanged;
+            return handlerRefusal;
         }
-
-        if (handling && handler.FaultStatementOffset is { } fault)
-        {
-            if (!alignment.IsCertain(fault))
-            {
-                return FrameRebaseRefusal.Uncertain;
-            }
-
-            if (alignment[fault] is null)
-            {
-                return FrameRebaseRefusal.HandlerChanged;
-            }
-        }
-
-        handler = handler with
-        {
-            HandlerTarget = Handler(handler.HandlerTarget),
-            HandlerEntry = Handler(handler.HandlerEntry),
-            FaultStatementOffset = handler.FaultStatementOffset is { } raisedAt ? alignment[raisedAt] : null,
-        };
 
         var waitedAt = WaitedAt >= 0 && alignment[WaitedAt] is { } waited ? waited : -1;
         rebased = new Rebasing(pc, moved, waitedAt, handler, offsets);
