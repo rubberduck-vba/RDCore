@@ -164,4 +164,34 @@ public sealed class SessionDebugEditContinueTests
         Assert.IsNotNull(answer);
         Assert.IsEmpty(_editStatus.Current.Edits);
     }
+
+    // a program that ended has its edits asked again once the end is answered.
+    [TestMethod]
+    public async Task ATerminate_ThatEndedTheProgram_HasTheEditsAskedAgain()
+    {
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
+        await _editStatus.CheckAsync(CancellationToken.None);
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
+        _debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new DebugAck { Acted = true });
+        var handler = new SessionDebugTerminateHandler(_debugging, _capabilities, _editStatus);
+
+        Assert.IsTrue((await handler.Handle(new SessionDebugTerminateRequest(), CancellationToken.None).WaitAsync(Patience)).Acted);
+
+        Assert.IsEmpty(_editStatus.Current.Edits);
+    }
+
+    // a program still stopping runs on in a call outside it: the host would answer what its edits are only once the request that runs it is done, so the end is
+    // answered without asking, and the relay holds none of the requests marked to be handled on arrival behind it.
+    [TestMethod]
+    public async Task ATerminate_OfAProgramStillStopping_IsAnsweredSo_WithoutAskingForTheEdits()
+    {
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource<DebugEditStatusResult>().Task);
+        _debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new DebugAck { Acted = true, Stopping = true });
+        var handler = new SessionDebugTerminateHandler(_debugging, _capabilities, _editStatus);
+
+        var result = await handler.Handle(new SessionDebugTerminateRequest(), CancellationToken.None).WaitAsync(Patience);
+
+        Assert.IsTrue(result.Stopping);
+        await _debugging.DidNotReceiveWithAnyArgs().EditStatusAsync(default);
+    }
 }

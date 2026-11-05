@@ -41,7 +41,8 @@ public static class ConstantExpressionStaticSemantics
     /// </summary>
     /// <param name="members">The members of the module.</param>
     /// <param name="resolver">Resolves the names a value is written with, from where the constant is declared.</param>
-    internal static IEnumerable<VBCompileErrorInfo> Evaluate(IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver)
+    /// <param name="optionBase">The module's <c>Option Base</c>: the lower bound of an array dimension declared without one, but of a field of a type.</param>
+    internal static IEnumerable<VBCompileErrorInfo> Evaluate(IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver, int optionBase = 0)
     {
         foreach (var member in members)
         {
@@ -51,7 +52,7 @@ public static class ConstantExpressionStaticSemantics
                 yield return moduleError;
             }
 
-            foreach (var boundError in BoundErrors(resolver, member))
+            foreach (var boundError in BoundErrors(resolver, member, optionBase))
             {
                 yield return boundError;
             }
@@ -59,7 +60,8 @@ public static class ConstantExpressionStaticSemantics
             // a field of a user-defined type that is an array is declared with bounds as a variable is (MS-VBA, Excel-verified, oracle\s29 A09, A10).
             foreach (var field in member is VBUserDefinedTypeMemberSymbol { Members.IsDefault: false } userDefinedType ? userDefinedType.Members : [])
             {
-                foreach (var boundError in BoundErrors(resolver, field))
+                // MS-VBA bounds a field's arrays from 0, whatever the module's Option Base (RD-VBAL §5.2.1.2).
+                foreach (var boundError in BoundErrors(resolver, field, optionBase: 0))
                 {
                     yield return boundError;
                 }
@@ -73,7 +75,7 @@ public static class ConstantExpressionStaticSemantics
                     yield return localError;
                 }
 
-                foreach (var boundError in BoundErrors(resolver, local))
+                foreach (var boundError in BoundErrors(resolver, local, optionBase))
                 {
                     yield return boundError;
                 }
@@ -146,7 +148,7 @@ public static class ConstantExpressionStaticSemantics
     }
 
     // MS-VBAL §5.2.3.1.3: the bounds an array is declared with are constant expressions (MS-VBA: "Constant expression required", Excel-verified).
-    private static IEnumerable<VBCompileErrorInfo> BoundErrors(ISymbolResolver resolver, Symbol array)
+    private static IEnumerable<VBCompileErrorInfo> BoundErrors(ISymbolResolver resolver, Symbol array, int optionBase)
     {
         if (!array.TryGetProperty(SymbolProperties.ArrayBounds, out var bounds) || bounds.IsDefaultOrEmpty)
         {
@@ -181,6 +183,19 @@ public static class ConstantExpressionStaticSemantics
             {
                 yield return VBCompileErrorInfo.For(VBCompileErrorId.RangeHasNoValues, upper.Location, array.Name);
             }
+        }
+
+        // RD-VBA holds each element in a cell of its own, and an array of more than VBArrayValue.MaximumLength of them is out of memory, as a ReDim of one is
+        // when it runs (RD-VBAL §5.4.3.3): MS-VBA (64-bit) allocates `Dim b(100000000) As Byte` (recorded in Excel: oracle\s56 C12). Bounds written as literals
+        // are known here; a dimension with no lower bound starts at the module's Option Base, as the array the runtime makes of it does.
+        var literal = bounds.Select(bound => (Lower: bound.LowerExpression is { } lower ? LiteralValue(lower) : optionBase, Upper: bound.UpperExpression is { } upper ? LiteralValue(upper) : null))
+            .ToArray();
+        if (literal.All(bound => bound is { Lower: >= int.MinValue and <= int.MaxValue, Upper: >= int.MinValue and <= int.MaxValue })
+            && VBArrayValue.LengthOf(literal.Select(bound => ((int)bound.Lower!.Value, (int)bound.Upper!.Value))) > VBArrayValue.MaximumLength
+            && bounds[^1].UpperExpression is { } last)
+        {
+            yield return VBCompileErrorInfo.For(VBCompileErrorId.OutOfMemory, last.Location,
+                string.Format(Exceptions.VBCompileError_OutOfMemory_ArrayElements_Verbose, array.Name, VBArrayValue.MaximumLength));
         }
     }
 

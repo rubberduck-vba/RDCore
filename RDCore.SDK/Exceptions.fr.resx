@@ -843,6 +843,21 @@
   <data name="VBCompileError_OutOfMemory_ModuleNames_Verbose" xml:space="preserve">
     <value>Le module déclare plus de {0:N0} noms au niveau du module : variables, constantes, procédures, propriétés, instructions Declare, énumérations et types, tous ensemble. Déplacez-en une partie dans un autre module.</value>
   </data>
+  <data name="VBCompileError_OutOfMemory_ArrayElements_Verbose" xml:space="preserve">
+    <value>Le tableau '{0}' est déclaré avec plus de {1:N0} éléments, le maximum qu&apos;un tableau contient dans RD-VBA.</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeMayNotBePassedByVal" xml:space="preserve">
+    <value>Un type défini par l&apos;utilisateur ne peut pas être passé ByVal</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose" xml:space="preserve">
+    <value>Le paramètre '{0}' est un enregistrement du type '{1}', qui est passé par référence : déclarez-le ByRef, ou sans ByVal.</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant" xml:space="preserve">
+    <value>Seuls les types définis par l&apos;utilisateur dans des modules objet publics peuvent être convertis en Variant ou à partir d&apos;un Variant, ou passés à des fonctions à liaison tardive</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose" xml:space="preserve">
+    <value>Un enregistrement du type '{0}' est donné à un Variant, qui ne peut pas le contenir : donnez-le à une variable ou à un paramètre du type '{0}', ou copiez ses champs.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
   </data>

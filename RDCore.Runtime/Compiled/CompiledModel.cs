@@ -10,7 +10,10 @@ public enum IneligibilityKind
     /// <summary>A member of a class: it is called on an object, which compiled code is not given.</summary>
     MemberOfAClass,
 
-    /// <summary>A parameter passed by reference: compiled code holds its parameters in locals of its own, which a caller's variable is not.</summary>
+    /// <summary>
+    /// A <c>ParamArray</c> parameter: its elements are the caller's variables, passed by reference, which compiled code holds none of. A scalar parameter
+    /// passed by reference is compiled (IR lowering S2.3c).
+    /// </summary>
     ParameterByReference,
 
     /// <summary>A parameter, a variable or a result of a type that is no scalar: compiled code holds only scalars, in locals.</summary>
@@ -28,7 +31,10 @@ public enum IneligibilityKind
     /// <summary>A <c>Let</c> of anything but a variable of the procedure or its function result: a member, an element, a field.</summary>
     AssignmentTarget,
 
-    /// <summary>A <c>For</c> loop that counts with what is not a variable of the procedure, or with a <c>Boolean</c>.</summary>
+    /// <summary>
+    /// A <c>For</c> loop that counts with what is not a variable of the procedure, with a <c>Boolean</c>, or with a variable held in a cell - a parameter
+    /// passed by reference, a variable the procedure passes by reference.
+    /// </summary>
     ForCounter,
 
     /// <summary>A call: compiled code makes none, and a call is the interpreter's to make.</summary>
@@ -192,10 +198,19 @@ internal sealed record class ForNextStep(int Offset, int Loop, int Counter, Scal
 // an Exit Sub, Exit Function, Exit Property.
 internal sealed record class ExitStep(int Offset) : CompiledStep(Offset);
 
-// a call of a procedure of the workspace (Callee, of CompiledBody.Callees), every argument a scalar passed by value: a call statement (Result is
-// CallStep.NoResult), or the whole value a variable (Result its slot) or the function result variable (Result is -1) is assigned, of the callee's kind.
-// Nothing of the instruction is evaluated after the call but that assignment, which can't fail: an instruction is handed to the interpreter at its start
-// only before the call is made, which it would make again.
+// the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
+// in, which the parameter is a second name for. Only an argument of a call.
+internal sealed record class ReferenceNode(int Slot, ScalarKind Kind) : PayloadNode(Kind);
+
+// the argument of a parameter passed by reference that is no variable - a literal, an operation, an expression in parentheses (MS-VBAL §5.3.1.11): the
+// value let-coerced to the parameter's kind, of which a cell of its own is made for a call made directly; the invoker is given the value, as the
+// interpreter gives it. Only an argument of a call.
+internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Value.Kind);
+
+// a call of a procedure of the workspace (Callee, of CompiledBody.Callees), every argument a scalar passed by value, or the cell of one passed by reference
+// (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
+// variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
+// an instruction is handed to the interpreter at its start only before the call is made, which it would make again.
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
@@ -203,9 +218,15 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
 
 /// <summary>A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.</summary>
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
-/// <param name="Parameters">The kind of each parameter, each a scalar passed by value.</param>
+/// <param name="Parameters">The kind of each parameter, each a scalar.</param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
-internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind> Parameters, ScalarKind? Result);
+/// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
+internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind> Parameters, ScalarKind? Result,
+    IReadOnlyList<bool> ByReference)
+{
+    /// <summary>Whether any parameter is passed by reference.</summary>
+    public bool TakesReferences { get; } = ByReference.Contains(true);
+}
 
 /// <summary>
 /// A call compiled code makes of a procedure that is compiled too (IR lowering S2.3b): the callee's typed entry, which the caller's IL calls with the

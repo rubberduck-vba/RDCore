@@ -147,8 +147,40 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        StringAssert.Contains(WholeLogOf(platform.Root), "OmniSharp.Extensions.", "what OmniSharp's own container logs is in the language server's file as well");
         await platform.ShutdownAsync(6);
+    }
+
+    // a clean start and a clean shutdown log no fault: not the messages held until the client was initialized, nor the input read as it was completed. What
+    // OmniSharp's own container logs reaches each server's file: the platform handshake, which each server's container logs as it answers it - the language
+    // server's, of this client, and the parse server's, of the language server. The container logs what the client's trace asks for, and warnings whatever it
+    // asks for: a client that traces messages is told of the handshake. A program run has both servers up; a log is read once its server has exited, and its
+    // file log is flushed: the language server exits once the parse server it started has.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task AServerStartedThenShutDown_LogsNoFault_AndWhatItsConnectionLogsReachesItsFile()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var parameters = platform.InitializeParams(AsHexIdeDeclares);
+        parameters["trace"] = "messages";
+
+        var initialize = await rpc.RequestAsync(1, "initialize", parameters);
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+        var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute,
+            new JsonObject { ["source"] = "Public Sub Main()\r\n    Debug.Print 6\r\nEnd Sub\r\n", ["moduleName"] = "Program", ["entryPoint"] = "Main" });
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]?["outcome"]?.GetValue<int>(), executed.ToJsonString());
+        await platform.ShutdownAsync(4);
+
+        foreach (var component in new[] { "RDCore.LanguageServer", "RDCore.ParseServer" })
+        {
+            var log = WholeLogOf(platform.Root, component);
+            StringAssert.Contains(log, "\"OmniSharp.Extensions.JsonRpc.IJsonRpcHandler\": \"Platform handshake: ", $"what OmniSharp's own container logs is in the file of {component}");
+            Assert.DoesNotContain("Tried to send", log, component);
+            Assert.DoesNotContain("Reading is not allowed", log, component);
+        }
     }
 
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
@@ -268,6 +300,48 @@ public sealed class ClientWithoutOmniSharpTests
         }
 
         await platform.ShutdownAsync(4);
+    }
+
+    // a pause, as the shell's Ctrl+Break and the debug adapter send it, is handled while the program it pauses runs - in the language server and in the host - and
+    // stops a program that never ends.
+    private const string Looping = "Public Sub Main()\r\n    Dim Total As Long\r\n    Do While True\r\n        Total = Total + 1\r\n    Loop\r\nEnd Sub\r\n";
+
+    private const string ClaimsDebugging = """
+        { "expectedComponent": 1, "expected": { "languageServer": { "sessionExecute": { "isSupported": true }, "programDebugging": { "isSupported": true } } } }
+        """;
+
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task AProgramRunUnderADebugger_IsPausedWhileItRuns_ThenEnded()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDebugging)!.AsObject()))["error"]);
+
+        var running = rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute,
+            new JsonObject { ["source"] = Looping, ["moduleName"] = "Program", ["entryPoint"] = "Main", ["debug"] = true });
+
+        // a pause that arrives before the program runs acts on nothing, and is answered so: it is sent again until it stops the program.
+        var id = 4;
+        JsonNode paused;
+        do
+        {
+            paused = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugPause, new JsonObject());
+            Assert.IsNull(paused["error"], $"{paused.ToJsonString()}\n{LogOf(platform.Root)}");
+            Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+        }
+        while (paused["result"]!["acted"]!.GetValue<bool>() is false);
+
+        var suspended = await running;
+        Assert.AreEqual((int)ExecutionOutcome.Suspended, suspended["result"]!["outcome"]!.GetValue<int>(), $"{suspended.ToJsonString()}\n{LogOf(platform.Root)}");
+
+        var ended = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugTerminate, new JsonObject());
+        Assert.IsTrue(ended["result"]!["acted"]!.GetValue<bool>(), ended.ToJsonString());
+        await platform.ShutdownAsync(id);
     }
 
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.
@@ -409,12 +483,12 @@ public sealed class ClientWithoutOmniSharpTests
     // the end of the language server's log, which says what it did with what it was sent.
     private static string LogOf(string root) => string.Join('\n', WholeLogOf(root).Split('\n').TakeLast(60));
 
-    private static string WholeLogOf(string root)
+    private static string WholeLogOf(string root, string component = "RDCore.LanguageServer")
     {
-        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, "RDCore.LanguageServer*.log", SearchOption.AllDirectories).ToArray() : [];
+        var logs = Directory.Exists(root) ? Directory.EnumerateFiles(root, $"{component}*.log", SearchOption.AllDirectories).ToArray() : [];
         if (logs.Length == 0)
         {
-            return "(no language server log)";
+            return $"(no {component} log)";
         }
 
         using var stream = new FileStream(logs[0], FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);

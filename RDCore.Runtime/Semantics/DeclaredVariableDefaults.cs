@@ -70,9 +70,12 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             return new VBResizableArrayValue([], array.ItemType);
         }
 
+        // an array of more elements than RD-VBA holds is a compile error of its declaration (VBC09380, Out of memory), and is never made: the module it is
+        // declared in does not run.
         return variable.TryGetProperty(SymbolProperties.ArrayBounds, out var declared)
             && !declared.IsDefaultOrEmpty
             && TryReduce(variable, declared) is { } dimensions
+            && VBArrayValue.LengthOf(dimensions) <= VBArrayValue.MaximumLength
                 ? new VBFixedSizeArrayValue(dimensions, array.ItemType, ((IVariableDefaults)this).ElementDefaultOf(array.ItemType), ElementCellOf(array.ItemType))
                 : new VBFixedSizeArrayValue([], array.ItemType);
     }

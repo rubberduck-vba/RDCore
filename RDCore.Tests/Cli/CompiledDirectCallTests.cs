@@ -19,7 +19,7 @@ public sealed class CompiledDirectCallTests
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
+    internal static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
     private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
@@ -29,11 +29,11 @@ public sealed class CompiledDirectCallTests
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
     // what a run is to the person who runs it: what it printed, the error it raised, where, and the stack trace of it.
-    private static string Observed(ExecuteResult result)
+    internal static string Observed(ExecuteResult result)
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorCode} {result.ErrorMessage} "
             + $"@{result.ErrorLine}:{result.ErrorCharacter} | {string.Join(" < ", result.StackTrace.Select(frame => $"{frame.Procedure}@{frame.Line}:{frame.Character}"))}";
 
-    private static CompiledBody BodyOf(EnvironmentSessionProvider provider, string procedure)
+    internal static CompiledBody BodyOf(EnvironmentSessionProvider provider, string procedure)
         => provider.Image.Compiler.Results.Single(result => result.Procedure.Name == procedure).Result.Body
             ?? throw new AssertFailedException($"{procedure} is not compiled");
 
@@ -62,7 +62,7 @@ public sealed class CompiledDirectCallTests
 
     // how many calls a caller made directly, and through the invoker, out of all it makes: each of them while it ran compiled. Under the random walk-back its
     // activation is handed to the interpreter at a safepoint of its own, which makes the calls after it, and neither count says how many.
-    private static void AssertCalls(long all, (long Direct, long Indirect) made)
+    internal static void AssertCalls(long all, (long Direct, long Indirect) made)
     {
         if (CompiledExecution.WalksBackAtRandom)
         {

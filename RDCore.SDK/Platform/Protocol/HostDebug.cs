@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Server;
 
 namespace RDCore.SDK.Platform.Protocol;
 
@@ -30,6 +31,8 @@ public record class HostDebugResumeParams : IRequest, IRequest<ExecuteResult>
 /// Request for <c>rdcore/host/debug/pause</c>: stops a program that is running, at the next instruction, so that it waits there. The request that is running
 /// the program answers <see cref="ExecutionOutcome.Suspended"/>.
 /// </summary>
+/// <remarks>Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>).</remarks>
+[HandledOnArrival]
 [Method(RDCoreComponentProtocol.HostDebugPause, Direction.ClientToServer)]
 public record class HostDebugPauseParams : IRequest, IRequest<DebugAck>;
 
@@ -37,6 +40,12 @@ public record class HostDebugPauseParams : IRequest, IRequest<DebugAck>;
 /// Request for <c>rdcore/host/debug/terminate</c>: ends a program that is running or waits. Its variables stay, as they do when a program is stopped, unless
 /// <see cref="Wipe"/> says they go.
 /// </summary>
+/// <remarks>
+/// Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>): a program that is running is stopped at its
+/// next instruction, and ended by the request that runs it, which this answers after. A program in a call outside it - a <c>Declare</c>, an object, a dialog -
+/// comes to its next instruction when the call returns: the answer waits for that a few seconds at most, and the end asked of the program stands.
+/// </remarks>
+[HandledOnArrival]
 [Method(RDCoreComponentProtocol.HostDebugTerminate, Direction.ClientToServer)]
 public record class HostDebugTerminateParams : IRequest, IRequest<DebugAck>
 {
@@ -54,7 +63,9 @@ public record class HostDebugTerminateParams : IRequest, IRequest<DebugAck>
 /// A program that waits at an error is answered as one that waits at a <c>Stop</c> (<see cref="ExecutionOutcome.Suspended"/>), with the error in
 /// <see cref="ExecuteResult.ErrorNumber"/>, <see cref="ExecuteResult.ErrorMessage"/>, <see cref="ExecuteResult.ErrorCode"/> and
 /// <see cref="ExecuteResult.ErrorTitle"/>. Resumed, it deals with the error as it would have.
+/// <para>Handled as it arrives, while a request that runs a program runs (<see cref="HandledOnArrivalAttribute"/>): the next error raised is weighed by it.</para>
 /// </remarks>
+[HandledOnArrival]
 [Method(RDCoreComponentProtocol.HostDebugErrorBreak, Direction.ClientToServer)]
 public record class HostDebugErrorBreakParams : IRequest, IRequest<DebugAck>
 {
@@ -87,6 +98,18 @@ public record class HostDebugGotoParams : IRequest, IRequest<DebugGotoResult>
     /// <see cref="Line"/>.
     /// </summary>
     public string? Label { get; init; }
+
+    /// <summary>
+    /// The programmatic name of the module <see cref="Line"/> is a line of, or <see langword="null"/> for the module of the procedure the program waits in. A line of
+    /// another module is refused: the program can't go on from there.
+    /// </summary>
+    public string? ModuleName { get; init; }
+
+    /// <summary>
+    /// Whether the request only asks where the program would go on from, and moves nothing: the answer is the one the move would be, with the line the move would
+    /// land on - the first statement that begins on <see cref="Line"/> or after it, which a client offers as the target of the line.
+    /// </summary>
+    public bool Peek { get; init; }
 }
 
 /// <summary>

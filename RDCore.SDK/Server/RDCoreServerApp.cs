@@ -301,8 +301,10 @@ public abstract class RDCoreServerApp(
     private void ConfigureServer(LanguageServerOptions serverOptions)
     {
         serverOptions
-            .WithInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe)))
-            .WithOutput(PipeWriter.Create(_namedPipe))
+            // OmniSharp completes both as it handles exit, under the loops that read and write them: the input then ends, and a message still being
+            // written is no longer cancelled through the writer that was completed. Neither disposes the pipe, which this app does as it is disposed.
+            .WithInput(new ServerInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe))))
+            .WithOutput(ServerOutput.Over(_namedPipe))
             // basic server app information:
             .WithServerInfo(GetServerInfo())
             // wire-up lifecycle delegates:
@@ -354,6 +356,7 @@ public abstract class RDCoreServerApp(
                 builder.Services.AddSingleton<ILoggerProvider, ScrubbingLanguageServerLoggerProvider>();
                 // and to the file, which otherwise has nothing of the connection's own failures.
                 builder.Services.AddSingleton<ILoggerProvider>(new ContainerFileLoggerProvider(logger));
+                builder.WithoutDeferredOutputWarnings();
             });
 
             // app-specific service registrations:
@@ -617,6 +620,9 @@ internal static class LanguageServerOptionsExtensions
         // OmniSharp's own IReceiver drops a bare Exit sent before Initialize instead of letting it
         // through per spec, so ExitHandler above never runs and the host hangs instead of exiting
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
-        // registered first, so registering ours here pre-empts it.
-        .WithServices(services => services.AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
+        // registered first, so registering ours here pre-empts it. It also keeps a request that acts on a running program, which is handled as it arrives rather
+        // than after the request that runs the program (ArrivalRequests).
+        .WithServices(services => services
+            .AddSingleton<ArrivalRequests>()
+            .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

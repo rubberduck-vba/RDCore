@@ -642,10 +642,22 @@ public enum VBCompileErrorId
     /// </summary>
     ForEachMayOnlyIterateOverACollectionObjectOrAnArray = 9379,
     /// <summary>
-    /// A module declares more than 10,000 names at module level: RD-VBA's cap, below the count MS-VBA compiles, with MS-VBA's message.<br/>
+    /// A module declares more than 10,000 names at module level: RD-VBA's cap, below the count MS-VBA compiles, with MS-VBA's message. Or a fixed-size array is
+    /// declared with more elements than an array holds in RD-VBA (<see cref="Values.Intrinsic.VBArrayValue.MaximumLength"/>), which MS-VBA allocates.<br/>
     /// <strong>MS-VBAL §5.2</strong> Module Declarations, which sets no limit.
     /// </summary>
     OutOfMemory = 9380,
+    /// <summary>
+    /// A parameter of a user-defined type is declared <c>ByVal</c>: a record is passed by reference. MS-VBAL sets no such rule; MS-VBA refuses it, and so does
+    /// RD-VBA.<br/>
+    /// <strong>MS-VBAL §5.3.1.5</strong> Parameter Lists.
+    /// </summary>
+    UserDefinedTypeMayNotBePassedByVal = 9381,
+    /// <summary>
+    /// A record of a user-defined type that no public class module defines is given to a <c>Variant</c>, which can't hold it.<br/>
+    /// <strong>MS-VBAL §5.5.1.2</strong> Let-coercion.
+    /// </summary>
+    UserDefinedTypeNotCoercibleToVariant = 9382,
 
 
     /***********************************************************************************************

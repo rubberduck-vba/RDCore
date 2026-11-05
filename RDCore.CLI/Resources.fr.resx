@@ -545,6 +545,12 @@
   <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
     <value>aucune instruction de la procédure ne commence à cette ligne ni après</value>
   </data>
+  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
+    <value>la ligne n'est pas dans {0}, la procédure où le programme attend</value>
+  </data>
+  <data name="Host_GotoInAnotherModule" xml:space="preserve">
+    <value>la ligne est dans {0}, et le programme attend dans {1}</value>
+  </data>
   <data name="Host_NoSuchActivation" xml:space="preserve">
     <value>cette activation n'existe pas</value>
   </data>
@@ -630,7 +636,7 @@
     <value>un membre d'une classe</value>
   </data>
   <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
-    <value>un paramètre passé par référence : {0}</value>
+    <value>un paramètre ParamArray : {0}</value>
   </data>
   <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
     <value>ni un nombre, ni un Boolean, ni une Date : {0}</value>
@@ -648,7 +654,7 @@
     <value>une affectation de ce qui n'est pas une variable de la procédure : {0}</value>
   </data>
   <data name="Compilation_Reason_ForCounter" xml:space="preserve">
-    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure : {0}</value>
+    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure, ou est passé par référence : {0}</value>
   </data>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>un appel : {0}</value>

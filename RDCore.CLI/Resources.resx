@@ -547,6 +547,12 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
     <value>no statement of the procedure begins at that line or after it</value>
   </data>
+  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
+    <value>the line is not in {0}, the procedure the program waits in</value>
+  </data>
+  <data name="Host_GotoInAnotherModule" xml:space="preserve">
+    <value>the line is in {0}, and the program waits in {1}</value>
+  </data>
   <data name="Host_NoSuchActivation" xml:space="preserve">
     <value>there is no such activation</value>
   </data>
@@ -632,7 +638,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>a member of a class</value>
   </data>
   <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
-    <value>a parameter passed by reference: {0}</value>
+    <value>a ParamArray parameter: {0}</value>
   </data>
   <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
     <value>not a number, a Boolean or a Date: {0}</value>
@@ -650,7 +656,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>an assignment of what is not a variable of the procedure: {0}</value>
   </data>
   <data name="Compilation_Reason_ForCounter" xml:space="preserve">
-    <value>a For loop whose counter is not a numeric variable of the procedure: {0}</value>
+    <value>a For loop whose counter is not a numeric variable of the procedure, or is passed by reference: {0}</value>
   </data>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>a call: {0}</value>

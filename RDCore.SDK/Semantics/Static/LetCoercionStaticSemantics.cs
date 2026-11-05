@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -57,10 +58,31 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             sourceType = value.Result!;
         }
 
+        // a record a Variant can't hold, or an array of them, is refused with what MS-VBA says of it (recorded in Excel: oracle\s56 C07, D13), rather than as a
+        // type mismatch.
+        if (RecordOf(sourceType) is { } record && destinationType is VBVariantType)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant, expression.Location,
+                string.Format(Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose, record)));
+        }
+
         return !IsLetCoercionInvalid(sourceType, destinationType)
             ? StaticSemanticsEvaluationResult.Success(destinationType)
             : StaticSemanticsEvaluationResult.Error(GetStaticCoercionTypeMismatchErrorInfo(expression, operandDeclaredTypes));
     }
+
+    /// <summary>
+    /// The name of the user-defined type a Variant can't hold a record of: the type's, when it is one a module of the project declares - a referenced
+    /// library's public type is one it holds (<see cref="VBExternalUserDefinedType"/>) - or an array of its records' type.
+    /// </summary>
+    /// <param name="type">The declared type of what is given to a Variant.</param>
+    /// <returns>The type's name, or <c>null</c> when a Variant holds what the type is.</returns>
+    public static string? RecordOf(VBType type) => type switch
+    {
+        VBUserDefinedType { Symbol.Name: var name } and not VBExternalUserDefinedType => name,
+        VBArrayType { ItemType: VBUserDefinedType { Symbol.Name: var name } and not VBExternalUserDefinedType } => name,
+        _ => null,
+    };
 
     /// <summary>
     /// NOTE: This section of the MS-VBAL specification is notoriously evil. 

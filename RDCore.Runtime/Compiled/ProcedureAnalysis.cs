@@ -32,10 +32,15 @@ namespace RDCore.Runtime.Compiled;
 /// declines too, and hands the activation to the interpreter at that instruction (<see cref="CompiledActivation.Interpret"/>).
 /// </para>
 /// <para>
-/// Compiled code does a procedure of a standard module whose parameters are scalars passed by value and whose variables are scalars: literals,
-/// constants, arithmetic, comparisons and the logical operators; <c>Let</c>; <c>If</c>, <c>Do</c>, <c>While</c> and <c>For</c>; <c>Exit</c>; and calls of
-/// procedures of the workspace whose parameters are scalars passed by value - a call statement that gives arguments (a bare <c>Foo</c> binds as a name,
-/// which is not compiled), or a function's result assigned whole; a function called as a statement returns a scalar.
+/// Compiled code does a procedure of a standard module whose parameters and variables are scalars: literals, constants, arithmetic, comparisons and the
+/// logical operators; <c>Let</c>; <c>If</c>, <c>Do</c>, <c>While</c> and <c>For</c>; <c>Exit</c>; and calls of procedures of the workspace whose
+/// parameters are scalars - a call statement that gives arguments (a bare <c>Foo</c> binds as a name, which is not compiled), or a function's result
+/// assigned whole; a function called as a statement returns a scalar.
+/// </para>
+/// <para>
+/// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation (IR lowering S2.3c),
+/// which the frame holds too: the cell of a parameter is its caller's variable (MS-VBAL §5.3.1.11), and what the interpreter, a debugger or a frame made
+/// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
 /// </remarks>
 internal sealed class ProcedureAnalysis
@@ -66,8 +71,16 @@ internal sealed class ProcedureAnalysis
 
     private readonly Dictionary<int, Symbol> _slotSymbols = [];
 
-    /// <summary>The slot of each parameter, in the order they are declared, and its kind.</summary>
-    public List<(int Slot, ScalarKind Kind)> Parameters { get; } = [];
+    /// <summary>The slot of each parameter, in the order they are declared, its kind, and whether it is passed by reference.</summary>
+    public List<(int Slot, ScalarKind Kind, bool ByReference)> Parameters { get; } = [];
+
+    /// <summary>
+    /// The slots held in a cell rather than a local of compiled code, in order: each parameter passed by reference, and each parameter or variable passed by
+    /// reference to a procedure the body calls.
+    /// </summary>
+    public IReadOnlyList<int> CellSlots => [.. _cellSlots];
+
+    private readonly SortedSet<int> _cellSlots = [];
 
     /// <summary>The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</summary>
     public ScalarKind? ResultKind { get; private set; }
@@ -112,6 +125,17 @@ internal sealed class ProcedureAnalysis
                 return;
             }
         }
+
+        // a loop counts in a local of compiled code: one that counts with a variable held in a cell - passed by reference, by its caller or to a callee,
+        // which may be found only after the loop - is the interpreter's.
+        for (var i = 0; i < _loops.Count; i++)
+        {
+            if (_cellSlots.Contains(_counterSlots[i]))
+            {
+                Refuse(IneligibilityKind.ForCounter, _loops[i].Counter.Name, _loops[i].Control.Location);
+                return;
+            }
+        }
     }
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));
@@ -121,7 +145,7 @@ internal sealed class ProcedureAnalysis
 
     private static SourceLocation LocationOf(VBTypeMemberSymbol declared) => new(declared.Uri, declared.Range);
 
-    // the procedure itself: a Sub, a Function or a Property Get of a standard module, whose parameters are scalars by value and whose variables scalars.
+    // the procedure itself: a Sub, a Function or a Property Get of a standard module, whose parameters and variables are scalars.
     private bool AnalyzeSignature()
     {
         if (_procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
@@ -140,7 +164,7 @@ internal sealed class ProcedureAnalysis
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
-            if (parameter is ParamArrayParameterSymbol || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
+            if (parameter is ParamArrayParameterSymbol)
             {
                 Refuse(IneligibilityKind.ParameterByReference, parameter.Name, LocationOf(parameter));
                 continue;
@@ -152,9 +176,14 @@ internal sealed class ProcedureAnalysis
                 continue;
             }
 
+            var byReference = RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind);
             _slots[_layout.ParameterSlots[i]] = kind;
             _slotSymbols[_layout.ParameterSlots[i]] = parameter;
-            Parameters.Add((_layout.ParameterSlots[i], kind));
+            Parameters.Add((_layout.ParameterSlots[i], kind, byReference));
+            if (byReference)
+            {
+                _ = _cellSlots.Add(_layout.ParameterSlots[i]);
+            }
         }
 
         var locals = RuntimeProcedureInvoker.GetLocals(_procedure);
@@ -297,10 +326,12 @@ internal sealed class ProcedureAnalysis
     /// <summary>The procedures the body calls, by the number its call steps know each by.</summary>
     public List<CompiledCallee> Callees { get; } = [];
 
-    // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind passed by value, none a
-    // Variant, and given an argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what
-    // it returns is let go of as a temporary of the statement, which compiled code holds none of. It is made with RuntimeProcedureInvoker.InvokeScalars,
-    // as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters.
+    // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
+    // argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what it returns is let go
+    // of as a temporary of the statement, which compiled code holds none of. A parameter passed by reference is given the cell of a variable of the
+    // activation of its kind, which is held in one from then on, or a cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made
+    // with RuntimeProcedureInvoker.InvokeScalars, as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with
+    // the cells as the interpreter passes them (CellReference) when any is passed by reference.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
@@ -325,22 +356,47 @@ internal sealed class ProcedureAnalysis
         }
 
         var kinds = new List<ScalarKind>(parameters.Length);
+        var byReference = new List<bool>(parameters.Length);
         var values = new List<PayloadNode>(parameters.Length);
+        var escaping = new List<int>();
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind) || parameters[i] is ParamArrayParameterSymbol
-                || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind
-                || arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } argument } || PayloadAs(argument, kind) is not { } value)
+            if (parameters[i] is ParamArrayParameterSymbol || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind || ArgumentOf(arguments[i], kind) is not { } value)
             {
                 return null;
             }
 
             kinds.Add(kind);
+            byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
             values.Add(value);
+            if (value is ReferenceNode reference)
+            {
+                escaping.Add(reference.Slot);
+            }
         }
 
-        Callees.Add(new CompiledCallee(procedure, kinds, resultKind));
+        // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
+        _cellSlots.UnionWith(escaping);
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference));
         return new CallStep(offset, Callees.Count - 1, values, result);
+    }
+
+    // the argument of a parameter of kind: a value let-coerced to it, for one passed by value or for one passed by reference that is given no variable; the
+    // cell of a variable of the activation of that very kind, for one passed by reference that is given it. A variable of another kind, or of another
+    // activation - a field, an element - is the interpreter's to pass.
+    private PayloadNode? ArgumentOf(BoundArgument argument, ScalarKind kind)
+    {
+        switch (argument)
+        {
+            case { Passing: ArgumentPassing.Value, Value: { } given } when BoundArgument.IsByRef(argument.Parameter):
+                return PayloadAs(given, kind) is { } copied ? new TemporaryNode(copied) : null;
+            case { Passing: ArgumentPassing.Value, Value: { } given }:
+                return PayloadAs(given, kind);
+            case { Passing: ArgumentPassing.Reference, Value: BoundVariable variable } when SlotOf(variable) is { } slot && _slots[slot] == kind:
+                return new ReferenceNode(slot, kind);
+            default:
+                return null;
+        }
     }
 
     private CompiledStep? RefusedCall(ExpressionNode callee, SourceLocation? location)
