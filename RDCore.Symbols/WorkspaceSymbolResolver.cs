@@ -93,8 +93,8 @@ public static class WorkspaceSymbolResolver
     {
         var symbols = new List<Symbol>();
 
-        // a module named as its project keeps the name: MS-VBA refuses one ("Name conflicts with existing module, project, or object library"), and the shell's
-        // own project is named as its one module.
+        // a module named as its project keeps the name: MS-VBA refuses one ("Name conflicts with existing module, project, or object library"), and a project
+        // file can still name one so.
         if (projectName is not null
             && !modules.Any(module => string.Equals(module.ModuleUri.Fragment.TrimStart('#'), projectName, StringComparison.OrdinalIgnoreCase)))
         {

@@ -158,6 +158,15 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
 public record class RDCoreProject
 {
     /// <summary>
+    /// The name of a project that is given none of its own: <c>VBAProject</c>, as MS-VBA names a new project.
+    /// </summary>
+    /// <remarks>
+    /// A workspace whose project file names no project is named after its folder, or this when its folder's name is no identifier. The shell's own
+    /// project is named this too, which leaves its one module, <c>Program</c>, no project of its own name (<strong>RD-VBAL §2.2.3</strong>).
+    /// </remarks>
+    public const string DefaultName = "VBAProject";
+
+    /// <summary>
     /// The project's name: what a project-qualified reference to its members names.
     /// </summary>
     public string Name { get; init; } = string.Empty;

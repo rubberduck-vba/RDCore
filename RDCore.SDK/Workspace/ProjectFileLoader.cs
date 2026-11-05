@@ -221,5 +221,5 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
             && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
             && !string.Equals(name, "VBA", StringComparison.OrdinalIgnoreCase)
             ? name
-            : "VBAProject";
+            : RDCoreProject.DefaultName;
 }

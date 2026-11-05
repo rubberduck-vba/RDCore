@@ -42,7 +42,8 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         // object contain values that have not been cleared, those values serve as the values for the new
         // error" - so an omitted argument reads the property rather than resetting it.
         var errorNumber = Convert.ToInt32(number.Handle.Value.BoxedValue);
-        State.Source = Text(source) ?? State.Source;
+        // the source is the error's, which the session's error state takes from it when it is raised: given none and keeping none, the project's.
+        var raisedSource = Text(source) ?? State.Source;
         State.HelpFile = Text(helpFile) ?? State.HelpFile;
         // a help context of 0 is none: the error's own, as a run-time error has (Err.Raise 5, , , , 0 is 1000005, recorded in Excel: oracle\s58 H03, H06).
         var context = Number(helpContext) is { } given
@@ -61,7 +62,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         // the error is returned rather than recorded: the executor's own error interception is where
         // every run-time error reaches the session's error state, and where the stack trace is captured.
         return RuntimeSemanticsEvaluationResult.Error(
-            VBApplicationErrorInfo.Raised(errorNumber, raiseLocation, $"Err.Raise {errorNumber}", raised) with { HelpContext = context },
+            VBApplicationErrorInfo.Raised(errorNumber, raiseLocation, $"Err.Raise {errorNumber}", raised) with { HelpContext = context, Source = raisedSource },
             VBVoidValue.Void);
     }
 

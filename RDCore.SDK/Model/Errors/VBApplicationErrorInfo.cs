@@ -44,6 +44,13 @@ public record class VBApplicationErrorInfo(int CustomErrorCode, SourceLocation L
     public int? HelpContext { get; init; }
 
     /// <summary>
+    /// The source <c>Err.Raise</c> gave the error - the one it was given, or the one <c>Err</c> had and kept (<strong>MS-VBAL §6.1.3.2.1.2</strong>) -
+    /// or <see langword="null"/> for the name of the project whose code runs (<see cref="Runtime.Abstract.Execution.ISessionErrorState.ProjectName"/>),
+    /// which every other error has, one an <c>Error</c> statement raises among them (recorded in Excel: oracle\s61 H07-H10).
+    /// </summary>
+    public string? Source { get; init; }
+
+    /// <summary>
     /// Creates the error an <c>Error</c> statement or an <c>Err.Raise</c> generates.
     /// </summary>
     /// <remarks>

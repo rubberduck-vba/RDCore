@@ -62,7 +62,8 @@ public sealed class ReplWorkspace : IDisposable
 
         await projectWriter.SaveAsync(new ProjectFile(root, new RDCoreProject
         {
-            Name = ReplProgram.ModuleName,
+            // named as MS-VBA names a new project: a project named as its module is one MS-VBA refuses, and one no project-qualified reference names.
+            Name = RDCoreProject.DefaultName,
             Modules = [new RDCoreModule { RelativeUri = relativeUri }],
         }), token);
 

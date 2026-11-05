@@ -71,15 +71,22 @@ The MS-VBA shape leaves `ErrObject` nameable in an `As` clause, instead of shado
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.3.2.2.6** Source](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a282720f-a558-4918-b5cb-6aa7114c0d47).
 
-`Err.Source` defaults to the project name (**MS-VBAL §6.1.3.2.2.6**). The default is applied where a run-time error is
-reported to the host: when the error's source is empty, the `rdcore/session/execute` result reports the project name
-as the error's source ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md)).
+An error's `Source` is the name of the project whose code runs (**MS-VBAL §6.1.3.2.1.2**: "the programmatic ID of the
+current Visual Basic project"), unless `Err.Raise` gives it one. Recorded in Excel (`oracle\s58` H06, `s61` H07-H12),
+where the project is `VBAProject`:
 
-The session's own `Source`
-([ISessionErrorState](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionErrorState.html)`.Source`) is empty until
-the error object sets it (`IStdErrClass.Source`, or `IStdErrClass.Raise` with a source argument). VBA source cannot
-reach the error object (see the note under [The Err function](#the-err-function)), so the `rdcore/session/execute`
-result always reports the project name as the error's source.
+|What raises the error|`Err.Source`|
+|---|---|
+|A run-time error (`1 / 0`), an `Error` statement, an automation object (a `Dictionary`'s 457), in a standard module or a class|The project's name, whatever `Err.Source` was before: one assigned, one an `Err.Raise` gave|
+|`Err.Raise` with a source|That source|
+|`Err.Raise` with none, while `Err` has one (`Err.Raise 5, "lib"`, then `Err.Raise 6`)|The one `Err` has: `lib`|
+|`Err.Raise` with none, and `Err` none (after `Err.Clear`)|The project's name|
+
+`Err.Clear` empties it. The project's name is the one the project file gives it, or its folder's
+([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). The shell's project is named `VBAProject`, as MS-VBA names a new
+project; its one module is `Program`.
+The `rdcore/session/execute` result reports the same source for the error a run ends with
+([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md)).
 
 ### 6.1.3.2.2.7 StackTrace
 
