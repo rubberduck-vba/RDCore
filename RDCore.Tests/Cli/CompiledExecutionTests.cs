@@ -513,15 +513,16 @@ public sealed class CompiledExecutionTests
             "    Debug.Print Guarded(0)",
             "End Sub",
             "Private Function Guarded(ByVal N As Long) As Long",
-            "    On Error Resume Next",
-            "    Guarded = 10 \\ N",
+            "    Select Case N",
+            "        Case 0: Guarded = 10",
+            "    End Select",
             "    Guarded = Guarded + 1",
             "End Function"));
 
         var guarded = run.Compiled["Guarded"];
         Assert.IsNull(guarded.Body);
         Assert.AreEqual(IneligibilityKind.Instruction, guarded.Reasons.Single().Kind);
-        Assert.AreEqual(nameof(SDK.Semantics.Instructions.InstructionKind.OnErrorResumeNext), guarded.Reasons.Single().Detail);
+        Assert.AreEqual(nameof(SDK.Semantics.Instructions.InstructionKind.Select), guarded.Reasons.Single().Detail);
     }
 
     [TestMethod]
@@ -575,7 +576,8 @@ public sealed class CompiledExecutionTests
         using var strictly = CompiledExecution.Strictly();
         var run = await RunAsync(Program(
             "Public Sub Main()",
-            "    On Error Resume Next",
+            "    Select Case 1",
+            "    End Select",
             "End Sub"), VBExecutionEngine.Compiled);
 
         Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));
