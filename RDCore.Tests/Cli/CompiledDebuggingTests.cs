@@ -70,6 +70,7 @@ public sealed class CompiledDebuggingTests
     [TestMethod]
     public async Task ABreakpointSetWhileACompiledLoopRuns_IsWaitedAt_InTheLoop()
     {
+        CompiledExecutionTests.RequirePayloads();
         await ModuleWorkspace.InspectAsync([], Spinning, async (provider, first, runAgain) =>
         {
             // the program waits at Main's Stop, before Spin is called: the first call of Spin compiles it, and that activation is the one running once it is
@@ -163,6 +164,7 @@ public sealed class CompiledDebuggingTests
     // the program run to the Stop in Inner, at stopLine, while Outer, compiled, is in the middle of its call; edited; and resumed.
     private static async Task<ExecuteResult> EditedWhileACompiledCallerWaitsAsync(string program, string edited, int stopLine)
     {
+        CompiledExecutionTests.RequirePayloads();
         ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, first, runAgain) =>
         {
@@ -227,6 +229,7 @@ public sealed class CompiledDebuggingTests
     [TestMethod]
     public async Task TheCallACompiledCallerIsInTheMiddleOf_MovedIntoAnotherLoop_IsRefused()
     {
+        CompiledExecutionTests.RequirePayloads();
         var program = Program(
             "Public Sub Main()",
             "    Stop",
@@ -259,6 +262,7 @@ public sealed class CompiledDebuggingTests
     [TestMethod]
     public async Task AnErrorTheCalleeRaises_AfterAnEditOfTheCompiledCaller_IsTheCallsWhereItNowIs()
     {
+        CompiledExecutionTests.RequirePayloads();
         var program = Program(
             "Public Sub Main()",
             "    On Error GoTo Caught",
@@ -294,6 +298,7 @@ public sealed class CompiledDebuggingTests
     // in the same call, edited as secondEdit, and resumed to its end.
     private static async Task<ExecuteResult> EditedAtTwoWaitsOfACompiledCallerAsync(string firstEdit, string secondEdit)
     {
+        CompiledExecutionTests.RequirePayloads();
         ExecuteResult? resumed = null;
         await ModuleWorkspace.InspectAsync([], StoppingTwice, async (provider, first, runAgain) =>
         {
@@ -343,6 +348,7 @@ public sealed class CompiledDebuggingTests
     [TestMethod]
     public async Task ACompiledLoopPaused_IsShownWaitingAtItsNext()
     {
+        CompiledExecutionTests.RequirePayloads();
         await ModuleWorkspace.InspectAsync([], Spinning, async (provider, first, runAgain) =>
         {
             Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);

@@ -93,6 +93,7 @@ public sealed class IntegralRoundingRangeTests
     [DataRow("Long", "2147483647.5", "e6", DisplayName = "a Long of 2147483647.5")]
     public async Task ACompiledLetCoercion_RoundsBeforeTheRangeIsChecked(string type, string value, string expected)
     {
+        CompiledExecutionTests.RequirePayloads();
         var program = string.Join("\r\n",
             "Attribute VB_Name = \"Program\"",
             $"Private Function Whole(ByVal d As Double) As {type}",

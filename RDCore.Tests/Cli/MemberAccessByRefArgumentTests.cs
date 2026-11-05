@@ -101,18 +101,23 @@ public sealed class MemberAccessByRefArgumentTests
     [DataRow("Dim t(1) As TOuter ;; t(0).Inner.X = 1 ;; With t(0) ;; BumpLong .Inner.X ;; End With ;; Debug.Print t(0).Inner.X", "11", DisplayName = "M02 .Inner.X in With t(0)")]
     [DataRow("Dim r As TOuter ;; ReDim r.B(1) ;; r.B(0) = 1 ;; With r ;; BumpLong .B(0) ;; End With ;; Debug.Print r.B(0)", "11", DisplayName = "M03 .B(0) in With r")]
     public async Task ACompiledCallee_IsGivenTheField(string body, string expected)
-        => await InspectAsync([("Box", Box)], Program(body), (provider, run, _) =>
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await InspectAsync([("Box", Box)], Program(body), (provider, run, _) =>
         {
             Assert.AreEqual(expected, string.Join("|", run.Output.Select(line => line.Trim())), run.ErrorMessage);
             Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "BumpLong" && result.Result.Body is not null), "BumpLong runs compiled");
             return Task.CompletedTask;
         }, engine: VBExecutionEngine.Compiled);
+    }
 
     // what compiled code passes by reference is a variable of its own activation (S2.3c): a caller that passes a field or an element is the interpreter's,
     // which binds it as the rows above have it.
     [TestMethod]
     public async Task ACallerThatPassesAField_RunsInTheInterpreter()
-        => await InspectAsync([], StandardModule("Program",
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await InspectAsync([], StandardModule("Program",
             "Private Type TPair", "    X As Long", "End Type",
             "Private Sub BumpLong(ByRef n As Long)", "    n = n + 10", "End Sub",
             "Private Function Passes() As Long", "    Dim r As TPair", "    r.X = 1", "    BumpLong r.X", "    Passes = r.X", "End Function",
@@ -124,6 +129,7 @@ public sealed class MemberAccessByRefArgumentTests
                 "Passes runs in the interpreter");
             return Task.CompletedTask;
         }, engine: VBExecutionEngine.Compiled);
+    }
 
     private static async Task AssertPrintedInEitherEngineAsync(string body, string expected)
     {
