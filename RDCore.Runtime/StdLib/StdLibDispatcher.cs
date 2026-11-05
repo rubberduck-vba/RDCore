@@ -185,6 +185,9 @@ public sealed class StdLibDispatcher : IExternalCallProvider
 
         // a ParamArray told nothing is an empty array of its elements, which nothing can change.
         public Array? EmptyParamArray { get; } = IsParamArray ? System.Array.CreateInstance(Type.GetElementType()!, 0) : null;
+
+        // a ParamArray whose elements are given as the variables they refer to (StdLibParamArrayOfVariablesAttribute), and not as their values.
+        public bool IsOfVariables { get; } = IsParamArray && Info.GetCustomAttribute<StdLibParamArrayOfVariablesAttribute>() is not null;
     }
 
     private readonly ConcurrentDictionary<VBTypeMemberSymbol, StdLibEntry?> _entries = new(ReferenceEqualityComparer.Instance);
@@ -382,6 +385,11 @@ public sealed class StdLibDispatcher : IExternalCallProvider
                 || !elementType.IsInstanceOfType(converted))
             {
                 return false;
+            }
+
+            if (parameter.IsOfVariables && converted is VBVariantValue read && collected.CellAt(index) is VariantReferenceBindingHandle variable)
+            {
+                converted = new VBVariantValue(variable, read.TypedValue);
             }
 
             elements.SetValue(converted, index);

@@ -57,16 +57,18 @@ internal static class NumericLiteral
     /// <summary>
     /// Negates a resolved numeric literal (VBA has no negative-literal token — the sign is a unary
     /// operator). Returns <c>null</c> for a value that is not one of the numeric intrinsics
-    /// <see cref="Resolve"/> produces, and for the least <c>Integer</c> and the least <c>LongLong</c>,
-    /// whose negation MS-VBA overflows: in a <c>Const</c> a compile error, elsewhere error 6 when it
-    /// runs (recorded in Excel: oracle\s58 N07, N09, N10, N11). The least <c>Long</c> it negates as
-    /// itself (N07, N08).
+    /// <see cref="Resolve"/> produces, and for one whose negation its type cannot hold: the least
+    /// <c>Integer</c>, <c>Long</c> or <c>LongLong</c>, which the unary operator negates. Of the least
+    /// <c>Integer</c> and <c>LongLong</c> that is an overflow (MS-VBA: <c>-&amp;H8000</c> raises 6 at run
+    /// time, and is a compile error in a <c>Const</c>; Excel, oracle\s56 G14, s57 N01-N06, s58 N09-N11);
+    /// the least <c>Long</c> of a constant expression is its own negation (s58 N07, N08), which the
+    /// operator's binding says (<c>BoundUnary.NegatesAConstantExpression</c>).
     /// </summary>
     public static VBTypedValue? Negate(VBTypedValue value) => value switch
     {
-        VBIntegerValue { Value: short.MinValue } or VBLongLongValue { Value: long.MinValue } => null,
+        VBIntegerValue { Value: short.MinValue } or VBLongValue { Value: int.MinValue } or VBLongLongValue { Value: long.MinValue } => null,
         VBIntegerValue v => new VBIntegerValue((short)-v.Value),
-        VBLongValue v => new VBLongValue(unchecked(-v.Value)),
+        VBLongValue v => new VBLongValue(-v.Value),
         VBLongLongValue v => new VBLongLongValue(-v.Value),
         VBSingleValue v => new VBSingleValue(-v.Value),
         VBDoubleValue v => new VBDoubleValue(-v.Value),
