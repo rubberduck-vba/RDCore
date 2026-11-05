@@ -24,6 +24,12 @@ public sealed record class VBUserDefinedTypeMemberSymbol(Uri WorkspaceRoot, Uri 
     /// hand back a fully-formed <c>VBUserDefinedType</c> without a second lookup.
     /// </summary>
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; } = [];
+
+    /// <remarks>
+    /// A Type's name is a type's, and a variable, a constant or a procedure of its module may take it (<strong>MS-VBAL §5.2.3.3</strong>). A Type is
+    /// addressed by the reserved word <c>Type</c> after its name, which no identifier can be, and its fields under it (<c>Point.Type.X</c>).
+    /// </remarks>
+    protected override string? UriSuffix => SymbolUri.TypeSuffix;
 }
 
 /// <summary>

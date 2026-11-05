@@ -34,9 +34,11 @@ public abstract record class Symbol
     }
 
     /// <summary>
-    /// A segment appended to the <c>name</c> to form the last segment of this symbol's <see cref="Uri"/>, for a
-    /// symbol whose name alone would not identify it: the accessors of one property share a name, and each defines
-    /// a scope of its own. <c>null</c> — the name alone identifies the symbol — unless overridden.
+    /// A reserved word appended to the <c>name</c> to form the last segment of this symbol's <see cref="Uri"/>, for a
+    /// symbol whose name alone would not identify it (<see cref="SymbolUri"/>): the accessors of one property share a
+    /// name, and each defines a scope of its own (<c>Let</c>, <c>Set</c>); an Enum, a Type or an Event may share a name
+    /// with a variable, a constant or a procedure of its module (<c>Enum</c>, <c>Type</c>, <c>Event</c>). <c>null</c>,
+    /// the name alone identifying the symbol, unless overridden.
     /// </summary>
     /// <remarks>
     /// Read while the base constructor runs, before any derived state exists: an override must return a constant.

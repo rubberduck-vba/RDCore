@@ -161,7 +161,8 @@ internal sealed class DefineSymbolsHandler(
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch
     // into one symbol, each other branch's arriving beside it with the same identity (uri): of those the one of the live branch is defined, and a declaration
     // written in dead branches only is not, as MS-VBA compiles a module. Without the directives, the first that carries every site is, as it always was.
-    // Property Get/Let/Set have identities of their own (Symbol.UriSuffix), so they stay distinct.
+    // Property Get/Let/Set, and an Enum, a Type or an Event beside a namesake of the module, have identities of their own (Symbol.UriSuffix), so they stay
+    // distinct.
     private static (int Defined, int Replaced, int Merged, List<string> Skipped) DefineSymbols(
         IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace, Func<SourcePosition, bool>? isDead)
     {

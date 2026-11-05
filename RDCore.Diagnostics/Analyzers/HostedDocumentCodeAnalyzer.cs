@@ -103,7 +103,7 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
         {
             if (fact.Binding is { } binding
                 && binding.GetLeftPart(UriPartial.Path) == classUri.GetLeftPart(UriPartial.Path)
-                && SymbolUri.PathOf(binding) is var address && address.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && SymbolUri.QualifiedNameOf(binding) is var address && address.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 && !address[prefix.Length..].Contains('.'))
             {
                 yield return new RelatedFinding(documentUri, fact.Location.Range,

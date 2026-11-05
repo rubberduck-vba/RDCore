@@ -23,7 +23,7 @@ public sealed record class VBPropertyLetMemberSymbol(Uri WorkspaceRoot, Uri Pare
     /// own — its parameters and locals. The <c>Get</c> accessor keeps the property's own identity; a <c>Let</c>
     /// accessor is addressed by the reserved word <c>Let</c> after the name, which no local or parameter can be.
     /// </remarks>
-    protected override string? UriSuffix => "Let";
+    protected override string? UriSuffix => SymbolUri.LetSuffix;
 }
 
 /// <summary>

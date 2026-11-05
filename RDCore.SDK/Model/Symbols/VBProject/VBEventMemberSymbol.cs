@@ -23,6 +23,12 @@ public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri,
     /// describe the signature a handler must match.
     /// </summary>
     public ImmutableArray<VBParameterSymbol> Parameters { get; init; } = [];
+
+    /// <remarks>
+    /// A variable, a constant, an enum member or a procedure of an Event's module may take its name (<strong>MS-VBAL §5.2.4.3</strong>). An Event is
+    /// addressed by the reserved word <c>Event</c> after its name, which no identifier can be, and its parameters under it (<c>Changed.Event.value</c>).
+    /// </remarks>
+    protected override string? UriSuffix => SymbolUri.EventSuffix;
 }
 
 /// <summary>

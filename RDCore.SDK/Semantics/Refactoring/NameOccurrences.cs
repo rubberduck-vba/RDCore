@@ -331,8 +331,8 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return declaring?.DeclaredAs(name).FirstOrDefault(declared => declared.SemanticId != symbol.SemanticId);
     }
 
-    /// <summary>What a symbol is, as a reader would name it: its address in the workspace or its library.</summary>
-    public static string Describe(Symbol symbol) => SymbolUri.PathOf(symbol.Uri) is { Length: > 0 } path ? path : symbol.Name;
+    /// <summary>What a symbol is, as a reader would name it: its qualified name in the workspace or its library (<see cref="SymbolUri.QualifiedNameOf"/>).</summary>
+    public static string Describe(Symbol symbol) => SymbolUri.QualifiedNameOf(symbol.Uri) is { Length: > 0 } path ? path : symbol.Name;
 
     // what the static pass binds the expressions of each procedure of the module to.
     private static Dictionary<SyntaxNodeId, ExpressionFact> FactsOf(RenameContext context, RenameModule module)
