@@ -361,16 +361,17 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return [.. candidates.Where(candidate => Rank(candidate) == highest)];
     }
 
+    // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two
+    // modules' declarations of the name are still an ambiguous name. Seen from another module, an Enum and a Function of one module is the Function, an Enum
+    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (Excel-verified, oracle\s66 X01-X06, X08, X09). A module is told by its
+    // address, and not by a candidate's parent: the parent of an Enum's constant is the Enum.
+    private static IEnumerable<Symbol> ValuesOverEnumsOfEachModule(IEnumerable<Symbol> candidates)
+        => candidates.GroupBy(candidate => (Root: candidate.Uri.GetLeftPart(UriPartial.Query), Module: SymbolUri.ModuleNameOf(candidate.Uri))).SelectMany(ValuesOverEnums);
+
     // an Enum and a procedure of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
     // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only. An Enum
     // and a variable or a constant of one name: the name is the Enum, whichever is declared first and whatever their access (`V = 5` is "Expected variable or
     // procedure, not enum type"). Excel-verified, oracle\s64 E03, E04, E11, E14, E20-E23.
-    // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two
-    // modules' declarations of the name are still an ambiguous name. Seen from another module, an Enum and a Function of one module is the Function, an Enum
-    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (Excel-verified, oracle\s66 X01-X06, X08, X09).
-    private static IEnumerable<Symbol> ValuesOverEnumsOfEachModule(IEnumerable<Symbol> candidates)
-        => candidates.GroupBy(candidate => candidate.ParentUri.AbsoluteUri, StringComparer.Ordinal).SelectMany(ValuesOverEnums);
-
     private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
     {
         var matches = candidates.ToArray();

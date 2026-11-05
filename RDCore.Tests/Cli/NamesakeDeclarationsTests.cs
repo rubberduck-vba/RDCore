@@ -147,6 +147,19 @@ public sealed class NamesakeDeclarationsTests
     }
 
     [TestMethod]
+    // not measured (oracle-pending-rows.md): an Enum's constant and another Enum of one module, which the constant's parent, its Enum, does not tell apart
+    // from two modules' namesakes. Seen from another module, the name is what it is in its own.
+    public async Task FromAnotherModule_AnEnumsConstantAndAnotherEnumOfOneModule_AreWhatTheyAreInTheirModule()
+    {
+        const string second = "Public Enum A\r\n    X\r\nEnd Enum\r\nPublic Enum X\r\n    Q\r\nEnd Enum\r\nPublic Sub InSecond()\r\n    Debug.Print X\r\nEnd Sub";
+
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules(second), StandardProgram(string.Empty, string.Empty, "    Debug.Print X"));
+
+        Assert.HasCount(2, errors, string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+    }
+
+    [TestMethod]
     public async Task InAStandardModule_TheNameQualifyingAMember_IsTheFunctionsValue_AnInvalidQualifier()
     {
         // E24: F takes no argument, and F.One is a member of the Long it returns.
