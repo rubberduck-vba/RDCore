@@ -87,7 +87,8 @@ internal static class ArgumentListStaticSemantics
                 }
 
                 if ((AnyError(context, procedure, parameter, named.Value) ?? RecordError(context, procedure, parameter, named.Value)
-                    ?? ByRefError(context, procedure, parameter, named.Value) ?? ValueError(context, procedure, parameter, named.Value)) is { } namedByRef)
+                    ?? ArrayError(context, procedure, parameter, named.Value) ?? ByRefError(context, procedure, parameter, named.Value)
+                    ?? ValueError(context, procedure, parameter, named.Value)) is { } namedByRef)
                 {
                     return namedByRef;
                 }
@@ -116,7 +117,8 @@ internal static class ArgumentListStaticSemantics
             {
                 given.Add(own[position].Name);
                 if ((AnyError(context, procedure, own[position], argument) ?? RecordError(context, procedure, own[position], argument)
-                    ?? ByRefError(context, procedure, own[position], argument) ?? ValueError(context, procedure, own[position], argument)) is { } byRef)
+                    ?? ArrayError(context, procedure, own[position], argument) ?? ByRefError(context, procedure, own[position], argument)
+                    ?? ValueError(context, procedure, own[position], argument)) is { } byRef)
                 {
                     return byRef;
                 }
@@ -193,8 +195,7 @@ internal static class ArgumentListStaticSemantics
 
         return (parameter.ResolvedType, argumentType) switch
         {
-            (VBArrayType { ItemType: var expected }, VBArrayType { ItemType: var given }) when IsIntrinsic(expected) && IsIntrinsic(given) && !ParameterLists.SameType(expected, given)
-                => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected, argument.Location, name.IdentifierName),
+            (VBArrayType, _) => null,
             (var expected, var given) when IsIntrinsic(expected) && (IsIntrinsic(given) || given is VBVariantType) && !ParameterLists.SameType(expected, given)
                 => VBCompileErrorInfo.For(VBCompileErrorId.ByRefArgumentTypeMismatch, argument.Location, name.IdentifierName),
             // a Variant is no variable of a class, whatever it holds; an Object variable is, and a class variable is an Object (Excel-verified).
@@ -203,6 +204,39 @@ internal static class ArgumentListStaticSemantics
             _ => null,
         };
     }
+
+    // MS-VBAL §5.3.1.11: an array parameter is a second name for an array of its element type, which it is given. MS-VBA refuses another at compile time,
+    // "Type mismatch: array or user-defined type expected" (recorded in Excel: oracle\s57 A05, s58 G01-G12, s59 G13-G20): an array of another element type -
+    // an Integer() to a Long(), a Variant() to a Long(), a Collection() to an Object() - a Variant, whatever it holds (a variable, a parameter, an element
+    // of a Variant array, what Array or Split returns, to a Variant() or a String() too), a scalar, and an array in parentheses, which is a value and no
+    // array variable, of its element type or not. What a function returns that is an array of its element type it takes, as an array field of a record.
+    // ArrayError checks those; ByRefError leaves an array parameter to it. A ParamArray and a Declare's parameter are not checked here.
+    private static VBCompileErrorInfo? ArrayError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
+    {
+        if (parameter.ResolvedType is not VBArrayType { ItemType: var expected } || parameter is ParamArrayParameterSymbol
+            || procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
+            || argument is MissingArgumentNode or ByValArgumentExpressionNode
+            || ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, argument) is not { IsSuccess: true, Result: { } given })
+        {
+            return null;
+        }
+
+        var mismatched = given switch
+        {
+            VBArrayType when argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp } => true,
+            VBArrayType { ItemType: var item } => !ParameterLists.SameType(expected, item),
+            VBVariantType => true,
+            _ => IsIntrinsic(given),
+        };
+        return mismatched ? VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected, argument.Location, NameOf(argument)) : null;
+    }
+
+    private static string NameOf(ExpressionNode argument) => argument switch
+    {
+        SimpleNameExpressionNode name => name.IdentifierName,
+        MemberAccessExpressionNode access => access.Member.IdentifierName,
+        _ => string.Empty,
+    };
 
     // MS-VBAL §5.3.1.11: a parameter given a value - ByVal, or ByRef and given what is not a variable - takes it by Let-coercion, which can be statically
     // invalid for its declared type (§5.5.1.1; MS-VBA: "Type mismatch" for a LongLong given to a ByVal Long, Excel-verified). An object is given its

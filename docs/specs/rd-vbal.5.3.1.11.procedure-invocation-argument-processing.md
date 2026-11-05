@@ -36,6 +36,23 @@ MS-VBA defers argument-type validation to run time: it never rejects an omitted 
 > **Not implemented.** No diagnostic flags `IsMissing` used on a non-`Variant` parameter, for which `IsMissing` always
 > returns `False` (see [Omitted Arguments and IsMissing](#omitted-arguments-and-ismissing)).
 
+### Array parameters
+
+An array parameter (`ByRef a() As Long`) is a second name for an array of its element type, which it must be given. MS-VBA refuses anything else at compile
+time, with "Type mismatch: array or user-defined type expected", and so does RD-VBA. Each row was recorded in Excel (64-bit, en-US, `oracle\s57` A05,
+`s58` G01-G12, `s59` G13-G20); a named argument (`Count(a:=v)`) is checked as a positional one is.
+
+|Argument, to `a() As Long` unless noted|MS-VBA|
+|---|---|
+|A `Long()` variable; an array field of a record (`r.A`); what a function returns, declared `As Long()`|Runs|
+|An `Integer()`, a `Variant()`; a `Collection()` to an `Object()`; what a function returns, declared `As Integer()`|Compile error|
+|A `Variant`, whatever it holds: a variable, a `ByVal` `Variant` parameter, one in parentheses, an element of a `Variant` array; to a `Variant()`, a `TPair()` or an array of no declared type too|Compile error|
+|What `Array` returns, to a `Variant()`; what `Split` returns, to a `Variant()` or a `String()`: both are declared `Variant`|Compile error|
+|A scalar (`Dim n As Long`)|Compile error|
+|An array in parentheses (`Count((c))`, `c` a `Long()`): a value, and no array variable|Compile error|
+
+A `ParamArray` and a `Declare`d procedure's parameter are not checked here.
+
 ## Runtime Semantics
 
 A procedure invocation runs these steps:
@@ -193,8 +210,8 @@ allows a plain reference binding for without a class/`Object` copy-back. An `Enu
 ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)), so a variable of an `Enum`
 exactly matches a parameter declared `Long` or as another `Enum`, and a `Long` variable a parameter of an `Enum`. An
 array of an `Enum` does not match an array parameter of `Long`, nor an array of `Long` one of an `Enum`: the element
-type is not mapped, so the array falls to the copy, and an array let-coerced to an array of another element type
-raises error 13, Type mismatch.
+type is not mapped. An array of another element type given to an array parameter is a compile error; see
+[Array parameters](#array-parameters).
 
 An array's declared type is an array of its element type, whether it was declared with fixed bounds or none: a
 fixed-size array (`Dim V(1 To 3) As Long`) passed to a parameter `A() As Long` is bound by reference, as a resizable
