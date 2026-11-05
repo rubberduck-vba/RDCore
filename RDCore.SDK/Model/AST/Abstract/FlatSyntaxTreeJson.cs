@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -96,67 +97,78 @@ internal static class FlatSyntaxTreeJson
         return element is not null && typeof(SyntaxNode).IsAssignableFrom(element) ? element : null;
     }
 
-    // the nodes of the tree under root, each after the nodes it holds: a walk with a stack of its own, over the properties the node is written with.
-    private static List<SyntaxNode> PostOrder(SyntaxNode root, JsonSerializerOptions nodes)
+    // the nodes of the tree under root, each after the nodes it holds, and the index of each in that order: a walk with a stack of its own, over the
+    // properties the node is written with.
+    private static (List<SyntaxNode> Order, Dictionary<SyntaxNode, int> Indexes) PostOrder(SyntaxNode root, JsonSerializerOptions nodes)
     {
         var order = new List<SyntaxNode>();
-        var placed = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
+        var indexes = new Dictionary<SyntaxNode, int>(ReferenceEqualityComparer.Instance);
         var pending = new Stack<(SyntaxNode Node, bool Expanded)>();
         pending.Push((root, false));
         var held = new List<SyntaxNode>();
         while (pending.Count > 0)
         {
             var (node, expanded) = pending.Pop();
-            if (placed.Contains(node))
+            if (expanded)
             {
+                if (indexes.TryAdd(node, order.Count))
+                {
+                    order.Add(node);
+                }
+
                 continue;
             }
 
-            if (expanded)
+            if (indexes.ContainsKey(node))
             {
-                placed.Add(node);
-                order.Add(node);
                 continue;
             }
 
             pending.Push((node, true));
             held.Clear();
-            CollectHeld(node, nodes.GetTypeInfo(node.GetType()), nodes, held);
+            CollectHeld(node, nodes.GetTypeInfo(node.GetType()), held);
             for (var i = held.Count - 1; i >= 0; i--)
             {
-                if (!placed.Contains(held[i]))
+                if (!indexes.ContainsKey(held[i]))
                 {
                     pending.Push((held[i], false));
                 }
             }
         }
 
-        return order;
+        return (order, indexes);
     }
+
+    // a written property that may hold nodes, with the type info of the type it is declared as.
+    private sealed record HeldProperty(JsonPropertyInfo Property, Func<object, object?> Get, JsonTypeInfo Declared);
+
+    private static readonly ConditionalWeakTable<JsonTypeInfo, HeldProperty[]> _heldProperties = new();
+
+    private static HeldProperty[] HeldPropertiesOf(JsonTypeInfo typeInfo)
+        => _heldProperties.GetValue(typeInfo, static typeInfo => [.. typeInfo.Properties
+            .Where(property => property.Get is not null && MayHoldNodes(property.PropertyType, typeInfo.Options))
+            .Select(property => new HeldProperty(property, property.Get!, typeInfo.Options.GetTypeInfo(property.PropertyType)))]);
 
     // the nodes an object's written properties hold, in the order they are written: the object is a node, or a record of a node's (a StatementBlock, an
     // array's bound) written inside it, whose own properties are looked into the same way.
-    private static void CollectHeld(object instance, JsonTypeInfo typeInfo, JsonSerializerOptions nodes, List<SyntaxNode> held)
+    private static void CollectHeld(object instance, JsonTypeInfo typeInfo, List<SyntaxNode> held)
     {
         if (typeInfo.Kind != JsonTypeInfoKind.Object)
         {
             return;
         }
 
-        foreach (var property in typeInfo.Properties)
+        foreach (var (property, get, declared) in HeldPropertiesOf(typeInfo))
         {
-            if (!MayHoldNodes(property.PropertyType, nodes)
-                || property.Get is not { } get || get(instance) is not { } value || property.ShouldSerialize?.Invoke(instance, value) == false)
+            if (get(instance) is { } value && property.ShouldSerialize?.Invoke(instance, value) != false)
             {
-                continue;
+                Collect(value, declared, held);
             }
-
-            Collect(value, property.PropertyType, nodes, held);
         }
     }
 
     // a value is written as the type it is declared as (a VBTypedValue by its own converter, whatever value it is), and looked into as that type.
-    private static void Collect(object value, Type declared, JsonSerializerOptions nodes, List<SyntaxNode> held)
+    private static void Collect(object value, JsonTypeInfo declared, List<SyntaxNode> held)
     {
         if (value is SyntaxNode node)
         {
@@ -164,20 +176,24 @@ internal static class FlatSyntaxTreeJson
             return;
         }
 
-        var typeInfo = nodes.GetTypeInfo(declared);
-        if (typeInfo.Kind == JsonTypeInfoKind.Enumerable && value is IEnumerable sequence && !IsDefaultImmutableArray(value))
+        if (declared.Kind == JsonTypeInfoKind.Enumerable && value is IEnumerable sequence && !IsDefaultImmutableArray(value))
         {
+            JsonTypeInfo? element = null;
             foreach (var item in sequence)
             {
-                if (item is not null)
+                if (item is SyntaxNode heldNode)
                 {
-                    Collect(item, typeInfo.ElementType!, nodes, held);
+                    held.Add(heldNode);
+                }
+                else if (item is not null)
+                {
+                    Collect(item, element ??= declared.Options.GetTypeInfo(declared.ElementType!), held);
                 }
             }
         }
-        else if (typeInfo.Kind == JsonTypeInfoKind.Object)
+        else if (declared.Kind == JsonTypeInfoKind.Object)
         {
-            CollectHeld(value, typeInfo, nodes, held);
+            CollectHeld(value, declared, held);
         }
     }
 
@@ -235,7 +251,7 @@ internal static class FlatSyntaxTreeJson
     private static int IndexOf(SyntaxNode node)
         => _written is { } written && written.TryGetValue(node, out var index)
             ? index
-            : throw new JsonException($"A {node.GetType().Name} is written before the nodes of its tree it is held by: it was not found where it is held.");
+            : throw new JsonException($"A {node.GetType().Name} is held by a property the walk of its tree did not look into.");
 
     private static SyntaxNode NodeAt(int index)
         => _read is { } read && index >= 0 && index < read.Count
@@ -260,21 +276,21 @@ internal static class FlatSyntaxTreeJson
     {
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
         {
-            var order = PostOrder(value, nodes);
+            var (order, indexes) = PostOrder(value, nodes);
             var outer = _written;
-            _written = new Dictionary<SyntaxNode, int>(order.Count, ReferenceEqualityComparer.Instance);
+            _written = indexes;
             try
             {
+                var node = (JsonTypeInfo<SyntaxNode>)nodes.GetTypeInfo(typeof(SyntaxNode));
                 writer.WriteStartObject();
                 writer.WritePropertyName(NodesProperty);
                 writer.WriteStartArray();
-                foreach (var node in order)
+                foreach (var each in order)
                 {
-                    JsonSerializer.Serialize(writer, node, nodes);
-                    _written.Add(node, _written.Count);
+                    JsonSerializer.Serialize(writer, each, node);
                 }
                 writer.WriteEndArray();
-                writer.WriteNumber(RootProperty, _written[value]);
+                writer.WriteNumber(RootProperty, indexes[value]);
                 writer.WriteEndObject();
             }
             finally
