@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
@@ -391,16 +392,9 @@ public sealed class ParserResilienceTests
         }
     }
 
-    [TestMethod]
-    public void DeepNesting_DoesNotCrashTheProcess()
+    // what the parser gives for source, asked on a thread whose stack is a quarter of a thread's default (256 KB): what it throws, or what it returns.
+    private static (ModuleParseResult? Result, Exception? Thrown) ParseOnASmallStack(string source)
     {
-        // A5: pathological nesting recurses through the expression rule to an uncatchable stack
-        // overflow. EnterEveryRule's stack guard converts it to a catchable, located failure.
-        var source = "Public Const X = " + new string('(', 2000) + "1" + new string(')', 2000);
-
-        // parse on a deliberately small stack: whether 2000 frames exhausts the default stack is
-        // platform-dependent (it does on Windows, not on the Linux CI). 256 KB makes the guard fire
-        // everywhere, so the invariant under test — no uncatchable crash — is what's asserted.
         ModuleParseResult? result = null;
         Exception? thrown = null;
         var worker = new Thread(
@@ -418,10 +412,33 @@ public sealed class ParserResilienceTests
             maxStackSize: 256 * 1024);
         worker.Start();
         worker.Join();
+        return (result, thrown);
+    }
+
+    [TestMethod]
+    public void DeepNesting_IsParsed_WhateverTheStackOfTheThreadThatAsks()
+    {
+        // the parse runs on a stack of its own, as deep as RD-VBA reads (LargeStackThread): 2,000 nested parentheses, which MS-VBA runs, overflowed 256 KB.
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', 2000) + "1" + new string(')', 2000));
+
+        Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
+        Assert.IsTrue(result!.IsSuccess, string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
+    }
+
+    [TestMethod]
+    public void NestingPastTheStackOfTheParse_IsAFailedParse_NotACrash()
+    {
+        // A5: pathological nesting recurses through the expression rule to an uncatchable stack overflow, past even the parse's own stack. EnterEveryRule's
+        // stack guard converts it to a catchable, located failure.
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', 1_000_000) + "1" + new string(')', 1_000_000));
 
         Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
         Assert.IsNotNull(result);
         Assert.IsFalse(result!.IsSuccess);
+
+        // the guard stopped the parse: no tree was built for the depth of its expression to be found too deep (VBC00060).
+        Assert.IsFalse(result.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply),
+            string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
     }
 
     [TestMethod]

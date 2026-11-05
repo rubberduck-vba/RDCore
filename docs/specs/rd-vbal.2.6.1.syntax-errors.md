@@ -33,6 +33,15 @@ An argument list that ends with an omitted argument - `Total(1, )`, `Report 1,` 
 
 A logical line joins at most 25 physical lines: 24 line-continuations in a row, and the 25th is a syntax error (`VBC00001`), "Too many line continuations", at its underscore, once for the line. **MS-VBAL §3.2.1** leaves the length of a line to the implementation, and this is MS-VBA's limit (MS Learn, and recorded in Excel). Two logical lines of 20 line-continuations each are valid: the limit is of one line.
 
+An expression is nested in at most 2,500 others: one nested deeper is `ExpressionNestedTooDeeply` (`VBC00060`), at the expression that passes the limit,
+once for each expression of a statement. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
+term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. **MS-VBAL** leaves
+the depth of an expression to the implementation.
+
+> 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
+> calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**
+> was seen to run, and reports a syntax error where **MS-VBA** crashes: an expression nested in more than 2,500 others.
+
 ## Conditional Compilation
 
 A directive is a logical line (**MS-VBAL §3.2.2**, §3.4): the physical lines a line-continuation joins to a line that starts with `#` are the directive's, and are
@@ -121,6 +130,7 @@ The host evaluates the directives with the session's constants (`PrecompilerLive
 |[`VBC00057`](../diagnostics/vbc00057.md)|An #Else clause must be preceded by an #If|a `#Else` belongs to no block, or is the second of its block|
 |[`VBC00058`](../diagnostics/vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf|a `#ElseIf` belongs to no block, or comes after its `#Else`|
 |[`VBC00059`](../diagnostics/vbc00059.md)|You must terminate the #If block with an #EndIf|a `#If` block is not ended|
+|[`VBC00060`](../diagnostics/vbc00060.md)|Expression nested too deeply|an expression is nested in more than 2,500 others|
 
 ## Directives That Are Wrong
 

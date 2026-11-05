@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
@@ -58,7 +59,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
     /// The descriptions of the errors lowering found. A module that has any is not loaded at all, and what was loaded
     /// for it before stays: there is no telling which of its procedures the program would have run.
     /// </returns>
+    /// <remarks>
+    /// The module is loaded on a thread whose stack has room for the deepest expression RD-VBA reads (<see cref="LargeStackThread"/>): its static semantics
+    /// and its lowering recurse once or more for each level of an expression.
+    /// </remarks>
     public ImmutableArray<string> Load(Symbol module, ModuleParseResult parseResult)
+        => LargeStackThread.Run(() => LoadCore(module, parseResult));
+
+    private ImmutableArray<string> LoadCore(Symbol module, ModuleParseResult parseResult)
     {
         if (parseResult.SyntaxTree is not { } syntaxTree)
         {

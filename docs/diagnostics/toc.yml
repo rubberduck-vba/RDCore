@@ -38,6 +38,8 @@
   href: vbc00058.md
 - name: "VBC00059 — You must terminate the #If block with an #EndIf"
   href: vbc00059.md
+- name: VBC00060 — Expression nested too deeply
+  href: vbc00060.md
 - name: VBC09301 — Ambiguous name detected
   href: vbc09301.md
 - name: VBC09302 — Variable not defined

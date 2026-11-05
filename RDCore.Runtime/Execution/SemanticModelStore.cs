@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 
@@ -53,7 +54,8 @@ public sealed class SemanticModelStore
             if (evaluate is not null)
             {
                 var cancellation = new CancellationTokenSource();
-                _evaluations[key] = new Evaluation(cancellation, Task.Run(() => Complete(key, model, evaluate, cancellation.Token)));
+                // the code is evaluated as a program runs it, on a thread whose stack has room for its deepest expression.
+                _evaluations[key] = new Evaluation(cancellation, LargeStackThread.Start(() => Complete(key, model, evaluate, cancellation.Token)));
             }
         }
     }

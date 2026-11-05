@@ -735,6 +735,12 @@
   <data name="VBCompileError_HashIfWithoutEndIf_Verbose" xml:space="preserve">
     <value>Ce bloc #If n&apos;est pas terminé : le module se termine avant son #End If.</value>
   </data>
+  <data name="VBCompileError_ExpressionNestedTooDeeply" xml:space="preserve">
+    <value>Expression trop profondément imbriquée</value>
+  </data>
+  <data name="VBCompileError_ExpressionNestedTooDeeply_Verbose" xml:space="preserve">
+    <value>Cette expression est imbriquée dans plus de 2 500 autres. Affectez-en d&apos;abord une partie à une variable.</value>
+  </data>
   <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
     <value>Attendu : Then. Une directive #If ou #ElseIf s&apos;écrit #If expression Then.</value>
   </data>

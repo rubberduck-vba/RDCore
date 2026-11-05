@@ -13,6 +13,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
@@ -54,8 +55,10 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
+    // on a thread whose stack has room for the deepest expression RD-VBA reads (LargeStackThread): the grammar's descent and the build of the tree recurse once
+    // or more for each level of an expression.
     public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
-        => Parse(uri, content, anchorOffset, [], Statistics, token);
+        => LargeStackThread.Run(() => Parse(uri, content, anchorOffset, [], Statistics, token));
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
     // of its own, so that no identity of its nodes is one of the module's. statistics: where how the module was read is counted; none for such a part, which
@@ -156,6 +159,7 @@ public partial class ModuleParser(
             }
 
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
+            ReportExpressionsNestedTooDeeply(ast, errorListener);
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
@@ -597,6 +601,45 @@ public partial class ModuleParser(
             }
 
             line++;
+        }
+    }
+
+    // RD-VBA reads an expression nested in at most 2,500 others: MS-VBA runs a chain of 2,500 terms (2,499 additions), 2,000 nested parentheses and 1,000
+    // nested calls, and crashes the host past the chain, with no error (recorded in Excel: oracle\s65). MS-VBAL leaves the depth of an expression to the
+    // implementation. RD-VBAL: a deeper expression is a syntax error.
+    internal const int MaxExpressionNesting = 2500;
+
+    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in. The tree is walked with a stack
+    // of its own, as deep as the expression may be.
+    private static void ReportExpressionsNestedTooDeeply(ModuleNode module, ErrorListener errors)
+    {
+        var pending = new Stack<(SyntaxNode Node, int Nesting, ExpressionNode? Outermost)>();
+        pending.Push((module, 0, null));
+        while (pending.TryPop(out var entry))
+        {
+            var (node, nesting, outermost) = entry;
+            if (node is ExpressionNode expression)
+            {
+                outermost ??= expression;
+                if (nesting > MaxExpressionNesting)
+                {
+                    errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
+
+                    // what else of the outermost expression is pending is no more than this said already.
+                    while (pending.TryPeek(out var next) && ReferenceEquals(next.Outermost, outermost))
+                    {
+                        pending.Pop();
+                    }
+
+                    continue;
+                }
+            }
+
+            var inner = node is ExpressionNode ? nesting + 1 : nesting;
+            foreach (var child in node.ChildNodes().Reverse())
+            {
+                pending.Push((child, outermost is null ? 0 : inner, outermost));
+            }
         }
     }
 }

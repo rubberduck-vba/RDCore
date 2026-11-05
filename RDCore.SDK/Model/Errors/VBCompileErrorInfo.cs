@@ -76,6 +76,7 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.HashElseWithoutIf] = Exceptions.VBCompileError_HashElseWithoutIf,
         [VBCompileErrorId.ElseIfWithoutIf] = Exceptions.VBCompileError_ElseIfWithoutIf,
         [VBCompileErrorId.HashIfWithoutEndIf] = Exceptions.VBCompileError_HashIfWithoutEndIf,
+        [VBCompileErrorId.ExpressionNestedTooDeeply] = Exceptions.VBCompileError_ExpressionNestedTooDeeply,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,
         [VBCompileErrorId.InvalidUseOfObject] = Exceptions.VBCompileError_InvalidUseOfObject,
