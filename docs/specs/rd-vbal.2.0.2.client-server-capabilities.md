@@ -718,6 +718,8 @@ A program runs in the environment host; the person it asks is at a client. A `Ms
 
 The request carries the lines the program completed before it opened the dialog (`Output`), so that the client shows them first; they are not repeated in the answer to `rdcore/session/execute`. An `InputBox` that was cancelled answers `Cancelled = true`, which the program is told with `vbNullString`.
 
+While a dialog is open, the program has not finished running. A diagnostics pull the client sends then (`textDocument/diagnostic`, a refresh's pull included) is answered once the dialog is answered, not before. So a client must not wait for a pull's answer before it shows a dialog the program asked for: it shows the dialog, and the pull is answered after the dialog closes. Nothing is lost by this. A pull that comes while a dialog is open is rare, and a client pulls again once the dialog is closed anyway.
+
 The interactive shell draws a dialog as a box with a border, centred on the console, with its title in the top edge and its message wrapped inside. A `MsgBox` ends with a row of buttons, chosen with the arrow keys, <kbd>Tab</kbd>, <kbd>Enter</kbd>, or a button's key. Its icon has a column of its own, and the lines of the message hang under it. An `InputBox` ends with a line to type on, which starts with the default text selected and scrolls inside the box. <kbd>Esc</kbd> closes either at window level.
 
 ### `rdcore/formatting/indenterSettings`
