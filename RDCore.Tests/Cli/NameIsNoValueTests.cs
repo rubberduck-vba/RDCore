@@ -124,6 +124,7 @@ public sealed class NameIsNoValueTests
     [DataRow("Dim v As Variant: For Each v In VBA: Next")]
     [DataRow("Dim v As Variant: For Each v In Color: Next")]
     [DataRow("Dim n As Long, v As Variant: For Each v In n: Next")]
+    [DataRow("Dim n As Long, v As Variant: For Each v In n: Debug.Print v: Next")]
     [DataRow("Dim s As String, v As Variant: For Each v In s: Next")]
     [DataRow("Dim q As Pair, v As Variant: For Each v In q: Next")]
     [DataRow("Dim v As Variant: For Each v In LongFn(): Next")]
@@ -137,6 +138,7 @@ public sealed class NameIsNoValueTests
     [DataRow("Dim v As Variant: For Each v In Nothing: Next")]
     [DataRow("Dim v As Variant: For Each v In Empty: Next")]
     [DataRow("Dim v As Variant: For Each v In (5): Next")]
+    [DataRow("Dim c As New Collection, v As Variant: For Each v In (c): Debug.Print v: Next")]
     [DataRow("Dim v As Variant: For Each v In 5 + 1: Next")]
     public Task AForEachLoop_OfWhatIsNoNameMemberOrCall_IsASyntaxError(string statement)
         => AssertError("Syntax error", statement);

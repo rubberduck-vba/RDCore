@@ -35,11 +35,8 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// </remarks>
 public static class SyntaxNodeJson
 {
-    /// <summary>
-    /// The options every AST (de)serialization call site should share — <see cref="PlatformJson"/> (the
-    /// live wire path) and tests alike, so what a test exercises matches what actually ships.
-    /// </summary>
-    public static JsonSerializerOptions Options { get; } = new()
+    // what a node's own properties are written with: Options, less the converters that write a tree flat (FlatSyntaxTreeJson).
+    private static readonly JsonSerializerOptions Shape = new()
     {
         PropertyNameCaseInsensitive = true,
 
@@ -57,6 +54,21 @@ public static class SyntaxNodeJson
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine, OmitRedundantLocation } },
     };
 
+    private static readonly JsonSerializerOptions LocationFreeShape = WithoutProperties(Shape, IsLocation);
+
+    private static readonly JsonSerializerOptions HeaderShape = WithoutProperties(LocationFreeShape, IsBlock);
+
+    /// <summary>
+    /// The options every AST (de)serialization call site should share — <see cref="PlatformJson"/> (the
+    /// live wire path) and tests alike, so what a test exercises matches what actually ships.
+    /// </summary>
+    /// <remarks>
+    /// A syntax tree is written flat: an array of its nodes, each after the nodes it holds, which it holds by their index in the array. Writing and reading
+    /// one takes the same stack however deep the tree is (a chain of thousands of additions, hundreds of nested parentheses). The outermost node a payload
+    /// holds is the root of a tree, written <c>{"$nodes": [...], "$root": n}</c>; a node held by two properties is written once.
+    /// </remarks>
+    public static JsonSerializerOptions Options { get; } = FlatSyntaxTreeJson.Create(Shape);
+
     /// <summary>
     /// <see cref="Options"/>, less every property that says where something was written: in the source (a <see cref="Source.SourceLocation"/>, a
     /// <see cref="Source.SourceRange"/>) or in the tree (a node's <see cref="SyntaxNodeId"/>, its path from the module). Two writings of the same code with
@@ -67,25 +79,26 @@ public static class SyntaxNodeJson
     /// For comparing, and so for writing only: what is read with these has no location. The fingerprints of a program image are written with them, and
     /// so are those of the declarations a program that waits was suspended with.
     /// </remarks>
-    public static JsonSerializerOptions LocationFreeOptions { get; } = CreateLocationFreeOptions();
+    public static JsonSerializerOptions LocationFreeOptions { get; } = FlatSyntaxTreeJson.Create(LocationFreeShape);
 
-    private static JsonSerializerOptions CreateLocationFreeOptions()
+    // shape, less every property of a type that is removed.
+    private static JsonSerializerOptions WithoutProperties(JsonSerializerOptions shape, Func<Type, bool> removed)
     {
-        var options = new JsonSerializerOptions(Options);
-        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
+        var options = new JsonSerializerOptions(shape);
+        options.TypeInfoResolver = shape.TypeInfoResolver!.WithAddedModifier(typeInfo =>
         {
-            foreach (var property in typeInfo.Properties.Where(property => IsLocation(property.PropertyType)).ToList())
+            foreach (var property in typeInfo.Properties.Where(property => removed(property.PropertyType)).ToList())
             {
                 _ = typeInfo.Properties.Remove(property);
             }
         });
 
         return options;
-
-        static bool IsLocation(Type type)
-            => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
-                && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange) || underlying == typeof(SyntaxNodeId));
     }
+
+    private static bool IsLocation(Type type)
+        => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
+            && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange) || underlying == typeof(SyntaxNodeId));
 
     /// <summary>
     /// <see cref="LocationFreeOptions"/>, less the statements a block contains: a block statement written with these is its header alone - a
@@ -96,21 +109,7 @@ public static class SyntaxNodeJson
     /// For comparing, and so for writing only. An instruction of a lowered body is written with these: the statements of a block are instructions of
     /// their own, and an edit of one of them leaves the block's opening instruction as it was.
     /// </remarks>
-    public static JsonSerializerOptions HeaderOptions { get; } = CreateHeaderOptions();
-
-    private static JsonSerializerOptions CreateHeaderOptions()
-    {
-        var options = new JsonSerializerOptions(LocationFreeOptions);
-        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
-        {
-            foreach (var property in typeInfo.Properties.Where(property => IsBlock(property.PropertyType)).ToList())
-            {
-                _ = typeInfo.Properties.Remove(property);
-            }
-        });
-
-        return options;
-    }
+    public static JsonSerializerOptions HeaderOptions { get; } = FlatSyntaxTreeJson.Create(HeaderShape);
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Blocks = new();
 
