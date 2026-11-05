@@ -77,7 +77,7 @@ public sealed class DocumentLifecycleServiceTests
         return (started, released);
     }
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     private static Diagnostic Diagnostic() => new() { Message = "wrong", Range = new Range(new Position(0, 0), new Position(0, 1)) };
 

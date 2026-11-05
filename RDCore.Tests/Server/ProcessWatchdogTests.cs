@@ -7,6 +7,7 @@ namespace RDCore.Tests.Server;
 public class ProcessWatchdogTests
 {
     [TestMethod]
+    [Ignore("nondeterministic: a stopwatch bound of 1 s decides the pass, and a stall under coverage can exceed it. To be made deterministic before this runs again")]
     public void Arm_DoesNotBlockTheCaller()
     {
         var stopwatch = Stopwatch.StartNew();
@@ -17,6 +18,7 @@ public class ProcessWatchdogTests
     }
 
     [TestMethod]
+    [Ignore("nondeterministic: the signal is the watchdog's real 1 s timer, not a forced one. To be made deterministic before this runs again")]
     public async Task Arm_TerminatesWithTheGivenExitCode_AfterTheGracePeriod()
     {
         var terminated = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);

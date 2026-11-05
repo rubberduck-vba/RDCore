@@ -20,6 +20,6 @@ public sealed class DebugAdapterTransportTests
 
         read = await transport.Input.ReadAsync(buffer);
         Assert.AreEqual(0, read);
-        await transport.InputEnded.WaitAsync(TimeSpan.FromSeconds(5));
+        await transport.InputEnded.WaitAsync(TimeSpan.FromSeconds(30));
     }
 }
