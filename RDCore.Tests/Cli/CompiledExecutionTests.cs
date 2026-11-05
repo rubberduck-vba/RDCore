@@ -30,6 +30,15 @@ public sealed class CompiledExecutionTests
         }
     }
 
+    // what was compiled, by the name of each procedure: a Property Let or Set by its kind and its name, as its Property Get has the same name.
+    internal static IReadOnlyDictionary<string, CompilationResult> ByName(EnvironmentSessionProvider provider)
+        => provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure switch
+        {
+            RDCore.SDK.Model.Symbols.VBProject.VBPropertyLetMemberSymbol let => $"Let {let.Name}",
+            RDCore.SDK.Model.Symbols.VBProject.VBPropertySetMemberSymbol set => $"Set {set.Name}",
+            var procedure => procedure.Name,
+        }, entry => entry.Result);
+
     // what compiled code does without payloads is to be seen only where the suite is run without them.
     private static void RequireBoxedValues()
     {
@@ -50,7 +59,7 @@ public sealed class CompiledExecutionTests
         await ModuleWorkspace.InspectAsync(classes ?? NoClasses, program, (provider, run, _) =>
         {
             result = run;
-            compiled = provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result);
+            compiled = ByName(provider);
             return Task.CompletedTask;
         }, cancelWhen, engine: engine);
 

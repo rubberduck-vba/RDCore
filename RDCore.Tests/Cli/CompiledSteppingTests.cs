@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using static RDCore.Tests.Cli.CompiledDirectCallTests;
 using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 
@@ -59,25 +60,58 @@ public sealed class CompiledSteppingTests
                 "    AddUpTo = mTotal",
                 "End Function"))]);
 
+    // a Property Get and its Let are two procedures of one name, each compiled.
     [TestMethod]
-    public async Task APropertyLet_IsCompiled()
-        => await AssertAlikeAsync(Program(
+    public async Task APropertyLet_IsCompiled_AndItsGet()
+    {
+        var program = Program(
             "Public Sub Main()",
             "    Dim B As New Box",
             "    B.Value = 4",
-            "    Debug.Print B.Total",
-            "End Sub"), "Value", recoveries: 1, classes: [("Box", ModuleWorkspace.ClassModule("Box",
+            "    Debug.Print B.Value",
+            "End Sub");
+        (string, string)[] box = [("Box", ModuleWorkspace.ClassModule("Box",
+            "Option Explicit",
+            "Private mValue As Long",
+            "Public Property Let Value(ByVal V As Long)",
+            "    Dim I As Long, T As Long",
+            "    For I = 1 To V",
+            "        T = T + I",
+            "    Next",
+            "    mValue = T",
+            "End Property",
+            "Public Property Get Value() As Long",
+            "    Dim I As Long",
+            "    For I = 1 To 2",
+            "        Value = Value + mValue",
+            "    Next",
+            "End Property"))];
+
+        await AssertAlikeAsync(program, "Let Value", recoveries: 1, classes: box);
+        await AssertAlikeAsync(program, "Value", recoveries: 2, classes: box);
+    }
+
+    // a Property Set: its object parameter is the frame's, and what it does with it the interpreter's.
+    [TestMethod]
+    public async Task APropertySet_IsCompiled()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim H As New Holder",
+            "    Set H.Items = New Collection",
+            "    Debug.Print H.Total",
+            "End Sub"), "Set Items", recoveries: 4, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
-                "Private mValue As Long",
-                "Public Property Let Value(ByVal V As Long)",
-                "    Dim I As Long, T As Long",
-                "    For I = 1 To V",
-                "        T = T + I",
+                "Private mItems As Collection",
+                "Private mTotal As Long",
+                "Public Property Set Items(ByVal Value As Collection)",
+                "    Dim I As Long",
+                "    Set mItems = Value",
+                "    For I = 1 To 3",
+                "        mItems.Add I",
                 "    Next",
-                "    mValue = T",
                 "End Property",
                 "Public Function Total() As Long",
-                "    Total = mValue",
+                "    Total = mItems.Count",
                 "End Function"))]);
 
     // a Static outlives the activation: the frame's, from one call to the next.
@@ -136,9 +170,9 @@ public sealed class CompiledSteppingTests
             "    For V = 1 To 3",
             "        Counting = Counting + 1",
             "    Next",
-            "End Function"));
+            "End Function"), "Counting", recoveries: 4);
 
-        var stepped = compiled["Counting"].Stepped;
+        var stepped = compiled.Stepped;
         Assert.HasCount(2, stepped, string.Join("; ", stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
         CollectionAssert.AreEqual(new[] { 5, 5 }, stepped.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(), "the For, counted from 0");
     }
@@ -239,6 +273,150 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Touched", recoveries: 2);
 
+    // a callee compiled code calls through its typed entry has no frame until the interpreter runs a statement of it alone, which is given one then.
+    [TestMethod]
+    public async Task ACalleeCalledWithoutAFrame_IsGivenOne_ForAStatementTheInterpreterRuns()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer()",
+            "End Sub",
+            "Private Function Outer() As Long",
+            "    Dim I As Long, T As Long",
+            "    For I = 1 To 3",
+            "        T = Shown(I)",
+            "        Outer = Outer + T",
+            "    Next",
+            "End Function",
+            "Private Function Shown(ByVal N As Long) As Long",
+            "    Dim T As Long",
+            "    T = N * 2",
+            "    Debug.Print T",
+            "    Shown = T + 1",
+            "End Function");
+
+        var outer = await AssertAlikeAsync(program, "Outer", recoveries: 0);
+        await AssertAlikeAsync(program, "Shown", recoveries: 3);
+        if (!CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(3, outer.Body!.DirectCalls, "Outer's direct calls");
+        }
+    }
+
+    // a compiled variable passed by reference in a call the interpreter makes is its cell in the frame, which the callee writes: read back after the call.
+    [TestMethod]
+    public async Task AVariablePassedByReferenceInACallTheInterpreterMakes_IsWhatTheCalleeWrote()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Counted()",
+            "End Sub",
+            "Private Function Counted() As Long",
+            "    Dim S As String, N As Long, I As Long",
+            "    For I = 1 To 3",
+            "        Append S, N",
+            "        N = N * 2",
+            "    Next",
+            "    Counted = N * 10 + Len(S)",
+            "End Function",
+            "Private Sub Append(ByRef S As String, ByRef N As Long)",
+            "    S = S & \"x\"",
+            "    N = N + 1",
+            "End Sub"), "Counted", recoveries: 4);
+
+    // an object the interpreter makes and calls: the frame's, from one statement to the next.
+    [TestMethod]
+    public async Task AnObject_IsTheFrames_FromOneStatementTheInterpreterRunsToTheNext()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Counted()",
+            "End Sub",
+            "Private Function Counted() As Long",
+            "    Dim C As Collection, N As Long, I As Long",
+            "    Set C = New Collection",
+            "    For I = 1 To 3",
+            "        C.Add I",
+            "    Next",
+            "    N = C.Count",
+            "    Counted = N * 2",
+            "End Function"), "Counted", recoveries: 5);
+
+    // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled.
+    [TestMethod]
+    public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheHandler()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Guarded(\"x\")",
+            "End Sub",
+            "Private Function Guarded(ByVal S As String) As Long",
+            "    On Error GoTo Failed",
+            "    Dim I As Long",
+            "    For I = 1 To 2",
+            "        Guarded = Guarded + I",
+            "    Next",
+            "    Guarded = Guarded + CLng(S)",
+            "    Exit Function",
+            "Failed:",
+            "    Guarded = Guarded * 100 + Err.Number",
+            "End Function"), "Guarded", recoveries: 2);
+
+    // a GoSub to a statement the interpreter runs, and a Return to one.
+    [TestMethod]
+    public async Task AGoSubAndItsReturn_LandOnStatementsTheInterpreterRuns()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Routed()",
+            "End Sub",
+            "Private Function Routed() As Long",
+            "    Dim S As String, I As Long",
+            "    For I = 1 To 2",
+            "        GoSub Build",
+            "        Routed = Routed + Len(S)",
+            "    Next",
+            "    Exit Function",
+            "Build:",
+            "    S = S & \"ab\"",
+            "    Return",
+            "End Function"), "Routed", recoveries: 4);
+
+    // an End the interpreter runs alone ends the program, there.
+    [TestMethod]
+    public async Task AnEnd_EndsTheProgram()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print \"a\"",
+            "    Ended",
+            "    Debug.Print \"never\"",
+            "End Sub",
+            "Private Sub Ended()",
+            "    Dim I As Long, T As Long",
+            "    For I = 1 To 3",
+            "        T = T + I",
+            "    Next",
+            "    Debug.Print T",
+            "    End",
+            "End Sub"), "Ended", recoveries: 1);
+
+    // a member calls another member of the object it is a call on, Me.
+    [TestMethod]
+    public async Task AMemberCallingAnotherMemberOfMe_IsCompiled()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim C As New Counter",
+            "    Debug.Print C.AddUpTo(3)",
+            "End Sub"), "AddUpTo", recoveries: 4, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
+                "Option Explicit",
+                "Private mTotal As Long",
+                "Public Function AddUpTo(ByVal N As Long) As Long",
+                "    Dim I As Long",
+                "    For I = 1 To N",
+                "        Bump I",
+                "    Next",
+                "    AddUpTo = mTotal",
+                "End Function",
+                "Private Sub Bump(ByVal N As Long)",
+                "    mTotal = mTotal + N",
+                "End Sub"))]);
+
     // a body that would do nothing of its own compiled - every statement that does something the interpreter's - is the interpreter's whole, and says why.
     [TestMethod]
     public async Task ABodyEveryStatementOfWhichIsTheInterpreters_IsInterpreted_WithItsReasons()
@@ -251,8 +429,12 @@ public sealed class CompiledSteppingTests
             "    Joined = A & B",
             "End Function"));
 
-        Assert.IsNull(compiled["Joined"].Body);
-        Assert.IsNotEmpty(compiled["Joined"].Reasons);
-        Assert.IsEmpty(compiled["Joined"].Stepped);
+        // the reasons are what the interpreter would have run alone: its one statement, which assigns a String.
+        var joined = compiled["Joined"];
+        Assert.IsNull(joined.Body);
+        Assert.IsEmpty(joined.Stepped);
+        var reason = Assert.ContainsSingle(joined.Reasons);
+        Assert.AreEqual((IneligibilityKind.AssignmentTarget, "Joined", 4), (reason.Kind, reason.Detail, reason.Location!.Value.Range.Start.Line),
+            $"{reason.Kind} {reason.Detail}");
     }
 }

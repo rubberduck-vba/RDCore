@@ -558,7 +558,8 @@ public sealed class CompiledByRefCallTests
                 Assert.IsTrue(poked.IsWritten);
                 observed.Observed = Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
                     .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
-                observed.WalkBacks = provider.Image.Compiler.Results.SingleOrDefault(entry => entry.Procedure.Name == "Go").Result?.Body?.WalkBacks ?? 0;            }
+                observed.WalkBacks = provider.Image.Compiler.Results.SingleOrDefault(entry => entry.Procedure.Name == "Go").Result?.Body?.WalkBacks ?? 0;
+            }
             finally
             {
                 if (provider.Execution.State is not ProgramState.Idle)

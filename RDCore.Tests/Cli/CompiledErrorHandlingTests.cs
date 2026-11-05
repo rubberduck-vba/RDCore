@@ -23,7 +23,7 @@ public sealed class CompiledErrorHandlingTests
         using var running = CompiledExecution.Running(engine);
         await ModuleWorkspace.InspectAsync(classes ?? [], program, (provider, run, _) =>
         {
-            made = (Observed(run), provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result));
+            made = (Observed(run), CompiledExecutionTests.ByName(provider));
             return Task.CompletedTask;
         }, engine: engine);
         return made;
@@ -31,7 +31,7 @@ public sealed class CompiledErrorHandlingTests
 
     // the program run both ways: the compiled run is the interpreted one, and the procedure named was compiled, and ran to its end in compiled code - or was
     // handed to the interpreter as often as walkBacks says - having the interpreter run recovered instructions alone.
-    internal static async Task<CompiledBody> AssertAlikeAsync(string program, string compiled, long recoveries, long walkBacks = 0,
+    internal static async Task<CompilationResult> AssertAlikeAsync(string program, string compiled, long recoveries, long walkBacks = 0,
         IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         CompiledExecutionTests.RequirePayloads();
@@ -49,7 +49,7 @@ public sealed class CompiledErrorHandlingTests
             Assert.AreEqual(recoveries, result.Body.Recoveries, $"{compiled}'s recoveries");
         }
 
-        return result.Body;
+        return result;
     }
 
     // the program run both ways, whatever compiled code does of it: what was compiled.

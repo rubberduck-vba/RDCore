@@ -211,4 +211,34 @@ public sealed class CompiledCallerWaitingTests
             "            t = t + u",
             "        Next",
             "    Next"), null), "| 129 |");
+
+    // Outer's call of Inner is a statement the interpreter runs alone - its argument is a String - and the program waits in Inner.
+    private static readonly string SteppedCalling = Program(
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(3)",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As Long",
+        "    Dim i As Long, t As Long, s As String",
+        "    For i = 1 To n",
+        "        s = \"n\" & i",
+        "        t = t + Inner(s)",
+        "    Next",
+        "    Outer = t",
+        "End Function",
+        "Private Function Inner(ByVal x As String) As Long",
+        "    If x = \"n1\" Then Stop",
+        "    Inner = Len(x)",
+        "End Function");
+
+    // the program waited while the interpreter ran the statement alone: the activation goes on with what the debugger set, as the interpreter's does.
+    [TestMethod]
+    public async Task AVariableOfACompiledCaller_SetWhileItWaitsInAStatementTheInterpreterRuns_IsWhatItGoesOnWith()
+        => StringAssert.Contains(await AssertAlikeAsync(SteppedCalling, null, "i = 3"), "| 2 |");
+
+    // the edit is the callee's where the program waits in it too: it goes on in the edited body.
+    [TestMethod]
+    public async Task ACallee_EditedWhileACompiledCallerWaitsInAStatementTheInterpreterRuns_IsCalledAsItNowIs()
+        => StringAssert.Contains(await AssertAlikeAsync(SteppedCalling, SteppedCalling.Replace("    Inner = Len(x)", "    Inner = Len(x) * 10", StringComparison.Ordinal)),
+            "| 60 |");
 }
