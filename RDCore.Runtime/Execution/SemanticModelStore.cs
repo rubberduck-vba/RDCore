@@ -54,8 +54,11 @@ public sealed class SemanticModelStore
             if (evaluate is not null)
             {
                 var cancellation = new CancellationTokenSource();
-                // the code is evaluated as a program runs it, on a thread whose stack has room for its deepest expression.
-                _evaluations[key] = new Evaluation(cancellation, LargeStackThread.Start(() => Complete(key, model, evaluate, cancellation.Token)));
+                // the code is evaluated as a program runs it, on a thread whose stack has room for its deepest expression. An evaluation stopped before one is
+                // free never runs; either way what is waited for is that it is over, and not how.
+                var evaluation = LargeStackThread.Start(() => Complete(key, model, evaluate, cancellation.Token), cancellation.Token);
+                _evaluations[key] = new Evaluation(cancellation,
+                    evaluation.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default));
             }
         }
     }

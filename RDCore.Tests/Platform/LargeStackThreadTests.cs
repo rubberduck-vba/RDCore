@@ -1,5 +1,6 @@
 using RDCore.SDK.Platform;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.Tests.Platform;
 
@@ -17,12 +18,16 @@ public sealed class LargeStackThreadTests
     public void Run_ReturnsWhatTheWorkReturns_OnAStackLargerThanAThreadsDefault()
         => Assert.AreEqual(50_000, LargeStackThread.Run(() => Recurse(50_000)));
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int Fail() => throw new InvalidOperationException("work");
+
     [TestMethod]
-    public void Run_ThrowsWhatTheWorkThrows()
+    public void Run_ThrowsWhatTheWorkThrows_WithTheStackTraceItWasThrownWith()
     {
-        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => LargeStackThread.Run<int>(() => throw new InvalidOperationException("work")));
+        var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => LargeStackThread.Run(Fail));
 
         Assert.AreEqual("work", thrown.Message);
+        Assert.Contains(nameof(Fail), thrown.StackTrace ?? string.Empty);
     }
 
     [TestMethod]
@@ -74,5 +79,53 @@ public sealed class LargeStackThreadTests
 
         await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => started);
         Assert.IsTrue(started.IsCanceled);
+    }
+
+    [TestMethod]
+    public async Task Start_RunsInTheCallersCulture()
+    {
+        var (culture, uiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+        try
+        {
+            (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture) = (CultureInfo.GetCultureInfo("fr-CA"), CultureInfo.GetCultureInfo("fr-CA"));
+            var seen = (string.Empty, string.Empty);
+
+            await LargeStackThread.Start(() => seen = (CultureInfo.CurrentCulture.Name, CultureInfo.CurrentUICulture.Name));
+
+            Assert.AreEqual(("fr-CA", "fr-CA"), seen);
+        }
+        finally
+        {
+            (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture) = (culture, uiCulture);
+        }
+    }
+
+    // the threads are counted by a semaphore of the test's own, so that what the test holds is no other test's.
+    [TestMethod]
+    public async Task Start_WhenEveryThreadIsBusy_Waits_AndWorkCancelledWhileItWaits_NeverRuns()
+    {
+        using var threads = new SemaphoreSlim(1, 1);
+        using var running = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var busy = LargeStackThread.Start(() =>
+        {
+            running.Set();
+            release.Wait();
+        }, threads, CancellationToken.None);
+        running.Wait();
+
+        using var cancellation = new CancellationTokenSource();
+        var ran = false;
+        var waiting = LargeStackThread.Start(() => ran = true, threads, cancellation.Token);
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => waiting);
+        Assert.IsTrue(waiting.IsCanceled);
+        Assert.IsFalse(ran, "the work never ran: no thread was free while it waited");
+
+        release.Set();
+        await busy;
+        await LargeStackThread.Start(() => ran = true, threads, CancellationToken.None);
+        Assert.IsTrue(ran, "and the thread the busy work had is free again");
     }
 }
