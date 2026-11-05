@@ -14,7 +14,7 @@ internal static class ClientConfigurationOptions
         .WithConfigurationSection(section)
         .OnInitialize((server, request, _) =>
         {
-            if (request.Capabilities?.Workspace?.Configuration.IsSupported == true
+            if (Answers(request.Capabilities)
                 && !server.Configuration.IsSupported
                 && server.Configuration is ICapability<DidChangeConfigurationCapability> configuration)
             {
@@ -23,4 +23,10 @@ internal static class ClientConfigurationOptions
 
             return Task.CompletedTask;
         });
+
+    /// <summary>
+    /// Whether a client answers <c>workspace/configuration</c>: it says <c>workspace.configuration</c> is <see langword="true"/>. OmniSharp reads a
+    /// <c>false</c> as a capability that is declared, with the value <see langword="false"/>.
+    /// </summary>
+    internal static bool Answers(ClientCapabilities? capabilities) => capabilities?.Workspace?.Configuration is { IsSupported: true, Value: true };
 }

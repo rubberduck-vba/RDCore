@@ -8,7 +8,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Server.Configuration;
+using System.Buffers;
+using System.Globalization;
 using System.IO.Pipelines;
+using System.Text;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 
 namespace RDCore.Tests.Server.Configuration;
@@ -494,6 +497,182 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(await wire.FollowedAsync(), "asked again when it says its configuration changed");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
     }
+
+    // workspace.configuration declared false is a client that is not asked: OmniSharp reads it as a capability declared, whose value is false.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatDeclaresWorkspaceConfigurationFalse_IsNotAsked()
+    {
+        await using var client = new RawClient(new JObject { ["workspace"] = new JObject { ["configuration"] = false } });
+        await client.StartAsync();
+
+        Assert.IsEmpty(client.Asked, "a server is started once what it asks as it starts is answered");
+    }
+
+    // a client that is not asked, but says its settings changed - in the settings it pushes - is not asked for its editor's tab size either.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatDeclaresWorkspaceConfigurationFalse_IsNotAskedForTheEditorsTabSize()
+    {
+        await using var client = new RawClient(new JObject { ["workspace"] = new JObject { ["configuration"] = false, ["didChangeConfiguration"] = new JObject() } });
+        await client.StartAsync();
+
+        await client.SendAsync(new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["method"] = "workspace/didChangeConfiguration",
+            ["params"] = new JObject { ["settings"] = new JObject { [LiveSettingsProtocol.Section] = new JObject { ["Formatting"] = new JObject { ["IndentSpaces"] = "5" } } } },
+        });
+
+        // OmniSharp asks for its section as it starts any client that declares didChangeConfiguration, and what that is answered with is followed too: each
+        // change followed is waited for, until the one the client pushed.
+        while (client.Options.Formatting.IndentSpaces != 5)
+        {
+            Assert.IsTrue(await client.FollowedAsync(), "the settings it pushes are followed, as it says them");
+        }
+
+        Assert.IsFalse(client.Asked.Contains(FormattingTabSize.EditorSection), string.Join(", ", client.Asked));
+    }
+
+    // a client that is not OmniSharp's: it says the capabilities it is given, as they are - OmniSharp's own fills in what the handlers it has can answer - and
+    // answers workspace/configuration with nothing, saying which sections it was asked for.
+    private sealed class RawClient(JObject capabilities) : IAsyncDisposable
+    {
+        private readonly Pipe _toServer = new();
+        private readonly Pipe _toClient = new();
+        private readonly SemaphoreSlim _followed = new(0);
+        private readonly TaskCompletionSource _initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly CancellationTokenSource _lifetime = new(TimeSpan.FromMinutes(1));
+        private readonly List<string> _asked = [];
+        private OmniSharpLanguageServer? _server;
+        private ClientConfigurationFollower? _follower;
+        private Task? _reading;
+
+        public SdkAppOptions Options { get; } = new();
+
+        /// <summary>The sections the server asked for, in the order it asked.</summary>
+        public IReadOnlyList<string> Asked
+        {
+            get
+            {
+                lock (_asked)
+                {
+                    return [.. _asked];
+                }
+            }
+        }
+
+        public async Task StartAsync()
+        {
+            var schema = SettingsSchema.Platform;
+            var live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, Options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+            var services = new ServiceCollection().AddSingleton<ILiveSettings>(live).BuildServiceProvider();
+            var serving = OmniSharpLanguageServer.From(server => server
+                .WithInput(_toServer.Reader)
+                .WithOutput(_toClient.Writer)
+                .WithClientConfiguration(LiveSettingsProtocol.Section)
+                .OnStarted((ILanguageServer started, CancellationToken _) =>
+                {
+                    _follower = ClientConfigurationFollower.Follow(services, started, () =>
+                    {
+                        _followed.Release();
+                        return Task.CompletedTask;
+                    }, _ => { });
+                    return Task.CompletedTask;
+                }), _lifetime.Token);
+
+            _reading = ReadAsync(_lifetime.Token);
+            await SendAsync(new JObject
+            {
+                ["jsonrpc"] = "2.0", ["id"] = 1, ["method"] = "initialize",
+                ["params"] = new JObject { ["processId"] = null, ["rootUri"] = null, ["capabilities"] = capabilities },
+            });
+            await _initialized.Task.WaitAsync(_lifetime.Token);
+            await SendAsync(new JObject { ["jsonrpc"] = "2.0", ["method"] = "initialized", ["params"] = new JObject() });
+            _server = await serving.WaitAsync(_lifetime.Token);
+        }
+
+        public Task<bool> FollowedAsync() => _followed.WaitAsync(TimeSpan.FromSeconds(20));
+
+        public async Task SendAsync(JObject message)
+        {
+            var body = Encoding.UTF8.GetBytes(message.ToString(Newtonsoft.Json.Formatting.None));
+            _ = await _toServer.Writer.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), _lifetime.Token);
+            _ = await _toServer.Writer.WriteAsync(body, _lifetime.Token);
+        }
+
+        // what the server writes: the answer to initialize, and each workspace/configuration request, answered with a null for each item.
+        private async Task ReadAsync(CancellationToken token)
+        {
+            while (await ReadMessageAsync(_toClient.Reader, token) is { } message)
+            {
+                if (message["id"]?.Value<int?>() == 1 && message["method"] is null)
+                {
+                    _initialized.TrySetResult();
+                }
+                else if (message["method"]?.Value<string>() == "workspace/configuration" && message["params"]?["items"] is JArray items)
+                {
+                    lock (_asked)
+                    {
+                        _asked.AddRange(items.Select(item => item["section"]?.Value<string>() ?? string.Empty));
+                    }
+
+                    await SendAsync(new JObject { ["jsonrpc"] = "2.0", ["id"] = message["id"], ["result"] = new JArray(items.Select(_ => JValue.CreateNull())) });
+                }
+            }
+        }
+
+        private static async Task<JObject?> ReadMessageAsync(PipeReader reader, CancellationToken token)
+        {
+            int? length = null;
+            while (true)
+            {
+                var read = await reader.ReadAsync(token);
+                var buffer = read.Buffer;
+                if (length is null)
+                {
+                    var text = Encoding.ASCII.GetString(buffer.ToArray());
+                    var end = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+                    if (end >= 0)
+                    {
+                        length = int.Parse(text[..end].Split("Content-Length:")[1].Split("\r\n")[0].Trim(), CultureInfo.InvariantCulture);
+                        reader.AdvanceTo(buffer.GetPosition(end + 4));
+                        continue;
+                    }
+                }
+                else if (buffer.Length >= length)
+                {
+                    var body = Encoding.UTF8.GetString(buffer.Slice(0, length.Value).ToArray());
+                    reader.AdvanceTo(buffer.GetPosition(length.Value));
+                    return JObject.Parse(body);
+                }
+
+                if (read.IsCompleted)
+                {
+                    return null;
+                }
+
+                reader.AdvanceTo(buffer.Start, buffer.End);
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            _follower?.Dispose();
+            _server?.Dispose();
+            await _lifetime.CancelAsync();
+            try
+            {
+                await (_reading ?? Task.CompletedTask);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            _lifetime.Dispose();
+        }
+    }
+
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
