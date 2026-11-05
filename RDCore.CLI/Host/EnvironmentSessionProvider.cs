@@ -213,6 +213,12 @@ public sealed class EnvironmentSessionProvider(
             => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
         Execution = new ProgramExecution(this, logger);
         ProjectName = project.Name;
+        // an error raised with no source is the project's (Err.Source).
+        if (project.Name is { Length: > 0 } name)
+        {
+            _session.Errors.ProjectName = name;
+        }
+
         ModuleCount = project.Modules.Length;
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none

@@ -116,8 +116,8 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     // the symbol at the handle is the module, or declared in it: a symbol's address is its parent's with the fragment extended by its own name.
     private static bool IsWithin(Uri handle, VBModuleSymbol module)
     {
-        var inside = handle.Fragment.TrimStart('#');
-        var path = module.Uri.Fragment.TrimStart('#');
+        var inside = SymbolUri.PathOf(handle);
+        var path = SymbolUri.PathOf(module.Uri);
         return handle.GetLeftPart(UriPartial.Path) == module.Uri.GetLeftPart(UriPartial.Path)
             && (string.Equals(inside, path, StringComparison.OrdinalIgnoreCase) || inside.StartsWith(path + ".", StringComparison.OrdinalIgnoreCase));
     }

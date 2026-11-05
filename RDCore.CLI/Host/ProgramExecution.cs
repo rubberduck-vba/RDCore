@@ -215,6 +215,28 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     }
 
     /// <summary>
+    /// Writes the session's memory where no program runs in it: at a stop, or with no program. A program that runs owns its memory, and a byte written into a variable
+    /// while the program writes it could leave the variable part the one value and part the other.
+    /// </summary>
+    /// <param name="write">What writes it. Called with the lock held: nothing resumes, starts or runs alongside the program until it is done.</param>
+    /// <param name="refusal">Why nothing was written, when a program runs; <see langword="null"/> otherwise.</param>
+    /// <returns>What <paramref name="write"/> returned, or <see langword="false"/> when a program runs.</returns>
+    public bool TryWriteMemory(Func<bool> write, out string? refusal)
+    {
+        lock (_sync)
+        {
+            if (_state is ProgramState.Running || _alongside)
+            {
+                refusal = Resources.Host_TheProgramIsRunning;
+                return false;
+            }
+
+            refusal = null;
+            return write();
+        }
+    }
+
+    /// <summary>
     /// Goes on with the program that waits, to the next place it waits or to its end.
     /// </summary>
     /// <param name="step">How far it goes, or <see langword="null"/> for as far as it goes.</param>
@@ -878,7 +900,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         provider.Output.Target = output;
         try
         {
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
+            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint)), session, output, token);
         }
         finally
         {
@@ -907,7 +929,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         try
         {
             using var registration = token.Register(() => Pause());
-            var stop = await execution.StartAsync(() => pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []));
+            var stop = await execution.StartAsync(() => pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint)));
             return Segment(session, stop);
         }
         catch

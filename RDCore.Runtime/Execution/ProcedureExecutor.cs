@@ -1037,6 +1037,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             activation.SetForLoopState(instruction.Offset, new ForLoopState(counterSymbol, forStatement.ControlExpression, unset.End, unset.Step)
             {
+                CountsDown = ForLoopEvaluator.CountsDown(unset.Step),
                 RuntimeState = new ForLoopPayloads(),
             });
         }
@@ -1634,6 +1635,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // reported: the family follows who raised it, and workspace source raised this one. `Error 11` is
         // VBA00011, not VBR00011, even though 11 is a code MS-VBA defines.
         var number = ((VBIntegerValue)numberResult.Result!).Value;
+
+        // its help context is the error's, as for an error the runtime raises, whatever one Err has: Error 9 is 1000009, and Error 5 after
+        // Err.Raise 13, , , , 77 is 1000005 (recorded in Excel: oracle\s57 H01, s58 H03, H06).
         return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(
             number, errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
     }

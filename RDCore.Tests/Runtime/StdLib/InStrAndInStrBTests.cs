@@ -42,14 +42,18 @@ public sealed class InStrAndInStrBTests
         Assert.AreEqual(0, LongOf(Module().InStr(V(""), V("a"), null, Binary)));
     }
 
+    // MS-VBA, recorded in Excel: oracle\s57 E05, where InStrB's is 0 past the end of the bytes.
     [TestMethod]
-    [DataRow(1, 1)]
-    [DataRow(3, 3)]
-    [DataRow(4, 4)]
-    [DataRow(5, 0)]
-    public void InStr_OfAZeroLengthPattern_IsTheStart_UpToOnePastTheEnd(int start, int expected)
+    [DataRow(1, 1, 1)]
+    [DataRow(3, 3, 3)]
+    [DataRow(4, 4, 4)]
+    [DataRow(5, 5, 5)]
+    [DataRow(9, 9, 0)]
+    public void InStr_OfAZeroLengthPattern_IsTheStart_WhereverItIs(int start, int expected, int expectedInBytes)
     {
         Assert.AreEqual(expected, LongOf(Module().InStr(V(start), V("abc"), V(""), Binary)));
+        Assert.AreEqual(expected, LongOf(Module().InStr(V(start), V("abc"), V(""), Text)));
+        Assert.AreEqual(expectedInBytes, LongOf(Module().InStrB(V(start), V("abc"), V(""), Binary)));
         Assert.AreEqual(1, LongOf(Module().InStr(V("abc"), V(""), null, Binary)));
     }
 
@@ -154,6 +158,22 @@ public sealed class InStrAndInStrBTests
     [TestMethod]
     public void InStr_WithVbDatabaseCompare_IsError5()
         => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(1), V("abc"), V("b"), (VBCompareMethod)2)));
+
+    // MS-VBA, recorded in Excel: oracle\s57 S05, D04 - a zero-length String or pattern takes no Compare, and a start past the end still does.
+    [TestMethod]
+    [DataRow(1, "", "", -2, 0, DisplayName = "S05 two zero-length Strings")]
+    [DataRow(1, "a", "", 2, 1, DisplayName = "S05 a zero-length pattern")]
+    [DataRow(1, "", "a", -2, 0, DisplayName = "S05 a zero-length String")]
+    [DataRow(3, "", "a", 2, 0, DisplayName = "S05 a zero-length String, from past its end")]
+    [DataRow(5, "abc", "", 2, 5, DisplayName = "D04 a zero-length pattern, from past the end")]
+    public void InStr_WithACompareThatIsNoModeNorLocale_ThatComparesNothing_IsWhatItFinds(int start, string searched, string pattern, int compare, int expected)
+        => Assert.AreEqual(expected, LongOf(Module().InStr(V(start), V(searched), V(pattern), (VBCompareMethod)compare)));
+
+    [TestMethod]
+    [DataRow(5)]
+    [DataRow(4)]
+    public void InStr_WithVbDatabaseCompare_FromPastTheEnd_IsStillError5(int start)
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().InStr(V(start), V("abc"), V("a"), (VBCompareMethod)2)));
 
     [TestMethod]
     [DataRow(7)]

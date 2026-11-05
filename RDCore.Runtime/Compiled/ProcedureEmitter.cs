@@ -894,7 +894,8 @@ internal sealed class ProcedureEmitter
                 _il.Emit(OpCodes.Ldc_I4, (int)negate.Kind);
                 Load(operand, negate.Operand.Kind);
                 _il.Emit(OpCodes.Ldloca, result);
-                _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Negate), [typeof(ScalarKind), type, type.MakeByRefType()])!);
+                var negation = negate.OfAConstantExpression && type == typeof(long) ? nameof(PayloadOperations.NegateConstant) : nameof(PayloadOperations.Negate);
+                _il.Emit(OpCodes.Call, Payloads.GetMethod(negation, [typeof(ScalarKind), type, type.MakeByRefType()])!);
                 _il.Emit(OpCodes.Brtrue, failure);
                 return new Operand(result, 0, 0);
             }

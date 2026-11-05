@@ -106,6 +106,10 @@ the selector, and the two are compared in that type. This is what MS-VBA does (E
 - A selector declared `Variant` is compared with the value as it is, as in an expression: with `v` holding the `Long`
   `2`, `Case 1.7` does not match, and with `h` holding `100`, `Case "100"` matches and `Case Is > "9"` does not (a
   `Variant` number compared with a `String` is compared as text; [**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md)).
+- So is a selector that is an expression over a `Variant`, which is declared `Variant`: with `v` holding `1`, `Select Case v + 1`
+  does not match `Case "2.0"`, where `Select Case n + 1` of a `Long` `n` converts `"2.0"` to `2` and does. With `v` holding
+  `"2.5"`, `Case 2` matches neither `v` nor `v + 0`, as a `String` and a number are compared as `Double` values
+  (`oracle\s56` R08-R14).
 
 **MS-VBAL §5.4.2.10** says only that a single value "is compared with the value of select-expression", so `Case 1.7`
 has nothing to depart from. For the two other forms it states the expression that is evaluated:
@@ -114,9 +118,11 @@ the conversion makes a `Case Is` clause a different comparison from that express
 [`RDC11014`](../diagnostics/rdc11014.md), a warning that stands in for the comparison the specification states.
 
 The runtime states it as a `CaseClauseStatementFact` with `CaseClauseSemanticFlags.ComparedInSelectorType`: the
-conversion is stated when the relational operator's effective type for the two
-([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md)) is not the selector's type. With `n As Long`,
-`Case Is < 5` is not stated: an `Integer` compared with a `Long` is compared as a `Long` either way.
+conversion is stated when the effective type **MS-VBAL §5.6.9.5**'s table gives the two is not the selector's type. With `n As Long`,
+`Case Is < 5` is not stated: an `Integer` compared with a `Long` is compared as a `Long` either way. Nor is `Case Is < "5"` with
+`i As Integer`: the table compares the two as `Integer` values, as the clause is. MS-VBA compares the expression `i < "5"` as `Double` values
+([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md#a-string-compared-with-a-byte-an-integer-or-a-long)), and
+that departure is the expression's, not the clause's.
 
 ## Implementation
 

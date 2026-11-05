@@ -56,7 +56,7 @@ Variables keep their values across every edit that applies. That includes module
 ## ⏸️ What waits until you run again
 
 Some edits can't be applied to a program that's already running, because the program holds something the edit would change underneath it. RD-VBA doesn't
-guess, and never applies half of an edit. When **Continue** or a step meets one of these, the program is refused and keeps waiting, and the edit is named
+guess, and never applies half of an edit. When **Continue** or a step meets one of these, it is refused: the program keeps waiting, and the edit is named
 with its reason. Take the edit back and go on, or run the program again to have it.
 
 | You changed… | Why it waits |
@@ -69,7 +69,7 @@ with its reason. Take the edit back and go on, or run the program again to have 
 | An `Option` line of a module the program is in | The running procedure keeps the setting it started with. |
 | The parameters of a procedure the program is in | Its arguments were passed already, by the old parameter list. |
 | The line a calling procedure is in the middle of (its call line) | Half of it has run already. |
-| Any edit of a calling procedure whose call is in a condition or a loop header (`If F() Then`, `For i = 1 To F()`) | The program is in the middle of that line; for now, only a caller on a plain call line takes edits. |
+| Any edit of a calling procedure whose call is in a condition or a loop header (`If F() Then`, `For i = 1 To F()`) | The program is in the middle of that line. Only a caller on a plain call line takes edits. |
 | The opening or closing line of a block you're inside: a `For`, a `For Each`, a `With`, a `Select Case`, a `Do` | The loop's counter, the `With` object or the `Select` value was made by the old line. |
 | A `GoSub` the program will return from, or the point a `Resume` goes back to, when that line itself was edited | They point into the code as it was. |
 | What a class `Implements`, or its `Event`s, while objects of it are alive | Those objects are reached through what the class implements. |

@@ -14,7 +14,7 @@ namespace RDCore.SDK.Workspace;
 /// <c>.bas</c>.
 /// <para>
 /// A document module's export (a <c>.doccls</c>) carries no header: what makes a module one is the
-/// project's word for it, which <see cref="ModuleKinds.Of(RDCoreModule?, string?)"/> reads before this.
+/// project's word for it, which <see cref="ProjectModuleKinds.Of(DocClassType?, string?)"/> reads before this.
 /// </para>
 /// </remarks>
 public static partial class ModuleHeader

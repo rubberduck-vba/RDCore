@@ -345,6 +345,12 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return RuntimeSemanticsEvaluationResult<VBVariantValue>.Success(new VBVariantValue(VBNullValue.Null));
         }
 
+        // an Error has no length: MS-VBA raises a type mismatch, where MS-VBAL does not say (recorded in Excel: oracle\s56 G07, s57 E01).
+        if (value is VBErrorValue)
+        {
+            return Fail<VBVariantValue>(VBRuntimeErrorId.TypeMismatch, inMemory ? nameof(LenB) : nameof(Len), "Expression is an Error value, which has no length");
+        }
+
         return RuntimeSemanticsEvaluationResult<VBVariantValue>.Success(new VBVariantValue(new VBLongValue(Length(value, inMemory))));
     }
 
@@ -516,8 +522,9 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// none is kept. "An error occurs if SourceArray is the data value Null or is not a one-dimensional array": error 13, as the
     /// declared <c>SourceArray()</c> would raise.
     /// <para>
-    /// 👉 An element contains Match when <c>InStr</c> would find it there, so a zero-length element contains nothing and a
-    /// zero-length Match is in every other element. Each element is read as a <c>String</c> parameter would Let-coerce it, all of
+    /// 👉 An element contains Match when <c>InStr</c> would find it there, so a zero-length element contains no other String, except that a
+    /// zero-length Match is in every element, a zero-length one too, as MS-VBA has it where <c>InStr("", "")</c> is 0 (recorded in Excel, oracle\s57
+    /// S06). A Compare that is no comparison is error 5 when an element is compared, and only then (S05). Each element is read as a <c>String</c> parameter would Let-coerce it, all of
     /// them before any is kept, so a Null element is error 94 whether it would be kept or not; an element never assigned in a
     /// <c>Variant()</c> is Empty, a zero-length string. What is kept is that <c>String</c>, unchanged: the filter selects
     /// elements, and transforms none. A SourceArray with no dimensions yet - a dynamic array never <c>ReDim</c>'d - is filtered to a
@@ -532,11 +539,6 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
         }
 
         var keep = (bool)Given(include).Value;
-        if (!TryRulesFor(compare, nameof(Filter), out var rules, out error))
-        {
-            return Fail<VBVariantValue>(error);
-        }
-
         if (array.Rank == 0)
         {
             return InVariant(new VBResizableArrayValue([], VBStringType.TypeInfo));
@@ -547,10 +549,40 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return Fail<VBVariantValue>(error);
         }
 
+        // Compare is checked by the first element that is compared, as InStr checks it (oracle\s57 S05).
         var pattern = Text(match);
-        return InArray([.. elements.Where(element => Contains(Text(element)) == keep)]);
+        StringComparisonRules? rules = null;
+        var kept = new List<VBStringValue>();
+        foreach (var element in elements)
+        {
+            var text = Text(element);
+            bool contains;
+            if (pattern.Length == 0 || text.Length == 0)
+            {
+                contains = pattern.Length == 0;
+            }
+            else
+            {
+                if (rules is null)
+                {
+                    if (!TryRulesFor(compare, nameof(Filter), out var given, out error))
+                    {
+                        return Fail<VBVariantValue>(error);
+                    }
 
-        bool Contains(string element) => CharacterPosition(element, pattern, 1, rules) > 0;
+                    rules = given;
+                }
+
+                contains = CharacterPosition(text, pattern, 1, rules.Value) > 0;
+            }
+
+            if (contains == keep)
+            {
+                kept.Add(element);
+            }
+        }
+
+        return InArray([.. kept]);
     }
 
     /// <inheritdoc/>
@@ -911,15 +943,17 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
     /// The start is Let-coerced as a <c>Long</c> parameter would be ("if start contains the data value Null, an error occurs") and the
     /// Strings as <c>String</c> parameters, in that order; a Null String makes the result Null before the start is checked. Then a
     /// zero-length String to search is 0, a zero-length pattern is the start, and a pattern not found is 0. 👉 The table's "Arg1 &gt;
-    /// Arg3" row is read as a start past the end of the String to search, or more than one past it for a zero-length pattern, so
-    /// <c>InStr(4, "abc", "")</c> is 4; a start below 1 is error 5, as it is to the <c>Mid</c> statement (<strong>MS-VBAL §5.4.3.5</strong>).
+    /// Arg3" row is read as a start past the end of the String to search, and its rows in their order, so a zero-length pattern is the start wherever
+    /// it is: <c>InStr(9, "abc", "")</c> is 9, as MS-VBA has it (recorded in Excel, oracle\s57 E05), where <c>InStrB</c>'s is 0 from past the end of the
+    /// bytes. A start below 1 is error 5, as it is to the <c>Mid</c> statement (<strong>MS-VBAL §5.4.3.5</strong>).
     /// </para>
     /// <para>
     /// A text comparison searches the letters of both, folded to one case and with <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c> expanded, as MS-VBA does
     /// (<see cref="StringComparisonRules.TryFind"/>): a match may be part of an expanded character, and is found at the character it starts in. 👉 An explicit
     /// Compare is <c>vbBinaryCompare</c>, <c>vbTextCompare</c>, or the identifier of a locale, which is that locale's text comparison
     /// (<see cref="StringComparisonRules.TryForLocale"/>), as MS-VBA takes it and the table mentions; anything else, <c>vbDatabaseCompare</c> included, is
-    /// error 5.
+    /// error 5 - unless the String or the pattern is zero-length, whose result takes no Compare, whatever it is (MS-VBA, recorded in Excel: oracle\s57
+    /// S05; a start past the end is error 5 too, D04).
     /// </para>
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> InStr(VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare)
@@ -982,18 +1016,33 @@ public sealed class StdStrings(IRuntimeSession session) : IStdStringsModule
             return InVariant(new VBLongValue(BytePosition(text, pattern, from)));
         }
 
+        var searchedText = Text(text);
+        var patternText = Text(pattern);
+        if (PositionWithoutComparing(searchedText, patternText, from) is { } decided)
+        {
+            return InVariant(new VBLongValue(decided));
+        }
+
         if (!TryRulesFor(compare, member, out var rules, out error))
         {
             return Fail<VBVariantValue>(error);
         }
 
-        return InVariant(new VBLongValue(CharacterPosition(Text(text), Text(pattern), from, rules)));
+        return InVariant(new VBLongValue(CharacterPosition(searchedText, patternText, from, rules)));
     }
 
     // the 1-based position of the first run of characters from the start that is equal to the pattern, or 0. A zero-length String has
-    // none, and a zero-length pattern is found at the start, up to one past the end.
+    // none, and a zero-length pattern is found at the start, wherever it is (MS-VBA, recorded in Excel: oracle\s57 E05, InStr(9, "abc", "") is 9).
     private static int CharacterPosition(string text, string pattern, int from, StringComparisonRules rules)
-        => text.Length > 0 && from <= text.Length + 1 && rules.TryFind(text.AsSpan(from - 1), pattern, out var index, out _) ? from + index : 0;
+        => PositionWithoutComparing(text, pattern, from)
+            ?? (from <= text.Length && rules.TryFind(text.AsSpan(from - 1), pattern, out var index, out _) ? from + index : 0);
+
+    // the position a search finds without its Compare, which is why MS-VBA's checks no Compare for it (oracle\s57 S05, D04): in a zero-length String, and of a
+    // zero-length pattern; null when the search compares, from past the end too.
+    private static int? PositionWithoutComparing(string text, string pattern, int from)
+        => text.Length == 0 ? 0
+            : pattern.Length == 0 ? from
+            : null;
 
     // the byte position of the first run of bytes from the start that is the pattern's, or 0.
     private static int BytePosition(VBStringValue text, VBStringValue pattern, int from)

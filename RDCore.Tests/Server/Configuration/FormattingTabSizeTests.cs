@@ -8,7 +8,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Server.Configuration;
+using System.Buffers;
+using System.Globalization;
 using System.IO.Pipelines;
+using System.Text;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 
 namespace RDCore.Tests.Server.Configuration;
@@ -305,7 +308,10 @@ public sealed class FormattingTabSizeTests
 
         public ClientConfigurationFollower? Follower { get; private set; }
 
-        /// <summary>The indentation as each listener of the change saw it.</summary>
+        /// <summary>
+        /// The indentation as each listener of the change saw it, each time it saw another: a server that follows its configuration twice as it starts is
+        /// told the same settings twice.
+        /// </summary>
         public List<int> Seen { get; } = [];
 
         public Dictionary<string, string> Said { get; } = [];
@@ -357,11 +363,27 @@ public sealed class FormattingTabSizeTests
 
         private int _tabSizeRequests;
 
-        public Wire()
+        private readonly bool _declaresDidChangeConfiguration;
+
+        /// <param name="declaresDidChangeConfiguration">
+        /// Whether the client declares <c>workspace.didChangeConfiguration</c> as well as <c>workspace.configuration</c>; a client may send the notification
+        /// without declaring that it registers for it dynamically.
+        /// </param>
+        public Wire(bool declaresDidChangeConfiguration = true)
         {
+            _declaresDidChangeConfiguration = declaresDidChangeConfiguration;
             var schema = SettingsSchema.Platform;
             Live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, Options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
-            Live.Changed += (_, _) => Seen.Add(Options.Formatting.IndentSpaces);
+            Live.Changed += (_, _) =>
+            {
+                lock (Seen)
+                {
+                    if (Seen.Count == 0 || Seen[^1] != Options.Formatting.IndentSpaces)
+                    {
+                        Seen.Add(Options.Formatting.IndentSpaces);
+                    }
+                }
+            };
         }
 
         public async Task StartAsync()
@@ -372,12 +394,12 @@ public sealed class FormattingTabSizeTests
             var serving = OmniSharpLanguageServer.From(server => server
                 .WithInput(toServer.Reader)
                 .WithOutput(toClient.Writer)
-                .WithConfigurationSection(LiveSettingsProtocol.Section)
+                .WithClientConfiguration(LiveSettingsProtocol.Section)
                 .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
                 {
                     Follower = ClientConfigurationFollower.Follow(services, started, () =>
                     {
-                        _followed.Release();
+                        Followed();
                         return Task.CompletedTask;
                     }, line =>
                     {
@@ -398,7 +420,11 @@ public sealed class FormattingTabSizeTests
                     .WithOutput(toServer.Writer)
                     .WithClientCapabilities(new ClientCapabilities
                     {
-                        Workspace = new WorkspaceClientCapabilities { Configuration = true, DidChangeConfiguration = new DidChangeConfigurationCapability() },
+                        Workspace = new WorkspaceClientCapabilities
+                        {
+                            Configuration = true,
+                            DidChangeConfiguration = _declaresDidChangeConfiguration ? new DidChangeConfigurationCapability() : null,
+                        },
                     });
                 OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(client, async (request, _) =>
                 {
@@ -425,9 +451,91 @@ public sealed class FormattingTabSizeTests
             _client = await connecting;
         }
 
-        public Task<bool> FollowedAsync(TimeSpan? wait = null) => _followed.WaitAsync(wait ?? TimeSpan.FromSeconds(20));
+        /// <summary>
+        /// Waits for a change the follower applied that read what the client said as change number <paramref name="change"/>
+        /// (<see cref="ClientSaysConfigurationChanged()"/>), or a later one; any change it applied, when none is given.
+        /// </summary>
+        /// <remarks>
+        /// A server may follow its configuration twice as it starts, and the second can be applied after the first was waited for: a wait for whichever
+        /// change is applied next can end on that one, before the change a test made is.
+        /// </remarks>
+        public async Task<bool> FollowedAsync(int change = 0)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+            while (Volatile.Read(ref _followedChange) < change)
+            {
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero || !await _followed.WaitAsync(left))
+                {
+                    return false;
+                }
+            }
 
-        public void ClientSaysConfigurationChanged() => _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
+            return true;
+        }
+
+        // the change each change the follower applied read, in the order they were applied.
+        private readonly List<int> _applied = [];
+
+        /// <summary>
+        /// The changes the follower applied that read change number <paramref name="change"/> or a later one, each once, in the order they were first applied.
+        /// </summary>
+        public int[] AppliedSince(int change)
+        {
+            lock (_applied)
+            {
+                return [.. _applied.Where(applied => applied >= change).Distinct()];
+            }
+        }
+
+        /// <summary>How many requests for the tab size the client was sent: one for each change the follower follows.</summary>
+        public int TabSizeRequests => Volatile.Read(ref _tabSizeRequests);
+
+        /// <summary>
+        /// The client says its configuration changed, as change number this returns: what it answers from then on says that number
+        /// (<see cref="ChangeKey"/>), and what a change the follower applies read is the number it has.
+        /// </summary>
+        public int ClientSaysConfigurationChanged()
+        {
+            var change = NextChange();
+            _client!.DidChangeConfiguration(LiveSettingsProtocol.Changed);
+            return change;
+        }
+
+        /// <summary>The client says its configuration changed, with settings of its own in the notification.</summary>
+        public int ClientSaysConfigurationChanged(JToken settings)
+        {
+            var change = NextChange();
+            _client!.DidChangeConfiguration(new DidChangeConfigurationParams { Settings = settings });
+            return change;
+        }
+
+        // a setting no schema has, which the live settings keep among what the client said as they keep any other: what tells one change from another.
+        private const string ChangeKey = "Wire:Change";
+
+        private int _changes;
+
+        // -1 until a change is applied: the first, as the server starts, reads change 0.
+        private int _followedChange = -1;
+
+        private int NextChange()
+        {
+            var change = Interlocked.Increment(ref _changes);
+            Said[ChangeKey] = change.ToString(CultureInfo.InvariantCulture);
+            return change;
+        }
+
+        private void Followed()
+        {
+            var change = Live.Said.TryGetValue(ChangeKey, out var said) ? int.Parse(said, CultureInfo.InvariantCulture) : 0;
+            lock (_applied)
+            {
+                _applied.Add(change);
+                _followedChange = Math.Max(_followedChange, change);
+            }
+
+            _followed.Release();
+        }
 
         public ValueTask DisposeAsync()
         {
@@ -453,17 +561,224 @@ public sealed class FormattingTabSizeTests
 
         // the user changes the tab size of the editor: a change of configuration like any other.
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync());
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()));
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "followed when it changes");
 
         // and the user sets the indentation: it is what the server has.
         wire.Said["Formatting:IndentSpaces"] = "3";
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync());
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()));
         Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces, "the setting is not the editor's tab size");
 
         CollectionAssert.AreEqual(new[] { 2, 8, 3 }, wire.Seen, "whoever listens sees the indentation the settings end up with, never the default in between");
+    }
+
+    // workspace.configuration is what says a client answers workspace/configuration (LSP 3.17 §Configuration Request); workspace.didChangeConfiguration only
+    // says whether it registers for the notification dynamically, and a client that declares no such thing still says its configuration changed.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatAnswersWorkspaceConfiguration_ButDeclaresNoDidChangeConfiguration_IsAskedAndFollowed()
+    {
+        await using var wire = new Wire(declaresDidChangeConfiguration: false);
+        await wire.StartAsync();
+
+        Assert.IsTrue(await wire.FollowedAsync(), "asked once it is initialized");
+        Assert.AreEqual(2, wire.Options.Formatting.IndentSpaces);
+
+        wire.TabSize = 8;
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()), "asked again when it says its configuration changed");
+        Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces);
+    }
+
+    // workspace.configuration declared false is a client that is not asked: OmniSharp reads it as a capability declared, whose value is false.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatDeclaresWorkspaceConfigurationFalse_IsNotAsked()
+    {
+        await using var client = new RawClient(new JObject { ["workspace"] = new JObject { ["configuration"] = false } });
+        await client.StartAsync();
+
+        Assert.IsEmpty(client.Asked, "a server is started once what it asks as it starts is answered");
+    }
+
+    // a client that is not asked, but says its settings changed - in the settings it pushes - is not asked for its editor's tab size either.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatDeclaresWorkspaceConfigurationFalse_IsNotAskedForTheEditorsTabSize()
+    {
+        await using var client = new RawClient(new JObject { ["workspace"] = new JObject { ["configuration"] = false, ["didChangeConfiguration"] = new JObject() } });
+        await client.StartAsync();
+
+        await client.SendAsync(new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["method"] = "workspace/didChangeConfiguration",
+            ["params"] = new JObject { ["settings"] = new JObject { [LiveSettingsProtocol.Section] = new JObject { ["Formatting"] = new JObject { ["IndentSpaces"] = "5" } } } },
+        });
+
+        // OmniSharp asks for its section as it starts any client that declares didChangeConfiguration, and what that is answered with is followed too: each
+        // change followed is waited for, until the one the client pushed.
+        while (client.Options.Formatting.IndentSpaces != 5)
+        {
+            Assert.IsTrue(await client.FollowedAsync(), "the settings it pushes are followed, as it says them");
+        }
+
+        Assert.IsFalse(client.Asked.Contains(FormattingTabSize.EditorSection), string.Join(", ", client.Asked));
+    }
+
+    // a client that is not OmniSharp's: it says the capabilities it is given, as they are - OmniSharp's own fills in what the handlers it has can answer - and
+    // answers workspace/configuration with nothing, saying which sections it was asked for.
+    private sealed class RawClient(JObject capabilities) : IAsyncDisposable
+    {
+        private readonly Pipe _toServer = new();
+        private readonly Pipe _toClient = new();
+        private readonly SemaphoreSlim _followed = new(0);
+        private readonly TaskCompletionSource _initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly CancellationTokenSource _lifetime = new(TimeSpan.FromMinutes(1));
+        private readonly List<string> _asked = [];
+        private OmniSharpLanguageServer? _server;
+        private ClientConfigurationFollower? _follower;
+        private Task? _reading;
+
+        public SdkAppOptions Options { get; } = new();
+
+        /// <summary>The sections the server asked for, in the order it asked.</summary>
+        public IReadOnlyList<string> Asked
+        {
+            get
+            {
+                lock (_asked)
+                {
+                    return [.. _asked];
+                }
+            }
+        }
+
+        public async Task StartAsync()
+        {
+            var schema = SettingsSchema.Platform;
+            var live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, Options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
+            var services = new ServiceCollection().AddSingleton<ILiveSettings>(live).BuildServiceProvider();
+            var serving = OmniSharpLanguageServer.From(server => server
+                .WithInput(_toServer.Reader)
+                .WithOutput(_toClient.Writer)
+                .WithClientConfiguration(LiveSettingsProtocol.Section)
+                .OnStarted((ILanguageServer started, CancellationToken _) =>
+                {
+                    _follower = ClientConfigurationFollower.Follow(services, started, () =>
+                    {
+                        _followed.Release();
+                        return Task.CompletedTask;
+                    }, _ => { });
+                    return Task.CompletedTask;
+                }), _lifetime.Token);
+
+            _reading = ReadAsync(_lifetime.Token);
+            await SendAsync(new JObject
+            {
+                ["jsonrpc"] = "2.0", ["id"] = 1, ["method"] = "initialize",
+                ["params"] = new JObject { ["processId"] = null, ["rootUri"] = null, ["capabilities"] = capabilities },
+            });
+            await _initialized.Task.WaitAsync(_lifetime.Token);
+            await SendAsync(new JObject { ["jsonrpc"] = "2.0", ["method"] = "initialized", ["params"] = new JObject() });
+            _server = await serving.WaitAsync(_lifetime.Token);
+        }
+
+        public Task<bool> FollowedAsync() => _followed.WaitAsync(TimeSpan.FromSeconds(20));
+
+        public async Task SendAsync(JObject message)
+        {
+            var body = Encoding.UTF8.GetBytes(message.ToString(Newtonsoft.Json.Formatting.None));
+            _ = await _toServer.Writer.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), _lifetime.Token);
+            _ = await _toServer.Writer.WriteAsync(body, _lifetime.Token);
+        }
+
+        // what the server writes: the answer to initialize, and each workspace/configuration request, answered with a null for each item.
+        private async Task ReadAsync(CancellationToken token)
+        {
+            while (await ReadMessageAsync(_toClient.Reader, token) is { } message)
+            {
+                if (message["id"]?.Value<int?>() == 1 && message["method"] is null)
+                {
+                    _initialized.TrySetResult();
+                }
+                else if (message["method"]?.Value<string>() == "workspace/configuration" && message["params"]?["items"] is JArray items)
+                {
+                    lock (_asked)
+                    {
+                        _asked.AddRange(items.Select(item => item["section"]?.Value<string>() ?? string.Empty));
+                    }
+
+                    await SendAsync(new JObject { ["jsonrpc"] = "2.0", ["id"] = message["id"], ["result"] = new JArray(items.Select(_ => JValue.CreateNull())) });
+                }
+            }
+        }
+
+        private static async Task<JObject?> ReadMessageAsync(PipeReader reader, CancellationToken token)
+        {
+            int? length = null;
+            while (true)
+            {
+                var read = await reader.ReadAsync(token);
+                var buffer = read.Buffer;
+                if (length is null)
+                {
+                    var text = Encoding.ASCII.GetString(buffer.ToArray());
+                    var end = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+                    if (end >= 0)
+                    {
+                        length = int.Parse(text[..end].Split("Content-Length:")[1].Split("\r\n")[0].Trim(), CultureInfo.InvariantCulture);
+                        reader.AdvanceTo(buffer.GetPosition(end + 4));
+                        continue;
+                    }
+                }
+                else if (buffer.Length >= length)
+                {
+                    var body = Encoding.UTF8.GetString(buffer.Slice(0, length.Value).ToArray());
+                    reader.AdvanceTo(buffer.GetPosition(length.Value));
+                    return JObject.Parse(body);
+                }
+
+                if (read.IsCompleted)
+                {
+                    return null;
+                }
+
+                reader.AdvanceTo(buffer.Start, buffer.End);
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            _follower?.Dispose();
+            _server?.Dispose();
+            await _lifetime.CancelAsync();
+            try
+            {
+                await (_reading ?? Task.CompletedTask);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            _lifetime.Dispose();
+        }
+    }
+
+    // a client that answers workspace/configuration and says its configuration changed with an object - HexIDE sends {} - is asked: what it pushes is no
+    // answer for the section.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatAnswersWorkspaceConfiguration_AndPushesAnObject_IsAskedAgain()
+    {
+        await using var wire = new Wire(declaresDidChangeConfiguration: false);
+        await wire.StartAsync();
+        Assert.IsTrue(await wire.FollowedAsync());
+
+        wire.Said["Formatting:IndentSpaces"] = "3";
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged(new JObject())), "the section as the client answers it, not the empty object it pushed");
+
+        Assert.AreEqual(3, wire.Options.Formatting.IndentSpaces);
+        Assert.AreEqual("3", wire.Live.Said["Formatting:IndentSpaces"]);
     }
 
     [TestMethod]
@@ -508,7 +823,7 @@ public sealed class FormattingTabSizeTests
         Assert.IsTrue(await wire.FollowedAsync());
 
         // the client says its configuration changed twice; the editor's answer to the first, 5, comes after the answer to the second, 8. What the server
-        // pulled as it started was said before it was followed - more than once, on some platforms - and is counted apart.
+        // follows as it starts - more than once, at times, and still after it was first waited for - reads no change of the test's, and is told apart by that.
         var firstAsked = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         wire.BeforeAnswering = async (_, tabSize) =>
@@ -519,23 +834,23 @@ public sealed class FormattingTabSizeTests
                 await release.Task;
             }
         };
-        Assert.IsTrue(await wire.LoggedUntilAsync(log => log.Any(line => line.Contains("were applied", StringComparison.Ordinal))), "the first change was followed once it was initialized");
-        var (dropped, applied) = (wire.LinesWith("dropped"), wire.LinesWith("were applied"));
         wire.TabSize = 5;
-        wire.ClientSaysConfigurationChanged();
+        var older = wire.ClientSaysConfigurationChanged();
         await firstAsked.Task.WaitAsync(TimeSpan.FromSeconds(20));
         wire.TabSize = 8;
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync(), "the newer change was followed");
-        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("were applied") == applied + 1), "and said so");
+        var newer = wire.ClientSaysConfigurationChanged();
+        Assert.IsTrue(await wire.FollowedAsync(newer), "the newer change was followed");
 
         release.SetResult();
 
-        // the older change, answered last, says what became of it: that is when it is done, whichever way it went.
-        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("dropped") == dropped + 1), "the older change was dropped, and said so");
+        // the older change, answered last, says what became of it: it is done once every follow that asked for the tab size said what became of it.
+        Assert.IsTrue(await wire.LoggedUntilAsync(_ => wire.LinesWith("were applied") + wire.LinesWith("dropped") + wire.LinesWith("could not be applied") == wire.TabSizeRequests),
+            string.Join(Environment.NewLine, wire.Log));
+        Assert.AreEqual(0, wire.LinesWith("could not be applied"), string.Join(Environment.NewLine, wire.Log));
+        Assert.IsGreaterThanOrEqualTo(1, wire.LinesWith("dropped"), "the older change was dropped, and said so");
         Assert.AreEqual(8, wire.Options.Formatting.IndentSpaces, "the older answer did not replace the newer one");
         CollectionAssert.AreEqual(new[] { 2, 8 }, wire.Seen, "and no listener saw it");
-        Assert.AreEqual(applied + 1, wire.LinesWith("were applied"), "and nothing else was told as applied but the newer change");
+        CollectionAssert.AreEqual(new[] { newer }, wire.AppliedSince(older), "and nothing else was told as applied but the newer change");
     }
 
     [TestMethod]
@@ -550,8 +865,7 @@ public sealed class FormattingTabSizeTests
         // the editor has no such setting: the client answers the request with an error.
         wire.BeforeAnswering = (_, _) => throw new InvalidOperationException("no such setting");
         wire.Said["Server:Verbose"] = "True";
-        wire.ClientSaysConfigurationChanged();
-        Assert.IsTrue(await wire.FollowedAsync(), "the change was followed");
+        Assert.IsTrue(await wire.FollowedAsync(wire.ClientSaysConfigurationChanged()), "the change was followed");
 
         Assert.IsTrue(wire.Options.Server.Verbose, "what the client said of the other settings is set");
         Assert.AreEqual(4, wire.Options.Formatting.IndentSpaces, "and the indentation is its own, as no setting and no editor says another");

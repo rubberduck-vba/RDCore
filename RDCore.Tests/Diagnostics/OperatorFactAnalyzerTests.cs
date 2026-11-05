@@ -202,4 +202,153 @@ public sealed class OperatorFactAnalyzerTests
     {
         Assert.IsEmpty(await FindAsync(new VariantStringThatIsNoNumberRankedAnalyzer(), "", declarations, first, "b = 5", "r = a < b"));
     }
+
+    // RDC11027: MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles (oracle\s56 G, H).
+    [TestMethod]
+    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a Long (G01)")]
+    [DataRow("Dim a As String, b As Integer, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a String \"2.5\" and an Integer (G03)")]
+    [DataRow("Dim a As Variant, b As Byte, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a Byte")]
+    [DataRow("Dim a As Variant, b As Integer, r As Boolean", "a = \"40000\"", "b = 2", DisplayName = "a number the Integer does not hold (H01)")]
+    [DataRow("Dim a As Variant, b As Byte, r As Boolean", "a = \"-1\"", "b = 2", DisplayName = "a number the Byte does not hold")]
+    [DataRow("Dim a As Variant, b As Single, r As Boolean", "a = \"0.1\"", "b = 0.1", DisplayName = "a Variant \"0.1\" and a Single (H02)")]
+    [DataRow("Dim a As Variant, b As LongLong, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Variant \"2.5\" and a LongLong (H03)")]
+    [DataRow("Dim a As Variant, b As LongLong, r As Boolean", "a = \"9007199254740993\"", "b = 9007199254740992^", DisplayName = "a LongLong no Double holds (H04)")]
+    public async Task AStringComparedWithANumber_AsDoubles_IsReported(string declarations, string first, string second)
+    {
+        var finding = (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "", declarations, first, second, "r = a = b")).Single();
+
+        Assert.AreEqual(RDCoreDiagnosticId.StringComparedWithANumberAsADouble, finding.Id);
+        Assert.AreEqual(DiagnosticSeverity.Warning, finding.Severity);
+        Assert.AreEqual(6, finding.Range.Start.Line);
+    }
+
+    // the analysis knows what a Variant holds, and not the value of a variable declared with its type: it is what the code is run with.
+    [TestMethod]
+    [DataRow("ByVal a As String", "r = a > 2", DisplayName = "a String parameter")]
+    [DataRow("", "Dim a As String", "a = \"2\"", "r = a > 2", DisplayName = "a String variable")]
+    [DataRow("ByVal b As LongLong", "Dim v As Variant", "v = \"2.5\"", "r = v = b", DisplayName = "a LongLong parameter")]
+    public async Task AComparisonOfAValueThatIsNotKnown_AsDoubles_IsReported(string parameters, params string[] body)
+    {
+        var finding = (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), parameters, ["Dim r As Boolean", .. body])).Single();
+
+        Assert.AreEqual(RDCoreDiagnosticId.StringComparedWithANumberAsADouble, finding.Id);
+    }
+
+    [TestMethod]
+    [DataRow("r = \"abc\" = b", DisplayName = "a String that is no number, 13 either way")]
+    [DataRow("r = \"1e400\" = b", DisplayName = "a String no Double holds, 6 either way")]
+    [DataRow("r = \"2\" = b", DisplayName = "an integer's text, which the two compare alike")]
+    [DataRow("v = \"2\"", "r = v = 2^", DisplayName = "a LongLong a Double holds")]
+    [DataRow("v = \"2\"", "r = v = c", DisplayName = "a LongLong parameter and an integer's text")]
+    public async Task AComparisonOfKnownValues_ThatComeOutAlike_IsNotReported(params string[] body)
+    {
+        Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal b As Long, ByVal c As LongLong", ["Dim r As Boolean, v As Variant", .. body]));
+    }
+
+    // "2.5" is the table's 2, and "2.6" its 3: with n not known, MS-VBA's answer is the table's for some operators and not for others.
+    [TestMethod]
+    [DataRow("2.5", "<", false, DisplayName = "\"2.5\" < n: 2 < n for every integer")]
+    [DataRow("2.5", ">=", false, DisplayName = "\"2.5\" >= n: 2 >= n for every integer")]
+    [DataRow("2.5", ">", true, DisplayName = "\"2.5\" > n: not 2 > n for n = 2")]
+    [DataRow("2.5", "<=", true, DisplayName = "\"2.5\" <= n: not 2 <= n for n = 2")]
+    [DataRow("2.5", "=", true, DisplayName = "\"2.5\" = n: not 2 = n for n = 2")]
+    [DataRow("2.5", "<>", true, DisplayName = "\"2.5\" <> n: not 2 <> n for n = 2")]
+    [DataRow("2.6", ">", false, DisplayName = "\"2.6\" > n: 3 > n for every integer")]
+    [DataRow("2.6", "<=", false, DisplayName = "\"2.6\" <= n: 3 <= n for every integer")]
+    [DataRow("2.6", "<", true, DisplayName = "\"2.6\" < n: not 3 < n for n = 3")]
+    [DataRow("2.6", ">=", true, DisplayName = "\"2.6\" >= n: not 3 >= n for n = 3")]
+    [DataRow("-2.5", "<", true, DisplayName = "\"-2.5\" < n: not -2 < n for n = -2")]
+    [DataRow("-2.5", ">=", true, DisplayName = "\"-2.5\" >= n: not -2 >= n for n = -2")]
+    [DataRow("-2.5", ">", false, DisplayName = "\"-2.5\" > n: -2 > n for every integer")]
+    [DataRow("-2.5", "<=", false, DisplayName = "\"-2.5\" <= n: -2 <= n for every integer")]
+    [DataRow("3.5", "<", true, DisplayName = "\"3.5\" < n: not 4 < n for n = 4, half to even")]
+    [DataRow("3.5", ">=", true, DisplayName = "\"3.5\" >= n: not 4 >= n for n = 4, half to even")]
+    [DataRow("3.5", ">", false, DisplayName = "\"3.5\" > n: 4 > n for every integer, half to even")]
+    [DataRow("3.5", "<=", false, DisplayName = "\"3.5\" <= n: 4 <= n for every integer, half to even")]
+    public async Task AStringComparedWithANumberNotKnown_IsReported_WhereTheOperatorCanAnswerOtherwise(string text, string op, bool isReported)
+        => await AssertReportedEitherSide("Long", text, op, isReported);
+
+    [TestMethod]
+    [DataRow("Byte", "255.5", "=", true, DisplayName = "a Byte and \"255.5\": the table's 256 overflows (6)")]
+    [DataRow("Byte", "255.5", "<", true, DisplayName = "a Byte and \"255.5\" <: the table's 256 overflows (6)")]
+    [DataRow("Integer", "-32768.5", "<", true, DisplayName = "an Integer and \"-32768.5\" <: not -32768 < n for n = -32768")]
+    [DataRow("Integer", "-32768.5", ">=", true, DisplayName = "an Integer and \"-32768.5\" >=: not -32768 >= n for n = -32768")]
+    [DataRow("Integer", "-32768.5", ">", false, DisplayName = "an Integer and \"-32768.5\" >: -32768 > n for every Integer")]
+    [DataRow("Integer", "-32768.5", "<=", false, DisplayName = "an Integer and \"-32768.5\" <=: -32768 <= n for every Integer")]
+    [DataRow("Single", "16777217", "=", true, DisplayName = "a Single and \"16777217\": the table's Single is 16777216")]
+    [DataRow("Single", "16777216", "=", false, DisplayName = "a Single and \"16777216\", which the Single holds")]
+    [DataRow("LongLong", "9007199254740993", "=", true, DisplayName = "a LongLong and \"9007199254740993\", past 2^53")]
+    [DataRow("LongLong", "9007199254740993", "<", true, DisplayName = "a LongLong and \"9007199254740993\" <, past 2^53")]
+    public async Task AStringComparedWithANumberNotKnownOfAType_IsReported_WhereTheOperatorCanAnswerOtherwise(string type, string text, string op, bool isReported)
+        => await AssertReportedEitherSide(type, text, op, isReported);
+
+    private static async Task AssertReportedEitherSide(string type, string text, string op, bool isReported)
+    {
+        string[] stringLeft = ["Dim v As Variant, r As Boolean", $"v = \"{text}\"", $"r = v {op} n"];
+        string[] stringRight = ["Dim v As Variant, r As Boolean", $"v = \"{text}\"", $"r = n {Mirrored(op)} v"];
+
+        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), $"ByVal n As {type}", stringLeft)).Length == 1, "the String on the left");
+        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), $"ByVal n As {type}", stringRight)).Length == 1, "the String on the right");
+
+        static string Mirrored(string op) => op switch { "<" => ">", ">" => "<", "<=" => ">=", ">=" => "<=", _ => op };
+    }
+
+    [TestMethod]
+    [DataRow("v = \"2.5\"", "r = v > 7", false, DisplayName = "\"2.5\" > 7: False either way")]
+    [DataRow("v = \"2.5\"", "r = v > 2", true, DisplayName = "\"2.5\" > 2: True, where 2 > 2 is False")]
+    [DataRow("v = \"2.5\"", "r = v <> 3", false, DisplayName = "\"2.5\" <> 3: True either way")]
+    [DataRow("v = \"2.5\"", "r = v <> 2", true, DisplayName = "\"2.5\" <> 2: True, where 2 <> 2 is False")]
+    [DataRow("", "r = S > 2", true, DisplayName = "a constant \"2.5\" > 2")]
+    [DataRow("", "r = S < 7", false, DisplayName = "a constant \"2.5\" < 7")]
+    [DataRow("", "r = S <= K", true, DisplayName = "a constant \"2.5\" <= a constant 2: False, where 2 <= 2 is True")]
+    [DataRow("", "r = S >= K", false, DisplayName = "a constant \"2.5\" >= a constant 2: True either way")]
+    [DataRow("v = \"9007199254740993\"", "r = v = L", false, DisplayName = "\"9007199254740993\" = a constant LongLong 9007199254740996: False either way")]
+    [DataRow("v = \"9007199254740993\"", "r = v = M", true, DisplayName = "\"9007199254740993\" = a constant LongLong 9007199254740992: True, where the table's is False")]
+    public async Task AStringComparedWithAKnownNumber_IsReported_WhereTheAnswersDiffer(string assignment, string comparison, bool isReported)
+    {
+        var findings = await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "",
+            "Const S As String = \"2.5\"", "Const K As Long = 2", "Const L As LongLong = 9007199254740996^", "Const M As LongLong = 9007199254740992^",
+            "Dim v As Variant, r As Boolean", assignment, comparison);
+
+        Assert.AreEqual(isReported, findings.Length == 1);
+    }
+
+    // a Case clause compares the selector with its value as the relational operator does (MS-VBAL 5.4.2.10).
+    [TestMethod]
+    [DataRow("Case 2", true, DisplayName = "Case 2: v = 2")]
+    [DataRow("Case 7", false, DisplayName = "Case 7: v = 7, False either way")]
+    [DataRow("Case Is > 2", true, DisplayName = "Case Is > 2")]
+    [DataRow("Case Is < 3", false, DisplayName = "Case Is < 3: True either way")]
+    [DataRow("Case 1 To 2", true, DisplayName = "Case 1 To 2: v <= 2")]
+    [DataRow("Case 3 To 4", false, DisplayName = "Case 3 To 4: False either way")]
+    public async Task ACaseClause_OfAVariantSelectorHoldingAString_IsReported_WhereTheAnswersDiffer(string clause, bool isReported)
+    {
+        var findings = await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "",
+            "Dim v As Variant", "v = \"2.5\"", "Select Case v", clause, "Debug.Print 1", "End Select");
+
+        Assert.AreEqual(isReported, findings.Length > 0);
+    }
+
+    [TestMethod]
+    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"2\"", "b = 2", DisplayName = "an integer's text, which the two compare alike")]
+    [DataRow("Dim a As Variant, b As Double, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "a Double, the table's type")]
+    [DataRow("Dim a As Variant, b As Currency, r As Boolean", "a = \"2.00001\"", "b = 2", DisplayName = "a Currency, the table's type (I02)")]
+    [DataRow("Dim a As Variant, b As Boolean, r As Boolean", "a = \"2.5\"", "b = True", DisplayName = "a Boolean, the table's type")]
+    [DataRow("Dim a As String, b As Single, r As Boolean", "a = \"0.1\"", "b = 0.1", DisplayName = "a String declared as one and a Single, the table's type (H02)")]
+    [DataRow("Dim a As Variant, b As Variant, r As Boolean", "a = \"2.5\"", "b = 2", DisplayName = "two Variants (RDC11011)")]
+    [DataRow("Dim a As Variant, b As Long, r As Boolean", "a = \"abc\"", "b = 2", DisplayName = "a Variant String that is no number (RDC11020)")]
+    public async Task AComparisonOfAnotherKind_IsNotReportedAsDoubles(string declarations, string first, string second)
+    {
+        Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "", declarations, first, second, "r = a = b"));
+    }
+
+    // an expression over a Variant number is a Variant number, which MS-VBA compares with a String as text (RDC11013), not as a Double.
+    [TestMethod]
+    public async Task AnExpressionOverAVariantNumber_ComparedWithAString_IsComparedAsText_NotAsDoubles()
+    {
+        string[] body = ["Dim v As Variant, r As Boolean", "v = 1", "r = (v + 1) = \"2.5\""];
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariantComparedWithStringAsText, (await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "", body)).Single().Id);
+        Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "", body));
+    }
 }

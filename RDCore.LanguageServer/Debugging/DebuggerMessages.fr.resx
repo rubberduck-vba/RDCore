@@ -42,8 +42,11 @@
   <data name="ComponentLost" xml:space="preserve">
     <value>le composant « {0} » a été perdu : le programme ne peut pas continuer.</value>
   </data>
-  <data name="LaunchNeedsModule" xml:space="preserve">
-    <value>Une configuration de lancement nomme le module qui contient le point d'entrée : "module".</value>
+  <data name="NoModuleDeclaresTheEntryPoint" xml:space="preserve">
+    <value>Aucun module standard du programme ne déclare de Public Sub {0}() ni de Public Sub {0}(ParamArray Args()) par lequel commencer. Déclarez-en un, ou nommez dans la configuration de lancement le module qui contient le point d'entrée : "module".</value>
+  </data>
+  <data name="ModulesDeclaringTheEntryPoint" xml:space="preserve">
+    <value>Plus d'un module standard déclare un Sub {0} par lequel le programme pourrait commencer : {1}. Nommez dans la configuration de lancement celui à exécuter : "module".</value>
   </data>
   <data name="NoProgramToStart" xml:space="preserve">
     <value>Il n'y a aucun programme à démarrer : lancez d'abord.</value>

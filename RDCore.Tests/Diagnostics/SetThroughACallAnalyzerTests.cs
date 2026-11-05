@@ -29,14 +29,16 @@ public sealed class SetThroughACallAnalyzerTests
     }
 
     [TestMethod]
-    [DataRow("Function H() As Collection ;; Set H = New Collection ;; End Function", "Set H = New Collection", DisplayName = "s28 B25 a function of a class")]
-    public async Task ASetOfACallOfAClassWhoseDefaultMemberHasNoPropertySet_IsError438(string declarations, string statement)
+    [DataRow("H", DisplayName = "s28 B25 a function of a class")]
+    [DataRow("Créer", DisplayName = "a function named with an accented letter, named as its code names it")]
+    public async Task ASetOfACallOfAClassWhoseDefaultMemberHasNoPropertySet_IsError438(string function)
     {
-        var finding = Assert.ContainsSingle(await FindingsAsync(declarations, statement));
+        var finding = Assert.ContainsSingle(await FindingsAsync(
+            $"Function {function}() As Collection ;; Set {function} = New Collection ;; End Function", $"Set {function} = New Collection"));
 
         Assert.AreEqual(DiagnosticSeverity.Error, finding.Severity);
         StringAssert.Contains(finding.Message, "438");
-        StringAssert.Contains(finding.Message, "'H'");
+        StringAssert.Contains(finding.Message, $"'{function}'");
     }
 
     [TestMethod]

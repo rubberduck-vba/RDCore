@@ -84,7 +84,7 @@ internal sealed class BenchCommand(IConsoleMessageWriter writer, IFileSystem fil
             {
                 workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, corpus ?? options.Path!, token);
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
             {
                 writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Error).WithMessageBody(exception.Message));
                 return 1;

@@ -77,6 +77,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11023`](../diagnostics/rdc11023.md)|Procedure MS-VBA refuses as too large|Warning|the syntax tree: the statements of a procedure|
 |[`RDC11024`](../diagnostics/rdc11024.md)|Implements in a document module|Warning|the host's `DocumentModuleFact`, and the module's `Implements` directives|
 |[`RDC11026`](../diagnostics/rdc11026.md)|Public variable of an object passed ByRef as a copy|Warning|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy` and `ObjectVariablePassedLateAsACopy` of the `ExpressionFact`s|
+|[`RDC11027`](../diagnostics/rdc11027.md)|String compared with a number as a Double|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsStringComparedAsADouble` of the `ComparisonOperatorFact`s|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same

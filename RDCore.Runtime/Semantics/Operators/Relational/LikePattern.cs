@@ -22,7 +22,8 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// <item>An invalid element - an unterminated list, or a range whose first character is above its last - raises error 93 when it is tested
 /// against a character, and the items of a list are tested in order until one matches. A <c>*</c> reached with text left to match checks the
 /// whole rest of the pattern first, and raises error 93 if any of it is invalid; a <c>*</c> reached at the end of the text checks nothing.</item>
-/// <item><c>#</c> matches <c>0</c> to <c>9</c> and no other digit; <c>?</c> and <c>*</c> match a line feed like any other character.</item>
+/// <item><c>#</c> matches <c>0</c> to <c>9</c> and their fullwidth forms (U+FF10 to U+FF19), and no other digit; <c>?</c> and <c>*</c> match a line
+/// feed like any other character.</item>
 /// <item>In text mode a character matches its other case where the two map to each other in the regional settings (<see cref="Fold"/>),
 /// and a range is folded the same way before it is tested: <c>[A-z]</c> is <c>[a-z]</c>, and <c>[Z-a]</c> is invalid.</item>
 /// <item>In text mode a character the collation expands to two letters (<see cref="Expansion"/>) is matched as itself or as its letters, in the
@@ -440,7 +441,7 @@ internal sealed class LikePattern
                 case ElementKind.Any:
                     return text.EndOfCharacter(index);
                 case ElementKind.Digit:
-                    return text[index] is >= '0' and <= '9' ? index + 1 : -1;
+                    return text[index] is >= '0' and <= '9' or >= '０' and <= '９' ? index + 1 : -1;
                 case ElementKind.List:
                     // an expanded character in the list as itself is taken whole.
                     if (!IsNegated && text.IsExpandedCharacter(index, out var character)

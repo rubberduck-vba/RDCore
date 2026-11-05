@@ -329,13 +329,7 @@ internal sealed partial class SessionStorage
         Generation++;
         if (TryVariableAt(holder, out var handle))
         {
-            if (handle is not SDK.Model.Values.Bindings.ValueBindingHandle cell)
-            {
-                return TryRebind(holder, new SDK.Model.Values.Bindings.ValueBindingHandle(raw));
-            }
-
-            cell.Store(raw, isKnown: true);
-            return true;
+            return TryWriteBoundAt(holder, handle, raw);
         }
 
         if (!allocator.TryFindBlock(holder, out var found))

@@ -371,8 +371,10 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBNullValue:
                 return Fail<VBStringValue>(VBRuntimeErrorId.InvalidUseOfNull, "Str$ takes no Null.");
 
-            case VBErrorValue error:
-                return Succeed(new VBStringValue($"Error {ErrorCodeText(error)}"));
+            // MS-VBAL 6.1.2.3.1.20 gives an Error's text, "Error " and its code, which CStr gives; MS-VBA's Str raises a type mismatch (recorded in
+            // Excel: oracle\s56 G07, s57 E01; RD-VBAL 6.1.2.3.1.20).
+            case VBErrorValue:
+                return Fail<VBStringValue>(VBRuntimeErrorId.TypeMismatch, "Str takes no Error value.");
 
             // "If the value type of Number is Date, the returned value is the result of Let-coercing Number to String" -
             // in the regional settings of the session's environment, as Let-coercion writes it.
@@ -430,7 +432,9 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
         // "the function recognizes the radix prefixes &O (for octal) and &H (for hexadecimal)."
         if (text.Length >= 2 && text[0] == '&' && char.ToUpperInvariant(text[1]) is 'H' or 'O')
         {
-            return Succeed(new VBDoubleValue(Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8)));
+            return Prefixed(text[2..], char.ToUpperInvariant(text[1]) == 'H' ? 16 : 8) is { } prefixed
+                ? Succeed(new VBDoubleValue(prefixed))
+                : Fail<VBDoubleValue>(VBRuntimeErrorId.Overflow, $"'{text}' does not fit the integer it is read as.");
         }
 
         var match = LeadingNumber().Match(text);
@@ -448,23 +452,42 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             : Succeed(new VBDoubleValue(number));
     }
 
-    private static double Prefixed(string digits, int radix)
+    // MS-VBA reads the digits of a radix number as the bits of an integer, typed by its width and by the type-declaration character after them, if any, much
+    // as a radix literal is (MS-VBAL §3.3.2), and the Double is that integer's value (recorded in Excel: oracle\s57 V01-V06, D01-D03). More than 64 bits
+    // overflow (6), whatever follows. Unsuffixed, up to 16 bits are an Integer and any more the low 32 bits of a Long: &HFFFF is -1, &H123456789 is
+    // &H23456789. % is an Integer, which more than 16 bits overflow; & the low 32 bits of a Long; ^ a LongLong; ! # @ a Long when 32 bits hold them, and a
+    // LongLong when they do not (&H8000! is 32768, &HFFFFFFFF! is -1). Null when the bits overflow.
+    private static double? Prefixed(string text, int radix)
     {
-        var total = 0d;
-        foreach (var digit in digits)
+        var bits = 0UL;
+        var index = 0;
+        for (; index < text.Length; index++)
         {
+            var digit = char.ToUpperInvariant(text[index]);
             var place = digit is >= '0' and <= '9' ? digit - '0'
-                : char.ToUpperInvariant(digit) is >= 'A' and <= 'F' ? char.ToUpperInvariant(digit) - 'A' + 10
+                : digit is >= 'A' and <= 'F' ? digit - 'A' + 10
                 : radix;
             if (place >= radix)
             {
                 break;
             }
 
-            total = total * radix + place;
+            if (bits > (ulong.MaxValue - (ulong)place) / (ulong)radix)
+            {
+                return null;
+            }
+
+            bits = bits * (ulong)radix + (ulong)place;
         }
 
-        return total;
+        return (index < text.Length ? text[index] : '\0') switch
+        {
+            '%' => bits <= 0xFFFF ? unchecked((short)(ushort)bits) : null,
+            '&' => unchecked((int)(uint)bits),
+            '^' => unchecked((long)bits),
+            '!' or '#' or '@' => bits <= 0xFFFFFFFF ? unchecked((int)(uint)bits) : unchecked((long)bits),
+            _ => bits <= 0xFFFF ? unchecked((short)(ushort)bits) : unchecked((int)(uint)bits),
+        };
     }
 
     // a Variant holds whatever it was given, another Variant included, so this goes all the way down.

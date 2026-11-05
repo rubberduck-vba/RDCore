@@ -533,7 +533,8 @@ internal sealed class ProgramEdits
 
     private static string KeyOf(Uri module, SymbolDescriptor descriptor) => $"{module.AbsoluteUri}|{descriptor.Kind}|{descriptor.Name.ToUpperInvariant()}";
 
-    private static string NameOfProcedure(string procedure) => procedure[(procedure.LastIndexOf('#') + 1)..];
+    // a procedure as the user names it: Module.Procedure, unescaped as its identifiers are.
+    private static string NameOfProcedure(string procedure) => NameOf(procedure);
 
     // a held variable as the user names it: Module.Variable.
     private static string NameOfHeld(Symbol held) => $"{NameOf(held.ParentUri.AbsoluteUri)}.{held.Name}";
@@ -545,7 +546,8 @@ internal sealed class ProgramEdits
         _ => null,
     };
 
-    private static string NameOf(string module) => new Uri(module).Fragment.TrimStart('#') is { Length: > 0 } name ? name : module;
+    // a symbol as the user names it, from its module down (Module, Module.Procedure); a URI that names none is said as it is.
+    private static string NameOf(string symbol) => SymbolUri.PathOf(new Uri(symbol)) is { Length: > 0 } name ? name : symbol;
 
     private static ModuleText TextOf(VBModuleSymbol module)
         => new($"{module.Directives}", module is VBClassModuleSymbol type

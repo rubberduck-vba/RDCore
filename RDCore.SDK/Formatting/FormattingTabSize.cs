@@ -52,7 +52,7 @@ public static class FormattingTabSize
     /// </returns>
     public static async Task<int?> RequestEditorTabSizeAsync(ILanguageServerFacade server, CancellationToken token = default)
     {
-        if (server.ClientSettings.Capabilities?.Workspace?.Configuration.IsSupported != true)
+        if (!ClientConfigurationOptions.Answers(server.ClientSettings.Capabilities))
         {
             return null;
         }

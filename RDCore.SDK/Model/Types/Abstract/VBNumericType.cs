@@ -54,8 +54,16 @@ public abstract record class VBNumericType(string Name, Type ManagedType) : VBIn
     /// <param name="source">The managed (.net) numeric source value to validate.</param>
     /// <param name="destination">The data type to check conversion eligibility against.</param>
     /// <returns><c>true</c> if the value can legally be used with the destination type, <c>false otherwise</c>.</returns>
-    /// <remarks>If this function returns <c>false</c>, the caller should throw a <c>VBRuntimeErrorOverflowException.</c></remarks>
-    public static bool IsWithinRange(double source, VBNumericType destination) => destination.Holds(source);
+    /// <remarks>
+    /// If this function returns <c>false</c>, the caller should throw a <c>VBRuntimeErrorOverflowException.</c>
+    /// <para>
+    /// A value converted to an integral type is within its range when the whole number it rounds to is (<strong>MS-VBAL §5.5.1.2.1</strong>, Banker's
+    /// rounding, <strong>§5.5.1.2.1.1</strong>), as MS-VBA checks it: <c>CInt(32767.3)</c> is <c>32767</c>, <c>CInt(-32768.5)</c> is <c>-32768</c>, and
+    /// <c>CInt(32767.5)</c> overflows (recorded in Excel: oracle\s58 K01, K02).
+    /// </para>
+    /// </remarks>
+    public static bool IsWithinRange(double source, VBNumericType destination)
+        => destination.Holds(destination is IIntegralNumericType ? BankersRounding(source) : source);
 
     /// <summary>
     /// Whether a <see cref="double"/> is within the range of this type (<strong>MS-VBAL 5.5.1.2.1</strong>): one a value of this type can be made of

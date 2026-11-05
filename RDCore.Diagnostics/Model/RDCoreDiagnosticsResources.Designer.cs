@@ -797,5 +797,14 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; compares a String with an integer or a Single: MS-VBA compares the two as Double values, where MS-VBAL §5.6.9.5 compares them in the number&apos;s type, and the result can differ (&quot;2.5&quot; = 2 is False; &quot;40000&quot; compared with an Integer does not overflow)..
+        /// </summary>
+        public static string StringComparedWithANumberAsADouble_Message {
+            get {
+                return ResourceManager.GetString("StringComparedWithANumberAsADouble_Message", resourceCulture);
+            }
+        }
+
     }
 }

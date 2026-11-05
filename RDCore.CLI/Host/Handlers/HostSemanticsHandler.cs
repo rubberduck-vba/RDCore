@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -52,7 +53,7 @@ internal sealed class HostSemanticsHandler(IEnvironmentSessionProvider sessionPr
     // the modules asked for: every one the host has a model of, when none is named.
     private IEnumerable<Uri> Named(string moduleName)
         => sessionProvider.Image.Semantics.All
-            .Where(model => moduleName.Length == 0 || string.Equals(model.Module.Fragment.TrimStart('#'), moduleName, StringComparison.OrdinalIgnoreCase))
+            .Where(model => moduleName.Length == 0 || string.Equals(SymbolUri.ModuleNameOf(model.Module), moduleName, StringComparison.OrdinalIgnoreCase))
             .Select(model => model.Module)
             .ToList();
 }

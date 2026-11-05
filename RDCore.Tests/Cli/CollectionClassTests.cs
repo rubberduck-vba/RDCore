@@ -112,8 +112,8 @@ public sealed class CollectionClassTests
     public async Task APositionThatIsNotThere_IsSubscriptOutOfRange()
     {
         Assert.AreEqual("9", await ErrorOfAsync("c.Add 1", "Debug.Print c(2)"));
-        Assert.AreEqual("9", await ErrorOfAsync("Debug.Print c(0)"));
-        Assert.AreEqual("9", await ErrorOfAsync("c.Remove 1"));
+        Assert.AreEqual("9", await ErrorOfAsync("c.Add 1", "Debug.Print c(0)"));
+        Assert.AreEqual("9", await ErrorOfAsync("c.Add 1", "c.Remove 2"));
     }
 
     [TestMethod]

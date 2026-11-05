@@ -59,7 +59,7 @@ The MS-VBA shape leaves `ErrObject` nameable in an `As` clause, instead of shado
 |§|Member|Notes|
 |---|---|---|
 |6.1.3.2.2.1|[Description](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9589efc8-0183-46e9-aa30-980596f9ebda)||
-|6.1.3.2.2.2|[HelpContext](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e0c1ef21-cfcc-4dd1-814a-4bc037021059)||
+|6.1.3.2.2.2|[HelpContext](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e0c1ef21-cfcc-4dd1-814a-4bc037021059)|As **MS-VBA** sets it (recorded in Excel, `oracle\s58` H03-H06): a run-time error, the `Error` statement, an error an automation object raises, and an `Err.Raise` given `0` set it to `1000000` and the error's number. That is `95` for a number VBA defines no error for (`Err.Raise 1000` is `1000095`, and so is an RD-VBA error of its own, `50001` on), and `440` for one outside `0` to `65535` (`vbObjectError + 1` is `1000440`). An `Err.Raise` given one sets that. An `Err.Raise` given none keeps the one `Err` has while it has an error, as it keeps the other arguments it isn't given (MS-VBAL §6.1.3.2.1.2), and sets the error's otherwise. `Err.Clear` sets `0`.|
 |6.1.3.2.2.3|[HelpFile](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/60444e0c-65ce-4566-ab73-50b5c0c2077d)||
 |6.1.3.2.2.4|[LastDllError](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/54c13521-19f1-46aa-a34d-4cd5733102f8)||
 |6.1.3.2.2.5|[Number](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/af123ad2-997f-4180-9d99-11d529757bf4)||
@@ -71,15 +71,22 @@ The MS-VBA shape leaves `ErrObject` nameable in an `As` clause, instead of shado
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.3.2.2.6** Source](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a282720f-a558-4918-b5cb-6aa7114c0d47).
 
-`Err.Source` defaults to the project name (**MS-VBAL §6.1.3.2.2.6**). The default is applied where a run-time error is
-reported to the host: when the error's source is empty, the `rdcore/session/execute` result reports the project name
-as the error's source ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md)).
+An error's `Source` is the name of the project whose code runs (**MS-VBAL §6.1.3.2.1.2**: "the programmatic ID of the
+current Visual Basic project"), unless `Err.Raise` gives it one. Recorded in Excel (`oracle\s58` H06, `s61` H07-H12),
+where the project is `VBAProject`:
 
-The session's own `Source`
-([ISessionErrorState](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionErrorState.html)`.Source`) is empty until
-the error object sets it (`IStdErrClass.Source`, or `IStdErrClass.Raise` with a source argument). VBA source cannot
-reach the error object (see the note under [The Err function](#the-err-function)), so the `rdcore/session/execute`
-result always reports the project name as the error's source.
+|What raises the error|`Err.Source`|
+|---|---|
+|A run-time error (`1 / 0`), an `Error` statement, an automation object (a `Dictionary`'s 457), in a standard module or a class|The project's name, whatever `Err.Source` was before: one assigned, one an `Err.Raise` gave|
+|`Err.Raise` with a source|That source|
+|`Err.Raise` with none, while `Err` has one (`Err.Raise 5, "lib"`, then `Err.Raise 6`)|The one `Err` has: `lib`|
+|`Err.Raise` with none, and `Err` none (after `Err.Clear`)|The project's name|
+
+`Err.Clear` empties it. The project's name is the one the project file gives it, or its folder's
+([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). The shell's project is named `VBAProject`, as MS-VBA names a new
+project; its one module is `Program`.
+The `rdcore/session/execute` result reports the same source for the error a run ends with
+([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md)).
 
 ### 6.1.3.2.2.7 StackTrace
 
