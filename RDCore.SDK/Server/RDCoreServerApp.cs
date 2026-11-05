@@ -318,8 +318,9 @@ public abstract class RDCoreServerApp(
             // a request whose handler throws is answered on one line, which a client shows as it is, and the whole exception is written to this server's own
             // log:
             .WithOneLineErrors(logger)
-            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change:
-            .WithConfigurationSection(LiveSettingsProtocol.Section)
+            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change, of any client
+            // that answers it:
+            .WithClientConfiguration(LiveSettingsProtocol.Section)
             // core SDK handlers:
             .ConfigureCoreSdkHandlers()
             // OmniSharp 0.19.9 cannot write a pull diagnostic report, and the throw takes the entire
