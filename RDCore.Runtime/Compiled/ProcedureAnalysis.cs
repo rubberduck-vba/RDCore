@@ -657,7 +657,7 @@ internal sealed class ProcedureAnalysis
 
         var converted = Converted(operand, effective);
         return plan.Operator == Tokens.NegationOp
-            ? new NegateNode(converted, effective)
+            ? new NegateNode(converted, effective, unary.NegatesAConstantExpression)
             : ScalarKinds.IsIntegral(effective) ? new NotNode(converted, effective) : Unsupported(unary);
     }
 

@@ -152,8 +152,8 @@ internal sealed record class CompareNode(ComparisonOperator Operator, PayloadNod
 // PayloadOperations.Not.
 internal sealed record class NotNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
 
-// PayloadOperations.Negate.
-internal sealed record class NegateNode(PayloadNode Operand, ScalarKind Kind) : PayloadNode(Kind);
+// PayloadOperations.Negate; of a constant expression, PayloadOperations.NegateConstant.
+internal sealed record class NegateNode(PayloadNode Operand, ScalarKind Kind, bool OfAConstantExpression = false) : PayloadNode(Kind);
 
 // an extended intermediate converted to a kind: Extended.ToFloating, Extended.ToIntegral.
 internal sealed record class StoreNode(ExtendedNode Value, ScalarKind Kind) : PayloadNode(Kind);
