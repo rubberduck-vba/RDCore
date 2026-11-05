@@ -103,11 +103,15 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
     /// <param name="session">The session the image is the code of.</param>
     /// <param name="executor">The interpreter of the session's pipeline, whose evaluator binds the body's expressions.</param>
     /// <param name="procedure">The procedure.</param>
-    /// <returns><see langword="null"/> for a procedure that has no body in the image.</returns>
+    /// <returns>
+    /// <see langword="null"/> for a member that is no <c>Sub</c>, <c>Function</c> or <c>Property</c> procedure - an <c>Enum</c>, a <c>Type</c>, a
+    /// <c>Const</c> - and for a procedure that has no body in the image.
+    /// </returns>
     public static ProcedureCompilation? Of(Execution.ProgramImage image, SDK.Runtime.Abstract.Execution.IRuntimeSession session, Execution.ProcedureExecutor executor,
         SDK.Model.Symbols.Abstract.VBTypeMemberSymbol procedure)
     {
-        if (!image.TryGetValue(procedure.SemanticId, out var body))
+        if (procedure is not (SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol or SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol
+            or SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol) || !image.TryGetValue(procedure.SemanticId, out var body))
         {
             return null;
         }

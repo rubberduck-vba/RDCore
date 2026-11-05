@@ -221,7 +221,7 @@ internal sealed class ProcedureAnalysis
             return false;
         }
 
-        // a member of a class is called on an object, Me (MS-VBAL §5.3.1.12), which its frame holds: what reads it, the interpreter runs (IR lowering S2.5a).
+        // a member of a class is called on an object, Me (MS-VBAL §5.6.11), which its frame holds: what reads it, the interpreter runs (IR lowering S2.5a).
         var parameters = RuntimeProcedureInvoker.GetParameters(_procedure);
         for (var i = 0; i < parameters.Length; i++)
         {
