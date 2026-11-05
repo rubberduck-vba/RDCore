@@ -92,6 +92,39 @@ public sealed class MemberAccessByRefArgumentTests
     public async Task AFieldOfAUserDefinedTypeVariable_IsTheVariable(string body, string expected)
         => await AssertPrintedInEitherEngineAsync(body, expected);
 
+    // a compiled procedure takes a ByRef Long the interpreter binds to the field it is given (S2.3c): the callee writes the field, run compiled.
+    [TestMethod]
+    [DataRow("Dim r As TPair ;; r.X = 1 ;; With r ;; BumpLong .X ;; End With ;; Debug.Print r.X", "11", DisplayName = "W01 .X in With r")]
+    [DataRow("Dim r As TOuter ;; r.A(0) = 1 ;; With r ;; BumpLong .A(0) ;; End With ;; Debug.Print r.A(0)", "11", DisplayName = "M01 .A(0) in With r")]
+    [DataRow("Dim r As TOuter ;; r.Inner.X = 1 ;; With r ;; With .Inner ;; BumpLong .X ;; End With ;; End With ;; Debug.Print r.Inner.X", "11",
+        DisplayName = "M01 .X in With .Inner in With r")]
+    [DataRow("Dim t(1) As TOuter ;; t(0).Inner.X = 1 ;; With t(0) ;; BumpLong .Inner.X ;; End With ;; Debug.Print t(0).Inner.X", "11", DisplayName = "M02 .Inner.X in With t(0)")]
+    [DataRow("Dim r As TOuter ;; ReDim r.B(1) ;; r.B(0) = 1 ;; With r ;; BumpLong .B(0) ;; End With ;; Debug.Print r.B(0)", "11", DisplayName = "M03 .B(0) in With r")]
+    public async Task ACompiledCallee_IsGivenTheField(string body, string expected)
+        => await InspectAsync([("Box", Box)], Program(body), (provider, run, _) =>
+        {
+            Assert.AreEqual(expected, string.Join("|", run.Output.Select(line => line.Trim())), run.ErrorMessage);
+            Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "BumpLong" && result.Result.Body is not null), "BumpLong runs compiled");
+            return Task.CompletedTask;
+        }, engine: VBExecutionEngine.Compiled);
+
+    // what compiled code passes by reference is a variable of its own activation (S2.3c): a caller that passes a field or an element is the interpreter's,
+    // which binds it as the rows above have it.
+    [TestMethod]
+    public async Task ACallerThatPassesAField_RunsInTheInterpreter()
+        => await InspectAsync([], StandardModule("Program",
+            "Private Type TPair", "    X As Long", "End Type",
+            "Private Sub BumpLong(ByRef n As Long)", "    n = n + 10", "End Sub",
+            "Private Function Passes() As Long", "    Dim r As TPair", "    r.X = 1", "    BumpLong r.X", "    Passes = r.X", "End Function",
+            "Public Sub Main()", "    Debug.Print Passes()", "End Sub"), (provider, run, _) =>
+        {
+            Assert.AreEqual("11", string.Join("|", run.Output.Select(line => line.Trim())), run.ErrorMessage);
+            Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "BumpLong" && result.Result.Body is not null), "BumpLong runs compiled");
+            Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "Passes" && result.Result.Body is null && result.Result.Reasons.Count > 0),
+                "Passes runs in the interpreter");
+            return Task.CompletedTask;
+        }, engine: VBExecutionEngine.Compiled);
+
     private static async Task AssertPrintedInEitherEngineAsync(string body, string expected)
     {
         foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })
