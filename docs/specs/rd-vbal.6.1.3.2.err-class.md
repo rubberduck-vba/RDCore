@@ -60,11 +60,28 @@ create its object. Both forms are reported as [`RDC11028`](../diagnostics/rdc110
 |---|---|---|
 |6.1.3.2.2.1|[Description](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9589efc8-0183-46e9-aa30-980596f9ebda)||
 |6.1.3.2.2.2|[HelpContext](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e0c1ef21-cfcc-4dd1-814a-4bc037021059)|As **MS-VBA** sets it (recorded in Excel, `oracle\s58` H03-H06): a run-time error, the `Error` statement, an error an automation object raises, and an `Err.Raise` given `0` set it to `1000000` and the error's number. That is `95` for a number VBA defines no error for (`Err.Raise 1000` is `1000095`, and so is an RD-VBA error of its own, `50001` on), and `440` for one outside `0` to `65535` (`vbObjectError + 1` is `1000440`). An `Err.Raise` given one sets that. An `Err.Raise` given none keeps the one `Err` has while it has an error, as it keeps the other arguments it isn't given (MS-VBAL §6.1.3.2.1.2), and sets the error's otherwise. `Err.Clear` sets `0`.|
-|6.1.3.2.2.3|[HelpFile](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/60444e0c-65ce-4566-ab73-50b5c0c2077d)||
+|6.1.3.2.2.3|[HelpFile](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/60444e0c-65ce-4566-ab73-50b5c0c2077d)|Empty unless the program sets it. See [§6.1.3.2.2.3](#613223-helpfile).|
 |6.1.3.2.2.4|[LastDllError](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/54c13521-19f1-46aa-a34d-4cd5733102f8)||
 |6.1.3.2.2.5|[Number](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/af123ad2-997f-4180-9d99-11d529757bf4)||
 |6.1.3.2.2.6|[Source](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a282720f-a558-4918-b5cb-6aa7114c0d47)|See [§6.1.3.2.2.6](#613226-source).|
 |6.1.3.2.2.7|🧩 `StackTrace`|RD-VBA addition. See [§6.1.3.2.2.7](#613227-stacktrace).|
+
+### 6.1.3.2.2.3 HelpFile
+
+> [!NOTE]
+> This section describes the implementation of [**MS-VBAL §6.1.3.2.2.3** HelpFile](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/60444e0c-65ce-4566-ab73-50b5c0c2077d).
+
+**MS-VBAL §6.1.3.2.1.2** leaves the help file of an error raised without one to the implementation. **MS-VBA** gives it
+the path of its own help file. After a run-time error, MS-VBA's `Err.HelpFile` is
+`C:\Program Files\Common Files\Microsoft Shared\VBA\VBA7.1\1033\VbLR6.chm`, and its `Err.HelpContext` is `1000440`
+(recorded in Excel, `oracle\s62` X12, where the error is -2147221164).
+
+**RD-VBA** gives an empty string. `Err.HelpFile` is `""` unless the program sets it, with the property itself or with the
+`HelpFile` argument of `Err.Raise`, and `Err.Clear` empties it. The help system that file belongs to is MS-VBA's own:
+RD-VBA has none, opens no help for an error, and has no file to name. A path to MS-VBA's file would name a file that is
+not there on a machine without Office.
+
+`Err.HelpContext` is set as MS-VBA sets it (see the table above), so a program that reads it gets the same number.
 
 ### 6.1.3.2.2.6 Source
 
