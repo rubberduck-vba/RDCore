@@ -17,8 +17,8 @@ namespace RDCore.LanguageServer.Runtime;
 /// Diagnostics) with <c>retriggerRequest: false</c>: a client that retriggers would ask again and again while the dialog is open.
 /// </para>
 /// <para>
-/// Once the last dialog closes, a client whose pull was declined is asked to pull again (<see cref="PullAgain"/>). A client that takes no refresh is
-/// declined all the same: its next edit's pull is answered.
+/// Once the last dialog closes, a client whose pull was declined is asked to pull its diagnostics again (<see cref="PullAgain"/>). A client that takes no
+/// refresh is declined all the same: the first pull it makes once no dialog is open is answered.
 /// </para>
 /// </remarks>
 internal sealed class OpenDialogs
