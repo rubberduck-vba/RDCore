@@ -37,7 +37,7 @@ Each diagnostics provider projects its own findings to LSP `Diagnostic`s through
 |Hop|Protocol|
 |---|---|
 |Editor → language server|plain LSP (`textDocument/diagnostic`)|
-|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentRequest](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentRequest.html), answered by a [DiagnoseDocumentResponse](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentResponse.html))|
+|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentParams](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentParams.html), answered by a [DiagnoseDocumentResult](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentResult.html))|
 
 The editor edge of the diagnostics pipeline stays plain LSP throughout. Only the language-server-to-provider hop is an RDCore request.
 

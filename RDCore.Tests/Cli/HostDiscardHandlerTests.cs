@@ -25,7 +25,7 @@ public sealed class HostDiscardHandlerTests
 
     private static readonly (int Number, string Statement)[] PrintsN = [(10, "PRINT N")];
 
-    private static string[] Printed(ExecuteSessionResult result) => [.. result.Output.Select(line => line.Trim())];
+    private static string[] Printed(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
     [TestMethod]
     public async Task TheVariablesOfAProgram_AndTheirStorage_GoWithIt()

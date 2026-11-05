@@ -9,7 +9,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// Nothing about the address has to mean anything, and the platform does not try to make it mean
 /// anything: it reports the byte there, or that there is nothing there.
 /// </remarks>
-public record class PeekSessionParams
+public record class SessionPeekParams
 {
     /// <summary>The address to read.</summary>
     public int Address { get; init; }
@@ -18,7 +18,7 @@ public record class PeekSessionParams
 /// <summary>
 /// What was at the address.
 /// </summary>
-public record class PeekSessionResult
+public record class PeekResult
 {
     /// <summary>The address that was read, echoed back.</summary>
     public int Address { get; init; }
@@ -42,7 +42,7 @@ public record class PeekSessionResult
 /// variable to whatever the new bytes spell — an ordinary, valid value of its declared type, or a
 /// nonsensical one. Nothing here prevents that; being able to do it is the point.
 /// </remarks>
-public record class PokeSessionParams
+public record class SessionPokeParams
 {
     /// <summary>The address to write.</summary>
     public int Address { get; init; }
@@ -54,7 +54,7 @@ public record class PokeSessionParams
 /// <summary>
 /// Whether the byte went in.
 /// </summary>
-public record class PokeSessionResult
+public record class PokeResult
 {
     /// <summary>The address that was written, echoed back.</summary>
     public int Address { get; init; }

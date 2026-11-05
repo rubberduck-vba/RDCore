@@ -7,14 +7,14 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <summary>
 /// Request <c>rdcore/host/interaction/msgBox</c>: the environment host asks the language server to have a program's <c>MsgBox</c> answered by the client.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostMessageBox, Direction.ServerToClient)]
-public sealed record class HostMessageBoxParams : MessageBoxRequestParams, IRequest<MessageBoxResult>;
+[Method(RDCoreComponentProtocol.HostMessageBox, Direction.ServerToClient)]
+public sealed record class HostMessageBoxParams : MessageBoxParams, IRequest<MessageBoxResult>;
 
 /// <summary>
 /// Request <c>rdcore/host/interaction/inputBox</c>: the environment host asks the language server to have a program's <c>InputBox</c> answered by the client.
 /// </summary>
-[Method(RDCorePlatformProtocol.HostInputBox, Direction.ServerToClient)]
-public sealed record class HostInputBoxParams : InputBoxRequestParams, IRequest<InputBoxResult>;
+[Method(RDCoreComponentProtocol.HostInputBox, Direction.ServerToClient)]
+public sealed record class HostInputBoxParams : InputBoxParams, IRequest<InputBoxResult>;
 
 /// <summary>
 /// <see cref="SessionMessageBoxParams"/> as the platform's JSON-RPC handlers and senders know it: the method it is a request of, and what it is answered

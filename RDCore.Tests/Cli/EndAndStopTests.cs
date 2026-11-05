@@ -26,9 +26,9 @@ public sealed class EndAndStopTests
         return Convert.ToInt64(session.Symbols.Resolver.GetValue(total!).Value.BoxedValue);
     }
 
-    private static async Task<(ExecuteSessionResult Result, long Total, ExecuteSessionResult Again, long TotalAgain)> RunTwiceAsync(string program)
+    private static async Task<(ExecuteResult Result, long Total, ExecuteResult Again, long TotalAgain)> RunTwiceAsync(string program)
     {
-        ExecuteSessionResult? first = null, second = null;
+        ExecuteResult? first = null, second = null;
         long total = 0, totalAgain = 0;
         await ModuleWorkspace.InspectAsync(NoClasses, program, async (provider, result, runAgain) =>
         {
@@ -102,7 +102,7 @@ public sealed class EndAndStopTests
     {
         var widget = ModuleWorkspace.ClassModule("Widget", "Private Sub Class_Terminate()", "    Debug.Print \"terminated\"", "End Sub");
 
-        ExecuteSessionResult? ended = null, finished = null;
+        ExecuteResult? ended = null, finished = null;
         await ModuleWorkspace.InspectAsync([("Widget", widget)], Program(
             "Public Sub Main()",
             "    Dim w As Widget",
@@ -169,7 +169,7 @@ public sealed class EndAndStopTests
     {
         // a release build keeps the Debug statements unless it is told to drop them; the DEBUG constant is False, and Stop ends the program as End does, as
         // in a compiled VB6 executable.
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
@@ -199,7 +199,7 @@ public sealed class EndAndStopTests
     [DataRow(true, ExecutionOutcome.Completed, DisplayName = "dropped: nothing is asserted")]
     public async Task AnAssertionThatFails_InAReleaseBuild(bool drops, ExecutionOutcome expected)
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Sub Main()",
             "    Debug.Assert False",
@@ -217,7 +217,7 @@ public sealed class EndAndStopTests
     [DataRow(true, 0L, DisplayName = "dropped: the function is not called")]
     public async Task ADebugPrintOfACall_InAReleaseBuild(bool drops, long calls)
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
@@ -243,7 +243,7 @@ public sealed class EndAndStopTests
     public async Task Stop_InAReleaseBuildThatDropsTheDebugStatements_EndsTheProgram_AndEveryDebugCallIsLeftOut()
     {
         // nothing is printed and nothing is asserted: the arguments are not evaluated.
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
@@ -402,7 +402,7 @@ public sealed class EndAndStopTests
     [TestMethod]
     public async Task ABreakFromOutside_IsAStop_OfWhateverTheProgramWasDoing()
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
             "Public Sub Main()",

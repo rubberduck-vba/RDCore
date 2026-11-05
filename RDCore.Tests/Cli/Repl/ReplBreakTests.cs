@@ -25,7 +25,7 @@ public sealed class ReplBreakTests
         _context = new ReplCommandContext(_program, _console, _platform, new ReplDocument(_program, _platform), []);
     }
 
-    private async Task RunAsync(ExecuteSessionResult result)
+    private async Task RunAsync(ExecuteResult result)
     {
         _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
         await new RunReplCommand().ExecuteAsync(_context, string.Empty, CancellationToken.None);
@@ -38,7 +38,7 @@ public sealed class ReplBreakTests
         _program.Store(20, "STOP");
 
         // the module's first line is the Sub statement, so the second line of the program is the third line of its source: index 2.
-        await RunAsync(new ExecuteSessionResult { Outcome = ExecutionOutcome.Interrupted, ErrorLine = 2 });
+        await RunAsync(new ExecuteResult { Outcome = ExecutionOutcome.Interrupted, ErrorLine = 2 });
 
         _console.Received().WriteLine(string.Format(Resources.Repl_Break_InLine, 20));
     }
@@ -48,7 +48,7 @@ public sealed class ReplBreakTests
     {
         _program.Store(10, "X = 1");
 
-        await RunAsync(new ExecuteSessionResult { Outcome = ExecutionOutcome.Interrupted });
+        await RunAsync(new ExecuteResult { Outcome = ExecutionOutcome.Interrupted });
 
         _console.Received().WriteLine(Resources.Repl_Break);
     }
@@ -58,7 +58,7 @@ public sealed class ReplBreakTests
     {
         _program.Store(10, "END");
 
-        await RunAsync(new ExecuteSessionResult { Outcome = ExecutionOutcome.Halted });
+        await RunAsync(new ExecuteResult { Outcome = ExecutionOutcome.Halted });
 
         _console.DidNotReceiveWithAnyArgs().WriteLine(default(string)!);
         _console.DidNotReceiveWithAnyArgs().WriteMessage(default, default!, default!);

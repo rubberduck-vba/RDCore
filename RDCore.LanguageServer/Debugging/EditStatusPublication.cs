@@ -36,7 +36,7 @@ internal sealed class EditStatusPublication(
         }
     }
 
-    private void Republish(HostDebugEditStatusResult previous, HostDebugEditStatusResult current)
+    private void Republish(DebugEditStatusResult previous, DebugEditStatusResult current)
     {
         if (!publisher.IsEnabled)
         {

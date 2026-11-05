@@ -24,8 +24,18 @@ public interface IPlatformEnvironment
     string ManifestPath { get; }
 
     /// <summary>
-    /// Absolute path of the platform logs directory, <c>&lt;Root&gt;/Logs</c>, created if missing.
+    /// Absolute path of the folder the platform's components write their logs to, created if missing: the user's, not the platform root's, so that a
+    /// platform can be installed where its user can't write (<c>Program Files</c>, <c>/opt</c>).
     /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><description>Windows: <c>%LOCALAPPDATA%\RDCore\Logs</c>. Local, not roaming: a log is of the machine it was written on.</description></item>
+    /// <item><description>macOS: <c>~/Library/Logs/RDCore</c>.</description></item>
+    /// <item><description>Linux and others: <c>$XDG_STATE_HOME/rdcore/logs</c>, or <c>~/.local/state/rdcore/logs</c> where <c>XDG_STATE_HOME</c> isn't set:
+    /// the XDG Base Directory Specification places logs in the user's state.</description></item>
+    /// </list>
+    /// <c>RDCORE_LOGS_DIRECTORY</c> (<see cref="PlatformEnvironment.LogsEnvironmentVariable"/>) overrides it everywhere.
+    /// </remarks>
     string LogsDirectory { get; }
 
     /// <summary>
@@ -65,6 +75,12 @@ public sealed class PlatformEnvironment : IPlatformEnvironment
     /// </summary>
     public const string UserDataEnvironmentVariable = "RDCORE_USER_DATA";
 
+    /// <summary>
+    /// Name of the environment variable that overrides the folder the platform logs to (<see cref="LogsDirectory"/>): what a test or a release check sets, to
+    /// read the logs of the platform it starts and leave the user's alone. Inherited by spawned children.
+    /// </summary>
+    public const string LogsEnvironmentVariable = "RDCORE_LOGS_DIRECTORY";
+
     private static readonly Lazy<IPlatformEnvironment> _default = new(() => new PlatformEnvironment(new FileSystem()));
 
     /// <summary>
@@ -103,10 +119,32 @@ public sealed class PlatformEnvironment : IPlatformEnvironment
     {
         get
         {
-            var directory = _fileSystem.Path.Combine(Root, "Logs");
+            var directory = Environment.GetEnvironmentVariable(LogsEnvironmentVariable) is { Length: > 0 } overridden
+                ? _fileSystem.Path.GetFullPath(overridden)
+                : UsersLogsDirectory();
             _fileSystem.Directory.CreateDirectory(directory);
             return directory;
         }
+    }
+
+    private string UsersLogsDirectory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return _fileSystem.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RDCore", "Logs");
+        }
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (OperatingSystem.IsMacOS())
+        {
+            return _fileSystem.Path.Combine(home, "Library", "Logs", "RDCore");
+        }
+
+        // the specification ignores a relative XDG_STATE_HOME, as if it weren't set.
+        var state = Environment.GetEnvironmentVariable("XDG_STATE_HOME") is { Length: > 0 } xdg && _fileSystem.Path.IsPathRooted(xdg)
+            ? xdg
+            : _fileSystem.Path.Combine(home, ".local", "state");
+        return _fileSystem.Path.Combine(state, "rdcore", "logs");
     }
 
     public string Resolve(string rootRelativePath)

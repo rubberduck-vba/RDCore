@@ -26,7 +26,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// carrying every branch in <see cref="SymbolDescriptor.Definitions"/>; the host defines the single
 /// symbol and leaves live/dead branch selection to a later pass.
 /// </remarks>
-[Method(RDCorePlatformProtocol.DefineSymbols, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.DefineSymbols, Direction.ClientToServer)]
 public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult>
 {
     /// <summary>

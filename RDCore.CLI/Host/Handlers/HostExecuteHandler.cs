@@ -29,9 +29,9 @@ namespace RDCore.CLI.Host.Handlers;
 internal sealed class HostExecuteHandler(
     IEnvironmentSessionProvider sessionProvider,
     IVerboseMessageBuilder messages,
-    ILogger<HostExecuteHandler> logger) : RDCoreRequestHandler<HostExecuteParams, ExecuteSessionResult>
+    ILogger<HostExecuteHandler> logger) : RDCoreRequestHandler<HostExecuteParams, ExecuteResult>
 {
-    protected override async Task<ExecuteSessionResult> HandleAsync(HostExecuteParams request, CancellationToken token)
+    protected override async Task<ExecuteResult> HandleAsync(HostExecuteParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
@@ -41,7 +41,7 @@ internal sealed class HostExecuteHandler(
         // a program that is running owns the session: nothing of it is loaded, composed or redefined under it.
         if (sessionProvider.Execution.State is ProgramState.Running)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning };
+            return new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning };
         }
 
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);
@@ -73,7 +73,7 @@ internal sealed class HostExecuteHandler(
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, payload.ParseResult);
         if (errors.Length > 0)
         {
-            return new ExecuteSessionResult
+            return new ExecuteResult
             {
                 Outcome = ExecutionOutcome.SyntaxError,
                 Diagnostics = [.. errors],
@@ -85,7 +85,7 @@ internal sealed class HostExecuteHandler(
         HeldDefinitions.Loaded(session, request.ModuleName);
         if (HeldDefinitions.FailedToLoad(session, except: request.ModuleName) is { Count: > 0 } failed)
         {
-            return new ExecuteSessionResult
+            return new ExecuteResult
             {
                 Outcome = ExecutionOutcome.SyntaxError,
                 Diagnostics = failed,
@@ -104,7 +104,7 @@ internal sealed class HostExecuteHandler(
         return await RunAsync(pipeline, entryPoint, request, token);
     }
 
-    private async Task<ExecuteSessionResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
+    private async Task<ExecuteResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
     {
         var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate, request.StreamOutput, request.Unattended);
 
@@ -117,6 +117,6 @@ internal sealed class HostExecuteHandler(
         return result;
     }
 
-    private static ExecuteSessionResult NotFound(string reason)
+    private static ExecuteResult NotFound(string reason)
         => new() { Outcome = ExecutionOutcome.NotFound, ErrorMessage = reason };
 }

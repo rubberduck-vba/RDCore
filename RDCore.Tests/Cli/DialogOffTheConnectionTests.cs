@@ -37,9 +37,9 @@ public sealed class DialogOffTheConnectionTests
     }
 
     // calls the request the way the connection calls a handler - on the thread that reads it - and says whether that thread got its task back while the program runs.
-    private static Task<ExecuteSessionResult> Request(Func<Task<ExecuteSessionResult>> request, WaitingClient client)
+    private static Task<ExecuteResult> Request(Func<Task<ExecuteResult>> request, WaitingClient client)
     {
-        Task<ExecuteSessionResult>? running = null;
+        Task<ExecuteResult>? running = null;
         var reader = new Thread(() => running = request()) { IsBackground = true, Name = "connection reader" };
         reader.Start();
 

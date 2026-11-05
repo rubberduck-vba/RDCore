@@ -59,7 +59,7 @@ public sealed class HostProjectReloadHandlerTests
     }
 
     // what the language server does after a reload: every module defined, in the phases, then Main run.
-    private async Task<ExecuteSessionResult> DefineAndRunAsync()
+    private async Task<ExecuteResult> DefineAndRunAsync()
     {
         var workspaceRoot = new Uri((await new ProjectFileLoader(_files).LoadAsync(Root)).Uri);
         (string Name, string File, ModuleType Type)[] sources = [("Disc", "Disc.cls", ModuleType.ClassModule), ("Program", "Program.bas", ModuleType.StdModule)];

@@ -383,8 +383,8 @@ public sealed class SymbolSyncServiceTests
         var host = Substitute.For<IRDCoreClientApp>();
         host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = providesDiscard ? [nameof(SessionDiscard)] : [] });
-        host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new DiscardSessionResult { Discarded = 3 }));
+        host.SendRequestAsync<HostDiscardParams, DiscardResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DiscardResult { Discarded = 3 }));
 
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(hasHost ? host : null);
@@ -403,7 +403,7 @@ public sealed class SymbolSyncServiceTests
         var result = await sut.DiscardModuleAsync("Program", CancellationToken.None);
 
         Assert.AreEqual(3, result.Discarded);
-        await host.Received(1).SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
+        await host.Received(1).SendRequestAsync<HostDiscardParams, DiscardResult>(
             Arg.Is<HostDiscardParams>(p => p.ModuleName == "Program" && p.ModuleUri == new UriBuilder(new Uri(Root)) { Fragment = "Program" }.Uri),
             Arg.Any<CancellationToken>());
     }
@@ -416,7 +416,7 @@ public sealed class SymbolSyncServiceTests
         var result = await sut.DiscardModuleAsync("Program", CancellationToken.None);
 
         Assert.AreEqual(0, result.Discarded);
-        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostDiscardParams, DiscardSessionResult>(default!, default);
+        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostDiscardParams, DiscardResult>(default!, default);
     }
 
     [TestMethod]

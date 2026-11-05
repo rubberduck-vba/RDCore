@@ -6,6 +6,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
@@ -683,7 +684,7 @@ internal sealed class WorkspaceReloadService(
         }
 
         var result = await host.SendRequestAsync<HostProjectReloadParams, HostProjectReloadResult>(
-            new HostProjectReloadParams { WorkspaceRoot = new Uri(documents.WorkspaceRoot) }, token);
+            new HostProjectReloadParams { WorkspaceRoot = SymbolUri.Root(documents.WorkspaceRoot) }, token);
         return (result.Composed, result.IsProgramRunning);
     }
 

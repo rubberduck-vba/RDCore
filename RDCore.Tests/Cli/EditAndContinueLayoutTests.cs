@@ -27,7 +27,7 @@ public sealed class EditAndContinueLayoutTests
         "Public Property Get Name() As String", "    Name = \"d\"", "End Property",
         "Private Sub Class_Terminate()", "    Debug.Print \"d:term\"", "End Sub");
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
 

@@ -4,7 +4,7 @@ namespace RDCore.SDK.Platform.Protocol;
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/resume</c>: a client asks the language server to go on with the program it ran under a debugger
-/// (<see cref="ExecuteSessionParams.Debug"/>) that waits where it stopped, and is answered an <see cref="ExecuteSessionResult"/> as of the next time the program
+/// (<see cref="SessionExecuteParams.Debug"/>) that waits where it stopped, and is answered an <see cref="ExecuteResult"/> as of the next time the program
 /// waits or is over.
 /// </summary>
 public record class SessionDebugResumeParams
@@ -17,7 +17,7 @@ public record class SessionDebugResumeParams
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/pause</c>: stops the program that is running, at the next instruction, so that it waits there; answered a
-/// <see cref="HostDebugAck"/>. The request that is running the program answers <see cref="ExecutionOutcome.Suspended"/>.
+/// <see cref="DebugAck"/>. The request that is running the program answers <see cref="ExecutionOutcome.Suspended"/>.
 /// </summary>
 /// <remarks>
 /// This, and not cancelling the request that runs the program, is what a break at the keyboard is for a program under a debugger: a cancelled request has no answer to
@@ -27,7 +27,7 @@ public record class SessionDebugPauseParams;
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/goto</c>: moves the point the program that waits goes on from (<c>Set Next Statement</c>), within the procedure it waits in;
-/// answered a <see cref="HostDebugGotoResult"/>. Nothing runs.
+/// answered a <see cref="DebugGotoResult"/>. Nothing runs.
 /// </summary>
 public record class SessionDebugGotoParams
 {
@@ -45,12 +45,12 @@ public record class SessionDebugGotoParams
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/editStatus</c>: which edits made while a program waits are not applied to it, and why; answered a
-/// <see cref="HostDebugEditStatusResult"/>.
+/// <see cref="DebugEditStatusResult"/>.
 /// </summary>
 public record class SessionDebugEditStatusParams;
 
 /// <summary>
-/// Request for <c>rdcore/session/debug/terminate</c>: ends the program that is running or waits; answered a <see cref="HostDebugAck"/>. Its variables stay, as they do
+/// Request for <c>rdcore/session/debug/terminate</c>: ends the program that is running or waits; answered a <see cref="DebugAck"/>. Its variables stay, as they do
 /// when a program is stopped, unless <see cref="Wipe"/> says they go.
 /// </summary>
 public record class SessionDebugTerminateParams
@@ -63,7 +63,7 @@ public record class SessionDebugTerminateParams
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/breakpoints</c>: sets the lines of a module that a program under a debugger waits at, replacing the breakpoints it had;
-/// answered a <see cref="HostDebugBreakpointsResult"/>.
+/// answered a <see cref="DebugBreakpointsResult"/>.
 /// </summary>
 public record class SessionDebugBreakpointsParams
 {
@@ -78,7 +78,7 @@ public record class SessionDebugBreakpointsParams
 /// A breakpoint as a client asks for it: a line, whether it is on, and the condition it waits on, as the person typed it.
 /// </summary>
 /// <remarks>
-/// The language server parses the condition. A condition that is not an expression is refused there, and the result says why (<see cref="HostBreakpoint.ConditionError"/>);
+/// The language server parses the condition. A condition that is not an expression is refused there, and the result says why (<see cref="DebugBreakpoint.ConditionError"/>);
 /// it is not evaluated until the program reaches the line, since what its names are is the activation's that reaches it.
 /// </remarks>
 public record class SessionBreakpointLine
@@ -91,30 +91,30 @@ public record class SessionBreakpointLine
 
     /// <summary>
     /// The source of the expression the program waits on when it reaches the line, a <c>Boolean</c> condition as an <c>If</c> has; <see langword="null"/> or blank for
-    /// a breakpoint that is always waited at. A condition that raises an error is waited at, and the person is told why (<see cref="ExecuteSessionResult.ConditionError"/>).
+    /// a breakpoint that is always waited at. A condition that raises an error is waited at, and the person is told why (<see cref="ExecuteResult.ConditionError"/>).
     /// </summary>
     public string? Condition { get; init; }
 }
 
 /// <summary>
-/// Request for <c>rdcore/session/debug/stack</c>: the activations of the program that waits, innermost first; answered a <see cref="HostDebugStackResult"/>.
+/// Request for <c>rdcore/session/debug/stack</c>: the activations of the program that waits, innermost first; answered a <see cref="DebugStackResult"/>.
 /// </summary>
 public record class SessionDebugStackParams;
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/variables</c>: the variables of an activation of the program that waits, or the parts of one of them; answered a
-/// <see cref="HostDebugVariablesResult"/>.
+/// <see cref="DebugVariablesResult"/>.
 /// </summary>
 public record class SessionDebugVariablesParams
 {
-    /// <summary>The activation, by <see cref="HostStackFrame.Id"/>. Ignored when <see cref="Reference"/> is given.</summary>
+    /// <summary>The activation, by <see cref="DebugStackFrame.Id"/>. Ignored when <see cref="Reference"/> is given.</summary>
     public int FrameId { get; init; }
 
     /// <summary>Which variables of the activation.</summary>
-    public HostVariableScope Scope { get; init; }
+    public DebugVariableScope Scope { get; init; }
 
     /// <summary>
-    /// The <see cref="HostVariable.Reference"/> of a variable that has parts - the elements of an array, the fields of a user-defined type - to get them instead.
+    /// The <see cref="DebugVariable.Reference"/> of a variable that has parts - the elements of an array, the fields of a user-defined type - to get them instead.
     /// <c>0</c> for the variables of <see cref="Scope"/>.
     /// </summary>
     public int Reference { get; init; }
@@ -122,7 +122,7 @@ public record class SessionDebugVariablesParams
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/evaluate</c>: the value of an expression, written as text, in an activation of the program that waits; answered a
-/// <see cref="HostDebugEvaluateResult"/>. The language server parses it and has the host evaluate it.
+/// <see cref="DebugEvaluateResult"/>. The language server parses it and has the host evaluate it.
 /// </summary>
 /// <remarks>
 /// Its names are looked up from the procedure of the activation - its locals and parameters, then its module, then the project - and a call in it is made, in the
@@ -130,7 +130,7 @@ public record class SessionDebugVariablesParams
 /// </remarks>
 public record class SessionDebugEvaluateParams
 {
-    /// <summary>The activation, by its <see cref="HostStackFrame.Id"/>.</summary>
+    /// <summary>The activation, by its <see cref="DebugStackFrame.Id"/>.</summary>
     public int FrameId { get; init; }
 
     /// <summary>The expression, as it would be written in the procedure of the activation.</summary>
@@ -139,7 +139,7 @@ public record class SessionDebugEvaluateParams
 
 /// <summary>
 /// Request for <c>rdcore/session/debug/execute</c>: runs a statement, written as text, in an activation of the program that waits - the answer to a line typed in the
-/// immediate window of a procedure that is stopped; answered a <see cref="HostDebugEvaluateResult"/> with no value. The language server parses it and has the host
+/// immediate window of a procedure that is stopped; answered a <see cref="DebugEvaluateResult"/> with no value. The language server parses it and has the host
 /// run it.
 /// </summary>
 /// <remarks>

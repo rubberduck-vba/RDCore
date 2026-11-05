@@ -319,8 +319,8 @@ internal sealed class DocumentDiagnosticsService(
         try
         {
             await provider.WaitForReadyAsync(token);
-            var response = await provider.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(
-                new DiagnoseDocumentRequest { Json = payloadJson }, token);
+            var response = await provider.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(
+                new DiagnoseDocumentParams { Json = payloadJson }, token);
 
             return response?.Diagnostics is { } diagnostics ? [.. diagnostics] : [];
         }

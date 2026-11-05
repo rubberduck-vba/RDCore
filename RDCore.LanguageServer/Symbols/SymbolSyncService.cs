@@ -102,7 +102,7 @@ internal interface ISymbolSyncService
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>What the host took out; nothing when the host cannot be told.</returns>
     /// <param name="endProgram">Whether the program that is running or waits is ended too, and the session wiped: what clearing a program asks (<c>NEW</c>, <c>LOAD</c>).</param>
-    Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false);
+    Task<DiscardResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false);
 
     /// <summary>
     /// Keeps every other sync from the environment host until the hold is disposed, so that what the caller sends and then asks about is what the host holds
@@ -212,7 +212,7 @@ internal sealed class SymbolSyncService(
         var host = orchestration.RuntimeEnvironment;
         await host.WaitForReadyAsync(token);
 
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
         // the module is one of the project's, and its names are bound among the others' as a module of the workspace binds its own: a shell's program calls a
@@ -481,12 +481,12 @@ internal sealed class SymbolSyncService(
         await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, token);
     }
 
-    public async Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false)
+    public async Task<DiscardResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host is null)
         {
-            return new DiscardSessionResult();
+            return new DiscardResult();
         }
 
         await host.WaitForReadyAsync(token);
@@ -494,11 +494,11 @@ internal sealed class SymbolSyncService(
         if (host.PlatformInfo?.Provides<SessionDiscard>() != true)
         {
             // the host cannot be told: what it holds stays, as it did before there was a way to say otherwise.
-            return new DiscardSessionResult();
+            return new DiscardResult();
         }
 
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        var result = await host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
+        var result = await host.SendRequestAsync<HostDiscardParams, DiscardResult>(
             new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName, EndProgram = endProgram }, token);
 
         LogIfEnabled(LogLevel.Information, $"🗑️ {moduleName}: {result.Discarded} symbol(s) discarded.");
@@ -507,7 +507,7 @@ internal sealed class SymbolSyncService(
 
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
         return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token,
             fromShell: true);
     }

@@ -1,5 +1,7 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -167,6 +169,25 @@ public sealed class SymbolDescriptorReaderTests
         }).Single();
 
         Assert.IsTrue(field.Definitions.IsDefaultOrEmpty);
+    }
+
+    // what the language server sends the environment host (rdcore/host/symbols/define), as the platform's serializer writes and reads it, with the root of a
+    // workspace of this machine: on Linux, a root written as its path came back relative, and the host defined nothing.
+    [TestMethod]
+    public void TheSymbolsOfAWorkspaceOfThisMachine_AreReadUnderItsRoot_OnceTheyHaveTravelled()
+    {
+        var root = SymbolUri.Root(Path.Combine(Path.GetTempPath(), "rdcore-define-ws"));
+        var serializer = new LspSerializer();
+        var sent = new DefineSymbolsParams
+        {
+            WorkspaceRoot = root,
+            ModuleName = "Mod1",
+            Symbols = [new SymbolDescriptor { Name = "Answer", Kind = SymbolDescriptorKind.Function, DeclaredTypeName = "Long" }],
+        };
+
+        var received = (DefineSymbolsParams)serializer.DeserializeObject(serializer.SerializeObject(sent), typeof(DefineSymbolsParams));
+
+        Assert.AreEqual(SymbolUri.Member(SymbolUri.Module(root, "Mod1"), "Answer"), SymbolDescriptorReader.Read(received, Intrinsic).Single().Uri);
     }
 
     [TestMethod]

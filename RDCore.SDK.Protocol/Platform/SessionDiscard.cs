@@ -14,7 +14,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// The module symbol itself stays: it is the project's, not the code's.
 /// </para>
 /// </remarks>
-public record class DiscardSessionParams
+public record class SessionDiscardParams
 {
     /// <summary>
     /// The programmatic name of the module, as it was named when it was run.
@@ -32,7 +32,7 @@ public record class DiscardSessionParams
 /// <summary>
 /// What taking a module out of the session took out. The same result answers both hops of the request.
 /// </summary>
-public record class DiscardSessionResult
+public record class DiscardResult
 {
     /// <summary>
     /// The number of symbols that were undefined: the module's members, and what they declare. Zero when the module declared none, or the session

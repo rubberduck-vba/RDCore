@@ -23,17 +23,17 @@ public sealed class ProgramExecutionTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider, StepKind? step = null)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider, StepKind? step = null)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams { Step = step }, CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Pause(EnvironmentSessionProvider provider)
+    private static Task<DebugAck> Pause(EnvironmentSessionProvider provider)
         => new HostDebugPauseHandler(provider).Handle(new HostDebugPauseParams(), CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Terminate(EnvironmentSessionProvider provider, bool wipe = false)
+    private static Task<DebugAck> Terminate(EnvironmentSessionProvider provider, bool wipe = false)
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams { Wipe = wipe }, CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<DiscardSessionResult> Discard(EnvironmentSessionProvider provider, bool endProgram)
+    private static Task<DiscardResult> Discard(EnvironmentSessionProvider provider, bool endProgram)
         => new HostDiscardHandler(provider, NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
         {
             ModuleUri = new Uri(provider.Image.Fingerprints().Keys.Single(), UriKind.Absolute),
@@ -41,7 +41,7 @@ public sealed class ProgramExecutionTests
             EndProgram = endProgram,
         }, CancellationToken.None).WaitAsync(Patience);
 
-    private static string[] Lines(ExecuteSessionResult result) => [.. result.Output.Select(line => line.Trim())];
+    private static string[] Lines(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
     private static async Task WaitForAsync(Func<bool> condition)
     {
@@ -53,7 +53,7 @@ public sealed class ProgramExecutionTests
         }
     }
 
-    private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> test,
+    private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> test,
         Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
         => ModuleWorkspace.InspectAsync(NoClasses, program, test, cancelWhen, debug: true);
 
@@ -320,7 +320,7 @@ public sealed class ProgramExecutionTests
 
     // ---- moving the point the program goes on from ----
 
-    private static Task<HostDebugGotoResult> Goto(EnvironmentSessionProvider provider, int line = 0, string? label = null)
+    private static Task<DebugGotoResult> Goto(EnvironmentSessionProvider provider, int line = 0, string? label = null)
         => new HostDebugGotoHandler(provider).Handle(new HostDebugGotoParams { Line = line, Label = label }, CancellationToken.None).WaitAsync(Patience);
 
     private static readonly string Skippable = Program(
@@ -480,10 +480,10 @@ public sealed class ProgramExecutionTests
 
     // ---- breakpoints ----
 
-    private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
+    private static Task<DebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
         => SetBreakpointLines(provider, [.. lines.Select(line => new HostBreakpointLine { Line = line })]);
 
-    private static Task<HostDebugBreakpointsResult> SetBreakpointLines(EnvironmentSessionProvider provider, params HostBreakpointLine[] breakpoints)
+    private static Task<DebugBreakpointsResult> SetBreakpointLines(EnvironmentSessionProvider provider, params HostBreakpointLine[] breakpoints)
         => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams { ModuleName = "Program", Breakpoints = breakpoints }, CancellationToken.None).WaitAsync(Patience);
 
     // a condition reaches the host parsed, as the language server parses it: the value of an assignment in a procedure of its own.
@@ -804,7 +804,7 @@ public sealed class ProgramExecutionTests
         "End Sub");
 
     // what the shell does with a statement typed at a stop: a procedure of the module, run alongside the program that waits.
-    private static Task<ExecuteSessionResult> Alongside(EnvironmentSessionProvider provider, string procedure)
+    private static Task<ExecuteResult> Alongside(EnvironmentSessionProvider provider, string procedure)
     {
         var session = provider.Session;
         Assert.IsTrue(session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module));
