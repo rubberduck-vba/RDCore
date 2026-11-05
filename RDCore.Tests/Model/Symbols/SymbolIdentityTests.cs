@@ -205,4 +205,10 @@ public sealed class SymbolIdentityTests
     [TestMethod]
     public async Task APropertyGetOfAnEnumsName_IsAMemberOfTheClass()
         => CollectionAssert.AreEqual(new[] { "0", "True" }, await ModuleWorkspace.RunAsync([("Player", Player(""))], ReadsThePlayerType));
+
+    [TestMethod]
+    public async Task APropertyGetOfAnEnumsName_AssignsItsResultByItsName_AndReturnsAValueOfTheEnum()
+        // MS-VBAL §5.3.1: the name is the Get's result variable, a local of the Get, and is bound in the Get before the module's Enum is a candidate.
+        => CollectionAssert.AreEqual(new[] { "1", "False" },
+            await ModuleWorkspace.RunAsync([("Player", Player("    PlayerType = ComputerControlled"))], ReadsThePlayerType));
 }

@@ -74,6 +74,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             {
                 return result;
             }
+
+            if (ResultVariableOf(lexicalScope, name) is { } function)
+            {
+                return SymbolResolutionResult.Resolved(function);
+            }
         }
 
         var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
@@ -298,6 +303,15 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SelectTier(moduleScope, host.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
             && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
     }
+
+    // MS-VBAL §5.3.1: a Function declares a local of its own name, its result variable, and a Property Get returns its value the same way, so in the
+    // body the name is bound in the procedure's tier, and a namesake of the module (an Enum of the name: `Property Get PlayerType() As PlayerType`) is
+    // no candidate. The procedure stands for its result variable, as it does when the name is bound in the module's tier.
+    private static Symbol? ResultVariableOf(LexicalScope lexicalScope, string name)
+        => lexicalScope is { Kind: LexicalScopeKind.Procedure, Parent: { } module }
+            ? module.DeclaredAs(name).FirstOrDefault(declared => declared is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
+                && declared.Uri.AbsoluteUri == lexicalScope.Uri.AbsoluteUri)
+            : null;
 
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
     // tier has none, so the caller moves on to the next one.
