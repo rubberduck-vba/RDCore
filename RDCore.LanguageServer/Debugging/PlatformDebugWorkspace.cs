@@ -184,6 +184,16 @@ internal sealed class PlatformDebugWorkspace(
         return found;
     }
 
+    public IReadOnlyList<string> ModulesDeclaring(string entryPoint)
+    {
+        var maps = Volatile.Read(ref _maps);
+        return [.. ProgramFiles()
+            .Where(file => maps.ByPath.ContainsKey(FullPath(file)) && parsing.TryGetCached(file.Id.Uri.ToUri(), out var parse) && parse.SyntaxTree is not null
+                && ProgramEntryPoint.IsDeclaredBy(ParsingClientService.ModuleTypeOf(file), parse.SyntaxTree, entryPoint))
+            .Select(file => maps.ByPath[FullPath(file)].Module)
+            .Order(StringComparer.OrdinalIgnoreCase)];
+    }
+
     public async Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
     {
         var maps = Volatile.Read(ref _maps);

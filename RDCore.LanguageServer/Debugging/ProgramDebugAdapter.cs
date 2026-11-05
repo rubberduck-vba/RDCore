@@ -6,6 +6,7 @@ using OmniSharp.Extensions.DebugAdapter.Protocol.Server;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
 using DapThread = OmniSharp.Extensions.DebugAdapter.Protocol.Models.Thread;
 
 namespace RDCore.LanguageServer.Debugging;
@@ -15,10 +16,13 @@ namespace RDCore.LanguageServer.Debugging;
 /// </summary>
 public record class ProgramLaunchRequestArguments : LaunchRequestArguments
 {
-    /// <summary>The programmatic name of the module that has the entry point.</summary>
+    /// <summary>
+    /// The programmatic name of the module that has the entry point. When the client does not say, it is the one standard module of the program that declares the
+    /// entry point (<see cref="ProgramEntryPoint"/>), and a launch is refused when none does, or more than one does.
+    /// </summary>
     public string? Module { get; init; }
 
-    /// <summary>The name of the parameterless procedure to run. <c>Main</c> when the client does not say.</summary>
+    /// <summary>The name of the procedure to run, which takes no argument. <c>Main</c> when the client does not say.</summary>
     public string? EntryPoint { get; init; }
 }
 
@@ -210,14 +214,8 @@ internal sealed class ProgramDebugAdapter(
     public async Task<LaunchResponse> Handle(ProgramLaunchRequestArguments request, CancellationToken cancellationToken)
     {
         _launching = true;
-        _entryPoint = string.IsNullOrWhiteSpace(request.EntryPoint) ? "Main" : request.EntryPoint;
-        _module = request.Module;
-        if (string.IsNullOrWhiteSpace(_module))
-        {
-            var refusal = Refusal(DebuggerMessages.LaunchNeedsModule);
-            _ = _opened.TrySetException(refusal);
-            throw refusal;
-        }
+        _entryPoint = string.IsNullOrWhiteSpace(request.EntryPoint) ? ProgramEntryPoint.Name : request.EntryPoint;
+        _module = string.IsNullOrWhiteSpace(request.Module) ? null : request.Module;
 
         try
         {
@@ -227,6 +225,23 @@ internal sealed class ProgramDebugAdapter(
         {
             _ = _opened.TrySetException(Refusal(exception.Message));
             throw Refusal(exception.Message);
+        }
+
+        // a launch that names no module runs the program from where it starts: the one module that declares its entry point, which only the workspace's symbols
+        // tell, once it is open.
+        if (_module is null)
+        {
+            var declaring = workspace.ModulesDeclaring(_entryPoint);
+            if (declaring is not [var only])
+            {
+                var refusal = Refusal(declaring.Count == 0
+                    ? string.Format(DebuggerMessages.NoModuleDeclaresTheEntryPoint, _entryPoint)
+                    : string.Format(DebuggerMessages.ModulesDeclaringTheEntryPoint, _entryPoint, string.Join(", ", declaring)));
+                _ = _opened.TrySetException(refusal);
+                throw refusal;
+            }
+
+            _module = only;
         }
 
         if (!workspace.TryGetPath(_module, out _))

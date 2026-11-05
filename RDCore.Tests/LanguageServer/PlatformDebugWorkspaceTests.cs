@@ -89,7 +89,49 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
         }
     }
 
-    private ModuleParseResult Parse(Uri uri) => new ModuleParser().Parse(uri, $"Attribute VB_Name = \"{_declaredName}\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+    // the source of a document a test gives one, as it is parsed; any other is the module the test names, with a Sub Main.
+    private readonly Dictionary<Uri, string> _sources = [];
+
+    private ModuleParseResult Parse(Uri uri)
+        => new ModuleParser().Parse(uri, _sources.TryGetValue(uri, out var source) ? source : $"Attribute VB_Name = \"{_declaredName}\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+
+    // a document of the workspace, listed with the source it is parsed as.
+    private void List(string name, string folder, string body, string header = "", DocClassType? super = null)
+    {
+        var source = $"{header}Attribute VB_Name = \"{name}\"\r\n{body}";
+        var document = new WorkspaceDocument(name + (header.Length > 0 || super is not null ? ".cls" : ".bas"), folder, source) { Super = super };
+        _listed.Add(document);
+        _sources[document.Id.Uri.ToUri()] = source;
+    }
+
+    [TestMethod]
+    public async Task TheModulesDeclaringTheEntryPoint_AreTheStandardModulesOfTheProgram_ThatDeclareASubItCanStartWith()
+    {
+        const string ClassHeader = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\n";
+        const string SubMain = "Public Sub Main()\r\nEnd Sub\r\n";
+        var other = Path.Combine(Path.GetTempPath(), "rdcore-debug-workspace", Guid.NewGuid().ToString("N"));
+        List("Args", _root, "Sub Main(ParamArray Args())\r\nEnd Sub\r\n");
+        List("Hidden", _root, "Private Sub Main()\r\nEnd Sub\r\n");
+        List("Counted", _root, "Public Sub Main(ByVal Count As Long)\r\nEnd Sub\r\n");
+        List("Klass", _root, SubMain, ClassHeader);
+        List("Feuille", _root, SubMain, super: DocClassType.ExcelWorksheet);
+        List("Library", other, SubMain);
+
+        var declaring = (await OpenedAsync()).ModulesDeclaring(ProgramEntryPoint.Name);
+
+        CollectionAssert.AreEqual(new[] { "Args", "Prog" }, declaring.ToArray(), string.Join(", ", declaring));
+    }
+
+    [TestMethod]
+    public void TheModulesDeclaringTheEntryPoint_AreNone_BeforeTheWorkspaceIsOpen()
+    {
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = _root } });
+        var workspace = new PlatformDebugWorkspace(Substitute.For<IServiceProvider>(), Substitute.For<IServerStateProvider>(), _orchestration,
+            Substitute.For<IWorkspaceService>(), _documents, _parsing, _symbols, _reload, new System.IO.Abstractions.FileSystem(), options,
+            NullLogger<PlatformDebugWorkspace>.Instance);
+
+        Assert.IsEmpty(workspace.ModulesDeclaring(ProgramEntryPoint.Name));
+    }
 
     private async Task<PlatformDebugWorkspace> OpenedAsync()
     {

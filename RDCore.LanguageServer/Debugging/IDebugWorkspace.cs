@@ -34,6 +34,13 @@ internal interface IDebugWorkspace
     bool TryGetPath(string moduleName, out string path);
 
     /// <summary>
+    /// The modules of the program that declare a procedure it can start with (<see cref="RDCore.SDK.Workspace.ProgramEntryPoint"/>), by programmatic name and in
+    /// order of name: none before the workspace is open, and none of another project's.
+    /// </summary>
+    /// <param name="entryPoint">The name of the procedure.</param>
+    IReadOnlyList<string> ModulesDeclaring(string entryPoint);
+
+    /// <summary>
     /// Runs a procedure of a module of the workspace under a debugger.
     /// </summary>
     /// <param name="moduleName">The programmatic name of the module.</param>
