@@ -105,6 +105,14 @@ public sealed class ExcelMeasuredGapsRowsTests
     public async Task ARowMeasuredInExcel_PrintsWhatMSVBAPrinted(string id, string boxExtras, string module, string probe, string printed)
         => await AssertPrintedAsync(id, boxExtras, module, probe, printed);
 
+    // RD-VBAL §6.1.3.2.2.3, the author's ruling: a run-time error leaves Err.HelpFile empty, where MS-VBA names its own help file (VbLR6.chm, oracle\s62 X12);
+    // its HelpContext is MS-VBA's, and a help file the program gives is kept until Err.Clear.
+    [TestMethod]
+    public async Task AnErrorRaisedWithNoHelpFile_LeavesErrHelpFileEmpty_AndItsHelpContextIsMSVBAs()
+        => await AssertPrintedAsync("s62 X12", "", "",
+            """Dim z As Variant ;; z = 1 / 0 ;; P "[" & Err.HelpFile & "]" ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 5 ;; P "[" & Err.HelpFile & "]" ;; Err.Clear ;; Err.HelpFile = "f.chm" ;; P Err.HelpFile ;; Err.Clear ;; P "[" & Err.HelpFile & "]" """,
+            "[]|1000011|[]|f.chm|[]|");
+
     // oracle\s58 H05: an error an automation object raises has the help context of its message, whatever one Err had - Scripting.Dictionary's 457 is
     // 1000457, and a RegExp's 5020 is no message of MS-VBA's (1000095).
     [TestMethod]
