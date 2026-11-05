@@ -255,7 +255,8 @@ public sealed class CompiledSelectCaseTests
             "    Skipped = Skipped + 100",
             "End Function"), "Skipped", recoveries: 1);
 
-    // a Variant selector is compared as a Variant, its values not converted to its type: the interpreter's.
+    // a Variant selector is compared as a Variant, its values not converted to its type: the interpreter steps the Select and its Cases, and compiled code
+    // does the rest.
     [TestMethod]
     public async Task AVariantSelector_IsTheInterpreters()
     {
@@ -271,10 +272,9 @@ public sealed class CompiledSelectCaseTests
             "                Varied = Varied + 1",
             "        End Select",
             "    Next",
-            "End Function"));
+            "End Function"), "Varied", recoveries: 4);
 
-        Assert.IsNull(compiled["Varied"].Body);
-        Assert.IsTrue(compiled["Varied"].Reasons.Any(reason => reason is { Kind: IneligibilityKind.VariantOperand, Detail: "Select Case" }),
-            string.Join("; ", compiled["Varied"].Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.VariantOperand, Detail: "Select Case" }),
+            string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 }

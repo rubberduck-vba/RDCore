@@ -41,17 +41,22 @@ has them.
 A `Select Case` of a scalar selector evaluates the selector once, and compares it with the values of each `Case` in order, as the interpreter does
 ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)): each value converted to the selector's type, except an integer compared with a `Single`
 selector, which is compared at its exact value. When a value can't be converted exactly, such as a fraction compared with a `Single` or a `Long` too large for
-an `Integer` selector, compiled code hands the activation to the interpreter at that `Case`, as it does when an operation declines (below). A `Case` whose
-value is no scalar, such as a `String`, keeps the procedure in the interpreter.
+an `Integer` selector, compiled code hands the activation to the interpreter at that `Case`, as it does when an operation declines (below). The interpreter
+runs a `Case` whose value is no scalar, such as a `String`, on its own, with the selector compiled code evaluated.
+
+The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` and its `End With`, and each statement in
+the block that uses its object; a `For Each` and its `Next`; and a `Select Case` of a selector that is no scalar, such as a `String` or a `Variant`, and its
+`Case`s. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
+same place in either engine: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop,
+by its `Next`, an `Exit For`, a jump or a `Return`.
 
 These keep the whole procedure in the interpreter:
 
-- a `With`, a `For Each`, or a `Select Case` of a selector that is no scalar, such as a `String` or a `Variant`;
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
-- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
-  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next`. The loop is the innermost one around the statement: what an
-  outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write its variables into the frame and
-  read them back, which costs more than it saves.
+- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop (a `For Each` is one), and compiled code does
+  nothing at each pass of it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The loop is the innermost
+  one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
+  its variables into the frame and read them back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code doesn't is always called with its frame, through the interpreter's call, never through the
 compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,

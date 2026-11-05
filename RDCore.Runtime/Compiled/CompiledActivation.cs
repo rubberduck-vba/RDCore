@@ -835,7 +835,26 @@ public sealed class CompiledActivation : ILightActivation
 
         _body.CountRecovered();
         frame.RunsCompiled = true;
+        LeaveBlocks(frame.Pc);
         return frame.Pc;
+    }
+
+    /// <summary>
+    /// Lets go of what a block the activation is no longer in held at <paramref name="pc"/> - a <c>For Each</c>'s enumerator, or the array it reads - as the
+    /// interpreter does before each instruction it runs (<c>ProcedureExecutor.RunInstructions</c>): after a step, and where a jump of compiled code out of
+    /// a <c>For Each</c> lands.
+    /// </summary>
+    public void LeaveBlocks(int pc)
+    {
+        if (_frame is not { } frame)
+        {
+            return;
+        }
+
+        foreach (var holder in frame.TakeBlockHoldersOutside(pc))
+        {
+            ObjectReferences.Release(_session, holder);
+        }
     }
 
     /// <summary>What the activation returns when <see cref="Recover"/> said it goes on nowhere.</summary>

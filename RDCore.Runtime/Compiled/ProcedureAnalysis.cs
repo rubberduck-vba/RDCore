@@ -46,9 +46,13 @@ namespace RDCore.Runtime.Compiled;
 /// Any other instruction compiled code does not do, the interpreter runs alone the same way (IR lowering S2.5a), with the reason recorded
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
 /// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
-/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A <c>With</c>, a <c>For Each</c> and a
-/// <c>Select Case</c> of a selector that is no scalar keep their procedure in the interpreter, and so does a body none of whose instructions that do
-/// something are compiled code's.
+/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A body none of whose instructions that do
+/// something are compiled code's is kept in the interpreter.
+/// </para>
+/// <para>
+/// So does a block whose state the frame holds (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it that uses its
+/// object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar and its <c>Case</c>s, and a <c>Case</c>
+/// compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
 /// </para>
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
@@ -182,7 +186,10 @@ internal sealed class ProcedureAnalysis
         {
             _reasons.AddRange(_stepped);
             _stepped.Clear();
+            return;
         }
+
+        FindBlockExits(list);
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
@@ -198,7 +205,7 @@ internal sealed class ProcedureAnalysis
             {
                 loops.Add((target, instruction.Offset));
             }
-            else if (instruction.Kind is InstructionKind.ForNext && instruction.Matching is { } opener)
+            else if (instruction.Kind is InstructionKind.ForNext or InstructionKind.ForEachNext && instruction.Matching is { } opener)
             {
                 loops.Add((opener, instruction.Offset));
             }
@@ -240,13 +247,48 @@ internal sealed class ProcedureAnalysis
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));
 
-    // an instruction the interpreter runs alone, compiled code going on where it leaves the activation: every one whose state the frame holds, and none that
-    // holds what a block lets go of where the program leaves it - a With's target, a For Each's enumerator - nor a Select Case, whose Case headers compare
-    // what the Select keeps; those keep their procedure in the interpreter.
+    // an instruction the interpreter runs alone, compiled code going on where it leaves the activation: every one whose state the frame holds - a With's
+    // target, a For Each's enumerator, a Select's selector, which compiled code writes into the frame before a Case it does not compare.
     private static bool IsStepped(Instruction instruction) => instruction.Kind is InstructionKind.Simple or InstructionKind.ConditionalBranch
         or InstructionKind.LoopBack or InstructionKind.Jump or InstructionKind.ExitLoop or InstructionKind.ForOpener or InstructionKind.ForNext
-        or InstructionKind.Halt or InstructionKind.Break
-        && instruction.EnclosingWith is null && !(instruction.Kind is InstructionKind.ConditionalBranch && instruction.Matching is not null);
+        or InstructionKind.Halt or InstructionKind.Break or InstructionKind.With or InstructionKind.EndWith or InstructionKind.ForEachOpener
+        or InstructionKind.ForEachNext or InstructionKind.Select;
+
+    private readonly HashSet<int> _blockExits = [];
+
+    /// <summary>
+    /// Where compiled code lands outside a <c>For Each</c> it jumps out of - a jump, a branch or a <c>GoSub</c> inside the block to an instruction past
+    /// it - where what the block held is let go of, as the interpreter lets go of it before the instruction (<c>CompiledActivation.LeaveBlocks</c>).
+    /// </summary>
+    public IReadOnlySet<int> BlockExits => _blockExits;
+
+    /// <summary>Whether the body has a <c>For Each</c>, whose enumerator a <c>Return</c> out of it lets go of too.</summary>
+    public bool HasForEach { get; private set; }
+
+    private void FindBlockExits(InstructionList list)
+    {
+        foreach (var opener in list.Items)
+        {
+            if (opener is not { Kind: InstructionKind.ForEachOpener, End: { } end })
+            {
+                continue;
+            }
+
+            HasForEach = true;
+            for (var offset = opener.Offset + 1; offset < end; offset++)
+            {
+                var instruction = list.Items[offset];
+                IEnumerable<int?> targets = instruction.Targets.IsDefault ? [] : instruction.Targets;
+                foreach (var target in targets.Append(instruction.Target).Append(instruction.Else))
+                {
+                    if (target is { } at && (at < opener.Offset || at >= end))
+                    {
+                        _blockExits.Add(at);
+                    }
+                }
+            }
+        }
+    }
 
     private readonly List<Ineligibility> _stepped = [];
 
