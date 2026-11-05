@@ -103,8 +103,8 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             size = Math.Max(size, SDK.Model.Types.VBUserDefinedTypeLayout.Of(record, pointerSize).Size);
         }
 
-        // a Variant is a VARIANT, whatever it holds (V16).
-        if (handle is ValueBindingHandle { Value: VBRuntimeVariantValue })
+        // a Variant is a VARIANT, whatever it holds (V16), and whatever cell holds it.
+        if (handle is Frames.VariantCell or ValueBindingHandle { Value: VBRuntimeVariantValue })
         {
             size = Math.Max(size, VariantSize);
         }
@@ -163,6 +163,20 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         _objectVariables.Remove(address);
         Unbind(address);
         return (_handleByAddress.Remove(address) || _bytesByAddress.Remove(address) || _arrayBlocks.Remove(address)) && allocator.TryDeallocate(address, out _);
+    }
+
+    // what is bound at an address is made to hold another value: a variable's cell is written where it is - whatever else holds the cell, the slot of its
+    // variable in a frame or a ByRef parameter given it, reads what was written - and anything else is replaced by a binding of the value.
+    private bool TryWriteBoundAt(MemoryAddress address, IBindingHandle handle, IRuntimeValue value)
+    {
+        if (handle is not IKnowledgeBinding cell)
+        {
+            return TryRebind(address, new ValueBindingHandle(value));
+        }
+
+        cell.Store(value, isKnown: true);
+        Generation++;
+        return true;
     }
 
     public bool TryRebind(MemoryAddress address, IBindingHandle handle)
@@ -281,7 +295,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         return _handleByAddress.TryGetValue(block, out var handle)
             && CanRead(handle)
             && RuntimeValueBytes.From(handle.Value, image, pointerSize) is { } rebuilt
-            && TryRebind(block, new ValueBindingHandle(rebuilt));
+            && TryWriteBoundAt(block, handle, rebuilt);
     }
 
     /// <summary>
