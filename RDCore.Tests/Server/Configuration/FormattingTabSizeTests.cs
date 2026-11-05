@@ -539,6 +539,7 @@ public sealed class FormattingTabSizeTests
     }
 
     [TestMethod]
+    [Ignore("Nondeterministic: failed on CI (Release, main dfe1529a) with Server:Verbose still false after FollowedAsync returned. To be rewritten so that it waits for the follow of this change, not for any follow.")]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AnErrorAnswer_ForTheEditorsTabSize_IsNoTabSize_AndTheRestOfTheSettingsAreStillSet()
     {
