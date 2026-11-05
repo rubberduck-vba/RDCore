@@ -360,4 +360,7 @@
   <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
     <value>This public variable of an object is passed to a ByRef parameter as a copy: what the procedure assigns to the parameter is not written back to it. MS-VBAL passes the variable itself; MS-VBA passes a copy, and so does RD-VBA.</value>
   </data>
+  <data name="StringComparedWithANumberAsADouble_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; compares a String with an integer or a Single: MS-VBA compares the two as Double values, where MS-VBAL §5.6.9.5 compares them in the number&apos;s type, and the result can differ (&quot;2.5&quot; = 2 is False; &quot;40000&quot; compared with an Integer does not overflow).</value>
+  </data>
 </root>
