@@ -84,6 +84,55 @@ public sealed class ExcelMeasuredGapsRowsTests
         "Function Count(ByRef a() As Collection) As Long ;;     Count = UBound(a) - LBound(a) + 1 ;; End Function",
         """Dim c(2) As Collection ;; Dim v As Variant ;; v = c ;; P Count(c) ;; P "e" & Err.Number ;; Err.Clear ;; Dim w() As Collection ;; w = v ;; P Count(w) ;; P "e" & Err.Number""",
         "3|e0|3|e0|")]
+    // oracle\s58: Before and After that name no member - of an empty collection, or of one with a member - by an index or by a key.
+    [DataRow("s58 C01", "", "",
+        """Dim e As New Collection ;; e.Add 1, , 1 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , , 1 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , "k" ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 1, , , "k" ;; P "e" & Err.Number ;; Err.Clear ;; P e.Count""",
+        "e5|e5|e5|e5|e5|e5|0|")]
+    [DataRow("s58 C02", "", "",
+        """Dim e As New Collection ;; e.Add 7 ;; e.Add 8, , 2 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , , 2 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , , 0 ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , "k" ;; P "e" & Err.Number ;; Err.Clear ;; e.Add 8, , , "k" ;; P "e" & Err.Number ;; Err.Clear ;; P e.Count""",
+        "e9|e9|e9|e9|e5|e5|1|")]
+    // oracle\s58: the HelpContext a raise gives Err, and the one it keeps.
+    [DataRow("s58 H03", "", "",
+        """Err.Raise 13, , , , 77 ;; P Err.HelpContext ;; Err.Raise 5 ;; P Err.HelpContext ;; Err.Raise 9, , , , 0 ;; P Err.HelpContext ;; Error 11 ;; P Err.HelpContext ;; Dim z As Variant ;; z = 1 / 0 ;; P Err.HelpContext ;; Err.Clear ;; P Err.HelpContext ;; Err.Raise 13, , , , 77 ;; z = 1 / 0 ;; P Err.Number ;; P Err.HelpContext""",
+        "77|77|1000009|1000011|1000011|0|11|1000011|")]
+    [DataRow("s58 H04", "", "",
+        """Err.Raise 50001 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 400 ;; P Err.HelpContext ;; P Err.Description ;; Err.Clear ;; Err.Raise 1004 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 65535 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 31001 ;; P Err.HelpContext ;; P Err.Description ;; Err.Clear ;; Err.Raise 3 ;; P Err.HelpContext ;; P Err.Description ;; Err.Clear ;; Err.Raise 50002 ;; P Err.HelpContext""",
+        "1000095|1000095|Application-defined or object-defined error|1000095|1000095|1000095|Application-defined or object-defined error|1000003|Return without GoSub|1000095|")]
+    [DataRow("s58 H06", "", "",
+        """Err.Raise 9 ;; Err.Raise 5 ;; P Err.HelpContext ;; P Err.Description ;; Err.Clear ;; Err.Raise 13, , "mine" ;; Err.Raise 5 ;; P Err.Description ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; Error 5 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; Err.Raise 5, , , , 0 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; Dim z As Variant ;; z = 1 / 0 ;; Err.Raise 5 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 50001, , , , 77 ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , "f.chm" ;; P Err.HelpFile ;; P Err.HelpContext ;; Err.Raise 5 ;; P Err.HelpFile""",
+        "1000009|Subscript out of range|mine|1000005|1000005|1000011|77|f.chm|1000013|f.chm|")]
     public async Task ARowMeasuredInExcel_PrintsWhatMSVBAPrinted(string id, string boxExtras, string module, string probe, string printed)
-        => Assert.AreEqual(printed, await Run(boxExtras, module, probe), id);
+        => await AssertPrintedAsync(id, boxExtras, module, probe, printed);
+
+    // oracle\s58 H05: an error an automation object raises has the help context of its message, whatever one Err had - Scripting.Dictionary's 457 is
+    // 1000457, and a RegExp's 5020 is no message of MS-VBA's (1000095).
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task AnErrorAnAutomationObjectRaises_HasTheHelpContextOfItsMessage()
+        => await AssertPrintedAsync("s58 H05", "", "",
+            """Dim d As Object ;; Set d = CreateObject("Scripting.Dictionary") ;; d.Add "a", 1 ;; d.Add "a", 2 ;; P Err.Number ;; P Err.HelpContext ;; Err.Clear ;; Dim r As Object ;; Set r = CreateObject("VBScript.RegExp") ;; r.Pattern = "(" ;; P r.Test("a") ;; P Err.Number ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; d.Add "a", 3 ;; P Err.Number ;; P Err.HelpContext ;; Err.Clear ;; Err.Raise 13, , , , 77 ;; P r.Test("a") ;; P Err.Number ;; P Err.HelpContext""",
+            "457|1000457|5020|1000095|457|1000457|5020|1000095|");
+
+    // oracle\s58 N07, N08, N10, N12: MS-VBA negates the least Long of a constant expression - a literal, a Const - as the Long it is, where the negation of a
+    // Long variable overflows, and so does that of the least Integer or LongLong in any expression.
+    [TestMethod]
+    [Ignore("RD-VBA overflows (6) the negation of the least Long in a constant expression, which MS-VBA evaluates as -2147483648 (oracle\\s58 N07, N08, N12)")]
+    [DataRow("s58 N07", "",
+        """P -&H80000000 ;; P "e" & Err.Number ;; Err.Clear ;; P -&H8000000000000000^ ;; P "e" & Err.Number ;; Err.Clear ;; P -&H80000000^ ;; P TypeName(-&H80000000^) ;; P -&H80000000& ;; P "e" & Err.Number""",
+        "-2147483648|e0|e6|-2147483648|LongLong|-2147483648|e0|")]
+    [DataRow("s58 N08", "Private Const K = -&H80000000", """P K ;; P "e" & Err.Number""", "-2147483648|e0|")]
+    public async Task TheNegationOfTheLeastLong_InAConstantExpression_IsTheLeastLong(string id, string module, string probe, string printed)
+        => await AssertPrintedAsync(id, "", module, probe, printed);
+
+    // oracle\s58 H06: Err.Raise given no source is the project's: VBAProject in Excel.
+    [TestMethod]
+    [Ignore("RD-VBA leaves Err.Source empty for an error raised with no source, which MS-VBA gives the project's name (oracle\\s58 H06)")]
+    public async Task AnErrorRaisedWithNoSource_IsTheProjects()
+        => await AssertPrintedAsync("s58 H06", "", "", """Err.Raise 13 ;; P Err.Source""", "VBAProject|");
+
+    private static async Task AssertPrintedAsync(string id, string boxExtras, string module, string probe, string printed)
+    {
+        var observed = await Run(boxExtras, module, probe);
+        Assert.AreEqual(printed, observed, $"{id}, which printed {observed}");
+    }
 }

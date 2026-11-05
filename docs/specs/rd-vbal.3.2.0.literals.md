@@ -72,8 +72,13 @@ A radix literal is **never** `Double`.
 
 VBA has no negative literal: `-&H8000` is the unary minus of the `Integer` `-32768`, whose negation no `Integer` holds.
 It overflows (6) when it runs, and in a `Const` it is the compile error `Overflow`, as **MS-VBA** has it (recorded in
-Excel); so is the least `Long` (`-&H80000000`) and the least `LongLong` (`-&H8000000000000000^`). `-&H8000&` is a `Long`,
-and `-32768`.
+Excel); so is the least `LongLong` (`-&H8000000000000000^`, `oracle\s58` N09, N11). `-&H8000&` is a `Long`, and `-32768`.
+
+> [!WARNING]
+> **MS-VBA** negates the least `Long` of a constant expression as the `Long` it is: `-&H80000000` is `-2147483648`, in a
+> `Const` too, and so is `-(-2147483647 - 1)` (`oracle\s58` N07, N08, N12). The negation of a `Long` variable that holds
+> it overflows (6), as RD-VBA has it (`oracle\s58` N10). RD-VBA overflows the constant expression's too: a gap, not yet
+> closed.
 
 > [!NOTE]
 > `LongLong` is only produced by the `^` suffix. An unsuffixed integer literal that exceeds `Long` range widens to

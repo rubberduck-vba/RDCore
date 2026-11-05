@@ -58,11 +58,9 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
         {
             StackTrace = Capture(error);
 
-            // an error the runtime raises has the help context of its message; Err.Raise has set the one it was given, or kept the one Err has.
-            if (error is not VBApplicationErrorInfo)
-            {
-                HelpContext = HelpContextOf(error.ErrorId);
-            }
+            // an error has the help context of its message - one an Error statement, an automation object or a RegExp raises too, whatever one Err had
+            // (a Dictionary's 457 is 1000457, recorded in Excel: oracle\s58 H05) - unless Err.Raise gave it the one it was given, or kept the one Err had.
+            HelpContext = error is VBApplicationErrorInfo { HelpContext: { } given } ? given : HelpContextOf(error.ErrorId);
         }
     }
 
@@ -70,10 +68,12 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     /// The help context ID of an error raised with no help context of its own: MS-VBAL §6.1.3.2.2.2's "implementation-defined VBA Help context ID for
     /// the error", which is MS-VBA's, 1000000 and the code of the message its description is - the error's own, for a VBA run-time error, the
     /// "Application-defined or object-defined error" message's (95) for another code, and the "Automation error" message's (440) for a code that is no
-    /// standard error code (recorded in Excel: oracle\s56 G12, s57 H01).
+    /// standard error code (recorded in Excel: oracle\s56 G12, s57 H01). An error of RD-VBA's own, from <see cref="VBRuntimeErrorId.NobodyToAnswer"/> on, is
+    /// none of MS-VBA's messages: 95 (<c>Err.Raise 50001</c> is 1000095, oracle\s58 H04).
     /// </summary>
     internal static int HelpContextOf(int number)
-        => 1000000 + (number is < 0 or > 65535 ? (int)VBRuntimeErrorId.AutomationError : Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95);
+        => 1000000 + (number is < 0 or > 65535 ? (int)VBRuntimeErrorId.AutomationError
+            : number < (int)VBRuntimeErrorId.NobodyToAnswer && Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95);
 
     /// <inheritdoc/>
     public bool Clear()
