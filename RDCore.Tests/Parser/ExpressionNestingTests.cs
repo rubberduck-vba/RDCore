@@ -1,6 +1,12 @@
+using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.Symbols;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Parser;
@@ -78,4 +84,59 @@ public sealed class ExpressionNestingTests
     [TestMethod]
     public async Task AChainOf2500Terms_Runs()
         => Assert.AreEqual("2500", await RunAsync(Chain(2500)));
+
+    // runs work on a thread with a 256 KB stack, a quarter of a thread's default and as small as one the language server or an extension may ask on, and says
+    // what it threw, if anything. A module past the limit is still declared and walked there: its error is the one to report, not a crash.
+    private static Exception? OnASmallStack(Action work)
+    {
+        Exception? thrown = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                work();
+            }
+            catch (Exception exception)
+            {
+                thrown = exception;
+            }
+        }, 256 * 1024);
+        thread.Start();
+        thread.Join();
+        return thrown;
+    }
+
+    private static readonly Uri Root = new("file://rdcore-test");
+    private static readonly Uri Main = new UriBuilder(Root) { Fragment = "Main" }.Uri;
+
+    [TestMethod]
+    public void AModuleWithAnExpressionPastTheLimit_DeclaresWhatItDeclares()
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"),
+            $"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim x As Variant\r\n    x = {Chain(40_000)}\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(parse));
+
+        string[] declared = [];
+        var thrown = OnASmallStack(() =>
+        {
+            var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Main, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+            declared = [.. new SyntaxTreeSymbolProvider(Root, Main, ModuleType.StdModule, parse, composition.Resolver, withImplicitDeclarations: true)
+                .ProvideSymbols().Select(symbol => symbol.Name)];
+        });
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        CollectionAssert.IsSubsetOf(new[] { "Main", "x" }, declared);
+    }
+
+    [TestMethod]
+    public void TheNodesOfAModuleWithAnExpressionPastTheLimit_AreWalked()
+    {
+        var parse = Parse(Chain(40_000));
+
+        var count = 0;
+        var thrown = OnASmallStack(() => count = parse.SyntaxTree!.Descendants().Count(node => node is LiteralExpressionNode));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.AreEqual(40_000, count);
+    }
 }
