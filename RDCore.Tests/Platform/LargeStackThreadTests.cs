@@ -152,4 +152,30 @@ public sealed class LargeStackThreadTests
         await LargeStackThread.Start(() => ran = true, threads, CancellationToken.None);
         Assert.IsTrue(ran, "and the thread the busy work had is free again");
     }
+
+    // the thread is freed as soon as the work waiting for it is cancelled, before the semaphore has taken the cancelled wait off its list: it may hand the thread
+    // to that wait, and the work is never run all the same.
+    [TestMethod]
+    public async Task Start_WorkCancelledWhileItWaits_AndAThreadFreedAtOnce_NeverRuns()
+    {
+        using var threads = new SemaphoreSlim(1, 1);
+        using var running = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var busy = LargeStackThread.Start(() =>
+        {
+            running.Set();
+            release.Wait();
+        }, threads, CancellationToken.None);
+        running.Wait();
+
+        using var cancellation = new CancellationTokenSource();
+        var ran = false;
+        var waiting = LargeStackThread.Start(() => ran = true, threads, cancellation.Token);
+        cancellation.Cancel();
+        release.Set();
+
+        await busy;
+        await Assert.ThrowsAsync<OperationCanceledException>(() => waiting);
+        Assert.IsFalse(ran, "it was cancelled before it had a thread");
+    }
 }

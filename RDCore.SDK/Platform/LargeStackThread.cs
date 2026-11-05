@@ -89,7 +89,7 @@ public static class LargeStackThread
     /// <exception cref="ArgumentNullException"><paramref name="work"/> is <see langword="null"/>.</exception>
     /// <remarks>
     /// Work runs on at most <see cref="StartedAtOnce"/> threads at a time; work started when they are all busy waits, holding no thread, for one of them to be
-    /// done. Work started this way therefore never waits for other work started this way: if every thread did, none would be left to run it.
+    /// done. Work started this way must therefore never wait for other work started this way: if every thread did, none would be left to run it.
     /// </remarks>
     public static Task Start(Action work, CancellationToken token = default) => Start(work, _started, token);
 
@@ -106,6 +106,9 @@ public static class LargeStackThread
         await threads.WaitAsync(token).ConfigureAwait(false);
         try
         {
+            // the semaphore takes a cancelled wait off its list after the cancellation, and a thread freed in between is handed to it all the same: work that was
+            // cancelled before it had a thread is never run, whichever came first.
+            token.ThrowIfCancellationRequested();
             await StartNow(work, culture, uiCulture).ConfigureAwait(false);
         }
         finally
