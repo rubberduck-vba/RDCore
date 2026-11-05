@@ -149,12 +149,18 @@ public sealed class ExcelMeasuredGapsRowsTests
         """Dim z As Variant ;; z = 1 / 0 ;; P Err.Source ;; Err.Clear ;; P "[" & Err.Source & "]" ;; Err.Raise 5 ;; P Err.Source ;; Err.Clear ;; Error 9 ;; P Err.Source""",
         "Project1|[]|Project1|Project1|")]
     [DataRow("s61 H10", "", """Err.Raise 5, "lib" ;; Err.Raise 6 ;; P Err.Source ;; P Err.Number""", "lib|6|")]
-    [DataRow("s61 H11", "", """Dim d As Object ;; Set d = CreateObject("Scripting.Dictionary") ;; d.Add 1, 1 ;; d.Add 1, 1 ;; P Err.Number ;; P Err.Source""",
-        "457|Project1|")]
     [DataRow("s61 H12", "Public Sub Fail() ;;     Dim z As Variant ;;     z = 1 / 0 ;; End Sub ;; Public Sub RaiseIt() ;;     Err.Raise 5 ;; End Sub",
         """Dim b As New Box ;; b.Fail ;; P Err.Source ;; Err.Clear ;; b.RaiseIt ;; P Err.Source""", "Project1|Project1|")]
     public async Task AnErrorGivenNoSource_IsTheProjects(string id, string boxExtras, string probe, string printed)
         => await AssertPrintedAsync(id, boxExtras, "", probe, printed);
+
+    // oracle\s61 H11: an automation object's error is the project's too. Scripting.Dictionary is a COM server, so this runs where COM does.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task AnAutomationObjectsError_IsTheProjects()
+        => await AssertPrintedAsync("s61 H11", "", "",
+            """Dim d As Object ;; Set d = CreateObject("Scripting.Dictionary") ;; d.Add 1, 1 ;; d.Add 1, 1 ;; P Err.Number ;; P Err.Source""",
+            "457|Project1|");
 
     private static async Task AssertPrintedAsync(string id, string boxExtras, string module, string probe, string printed)
     {
