@@ -191,7 +191,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         var started = new TaskCompletionSource();
-        session.Workspace.ModulesDeclaring(entryPoint).Returns(["Prog"]);
+        session.Workspace.ModulesDeclaringAsync(entryPoint, Arg.Any<CancellationToken>()).Returns(["Prog"]);
         session.Workspace.StartAsync("Prog", entryPoint, Arg.Any<CancellationToken>()).Returns(_ =>
         {
             started.TrySetResult();
@@ -209,7 +209,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task ALaunch_ThatNamesNoModule_WhenNoModuleDeclaresTheEntryPoint_IsRefused_AndSaysWhatItLookedFor()
     {
         await using var session = new Session();
-        session.Workspace.ModulesDeclaring("Main").Returns([]);
+        session.Workspace.ModulesDeclaringAsync("Main", Arg.Any<CancellationToken>()).Returns([]);
         await session.StartAsync();
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ProgramLaunchRequestArguments()));
@@ -223,7 +223,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task ALaunch_ThatNamesNoModule_WhenMoreThanOneDeclaresTheEntryPoint_IsRefused_AndNamesThem()
     {
         await using var session = new Session();
-        session.Workspace.ModulesDeclaring("Main").Returns(["Données", "Prog"]);
+        session.Workspace.ModulesDeclaringAsync("Main", Arg.Any<CancellationToken>()).Returns(["Données", "Prog"]);
         await session.StartAsync();
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ProgramLaunchRequestArguments()));
@@ -240,7 +240,7 @@ public sealed class ProgramDebugAdapterTests
 
         await session.LaunchAsync();
 
-        _ = session.Workspace.DidNotReceive().ModulesDeclaring(Arg.Any<string>());
+        _ = session.Workspace.DidNotReceive().ModulesDeclaringAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

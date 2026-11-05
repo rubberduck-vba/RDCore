@@ -22,7 +22,10 @@ public record class ProgramLaunchRequestArguments : LaunchRequestArguments
     /// </summary>
     public string? Module { get; init; }
 
-    /// <summary>The name of the procedure to run, which takes no argument. <c>Main</c> when the client does not say.</summary>
+    /// <summary>
+    /// The name of the procedure to run, which takes no argument, or takes the program's as one <c>ParamArray</c>, which is run empty. <c>Main</c> when the
+    /// client does not say.
+    /// </summary>
     public string? EntryPoint { get; init; }
 }
 
@@ -231,7 +234,7 @@ internal sealed class ProgramDebugAdapter(
         // tell, once it is open.
         if (_module is null)
         {
-            var declaring = workspace.ModulesDeclaring(_entryPoint);
+            var declaring = await workspace.ModulesDeclaringAsync(_entryPoint, cancellationToken);
             if (declaring is not [var only])
             {
                 var refusal = Refusal(declaring.Count == 0

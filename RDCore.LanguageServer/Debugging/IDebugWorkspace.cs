@@ -35,10 +35,11 @@ internal interface IDebugWorkspace
 
     /// <summary>
     /// The modules of the program that declare a procedure it can start with (<see cref="RDCore.SDK.Workspace.ProgramEntryPoint"/>), by programmatic name and in
-    /// order of name: none before the workspace is open, and none of another project's.
+    /// order of name, as the environment host defined them: none before the workspace is open, and none of another project's.
     /// </summary>
     /// <param name="entryPoint">The name of the procedure.</param>
-    IReadOnlyList<string> ModulesDeclaring(string entryPoint);
+    /// <param name="token">Cancels the request.</param>
+    Task<IReadOnlyList<string>> ModulesDeclaringAsync(string entryPoint, CancellationToken token);
 
     /// <summary>
     /// Runs a procedure of a module of the workspace under a debugger.

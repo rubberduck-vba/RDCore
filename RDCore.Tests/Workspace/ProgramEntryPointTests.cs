@@ -1,66 +1,40 @@
-using RDCore.Parsing;
-using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.Workspace;
 
 /// <summary>
-/// Where a program starts when nothing names the module: a <c>Sub Main</c> of a standard module that the project can call, which takes no argument or one
-/// <c>ParamArray</c>.
+/// The kind of module an entry point is in, judged of the symbols themselves. A runtime session gives a class's procedures its object as their first parameter
+/// (<c>Me</c>), so no class, form or document of one has a <c>Sub Main()</c> that takes nothing: <c>HostEntryPointsHandlerTests</c> cannot tell the module's
+/// kind from that, and this does.
 /// </summary>
 [TestClass]
 public sealed class ProgramEntryPointTests
 {
-    private static ModuleNode Parse(string source)
+    private static readonly Uri WorkspaceRoot = new("file:///c:/ws/");
+
+    private static VBProcedureMemberSymbol SubMain(Uri module)
+        => new(WorkspaceRoot, module, "Main", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, new SourceRange(1, 0, 2, 7), new SourceRange(1, 11, 1, 15),
+            AccessModifier.Public);
+
+    [TestMethod]
+    public void ASubMainOfAStandardModule_IsWhereTheProgramStarts()
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Attribute VB_Name = \"Prog\"\r\n" + source);
-        Assert.IsNotNull(result.SyntaxTree, "expected a parsed module");
-        return result.SyntaxTree;
+        var module = new VBStandardModuleSymbol(WorkspaceRoot, WorkspaceRoot, "Program");
+
+        Assert.IsTrue(ProgramEntryPoint.IsDeclaredBy(module, [SubMain(module.Uri)]));
     }
 
     [TestMethod]
-    [DataRow("Public Sub Main()\r\nEnd Sub\r\n", DisplayName = "Public Sub Main()")]
-    [DataRow("Sub Main()\r\nEnd Sub\r\n", DisplayName = "Sub Main(), Public by default")]
-    [DataRow("Global Sub Main()\r\nEnd Sub\r\n", DisplayName = "Global Sub Main()")]
-    [DataRow("Public Sub main()\r\nEnd Sub\r\n", DisplayName = "the name in another case")]
-    [DataRow("Public Sub Main(ParamArray Args())\r\nEnd Sub\r\n", DisplayName = "Sub Main(ParamArray Args())")]
-    [DataRow("Public Sub Main(ParamArray Args() As Variant)\r\nEnd Sub\r\n", DisplayName = "Sub Main(ParamArray Args() As Variant)")]
-    [DataRow("Private Sub Helper()\r\nEnd Sub\r\nPublic Sub Main()\r\nEnd Sub\r\n", DisplayName = "among other procedures")]
-    public void ASubMainTheProjectCanCall_ThatTakesNoArgumentOrAParamArray_IsWhereTheProgramStarts(string source)
-        => Assert.IsTrue(ProgramEntryPoint.IsDeclaredBy(ModuleType.StdModule, Parse(source)));
-
-    [TestMethod]
-    [DataRow("Private Sub Main()\r\nEnd Sub\r\n", DisplayName = "Private Sub Main()")]
-    [DataRow("Public Sub Main(ByVal Count As Long)\r\nEnd Sub\r\n", DisplayName = "a parameter")]
-    [DataRow("Public Sub Main(Optional ByVal Count As Long)\r\nEnd Sub\r\n", DisplayName = "an optional parameter")]
-    [DataRow("Public Sub Main(ByVal Name As String, ParamArray Args())\r\nEnd Sub\r\n", DisplayName = "a parameter before the ParamArray")]
-    [DataRow("Public Function Main()\r\nEnd Function\r\n", DisplayName = "a Function")]
-    [DataRow("Public Property Get Main()\r\nEnd Property\r\n", DisplayName = "a Property Get")]
-    [DataRow("Public Sub Start()\r\nEnd Sub\r\n", DisplayName = "another name")]
-    [DataRow("Public Main As Long\r\n", DisplayName = "a variable")]
-    public void AnythingElse_IsNot(string source)
-        => Assert.IsFalse(ProgramEntryPoint.IsDeclaredBy(ModuleType.StdModule, Parse(source)));
-
-    [TestMethod]
-    [DataRow(ModuleType.ClassModule)]
-    [DataRow(ModuleType.DocumentModule)]
-    public void ASubMainOfAClassOrADocument_IsNot(ModuleType kind)
-        => Assert.IsFalse(ProgramEntryPoint.IsDeclaredBy(kind, Parse("Public Sub Main()\r\nEnd Sub\r\n")));
-
-    [TestMethod]
-    public void AnEntryPointOfAnotherName_IsTheSubOfThatName()
+    public void ASubMainOfAClass_IsNot_EvenOneThatTakesNoArgument()
     {
-        var module = Parse("Public Sub Start()\r\nEnd Sub\r\n");
+        var module = new VBClassModuleSymbol(WorkspaceRoot, WorkspaceRoot, "Helper");
 
-        Assert.IsTrue(ProgramEntryPoint.IsDeclaredBy(ModuleType.StdModule, module, "Start"));
-        Assert.IsFalse(ProgramEntryPoint.IsDeclaredBy(ModuleType.StdModule, module));
-    }
-
-    [TestMethod]
-    public void ASubMainWhoseHeaderIsWrittenInEachBranchOfAnIf_IsWhereTheProgramStarts_WhenOneOfItsHeadersIs()
-    {
-        var module = Parse("#If VBA7 Then\r\nPrivate Sub Main(ByVal Count As Long)\r\n#Else\r\nPublic Sub Main()\r\n#End If\r\nEnd Sub\r\n");
-
-        Assert.IsTrue(ProgramEntryPoint.IsDeclaredBy(ModuleType.StdModule, module));
+        Assert.IsFalse(ProgramEntryPoint.IsDeclaredBy(module, [SubMain(module.Uri)]));
     }
 }

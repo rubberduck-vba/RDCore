@@ -184,14 +184,22 @@ internal sealed class PlatformDebugWorkspace(
         return found;
     }
 
-    public IReadOnlyList<string> ModulesDeclaring(string entryPoint)
+    public async Task<IReadOnlyList<string>> ModulesDeclaringAsync(string entryPoint, CancellationToken token)
     {
         var maps = Volatile.Read(ref _maps);
-        return [.. ProgramFiles()
-            .Where(file => maps.ByPath.ContainsKey(FullPath(file)) && parsing.TryGetCached(file.Id.Uri.ToUri(), out var parse) && parse.SyntaxTree is not null
-                && ProgramEntryPoint.IsDeclaredBy(ParsingClientService.ModuleTypeOf(file), parse.SyntaxTree, entryPoint))
-            .Select(file => maps.ByPath[FullPath(file)].Module)
-            .Order(StringComparer.OrdinalIgnoreCase)];
+        string[] program = [.. ProgramFiles().Select(FullPath).Where(maps.ByPath.ContainsKey).Select(path => maps.ByPath[path].Module)];
+        if (program.Length == 0)
+        {
+            return [];
+        }
+
+        // which header of a declaration written in each branch of a #If block is the live one is the host's to say: it has the project's constants.
+        var environment = orchestration.RuntimeEnvironment;
+        await environment.WaitForReadyAsync(token);
+        var result = await environment.SendRequestAsync<HostEntryPointsParams, HostEntryPointsResult>(
+            new HostEntryPointsParams { EntryPoint = entryPoint, Modules = program }, token);
+
+        return [.. result.Modules.Order(StringComparer.OrdinalIgnoreCase)];
     }
 
     public async Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)

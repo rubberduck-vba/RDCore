@@ -14,7 +14,7 @@ namespace RDCore.Tests.Cli;
 [TestCategory("RD-VBAL §2.2.3.3 RDCoreModule")]
 public sealed class DocumentModuleTests
 {
-    private static WorkspaceLibraries Excel
+    internal static WorkspaceLibraries Excel
     {
         get
         {
