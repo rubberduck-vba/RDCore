@@ -27,6 +27,9 @@ public sealed class ChildConnectionRestartTests
 {
     private const string Held = "test/held";
 
+    // not a timing: a request that is never answered fails the test here instead of hanging the run.
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+
     [Method(Held)]
     public sealed record class HeldParams : IRequest<HeldResult>;
 
@@ -41,12 +44,13 @@ public sealed class ChildConnectionRestartTests
     {
         using var child = new InProcessChild();
         using var connection = await child.ConnectAsync();
+        using var hang = new CancellationTokenSource(HangGuard);
 
         var inFlight = connection.SendRequestAsync<HeldParams, HeldResult>(new HeldParams(), CancellationToken.None);
         await child.FirstRequestReceived;
         child.Crash();
 
-        var lost = await Assert.ThrowsExactlyAsync<ServerProtocolSdkException>(() => inFlight);
+        var lost = await Assert.ThrowsExactlyAsync<ServerProtocolSdkException>(() => inFlight.WaitAsync(hang.Token));
         StringAssert.Contains(lost.Message, Held);
 
         await connection.WaitForReadyAsync(CancellationToken.None);
@@ -61,12 +65,13 @@ public sealed class ChildConnectionRestartTests
     {
         using var child = new InProcessChild();
         using var connection = await child.ConnectAsync();
+        using var hang = new CancellationTokenSource(HangGuard);
 
         var inFlight = connection.Channel.SendRequestAsync(Held, null, CancellationToken.None);
         await child.FirstRequestReceived;
         child.Crash();
 
-        var lost = await Assert.ThrowsExactlyAsync<ServerProtocolSdkException>(() => inFlight);
+        var lost = await Assert.ThrowsExactlyAsync<ServerProtocolSdkException>(() => inFlight.WaitAsync(hang.Token));
         StringAssert.Contains(lost.Message, Held);
 
         await connection.WaitForReadyAsync(CancellationToken.None);
