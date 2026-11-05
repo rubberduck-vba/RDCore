@@ -17,7 +17,8 @@ public sealed class ExcelMeasuredGapsRowsTests
              "Public Sub Twice(ByRef n As Long)", "    n = n * 2", "End Sub",
              "Public Function Half(ByVal n As Long) As Long", "    Half = n \\ 2", "End Function"]);
         var program = StandardModule("Program",
-            ["Option Explicit", "Private acc As String", "Private Sub P(ByVal x As Variant)", "    acc = acc & CStr(x) & \"|\"", "End Sub", .. Lines(module),
+            // a declaration of the module goes before its first procedure, as the oracle's does.
+            ["Option Explicit", "Private acc As String", .. Lines(module), "Private Sub P(ByVal x As Variant)", "    acc = acc & CStr(x) & \"|\"", "End Sub",
              "Public Sub Main()", "    On Error Resume Next", .. Lines(probe), "    Debug.Print acc", "End Sub"]);
 
         return (await RunAsync([("Box", box)], program)).Last().Trim();
