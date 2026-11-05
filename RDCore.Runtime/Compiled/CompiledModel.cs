@@ -113,8 +113,14 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
         }
 
         var result = image.Compiler.Compile(session, executor.Expressions, procedure, body);
-        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons);
+        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
     }
+
+    /// <summary>
+    /// What the interpreter runs of a compiled procedure, one instruction at a time, and why: each instruction compiled code does not do yet, which it hands
+    /// to the interpreter alone, going on where the interpreter leaves the activation (IR lowering S2.5a). Empty for a procedure that is not compiled.
+    /// </summary>
+    public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
 }
 
 /// <summary>
@@ -123,7 +129,11 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
 /// <param name="Body">The compiled body; <see langword="null"/> when the procedure is not compiled.</param>
 /// <param name="Reasons">Why it is not; empty when it is.</param>
 /// <param name="Elapsed">How long compiling it took, or finding out it is not compiled.</param>
-internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList<Ineligibility> Reasons, TimeSpan Elapsed);
+internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList<Ineligibility> Reasons, TimeSpan Elapsed)
+{
+    /// <summary>The instructions of a compiled body the interpreter runs alone, and why (<see cref="ProcedureCompilation.Stepped"/>).</summary>
+    public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
+}
 
 // a payload, the value of an expression of a scalar kind: in a long when it is of an integral kind, in a double when it is of a floating-point one.
 internal abstract record class PayloadNode(ScalarKind Kind);

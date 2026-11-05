@@ -82,12 +82,14 @@ internal sealed class ProcedureCompiler
             var stopwatch = Stopwatch.StartNew();
             CompiledBody? body;
             IReadOnlyList<Ineligibility> reasons;
+            IReadOnlyList<Ineligibility> stepped = [];
             _ = _inProgress.Add(procedure.SemanticId);
             try
             {
                 var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
                 body = analysis.Reasons.Count == 0 ? Emit(session, evaluator, analysis, procedure, list) : null;
                 reasons = analysis.Reasons;
+                stepped = body is null ? [] : analysis.Stepped;
             }
             catch (Exception exception)
             {
@@ -104,7 +106,7 @@ internal sealed class ProcedureCompiler
 
             stopwatch.Stop();
 
-            result = new CompilationResult(body, reasons, stopwatch.Elapsed);
+            result = new CompilationResult(body, reasons, stopwatch.Elapsed) { Stepped = stepped };
             _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
             _bodies.AddOrUpdate(list, new Entry(scopes, result));
             _results[procedure.SemanticId] = (procedure, result);
@@ -152,7 +154,7 @@ internal sealed class ProcedureCompiler
         var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), parameters);
         var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
 
-        var directs = analysis.Callees.Select(callee => Link(session, evaluator, procedure, entry, list, callee)).ToArray();
+        var directs = analysis.Callees.Select(callee => Link(session, evaluator, procedure, entry, list, callee, analysis.NeedsFrame)).ToArray();
         ProcedureEmitter.Emit(analysis, method, entry, directs);
 
         var created = type.CreateType();
@@ -161,7 +163,7 @@ internal sealed class ProcedureCompiler
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
         RuntimeHelpers.PrepareMethod(body.MethodHandle);
         var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots };
+            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, NeedsFrame = analysis.NeedsFrame };
 
         // a call the body makes of itself is of the body just created.
         foreach (var direct in directs)
@@ -178,8 +180,9 @@ internal sealed class ProcedureCompiler
     // how the body calls callee: directly through its typed entry when the callee is compiled - for the same scopes, before its caller - or is the body
     // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
     // calls the one that calls it).
+    // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame.
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
-        CompiledCallee callee)
+        CompiledCallee callee, bool callerNeedsFrame)
     {
         if (evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
@@ -188,11 +191,11 @@ internal sealed class ProcedureCompiler
 
         if (callee.Procedure.SemanticId == caller.SemanticId)
         {
-            return new DirectCall(entry, callee.Procedure, list);
+            return callerNeedsFrame ? null : new DirectCall(entry, callee.Procedure, list);
         }
 
         if (_inProgress.Contains(callee.Procedure.SemanticId) || invoker.BodyOf(callee.Procedure) is not { } calleeList
-            || Compile(session, evaluator, callee.Procedure, calleeList).Body is not { Entry: { } calleeEntry } calleeBody)
+            || Compile(session, evaluator, callee.Procedure, calleeList).Body is not { Entry: { } calleeEntry, NeedsFrame: false } calleeBody)
         {
             return null;
         }

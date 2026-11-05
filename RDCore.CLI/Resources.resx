@@ -634,6 +634,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Line" xml:space="preserve">
     <value>line {0}</value>
   </data>
+  <data name="Compilation_Stepped" xml:space="preserve">
+    <value>run by the interpreter: {0}</value>
+  </data>
   <data name="Compilation_Reason_MemberOfAClass" xml:space="preserve">
     <value>a member of a class</value>
   </data>

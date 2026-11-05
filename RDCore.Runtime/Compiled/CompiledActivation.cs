@@ -727,7 +727,9 @@ public sealed class CompiledActivation : ILightActivation
             return -1;
         }
 
-        if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list) || !CanGoOnAt(frame, list, frame.Pc))
+        // an instruction that falls through goes on inside no loop it was not inside, whose state the frame has: compiled code was there.
+        if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list)
+            || (frame.Pc != pc + 1 && !CanGoOnAt(frame, list, frame.Pc)))
         {
             _recovered = Interpret(frame.Pc);
             return -1;
@@ -880,6 +882,12 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// passed by reference, and each parameter or variable the body passes by reference (IR lowering S2.3c).
     /// </summary>
     public IReadOnlyList<int> CellSlots { get; init; } = [];
+
+    /// <summary>
+    /// Whether an activation of the body holds in its frame what compiled code does not (<see cref="ProcedureAnalysis.NeedsFrame"/>): it is called through
+    /// the invoker, which makes the frame, and never directly without one.
+    /// </summary>
+    public bool NeedsFrame { get; init; }
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -

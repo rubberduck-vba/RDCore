@@ -632,6 +632,9 @@
   <data name="Compilation_Line" xml:space="preserve">
     <value>ligne {0}</value>
   </data>
+  <data name="Compilation_Stepped" xml:space="preserve">
+    <value>exécuté par l'interpréteur : {0}</value>
+  </data>
   <data name="Compilation_Reason_MemberOfAClass" xml:space="preserve">
     <value>un membre d'une classe</value>
   </data>

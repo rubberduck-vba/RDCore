@@ -312,9 +312,9 @@ public sealed class CompiledExecutionTests
             "End Sub"), "Outer", "Twice", "Touch");
 
     // a function returning an object, called as a statement: what it returns is let go of when the statement is over, which compiled code holds nothing
-    // of - the caller is not compiled, and says why.
+    // of - the interpreter runs the statement alone, in the compiled caller, and the caller says so.
     [TestMethod]
-    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsNotCalledFromCompiledCode()
+    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsCalledByTheInterpreter()
     {
         RequirePayloads();
         var program = Program(
@@ -344,8 +344,9 @@ public sealed class CompiledExecutionTests
 
         Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
         CollectionAssert.AreEqual(new[] { "terminate 1", "report 1", "terminate 2", "report 2", "after outer" }, run.Result.Output.Select(line => line.Trim()).ToArray());
-        var reason = Assert.ContainsSingle(run.Compiled["Outer"].Reasons);
-        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (reason.Kind, reason.Detail));
+        Assert.IsNotNull(run.Compiled["Outer"].Body, string.Join("; ", run.Compiled["Outer"].Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        var stepped = Assert.ContainsSingle(run.Compiled["Outer"].Stepped);
+        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (stepped.Kind, stepped.Detail));
     }
 
     // an error raised in the callee reaches the compiled caller at its call, and the interpreter gives it the handler a caller of it has: the same error,

@@ -44,6 +44,7 @@ internal sealed class ProcedureEmitter
     // the instruction at pc run by the interpreter alone, and the activation gone on with where it left it (CompiledActivation.Recover): every variable
     // written into the frame first; read back after it (the re-entry); and the instruction the activation goes on at found by its offset (the dispatch).
     private readonly Label _recover;
+    private readonly Label _recovered;
     private readonly Label _reentry;
     private readonly Label _dispatch;
     private bool _recovers;
@@ -51,14 +52,16 @@ internal sealed class ProcedureEmitter
     private LocalBuilder? _result;
 
     // Opened: whether the loop's statement ever ran, and gave it an end and a step - kept when the loop ends, and when its statement, run again, fails.
-    private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, ScalarKind Kind);
+    // Spilled: whether the frame has the end and the step the statement last gave it, which nothing but the statement changes: written once, not at each
+    // instruction the interpreter runs alone.
+    private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder Opened, LocalBuilder Spilled, ScalarKind Kind);
 
     private ProcedureEmitter(ProcedureAnalysis analysis, IReadOnlyList<DirectCall?> directs, ILGenerator il)
     {
         (_analysis, _directs, _il) = (analysis, directs, il);
         _pc = il.DeclareLocal(typeof(int));
         _walkBack = il.DefineLabel();
-        (_recover, _reentry, _dispatch) = (il.DefineLabel(), il.DefineLabel(), il.DefineLabel());
+        (_recover, _recovered, _reentry, _dispatch) = (il.DefineLabel(), il.DefineLabel(), il.DefineLabel(), il.DefineLabel());
     }
 
     /// <summary>
@@ -135,7 +138,7 @@ internal sealed class ProcedureEmitter
         foreach (var loop in _analysis.Loops)
         {
             _loops.Add(new LoopLocals(_il.DeclareLocal(ClrTypeOf(loop.Kind)), _il.DeclareLocal(ClrTypeOf(loop.Kind)), _il.DeclareLocal(typeof(bool)),
-                _il.DeclareLocal(typeof(bool)), loop.Kind));
+                _il.DeclareLocal(typeof(bool)), _il.DeclareLocal(typeof(bool)), loop.Kind));
         }
 
         for (var offset = 0; offset <= _analysis.Length; offset++)
@@ -306,9 +309,27 @@ internal sealed class ProcedureEmitter
                 break;
 
             case SteppedStep stepped:
-                _il.Emit(OpCodes.Br, RecoverAt(stepped.Offset));
+                EmitStepped(stepped.Offset);
                 break;
         }
+    }
+
+    // the instruction at offset run by the interpreter alone (CompiledActivation.Recover). When it falls through to the next instruction, nothing changed
+    // the state of a loop of compiled code - only its statement does, and a Next, which jumps - and only the variables and the function result are read
+    // back; anywhere else, the activation goes on as it does after any recovery (EmitRecover).
+    private void EmitStepped(int offset)
+    {
+        _ = RecoverAt(offset);
+        EmitSpill();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recover))!);
+        _il.Emit(OpCodes.Stloc, _pc);
+        _il.Emit(OpCodes.Ldloc, _pc);
+        _il.Emit(OpCodes.Ldc_I4, offset + 1);
+        _il.Emit(OpCodes.Bne_Un, _recovered);
+        EmitReload();
+        _il.Emit(OpCodes.Br, _instructions[offset + 1]);
     }
 
     // the arguments evaluated - where one fails, nothing was called, and the interpreter makes the instruction from its start - then the call. Under a
@@ -536,6 +557,8 @@ internal sealed class ProcedureEmitter
         Store(start, open.Kind, _slots[open.Counter]);
         _il.Emit(OpCodes.Ldc_I4_1);
         _il.Emit(OpCodes.Stloc, loop.Opened);
+        _il.Emit(OpCodes.Ldc_I4_0);
+        _il.Emit(OpCodes.Stloc, loop.Spilled);
 
         EmitPastTheEnd(loop, open.Counter, _instructions[open.Past]);
     }
@@ -715,8 +738,11 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldloc, _pc);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recover))!);
-        _il.Emit(OpCodes.Dup);
         _il.Emit(OpCodes.Stloc, _pc);
+
+        // where Recover left the activation, pc: a step that did not fall through goes on from here too (EmitStepped).
+        _il.MarkLabel(_recovered);
+        _il.Emit(OpCodes.Ldloc, _pc);
         _il.Emit(OpCodes.Ldc_I4_0);
         _il.Emit(OpCodes.Bge, _reentry);
         _il.Emit(OpCodes.Ldarg_0);
@@ -737,7 +763,11 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(loop.Kind)
                 ? nameof(CompiledActivation.ReloadForLoopIntegral)
                 : nameof(CompiledActivation.ReloadForLoopFloating))!);
+
+            // what was read back is what the frame has.
+            _il.Emit(OpCodes.Dup);
             _il.Emit(OpCodes.Stloc, loop.Opened);
+            _il.Emit(OpCodes.Stloc, loop.Spilled);
         }
 
         _il.Emit(OpCodes.Br, _dispatch);
@@ -803,11 +833,15 @@ internal sealed class ProcedureEmitter
             var closed = _il.DefineLabel();
             _il.Emit(OpCodes.Ldloc, loop.Opened);
             _il.Emit(OpCodes.Brfalse, closed);
+            _il.Emit(OpCodes.Ldloc, loop.Spilled);
+            _il.Emit(OpCodes.Brtrue, closed);
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, i);
             LoadAsBoth(loop.End, loop.Kind);
             LoadAsBoth(loop.Step, loop.Kind);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SpillForLoop))!);
+            _il.Emit(OpCodes.Ldc_I4_1);
+            _il.Emit(OpCodes.Stloc, loop.Spilled);
             _il.MarkLabel(closed);
         }
     }

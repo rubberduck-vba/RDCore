@@ -45,6 +45,12 @@ public sealed class BenchCommandTests
         "Public Function BenchFunctionIsNoCase() As Long",
         "End Function",
         "Public Sub NotNamedForACase()",
+        "End Sub",
+        "Public Sub AppendsInALoop()",
+        "    Dim I As Long, S As String",
+        "    For I = 1 To 3",
+        "        S = S & \"x\"",
+        "    Next",
         "End Sub");
 
     private static readonly string Tally = ClassModule("Tally",
@@ -317,8 +323,17 @@ public sealed class BenchCommandTests
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "interpreted");
         StringAssert.Contains(objectCall, "line ");
-        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "interpreted");
-        StringAssert.Contains(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "a member of a class");
+
+        // a member of a class is compiled as any procedure is; the one statement of this one assigns a field, which the interpreter would run alone.
+        var member = lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal));
+        StringAssert.StartsWith(member, "interpreted");
+        StringAssert.Contains(member, "mCount (line ");
+
+        // a compiled procedure says what of it the interpreter runs, and where.
+        var stepping = lines.Single(line => line.Contains("Cases.AppendsInALoop ", StringComparison.Ordinal));
+        StringAssert.StartsWith(stepping, "compiled");
+        StringAssert.Contains(stepping, "run by the interpreter: ");
+        StringAssert.Contains(stepping, "(line ");
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
     }
 
