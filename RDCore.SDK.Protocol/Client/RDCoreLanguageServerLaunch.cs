@@ -91,7 +91,9 @@ public sealed class RDCoreLanguageServerLaunch
     /// <exception cref="ArgumentException">The workspace is not an absolute <c>file:</c> URI, nor an absolute path.</exception>
     /// <exception cref="DirectoryNotFoundException">The platform root does not exist.</exception>
     /// <exception cref="FileNotFoundException">The platform root has no manifest, or the manifest names a language server that is not there.</exception>
-    /// <exception cref="InvalidDataException">The manifest is not one, names no language server, or names an executable that is not under the platform root.</exception>
+    /// <exception cref="InvalidDataException">
+    /// The manifest is not one, names no language server, or names an executable that is not under the platform root, or one through a link that can't be followed.
+    /// </exception>
     public static RDCoreLanguageServerLaunch Prepare(RDCoreLanguageServerLaunchOptions options)
     {
         var (root, manifest, executable, workspace) = LanguageServerOf(options.PlatformRoot, options.Workspace, nameof(options));
@@ -137,7 +139,7 @@ public sealed class RDCoreLanguageServerLaunch
         }
 
         // the language server starts the others itself: a manifest that names any of them elsewhere is refused before anything is started.
-        var realRoot = RealPath(root);
+        var realRoot = Followed(root, root, () => PlatformRootConfinement.RealPath(root));
         foreach (var (property, path) in new[] { ("hostService", manifest.HostService), ("parseServer", manifest.ParseServer) })
         {
             if (!string.IsNullOrWhiteSpace(path))
@@ -152,37 +154,30 @@ public sealed class RDCoreLanguageServerLaunch
         return (root, manifest, Confined(root, realRoot, "langService", manifest.LangService, executable), uri);
     }
 
-    // a path of the manifest, which is relative to the platform root and written with either slash.
-    private static string Named(string root, string path) => Path.GetFullPath(Path.Combine(root, path.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar)));
+    // a path of the manifest, which is relative to the platform root and written with either slash. Its ".." is the system's to take (PlatformRootConfinement.RealPath):
+    // folding it here would take it as Windows does on every system.
+    private static string Named(string root, string path) => Path.Combine(root, path.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar));
 
-    // the executable, when it is under the platform root as the file system resolves it: Path.GetFullPath folds "..", but follows no link.
+    // the real path of the executable, which is what is started, when it is under the platform root (PlatformRootConfinement), named by the manifest's property it is.
     private static string Confined(string root, string realRoot, string property, string named, string executable)
     {
-        var relative = Path.GetRelativePath(realRoot, RealPath(executable));
-        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
-        {
-            throw new InvalidDataException(string.Format(LaunchMessages.ExecutableOutsideThePlatformRoot, root, named, property));
-        }
-
-        return executable;
+        var real = Followed(root, executable, () => PlatformRootConfinement.RealPath(executable));
+        return PlatformRootConfinement.IsUnderRealRoot(realRoot, real)
+            ? real
+            : throw new InvalidDataException(string.Format(LaunchMessages.ExecutableOutsideThePlatformRoot, root, named, property));
     }
 
-    // a full path through every link on the way: each folder, and the file, that is a link is where it leads.
-    private static string RealPath(string path)
+    // a real path, or the launch refused when a link on the way to it can't be followed.
+    private static string Followed(string root, string path, Func<string> realPath)
     {
-        var full = Path.GetFullPath(path);
-        var real = Path.GetPathRoot(full)!;
-        foreach (var part in full[real.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        try
         {
-            real = Path.Combine(real, part);
-            FileSystemInfo entry = Directory.Exists(real) ? new DirectoryInfo(real) : new FileInfo(real);
-            if (entry.Exists && entry.LinkTarget is not null && entry.ResolveLinkTarget(returnFinalTarget: true) is { } target)
-            {
-                real = RealPath(target.FullName);
-            }
+            return realPath();
         }
-
-        return real;
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidDataException(string.Format(LaunchMessages.ExecutableStartedThroughALinkThatCannotBeFollowed, root, path), exception);
+        }
     }
 
     // the executable as named, or else as this platform names it: a manifest written on Windows names an .exe, which an apphost elsewhere has no extension for.

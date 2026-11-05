@@ -240,7 +240,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             CoreServerComponent.ParsingServer => manifest.ParseServer,
             CoreServerComponent.EnvironmentHost => manifest.HostService,
             // an extension lives in <ExtensionsDirectory>/<Title>/<Name>, platform-root-relative;
-            // RDCoreServerProcess.StartAsync resolves it against the platform root.
+            // RDCoreServerProcess.StartAsync resolves it against the platform root, and refuses it if that is not under the root.
             CoreServerComponent.Extension => $"{manifest.ExtensionsDirectory}/{ExtensionInfo!.Title}/{ExtensionInfo!.Name}",
             _ => throw new NotSupportedException($"Cannot resolve a server executable for platform component '{PlatformComponent}'.")
         };
