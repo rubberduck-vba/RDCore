@@ -64,8 +64,8 @@ public sealed class ProjectQualifiedNameTests
         CollectionAssert.AreEqual(new[] { "42", "Widget", "0", "42", "2", "3", "2" }, printed, string.Join(" | ", printed));
     }
 
-    // MS-VBA refuses a module named as its project ("Name conflicts with existing module, project, or object library"); the shell's own project is named as its
-    // one module, which keeps the name.
+    // MS-VBA refuses a module named as its project ("Name conflicts with existing module, project, or object library"); a project file can still name one
+    // so, and the module keeps the name.
     [TestMethod]
     public async Task AModuleNamedAsItsProject_KeepsTheName()
     {

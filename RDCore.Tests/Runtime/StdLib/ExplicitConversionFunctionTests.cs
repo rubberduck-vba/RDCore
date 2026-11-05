@@ -381,9 +381,13 @@ public sealed class ExplicitConversionFunctionTests
         Assert.AreEqual(" 12", ValueOf(Conversion().StrStr(Text("12"))).Value);
     }
 
+    // RD-VBAL §6.1.2.3.1.20: MS-VBA's Str takes no Error value, where MS-VBAL's writes it as CStr does (recorded in Excel: oracle\s56 G07, s57 E01).
     [TestMethod]
-    public void Str_OfAnErrorIsErrorAndItsCode()
-        => Assert.AreEqual("Error 5", ValueOf(Conversion().StrStr(Variant(new VBErrorValue(5)))).Value);
+    public void Str_OfAnError_IsError13()
+    {
+        Assert.AreEqual(VBRuntimeErrorId.TypeMismatch, ErrorOf(Conversion().StrStr(Variant(new VBErrorValue(5)))));
+        Assert.AreEqual(VBRuntimeErrorId.TypeMismatch, ErrorOf(Conversion().Str(Variant(new VBErrorValue(5)))));
+    }
 
     [TestMethod]
     public void Str_OfANumber_UsesADotWhateverTheRegionalSettings()
@@ -427,6 +431,52 @@ public sealed class ExplicitConversionFunctionTests
     [TestMethod]
     public void Val_BeyondDoubleIsOverflow()
         => Assert.AreEqual(VBRuntimeErrorId.Overflow, ErrorOf(Conversion().Val(new VBStringValue("1e999"))));
+
+    // MS-VBA reads the digits after &H or &O as the bits of an integer typed by their width and by the type-declaration character after them (recorded in
+    // Excel: oracle\s57 V01-V06, D01-D03).
+    [TestMethod]
+    [DataRow("&HFFFF", -1d, DisplayName = "V01 16 bits are an Integer")]
+    [DataRow("&H7FFF", 32767d, DisplayName = "V01 the greatest Integer")]
+    [DataRow("&H8000", -32768d, DisplayName = "V01 the least Integer")]
+    [DataRow("&H10000", 65536d, DisplayName = "V01 17 bits are a Long")]
+    [DataRow("&HFFFFFFFF", -1d, DisplayName = "V01 32 bits are a Long")]
+    [DataRow("&H80000000", -2147483648d, DisplayName = "V03 the least Long")]
+    [DataRow("&H123456789", 591751049d, DisplayName = "V04 more than 32 bits are the low 32")]
+    [DataRow("&H100000000", 0d, DisplayName = "V04 the low 32 bits of 2^32")]
+    [DataRow("&HFFFFFFFFFFFFFFFF", -1d, DisplayName = "D01 64 bits")]
+    [DataRow("&H00000000FFFF", -1d, DisplayName = "V06 leading zeroes count no bits")]
+    [DataRow("&O177777", -1d, DisplayName = "V02 octal, 16 bits")]
+    [DataRow("&O40000000000", 0d, DisplayName = "V06 octal, the low 32 bits")]
+    [DataRow("&O1777777777777777777777", -1d, DisplayName = "V06 octal, 64 bits")]
+    [DataRow("&HFFFF%", -1d, DisplayName = "V05 % is an Integer")]
+    [DataRow("&H8000%", -32768d, DisplayName = "D03 % is an Integer")]
+    [DataRow("&HFFFF&", 65535d, DisplayName = "V01 & is a Long")]
+    [DataRow("&H1FFFFFFFF&", -1d, DisplayName = "D02 & is the low 32 bits")]
+    [DataRow("&O177777&", 65535d, DisplayName = "V06 octal & is a Long")]
+    [DataRow("&HFFFF^", 65535d, DisplayName = "V05 ^ is a LongLong")]
+    [DataRow("&HFFFFFFFFFFFFFFFF^", -1d, DisplayName = "D01 ^, 64 bits")]
+    [DataRow("&H8000000000000000^", -9.2233720368547758E+18, DisplayName = "D01 ^, the least LongLong")]
+    [DataRow("&H8000!", 32768d, DisplayName = "D02 ! is a Long")]
+    [DataRow("&H8000@", 32768d, DisplayName = "D02 @ is a Long")]
+    [DataRow("&HFFFF#", 65535d, DisplayName = "V05 # is a Long")]
+    [DataRow("&HFFFFFFFF!", -1d, DisplayName = "D02 ! is a Long when 32 bits hold it")]
+    [DataRow("&H1FFFFFFFF!", 8589934591d, DisplayName = "D02 ! is a LongLong when they do not")]
+    [DataRow("&HFFFF%1", -1d, DisplayName = "D03 what follows the character is not read")]
+    [DataRow("&H", 0d, DisplayName = "D03 no digits")]
+    [DataRow("&H-1", 0d, DisplayName = "D03 no sign")]
+    [DataRow("  &H FF", 255d, DisplayName = "D03 blanks stripped")]
+    [DataRow("&O78", 7d, DisplayName = "D03 an 8 is no octal digit")]
+    public void Val_OfARadixNumber_IsTheIntegerItsBitsAre(string text, double expected)
+        => Assert.AreEqual(expected, ValueOf(Conversion().Val(new VBStringValue(text))).Value);
+
+    [TestMethod]
+    [DataRow("&H10000000000000000", DisplayName = "D01 65 bits")]
+    [DataRow("&HFFFFFFFFFFFFFFFFF^", DisplayName = "D01 65 bits, ^")]
+    [DataRow("&HFFFFFFFFFFFFFFFFF0", DisplayName = "V04 72 bits")]
+    [DataRow("&H1FFFF%", DisplayName = "D02 17 bits, %")]
+    [DataRow("&H10000%", DisplayName = "D02 2^16, %")]
+    public void Val_OfARadixNumberTooWideForItsType_IsOverflow(string text)
+        => Assert.AreEqual(VBRuntimeErrorId.Overflow, ErrorOf(Conversion().Val(new VBStringValue(text))));
 
     #endregion
 }

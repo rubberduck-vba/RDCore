@@ -28,8 +28,11 @@ namespace RDCore.SDK.Server.Services;
 /// Once the server is initialized, a request marked <see cref="HandledOnArrivalAttribute"/> is kept, and handled as it arrives (<see cref="ArrivalRequests"/>):
 /// what is not returned here is never scheduled.
 /// </para>
+/// <para>
+/// It also keeps the <c>locale</c> of the <c>initialize</c> request (<see cref="InitializeLocale"/>), which OmniSharp reads the request without.
+/// </para>
 /// </remarks>
-internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> logger, ArrivalRequests? arrivals = null) : Receiver
+internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> logger, ArrivalRequests? arrivals = null, InitializeLocale? initializeLocale = null) : Receiver
 {
     public override (IEnumerable<Renor> results, bool hasResponse) GetRequests(JToken container)
     {
@@ -46,6 +49,11 @@ internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> l
 
         foreach (var renor in parsed)
         {
+            if (initializeLocale is not null && renor.IsRequest && renor.Request!.Method == GeneralNames.Initialize)
+            {
+                initializeLocale.Locale = LocaleOf(renor.Request.Params);
+            }
+
             if (renor.IsResponse || renor.IsError
                 || (renor.IsRequest && renor.Request!.Method == GeneralNames.Initialize)
                 || (renor.IsNotification && (renor.Notification!.Method == GeneralNames.Initialized || renor.Notification!.Method == GeneralNames.Exit)))
@@ -67,4 +75,7 @@ internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> l
 
         return (allowed, hasResponse);
     }
+
+    private static string? LocaleOf(JToken? parameters)
+        => parameters is JObject named && named["locale"] is { Type: JTokenType.String } locale ? locale.Value<string>() : null;
 }

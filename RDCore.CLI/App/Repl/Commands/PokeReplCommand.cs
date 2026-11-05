@@ -30,7 +30,11 @@ internal sealed class PokeReplCommand : IReplCommand
         }
 
         var result = await context.Platform.PokeAsync(address, (byte)value, token);
-        if (!result.IsWritten)
+        if (result.Error is { } refusal)
+        {
+            context.Console.WriteMessage(MessageKind.Error, refusal);
+        }
+        else if (!result.IsWritten)
         {
             context.Console.WriteMessage(MessageKind.Error, Resources.Repl_Memory_NotAllocated, MemoryAccessService.Format(address));
         }

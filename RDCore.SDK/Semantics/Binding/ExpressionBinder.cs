@@ -119,13 +119,18 @@ public sealed class ExpressionBindings
             // an operation of operands bound late has no plan: their declared types are not known.
             VBBinaryOperatorExpressionNode binary => new BoundBinary(binary, plan, ChildNode(binary.Left), ChildNode(binary.Right)),
 
-            VBUnaryOperatorExpressionNode unary => new BoundUnary(unary, plan, ChildNode(unary.Operand)),
+            VBUnaryOperatorExpressionNode unary => new BoundUnary(unary, plan, ChildNode(unary.Operand),
+                unary.Token is Tokens.NegationOp && ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, unary.Operand)),
 
             // a call by the bare name of a procedure, resolved as the evaluation resolves it.
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index
                 when context.Resolver.ResolveValue(callee, ScopeKind.Local, context.Scope.Uri).Symbol is
                     VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index)) { ResultType = ResultTypeOf(procedure, result) },
+                => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
+                {
+                    ResultType = ResultTypeOf(procedure, result),
+                    IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index),
+                },
 
             // MS-VBAL §5.6.12: a member of a project or a procedural module - `Constants.vbCrLf`, `Module1.Count` - is what the name means unqualified there,
             // and a member of an enumeration named by its type is a constant: neither is a member of a value. Classified and resolved as the evaluation does.
@@ -137,7 +142,11 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
                 when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier && NamespaceMemberOf(context, qualifier, access) is { } member
                 => member is VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                    ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index)) { ResultType = ResultTypeOf(procedure, result) }
+                    ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
+                    {
+                        ResultType = ResultTypeOf(procedure, result),
+                        IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index),
+                    }
                     : new BoundIndex(index, new BoundQualifiedName(access, member), ArgumentNodes(index)),
 
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no

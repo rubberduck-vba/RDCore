@@ -38,6 +38,11 @@ namespace RDCore.Runtime.Compiled;
 /// assigned whole; a function called as a statement returns a scalar.
 /// </para>
 /// <para>
+/// It does the <c>On Error</c> statements, <c>GoSub</c> and <c>Return</c> too (IR lowering S2.4), and has the interpreter run a <c>Resume</c>, an
+/// <c>Error</c> statement, an <c>On...GoTo</c> and an <c>On...GoSub</c> alone; the activation goes on compiled where the instruction left it. In a body
+/// with an <c>On Error</c> statement, so does an instruction that fails: the interpreter runs it alone and gives its error the activation's handler.
+/// </para>
+/// <para>
 /// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation (IR lowering S2.3c),
 /// which the frame holds too: the cell of a parameter is its caller's variable (MS-VBAL §5.3.1.11), and what the interpreter, a debugger or a frame made
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
@@ -93,6 +98,12 @@ internal sealed class ProcedureAnalysis
 
     /// <summary>The instruction count of the body: the offset its end is at.</summary>
     public int Length { get; private set; }
+
+    /// <summary>
+    /// Whether the body has an <c>On Error</c> statement: an instruction of it that fails is then run by the interpreter alone, its error given the
+    /// activation's handler, and the activation goes on compiled where the handler sends it (<see cref="CompiledActivation.Recover"/>).
+    /// </summary>
+    public bool HandlesErrors { get; private set; }
 
     /// <summary>
     /// Analyzes <paramref name="procedure"/>, whose body is <paramref name="list"/>, as the session binds it now.
@@ -264,6 +275,21 @@ internal sealed class ProcedureAnalysis
 
             case InstructionKind.ExitProcedure:
                 return new ExitStep(instruction.Offset);
+
+            case InstructionKind.OnErrorGoTo when instruction.Target is not null:
+            case InstructionKind.OnErrorDisable or InstructionKind.OnErrorReset or InstructionKind.OnErrorResumeNext:
+                HandlesErrors = true;
+                return new OnErrorStep(instruction.Offset);
+
+            case InstructionKind.GoSub when instruction.Target is { } subroutine:
+                return new GoSubStep(instruction.Offset, subroutine);
+
+            case InstructionKind.Return:
+                return new ReturnStep(instruction.Offset);
+
+            case InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel or InstructionKind.RaiseError
+                or InstructionKind.JumpTable or InstructionKind.GoSubTable:
+                return new SteppedStep(instruction.Offset);
 
             default:
                 return Refused(instruction);
@@ -657,7 +683,7 @@ internal sealed class ProcedureAnalysis
 
         var converted = Converted(operand, effective);
         return plan.Operator == Tokens.NegationOp
-            ? new NegateNode(converted, effective)
+            ? new NegateNode(converted, effective, unary.NegatesAConstantExpression)
             : ScalarKinds.IsIntegral(effective) ? new NotNode(converted, effective) : Unsupported(unary);
     }
 

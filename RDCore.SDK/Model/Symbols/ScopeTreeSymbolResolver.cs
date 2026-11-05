@@ -288,7 +288,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return null;
         }
 
-        var module = global.DeclaredAs(moduleScope.Uri.Fragment.TrimStart('#')).OfType<VBClassModuleSymbol>()
+        var module = global.DeclaredAs(SymbolUri.ModuleNameOf(moduleScope.Uri)).OfType<VBClassModuleSymbol>()
             .FirstOrDefault(candidate => candidate.HostClass is not null && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
         if (module is null || VBProjectSymbol.ResolveHostClass(this, module) is not { } host)
         {

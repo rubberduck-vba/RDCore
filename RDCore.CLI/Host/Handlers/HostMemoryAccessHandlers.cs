@@ -29,7 +29,7 @@ internal sealed class HostPeekHandler(IEnvironmentSessionProvider sessionProvide
 
 /// <summary>
 /// Handles <c>rdcore/host/memory/poke</c>: writes one byte of this host's runtime session memory,
-/// unchecked.
+/// unchecked, where no program runs.
 /// </summary>
 internal sealed class HostPokeHandler(IEnvironmentSessionProvider sessionProvider)
     : RDCoreRequestHandler<HostPokeParams, PokeResult>
@@ -41,7 +41,8 @@ internal sealed class HostPokeHandler(IEnvironmentSessionProvider sessionProvide
             return Task.FromResult(new PokeResult { Address = request.Address });
         }
 
-        var written = sessionProvider.Session.Storage.TryPoke(new MemoryAddress(request.Address), request.Value);
-        return Task.FromResult(new PokeResult { Address = request.Address, IsWritten = written });
+        var storage = sessionProvider.Session.Storage;
+        var written = sessionProvider.Execution.TryWriteMemory(() => storage.TryPoke(new MemoryAddress(request.Address), request.Value), out var refusal);
+        return Task.FromResult(new PokeResult { Address = request.Address, IsWritten = written, Error = refusal });
     }
 }

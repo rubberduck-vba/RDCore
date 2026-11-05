@@ -174,4 +174,41 @@ public sealed class CompiledCallerWaitingTests
     [TestMethod]
     public async Task AVariableOfACompiledCaller_SetWhileItWaits_IsWhatItGoesOnWith()
         => StringAssert.Contains(await AssertAlikeAsync(Returning.Replace("    n = n + u", "    Outer = n + u", StringComparison.Ordinal), null, "n = 1000"), "| 1001 |");
+
+    // Outer sums what Inner returns of each pass of its loops, and waits in Inner's first call: the loops it goes on with are the ones it had, counting the way
+    // they counted, in the type they counted in. A Variant counter is no scalar, and keeps Outer in the interpreter.
+    private static string Looping(string declarations, string first, params string[] loops) => Program([
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(3)",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As Double",
+        $"    Dim t As Double, u As Double, {declarations}",
+        .. loops,
+        "    Outer = t",
+        "End Function",
+        "Private Function Inner(ByVal x As Double) As Double",
+        $"    If x = {first} Then Stop",
+        "    Inner = x",
+        "End Function"]);
+
+    [TestMethod]
+    [DataRow("i As Long", "3", "For i = n To 1 Step -1", "6", DisplayName = "a Long counting down")]
+    [DataRow("i As Integer", "3", "For i = 3 To 1 Step -1", "6", DisplayName = "an Integer counting down")]
+    [DataRow("i As Double", "0.5", "For i = 0.5 To 2 Step 0.5", "5", DisplayName = "a Double")]
+    [DataRow("i As Double", "2", "For i = 2 To 0.5 Step -0.5", "5", DisplayName = "a Double counting down")]
+    [DataRow("i As Single", "1.5", "For i = 1.5 To 0 Step -0.75", "2.25", DisplayName = "a Single counting down")]
+    public async Task ALoopOfACompiledCaller_ThatWaitsInACallee_GoesOnAsItCounted(string declarations, string first, string header, string sum)
+        => StringAssert.Contains(await AssertAlikeAsync(Looping(declarations, first, $"    {header}", "        u = Inner(i)", "        t = t + u", "    Next"), null),
+            $"| {sum} |");
+
+    [TestMethod]
+    public async Task NestedLoopsOfACompiledCaller_ThatWaitsInACallee_GoOnAsTheyCounted()
+        => StringAssert.Contains(await AssertAlikeAsync(Looping("i As Long, j As Double", "31",
+            "    For i = n To 1 Step -1",
+            "        For j = 1 To 2",
+            "            u = Inner(i * 10 + j)",
+            "            t = t + u",
+            "        Next",
+            "    Next"), null), "| 129 |");
 }

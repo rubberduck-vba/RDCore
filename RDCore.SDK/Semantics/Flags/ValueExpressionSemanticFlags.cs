@@ -125,12 +125,21 @@ public enum ValueExpressionSemanticFlags
     ArrayGivenASecondEmptyArgumentList = 1 << 18,
 
     /// <summary>
-    /// It is a public variable of an object named as a member of it (<c>b.Count</c>, <c>Me.Count</c>, <c>.Count</c> in a <c>With</c> block), given to a
-    /// <c>ByRef</c> parameter of a procedure of the workspace. <strong>MS-VBAL §5.6.12</strong> classifies it as a variable, which <strong>§5.3.1.11</strong>
-    /// passes by reference; <strong>MS-VBA</strong> passes a copy, and what the procedure assigns to the parameter is not written back to the object's
-    /// variable (RD-VBAL §5.3.1.11). Named by itself in its own class, the variable is passed by reference.
+    /// It is a public variable of an object named as a member of it (<c>b.Count</c>, <c>Me.Count</c>, <c>.Count</c> in a <c>With</c> block), or an element
+    /// of one (<c>b.V(0)</c>), given to a <c>ByRef</c> parameter: of a procedure of the workspace, a <c>ParamArray</c>, a <c>Declare</c>d procedure, or the
+    /// event a <c>RaiseEvent</c> raises. <strong>MS-VBAL §5.6.12</strong> classifies it as a variable, which <strong>§5.3.1.11</strong> passes by reference;
+    /// <strong>MS-VBA</strong> passes a copy, and what the procedure assigns to the parameter is not written back to the object's variable (RD-VBAL
+    /// §5.3.1.11). Named by itself in its own class, the variable is passed by reference.
     /// </summary>
     ObjectVariablePassedAsACopy = 1 << 19,
+
+    /// <summary>
+    /// It is a public variable of an object named as a member of it, or an element of one, as <see cref="ObjectVariablePassedAsACopy"/> has it, given to a
+    /// procedure called late (<c>o.Twice b.Count</c>, <c>o</c> an <c>Object</c>), whose parameters are not known until it runs. If the procedure takes it
+    /// <c>ByRef</c>, <strong>MS-VBAL §5.3.1.11</strong> passes the variable by reference; <strong>MS-VBA</strong> passes a copy, which what the procedure
+    /// assigns to the parameter is not written back to (oracle\s58 F04, RD-VBAL §5.3.1.11).
+    /// </summary>
+    ObjectVariablePassedLateAsACopy = 1 << 20,
 
     /// <summary>
     /// It is a <c>New</c> expression of a class whose objects are never created (<c>New ErrObject</c>): its library says the class can be created, so

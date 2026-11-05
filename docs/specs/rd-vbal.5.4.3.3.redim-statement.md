@@ -90,7 +90,10 @@ dial rather than something the statement wrote.
 
 ## Runtime Semantics
 
-`ReDim` evaluates each bound where the statement stands, then re-allocates the array.
+`ReDim` evaluates each bound where the statement stands, then re-allocates the array. Every bound is evaluated before
+an upper bound below its lower raises its error, in whichever dimension it is: a function called for a later bound is
+called, and a later bound that is no number raises `13`, or `6` when it overflows, as **MS-VBA** has it (recorded in
+Excel, `oracle\s58` R01-R05).
 
 |Target|Effect|
 |---|---|
@@ -103,10 +106,17 @@ dial rather than something the statement wrote.
 reads the sentence as **MS-VBA** does (recorded in Excel): as a `ReDim Preserve`'s, the one that has the elements of an array to keep. A `ReDim` without
 `Preserve` keeps nothing of what the `Variant` held, and makes it an array whatever that was.
 
-Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). An upper bound below its
-lower bound is runtime error 9, `Subscript out of range`, for a variable declared as an array. A `Variant` given such bounds raises runtime error 7,
-`Out of memory`, whatever it held, and is left `Empty`; with `Preserve`, a `Variant` that holds no array raises 13 first (recorded in Excel, as vb6.exe
-does too).
+Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). What an upper bound
+below its lower bound does depends on what is re-dimensioned and by how much (recorded in Excel, `oracle\s56` R03-R07, F01-F13, I05, I06):
+
+|Re-dimensioned|Upper bound|Error|The variable|
+|---|---|---|---|
+|A variable declared as an array, without `Preserve`|below the lower, in any dimension|9, `Subscript out of range`|Loses its dimensions, as `Erase` leaves it.|
+|A variable declared as an array, with `Preserve`|below the lower|9|Keeps its bounds and its elements.|
+|A `Variant`|one below the lower (`5 To 4`), in any dimension, whatever the others are|9|Keeps what it held: an array, a number, `Empty`.|
+|A `Variant`, one dimension|further below (`5 To 3`)|7, `Out of memory`|Is left `Empty`, whatever it held (vb6.exe does the same). RD-VBA does the same for several dimensions none of which is one below, which is not measured.|
+|A `Variant` that holds an array, with `Preserve`|below the lower|9|Keeps the array.|
+|A `Variant` that holds no array, with `Preserve`|below the lower|13, `Type mismatch`|Keeps what it held.|
 
 Without `Preserve`, every element of the re-dimensioned array is its element type's default value.
 

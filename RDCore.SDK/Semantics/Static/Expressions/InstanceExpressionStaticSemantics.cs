@@ -37,7 +37,7 @@ public sealed record class InstanceExpressionStaticSemantics : IStaticSemantics
         }
 
         var moduleScope = context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module);
-        var moduleName = moduleScope?.Uri.Fragment.TrimStart('#');
+        var moduleName = moduleScope is null ? null : SymbolUri.ModuleNameOf(moduleScope.Uri);
         // looked up from the global scope, in the type binding context: a module is bound by its own name
         // there, so a member of the class named like the class cannot hide it.
         var module = moduleName is null ? null : context.Resolver.ResolveType(moduleName, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol;

@@ -116,6 +116,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked);
         }
 
+        if (operands is [var first, var second] && IsStringComparedAsADouble(resolver, expression, analysisContext.EffectiveTypeResult.Result, first, second))
+        {
+            builder.AddFlags(ComparisonOperatorSemanticFlags.IsStringComparedAsADouble);
+        }
+
         return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
         {
             VBBooleanType => ComparisonOperatorSemanticFlags.BooleanEffectiveType,
@@ -232,6 +237,13 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             return LetCoercionResult.Success(new VBIntegerValue(isNumericSide ? (short)0 : (short)1));
         }
 
+        // MS-VBAL 5.6.9.5: two Errors are compared as the Errors they are, by their codes: CVErr(5) < CVErr(6) is True (recorded in Excel: oracle\s57
+        // E02, E04). An Error is let-coerced to no type but Variant (5.5.1.2.9), and is not let-coerced to the effective type it already is.
+        if (frame.EffectiveType is VBErrorType && frame[index] is VBErrorValue or VBVariantValue { TypedValue: VBErrorValue })
+        {
+            return LetCoercionResult.Success(frame[index] is VBVariantValue { TypedValue: VBErrorValue held } ? held : frame[index]);
+        }
+
         if (IsTextOfADate(frame, frame[index]))
         {
             var date = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new()
@@ -280,7 +292,114 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             ? DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo)
             : ComparesValues && IsComparedAsText(frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand])
                 ? DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo)
-                : PlannedEffectiveType(expression, frame);
+                : ComparesValues && IsVariantStringAgainstASingleOrALongLong(frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand])
+                    ? DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo)
+                    : PlannedEffectiveType(expression, frame);
+
+    // MS-VBA compares a Variant holding a String with a Single or a LongLong as Doubles, as it compares any String with a Byte, an Integer or a Long
+    // (OperationPlanner): with v holding "0.1", v = a Single of 0.1 is False, and with v holding "9007199254740993", v = a LongLong of 9007199254740992 is
+    // True (recorded in Excel: oracle\s56 H02-H04; RD-VBAL 5.6.9.5). A String declared as one is compared with a Single as MS-VBAL's table says (H02).
+    private static bool IsVariantStringAgainstASingleOrALongLong(VBTypedValue left, VBTypedValue right)
+        => IsVariantStringAgainstAScalar(left, right, out _, out var leftIsNumeric)
+            && (leftIsNumeric ? left : right).TypeInfo is VBSingleType or VBLongLongType;
+
+    // MS-VBA compares a String with a Byte, an Integer or a Long, and a Variant String with a Single or a LongLong, as Doubles, where MS-VBAL 5.6.9.5's table
+    // gives the number's type (OperationPlanner.SpecifiedRelationalEffectiveType): the analysis states it (IsStringComparedAsADouble) for RDCore.Diagnostics
+    // to report (RDC11027) where the operator can answer otherwise than the table's comparison would. It cannot for a known String that is no number (13
+    // either way), nor for a known String compared with a known number for which the two answers are the same. With the number not known, the two answer
+    // alike for every number but those next to the String's value: "2.5" is the table's 2, and 2.5 < n is 2 < n for every integer n, where 2.5 > n is not
+    // 2 > n for n = 2. Past 2^53, where a Double holds no longer every integer, a LongLong that is not known is not compared alike.
+    private bool IsStringComparedAsADouble(ISymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
+    {
+        if (!ComparesValues || effective is not VBDoubleType
+            || OperationPlanner.SpecifiedRelationalEffectiveType(left.GetTargetType(), right.GetTargetType()) is not { } specified
+            || specified is VBDoubleType
+            || !IsStringAgainstAnother(left, right, out var text, out var number, out var stringIsLeft))
+        {
+            return false;
+        }
+
+        if (text.IsIndeterminate)
+        {
+            return true;
+        }
+
+        var asSpecified = CoerceUnstated(resolver, expression, text, specified);
+        var asDoubleResult = CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo);
+        if (asSpecified.ErrorInfo is { } error)
+        {
+            // an error the Double raises too is the answer either way: "abc" is 13, and "1e400" is 6.
+            return asDoubleResult.ErrorInfo?.ErrorId != error.ErrorId;
+        }
+
+        if (asDoubleResult.Result is not { } asDouble)
+        {
+            return true;
+        }
+
+        var held = Convert.ToDouble(asDouble.RuntimeValue.BoxedValue);
+        var tabled = asSpecified.Result!.RuntimeValue.BoxedValue;
+        if (specified is VBSingleType)
+        {
+            var single = Convert.ToSingle(tabled);
+            float[] singles = number.IsIndeterminate ? [float.BitDecrement(single), single, float.BitIncrement(single)] : [Convert.ToSingle(ValueOf(number))];
+            return singles.Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(single, n, stringIsLeft));
+        }
+
+        var integer = Convert.ToInt64(tabled);
+        if (!number.IsIndeterminate)
+        {
+            var known = Convert.ToInt64(ValueOf(number));
+            return AsDoubles(held, known, stringIsLeft) != Ordered(integer, known, stringIsLeft);
+        }
+
+        if (Math.Abs(held) >= 1L << 53)
+        {
+            return true;
+        }
+
+        long[] integers = [(long)Math.Floor(held) - 1, (long)Math.Floor(held), (long)Math.Ceiling(held), (long)Math.Ceiling(held) + 1];
+        return integers.Where(n => IsInRangeOf(specified, n)).Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(integer, n, stringIsLeft));
+    }
+
+    // MS-VBA's answer: the String's Double and the number's.
+    private bool AsDoubles(double text, double number, bool stringIsLeft) => stringIsLeft ? ComparisonOp(text, number) : ComparisonOp(number, text);
+
+    // the table's answer: the String as a value of the number's type, and the number.
+    private bool Ordered<T>(T text, T number, bool stringIsLeft) where T : INumber<T> => stringIsLeft ? ComparisonOp(text, number) : ComparisonOp(number, text);
+
+    private static bool IsInRangeOf(VBType type, long value) => type switch
+    {
+        VBByteType => value is >= byte.MinValue and <= byte.MaxValue,
+        VBIntegerType => value is >= short.MinValue and <= short.MaxValue,
+        VBLongType => value is >= int.MinValue and <= int.MaxValue,
+        _ => true,
+    };
+
+    private static object ValueOf(VBTypedValue number) => (number is VBVariantValue variant ? variant.TypedValue : number).RuntimeValue.BoxedValue;
+
+    private static bool IsStringAgainstAnother(VBTypedValue left, VBTypedValue right, out VBStringValue text, out VBTypedValue number, out bool stringIsLeft)
+    {
+        (text, number, stringIsLeft) = (HeldString(left), HeldString(right)) switch
+        {
+            ({ } held, null) => (held, right, true),
+            (null, { } held) => (held, left, false),
+            _ => (null!, null!, false),
+        };
+
+        return text is not null;
+    }
+
+    private static VBStringValue? HeldString(VBTypedValue operand) => operand switch
+    {
+        VBStringValue text => text,
+        VBVariantValue { TypedValue: VBStringValue text } => text,
+        _ => null,
+    };
+
+    private LetCoercionResult CoerceUnstated(ISymbolResolver resolver, ExpressionNode expression, VBStringValue text, VBType destination)
+        => LetCoercionSemanticsProvider.EvaluateUnstated(resolver, expression,
+            new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, text, new VBTypeDescValue(destination), ConversionSite.OperatorOperand));
 
     /// <summary>
     /// The effective type the plan of the operation says, for the value types of its operands.

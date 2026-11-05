@@ -19,4 +19,20 @@
     <None Include="LICENSE-MIT.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="Client\LaunchMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>LaunchMessages.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Client\LaunchMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>LaunchMessages.Designer.cs</LastGenOutput>
+      <CustomToolNamespace>RDCore.SDK.Client</CustomToolNamespace>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

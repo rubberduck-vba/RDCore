@@ -183,16 +183,89 @@ public sealed class ProgramDebugAdapterTests
         await session.Workspace.Received(1).OpenAsync(Arg.Any<CancellationToken>());
     }
 
+    // what a client that prepared the launch (RDCoreDebugAdapterLaunch) says beyond what every launch says, as a client that knows nothing of this adapter's
+    // arguments sends it: the module and the entry point it names are what is run.
     [TestMethod]
-    public async Task ALaunch_ThatNamesNoModule_IsRefused()
+    public async Task TheLaunchArguments_APreparedLaunchSays_AreWhatIsRun()
     {
         await using var session = new Session();
+        var started = new TaskCompletionSource();
+        session.Workspace.StartAsync("Prog", "Start", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return new ExecuteResult { Outcome = ExecutionOutcome.Completed };
+        });
+        await session.StartAsync();
+        var prepared = new Dictionary<string, object>
+        {
+            [RDCore.SDK.Client.RDCoreDebugAdapterLaunch.ModuleArgument] = "Prog",
+            [RDCore.SDK.Client.RDCoreDebugAdapterLaunch.EntryPointArgument] = "Start",
+        };
+
+        _ = await session.SendAsync(new LaunchRequestArguments { ExtensionData = prepared });
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        await started.Task.WaitAsync(Patience);
+    }
+
+    // a project has no startup object: a launch that names no module runs the one that declares where the program starts.
+    [TestMethod]
+    [DataRow(null, "Main", DisplayName = "no entry point named: Main")]
+    [DataRow("Start", "Start", DisplayName = "an entry point named")]
+    public async Task ALaunch_ThatNamesNoModule_RunsTheOneModuleThatDeclaresTheEntryPoint(string? named, string entryPoint)
+    {
+        await using var session = new Session();
+        var started = new TaskCompletionSource();
+        session.Workspace.ModulesDeclaringAsync(entryPoint, Arg.Any<CancellationToken>()).Returns(["Prog"]);
+        session.Workspace.StartAsync("Prog", entryPoint, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return new ExecuteResult { Outcome = ExecutionOutcome.Completed };
+        });
+        await session.StartAsync();
+
+        _ = await session.SendAsync(new ProgramLaunchRequestArguments { EntryPoint = named });
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        await started.Task.WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task ALaunch_ThatNamesNoModule_WhenNoModuleDeclaresTheEntryPoint_IsRefused_AndSaysWhatItLookedFor()
+    {
+        await using var session = new Session();
+        session.Workspace.ModulesDeclaringAsync("Main", Arg.Any<CancellationToken>()).Returns([]);
         await session.StartAsync();
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ProgramLaunchRequestArguments()));
 
-        StringAssert.Contains(refusal.Message, "module");
-        await session.Workspace.DidNotReceive().OpenAsync(Arg.Any<CancellationToken>());
+        StringAssert.Contains(refusal.Message, "Public Sub Main()");
+        StringAssert.Contains(refusal.Message, "\"module\"");
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ConfigurationDoneArguments()));
+    }
+
+    [TestMethod]
+    public async Task ALaunch_ThatNamesNoModule_WhenMoreThanOneDeclaresTheEntryPoint_IsRefused_AndNamesThem()
+    {
+        await using var session = new Session();
+        session.Workspace.ModulesDeclaringAsync("Main", Arg.Any<CancellationToken>()).Returns(["Données", "Prog"]);
+        await session.StartAsync();
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ProgramLaunchRequestArguments()));
+
+        StringAssert.Contains(refusal.Message, "Données, Prog");
+        await session.Workspace.DidNotReceive().StartAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ALaunch_ThatNamesAModule_DoesNotLookForTheEntryPoint()
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+
+        await session.LaunchAsync();
+
+        _ = session.Workspace.DidNotReceive().ModulesDeclaringAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

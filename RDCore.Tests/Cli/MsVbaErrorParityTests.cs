@@ -113,6 +113,8 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim v As Variant ;; Set v = New Collection ;; Globals.TakesCollection v", "ByRef argument type mismatch", DisplayName = "a Variant variable to a ByRef Collection")]
     [DataRow("Dim a(2) As Integer ;; Globals.TakesLongArray a", "Type mismatch: array or user-defined type expected", DisplayName = "an Integer array to a Long() parameter")]
     [DataRow("Dim n As Long ;; Debug.Print n.X", "Invalid qualifier", DisplayName = "a member of a Long")]
+    [DataRow("Dim n As Long ;; Globals.TakesLong N:=n.X", "Invalid qualifier", DisplayName = "a member of a Long, a named argument of a call statement")]
+    [DataRow("Dim a(1 To 3) As Long, ll As LongLong ;; ll = 2 ;; Globals.TakesLong N:=a(ll)", "Type mismatch", DisplayName = "a LongLong subscript, a named argument of a call statement")]
     [DataRow("Dim n As Long ;; Debug.Print n(1)", "Expected array", DisplayName = "an index of a Long")]
     [DataRow("Dim a(1 To 3) As Long, ll As LongLong ;; ll = 2 ;; a(ll) = 7", "Type mismatch", DisplayName = "a LongLong subscript of an element assigned")]
     [DataRow("Dim a(1 To 3) As Long, ll As LongLong ;; ll = 2 ;; Debug.Print a(ll)", "Type mismatch", DisplayName = "a LongLong subscript of an element read")]

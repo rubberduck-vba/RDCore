@@ -21,7 +21,7 @@ RD-VBA matches a pattern the way MS-VBA does. Every rule below was measured in M
 |---|---|
 |Any character other than `?`, `#`, `*` and `[`|That character. `]` on its own is an ordinary character.|
 |`?`|Any one character, a line feed (`vbLf`) included.|
-|`#`|One of the digits `0` to `9`. Other Unicode digits, such as the Arabic-Indic digits, do not match.|
+|`#`|One of the digits `0` to `9`, or one of their fullwidth forms `０` to `９` (U+FF10 to U+FF19). Other Unicode digits, such as the Arabic-Indic digits, and superscripts such as `²` do not match.|
 |`*`|Zero or more characters, line feeds included.|
 |`[`*list*`]`|One character in the list.|
 |`[!`*list*`]`|One character not in the list.|
@@ -115,7 +115,8 @@ The analysis states each of these as a fact of the operation: `ComparisonOperato
 Where MS-VBAL is silent or leaves a choice to the implementation, RD-VBA does what MS-VBA does, and nothing is reported:
 
 - A `]` right after `[` or `[!` closes the list.
-- `#` matches the digits `0` to `9` only.
+- `#` matches the digits `0` to `9` and their fullwidth forms only. A list `[0-9]` matches no fullwidth digit, and a fullwidth digit is not
+  the digit it stands for: `"１" Like "1"` is `False`. That holds under `Option Compare Text` as under `Binary` (`oracle\s56` R15, I01, I01t).
 - `?` and `*` match a line feed.
 - Text mode ignores case by the regional settings, only where the case maps both ways, and ignores no accent. It expands `æ`, `œ`, `ß` and
   `þ`. MS-VBAL leaves text collation to the regional settings.

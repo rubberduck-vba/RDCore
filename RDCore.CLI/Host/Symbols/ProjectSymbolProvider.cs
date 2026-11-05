@@ -48,7 +48,7 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
 
         // the project itself, by its name: what qualifies the names of its own modules and types (MVVM.AppContext, MS-VBAL §5.6.12), as a library's name
         // qualifies its own. It is of no library, which is what tells it from the libraries' projects. A module named as the project keeps the name, as the
-        // language server's composition has it: MS-VBA refuses one, and the shell's own project is named as its one module.
+        // language server's composition has it: MS-VBA refuses one, and a project file can still name one so.
         if (project.Name is { Length: > 0 } projectName
             && !modules.Any(module => string.Equals(module.Name, projectName, StringComparison.OrdinalIgnoreCase)))
         {

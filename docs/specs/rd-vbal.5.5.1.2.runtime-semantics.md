@@ -109,7 +109,7 @@ When the source value is outside that range, it raises `Overflow`. Otherwise:
 |---|---|
 |Widening|The value is copied, converted to the destination's representation.|
 |Narrowing to a wider-or-equal integral type|The value is copied, converted to the destination's representation.|
-|Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion.|
+|Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion. The whole number it rounds to is the one that must be within the destination's range, as **MS-VBA** checks it (recorded in Excel, `oracle\s58` K01, K02): `CInt(32767.3)` is `32767`, `CInt(-32768.5)` is `-32768`, `CByte(-0.5)` is `0`, and `CInt(32767.5)` and `CByte(255.5)` overflow. A `C*` function and an implicit Let-coercion check it alike, from a `Single`, a `Double`, a `Currency`, a `Decimal` or a `String`.|
 |Integral → floating-point|🎯 A plain widening copy (see the divergence note below).|
 |`Single` → `Decimal`|The value to 7 significant digits, ties to even, as **MS-VBA** has it: `CDec(CSng(0.1))` is `0.1`, a `Single` of `16777217` is `16777220` (recorded in Excel). A `Double` keeps 15 digits; a `Currency` is the exact value.|
 
@@ -305,8 +305,18 @@ be represented, and the trailing bytes it discards, never arise: every byte of t
 
 This section corresponds to [**MS-VBAL §5.5.1.2.7** Let-coercion to and from non-Byte arrays](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/38315eed-8ea8-4e2a-b91c-25a96910407a).
 
-> [!NOTE]
-> Reserved. This section has no content yet.
+An array of the destination's element type is copied, a shallow copy with its bounds and rank, as the specification has
+it; an array of any other element type, and a number, a `Boolean`, a `Date` or a `String`, is a type mismatch (13)
+([VBResizableArrayLetCoercionRuntimeSemantics](../api/RDCore.Runtime.Semantics.LetCoercion.VBResizableArrayLetCoercionRuntimeSemantics.html)).
+
+🎯 An array of objects, of `Object` or of any class, is copied into an array of objects of another class, or of
+`Object`, as **MS-VBA** copies it, where the specification's "same element type" would be a type mismatch: a `Variant`
+holding an `Object()` is copied into a `Box()`, a `Collection` in it included, and a `Collection()` into an `Object()`
+whose elements are the same objects (`o(0) Is c(0)` is `True`). No element's class is checked. An array of `Variant`s or
+of numbers into an array of objects, and an array of objects into a `Variant()`, are still type mismatches (recorded in
+Excel). The source of such a
+copy is a `Variant`, whose array the analysis does not know before the code runs, so no diagnostic stands in for the
+difference.
 
 
 ## 5.5.1.2.8 Let-coercion to and from a UDT

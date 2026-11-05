@@ -147,12 +147,42 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// the outcome is anything other than <c>Next</c>/<c>Branch</c>.
     /// </summary>
     public RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
+        => Run(session, frame, list, context, once: false);
+
+    /// <summary>
+    /// Runs the one instruction of <paramref name="list"/> at <paramref name="frame"/>'s <c>Pc</c>, as <see cref="Run(IRuntimeSession, ICallStackFrame,
+    /// InstructionList, RuntimeEvaluationContext)"/> runs each - its error given the activation's handler - or, given the <paramref name="failed"/> outcome
+    /// of that instruction, which a caller other than this executor ran, the outcome alone. What compiled code hands over of an activation that has an error
+    /// handler (IR lowering S2.4).
+    /// </summary>
+    /// <returns>
+    /// <see cref="RuntimeExecutionOutcome.Next"/> when the activation goes on, at the frame's <c>Pc</c>; otherwise what it returns, or what stopped it.
+    /// </returns>
+    internal RuntimeExecutionOutcome Step(IRuntimeSession session, CallStackFrame frame, InstructionList list, RuntimeEvaluationContext context,
+        RuntimeExecutionOutcome? failed)
+    {
+        if (failed is not { } outcome)
+        {
+            return Run(session, frame, list, context, once: true);
+        }
+
+        if (InterceptError(session, frame, list, frame.Pc, outcome) is { } unhandled)
+        {
+            return unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+                ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
+                : unhandled;
+        }
+
+        return RuntimeExecutionOutcome.Next;
+    }
+
+    private RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, bool once)
     {
         // the temporaries of this activation's statements are those made from here on (ObjectReferences.HoldTemporarily): each statement lets go of
         // its own before the next runs, and the last one before the activation returns. A program that was stopped does not unwind (an End runs no
         // Terminate; a break keeps everything as it is), and what it leaves is the session's to clear.
         var temporaries = session.Objects.TemporaryCount;
-        var outcome = RunInstructions(session, frame, list, context, temporaries);
+        var outcome = RunInstructions(session, frame, list, context, temporaries, once);
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
         {
             ObjectReferences.ReleaseTemporaries(session, temporaries);
@@ -275,7 +305,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             _ => RuntimeExecutionOutcome.InternalError,
         };
 
-    private RuntimeExecutionOutcome RunInstructions(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int temporaries)
+    private RuntimeExecutionOutcome RunInstructions(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int temporaries,
+        bool once)
     {
         var activation = (CallStackFrame)frame;
 
@@ -514,36 +545,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     break;
 
                 case InstructionKind.OnErrorGoTo:
-                    if (instruction.Target is not { } handlerTarget)
+                case InstructionKind.OnErrorDisable:
+                case InstructionKind.OnErrorReset:
+                case InstructionKind.OnErrorResumeNext:
+                    if (!TryApplyOnError(session, activation, instruction))
                     {
                         return RuntimeExecutionOutcome.InternalError;
                     }
-                    activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.GoTo, handlerTarget);
-                    // MS-VBAL §6.1.3.2.1: an On Error statement clears the Err object.
-                    session.Errors.Clear();
-                    activation.Pc = instruction.Offset + 1;
-                    break;
-
-                case InstructionKind.OnErrorDisable:
-                    activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.Disabled, null);
-                    // On Error GoTo 0 is an On Error statement too, and §6.1.3.2.1 makes no exception for it.
-                    session.Errors.Clear();
-                    activation.Pc = instruction.Offset + 1;
-                    break;
-
-                case InstructionKind.OnErrorReset:
-                    // On Error GoTo -1 ends the error being handled, and keeps the policy: in a handler, the one it is to have after it - the On Error GoTo
-                    // label it caught the error with, unless it said otherwise - and Resume has nothing to resume (MS-VBA, oracle\s53 A05, C04).
-                    activation.ErrorHandler = activation.ErrorHandler.IsHandling
-                        ? activation.ErrorHandler.HandlingOver()
-                        : activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null };
-                    session.Errors.Clear();
-                    activation.Pc = instruction.Offset + 1;
-                    break;
-
-                case InstructionKind.OnErrorResumeNext:
-                    activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.ResumeNext, null);
-                    session.Errors.Clear();
                     activation.Pc = instruction.Offset + 1;
                     break;
 
@@ -629,6 +637,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 default:
                     return RuntimeExecutionOutcome.InternalError;
             }
+
+            // one instruction run (Step): the activation goes on at its Pc, wherever the instruction or its error's handler left it.
+            if (once)
+            {
+                return RuntimeExecutionOutcome.Next;
+            }
         }
 
         // fell off the end of the list - MS-VBAL §5.4.2.17: "completes as if execution had reached
@@ -659,10 +673,53 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             ? current with { HandlerTarget = target, AfterHandling = mode }
             : new ErrorHandlerState(mode, target, null, null);
 
+    /// <summary>
+    /// What the <c>On Error</c> statement <paramref name="instruction"/> does (MS-VBAL §5.4.4): the activation's error handling policy set, and the Err
+    /// object cleared (§6.1.3.2.1). Compiled code does it too (IR lowering S2.4).
+    /// </summary>
+    /// <returns><see langword="false"/> for an <c>On Error GoTo</c> whose label was not resolved, which reported its own compile error.</returns>
+    internal static bool TryApplyOnError(IRuntimeSession session, CallStackFrame activation, Instruction instruction)
+    {
+        switch (instruction.Kind)
+        {
+            case InstructionKind.OnErrorGoTo:
+                if (instruction.Target is not { } handlerTarget)
+                {
+                    return false;
+                }
+                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.GoTo, handlerTarget);
+                break;
+
+            case InstructionKind.OnErrorDisable:
+                // On Error GoTo 0 is an On Error statement too, and §6.1.3.2.1 makes no exception for it.
+                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.Disabled, null);
+                break;
+
+            case InstructionKind.OnErrorReset:
+                // On Error GoTo -1 ends the error being handled, and keeps the policy: in a handler, the one it is to have after it - the On Error GoTo
+                // label it caught the error with, unless it said otherwise - and Resume has nothing to resume (MS-VBA, oracle\s53 A05, C04).
+                activation.ErrorHandler = activation.ErrorHandler.IsHandling
+                    ? activation.ErrorHandler.HandlingOver()
+                    : activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null };
+                break;
+
+            case InstructionKind.OnErrorResumeNext:
+                activation.ErrorHandler = PolicyOf(activation.ErrorHandler, ErrorHandlingMode.ResumeNext, null);
+                break;
+
+            default:
+                return false;
+        }
+
+        // MS-VBAL §6.1.3.2.1: an On Error statement clears the Err object.
+        session.Errors.Clear();
+        return true;
+    }
+
     // MS-VBAL §6.1.3.2.1: Exit Sub, Exit Function and Exit Property clear Err. In MS-VBA, reaching the end of the body does too, and either does only from
     // within an error handler - an error On Error GoTo caught: one On Error Resume Next went on past is still Err when the procedure returns (recorded in
-    // Excel, grid oracle\s44 U01-U07).
-    private static void ClearHandledError(IRuntimeSession session, CallStackFrame activation)
+    // Excel, grid oracle\s44 U01-U07). Compiled code's Exit does it too.
+    internal static void ClearHandledError(IRuntimeSession session, CallStackFrame activation)
     {
         if (activation.ErrorHandler is { ActiveError: not null, Mode: not ErrorHandlingMode.ResumeNext })
         {
@@ -1037,6 +1094,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             activation.SetForLoopState(instruction.Offset, new ForLoopState(counterSymbol, forStatement.ControlExpression, unset.End, unset.Step)
             {
+                CountsDown = ForLoopEvaluator.CountsDown(unset.Step),
                 RuntimeState = new ForLoopPayloads(),
             });
         }
@@ -1634,6 +1692,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // reported: the family follows who raised it, and workspace source raised this one. `Error 11` is
         // VBA00011, not VBR00011, even though 11 is a code MS-VBA defines.
         var number = ((VBIntegerValue)numberResult.Result!).Value;
+
+        // its help context is the error's, as for an error the runtime raises, whatever one Err has: Error 9 is 1000009, and Error 5 after
+        // Err.Raise 13, , , , 77 is 1000005 (recorded in Excel: oracle\s57 H01, s58 H03, H06).
         return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(
             number, errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
     }

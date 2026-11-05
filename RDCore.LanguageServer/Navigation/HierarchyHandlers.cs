@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Refactoring;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -25,7 +26,7 @@ internal static class HierarchyItems
         }
 
         var (uri, range, selection) = located;
-        var path = item.Symbol.Uri.Fragment.TrimStart('#');
+        var path = SymbolUri.PathOf(item.Symbol.Uri);
         var dot = path.IndexOf('.');
         return (item.Symbol.Name, item.Symbol.Kind.ToLsp(), dot > 0 ? path[..dot] : null, uri, range, selection, JToken.FromObject(item.Symbol.Uri.AbsoluteUri));
     }

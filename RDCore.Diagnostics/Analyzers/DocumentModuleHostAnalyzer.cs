@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -23,7 +24,7 @@ internal sealed class DocumentModuleHostAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        var name = semantics.Module.Fragment.TrimStart('#');
+        var name = SymbolUri.ModuleNameOf(semantics.Module);
         switch (semantics.Document)
         {
             case { HostClass: null }:
