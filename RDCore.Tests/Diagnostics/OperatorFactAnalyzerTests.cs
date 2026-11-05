@@ -236,6 +236,7 @@ public sealed class OperatorFactAnalyzerTests
 
     [TestMethod]
     [DataRow("r = \"abc\" = b", DisplayName = "a String that is no number, 13 either way")]
+    [DataRow("r = \"1e400\" = b", DisplayName = "a String no Double holds, 6 either way")]
     [DataRow("r = \"2\" = b", DisplayName = "an integer's text, which the two compare alike")]
     [DataRow("v = \"2\"", "r = v = 2^", DisplayName = "a LongLong a Double holds")]
     [DataRow("v = \"2\"", "r = v = c", DisplayName = "a LongLong parameter and an integer's text")]
@@ -256,13 +257,38 @@ public sealed class OperatorFactAnalyzerTests
     [DataRow("2.6", "<=", false, DisplayName = "\"2.6\" <= n: 3 <= n for every integer")]
     [DataRow("2.6", "<", true, DisplayName = "\"2.6\" < n: not 3 < n for n = 3")]
     [DataRow("2.6", ">=", true, DisplayName = "\"2.6\" >= n: not 3 >= n for n = 3")]
+    [DataRow("-2.5", "<", true, DisplayName = "\"-2.5\" < n: not -2 < n for n = -2")]
+    [DataRow("-2.5", ">=", true, DisplayName = "\"-2.5\" >= n: not -2 >= n for n = -2")]
+    [DataRow("-2.5", ">", false, DisplayName = "\"-2.5\" > n: -2 > n for every integer")]
+    [DataRow("-2.5", "<=", false, DisplayName = "\"-2.5\" <= n: -2 <= n for every integer")]
+    [DataRow("3.5", "<", true, DisplayName = "\"3.5\" < n: not 4 < n for n = 4, half to even")]
+    [DataRow("3.5", ">=", true, DisplayName = "\"3.5\" >= n: not 4 >= n for n = 4, half to even")]
+    [DataRow("3.5", ">", false, DisplayName = "\"3.5\" > n: 4 > n for every integer, half to even")]
+    [DataRow("3.5", "<=", false, DisplayName = "\"3.5\" <= n: 4 <= n for every integer, half to even")]
     public async Task AStringComparedWithANumberNotKnown_IsReported_WhereTheOperatorCanAnswerOtherwise(string text, string op, bool isReported)
+        => await AssertReportedEitherSide("Long", text, op, isReported);
+
+    [TestMethod]
+    [DataRow("Byte", "255.5", "=", true, DisplayName = "a Byte and \"255.5\": the table's 256 overflows (6)")]
+    [DataRow("Byte", "255.5", "<", true, DisplayName = "a Byte and \"255.5\" <: the table's 256 overflows (6)")]
+    [DataRow("Integer", "-32768.5", "<", true, DisplayName = "an Integer and \"-32768.5\" <: not -32768 < n for n = -32768")]
+    [DataRow("Integer", "-32768.5", ">=", true, DisplayName = "an Integer and \"-32768.5\" >=: not -32768 >= n for n = -32768")]
+    [DataRow("Integer", "-32768.5", ">", false, DisplayName = "an Integer and \"-32768.5\" >: -32768 > n for every Integer")]
+    [DataRow("Integer", "-32768.5", "<=", false, DisplayName = "an Integer and \"-32768.5\" <=: -32768 <= n for every Integer")]
+    [DataRow("Single", "16777217", "=", true, DisplayName = "a Single and \"16777217\": the table's Single is 16777216")]
+    [DataRow("Single", "16777216", "=", false, DisplayName = "a Single and \"16777216\", which the Single holds")]
+    [DataRow("LongLong", "9007199254740993", "=", true, DisplayName = "a LongLong and \"9007199254740993\", past 2^53")]
+    [DataRow("LongLong", "9007199254740993", "<", true, DisplayName = "a LongLong and \"9007199254740993\" <, past 2^53")]
+    public async Task AStringComparedWithANumberNotKnownOfAType_IsReported_WhereTheOperatorCanAnswerOtherwise(string type, string text, string op, bool isReported)
+        => await AssertReportedEitherSide(type, text, op, isReported);
+
+    private static async Task AssertReportedEitherSide(string type, string text, string op, bool isReported)
     {
         string[] stringLeft = ["Dim v As Variant, r As Boolean", $"v = \"{text}\"", $"r = v {op} n"];
         string[] stringRight = ["Dim v As Variant, r As Boolean", $"v = \"{text}\"", $"r = n {Mirrored(op)} v"];
 
-        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal n As Long", stringLeft)).Length == 1, "the String on the left");
-        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "ByVal n As Long", stringRight)).Length == 1, "the String on the right");
+        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), $"ByVal n As {type}", stringLeft)).Length == 1, "the String on the left");
+        Assert.AreEqual(isReported, (await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), $"ByVal n As {type}", stringRight)).Length == 1, "the String on the right");
 
         static string Mirrored(string op) => op switch { "<" => ">", ">" => "<", "<=" => ">=", ">=" => "<=", _ => op };
     }
@@ -276,10 +302,13 @@ public sealed class OperatorFactAnalyzerTests
     [DataRow("", "r = S < 7", false, DisplayName = "a constant \"2.5\" < 7")]
     [DataRow("", "r = S <= K", true, DisplayName = "a constant \"2.5\" <= a constant 2: False, where 2 <= 2 is True")]
     [DataRow("", "r = S >= K", false, DisplayName = "a constant \"2.5\" >= a constant 2: True either way")]
+    [DataRow("v = \"9007199254740993\"", "r = v = L", false, DisplayName = "\"9007199254740993\" = a constant LongLong 9007199254740996: False either way")]
+    [DataRow("v = \"9007199254740993\"", "r = v = M", true, DisplayName = "\"9007199254740993\" = a constant LongLong 9007199254740992: True, where the table's is False")]
     public async Task AStringComparedWithAKnownNumber_IsReported_WhereTheAnswersDiffer(string assignment, string comparison, bool isReported)
     {
         var findings = await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "",
-            "Const S As String = \"2.5\"", "Const K As Long = 2","Dim v As Variant, r As Boolean", assignment, comparison);
+            "Const S As String = \"2.5\"", "Const K As Long = 2", "Const L As LongLong = 9007199254740996^", "Const M As LongLong = 9007199254740992^",
+            "Dim v As Variant, r As Boolean", assignment, comparison);
 
         Assert.AreEqual(isReported, findings.Length == 1);
     }

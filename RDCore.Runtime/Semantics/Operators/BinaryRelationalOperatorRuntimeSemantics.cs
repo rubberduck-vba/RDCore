@@ -301,7 +301,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     // to report (RDC11027) where the operator can answer otherwise than the table's comparison would. It cannot for a known String that is no number (13
     // either way), nor for a known String compared with a known number for which the two answers are the same. With the number not known, the two answer
     // alike for every number but those next to the String's value: "2.5" is the table's 2, and 2.5 < n is 2 < n for every integer n, where 2.5 > n is not
-    // 2 > n for n = 2. Past 2^53, where a Double holds no longer every integer, a LongLong is not compared alike.
+    // 2 > n for n = 2. Past 2^53, where a Double holds no longer every integer, a LongLong that is not known is not compared alike.
     private bool IsStringComparedAsADouble(ISymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
     {
         if (!ComparesValues || effective is not VBDoubleType
@@ -318,12 +318,14 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         }
 
         var asSpecified = CoerceUnstated(resolver, expression, text, specified);
+        var asDoubleResult = CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo);
         if (asSpecified.ErrorInfo is { } error)
         {
-            return error.ErrorId != (int)VBRuntimeErrorId.TypeMismatch;
+            // an error the Double raises too is the answer either way: "abc" is 13, and "1e400" is 6.
+            return asDoubleResult.ErrorInfo?.ErrorId != error.ErrorId;
         }
 
-        if (CoerceUnstated(resolver, expression, text, VBDoubleType.TypeInfo).Result is not { } asDouble)
+        if (asDoubleResult.Result is not { } asDouble)
         {
             return true;
         }
@@ -337,15 +339,19 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             return singles.Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(single, n, stringIsLeft));
         }
 
+        var integer = Convert.ToInt64(tabled);
+        if (!number.IsIndeterminate)
+        {
+            var known = Convert.ToInt64(ValueOf(number));
+            return AsDoubles(held, known, stringIsLeft) != Ordered(integer, known, stringIsLeft);
+        }
+
         if (Math.Abs(held) >= 1L << 53)
         {
             return true;
         }
 
-        var integer = Convert.ToInt64(tabled);
-        long[] integers = number.IsIndeterminate
-            ? [(long)Math.Floor(held) - 1, (long)Math.Floor(held), (long)Math.Ceiling(held), (long)Math.Ceiling(held) + 1]
-            : [Convert.ToInt64(ValueOf(number))];
+        long[] integers = [(long)Math.Floor(held) - 1, (long)Math.Floor(held), (long)Math.Ceiling(held), (long)Math.Ceiling(held) + 1];
         return integers.Where(n => IsInRangeOf(specified, n)).Any(n => AsDoubles(held, n, stringIsLeft) != Ordered(integer, n, stringIsLeft));
     }
 
