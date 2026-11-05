@@ -18,6 +18,7 @@ Relational operators compare in the effective type, and yield a
 |`Boolean`|A 64-bit integer (`long`).|
 |Fixed-point (`Currency`, `Decimal`)|`decimal`|
 |`String`|The data of the strings, in the module's comparison mode. See [String comparison](#string-comparison).|
+|`Error`|The error codes, as two `Error` values are compared: `CVErr(5) < CVErr(6)` is `True`. An `Error` is compared as it is, and is never let-coerced to an `Error`, which no let-coercion makes. An `Error` and any other value is a type mismatch (13), as the table has it and **MS-VBA** raises it (recorded in Excel).|
 
 |Condition|Run-time error|
 |---|---|

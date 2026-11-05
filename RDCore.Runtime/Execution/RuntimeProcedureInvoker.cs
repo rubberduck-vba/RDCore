@@ -159,7 +159,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             {
                 // a variable of the caller held in a cell, which the parameter is a second name for: the parameter's slot holds the very cell (S1.3), so
                 // what one writes the other reads, as through an address - with no address made, and none looked up.
-                frame.PushAlias(parameter, shared.Cell, activation.Layout.ParameterSlots[i]);
+                frame.PushAlias(parameter, shared.Cell, activation.Layout.ParameterSlots[i], shared.ReferencedType);
             }
             else if (IsAliased(parameter, arguments[i]) && arguments[i] is VBRuntimeReference reference)
             {

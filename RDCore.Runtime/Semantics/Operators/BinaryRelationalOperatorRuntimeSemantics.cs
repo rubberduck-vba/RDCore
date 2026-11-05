@@ -237,6 +237,13 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             return LetCoercionResult.Success(new VBIntegerValue(isNumericSide ? (short)0 : (short)1));
         }
 
+        // MS-VBAL 5.6.9.5: two Errors are compared as the Errors they are, by their codes: CVErr(5) < CVErr(6) is True (recorded in Excel: oracle\s57
+        // E02, E04). An Error is let-coerced to no type but Variant (5.5.1.2.9), and is not let-coerced to the effective type it already is.
+        if (frame.EffectiveType is VBErrorType && frame[index] is VBErrorValue or VBVariantValue { TypedValue: VBErrorValue })
+        {
+            return LetCoercionResult.Success(frame[index] is VBVariantValue { TypedValue: VBErrorValue held } ? held : frame[index]);
+        }
+
         if (IsTextOfADate(frame, frame[index]))
         {
             var date = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new()

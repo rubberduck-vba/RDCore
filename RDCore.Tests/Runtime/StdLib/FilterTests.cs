@@ -50,17 +50,22 @@ public sealed class FilterTests
         => CollectionAssert.AreEqual(new[] { "1", "a1", "12" },
             ElementsOf(Module().Filter(VariantArray(new VBLongValue(1), new VBStringValue("a1"), new VBLongValue(12), new VBLongValue(3)), new VBStringValue("1"), Include, Binary)));
 
+    // MS-VBA, recorded in Excel: oracle\s57 S06 - where InStr("", "") is 0.
     [TestMethod]
-    public void Filter_AZeroLengthMatch_IsInEveryElementButAZeroLengthOne()
+    public void Filter_AZeroLengthMatch_IsInEveryElement_AZeroLengthOneToo()
     {
-        CollectionAssert.AreEqual(new[] { "a", "b" }, ElementsOf(Module().Filter(StringArray("a", "", "b"), new VBStringValue(string.Empty), Include, Binary)));
-        CollectionAssert.AreEqual(new[] { "" }, ElementsOf(Module().Filter(StringArray("a", "", "b"), new VBStringValue(string.Empty), Exclude, Binary)));
+        CollectionAssert.AreEqual(new[] { "a", "", "b" }, ElementsOf(Module().Filter(StringArray("a", "", "b"), new VBStringValue(string.Empty), Include, Binary)));
+        Assert.IsEmpty(ElementsOf(Module().Filter(StringArray("a", "", "b"), new VBStringValue(string.Empty), Exclude, Binary)));
     }
+
+    [TestMethod]
+    public void Filter_ANonZeroLengthMatch_IsInNoZeroLengthElement()
+        => CollectionAssert.AreEqual(new[] { "" }, ElementsOf(Module().Filter(StringArray("a", ""), new VBStringValue("a"), Exclude, Binary)));
 
     [TestMethod]
     public void Filter_AnElementNeverAssigned_IsAZeroLengthString()
     {
-        CollectionAssert.AreEqual(new[] { "a" }, ElementsOf(Module().Filter(VariantArray(new VBStringValue("a"), null), new VBStringValue(string.Empty), Include, Binary)));
+        CollectionAssert.AreEqual(new[] { "a", "" }, ElementsOf(Module().Filter(VariantArray(new VBStringValue("a"), null), new VBStringValue(string.Empty), Include, Binary)));
         CollectionAssert.AreEqual(new[] { "" }, ElementsOf(Module().Filter(VariantArray(new VBStringValue("a"), null), new VBStringValue("a"), Exclude, Binary)));
     }
 
@@ -108,6 +113,18 @@ public sealed class FilterTests
     [DataRow(240)]
     public void Filter_WithACompareThatIsNoModeNorLocale_IsError5(int compare)
         => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf(Module().Filter(StringArray("a"), new VBStringValue("a"), Include, (VBCompareMethod)compare)));
+
+    // MS-VBA checks Compare when an element is compared, and only then (recorded in Excel: oracle\s57 S05, D04).
+    [TestMethod]
+    [DataRow("", "a", -1, DisplayName = "S05 a zero-length element")]
+    [DataRow("x", "", 0, DisplayName = "D04 a zero-length match")]
+    public void Filter_WithACompareThatIsNoModeNorLocale_ThatComparesNothing_Filters(string element, string match, int upperBound)
+    {
+        var filtered = Module().Filter(StringArray(element), new VBStringValue(match), Include, (VBCompareMethod)2);
+
+        Assert.IsTrue(filtered.IsSuccess);
+        Assert.AreEqual(upperBound, ArrayOf(filtered).Dimensions[0].UpperBound);
+    }
 
     [TestMethod]
     [DataRow(7)]

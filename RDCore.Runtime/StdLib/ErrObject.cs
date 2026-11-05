@@ -1,3 +1,4 @@
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values;
@@ -43,7 +44,10 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         var errorNumber = Convert.ToInt32(number.Handle.Value.BoxedValue);
         State.Source = Text(source) ?? State.Source;
         State.HelpFile = Text(helpFile) ?? State.HelpFile;
-        State.HelpContext = Number(helpContext) ?? State.HelpContext;
+        // a help context of 0 is none: the error's own, as a run-time error has (Err.Raise 5, , , , 0 is 1000005, recorded in Excel: oracle\s58 H03, H06).
+        var context = Number(helpContext) is { } given
+            ? given != 0 ? given : SessionErrorState.HelpContextOf(errorNumber)
+            : State.HasError ? State.HelpContext : SessionErrorState.HelpContextOf(errorNumber);
 
         // "If unspecified, the value in Number is examined. If it can be mapped to a VBA run-time error
         // code, the String that would be returned by the Error function is used as Description. If there
@@ -57,7 +61,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         // the error is returned rather than recorded: the executor's own error interception is where
         // every run-time error reaches the session's error state, and where the stack trace is captured.
         return RuntimeSemanticsEvaluationResult.Error(
-            VBApplicationErrorInfo.Raised(errorNumber, raiseLocation, $"Err.Raise {errorNumber}", raised),
+            VBApplicationErrorInfo.Raised(errorNumber, raiseLocation, $"Err.Raise {errorNumber}", raised) with { HelpContext = context },
             VBVoidValue.Void);
     }
 

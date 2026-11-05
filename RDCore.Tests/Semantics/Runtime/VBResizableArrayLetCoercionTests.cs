@@ -22,8 +22,9 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
 /// Characterization matrix for let-coercion to a resizable array (MS-VBAL §5.5.1.2.7): an array of the destination's
-/// element type is copied — bounds and rank preserved, elements owned by the copy — and any other source is a Type
-/// mismatch. The Byte() rows (§5.5.1.2.6) are another strategy's.
+/// element type is copied — bounds and rank preserved, elements owned by the copy — as an array of objects is into one of
+/// objects of another class (RD-VBAL), and any other source is a Type mismatch. The Byte() rows (§5.5.1.2.6) are another
+/// strategy's.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §5.5.1.2.7 Let-coercion to and from a resizable array")]
@@ -181,13 +182,17 @@ public sealed class VBResizableArrayLetCoercionTests : LetCoercionRuntimeSemanti
         Assert.AreNotSame(sourceBinding, copyBinding, "a binding of its own");
     }
 
+    // RD-VBAL §5.5.1.2.7: MS-VBA copies an array of one class into an array of another, where MS-VBAL's same element type would be a type mismatch (recorded in
+    // Excel: oracle\s57 A06, A09).
     [TestMethod]
-    public void ClassElementTypes_AreTheSameWhenTheyAreTheSameClass()
+    public void ClassElementTypes_OfAnyClass_AreCopied()
     {
         var source = new VBResizableArrayValue([(0, 0)], ClassNamed("Widget"));
 
         Assert.IsTrue(Coerce(Sut(), source, new VBResizableArrayType(ClassNamed("Widget"))).IsSuccess);
-        AssertError(Coerce(Sut(), source, new VBResizableArrayType(ClassNamed("Gadget"))), VBRuntimeErrorId.TypeMismatch);
+        Assert.IsTrue(Coerce(Sut(), source, new VBResizableArrayType(ClassNamed("Gadget"))).IsSuccess);
+        Assert.IsTrue(Coerce(Sut(), source, new VBResizableArrayType(VBObjectType.TypeInfo)).IsSuccess);
+        AssertError(Coerce(Sut(), source, new VBResizableArrayType(VBVariantType.TypeInfo)), VBRuntimeErrorId.TypeMismatch);
     }
 
     [TestMethod]
