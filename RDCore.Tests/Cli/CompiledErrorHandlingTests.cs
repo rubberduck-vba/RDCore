@@ -317,6 +317,29 @@ public sealed class CompiledErrorHandlingTests
             "    Headed = Headed + 100",
             "End Function"));
 
+    // a Resume into a loop that was never opened: its Next is error 92 (MS-VBAL §5.4.2.3), which compiled code, with no state to step the loop with, leaves
+    // to the interpreter.
+    [TestMethod]
+    public async Task AResumeIntoALoopNeverOpened_GoesOnInTheInterpreter_WhoseNextRaisesError92()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Jumped(0); Err.Number",
+            "End Sub",
+            "Private Function Jumped(ByVal D As Long) As Long",
+            "    Dim I As Long",
+            "    I = 5",
+            "    On Error GoTo Failed",
+            "    Jumped = 1 \\ D",
+            "    Exit Function",
+            "Failed:",
+            "    On Error Resume Next",
+            "    Resume Inside",
+            "    For I = 1 To 3",
+            "Inside:",
+            "        Jumped = Jumped + 1",
+            "    Next",
+            "End Function"));
+
     [TestMethod]
     public async Task Erl_IsTheLineTheHandledErrorWasRaisedAt()
         => await AssertAlikeAsync(Program(
