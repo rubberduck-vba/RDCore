@@ -1,4 +1,5 @@
-﻿using System.IO.Pipelines;
+﻿using System.Buffers;
+using System.IO.Pipelines;
 using MediatR;
 using NSubstitute;
 using OmniSharp.Extensions.JsonRpc;
@@ -10,6 +11,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.WorkDone;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.SDK.Client.Progress;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 
@@ -29,6 +31,9 @@ public sealed class WorkProgressIntegrationTests
         public ProgressToken? WorkDoneToken { get; init; }
 
         public bool Throws { get; init; }
+
+        // the work completes, and is not answered until the client has sent its cancel of the token, which it sends as it sees the end.
+        public bool AnswersAfterTheClientCancels { get; init; }
     }
 
     // a request the server answers at once: once it is answered, whatever the server wrote before it is on the wire.
@@ -44,9 +49,13 @@ public sealed class WorkProgressIntegrationTests
         public required WorkProgressTracker Tracker { get; init; }
         public required List<WorkProgressState> Seen { get; init; }
 
-        // the client saw work begin, and saw it end.
+        // the request's work reported its first step; the client saw work begin, and saw it end.
+        public required TaskCompletionSource Working { get; init; }
         public required TaskCompletionSource Begun { get; init; }
         public required TaskCompletionSource Ended { get; init; }
+
+        // the client sent the server its cancel of a token (window/workDoneProgress/cancel).
+        public required TaskCompletionSource Cancelled { get; init; }
 
         // everything the server sent the client, as it was sent
         public required System.Text.StringBuilder Wire { get; init; }
@@ -59,12 +68,107 @@ public sealed class WorkProgressIntegrationTests
         }
     }
 
-    // a server whose request does its work in steps, reporting each to the reporter; and a client that tracks what it is reported.
+    // the server's input: it notices when the server, having read past a point, asks for more - what it read up to that point was handed on.
+    private sealed class NoticingReader(PipeReader inner) : PipeReader
+    {
+        private readonly object _gate = new();
+        private long _consumed;
+        private long? _at;
+        private ReadOnlySequence<byte> _last;
+
+        public TaskCompletionSource Noticed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void NoticeAt(long position)
+        {
+            lock (_gate)
+            {
+                _at ??= position;
+            }
+        }
+
+        private void Asking()
+        {
+            lock (_gate)
+            {
+                if (_at is { } at && _consumed >= at)
+                {
+                    Noticed.TrySetResult();
+                }
+            }
+        }
+
+        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            Asking();
+            var result = await inner.ReadAsync(cancellationToken);
+            _last = result.Buffer;
+            return result;
+        }
+
+        public override bool TryRead(out ReadResult result)
+        {
+            Asking();
+            var read = inner.TryRead(out result);
+            _last = result.Buffer;
+            return read;
+        }
+
+        public override void AdvanceTo(SequencePosition consumed) => AdvanceTo(consumed, consumed);
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined)
+        {
+            lock (_gate)
+            {
+                _consumed += _last.Slice(0, consumed).Length;
+            }
+
+            inner.AdvanceTo(consumed, examined);
+        }
+
+        public override void CancelPendingRead() => inner.CancelPendingRead();
+
+        public override void Complete(Exception? exception = null) => inner.Complete(exception);
+    }
+
+    // a server whose request does its work in steps, reporting each to the reporter; and a client that tracks what it is reported. The server is configured
+    // as an RDCore server is (ServerRequestScheduling.WithEveryRequestAnswered).
     private static async Task<Connected> ConnectAsync(IWorkProgressReporter reporter)
     {
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
         using var connecting = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+        // what the client writes is copied as it goes to the server; the server has taken the client's cancel of a token in once it has read past it and
+        // asks for more, which it does once what it read is handed on.
+        var toServer = new Pipe();
+        var input = new NoticingReader(toServer.Reader);
+        var upstream = new System.Text.StringBuilder();
+        long written = 0;
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                var read = await clientToServer.Reader.ReadAsync();
+                foreach (var segment in read.Buffer)
+                {
+                    upstream.Append(System.Text.Encoding.UTF8.GetString(segment.Span));
+                    if (upstream.ToString().Contains("\"window/workDoneProgress/cancel\"", StringComparison.Ordinal))
+                    {
+                        input.NoticeAt(written + segment.Length);
+                    }
+
+                    await toServer.Writer.WriteAsync(segment);
+                    written += segment.Length;
+                }
+
+                clientToServer.Reader.AdvanceTo(read.Buffer.End);
+                if (read.IsCompleted)
+                {
+                    await toServer.Writer.CompleteAsync();
+                    return;
+                }
+            }
+        });
 
         // what the server writes is copied as it goes to the client: the client's own view of progress keeps only what it makes sense of
         var toClient = new Pipe();
@@ -95,6 +199,7 @@ public sealed class WorkProgressIntegrationTests
 
         var tracker = new WorkProgressTracker();
         var seen = new List<WorkProgressState>();
+        var working = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var begun = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         tracker.Changed += state =>
@@ -108,18 +213,27 @@ public sealed class WorkProgressIntegrationTests
         };
 
         // the work goes on until the client has seen it begin - it was worth reporting, however long that took - and then reports its next step.
+        var cancelled = input.Noticed;
         var serverTask = OmniSharpLanguageServer.From(options => options
-            .WithInput(clientToServer.Reader)
+            .WithInput(input)
             .WithOutput(serverToClient.Writer)
+            .WithEveryRequestAnswered()
             .OnRequest<WorkParams, int>("test/work", async (request, token) =>
             {
                 using var work = reporter.BeginFor(request, "Working");
                 work.Report(new WorkProgressStep("first", 25));
+                working.TrySetResult();
                 await begun.Task.WaitAsync(Patience, token);
                 work.Report(new WorkProgressStep("second", 75));
                 if (request.Throws)
                 {
                     throw new InvalidOperationException("the work failed");
+                }
+
+                if (request.AnswersAfterTheClientCancels)
+                {
+                    work.Complete();
+                    await cancelled.Task.WaitAsync(Patience, token);
                 }
 
                 return 1;
@@ -143,7 +257,22 @@ public sealed class WorkProgressIntegrationTests
         var server = await serverTask;
         client = await clientTask;
         reporter.Attach(server.WorkDoneManager);
-        return new Connected { Server = server, Client = client, Tracker = tracker, Seen = seen, Begun = begun, Ended = ended, Wire = wire };
+        return new Connected
+        {
+            Server = server, Client = client, Tracker = tracker, Seen = seen, Working = working, Begun = begun, Ended = ended, Cancelled = cancelled, Wire = wire,
+        };
+    }
+
+    // the threshold every request's work is reported after, on a clock that moves only when a test moves it.
+    private static readonly TimeSpan Threshold = TimeSpan.FromMilliseconds(50);
+
+    // a request whose work goes on past the threshold: it is sent, its work reports its first step, and the clock is moved to the threshold, which begins it.
+    private static async Task<Task<int>> SentPastTheThresholdAsync(Connected connected, ManualClock clock, WorkParams request)
+    {
+        var answer = connected.Client.SendRequest(request, CancellationToken.None);
+        await connected.Working.Task.WaitAsync(Patience);
+        clock.Advance(Threshold);
+        return answer;
     }
 
     // what the server wrote before it answers a request it answers at once is on the wire: it writes in order.
@@ -174,15 +303,20 @@ public sealed class WorkProgressIntegrationTests
     }
 
     [TestMethod]
-    [Ignore("Nondeterministic: failed on #590's Linux CI with ContentModifiedException from SendRequest (WorkProgressIntegrationTests.cs:184), and its reporter's 50 ms threshold is a wall clock. To be rewritten with an injected clock and gated on counted events.")]
     public async Task TheWorkDoneForARequest_IsReportedToItsToken_BegunReportedAndEnded()
     {
-        await using var connected = await ConnectAsync(new WorkProgressReporter(TimeSpan.FromMilliseconds(50)));
+        var clock = new ManualClock();
+        await using var connected = await ConnectAsync(new WorkProgressReporter(Threshold, clock));
 
         ProgressToken token = "request-1";
         using (connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token)))
         {
-            await connected.Client.SendRequest(new WorkParams { WorkDoneToken = token }, CancellationToken.None);
+            var answer = connected.Client.SendRequest(new WorkParams { WorkDoneToken = token }, CancellationToken.None);
+            await connected.Working.Task.WaitAsync(Patience);
+            Assert.AreEqual(1, clock.Pending, "the work waits for its threshold before anything is reported of it");
+
+            clock.Advance(Threshold);
+            await answer.WaitAsync(Patience);
             var seen = await EndedAsync(connected);
 
             Assert.AreEqual("Working", seen[0].Title);
@@ -202,14 +336,15 @@ public sealed class WorkProgressIntegrationTests
     [DataRow(true, DisplayName = "work that fails")]
     public async Task WorkThatIsBegun_IsEndedOnce(bool throws)
     {
-        await using var connected = await ConnectAsync(new WorkProgressReporter(TimeSpan.FromMilliseconds(50)));
+        var clock = new ManualClock();
+        await using var connected = await ConnectAsync(new WorkProgressReporter(Threshold, clock));
 
         ProgressToken token = "request-once";
         using (connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token)))
         {
             try
             {
-                await connected.Client.SendRequest(new WorkParams { WorkDoneToken = token, Throws = throws }, CancellationToken.None);
+                await (await SentPastTheThresholdAsync(connected, clock, new WorkParams { WorkDoneToken = token, Throws = throws })).WaitAsync(Patience);
             }
             catch (Exception) when (throws)
             {
@@ -271,7 +406,8 @@ public sealed class WorkProgressIntegrationTests
     [TestMethod]
     public async Task WorkDoneSoonerThanTheThreshold_IsReportedNothingAtAll()
     {
-        var reporter = new WorkProgressReporter(TimeSpan.FromSeconds(30));
+        // a clock that is never moved: the work is done before its threshold, whatever the machine.
+        var reporter = new WorkProgressReporter(Threshold, new ManualClock());
         await using var connected = await ConnectAsync(reporter);
 
         using (var work = reporter.Begin("Quick"))
@@ -286,14 +422,32 @@ public sealed class WorkProgressIntegrationTests
     [TestMethod]
     public async Task WorkThatFails_IsEndedAllTheSame()
     {
-        await using var connected = await ConnectAsync(new WorkProgressReporter(TimeSpan.FromMilliseconds(50)));
+        var clock = new ManualClock();
+        await using var connected = await ConnectAsync(new WorkProgressReporter(Threshold, clock));
 
         ProgressToken token = "request-2";
         using var tracking = connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token));
-        await Assert.ThrowsAsync<Exception>(() => connected.Client.SendRequest(new WorkParams { WorkDoneToken = token, Throws = true }, CancellationToken.None));
+        var answer = await SentPastTheThresholdAsync(connected, clock, new WorkParams { WorkDoneToken = token, Throws = true });
+        await Assert.ThrowsAsync<Exception>(() => answer.WaitAsync(Patience));
 
         var seen = await EndedAsync(connected);
         Assert.IsTrue(seen.Length > 0 && seen[^1].IsDone, "progress completion is always reported");
+    }
+
+    // OmniSharp's client cancels a token as it sees the token's end, and the end of a request's work is sent before the request is answered: the cancel can
+    // reach the server while the request runs. A server that abandoned a running request for a notification answered it ContentModified (#590's Linux CI).
+    [TestMethod]
+    public async Task ARequestWhoseWorkTheClientCancelsAsItEnds_IsAnswered()
+    {
+        var clock = new ManualClock();
+        await using var connected = await ConnectAsync(new WorkProgressReporter(Threshold, clock));
+
+        ProgressToken token = "request-3";
+        using var tracking = connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token));
+        var answer = await SentPastTheThresholdAsync(connected, clock, new WorkParams { WorkDoneToken = token, AnswersAfterTheClientCancels = true });
+
+        Assert.AreEqual(1, await answer.WaitAsync(Patience));
+        Assert.IsTrue(connected.Cancelled.Task.IsCompleted, "the client cancelled the token before the request was answered");
     }
 
     // OmniSharp's client says it shows progress whatever it is configured to say, as it can: a client that does not is a server whose manager says so.
