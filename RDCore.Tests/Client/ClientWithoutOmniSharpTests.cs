@@ -325,16 +325,22 @@ public sealed class ClientWithoutOmniSharpTests
         var running = rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute,
             new JsonObject { ["source"] = Looping, ["moduleName"] = "Program", ["entryPoint"] = "Main", ["debug"] = true });
 
-        // a pause that arrives before the program runs acts on nothing, and is answered so: it is sent again until it stops the program.
+        // a pause that arrives before the program runs acts on nothing, and is answered so: it is sent again until it stops the program. Until one acts, the
+        // program runs; the pause that acts and the run it suspends are answered at once, in either order.
         var id = 4;
         JsonNode paused;
+        bool acted;
         do
         {
             paused = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugPause, new JsonObject());
             Assert.IsNull(paused["error"], $"{paused.ToJsonString()}\n{LogOf(platform.Root)}");
-            Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+            acted = paused["result"]!["acted"]!.GetValue<bool>();
+            if (!acted)
+            {
+                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+            }
         }
-        while (paused["result"]!["acted"]!.GetValue<bool>() is false);
+        while (!acted);
 
         var suspended = await running;
         Assert.AreEqual((int)ExecutionOutcome.Suspended, suspended["result"]!["outcome"]!.GetValue<int>(), $"{suspended.ToJsonString()}\n{LogOf(platform.Root)}");
