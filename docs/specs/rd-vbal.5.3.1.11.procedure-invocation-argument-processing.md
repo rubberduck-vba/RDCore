@@ -254,6 +254,20 @@ With `Public Count As Long` in a class `Box`, `b` a `Box`, and `Sub Bump(ByRef n
 |`Count`|`Box`'s own code|Written: the variable itself.|
 |`Globals.Counter`, `Counter`, a standard module's `Public Counter As Long`|Any module|Written: the variable itself, however it is named.|
 
+An element of an array that a public `Variant` of an object holds is a copy the same way, and the element itself only when the variable is named by
+itself in its own class (recorded in Excel, `oracle\s58` B01). With `Public V As Variant` holding `Array(1, 2)` and
+`Sub BumpV(ByRef x As Variant)`:
+
+|Argument|Where|After the call|
+|---|---|---|
+|`b.V(0)`|Any module|Unchanged: a copy.|
+|`.V(0)`, in `With b`|Any module|Unchanged: a copy.|
+|`Me.V(0)`|`Box`'s own code|Unchanged: a copy.|
+|`V(0)`|`Box`'s own code|Written: the element itself.|
+
+A field of a variable of a user-defined type is a variable, however it is named. In a `With` block whose target is such a variable (`With r`,
+`With t(0)`), `.X` is the field of that variable, and a `ByRef` parameter is bound to it, as it is to `r.X` (recorded in Excel, `oracle\s58` W01).
+
 The `ByVal` and `ByRef`-fallback copy is made by a direct Let-coercion call, since there is no addressable
 symbol to Let-assign through. A Let-assignment to the function result variable makes the same lower-level call,
 for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).

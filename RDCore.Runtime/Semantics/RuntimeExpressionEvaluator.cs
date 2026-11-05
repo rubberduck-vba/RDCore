@@ -2780,6 +2780,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // an element of the array a public variable of an object holds, named as its member (b.V(0), Me.V(0)), is a copy, as the variable itself is (MS-VBA,
+        // recorded in Excel: oracle\s58 B01). Named by itself in its own class (V(0)) it is the element, bound below.
+        if (element.Callee is MemberAccessExpressionNode { Owner: { } instance } && DeclaredTypeOfOwner(session, context, instance) is VBClassType)
+        {
+            return false;
+        }
+
         var callee = Evaluate(session, element.Callee, context);
         var held = callee.IsSuccess ? callee.Result : null;
         while (held is VBVariantValue { TypedValue: var wrapped })
@@ -2865,14 +2872,17 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
     // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
     // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own: it is given
-    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`.
+    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`. In a With block whose target is a variable of the
+    // record's type, `.X` is the field of that variable, which the block holds (MS-VBA, recorded in Excel: oracle\s58 W01).
     private bool TryResolveRecordFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, bool external)
     {
         reference = VBRuntimeReference.NullRef;
-        if (access.Owner is not { } owner || !DenotesAVariable(session, context, owner)
-            || Evaluate(session, owner, context).Result is not VBUserDefinedTypeValue { IsIndeterminate: false } record
+        var held = access.Owner is { } owner
+            ? DenotesAVariable(session, context, owner) ? Evaluate(session, owner, context).Result : null
+            : context.EnclosingWithTargetExpression is { } target && DenotesAVariable(session, context, target) ? context.EnclosingWithTarget : null;
+        if (held is not VBUserDefinedTypeValue { IsIndeterminate: false } record
             || record.TypeInfo is not VBUserDefinedType recordType
             || recordType.Field(access.Member.IdentifierName) is not { ResolvedType: { } fieldType } field)
         {
