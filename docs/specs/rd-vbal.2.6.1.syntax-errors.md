@@ -35,8 +35,10 @@ A logical line joins at most 25 physical lines: 24 line-continuations in a row, 
 
 An expression is nested in at most 2,500 others: one nested deeper is `ExpressionNestedTooDeeply` (`VBC00060`), at the expression that passes the limit,
 once for each expression of a statement. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
-term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. **MS-VBAL** leaves
-the depth of an expression to the implementation.
+term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. A named argument
+(`a:=`) and a `ByVal` argument are nested in the call and in nothing more. An `object-print-expression` (**MS-VBAL §5.6**, `Debug.Print`) takes an output
+list, not an argument list: an item of it, and the expression of its `Spc` or `Tab` clause, is nested in nothing the statement writes around it, as the
+expression of an assignment is not. **MS-VBAL** leaves the depth of an expression to the implementation.
 
 > 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**

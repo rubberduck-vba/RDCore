@@ -64,6 +64,47 @@ public sealed class ExpressionNestingTests
     }
 
     [TestMethod]
+    public void AChainOf2501Terms_IsRead()
+    {
+        // its first term is nested in 2,500 additions.
+        var result = Parse(Chain(ModuleParser.MaxExpressionNesting + 1));
+
+        Assert.IsTrue(result.IsSuccess, Describe(result));
+    }
+
+    [TestMethod]
+    public void AnExpressionNestedIn2500Calls_IsRead()
+    {
+        var result = Parse(string.Concat(Enumerable.Repeat("Abs(", ModuleParser.MaxExpressionNesting)) + "1" + new string(')', ModuleParser.MaxExpressionNesting));
+
+        Assert.IsTrue(result.IsSuccess, Describe(result));
+    }
+
+    // a statement, the {0} in it the parenthesized literal, and the levels of nesting it writes around it: a call's argument is nested in the call, but neither
+    // passing it by name or ByVal nor printing it nests it in anything more.
+    [TestMethod]
+    [DataRow("x = {0}", 0)]
+    [DataRow("Debug.Print {0}", 0)]
+    [DataRow("Debug.Print 1; {0};", 0)]
+    [DataRow("Debug.Print Spc({0}); 1", 0)]
+    [DataRow("Debug.Print Tab({0}); 1", 0)]
+    [DataRow("Call F({0})", 1)]
+    [DataRow("Call F(a:={0})", 1)]
+    [DataRow("Call F(ByVal {0})", 1)]
+    [DataRow("x = F(1, a:={0})", 1)]
+    public void AnExpressionAtTheLimit_IsRead_AndOnePast_IsExpressionNestedTooDeeply(string statement, int levels)
+    {
+        ModuleParseResult ParseWith(int parentheses)
+            => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    {string.Format(statement, Parenthesized(parentheses))}\r\nEnd Sub\r\n");
+
+        var atTheLimit = ParseWith(ModuleParser.MaxExpressionNesting - levels);
+        var pastIt = ParseWith(ModuleParser.MaxExpressionNesting - levels + 1);
+
+        Assert.IsTrue(atTheLimit.IsSuccess, Describe(atTheLimit));
+        Assert.AreEqual(VBCompileErrorId.ExpressionNestedTooDeeply, (VBCompileErrorId)Assert.ContainsSingle(pastIt.SyntaxErrors, Describe(pastIt)).ErrorId);
+    }
+
+    [TestMethod]
     public void TwoExpressionsPastTheLimit_AreEachReported()
     {
         var past = Parenthesized(ModuleParser.MaxExpressionNesting + 1);

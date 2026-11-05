@@ -11,6 +11,7 @@ using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform;
@@ -618,7 +619,8 @@ public partial class ModuleParser(
         while (pending.TryPop(out var entry))
         {
             var (node, nesting, outermost) = entry;
-            if (node is ExpressionNode expression)
+            var expression = AsALevelOfNesting(node);
+            if (expression is not null)
             {
                 outermost ??= expression;
                 if (nesting > MaxExpressionNesting)
@@ -635,13 +637,20 @@ public partial class ModuleParser(
                 }
             }
 
-            var inner = node is ExpressionNode ? nesting + 1 : nesting;
+            var inner = expression is null ? nesting : nesting + 1;
             foreach (var child in node.ChildNodes().Reverse())
             {
                 pending.Push((child, outermost is null ? 0 : inner, outermost));
             }
         }
     }
+
+    // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold). What is written around an argument
+    // to pass it by name (a:=) or ByVal nests it in nothing more than its call; an object-print-expression (MS-VBAL 5.6) takes an output list, not arguments,
+    // so neither it, an item of its list, nor a Spc or Tab clause nests what it prints.
+    private static ExpressionNode? AsALevelOfNesting(SyntaxNode node)
+        => node is ExpressionNode expression and not (NamedArgumentNode or ByValArgumentExpressionNode or ObjectPrintExpressionNode or PrintOutputItemNode
+            or PrintSpcClauseNode or PrintTabClauseNode) ? expression : null;
 }
 
 // Registered via AddParseListener (fires live, interleaved with the parser's own recursive descent) —
