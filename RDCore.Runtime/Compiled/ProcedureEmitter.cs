@@ -432,8 +432,8 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
         _il.MarkLabel(returned);
 
-        // a variable the debugger left where compiled code cannot read it: the call's result written into the frame, and the activation the interpreter's from
-        // after the call.
+        // after a wait, a variable compiled code cannot read back (EmitReload): the call's result written into the frame, and the activation the interpreter's
+        // from after the call.
         var current = _il.DefineLabel();
         var unread = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
@@ -532,8 +532,8 @@ internal sealed class ProcedureEmitter
     }
 
     // every variable read back from its cell, which a debugger may have changed while the program waited - but one held in a cell, which compiled code
-    // reads where it is. One whose cell holds no payload it knows - a callee outside the platform may have written it - goes to unread, the frame left as it
-    // is: what the interpreter reads from there on.
+    // reads where it is. A debugger's write at a variable's address is written into its cell (SessionStorage.TryPoke), which compiled code reads here. One
+    // whose cell holds no payload it knows goes to unread, the frame left as it is: what the interpreter reads from there on.
     private void EmitReload(Label unread)
     {
         _unreads = true;

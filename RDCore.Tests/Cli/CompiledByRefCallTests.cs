@@ -525,8 +525,7 @@ public sealed class CompiledByRefCallTests
     }
 
     // a byte POKEd at the address of a variable of a compiled caller - given it by a VarPtr the interpreter ran - while the program waits in a callee compiled
-    // code called: the address holds a binding of its own then, which compiled code does not read back, and the interpreter goes on with the activation after
-    // the call.
+    // code called: the byte is written into the variable's cell at the address, which compiled code reads back after the call and goes on with.
     private static async Task<(string Observed, long WalkBacks)> PokedAboveWaitAsync(VBExecutionEngine engine)
     {
         (string Observed, long WalkBacks) observed = default;
@@ -558,7 +557,7 @@ public sealed class CompiledByRefCallTests
                 Assert.IsTrue(poked.IsWritten);
                 observed.Observed = Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
                     .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
-                observed.WalkBacks = provider.Image.Compiler.Results.SingleOrDefault(entry => entry.Procedure.Name == "Go").Result?.Body?.WalkBacks ?? 0;
+                observed.WalkBacks = provider.Image.Compiler.Results.SingleOrDefault(entry => entry.Procedure.Name == "Go").Result?.Body?.WalkBacks ?? -1;
             }
             finally
             {
@@ -572,7 +571,7 @@ public sealed class CompiledByRefCallTests
     }
 
     [TestMethod]
-    public async Task AByteWrittenAtTheAddressOfACompiledVariable_WhileTheProgramWaitsInACallee_IsReadByTheInterpreterAfterTheCall()
+    public async Task AByteWrittenAtTheAddressOfACompiledVariable_WhileTheProgramWaitsInACallee_IsReadByCompiledCodeAfterTheCall()
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await PokedAboveWaitAsync(VBExecutionEngine.Interpreter);
@@ -582,7 +581,7 @@ public sealed class CompiledByRefCallTests
         Assert.AreEqual(interpreted.Observed, compiled.Observed);
         if (!CompiledExecution.WalksBackAtRandom)
         {
-            Assert.AreEqual(1, compiled.WalkBacks, "Go's walk-backs");
+            Assert.AreEqual(0, compiled.WalkBacks, "Go's walk-backs");
         }
     }
 
