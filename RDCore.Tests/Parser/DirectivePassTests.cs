@@ -65,15 +65,17 @@ public sealed class DirectivePassTests
     [DataRow("#End If", 100, DisplayName = "a stray #End If before them")]
     [DataRow("#Else", 100, DisplayName = "a stray #Else before them")]
     [DataRow("#If Mac Then", 101, DisplayName = "an #If that is never ended before them, which holds them all")]
-    [Ignore("nondeterministic: a stopwatch bound of 10 s decides the pass, and coverage slows the parse several times over. To be made deterministic before this runs again")]
     public void DirectivesThatDoNotFit_AreParsedAsFast_AndTheBlocksAfterThemAreEachTheirOwn(string first, int blocks)
     {
-        var watch = System.Diagnostics.Stopwatch.StartNew();
+        _ = Parse(Enumerable.Range(0, 100).SelectMany(Declare));
+        var wellFormed = ModuleParser.LooksOfLastDirectivePass;
         var result = Parse(Enumerable.Range(0, 100).SelectMany(Declare).Prepend(first));
-        watch.Stop();
+        var looks = ModuleParser.LooksOfLastDirectivePass;
 
+        // the work of the pass, counted where a clock would time it: the bail, then the recovery, each a pass over the module as SLL makes it. LL, which took
+        // 46 s here, reads on to the end of the module at each block.
         Assert.HasCount(blocks, Blocks(result));
-        Assert.IsLessThan(10.0, watch.Elapsed.TotalSeconds, "a parse in well under a second, that took 46 s in LL");
+        Assert.IsLessThanOrEqualTo(4 * wellFormed, looks, $"{looks:n0} looks at the tokens, where the module without the stray directive takes {wellFormed:n0}");
     }
 
     // the blocks, branches and bodies of a module's trivia, with where each is: what says which lines each branch holds.
