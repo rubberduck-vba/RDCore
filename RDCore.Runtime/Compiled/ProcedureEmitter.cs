@@ -36,9 +36,18 @@ internal sealed class ProcedureEmitter
     private readonly Dictionary<int, int> _cellNumbers = [];
     private readonly Dictionary<int, Label> _instructions = [];
     private readonly Dictionary<int, Label> _failures = [];
+    private readonly Dictionary<int, Label> _recoveries = [];
     private readonly List<LoopLocals> _loops = [];
     private readonly LocalBuilder _pc;
     private readonly Label _walkBack;
+
+    // the instruction at pc run by the interpreter alone, and the activation gone on with where it left it (CompiledActivation.Recover): every variable
+    // written into the frame first; read back after it (the re-entry); and the instruction the activation goes on at found by its offset (the dispatch).
+    private readonly Label _recover;
+    private readonly Label _reentry;
+    private readonly Label _dispatch;
+    private bool _recovers;
+    private bool _dispatches;
     private LocalBuilder? _result;
 
     private sealed record class LoopLocals(LocalBuilder End, LocalBuilder Step, LocalBuilder CountsDown, LocalBuilder IsOpen, ScalarKind Kind);
@@ -48,6 +57,7 @@ internal sealed class ProcedureEmitter
         (_analysis, _directs, _il) = (analysis, directs, il);
         _pc = il.DeclareLocal(typeof(int));
         _walkBack = il.DefineLabel();
+        (_recover, _reentry, _dispatch) = (il.DefineLabel(), il.DefineLabel(), il.DefineLabel());
     }
 
     /// <summary>
@@ -151,9 +161,12 @@ internal sealed class ProcedureEmitter
         _il.MarkLabel(_instructions[_analysis.Length]);
         EmitExit();
 
-        EmitFailures();
+        // a call that fails in a body with an error handler recovers at it (RecoverAt): its label is emitted with the failures, after it.
         EmitFailedCalls();
+        EmitFailures();
         EmitWalkBack();
+        EmitRecover();
+        EmitDispatch();
     }
 
     /// <summary>The CLR type a payload of <paramref name="kind"/> is held in: a <see cref="long"/> of an integral kind, a <see cref="double"/> of a floating-point one.</summary>
@@ -258,6 +271,41 @@ internal sealed class ProcedureEmitter
 
             case CallStep call:
                 EmitCall(call);
+                break;
+
+            case OnErrorStep onError:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, onError.Offset);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.OnError))!);
+                _il.Emit(OpCodes.Brfalse, WalkBackAt(onError.Offset));
+                break;
+
+            case GoSubStep goSub:
+                // a subroutine above its GoSub is a back edge, which a program that never returns from it would go round forever.
+                if (goSub.Target <= goSub.Offset)
+                {
+                    EmitPoll(goSub.Offset);
+                }
+
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, goSub.Offset + 1);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.GoSub))!);
+                _il.Emit(OpCodes.Br, _instructions[goSub.Target]);
+                break;
+
+            case ReturnStep returnStep:
+                // where it returns to may be above it: a back edge.
+                EmitPoll(returnStep.Offset);
+                _dispatches = true;
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloca, _pc);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReturnFromGoSub))!);
+                _il.Emit(OpCodes.Brtrue, _dispatch);
+                _il.Emit(OpCodes.Br, RecoverAt(returnStep.Offset));
+                break;
+
+            case SteppedStep stepped:
+                _il.Emit(OpCodes.Br, RecoverAt(stepped.Offset));
                 break;
         }
     }
@@ -407,7 +455,18 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WaitedDuringCall))!.GetMethod!);
             _il.Emit(OpCodes.Brtrue, spilled);
-            EmitSpill();
+
+            // a body with an error handler gives the callee's error to it, and goes on compiled where it sends the activation; but not after the program
+            // waited, when the frame is what the debugger left it.
+            if (_analysis.HandlesErrors)
+            {
+                _il.Emit(OpCodes.Br, RecoverAt(offset));
+            }
+            else
+            {
+                EmitSpill();
+            }
+
             _il.MarkLabel(spilled);
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, offset);
@@ -451,7 +510,7 @@ internal sealed class ProcedureEmitter
     {
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.ShouldWalkBack))!.GetMethod!);
-        _il.Emit(OpCodes.Brtrue, FailureAt(offset));
+        _il.Emit(OpCodes.Brtrue, WalkBackAt(offset));
     }
 
     // MS-VBAL §5.4.2.3, as ExecuteForOpener does it: start, end and step evaluated once, in the counter's kind; the counter given the start; the body skipped
@@ -592,8 +651,12 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ret);
     }
 
-    // the label an operation of the instruction at offset goes to when it fails: the instruction is the interpreter's, from there on.
-    private Label FailureAt(int offset)
+    // the label an operation of the instruction at offset goes to when it fails: the instruction is the interpreter's, from there on - or, in a body with an
+    // error handler, the interpreter's alone, which gives its error to the handler, and the activation goes on compiled where the handler sends it.
+    private Label FailureAt(int offset) => _analysis.HandlesErrors ? RecoverAt(offset) : WalkBackAt(offset);
+
+    // the label the activation is handed to the interpreter at, before the instruction at offset, for good.
+    private Label WalkBackAt(int offset)
     {
         if (!_failures.TryGetValue(offset, out var label))
         {
@@ -601,6 +664,19 @@ internal sealed class ProcedureEmitter
             _failures[offset] = label;
         }
 
+        return label;
+    }
+
+    // the label the interpreter runs the instruction at offset alone at (CompiledActivation.Recover).
+    private Label RecoverAt(int offset)
+    {
+        if (!_recoveries.TryGetValue(offset, out var label))
+        {
+            label = _il.DefineLabel();
+            _recoveries[offset] = label;
+        }
+
+        (_recovers, _dispatches) = (true, true);
         return label;
     }
 
@@ -613,6 +689,71 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, _pc);
             _il.Emit(OpCodes.Br, _walkBack);
         }
+
+        foreach (var (offset, label) in _recoveries)
+        {
+            _il.MarkLabel(label);
+            _il.Emit(OpCodes.Ldc_I4, offset);
+            _il.Emit(OpCodes.Stloc, _pc);
+            _il.Emit(OpCodes.Br, _recover);
+        }
+    }
+
+    // every variable written into the frame, and the interpreter given the instruction at pc: where it leaves the activation, compiled code reads every
+    // variable back and goes on; when it goes on nowhere, the activation returns what the interpreter's run of it did.
+    private void EmitRecover()
+    {
+        if (!_recovers)
+        {
+            return;
+        }
+
+        _il.MarkLabel(_recover);
+        EmitSpill();
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloc, _pc);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recover))!);
+        _il.Emit(OpCodes.Dup);
+        _il.Emit(OpCodes.Stloc, _pc);
+        _il.Emit(OpCodes.Ldc_I4_0);
+        _il.Emit(OpCodes.Bge, _reentry);
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Recovered))!);
+        _il.Emit(OpCodes.Ret);
+
+        // the re-entry: every variable and the function result, and the state of each loop - which an opener the interpreter ran gave it, or a Next closed.
+        _il.MarkLabel(_reentry);
+        EmitReload();
+        for (var i = 0; i < _loops.Count; i++)
+        {
+            var loop = _loops[i];
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, i);
+            _il.Emit(OpCodes.Ldloca, loop.End);
+            _il.Emit(OpCodes.Ldloca, loop.Step);
+            _il.Emit(OpCodes.Ldloca, loop.CountsDown);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(loop.Kind)
+                ? nameof(CompiledActivation.ReloadForLoopIntegral)
+                : nameof(CompiledActivation.ReloadForLoopFloating))!);
+            _il.Emit(OpCodes.Stloc, loop.IsOpen);
+        }
+
+        _il.Emit(OpCodes.Br, _dispatch);
+    }
+
+    // the instruction at pc, found by its offset: where a Return or the interpreter left the activation. Every offset of the body has its instruction, and
+    // the end of the body is an Exit.
+    private void EmitDispatch()
+    {
+        if (!_dispatches)
+        {
+            return;
+        }
+
+        _il.MarkLabel(_dispatch);
+        _il.Emit(OpCodes.Ldloc, _pc);
+        _il.Emit(OpCodes.Switch, Enumerable.Range(0, _analysis.Length + 1).Select(offset => _instructions[offset]).ToArray());
+        _il.Emit(OpCodes.Br, _walkBack);
     }
 
     // every variable written into its cell, the function result into its variable, each loop that was opened into the frame; then the interpreter runs the
