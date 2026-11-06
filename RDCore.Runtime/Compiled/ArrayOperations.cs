@@ -35,8 +35,8 @@ public static class ArrayOperations
         => ElementOf(holder, rank, first, second, third) as VariantCell;
 
     /// <summary>
-    /// The cell of an element of an array of objects (<see cref="ScalarElement"/>), whose reference <see cref="ObjectOperations"/> reads: one that holds none it
-    /// reads - an element no object was ever <c>Set</c> to - declines there.
+    /// The cell of an element of an array of objects (<see cref="ScalarElement"/>), whose reference <see cref="ObjectOperations"/> reads - <c>Nothing</c>, of an
+    /// element no object was ever <c>Set</c> to. One that holds no reference it reads declines there.
     /// </summary>
     public static object? ObjectElement(object? holder, int rank, long first, long second, long third)
         => ElementOf(holder, rank, first, second, third);
