@@ -9,7 +9,7 @@
 |---|---|---|---|
 |`Print #`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The file-number form. `Token`: `Print`.|
 |`Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The bare form, with no file number (`FileNumber` is `null`): `Print "x"`. See below.|
-|`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|—|The object-qualified form.|
+|`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|None|The object-qualified form.|
 |`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
 
 `Debug` is written only as this statement and `Debug.Assert`: any other use of the name is a syntax error, as it is in
@@ -89,7 +89,7 @@ whose default member takes an argument (a `Collection`) error 450.
 > follow each other (`1;;2`), and two values with a space between them have none (`1 2`).
 
 > [!NOTE]
-> 🎯 **RD-VBAL diverges from MS-VBAL** in what may stand between two output items.
+> **RD-VBAL diverges from MS-VBAL** in what may stand between two output items.
 >
 > **MS-VBAL §5.4.5.8.1** reads `output-list = *output-item`, so an output item may follow another with nothing between
 > them: `Debug.Print 1(2)` is the two items `1` and `(2)`. The VBE does not keep such a line as it is written: it lists
@@ -107,6 +107,3 @@ whose default member takes an argument (a `Collection`) error 450.
 > two items: `Debug.Print 1 (2)` prints 1, then 2.
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
-
----
-> ⏮️ [**RD-VBAL §5.4.5.7** Width Statement](rd-vbal.5.4.5.7.width-statement.md) | ⏭️ [**RD-VBAL §5.4.5.9** Write Statement](rd-vbal.5.4.5.9.write-statement.md)
