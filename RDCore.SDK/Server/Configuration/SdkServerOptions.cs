@@ -216,7 +216,7 @@ public record class SdkEnvironmentOptions
     /// </summary>
     /// <remarks>
     /// 🚧 <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/> until the compiled engine runs every procedure it can and a program stopped
-    /// in compiled code can be edited and continued (IR lowering S2.7). Making <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Compiled"/> the
+    /// in compiled code can be edited and continued. Making <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Compiled"/> the
     /// default is this constant and the <c>ExecutionEngine</c> of <c>RDCore.CLI/appsettings.json</c>, changed together.
     /// </remarks>
     public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;

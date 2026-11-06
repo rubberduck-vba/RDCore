@@ -45,7 +45,9 @@ public static class TestUserData
         context.DisplayMessage(MessageLevel.Warning, $"RDCore.Tests: {Mode}");
     }
 
-    /// <summary>How the suite runs, as the environment variables it reads say: what a run's results are the results of.</summary>
+    /// <summary>
+    /// How the suite runs, as the environment variables it reads say: what a run's results are the results of.
+    /// </summary>
     public static string Mode
     {
         get

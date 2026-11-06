@@ -28,7 +28,7 @@ using System.IO.Pipelines;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// Break, edit, continue, in a procedure that was running compiled (IR lowering S2.7, decision B7): a debugger client speaks DAP to the debug adapter, the
+/// Break, edit, continue, in a procedure that was running compiled: a debugger client speaks DAP to the debug adapter, the
 /// adapter has the language server's debug service relay each request to the environment host's own handlers, and the program the host runs is stopped in a
 /// compiled loop, edited, and goes on in the edited code - and the next call of the edited procedure compiles the edited body.
 /// </summary>
@@ -235,10 +235,14 @@ public sealed class CompiledEditAndContinueTests
         private readonly ConcurrentDictionary<string, string> _saved = new(modules, StringComparer.OrdinalIgnoreCase);
         private int _reloads;
 
-        /// <summary>How many times what was saved was loaded in the host.</summary>
+        /// <summary>
+        /// How many times what was saved was loaded in the host.
+        /// </summary>
         public int Reloads => Volatile.Read(ref _reloads);
 
-        /// <summary>Saves the file of <paramref name="module"/> as <paramref name="text"/>: what the adapter loads when the program is next asked to go on.</summary>
+        /// <summary>
+        /// Saves the file of <paramref name="module"/> as <paramref name="text"/>: what the adapter loads when the program is next asked to go on.
+        /// </summary>
         public void Save(string module, string text) => _saved[module] = text;
 
         public Task<string> Lost => _lost.Task;
@@ -352,7 +356,9 @@ public sealed class CompiledEditAndContinueTests
 
         public Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request) => _client!.SendRequest(request, CancellationToken.None).WaitAsync(Patience);
 
-        /// <summary>Sets the breakpoints of the file of <paramref name="module"/> to <paramref name="lines"/>, counted from 1; none clears them.</summary>
+        /// <summary>
+        /// Sets the breakpoints of the file of <paramref name="module"/> to <paramref name="lines"/>, counted from 1; none clears them.
+        /// </summary>
         public Task<SetBreakpointsResponse> SetBreakpointsAsync(string module, params int[] lines) => SendAsync(new SetBreakpointsArguments
         {
             Source = new Source { Path = PathOf(module) },
@@ -365,7 +371,9 @@ public sealed class CompiledEditAndContinueTests
             _arrived.Release();
         }
 
-        /// <summary>The next event of the type, whenever it comes; the events before it of other types are kept.</summary>
+        /// <summary>
+        /// The next event of the type, whenever it comes; the events before it of other types are kept.
+        /// </summary>
         public async Task<TEvent> NextAsync<TEvent>()
         {
             using var hangGuard = new CancellationTokenSource(Patience);
@@ -404,7 +412,9 @@ public sealed class CompiledEditAndContinueTests
             }
         }
 
-        /// <summary>Everything that was said and not asked for yet, of one kind, in the order it was said.</summary>
+        /// <summary>
+        /// Everything that was said and not asked for yet, of one kind, in the order it was said.
+        /// </summary>
         public IReadOnlyList<TEvent> Pending<TEvent>() => [.. _events.OfType<TEvent>()];
 
         public async ValueTask DisposeAsync()

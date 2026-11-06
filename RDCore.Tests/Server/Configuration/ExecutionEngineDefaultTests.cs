@@ -9,7 +9,7 @@ namespace RDCore.Tests.Server.Configuration;
 /// <summary>
 /// What runs a program when nothing says is one default (<see cref="SdkEnvironmentOptions.DefaultExecutionEngine"/>): the setting's, a profile's, and the one
 /// the environment host is deployed with, in <c>RDCore.CLI/appsettings.json</c>. The host's sessions run with the engine its configuration says, a user's
-/// setting taking the place of the deployed one (IR lowering S2.7, decision B4).
+/// setting taking the place of the deployed one.
 /// </summary>
 [TestClass]
 public sealed class ExecutionEngineDefaultTests
