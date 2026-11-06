@@ -49,6 +49,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC00057](vbc00057.md)|An #Else clause must be preceded by an #If — a `#Else` belongs to no block, or is the second of its block|
 |[VBC00058](vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf — a `#ElseIf` belongs to no block, or comes after its `#Else`|
 |[VBC00059](vbc00059.md)|You must terminate the #If block with an #EndIf — a `#If` block is not ended|
+|[VBC00060](vbc00060.md)|Expression nested too deeply — an expression is nested in more than 2,500 others|
 
 ### Semantic compilation errors
 

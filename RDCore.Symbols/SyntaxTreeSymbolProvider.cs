@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Workspace;
@@ -44,7 +45,10 @@ public sealed class SyntaxTreeSymbolProvider(
     bool withImplicitDeclarations = true,
     ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure) : ISymbolProvider
 {
-    public IEnumerable<Symbol> ProvideSymbols() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription);
+    // on a thread whose stack has room for the deepest expression a parse has (LargeStackThread): the names of an expression are found by recursion, once or
+    // more for each level of it, and a module whose expression is nested too deeply to run (VBC00060) still declares what it declares.
+    public IEnumerable<Symbol> ProvideSymbols()
+        => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription).ToList());
 
     // what a member's own module says it does (`Attribute Item.VB_Description = "..."`): what a completion list and a signature help show of it.
     private Symbol WithDescription(Symbol member)

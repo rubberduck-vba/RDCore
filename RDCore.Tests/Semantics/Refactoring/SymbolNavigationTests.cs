@@ -330,6 +330,27 @@ public sealed class SymbolNavigationTests
         Assert.HasCount(4, SymbolNavigation.ReferencesAt(context, ModuleUri("Program"), position, includeDeclaration: false)!.Sites);
     }
 
+    // a bound of a declared array is an expression of the tree like any other (SyntaxNodeWalk): the constant it names is referred to there.
+    [TestMethod]
+    public void AConstant_IsReferredTo_InTheBoundsOfTheArraysDeclaredWithIt()
+    {
+        var context = Compose(("Sizes", Module("Sizes",
+            "Option Explicit",
+            "Private Const Size As Long = 3",
+            "Private Type Grid",
+            "    Cells(1 To Size) As Long",
+            "End Type",
+            "Private Rows(Size) As Long",
+            "Public Sub Main()",
+            "    Dim Columns(0 To Size - 1, 2) As Long",
+            "End Sub")));
+
+        CollectionAssert.AreEqual(new[]
+        {
+            "Sizes:Private Const Size As Long = 3", "Sizes:Cells(1 To Size) As Long", "Sizes:Private Rows(Size) As Long", "Sizes:Dim Columns(0 To Size - 1, 2) As Long",
+        }, Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Sizes"), At(context, "Sizes", "Const Size", "Size"))));
+    }
+
     [TestMethod]
     public void ALocal_IsReferredTo_InItsProcedure()
         => CollectionAssert.AreEqual(new[] { "Program:Dim count As Long", "Program:count = 1", "Program:Add count" },

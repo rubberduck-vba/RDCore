@@ -96,7 +96,10 @@ public sealed record class ArrayStatementRuntimeSemantics(
             // - a ReDim Preserve raises 9 and keeps the array, or 13 first for a Variant that holds no array (cases-redim4 B05);
             // - a ReDim of a variable declared as an array raises 9, and the array loses its dimensions (R03, R04, F01, F02, F08, F09);
             // - a ReDim of a Variant one below raises 9 and keeps what it held (R06, F05, F06, F10); further below, 7, and it is left Empty
-            //   (cases-redim3 N01, cases-redim4 B01, B02, F03, F04; vb6.exe too, HexIDE's findings desk #9).
+            //   (cases-redim3 N01, cases-redim4 B01, B02, F03, F04; vb6.exe too, HexIDE's findings desk #9);
+            // - a ReDim of a Variant parameter given a variable declared as an array is a Variant's, read from the parameter and not from the array it
+            //   shares: one below raises 9 and the array keeps its bounds and elements, further below raises 7 and the array loses its dimensions, as it
+            //   can't be left Empty (oracle\s68 V03-V09, VV13-VV19). A parameter declared as an array is the array's (LA33-LA39).
             if (inverted && redim.IsPreserve && target.Declared is not VBArrayType && Unwrapped(target.Current) is not VBArrayValue)
             {
                 return Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
@@ -104,16 +107,15 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
             if (inverted && !redim.IsPreserve && !IsAMemberOfAnObject(session, context, target.Expression))
             {
-                if (target.Declared is VBArrayType)
+                if (target.Declared is VBArrayType && !target.IsReferenced)
                 {
-                    var erased = Store(session, context, redim, target,
-                        new VBResizableArrayValue([], DeclaredItemType(target, (Unwrapped(target.Current) as VBArrayValue)?.ItemType ?? VBVariantType.TypeInfo)));
+                    var erased = Discard(session, context, redim, target);
                     return erased == RuntimeExecutionOutcome.Next ? failure : erased;
                 }
 
-                if (target.Declared is VBVariantType && !oneBelow)
+                if ((target.Declared is VBVariantType || target.IsReferenced) && !oneBelow)
                 {
-                    var emptied = StoreValue(session, context, redim, target, new VBVariantValue(VBEmptyValue.Empty));
+                    var emptied = Discard(session, context, redim, target);
                     return emptied == RuntimeExecutionOutcome.Next ? Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: an upper bound below its lower bound") : emptied;
                 }
             }
@@ -121,11 +123,20 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return failure;
         }
 
-        // an array RD-VBA can't hold a cell for each element of is out of memory, and the variable keeps what it held: MS-VBA (64-bit) allocates the
-        // 2,147,483,648 bytes of `ReDim b(2147483647) As Byte` and a billion Longs (recorded in Excel: oracle\s56 I07, I09, B09).
+        // an array RD-VBA can't hold a cell for each element of is out of memory: MS-VBA (64-bit) allocates the 2,147,483,648 bytes of
+        // `ReDim b(2147483647) As Byte` and a billion Longs (recorded in Excel: oracle\s56 I07, I09, B09). A ReDim that is out of memory has let go of what
+        // the variable held, as MS-VBA's does: a variable declared as an array loses its dimensions, and a Variant is left Empty (oracle\s68 V10, VV20,
+        // LA40, BV30, VW50, W60; s68b T01, T03-T05, L03, L07). A ReDim Preserve keeps it (s68b P01-P05).
         if (VBArrayValue.LengthOf(bounds) > VBArrayValue.MaximumLength)
         {
-            return Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: more than {VBArrayValue.MaximumLength} elements");
+            var outOfMemory = Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: more than {VBArrayValue.MaximumLength} elements");
+            if (redim.IsPreserve || IsAMemberOfAnObject(session, context, target.Expression))
+            {
+                return outOfMemory;
+            }
+
+            var discarded = Discard(session, context, redim, target);
+            return discarded == RuntimeExecutionOutcome.Next ? outOfMemory : discarded;
         }
 
         // the array a ReDim makes is known - whatever the variable held before, and so whether it was known - unless its bounds are not: then
@@ -153,6 +164,14 @@ public sealed record class ArrayStatementRuntimeSemantics(
             : Store(session, context, redim, target, Redimensioned(
                 Resized(session, bounds, stated ?? (array.IsInitialized ? array.ItemType : DeclaredItemType(target, array.ItemType)))));
     }
+
+    // what a ReDim that fails has let go of: a variable declared as an array, or a Variant parameter given one, is left with no dimensions, and a Variant
+    // is left Empty.
+    private RuntimeExecutionOutcome Discard(IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim, Target target)
+        => target.Declared is VBArrayType
+            ? Store(session, context, redim, target,
+                new VBResizableArrayValue([], DeclaredItemType(target, (Unwrapped(target.Current) as VBArrayValue)?.ItemType ?? VBVariantType.TypeInfo)))
+            : StoreValue(session, context, redim, target, new VBVariantValue(VBEmptyValue.Empty));
 
     // an array of the new bounds, each element its default data value: a record's as a declared variable of it starts, in the cell the runtime keeps an
     // element of its type in (IVariableDefaults).

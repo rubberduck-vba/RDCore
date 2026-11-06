@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
@@ -391,16 +392,9 @@ public sealed class ParserResilienceTests
         }
     }
 
-    [TestMethod]
-    public void DeepNesting_DoesNotCrashTheProcess()
+    // what the parser gives for source, asked on a thread whose stack is a quarter of a thread's default (256 KB): what it throws, or what it returns.
+    private static (ModuleParseResult? Result, Exception? Thrown) ParseOnASmallStack(string source)
     {
-        // A5: pathological nesting recurses through the expression rule to an uncatchable stack
-        // overflow. EnterEveryRule's stack guard converts it to a catchable, located failure.
-        var source = "Public Const X = " + new string('(', 2000) + "1" + new string(')', 2000);
-
-        // parse on a deliberately small stack: whether 2000 frames exhausts the default stack is
-        // platform-dependent (it does on Windows, not on the Linux CI). 256 KB makes the guard fire
-        // everywhere, so the invariant under test — no uncatchable crash — is what's asserted.
         ModuleParseResult? result = null;
         Exception? thrown = null;
         var worker = new Thread(
@@ -418,10 +412,93 @@ public sealed class ParserResilienceTests
             maxStackSize: 256 * 1024);
         worker.Start();
         worker.Join();
+        return (result, thrown);
+    }
+
+    [TestMethod]
+    public void DeepNesting_IsParsed_WhateverTheStackOfTheThreadThatAsks()
+    {
+        // the parse runs on a stack of its own, as deep as RD-VBA reads (LargeStackThread): 2,000 nested parentheses, which MS-VBA runs, overflowed 256 KB.
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', 2000) + "1" + new string(')', 2000));
+
+        Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
+        Assert.IsTrue(result!.IsSuccess, string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
+    }
+
+    [TestMethod]
+    public void NestingPastTheDepthTheParseReads_IsAFailedParse_NotACrash()
+    {
+        // A5: pathological nesting recurses through the expression rule to an uncatchable stack overflow. The parse stops past a depth of rules
+        // (StackDepthGuardListener.MaxRuleDepth), well inside its own stack: a parenthesis is a rule, and the line's own rules take it just past the ceiling.
+        // Where it stops is not a matter of the size of a frame, and the outcome is the same in a Debug build as in a Release one.
+        const int levels = StackDepthGuardListener.MaxRuleDepth;
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', levels) + "1" + new string(')', levels));
 
         Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
         Assert.IsNotNull(result);
         Assert.IsFalse(result!.IsSuccess);
+
+        // the guard stopped the parse: no tree was built for the depth of its expression to be found too deep (VBC00060). The error says what is wrong with the
+        // module, and not with the parse: the trace of the exception that stopped it has a frame for each of the levels it read, and was megabytes long.
+        var errors = string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose[..Math.Min(error.Verbose.Length, 200)]));
+        var error = Assert.ContainsSingle(result.SyntaxErrors, errors);
+        Assert.AreEqual((VBCompileErrorId.SyntaxError, SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose),
+            ((VBCompileErrorId)error.ErrorId, error.Verbose), errors);
+    }
+
+    // what the parser logs, kept.
+    private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<ModuleParser>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message, Exception? Exception)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            lock (Entries)
+            {
+                Entries.Add((logLevel, formatter(state, exception), exception));
+            }
+        }
+    }
+
+    // a module read a part at a time once the fast prediction fails on the whole of it: a declaration nested past the depth the parse reads, and a procedure.
+    // The declaration is a constant's: the prediction of a statement in a procedure reads its expression to the end before the parse is in it, seconds for
+    // each pass at this depth, before the parse stops.
+    private static string AConstantNestedPastTheDepthTheParseReads_ThenAProcedure(string body)
+        => $"Public Const X = {new string('(', StackDepthGuardListener.MaxRuleDepth)}1{new string(')', StackDepthGuardListener.MaxRuleDepth)}\r\nPublic Sub A()\r\n    {body}\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public void NestingPastTheDepthTheParseReads_IsLoggedWithoutTheTraceThatStoppedIt_AndReadSlowlyOnce()
+    {
+        // the trace of the exception that stops the parse has a frame for each level it read: megabytes, which the log, and a client tracing it, never gets.
+        var logger = new CapturingLogger();
+        var parser = new ModuleParser(logger: logger);
+
+        parser.Parse(Uri, AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
+
+        var entries = string.Join(Environment.NewLine, logger.Entries.Select(entry => $"{entry.Level} {entry.Message[..Math.Min(entry.Message.Length, 200)]}"));
+        Assert.IsFalse(logger.Entries.Any(entry => entry.Exception is not null), entries);
+        Assert.IsFalse(logger.Entries.Any(entry => entry.Message.Contains(" at ", StringComparison.Ordinal)), entries);
+
+        // the module read fast, then its declarations fast and slowly: the parse of the declarations stopped where a slow parse of the module would, which
+        // isn't made.
+        Assert.AreEqual(2, logger.Entries.Count(entry => entry.Message.StartsWith("SLL parse pass stopped", StringComparison.Ordinal)), entries);
+        Assert.AreEqual(0L, parser.Statistics[SegmentationStatistics.Path.SegmentFailed], entries);
+    }
+
+    [TestMethod]
+    public void NestingPastTheDepthTheParseReads_AfterASyntaxError_IsBothErrors()
+    {
+        // what the slow parse found wrong before it stopped, and that it stopped: what follows wasn't read.
+        var result = Parse("Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
+
+        var errors = string.Join("; ", result.SyntaxErrors.Select(error => $"{error.ErrorId} {error.Location.Range.Start.Line} {error.Verbose[..Math.Min(error.Verbose.Length, 100)]}"));
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 0 && error.Verbose != SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
+        Assert.AreEqual(SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose, result.SyntaxErrors[^1].Verbose, errors);
     }
 
     [TestMethod]

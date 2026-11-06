@@ -259,7 +259,7 @@ internal sealed class ProgramDebugService(
             return (null, parsed.SyntaxErrors.FirstOrDefault()?.Description ?? DebuggerMessages.NotAnExpression);
         }
 
-        var assignments = Descendants(parsed.SyntaxTree).OfType<AssignmentStatementNode>().ToArray();
+        var assignments = parsed.SyntaxTree.Descendants().OfType<AssignmentStatementNode>().ToArray();
         return assignments is [{ Value: { } value }] ? (value, null) : (null, DebuggerMessages.NotOneExpression);
     }
 
@@ -308,6 +308,4 @@ internal sealed class ProgramDebugService(
         await environment.WaitForReadyAsync(token);
         _ = await environment.SendRequestAsync<HostDebugErrorBreakParams, DebugAck>(new HostDebugErrorBreakParams { Mode = mode }, token);
     }
-
-    private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 }

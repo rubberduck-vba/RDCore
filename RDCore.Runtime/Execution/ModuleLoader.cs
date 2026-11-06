@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
@@ -58,7 +59,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
     /// The descriptions of the errors lowering found. A module that has any is not loaded at all, and what was loaded
     /// for it before stays: there is no telling which of its procedures the program would have run.
     /// </returns>
+    /// <remarks>
+    /// The module is loaded on a thread whose stack has room for the deepest expression RD-VBA reads (<see cref="LargeStackThread"/>): its static semantics
+    /// and its lowering recurse once or more for each level of an expression.
+    /// </remarks>
     public ImmutableArray<string> Load(Symbol module, ModuleParseResult parseResult)
+        => LargeStackThread.Run(() => LoadCore(module, parseResult));
+
+    private ImmutableArray<string> LoadCore(Symbol module, ModuleParseResult parseResult)
     {
         if (parseResult.SyntaxTree is not { } syntaxTree)
         {
@@ -165,10 +173,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, messages);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
 
-        // what the error is, and the detail that says which of the module's statements it is about.
-        var errors = moduleModel.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
-            ? error.Description
-            : $"{error.Description}: {error.Verbose}").ToImmutableArray();
+        // what the error is, and the detail that says which of the module's statements it is about. An expression nested too deeply to be analyzed is kept as
+        // text, which is no code (RD-VBAL 2.6.1): a module that has one is not loaded either, so that a run of it is refused before any of it runs. It is the
+        // parser's error, which the module's model does not repeat.
+        var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
+            .Concat(parseResult.SyntaxErrors.Where(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply).Select(error => (error.Description, error.Verbose)))
+            .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
+                ? error.Description
+                : $"{error.Description}: {error.Verbose}").ToImmutableArray();
 
         if (errors.IsEmpty)
         {

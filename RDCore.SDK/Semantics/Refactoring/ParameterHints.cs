@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
+using RDCore.SDK.Platform;
 
 namespace RDCore.SDK.Semantics.Refactoring;
 
@@ -33,8 +34,17 @@ public static class ParameterHints
     /// <param name="module">The module.</param>
     /// <param name="range">The range a client shows.</param>
     /// <returns>The hints, in the order they are written.</returns>
+    /// <remarks>
+    /// The static pass that binds each callee recurses once for each level of an expression: the hints are made on a large-stack thread, one for the call, and
+    /// not one for each callee (<see cref="LargeStackThread"/>).
+    /// </remarks>
     public static IReadOnlyList<ParameterHint> In(RenameContext context, Uri module, SourceRange range)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => In(context, module, range));
+        }
+
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
         {
             return [];

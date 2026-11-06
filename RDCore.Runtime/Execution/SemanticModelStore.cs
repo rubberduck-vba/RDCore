@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 
@@ -28,6 +29,19 @@ public sealed class SemanticModelStore
 
     private sealed record Evaluation(CancellationTokenSource Cancellation, Task Completion);
 
+    private readonly Func<Action, CancellationToken, Task> _start;
+
+    /// <summary>
+    /// A store whose evaluations run on <see cref="LargeStackThread"/>.
+    /// </summary>
+    public SemanticModelStore()
+        : this(LargeStackThread.Start)
+    {
+    }
+
+    // what starts an evaluation: LargeStackThread, or the same on threads a test counts itself.
+    internal SemanticModelStore(Func<Action, CancellationToken, Task> start) => _start = start;
+
     /// <summary>
     /// Keeps a module's model, replacing the one it had.
     /// </summary>
@@ -40,7 +54,8 @@ public sealed class SemanticModelStore
     /// <param name="model">The model of a module, as the static pass made it.</param>
     /// <param name="evaluate">
     /// Finds the facts of the procedures of the module, by their <see cref="Symbol.SemanticId"/>; <see langword="null"/> when there is nothing to evaluate. It runs
-    /// on another thread, once, and is given the token that stops it: it reads nothing that the thread that stored the model goes on changing.
+    /// on another thread, at most once - an evaluation still waiting for a thread when the module is stored again or removed never runs - and is given the token
+    /// that stops it: it reads nothing that the thread that stored the model goes on changing.
     /// </param>
     public void Store(ModuleSemanticModel model, Func<CancellationToken, ImmutableDictionary<SemanticId, RuntimeFacts>>? evaluate)
     {
@@ -53,7 +68,11 @@ public sealed class SemanticModelStore
             if (evaluate is not null)
             {
                 var cancellation = new CancellationTokenSource();
-                _evaluations[key] = new Evaluation(cancellation, Task.Run(() => Complete(key, model, evaluate, cancellation.Token)));
+                // the code is evaluated as a program runs it, on a thread whose stack has room for its deepest expression. An evaluation stopped before one is
+                // free never runs; either way what is waited for is that it is over, and not how.
+                var evaluation = _start(() => Complete(key, model, evaluate, cancellation.Token), cancellation.Token);
+                _evaluations[key] = new Evaluation(cancellation,
+                    evaluation.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default));
             }
         }
     }

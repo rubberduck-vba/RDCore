@@ -37,7 +37,7 @@ public sealed class FewCapabilitiesInitializeTests
             .AddHandler(new TypeDefinitionHandler(workspace))
             .AddHandler(new ImplementationHandler(workspace))
             .AddHandler(new HoverHandler(workspace))
-            .AddHandler(new ReferencesHandler(workspace))
+            .AddHandler(new ReferencesHandler(workspace, Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>()))
             .AddHandler(new DocumentHighlightHandler(workspace))
             .AddHandler(new CallHierarchyPrepareHandler(workspace))
             .AddHandler(new TypeHierarchyPrepareHandler(workspace))

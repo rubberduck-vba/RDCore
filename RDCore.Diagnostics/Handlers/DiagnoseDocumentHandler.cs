@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Diagnostics.Handlers;
@@ -13,7 +14,11 @@ internal sealed class DiagnoseDocumentHandler(
     ICoreDiagnosticsFactory diagnostics, IEnumerable<IModuleAnalyzer> analyzers, ILogger<DiagnoseDocumentHandler> logger)
     : RDCoreRequestHandler<DiagnoseDocumentParams, DiagnoseDocumentResult>
 {
+    // on a thread whose stack has room for the deepest expression a parse has (LargeStackThread): an analyzer may walk an expression by recursion.
     protected override Task<DiagnoseDocumentResult> HandleAsync(DiagnoseDocumentParams request, CancellationToken token)
+        => Task.FromResult(LargeStackThread.Run(() => Diagnose(request)));
+
+    private DiagnoseDocumentResult Diagnose(DiagnoseDocumentParams request)
     {
         var payload = PlatformJson.Deserialize<DiagnoseDocumentPayload>(request.Json);
 
@@ -65,10 +70,10 @@ internal sealed class DiagnoseDocumentHandler(
         logger.LogInformation("📥 {method}: {uri} → {count} diagnostic(s)",
             RDCoreComponentProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);
 
-        return Task.FromResult(new DiagnoseDocumentResult
+        return new DiagnoseDocumentResult
         {
             Diagnostics = diagnosticList,
             SourceVersion = payload.SourceVersion,
-        });
+        };
     }
 }

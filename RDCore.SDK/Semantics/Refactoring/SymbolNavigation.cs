@@ -5,6 +5,8 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using System.Globalization;
+using System.Resources;
 
 namespace RDCore.SDK.Semantics.Refactoring;
 
@@ -22,7 +24,37 @@ public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange
 /// <param name="Origin">Where the name is written, in the module the navigation starts from.</param>
 /// <param name="Symbol">The symbol the name refers to.</param>
 /// <param name="Sites">The places it leads to, in the order they are written; none for a symbol that no module of the workspace declares.</param>
-public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites);
+public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites)
+{
+    /// <summary>
+    /// Where the symbol's name is written, as a name whose meaning is not known, that could refer to it - a name in an expression nested too deeply to be
+    /// analyzed (<strong>RD-VBAL §2.6.1</strong>), a member accessed late-bound: what <see cref="SymbolNavigation.ReferencesAt"/> and
+    /// <see cref="SymbolNavigation.OccurrencesAt"/> find may be incomplete, as a rename of the symbol is refused (<see cref="RenameRefusalKind.Unresolved"/>).
+    /// None for any other navigation.
+    /// </summary>
+    public IReadOnlyList<SymbolSite> Unresolved { get; init; } = [];
+
+    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(SymbolNavigationTarget).Assembly);
+
+    /// <summary>
+    /// What a reader is told of what was found, when it may be incomplete (<see cref="Unresolved"/>): where the first name whose meaning is not known is
+    /// written.
+    /// </summary>
+    /// <param name="locate">How a position is named to the reader, as <see cref="RenameRefusal.ToMessage"/> names it; by default, the name of the module and the line and the column, from 1.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    /// <returns><see langword="null"/> when nothing found may be missing.</returns>
+    public string? IncompleteMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
+    {
+        if (Unresolved is not [var first, ..])
+        {
+            return null;
+        }
+
+        culture ??= CultureInfo.CurrentUICulture;
+        var where = locate?.Invoke(first.Module, first.Range.Start) ?? $"{SymbolUri.ModuleNameOf(first.Module)} {first.Range.Start.Line + 1}:{first.Range.Start.Character + 1}";
+        return string.Format(culture, Messages.GetString("References_Incomplete", culture)!, Symbol.Name, where);
+    }
+}
 
 /// <summary>
 /// Navigates from a name to what it refers to (<strong>LSP 3.17</strong> §Goto Definition Request, §Goto Declaration Request): the name is bound the way a
@@ -97,7 +129,8 @@ public static class SymbolNavigation
     /// <param name="includeDeclaration">Whether the names its declarations declare are references too, and the attributes of a member.</param>
     /// <returns>
     /// The name and each place that refers to its symbol, as a site whose range is the name, by module and then in the order written. <see langword="null"/>
-    /// where no name is written, or where what the name refers to is not known; a name whose meaning is not known where it is written is not a reference.
+    /// where no name is written, or where what the name refers to is not known; a name whose meaning is not known where it is written is not a reference,
+    /// and where it could be one, it is in <see cref="SymbolNavigationTarget.Unresolved"/>: the references found may be incomplete.
     /// </returns>
     /// <remarks>
     /// Each procedure of a property is referred to by the names that call it (<strong>MS-VBAL §5.3.1.7</strong>): its <c>Property Get</c> by those that read
@@ -131,7 +164,8 @@ public static class SymbolNavigation
         var together = DefinedTogether(context, symbol).ToList();
         var symbols = together.Select(defined => defined.SemanticId).ToHashSet();
         var isType = symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
-        var occurrences = NameOccurrences.Find(context, symbol.Name, context.Modules).Occurrences;
+        var found = NameOccurrences.Find(context, symbol.Name, context.Modules);
+        var occurrences = found.Occurrences;
 
         // how each module's names are used, found once per module.
         var assigned = new Dictionary<string, IReadOnlyDictionary<SourcePosition, NameAccess>>(StringComparer.Ordinal);
@@ -205,11 +239,18 @@ public static class SymbolNavigation
             }
         }
 
-        return new SymbolNavigationTarget(origin, symbol, [.. sites
+        // a name written as the symbol's whose meaning is not known, where the symbol could be what it means, as a rename refuses it.
+        var unresolved = found.Unknown
+            .Where(unknown => unknown.Kind == OccurrenceKind.Member || together.Any(defined => SymbolRename.ChainIndex(unknown.Scope, defined) < int.MaxValue))
+            .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range));
+        return new SymbolNavigationTarget(origin, symbol, Ordered(sites)) { Unresolved = Ordered(unresolved) };
+    }
+
+    private static IReadOnlyList<SymbolSite> Ordered(IEnumerable<SymbolSite> sites)
+        => [.. sites
             .DistinctBy(site => (site.Module.AbsoluteUri, site.Range))
             .OrderBy(site => site.Module.AbsoluteUri, StringComparer.Ordinal)
-            .ThenBy(site => site.Range.Start)]);
-    }
+            .ThenBy(site => site.Range.Start)];
 
     // what calls a procedure of a property: a read calls its Get, a Let-assignment its Let, a Set-assignment its Set; null for anything else.
     private static NameAccess? AccessorOf(Symbol symbol) => symbol switch

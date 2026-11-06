@@ -18,6 +18,18 @@ public sealed class ProgramIndenterTests
     private static IReadOnlyList<string> Indented(params string[] statements) => Indented(CodeFormattingOptions.Default, statements);
 
     [TestMethod]
+    public void AProgramWithAnExpressionPastTheLimitOfNesting_IsIndented()
+    {
+        var chain = Parser.ExpressionNestingTests.ChainPastTheLimit();
+
+        IReadOnlyList<string> indented = [];
+        var thrown = SmallStack.Run(() => indented = Indented("If x Then", $"y = {chain}", "End If"));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        CollectionAssert.AreEqual(new[] { "If x Then", $"    y = {chain}", "End If" }, indented.ToArray());
+    }
+
+    [TestMethod]
     public void NestedBlocks_AreALevelEach_AndWhatIsInNoBlockIsAtTheLeft()
     {
         var indented = Indented(
