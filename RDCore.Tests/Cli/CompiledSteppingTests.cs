@@ -40,15 +40,16 @@ public sealed class CompiledSteppingTests
             "    Jumped = 1",
             "End Function"), "Jumped", recoveries: 1);
 
-    // a member of a class: its Me is in its frame, and so are the fields of the object it is a call on.
+    // a member of a class: its Me is in its frame, and a scalar field of the object it is a call on is in the cell the object holds it in, which compiled
+    // code reads and writes (IR lowering S2.5e).
     [TestMethod]
-    public async Task AMemberOfAClass_IsCompiled_AndItsFieldsAreTheInterpreters()
+    public async Task AMemberOfAClass_IsCompiled_WithTheFieldsOfMe()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.AddUpTo(3)",
             "    Debug.Print C.AddUpTo(4)",
-            "End Sub"), "AddUpTo", recoveries: 4, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
+            "End Sub"), "AddUpTo", recoveries: 0, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
                 "Option Explicit",
                 "Private mTotal As Long",
                 "Public Function AddUpTo(ByVal N As Long) As Long",
@@ -88,8 +89,8 @@ public sealed class CompiledSteppingTests
             "    Value = mValue + T",
             "End Property"))];
 
-        await AssertAlikeAsync(program, "Let Value", recoveries: 1, classes: box);
-        await AssertAlikeAsync(program, "Value", recoveries: 1, classes: box);
+        await AssertAlikeAsync(program, "Let Value", recoveries: 0, classes: box);
+        await AssertAlikeAsync(program, "Value", recoveries: 0, classes: box);
     }
 
     // a Property Set: its object parameter is the frame's, and what it does with it the interpreter's.
@@ -100,7 +101,7 @@ public sealed class CompiledSteppingTests
             "    Dim H As New Holder",
             "    Set H.Items = New Collection",
             "    Debug.Print H.Total",
-            "End Sub"), "Set Items", recoveries: 5, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
+            "End Sub"), "Set Items", recoveries: 4, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
                 "Private mItems As Collection",
                 "Private mTotal As Long",
@@ -406,14 +407,15 @@ public sealed class CompiledSteppingTests
             "    End",
             "End Sub"), "Ended", recoveries: 1);
 
-    // a member calls another member of the object it is a call on, Me.
+    // a member calls another member of the object it is a call on, Me: each call is the interpreter's, and what the callee assigns the field is what
+    // compiled code reads of it after.
     [TestMethod]
     public async Task AMemberCallingAnotherMemberOfMe_IsCompiled()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.AddUpTo(3)",
-            "End Sub"), "AddUpTo", recoveries: 4, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
+            "End Sub"), "AddUpTo", recoveries: 3, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
                 "Option Explicit",
                 "Private mTotal As Long",
                 "Public Function AddUpTo(ByVal N As Long) As Long",
