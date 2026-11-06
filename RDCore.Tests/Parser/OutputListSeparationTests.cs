@@ -35,6 +35,8 @@ public class OutputListSeparationTests
     [DataRow("Print #1, Spc(1)Tab(2)", 20)]
     [DataRow("Write #1, 1(2)", 15)]
     [DataRow("Print 1(2)", 11)]
+    [DataRow("Debug.Print Spc(2)-1", 22)]
+    [DataRow("Debug.Print Tab-1", 19)]
     public void AnOutputItemWrittenRightAfterAnother_IsOutputItemsNotSeparated_AtIt(string statement, int column)
     {
         var result = ParseInProcedure(statement);
@@ -88,6 +90,43 @@ public class OutputListSeparationTests
         var items = ItemsOf(result).Where(item => item.Value is not null).ToArray();
         Assert.HasCount(2, items);
         Assert.IsNotInstanceOfType<IndexExpressionNode>(items[0].Value);
+    }
+
+    // at the start of an output clause, Tab and Spc( are a clause, never a name an expression begins with: what follows the clause is a second item, or
+    // nothing the list can hold. MS-VBA refuses a clause before `&`, kept as typed, with "Compile error: Syntax error" (Excel, oracle\s71 B01-B03, B09).
+    [TestMethod]
+    [DataRow("Debug.Print Spc(2) & \"x\"")]
+    [DataRow("Debug.Print Tab(2) & \"x\"")]
+    [DataRow("Debug.Print Tab & \"x\"")]
+    [DataRow("Debug.Print Spc(2)&\"x\"")]
+    [DataRow("Print #1, Spc(2) & \"x\"")]
+    // a KNOWN DIFFERENCE from MS-VBA: it reads `+ 1` as an item, the clause then 1, and the VBE writes `Tab(2); 1` (oracle\s71 B05). MS-VBAL has no unary +
+    // (5.6.9.3), and RD-VBA reads none anywhere (`x = +1` is a syntax error too); before VBC00061, `Tab(2) + 1` was read as an addition, with Tab a name.
+    [DataRow("Debug.Print Tab(2) + 1")]
+    public void ATabOrSpcClauseBeforeAnOperator_IsASyntaxError(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsNotEmpty(result.SyntaxErrors, statement);
+        Assert.IsTrue(result.SyntaxErrors.All(error => error.VBCompileErrorId == VBCompileErrorId.SyntaxError),
+            string.Join(" | ", result.SyntaxErrors.Select(error => $"{error.VBCompileErrorId}: {error.Description}")));
+    }
+
+    // a clause, then a negation with a space before it, is two items, as MS-VBA reads it: the VBE writes `Spc(2); -1` and prints -1 after the clause (Excel,
+    // oracle\s71 B04, B06). Without the space (`Spc(2)-1`), the negation is written right after the clause, which is VBC00061 (B07, B08).
+    [TestMethod]
+    [DataRow("Debug.Print Spc(2) - 1")]
+    [DataRow("Debug.Print Tab - 1")]
+    [DataRow("Print #1, Tab(2) - 1")]
+    public void ATabOrSpcClauseThenASpaceThenANegation_IsTwoItems(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var items = ItemsOf(result).Where(item => item.Value is not null).ToArray();
+        Assert.HasCount(2, items);
+        Assert.IsTrue(items[0].Value is PrintSpcClauseNode or PrintTabClauseNode, items[0].Value!.GetType().Name);
+        Assert.IsInstanceOfType<LiteralExpressionNode>(items[1].Value, "-1, a literal, and no subtraction of the clause");
     }
 
     // a Spc clause that is not complete is the parser's error as any other is, said with what it could not read: not the code of the grammar's predicate
