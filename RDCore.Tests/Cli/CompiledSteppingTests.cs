@@ -41,7 +41,7 @@ public sealed class CompiledSteppingTests
             "End Function"), "Jumped", recoveries: 1);
 
     // a member of a class: its Me is in its frame, and a scalar field of the object it is a call on is in the cell the object holds it in, which compiled
-    // code reads and writes (IR lowering S2.5e).
+    // code reads and writes.
     [TestMethod]
     public async Task AMemberOfAClass_IsCompiled_WithTheFieldsOfMe()
         => await AssertAlikeAsync(Program(

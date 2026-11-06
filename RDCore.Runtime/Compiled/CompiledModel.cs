@@ -288,7 +288,7 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver, IR lowering S2.5e3).
+// slot of the object variable it is made on (Receiver).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
@@ -322,7 +322,7 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 }
 
 /// <summary>
-/// A member of a class a compiled call of a member of an object enters directly (IR lowering S2.5e3b): its body, compiled, and its typed entry, which the
+/// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
 /// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
 /// holds them.
 /// </summary>
@@ -332,7 +332,7 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
+/// The cells of the fields of an object a body found (<see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
 /// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
 /// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does. A live object keeps the cell
 /// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body

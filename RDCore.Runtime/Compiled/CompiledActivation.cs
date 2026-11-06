@@ -387,7 +387,7 @@ public sealed class CompiledActivation : ILightActivation
         return Returned(called, result, out integral, out floating);
     }
 
-    // the member a call of a member of an object invokes, and the object it invokes it on (IR lowering S2.5e3): found before the call (CanCallMember), and
+    // the member a call of a member of an object invokes, and the object it invokes it on: found before the call (CanCallMember), and
     // let go of as it is made (CallMember).
     private VBTypeMemberSymbol? _member;
     private IRuntimeValue? _receiver;
@@ -395,7 +395,7 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
-    /// <paramref name="cell"/> refers to (IR lowering S2.5e3): the member the object's class invokes for it is found as the interpreter finds it
+    /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
     /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called - its parameters after <c>Me</c> of the same
     /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
     /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
@@ -606,7 +606,7 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The activation of the member <see cref="CanCallMember"/> found, which compiled code is about to call through its typed entry (<see cref="MemberEntry"/>)
-    /// with the arguments as it holds them, on the object it found (IR lowering S2.5e3b), the object its <c>Me</c>: on the stack without a frame, as
+    /// with the arguments as it holds them, on the object it found, the object its <c>Me</c>: on the stack without a frame, as
     /// <see cref="EnterDirectly"/> makes one, when the frame would hold nothing compiled code does not but <c>Me</c> (<see cref="CompiledBody.EntersWithoutFrame"/>)
     /// and no debugger is to see it - the activation holds <c>Me</c>, and its frame, once something is to see it, is the one the invoker would have made; with
     /// its frame otherwise (<c>RuntimeProcedureInvoker.PushMemberActivation</c>). The instruction at <paramref name="pc"/> is the one that makes the call,
@@ -938,7 +938,7 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type (IR lowering S2.5e): the one the object holds it in, as the
+    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type: the one the object holds it in, as the
     /// interpreter resolves it, which compiled code reads and writes it in.
     /// </summary>
     /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
@@ -1007,7 +1007,7 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell the frame holds the object parameter or variable in <paramref name="slot"/> in (IR lowering S2.5e2): what compiled code reads the reference
+    /// The cell the frame holds the object parameter or variable in <paramref name="slot"/> in: what compiled code reads the reference
     /// it holds from (<see cref="ObjectOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is
     /// bound to its caller's variable's address is in the cell held at that address, as a <c>Variant</c>'s is (<see cref="VariantCellOf"/>).
     /// </summary>
@@ -1431,8 +1431,8 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public bool NeedsFrame { get; init; }
 
     /// <summary>
-    /// Whether the body is of a member of a class that a call compiled code makes of it on an object enters without a frame (IR lowering S2.5e3b,
-    /// <see cref="ProcedureAnalysis.EntersWithoutFrame"/>).
+    /// Whether the body is of a member of a class that a call compiled code makes of it on an object enters without a frame
+    /// (<see cref="ProcedureAnalysis.EntersWithoutFrame"/>).
     /// </summary>
     public bool EntersWithoutFrame { get; init; }
 

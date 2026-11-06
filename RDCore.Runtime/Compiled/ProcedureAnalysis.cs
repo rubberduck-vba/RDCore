@@ -65,7 +65,7 @@ namespace RDCore.Runtime.Compiled;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
-/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (IR lowering S2.5e, <see cref="FieldSlots"/>), found where the
+/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="FieldSlots"/>), found where the
 /// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
 /// an instruction: compiled code reads and writes it as it does a variable held in a cell.
 /// </para>
@@ -127,7 +127,7 @@ internal sealed class ProcedureAnalysis
     private readonly SortedSet<int> _variantSlots = [];
 
     /// <summary>
-    /// The slots of the object parameters and variables, in order (IR lowering S2.5e2): each is held in the cell its frame holds it in, which compiled code
+    /// The slots of the object parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
     /// reads the reference it holds from - for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
     /// </summary>
     public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
@@ -193,7 +193,7 @@ internal sealed class ProcedureAnalysis
     }
 
     /// <summary>
-    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout (IR lowering S2.5e): each is held
+    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout: each is held
     /// in the cell the object holds it in (<see cref="CellSlots"/>), which compiled code reads and writes it in, as it does a parameter passed by reference.
     /// </summary>
     public IReadOnlySet<int> FieldSlots => _fieldSlots;
@@ -231,7 +231,7 @@ internal sealed class ProcedureAnalysis
         analysis.Analyze(list);
 
         // Me, and the fields found through it, are what a frame holds of a member of a class that nothing else makes it hold: such a member is entered
-        // without one, and its activation holds Me (IR lowering S2.5e3b). Any other member is called with its frame.
+        // without one, and its activation holds Me. Any other member is called with its frame.
         analysis.EntersWithoutFrame = analysis.MeSlot is not null && !analysis.NeedsFrame;
         analysis.NeedsFrame |= analysis.MeSlot is not null || analysis._fieldSlots.Count > 0;
         return analysis;
@@ -418,7 +418,7 @@ internal sealed class ProcedureAnalysis
     public int? MeSlot { get; private set; }
 
     /// <summary>
-    /// Whether the procedure is a member of a class whose frame holds nothing compiled code does not but <c>Me</c> (IR lowering S2.5e3b): a call compiled
+    /// Whether the procedure is a member of a class whose frame holds nothing compiled code does not but <c>Me</c>: a call compiled
     /// code makes of it on an object enters it without a frame, as it enters a procedure (<see cref="CompiledActivation.EnterMemberDirectly"/>), its
     /// activation holding <c>Me</c>, and its fields found on the object.
     /// </summary>
@@ -464,7 +464,7 @@ internal sealed class ProcedureAnalysis
                 continue;
             }
 
-            // an object is held in the cell its frame holds it in, whose reference compiled code reads (IR lowering S2.5e2).
+            // an object is held in the cell its frame holds it in, whose reference compiled code reads.
             if (parameter is not ParamArrayParameterSymbol && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
             {
                 NeedsFrame = true;
@@ -711,7 +711,7 @@ internal sealed class ProcedureAnalysis
         return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null);
     }
 
-    // a call of a member of an object variable of the activation declared as a class (IR lowering S2.5e3), its parameters after Me taken as CallOf takes a
+    // a call of a member of an object variable of the activation declared as a class, its parameters after Me taken as CallOf takes a
     // procedure's. The member is the one the class the variable is declared as has: the one the object's class invokes for it is found when the call is
     // made (CompiledActivation.CanCallMember), as the interpreter finds it (EvaluateBoundMember), and the call is made as the interpreter makes it, the
     // object given as Me.
@@ -1100,7 +1100,7 @@ internal sealed class ProcedureAnalysis
     {
         switch (node)
         {
-            // MS-VBAL §5.6.9.7: two object references compared as they are (IR lowering S2.5e2).
+            // MS-VBAL §5.6.9.7: two object references compared as they are.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
                 return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
                     ? new IsNode(leftObject, rightObject)

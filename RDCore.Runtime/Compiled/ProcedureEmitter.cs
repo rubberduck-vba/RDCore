@@ -39,7 +39,7 @@ internal sealed class ProcedureEmitter
     private readonly Dictionary<int, LocalBuilder> _variants = [];
     private static readonly Type Variants = typeof(VariantOperations);
 
-    // the object slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5e2).
+    // the object slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _objects = [];
     private static readonly Type Objects = typeof(ObjectOperations);
 
@@ -261,7 +261,7 @@ internal sealed class ProcedureEmitter
 
         foreach (var slot in _analysis.CellSlots)
         {
-            // a field of Me is in the cell the object holds it in (IR lowering S2.5e): one held otherwise makes the activation the interpreter's from the start.
+            // a field of Me is in the cell the object holds it in: one held otherwise makes the activation the interpreter's from the start.
             if (_analysis.FieldSlots.Contains(slot))
             {
                 EmitFieldCell(slot, WalkBackAt(0), nameof(CompiledActivation.FieldCellOf));
@@ -648,7 +648,7 @@ internal sealed class ProcedureEmitter
             arguments[i] = EmitArgument(call.Arguments[i], failure);
         }
 
-        // a member of an object (IR lowering S2.5e3): the object the variable refers to, and the member its class invokes, found before anything is called.
+        // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
         if (call.Receiver is { } receiver)
         {
             _il.Emit(OpCodes.Ldarg_0);
@@ -671,7 +671,7 @@ internal sealed class ProcedureEmitter
 
         // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
-        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has (IR lowering S2.5e3b).
+        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has.
         var direct = _directs[call.Callee];
         if (direct is not null || call.Receiver is not null)
         {

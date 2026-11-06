@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Values.Runtime;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// What compiled code does of an object parameter or variable (IR lowering S2.5e2): it reads the reference held in the cell its frame holds it in
+/// What compiled code does of an object parameter or variable: it reads the reference held in the cell its frame holds it in
 /// (<see cref="CompiledActivation.ObjectCellOf"/>), and compares two references, as the interpreter compares them. What it doesn't read - a cell of no object
 /// reference, one the analysis doesn't know the value of - is the interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the
 /// statement.
