@@ -72,42 +72,7 @@ internal sealed class ProcedureCompiler
             }
 
             // compiled code works on payloads: where the process holds its values boxed, no procedure is compiled, and each says why, once for its body.
-            if (!UnboxedEvaluation.IsEnabled)
-            {
-                _bodies.AddOrUpdate(list, new Entry(scopes, Boxed));
-                _results[procedure.SemanticId] = (procedure, Boxed);
-                return Boxed;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-            CompiledBody? body;
-            IReadOnlyList<Ineligibility> reasons;
-            IReadOnlyList<Ineligibility> stepped = [];
-            _ = _inProgress.Add(procedure.SemanticId);
-            try
-            {
-                var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
-                body = analysis.Reasons.Count == 0 ? Emit(session, evaluator, analysis, procedure, list) : null;
-                reasons = analysis.Reasons;
-                stepped = body is null ? [] : analysis.Stepped;
-            }
-            catch (Exception exception)
-            {
-                // a failure to compile a procedure is the compiler's defect, never the program's - a cancellation too, as compiling is told of none: the
-                // procedure runs in the interpreter, as one that is not compiled does, and the failure is reported.
-                body = null;
-                reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
-                failure = exception;
-            }
-            finally
-            {
-                _ = _inProgress.Remove(procedure.SemanticId);
-            }
-
-            stopwatch.Stop();
-
-            result = new CompilationResult(body, reasons, stopwatch.Elapsed) { Stepped = stepped };
-            _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
+            (result, failure) = UnboxedEvaluation.IsEnabled ? Make(session, evaluator, procedure, list) : (Boxed, null);
             _bodies.AddOrUpdate(list, new Entry(scopes, result));
             _results[procedure.SemanticId] = (procedure, result);
         }
@@ -117,13 +82,52 @@ internal sealed class ProcedureCompiler
             Report(procedure, failure);
         }
 
+        return Told(procedure, result);
+    }
+
+    // the procedure compiled, or found not to be: what is made of it, and the compiler's failure if it failed.
+    private (CompilationResult Result, Exception? Failure) Make(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol procedure, InstructionList list)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        CompiledBody? body;
+        IReadOnlyList<Ineligibility> reasons;
+        IReadOnlyList<Ineligibility> stepped = [];
+        Exception? failure = null;
+        _ = _inProgress.Add(procedure.SemanticId);
+        try
+        {
+            var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
+            body = analysis.Reasons.Count == 0 ? Emit(session, evaluator, analysis, procedure, list) : null;
+            reasons = analysis.Reasons;
+            stepped = body is null ? [] : analysis.Stepped;
+        }
+        catch (Exception exception)
+        {
+            // a failure to compile a procedure is the compiler's defect, never the program's - a cancellation too, as compiling is told of none: the
+            // procedure runs in the interpreter, as one that is not compiled does, and the failure is reported.
+            body = null;
+            reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
+            failure = exception;
+        }
+        finally
+        {
+            _ = _inProgress.Remove(procedure.SemanticId);
+        }
+
+        stopwatch.Stop();
+        _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
+        return (new CompilationResult(body, reasons, stopwatch.Elapsed) { Stepped = stepped }, failure);
+    }
+
+    // the result made, told to the Compiled handlers: as a failure is told, what is told of a result cannot fail the call.
+    private CompilationResult Told(VBTypeMemberSymbol procedure, CompilationResult result)
+    {
         try
         {
             Compiled?.Invoke(procedure, result);
         }
         catch (Exception)
         {
-            // as a failure is told: what is told of a result cannot fail the call.
         }
 
         return result;

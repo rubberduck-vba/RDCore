@@ -60,7 +60,20 @@ public partial class ModuleParser(
     // on a thread whose stack has room for the deepest expression RD-VBA reads (LargeStackThread): the grammar's descent and the build of the tree recurse once
     // or more for each level of an expression.
     public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
-        => LargeStackThread.Run(() => Parse(uri, content, anchorOffset, [], Statistics, token));
+    {
+        // the looks are counted on the thread that parses, which is not the caller's when the parse moves to a large stack: they are told to the caller's.
+        var looks = 0L;
+        var result = LargeStackThread.Run(() =>
+        {
+            t_directiveLooks = 0;
+            var parsed = Parse(uri, content, anchorOffset, [], Statistics, token);
+            looks = t_directiveLooks;
+            return parsed;
+        });
+
+        t_directiveLooks = looks;
+        return result;
+    }
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
     // of its own, so that no identity of its nodes is one of the module's. statistics: where how the module was read is counted; none for such a part, which
@@ -470,7 +483,6 @@ public partial class ModuleParser(
     // token, never by the exception: SLL's bail is itself an OperationCanceledException.
     private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, CancellationToken token)
     {
-        t_directiveLooks = 0;
         var bailing = DirectiveParser(sanitized, new BailErrorStrategy(), token);
         try
         {
@@ -498,10 +510,12 @@ public partial class ModuleParser(
     private static long t_directiveLooks;
 
     /// <summary>
-    /// The work the last directive pass of this thread did: each token its parses looked at, as many times as each looked at it, in prediction and in
-    /// matching. What a guard of the pass's work counts, where a clock would count the machine.
+    /// The work the directive passes of this thread's last <see cref="Parse(Uri, string, SourcePosition, CancellationToken)"/> did, the module's and its
+    /// header alternatives': each token their parses looked at, as many times as each looked at it, in prediction and in matching. None for a module with
+    /// no directive. What a guard of the pass's work counts, where a clock would count the machine. It isn't a function of the input alone: a decision the
+    /// shared DFA cache hasn't seen yet adds the looks of its full prediction, once.
     /// </summary>
-    internal static long LooksOfLastDirectivePass => t_directiveLooks;
+    internal static long DirectiveLooksOfLastParse => t_directiveLooks;
 
     // a token stream that counts the looks the parser takes at its tokens.
     private sealed class LookCountingTokenStream(ITokenSource source) : CommonTokenStream(source)

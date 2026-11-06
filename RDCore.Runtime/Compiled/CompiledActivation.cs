@@ -305,7 +305,7 @@ public sealed class CompiledActivation : ILightActivation
     private bool IsStopping()
     {
         _untilPoll = PollInterval;
-        _body.CountLook();
+        _body.NoteLook();
 
         // a cancellation the program was resumed from is not asked about again: the interpreter would run the activation on without breaking.
         return CompiledExecution.WalksBackAtRandom || _executor.IsCancellationPending || _halt.WantsInterpreter;
@@ -1118,21 +1118,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountRecovered() => Interlocked.Increment(ref _recovered);
 
-    private long _looks;
     private readonly TaskCompletionSource _looked = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
-    /// How many times an activation of the body looked whether the program is to stop, at a back edge of a loop (<see cref="CompiledActivation.ShouldWalkBack"/>):
-    /// what is asked of it then - a breakpoint, a pause - is seen at its next look.
+    /// Completes when an activation of the body first looks whether the program is to stop, at a back edge of a loop
+    /// (<see cref="CompiledActivation.ShouldWalkBack"/>): what is asked of it after that - a breakpoint, a pause - is seen at its next look.
     /// </summary>
-    public long Looks => Interlocked.Read(ref _looks);
-
-    /// <summary>Completes when an activation of the body first looks whether the program is to stop (<see cref="Looks"/>).</summary>
     public Task Looked => _looked.Task;
 
-    internal void CountLook()
+    internal void NoteLook()
     {
-        if (Interlocked.Increment(ref _looks) == 1)
+        if (!_looked.Task.IsCompleted)
         {
             _ = _looked.TrySetResult();
         }
