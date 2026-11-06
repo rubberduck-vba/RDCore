@@ -191,8 +191,7 @@ public sealed class RedimThroughAParameterTests
     private const string ALocal = "    ReDim b(3): b(1) = 7";
 
     // each case of oracle\s68b, the body of its Case sub, which has a Variant w and a local b() As Long. T02, every Long subscript of Variants, is not
-    // here: MS-VBA raises no error, and the array's bounds read as declared, though x(1) of a copy of it is an error (ReDimSizeLimitTests has
-    // RD-VBA's error 7).
+    // here: it is a deliberate divergence, as MS-VBA accepts the bounds and holds no elements, and ReDimSizeLimitTests has RD-VBA's error 7.
     private static readonly Dictionary<string, string[]> Cases68b = new()
     {
         ["P01"] = ["    Fresh", "    ReDim Preserve a(2147483647)", TracesTheError, TracesA],

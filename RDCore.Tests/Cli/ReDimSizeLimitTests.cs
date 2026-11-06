@@ -25,14 +25,15 @@ public sealed class ReDimSizeLimitTests
             ]) + "\r\n");
 
     // MS-VBA can't allocate 65535³ Integers (oracle\s68b T01) and lets go of the array, as it does of 2147483648 Longs (s68 LA40, s68b T04, T05). It does
-    // allocate the Bytes and the billion Longs (s56 I07-I09, B09), the others are a few dozen megabytes, and it raises no error for every Long subscript of
-    // Variants (s68b T02): an error 7 that erases the array there is RD-VBA's choice, the same as for an array MS-VBA can't allocate.
+    // allocate the Bytes and the billion Longs (s56 I07-I09, B09), and the others are a few dozen megabytes. Every Long subscript of Variants is a deliberate
+    // divergence: MS-VBA accepts the bounds and holds no elements, as its count wraps (s68b T02), and RD-VBA raises error 7 and erases the array there, the
+    // same as for an array MS-VBA can't allocate.
     [TestMethod]
     [DataRow("Byte", "2147483647", DisplayName = "2,147,483,648 Bytes")]
     [DataRow("Byte", "2147483646", DisplayName = "2,147,483,647 Bytes")]
     [DataRow("Long", "1000000000", DisplayName = "a billion Longs")]
     [DataRow("Long", "16777216", DisplayName = "one more than the most")]
-    [DataRow("Variant", "-2147483648 To 2147483647", DisplayName = "every Long subscript")]
+    [DataRow("Variant", "-2147483648 To 2147483647", DisplayName = "every Long subscript, deliberately not MS-VBA's")]
     [DataRow("Integer", "4096, 4096", DisplayName = "two dimensions")]
     [DataRow("Integer", "65535, 65535, 65535", DisplayName = "three dimensions")]
     public async Task AReDimOfMoreElementsThanRDVBAHolds_IsOutOfMemory_AndTheArrayIsErased(string type, string bounds)

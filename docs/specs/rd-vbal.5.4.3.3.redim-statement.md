@@ -177,8 +177,9 @@ is untouched. A `ReDim Preserve` that is out of memory keeps what the variable h
 > `ReDim` that is out of memory leaves is MS-VBA's for an array it can't allocate - 2,147,483,648 `Long`s, 65535³ `Integer`s - with `Preserve` or without
 > (recorded in Excel, `oracle\s68` V10, LA40, BV30, W60, and `oracle\s68b`); for a smaller array that RD-VBA can't hold, it is RD-VBA's choice.
 >
-> MS-VBA raises no error for `ReDim x(-2147483648 To 2147483647)` of `Variant`s, the 2<sup>32</sup> elements of every `Long` subscript: the array's bounds
-> read as they are declared, and `x(1)` of a copy of it is an error (`oracle\s68b` T02). RD-VBA raises error 7 there.
+> RD-VBA deliberately diverges from MS-VBA for `ReDim x(-2147483648 To 2147483647)` of `Variant`s, the 2<sup>32</sup> elements of every `Long` subscript.
+> MS-VBA accepts the bounds and holds no elements, as its count of them wraps to 0: the bounds read as they are declared, and `x(1)` of a copy of it is an
+> error (`oracle\s68b` T02). RD-VBA raises error 7, as for any other array it can't hold.
 
 A target that is a member access - the field of a record (`r.Buffer`, `.Buffer` in a `With r` block), a variable of a module named through it
 (`Module1.Buffer`) - is an expression: the array is read from it, and the new array is written back through it, as an assignment to it is. The element type
