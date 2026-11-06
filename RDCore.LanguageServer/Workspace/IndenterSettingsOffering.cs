@@ -67,8 +67,9 @@ internal sealed class IndenterSettingsOffering : IDisposable
             await Task.Delay(50, token);
         }
 
+        // a client that runs unattended has nobody to answer the question, and is not asked it: the offer is made at a start that has someone to answer.
         var client = new RubberduckIndenterSettingsClient(_server, _capabilities);
-        if (!client.ClientExpects || _offer.WasMade)
+        if (!client.ClientExpects || _offer.WasMade || _capabilities.Expects(capabilities => capabilities.Unattended))
         {
             return null;
         }

@@ -238,35 +238,47 @@ public sealed class ReplInteractionTests
         var key = pressed switch { '\r' => Key(ConsoleKey.Enter), '\u001b' => Key(ConsoleKey.Escape), _ => Char(pressed) };
         var (interaction, output) = Shell(new ScriptedKeys().Press(key));
 
-        var answer = await new ReplShowMessageRequestHandler(interaction).Handle(new OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams
-        {
-            Message = "The project file can't be read. Regenerate it?",
-            Actions = new([new() { Title = "Regenerate" }, new() { Title = "Not now" }]),
-        }, CancellationToken.None);
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
 
         Assert.AreEqual(chosen, answer?.Title);
         StringAssert.Contains(output.ToString(), "Regenerate it?");
     }
 
-    // a script piped to the shell answers a line at a time: a button's text or key, or an empty line for the one selected at first; a script that runs out
-    // chose nothing.
+    // rdc --unattended has nobody at its console: a question the server asks anyway is answered with no choice, and no key is read for it.
     [TestMethod]
-    [DataRow("regenerate", 0)]
-    [DataRow("N", 1)]
-    [DataRow("", 1)]
-    [DataRow(null, null, DisplayName = "the script ran out")]
-    public void AChoice_IsAnsweredALineAtATime_ByAScript(string? line, int? chosen)
+    public async Task TheShowMessageRequestHandler_OfAShellThatRunsUnattended_ChoosesNothing_AndReadsNoKey()
     {
-        var keys = new ScriptedKeys(interactive: false);
-        if (line is not null)
-        {
-            keys.Lines("maybe", line);
-        }
+        var keys = new ScriptedKeys().Press(Char('r'));
+        var (interaction, output) = Shell(keys);
 
-        var (interaction, _) = Shell(keys);
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplUnattended(true)).Handle(Regenerate(), CancellationToken.None);
 
-        Assert.AreEqual(chosen, interaction.Choose("RDCore", "Regenerate it?", ["Regenerate", "Not now"], selected: 1));
+        Assert.IsNull(answer);
+        Assert.AreEqual(string.Empty, output.ToString());
+        Assert.AreEqual('r', keys.ReadKey(CancellationToken.None).KeyChar, "the key is still there");
     }
+
+    // a server's question comes when the server asks it, not where the script is: a script piped to the shell is not asked, and keeps every line.
+    [TestMethod]
+    public async Task TheShowMessageRequestHandler_OfAShellWhoseInputIsAScript_ChoosesNothing_AndTheScriptKeepsItsLines()
+    {
+        var keys = new ScriptedKeys(interactive: false).Lines("Regenerate", "", "Debug.Print 1");
+        var (interaction, output) = Shell(keys);
+
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
+
+        Assert.IsNull(answer);
+        Assert.AreEqual(string.Empty, output.ToString());
+        Assert.AreEqual("Regenerate", keys.ReadLine(CancellationToken.None));
+        Assert.AreEqual(string.Empty, keys.ReadLine(CancellationToken.None));
+        Assert.AreEqual("Debug.Print 1", keys.ReadLine(CancellationToken.None));
+    }
+
+    private static OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams Regenerate() => new()
+    {
+        Message = "The project file can't be read. Regenerate it?",
+        Actions = new([new() { Title = "Regenerate" }, new() { Title = "Not now" }]),
+    };
 
     // ---- THEME LIST ----
 

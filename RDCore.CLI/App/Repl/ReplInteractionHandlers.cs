@@ -51,10 +51,13 @@ internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IRepl
 /// a project file it cannot read, and the shell asks at its console.
 /// </summary>
 /// <remarks>
-/// A shell that runs unattended is never asked: it says so as it starts (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>).
+/// A shell that runs unattended (<c>--unattended</c>) is never asked, and chooses nothing: it says so as it starts
+/// (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a server that asks anyway is not answered. Nor is a shell whose input is a
+/// script (<see cref="ReplUserInteraction.Choose"/>).
 /// </remarks>
 /// <param name="interaction">The shell's dialogs.</param>
-internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interaction) : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageRequestHandler
+/// <param name="unattended">Whether the shell runs unattended.</param>
+internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interaction, ReplUnattended unattended) : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageRequestHandler
 {
     /// <inheritdoc/>
     public Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageActionItem> Handle(
@@ -62,7 +65,7 @@ internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interact
         => Task.Run(() =>
         {
             var actions = request.Actions?.ToArray() ?? [];
-            if (actions.Length == 0)
+            if (actions.Length == 0 || unattended.IsUnattended)
             {
                 return null!;
             }
@@ -72,6 +75,10 @@ internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interact
             return chosen is { } index ? actions[index] : null!;
         }, cancellationToken);
 }
+
+/// <summary>Whether the shell runs unattended (<c>--unattended</c>): nobody is at its console to answer a question.</summary>
+/// <param name="IsUnattended">Whether it does.</param>
+internal sealed record ReplUnattended(bool IsUnattended);
 
 internal static class ReplInteraction
 {

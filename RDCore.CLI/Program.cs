@@ -366,6 +366,7 @@ internal class RDCoreConsoleClientApp(
             .AddSingleton(rubberduck)
             .AddSingleton(settings)
             .AddSingleton(liveSettings)
+            .AddSingleton(new ReplUnattended(appOptions.Value.Unattended))
             .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
