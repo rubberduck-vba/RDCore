@@ -96,8 +96,8 @@ whose default member takes an argument (a `Collection`) error 450.
 > it again with a `;` between the items (`Debug.Print 1; (2)`), in every form of the statement, `Write #` included.
 >
 > RD-VBA requires a space, a `;` or a `,` between two output items, and reports two items written side by side as
-> [`VBC00061`](../diagnostics/vbc00061.md), at the second one. A name right before parentheses is not two items: in
-> `Debug.Print F(2)` and `Debug.Print F (2)` alike, `F` is called with the argument `2`, as in MS-VBA.
+> [`VBC00061`](../diagnostics/vbc00061.md), at the second one, once for each statement. A name right before
+> parentheses is not two items: in `Debug.Print F(2)`, `F` is called with the argument `2`, as in MS-VBA.
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 

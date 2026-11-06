@@ -145,7 +145,7 @@ public enum VBCompileErrorId
     ExpressionNestedTooDeeply = 60,
     /// <summary>
     /// An output item is written right after another, with nothing between them: <c>Debug.Print 1(2)</c>, <c>Print #1, "a"x</c>.<br/>
-    /// <strong>RD-VBAL §5.4.5.8</strong> Print Statement. <strong>MS-VBAL §5.4.5.8.1</strong> lets an output item follow another with nothing between them;
+    /// <strong>RD-VBAL §5.4.5.8.1</strong> Output Lists. <strong>MS-VBAL §5.4.5.8.1</strong> lets an output item follow another with nothing between them;
     /// RD-VBA requires a space, a <c>;</c> or a <c>,</c> between two output clauses, and the VBE writes a <c>;</c> there.
     /// </summary>
     OutputItemsNotSeparated = 61,
