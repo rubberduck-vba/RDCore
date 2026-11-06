@@ -30,14 +30,19 @@ public sealed class CompiledExecutionTests
         }
     }
 
-    // what was compiled, by the name of each procedure: a Property Let or Set by its kind and its name, as its Property Get has the same name.
+    // what was compiled, by the name of each procedure: a Property Let or Set by its kind and its name, as its Property Get has the same name. A name two
+    // modules' procedures have - each class implementing one interface has an ICounter_Value - is followed by the module's.
     internal static IReadOnlyDictionary<string, CompilationResult> ByName(EnvironmentSessionProvider provider)
-        => provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure switch
+    {
+        var named = provider.Image.Compiler.Results.Select(entry => (Name: entry.Procedure switch
         {
             RDCore.SDK.Model.Symbols.VBProject.VBPropertyLetMemberSymbol let => $"Let {let.Name}",
             RDCore.SDK.Model.Symbols.VBProject.VBPropertySetMemberSymbol set => $"Set {set.Name}",
             var procedure => procedure.Name,
-        }, entry => entry.Result);
+        }, entry.Procedure, entry.Result)).ToList();
+        var shared = named.GroupBy(entry => entry.Name).Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet();
+        return named.ToDictionary(entry => shared.Contains(entry.Name) ? $"{entry.Name} @{entry.Procedure.Uri}" : entry.Name, entry => entry.Result);
+    }
 
     // what compiled code does without payloads is to be seen only where the suite is run without them.
     private static void RequireBoxedValues()
