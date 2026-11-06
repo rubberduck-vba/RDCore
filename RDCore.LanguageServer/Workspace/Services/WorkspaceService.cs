@@ -303,7 +303,7 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         {
             var path = ioPath.Combine(workspaceRoot, ProjectFile.FileName);
             var backup = ProjectFileRegeneration.BackupPathOf(path, ioFile.Exists);
-            if (!await ProjectFileRegeneration.AskAsync(path, backup, exception.Message, ask, token))
+            if (!await ProjectFileRegeneration.AskAsync(path, backup, exception, ask, token))
             {
                 logger.LogWarning("⚠️ The project file can't be read, and was not regenerated: the workspace will not be loaded.");
                 throw;
@@ -311,11 +311,26 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
 
             ioFile.Move(path, backup);
             logger.LogWarning("⚠️ The project file can't be read: it is kept as '{backup}', and regenerated from the source files of its folder.", backup);
-        }
+            try
+            {
+                // the folder has no project file now: its project is the one its source files make, which is written.
+                await projectFileService.LoadAsync(workspaceRoot);
+                await projectFileService.SaveAsync();
+            }
+            catch (Exception regeneration)
+            {
+                // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start,
+                // without a word, and without what only the file said.
+                if (ioFile.Exists(path))
+                {
+                    ioFile.Delete(path);
+                }
 
-        // the folder has no project file now: its project is the one its source files make, which is written.
-        await projectFileService.LoadAsync(workspaceRoot);
-        await projectFileService.SaveAsync();
+                ioFile.Move(backup, path);
+                logger.LogError("❌ The project file could not be regenerated, and is back as it was: {reason}", regeneration.Message);
+                throw;
+            }
+        }
     }
 
     // a project file is loaded whatever format it says it is in: a format that is not this platform's is said in the log, and only there.

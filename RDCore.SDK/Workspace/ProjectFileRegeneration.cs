@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Resources;
+using System.Text.Json;
 
 namespace RDCore.SDK.Workspace;
 
@@ -42,21 +43,29 @@ public static class ProjectFileRegeneration
     /// </summary>
     /// <param name="projectFilePath">The project file.</param>
     /// <param name="backupPath">Where it is kept if it is regenerated (<see cref="BackupPathOf"/>).</param>
-    /// <param name="reason">Why it cannot be read, as its reader said.</param>
+    /// <param name="unreadable">
+    /// Why it cannot be read, as its reader said (<see cref="IProjectFileLoader.LoadAsync"/>). The question says only where the file stops being valid JSON, in
+    /// the lines and positions an editor counts from 1, when the reader's error says it: the rest of what the reader said is in the reader's own language.
+    /// </param>
     /// <param name="ask">Asks the user to choose among the buttons; <see langword="null"/> when they chose none.</param>
     /// <param name="token">A token that cancels the question.</param>
     /// <returns><see langword="true"/> when the user chose to regenerate it; <see langword="false"/> when they did not, or when the client could not ask.</returns>
     public static async Task<bool> AskAsync(
-        string projectFilePath, string backupPath, string reason, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>> ask, CancellationToken token)
+        string projectFilePath, string backupPath, Exception unreadable, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>> ask, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(unreadable);
         ArgumentNullException.ThrowIfNull(ask);
 
+        var backup = Path.GetFileName(backupPath);
+        var question = (unreadable as JsonException ?? unreadable.InnerException as JsonException) is { LineNumber: { } line } json
+            ? Say("ProjectFile_Regenerate_Offer", projectFilePath, line + 1, (json.BytePositionInLine ?? 0) + 1, backup)
+            : Say("ProjectFile_Regenerate_Offer_Unplaced", projectFilePath, backup);
         var regenerate = Say("ProjectFile_Regenerate_Choice_Regenerate");
         string? chosen;
         try
         {
             // the choice that changes nothing is last, where a client that has a default puts it.
-            chosen = await ask(Say("ProjectFile_Regenerate_Offer", projectFilePath, reason, Path.GetFileName(backupPath)), [regenerate, Say("ProjectFile_Regenerate_Choice_NotNow")], token);
+            chosen = await ask(question, [regenerate, Say("ProjectFile_Regenerate_Choice_NotNow")], token);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

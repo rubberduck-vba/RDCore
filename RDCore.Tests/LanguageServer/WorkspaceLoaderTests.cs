@@ -3,6 +3,9 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Client;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
+using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
@@ -271,6 +274,118 @@ public sealed class WorkspaceLoaderTests
         StringAssert.Contains(error.Message, ProjectFile.FileName, "the load fails with the message that says which file, and why");
         Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath));
         Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
+    }
+
+    // the question says where the file stops being valid, in the user's language, and none of what the JSON reader said in its own.
+    [TestMethod]
+    [DataRow("en", "it isn't valid at line 1, position ")]
+    [DataRow("fr", "il n'est pas valide à la ligne 1, position ")]
+    public async Task WorkspaceService_LoadAsync_TheRegenerateQuestion_SaysTheLineAndPosition_AndNotTheReadersMessage(string culture, string where)
+    {
+        var sut = WorkspaceService(UnreadableProject());
+        string? asked = null;
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+        try
+        {
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => sut.LoadAsync(Root, [Root], (message, choices, _) =>
+            {
+                asked = message;
+                return Task.FromResult<string?>(choices[^1]);
+            }));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+
+        StringAssert.Contains(asked, where);
+        Assert.AreEqual(1, asked!.Split(ProjectFilePath).Length - 1, "the file's path is said once");
+        Assert.DoesNotContain("Path: $", asked);
+        Assert.DoesNotContain("LineNumber", asked);
+    }
+
+    // the question goes over the wire while initialize is not answered yet, as the language server asks it, and is not asked of a client that says in its
+    // initialization options that it runs unattended.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    [DataRow(false, DisplayName = "asked, and regenerated, before initialize is answered")]
+    [DataRow(true, DisplayName = "a client that runs unattended is not asked")]
+    public async Task TheRegenerateQuestion_IsAskedDuringInitialize_OverTheWire(bool unattended)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var fs = UnreadableProject();
+        var sut = WorkspaceService(fs);
+        var toServer = new System.IO.Pipelines.Pipe();
+        var toClient = new System.IO.Pipelines.Pipe();
+        var questions = new List<string>();
+        var loaded = false;
+        var serving = OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
+            .WithInput(toServer.Reader).WithOutput(toClient.Writer)
+            .OnInitialize(async (server, request, token) =>
+            {
+                try
+                {
+                    await sut.LoadAsync(Root, [Root], RDCore.LanguageServer.CoreLanguageServerApp.RegenerateQuestionOf(server, request), token);
+                    loaded = true;
+                }
+                catch (InvalidDataException)
+                {
+                }
+            }), timeout.Token);
+        var connecting = OmniSharp.Extensions.LanguageServer.Client.LanguageClient.From(client => client
+            .WithInput(toClient.Reader).WithOutput(toServer.Writer)
+            .WithInitializationOptions(new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Unattended = unattended })
+            .OnShowMessageRequest(request =>
+            {
+                questions.Add(request.Message);
+                return Task.FromResult(request.Actions!.First());
+            }), timeout.Token);
+
+        await Task.WhenAll(serving, connecting).WaitAsync(TimeSpan.FromSeconds(20));
+        using var server = await serving;
+        using var client = await connecting;
+
+        // initialize is answered once the load is over: what the load asked, and did, is in by now.
+        Assert.HasCount(unattended ? 0 : 1, questions);
+        Assert.AreEqual(!unattended, loaded);
+        Assert.AreEqual(!unattended, fs.File.Exists(ProjectFilePath + ".bak"));
+        Assert.AreEqual(unattended, fs.File.ReadAllText(ProjectFilePath) == Unreadable);
+    }
+
+    // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without
+    // a word, and without the references only the file said.
+    [TestMethod]
+    public async Task WorkspaceService_LoadAsync_ARegeneratedProjectFileThatCantBeWritten_LeavesTheProjectFileAsItWas()
+    {
+        var fs = UnreadableProject();
+        var projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, fs.Path, new FullDisk(fs), new ProjectFileLoader(fs), () => SupportedLanguages.RDVBA);
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+        var sut = new WorkspaceService(
+            InitializingState(), NullLogger<WorkspaceService>.Instance, fs.Path, fs.File, fs.Directory, projectFiles, documents, documentStates,
+            () => ProtocolSupportedLanguage.VBA, new WorkspaceProjects(projectFiles), new ProjectFileLoader(fs));
+
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => sut.LoadAsync(Root, [Root], (_, choices, _) => Task.FromResult<string?>(choices[0])));
+
+        Assert.AreEqual("There is not enough space on the disk.", error.Message);
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file is back as it was, not the half of one that was written");
+        Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"), "and is not left as a backup beside nothing");
+    }
+
+    // a disk that fills up as a project file is written: the file is made, and holds the start of what was written.
+    private sealed class FullDisk(MockFileSystem fs) : MockFile(fs)
+    {
+        public override System.IO.Abstractions.FileSystemStream Open(string path, FileMode mode)
+        {
+            if (mode == FileMode.Create && path.EndsWith(ProjectFile.FileName, StringComparison.Ordinal))
+            {
+                fs.AddFile(path, new MockFileData("{ \"Vers"));
+                throw new IOException("There is not enough space on the disk.");
+            }
+
+            return base.Open(path, mode);
+        }
     }
 
     private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<WorkspaceService>
