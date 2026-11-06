@@ -43,6 +43,3 @@ See [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structure.md) for th
 |2.4|[Static Types](rd-vbal.2.4.static-types.md)|
 |2.5|[Runtime Values](rd-vbal.2.5.runtime-values.md)|
 |2.6|[Diagnostics](rd-vbal.2.6.diagnostics.md)|
-
----
-> ⏮️ [**RD-VBAL §1.1.6** Capabilities Provider](rd-vbal.1.1.6.capabilities-provider.md) | ⏭️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md)

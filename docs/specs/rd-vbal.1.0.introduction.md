@@ -32,6 +32,3 @@ The implementation of the platform's *language core*, RD-VBA, is a work in progr
 - **makes implicit language behaviour explicit.** RD-VBA exposes semantic rules, evaluation steps, call stacks, and error conditions as *observable facts*.
 
 The principles that govern these objectives are described in [**RD-VBAL §1.1** Design and Extension Philosophy](rd-vbal.1.1.philosophy.md).
-
----
-> ⏮️ [**RD-VBAL** Table of Contents](rd-vbal.md) | ⏭️ [**RD-VBAL §1.1** Design and Extension Philosophy](rd-vbal.1.1.philosophy.md)

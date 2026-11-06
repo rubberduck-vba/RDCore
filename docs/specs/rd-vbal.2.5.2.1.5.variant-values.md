@@ -61,6 +61,3 @@ Unwrapping a `VBVariantValue` through the interop struct consists of:
 3. Look up the `ValuePtr` value in the appropriate memory space.
 
 Unwrapping yields a scoped `VBTypedValue`. The yielded value may or may not be an immediately usable _intrinsic data type_: it may be another `VBVariantValue`, which requires a new _unwrapping frame_.
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.4** Object Values](rd-vbal.2.5.2.1.4.object-values.md) | ⏭️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md)

@@ -21,6 +21,3 @@ This section corresponds to [**MS-VBAL §5.3.1** Procedure Declarations](https:/
 |5.3.1.9|[Implemented Name Declarations](rd-vbal.5.3.1.9.implemented-name-declarations.md) — *reserved*|[§5.3.1.9](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9e68b3a3-7c21-47ba-8621-2d03aebd83cf)|
 |5.3.1.10|[Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md) — *reserved*|[§5.3.1.10](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/62bbe63e-379c-4dc0-8648-7d9050a2f396)|
 |5.3.1.11|[Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)|[§5.3.1.11](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/1fb9af32-fc48-4c4f-998a-ed8047048ca5)|
-
----
-> ⏮️ [**RD-VBAL §5.3** Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md) | ⏭️ [**RD-VBAL §5.3.1.1** Procedure Scope](rd-vbal.5.3.1.1.procedure-scope.md)

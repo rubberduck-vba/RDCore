@@ -73,6 +73,3 @@ The prose of a code's page may evolve as the ideal set of codes is narrowed down
 |Hint, suggestion|Can be as opinionated as needed.|
 
 The choice of a warning severity should take into account that a host environment can be configured to "treat warnings as errors". If a diagnostic is not worth breaking a build over, it is not a warning. See [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md).
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md) | ⏭️ [**RD-VBAL §2.6.1** Syntax Errors](rd-vbal.2.6.1.syntax-errors.md)

@@ -62,6 +62,3 @@ replacement that is not text is written as text - a `Boolean` as `-1` or `0`, `E
   those of an early-bound call: `Null` for a `String` is `13`, a read-only property assigned `450` ([**RD-VBAL §6.0** Late-Bound
   Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
 - 🚧 A match is not bounded in time: a pattern that backtracks without end does here what it does in MS-VBA.
-
----
-> ⏮️ [**RD-VBAL §6.1.3.3** Global Class](rd-vbal.6.1.3.3.global-class.md)

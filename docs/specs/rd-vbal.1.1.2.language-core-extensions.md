@@ -37,6 +37,3 @@ Deferred execution semantics would effectively make *functions* a first-class RD
 ## Platform-level Extensions
 
 The invalid examples above are not invalid extensions in the *RDCore ecosystem*. Each of them could be a [*platform-level* extension](rd-vbal.1.1.1.platform-extensions.md).
-
----
-> ⏮️ [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md) | ⏭️ [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)

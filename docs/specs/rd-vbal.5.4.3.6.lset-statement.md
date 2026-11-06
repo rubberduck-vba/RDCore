@@ -100,6 +100,3 @@ The layout and the field store of a UDT value are described in
 |[VBUserDefinedTypeImage](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeImage.html)|The byte copy of `LSet`'s UDT form (**RDCore.SDK**).|
 |`VBUserDefinedTypeLayout`|The layout a record is laid out through, and read back through (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches an `AssignmentStatementNode` whose `Kind` is `LSet` or `RSet`; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md) | ⏭️ [**RD-VBAL §5.4.3.7** RSet Statement](rd-vbal.5.4.3.7.rset-statement.md)

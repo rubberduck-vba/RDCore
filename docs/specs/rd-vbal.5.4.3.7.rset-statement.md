@@ -35,6 +35,3 @@ width from the target's current value, not from its declared type. Taking the wi
 
 `RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider` dispatches an `AssignmentStatementNode`
 whose `Kind` is `LSet` or `RSet`; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).
-
----
-> ⏮️ [**RD-VBAL §5.4.3.6** LSet Statement](rd-vbal.5.4.3.6.lset-statement.md) | ⏭️ [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)

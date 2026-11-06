@@ -47,6 +47,3 @@ object whose default member returns `Null` is `Null`, and `Nothing` is error 91.
 |§|Member|Notes|
 |---|---|---|
 |6.1.2.10.2.1|[Randomize](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d9eb757d-88e0-4842-8d10-d0bbd7f0ac92)|The argument is Let-coerced to `Double`, and the high half of its bits is folded into the upper two bytes of the generator's state; the low byte stays what it was, so what follows depends on where the generator was. An omitted argument seeds it from the session's clock (`Timer`). 👉 The specification seeds from the timer for `Empty` too; MS-VBA Let-coerces `Empty` like any other argument, to `0`, and RD-VBA does what MS-VBA does.|
-
----
-> ⏮️ [**RD-VBAL §6.1.2.9** KeyCodeConstants](rd-vbal.6.1.2.9.keycodeconstants.md) | ⏭️ [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md)

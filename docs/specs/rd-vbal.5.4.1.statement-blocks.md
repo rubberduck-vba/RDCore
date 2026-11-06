@@ -14,6 +14,3 @@ See [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md).
 |---|---|---|
 |5.4.1.1|[Statement Labels](rd-vbal.5.4.1.1.statement-labels.md)|[§5.4.1.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/825de02b-0e13-4783-8527-de14fbb7104f)|
 |5.4.1.2|[Rem Statement](rd-vbal.5.4.1.2.rem-statement.md) — *reserved*|[§5.4.1.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/91937632-ab86-4e69-a916-f81a5ce151aa)|
-
----
-> ⏮️ [**RD-VBAL §5.4** Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md) | ⏭️ [**RD-VBAL §5.4.1.1** Statement Labels](rd-vbal.5.4.1.1.statement-labels.md)

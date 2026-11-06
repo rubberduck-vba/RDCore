@@ -49,6 +49,3 @@ one statement.
 |[IFileChannel](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html)|A file channel. Its record surface is the one `Put` and `Get` use.|
 |`RecordDataFormat`|Implements the `Put`/`Get` record format.|
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the target: the same target resolution `Input #`, `Line Input #` and the Let assignment statement use.|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md) | ⏭️ [**RD-VBAL §5.4.5.13** Name Statement](rd-vbal.5.4.5.13.name-statement.md)
