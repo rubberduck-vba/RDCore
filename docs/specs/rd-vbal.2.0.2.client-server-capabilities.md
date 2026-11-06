@@ -177,6 +177,13 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
+The module a client runs is a module of the project. A client can also run a module of its own, which the project does not list, by saying so with `SessionModule`.
+The interactive shell does this for its program. When the project has no module of that name, the module is a standard module of the runtime session at the workspace root,
+as the code of an Immediate window is, and the project file is not changed. A module that is neither the project's nor marked as the client's own is not found.
+
+A workspace whose project file can't be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
+that opens no folder has no workspace, and what it runs is not found.
+
 ### Documents and their addresses
 
 A document is addressed by the URI the client gives it (**LSP 3.17** §URI), of any scheme. The language server answers for it at that address, and publishes what it finds of it there.
