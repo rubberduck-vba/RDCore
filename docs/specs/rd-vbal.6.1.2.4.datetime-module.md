@@ -5,7 +5,7 @@
 
 The `DateTime` module is represented in the SDK by the interface
 [IStdDateTimeModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdDateTimeModule.html), and implemented by
-[StdDateTime](../api/RDCore.Runtime.StdLib.StdDateTime.html).
+`StdDateTime`.
 
 A function the specification declares with no `As` clause returns a `Variant`, which holds the type its description says: `DateDiff` a `Long`, `DatePart`
 and the functions of a part of a date an `Integer`, and `DateAdd`, `DateSerial`, `DateValue`, `TimeSerial` and `TimeValue` a `Date`.

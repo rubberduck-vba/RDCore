@@ -27,7 +27,7 @@ returns ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument
 
 > [!NOTE]
 > **Not implemented.** A collection does not count the objects it holds. An object that only a collection holds is not kept alive by it, and one that was held by it is
-> not let go of when it is removed; the same gap [`ObjectReferences`](../api/RDCore.Runtime.Execution.ObjectReferences.html) documents for an array element and a field.
+> not let go of when it is removed; the same gap `ObjectReferences` documents for an array element and a field.
 
 ## Keys, Positions and Errors
 
