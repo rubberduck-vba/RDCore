@@ -26,6 +26,3 @@ arrives through `GoTo`:
    dispatch, from `Instruction.EnclosingWith`, which is a purely lexical property of the instruction
    ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 3. The with-expression resolves against `RuntimeEvaluationContext.EnclosingWithTarget`.
-
----
-> ⏮️ [**RD-VBAL §5.6.14** Dictionary Access Expressions](rd-vbal.5.6.14.dictionary-access-expressions.md) | ⏭️ [**RD-VBAL §5.6.16** Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md)

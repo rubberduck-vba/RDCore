@@ -120,6 +120,3 @@ This specification refers to the following semantic compilation errors on other 
 |`VBC09311`|`UserDefinedTypeNotDefined`|An unknown type should raise this error, and so does a `TypeOf ... Is` whose type is a name that binds no type (a variable's, a procedure's); a module or a project is `VBC09366`, `VBC09373` or `VBC09374` instead. Verbose diagnostic messages should help clarify its meaning.|[**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md), [**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions)|
 
 An appropriate compile-time error should be issued for a duplicate declaration and for an ambiguous name. The symbol resolver reports the error kind; the caller, which knows where the reference is, builds the located diagnostic.
-
----
-> ⏮️ [**RD-VBAL §2.6.1** Syntax Errors](rd-vbal.2.6.1.syntax-errors.md) | ⏭️ [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)

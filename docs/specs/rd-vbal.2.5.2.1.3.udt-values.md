@@ -88,6 +88,3 @@ The pointer width of a UDT layout is a parameter of `VBUserDefinedTypeLayout`, a
 
 > [!NOTE]
 > **Not implemented.** `VBUserDefinedTypeValue.Size` and a record's memory image still lay a UDT out for a 32-bit pointer.
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md) | ⏭️ [**RD-VBAL §2.5.2.1.4** Object Values](rd-vbal.2.5.2.1.4.object-values.md)

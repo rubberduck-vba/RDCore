@@ -36,6 +36,3 @@ the procedure returns; so is an error source set with `Err.Number` (recorded in 
 ## Implementation
 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `ExitProcedure` instructions.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.16** On...GoSub Statement](rd-vbal.5.4.2.16.on-gosub-statement.md) | ⏭️ [**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md)

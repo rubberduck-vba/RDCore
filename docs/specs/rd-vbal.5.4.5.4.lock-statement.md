@@ -34,6 +34,3 @@ leaves the start record absent, and `Lock #1, To 5` locks from record 1 when it 
 Like every file statement, `Lock` runs through the session's file-channel shim,
 [IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.5.3** Seek Statement](rd-vbal.5.4.5.3.seek-statement.md) | ⏭️ [**RD-VBAL §5.4.5.5** Unlock Statement](rd-vbal.5.4.5.5.unlock-statement.md)

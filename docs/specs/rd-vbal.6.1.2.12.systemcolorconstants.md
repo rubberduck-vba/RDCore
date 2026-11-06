@@ -10,6 +10,3 @@ The constants are the specification's, with its values, each a `Long` with its h
 MS-VBA (recorded in Excel). `vb3DFace` and `vb3DShadow` are `vbButtonFace` and `vbButtonShadow` by other names. What colour each stands for is the system's
 to say; RD-VBA draws nothing with one. A constant is reached by its own name, or qualified by the module or by the library
 (`SystemColorConstants.vbButtonFace`, `VBA.vbButtonFace`), and assigning to one is a compile error. The module is no type.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) | ⏭️ [**RD-VBAL §6.1.2.13** Hidden Module](rd-vbal.6.1.2.13.hidden-module.md)

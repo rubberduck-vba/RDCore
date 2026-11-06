@@ -26,6 +26,3 @@ This section corresponds to [**MS-VBAL §5.6** Expressions](https://learn.micros
 |5.6.14|[Dictionary Access Expressions](rd-vbal.5.6.14.dictionary-access-expressions.md)|[§5.6.14](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f20c9ebc-3365-4614-9788-1cd50a504574)|
 |5.6.15|[With Expressions](rd-vbal.5.6.15.with-expressions.md)|[§5.6.15](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/97f83233-034d-4a41-ba62-1b5518da85a2)|
 |5.6.16|[Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md)|[§5.6.16](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4ac0d7e3-a3e9-4c24-83ba-17295c91823b)|
-
----
-> ⏮️ [**RD-VBAL §5.5.2.2** Runtime semantics](rd-vbal.5.5.2.2.runtime-semantics.md) | ⏭️ [**RD-VBAL §5.6.1** Expression Classifications](rd-vbal.5.6.1.expression-classifications.md)

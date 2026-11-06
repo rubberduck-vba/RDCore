@@ -32,6 +32,3 @@ These abstract types and interfaces support pattern-matching of types and values
 |2.4.2|[Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)|
 |2.4.3|[Meta and Advanced Types](rd-vbal.2.4.3.meta-and-advanced-types.md)|
 |2.4.4|[Deferred Types](rd-vbal.2.4.4.deferred-types.md)|
-
----
-> ⏮️ [**RD-VBAL §2.3.2** Mode / State](rd-vbal.2.3.2.mode-state.md) | ⏭️ [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md)

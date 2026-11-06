@@ -16,6 +16,3 @@ The `Global` class is represented in the SDK by the interface
 |---|---|---|
 |6.1.3.3.1.1|[Load](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c711e6b6-973d-480b-b5cb-cf3a49fe049a)||
 |6.1.3.3.1.2|[Unload](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c8116615-fea7-4aa2-84af-ae4b56a903fd)||
-
----
-> ⏮️ [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md) | ⏭️ [**RD-VBAL §6.2** VBScript Regular Expressions](rd-vbal.6.2.vbscript-regexp.md)

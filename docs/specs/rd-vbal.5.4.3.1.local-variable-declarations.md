@@ -137,6 +137,3 @@ activation is a call on before it looks at the session.
 |`ISymbolResolver.TryAllocate`|Allocates a `Static` local's module-extent storage.|
 |`ISymbolResolver.TryGetAddress`|Guards the one-time `TryAllocate`.|
 |`CallStackAwareSymbolResolver`|Falls through to session-level storage when reading a `Static` local.|
-
----
-> ⏮️ [**RD-VBAL §5.4.3** Data Manipulation Statements](rd-vbal.5.4.3.data-manipulation-statements.md) | ⏭️ [**RD-VBAL §5.4.3.2** Local Constant Declarations](rd-vbal.5.4.3.2.local-constant-declarations.md)
