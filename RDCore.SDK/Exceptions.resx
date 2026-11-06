@@ -744,6 +744,12 @@
   <data name="VBCompileError_ModuleNestedTooDeeplyToRead_Verbose" xml:space="preserve">
     <value>This module is nested too deeply to be read: an expression or a block in it is nested in many thousands of others. Split its deepest part into smaller ones.</value>
   </data>
+  <data name="VBCompileError_OutputItemsNotSeparated" xml:space="preserve">
+    <value>Output items not separated</value>
+  </data>
+  <data name="VBCompileError_OutputItemsNotSeparated_Verbose" xml:space="preserve">
+    <value>This output item is written right after another, with nothing between them. The VBE would write a ; between them, which prints them the same way.</value>
+  </data>
   <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
     <value>Expected: Then. An #If or #ElseIf directive is written #If expression Then.</value>
   </data>
