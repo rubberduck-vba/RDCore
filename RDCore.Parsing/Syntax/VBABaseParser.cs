@@ -71,12 +71,13 @@ public abstract class VBABaseParser : Parser
 
     // Whether the statement that begins with the next token is the Print of an object with an output list (`Debug.Print x = 0`): an output list is no part of an
     // l-expression, so that is never the target of a Let. Only the tokens before the first `=` outside parentheses and brackets can be the target. Outside them,
-    // the lExpression rule has whitespace in two places only: a line continuation (mandatoryLineContinuation, and the whitespace whitespaceIndexExpr allows after
-    // one), and the whitespace that begins the output list of objectPrintExpr. So whitespace after the `.Print` of an object, a line continuation included, begins
-    // an output list - which is how objectPrintExpr reads `obj.Print _` with `(1)` on the next line - unless what follows it is the `=` of the Let or the end of the
-    // statement. A `.Print` with nothing before it is the member of a With block's object (withMemberAccessExpr), which has no output list: with `(1) = 5` after a
-    // line continuation, it is the Let it reads as. The scan stops at a colon, a comment or the end of the line, so in a single-line If it can go on past an Else,
-    // which does no harm: the `=` of a Let comes before it.
+    // the lExpression rule has whitespace in three places: a line continuation (mandatoryLineContinuation, and the whitespace whitespaceIndexExpr allows after
+    // one), the blanks before an argument list (whitespaceIndexExpr), and the whitespace that begins the output list of objectPrintExpr. After the `.Print` of an
+    // object, objectPrintExpr is the earlier alternative, so whitespace there, a line continuation included, begins an output list - which is how
+    // objectPrintExpr reads `obj.Print _` with `(1)` on the next line, and `obj.Print (1) = 2` as the Print of a comparison - unless what follows it is the `=` of
+    // the Let or the end of the statement. A `.Print` with nothing before it is the member of a With block's object (withMemberAccessExpr), which has no output
+    // list: with `(1) = 5` after a line continuation, it is the Let it reads as. The scan stops at a colon, a comment or the end of the line, so in a single-line
+    // If it can go on past an Else, which does no harm: the `=` of a Let comes before it.
     // Should lExpression have whitespace anywhere else outside parentheses, this has to know of it.
     protected bool IsObjectPrintWithOutputList()
     {
@@ -207,37 +208,21 @@ public abstract class VBABaseParser : Parser
     #endregion
 
     #region Precedence of an l-expression
-    // In a list to print, blanks between an l-expression and `(` are no separator of two output items: the parentheses are its argument list, as MS-VBA reads
-    // them, and the VBE writes `Debug.Print F (2)` as `Debug.Print F(2)` (oracle\s70 A09). Anywhere else they are not read so: in a call statement, `F (2)` is
-    // F called with the argument (2).
-    // That reading is lExpression's last alternative, of this precedence, the lowest. Anywhere but in an output item, lExpression is entered above it, and the
-    // alternative is left out of each prediction before a token is read: a predicate of its own would be evaluated only once the prediction had read the
-    // statement to its end, and `Foo (Bar(1))` would be read to its end to tell a call statement from an index.
-    private const int OutputListIndexPrecedence = 1;
+    // MS-VBAL §3.3: a token takes the white space before it, so blanks between an l-expression and `(` leave the parentheses its argument list, and
+    // `x = F (2)` calls F with 2, as MS-VBA reads it. In a list to print, the blanks are no separator of two output items: `Debug.Print F (2)` calls F too.
+    // The one place they are read otherwise is right after the callee of a call statement, where `F (2)` is F called with the argument (2).
+    // That reading is lExpression's last alternative, of this precedence, the lowest. As the callee of a call statement without Call, lExpression is entered
+    // above it, and the alternative is left out of each of its predictions before a token is read: a predicate of its own would be evaluated only once the
+    // prediction had read the statement to its end, and `Foo (Bar(1))` would be read to its end to tell a call statement from an index.
+    private const int BlankArgumentListPrecedence = 1;
 
     public override void EnterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence)
         => base.EnterRecursionRule(localctx, state, ruleIndex,
-            ruleIndex == VBAParser.RULE_lExpression && !IsInOutputItem(localctx) ? Math.Max(precedence, OutputListIndexPrecedence + 1) : precedence);
+            ruleIndex == VBAParser.RULE_lExpression && IsCallee(localctx) ? Math.Max(precedence, BlankArgumentListPrecedence + 1) : precedence);
 
-    // whether an l-expression is an output item, or an operand of one, and not in parentheses within it: only there do blanks separate two items. In an
-    // argument list or other parentheses, `F (2)` is what it is in any other expression, and prediction reads each argument list once, to its end.
-    private static bool IsInOutputItem(RuleContext? context)
-    {
-        for (; context is not null; context = context.Parent)
-        {
-            switch (context)
-            {
-                case VBAParser.OutputListContext:
-                    return true;
-                case VBAParser.ArgumentListContext:
-                case VBAParser.ParenthesizedExprContext:
-                case VBAParser.SpcClauseContext:
-                case VBAParser.TabClauseContext:
-                    return false;
-            }
-        }
-        return false;
-    }
+    // whether an l-expression is what a call statement without Call calls: with Call, `Call F (2)` calls F with 2.
+    private static bool IsCallee(RuleContext context)
+        => context.Parent is VBAParser.CallStmtContext call && call.CALL() is null;
     #endregion
 
     #region Grammar-level recovery helpers

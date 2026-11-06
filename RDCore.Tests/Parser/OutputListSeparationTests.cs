@@ -80,7 +80,7 @@ public class OutputListSeparationTests
     }
 
     // MS-VBAL §3.3 makes the blanks before a token part of it, so `F (2)` is the index expression F(2) as much as `F(2)` is; in a list to print, MS-VBAL also
-    // reads it as two items, F, then (2). MS-VBA calls F with 2, and the VBE writes it `F(2)` (Excel, oracle\s70 A09).
+    // reads it as two items, F, then (2). MS-VBA calls F with 2, and the VBE writes it `F(2)`.
     [TestMethod]
     [DataRow("Debug.Print F (2)")]
     [DataRow("Debug.Print F    (2)")]
@@ -127,10 +127,12 @@ public class OutputListSeparationTests
         Assert.IsInstanceOfType<LiteralExpressionNode>(items[1].Value);
     }
 
-    // outside a list to print, blanks before parentheses are read as they were: in a call statement, `F (2)` is F called with the argument (2).
+    // right after what a call statement calls, blanks before parentheses begin its arguments: `F (2)` is F called with the argument (2), which is
+    // parenthesized, and not with 2.
     [TestMethod]
     [DataRow("F (2)")]
     [DataRow("obj.F (2)")]
+    [DataRow("F\t(2)")]
     public void ANameThenBlanksThenParentheses_AsACallStatement_IsCalledWithAParenthesizedArgument(string statement)
     {
         var result = ParseInProcedure(statement);
@@ -142,20 +144,56 @@ public class OutputListSeparationTests
         Assert.AreEqual(OperatorSymbolNames.UnaryLetCoerceOp, ((VBUnaryOperatorExpressionNode)call.Arguments.Single()).Token);
     }
 
-    // a KNOWN GAP: MS-VBAL §3.3 and MS-VBA read blanks before an argument list in any expression (the VBE writes `x = F (2)` as `x = F(2)`); RD-VBA reads
-    // them in a call statement and at the level of an output item, and is a syntax error anywhere else.
+    // MS-VBAL §3.3 and MS-VBA read blanks before an argument list in any expression: the VBE writes `x = F (2)` as `x = F(2)`. So they are in a list to
+    // print within the arguments of a call, in parentheses, and in a Spc or Tab clause.
     [TestMethod]
-    [Ignore("blanks before an argument list are read only in a call statement and an output item: fix/name-blanks-paren-everywhere")]
     [DataRow("x = F (2)")]
+    [DataRow("Set x = F (2)")]
     [DataRow("Call F (2)")]
-    [DataRow("Debug.Print F (G (1))")]
+    [DataRow("x = a!b (2)")]
+    [DataRow("Foo (F (2))")]
+    [DataRow("Foo F (2)")]
+    [DataRow("Foo 1, F (2)")]
+    [DataRow("If F (2) Then x = 1")]
+    [DataRow("For i = F (2) To 3: Next")]
+    [DataRow("Do While F (2): Loop")]
+    [DataRow("Debug.Assert F (2)")]
+    [DataRow("Const c = F (2)")]
+    [DataRow("Debug.Print F (G (2))")]
     [DataRow("Debug.Print (F (2))")]
-    public void ANameThenBlanksThenParentheses_InAnyOtherExpression_IsCalled(string statement)
+    [DataRow("Debug.Print Spc (F (2))")]
+    [DataRow("Debug.Print Tab (F (2))")]
+    public void ANameThenBlanksThenParentheses_InAnyExpression_IsCalled(string statement)
     {
         var result = ParseInProcedure(statement);
 
         Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
-        Assert.IsTrue(result.SyntaxTree!.Descendants().OfType<IndexExpressionNode>().Any());
+        Assert.IsTrue(result.SyntaxTree!.Descendants().OfType<IndexExpressionNode>().Any(index => index.Arguments.Length == 1), "F is called with 2");
+    }
+
+    // so is the target of an assignment, and `F (1) = 2` assigns to F(1), as MS-VBA reads it: it is no call statement, whose argument would be (1) = 2.
+    [TestMethod]
+    [DataRow("F (1) = 2")]
+    [DataRow("F (1)= 2")]
+    [DataRow("obj.F (1) = 2")]
+    [DataRow("Me.F (1) = 2")]
+    [DataRow("x.Item\t(1) = 2")]
+    [DataRow("Let F (1) = 2")]
+    [DataRow("Set F (1) = obj")]
+    [DataRow("F (1).G = 2")]
+    [DataRow("F (1) = 2: G")]
+    [DataRow("If x Then F (1) = 2")]
+    [DataRow("With obj\r\n        .F (1) = 2\r\n    End With")]
+    public void ANameThenBlanksThenParentheses_ThenAnEqualsSign_IsAssignedTo(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var assignment = result.SyntaxTree!.Descendants().OfType<AssignmentStatementNode>().Single();
+        Assert.IsTrue(assignment.Target.Descendants().Prepend(assignment.Target).OfType<IndexExpressionNode>().Any(index => index.Arguments.Length == 1),
+            "the target is F(1)");
+        Assert.IsFalse(result.SyntaxTree.Descendants().OfType<CallStatementNode>().Any(call => call.Callee is SimpleNameExpressionNode { IdentifierName: "F" }),
+            "F is no call statement");
     }
 
     // at the start of an output clause, Tab and Spc( are a clause, never a name an expression begins with: what follows the clause is a second item, or
@@ -231,16 +269,20 @@ public class OutputListSeparationTests
         Assert.IsLessThan(5, deep);
     }
 
-    // the argument list after blanks is read only in an output item: in a call statement, `Foo (` begins its parenthesized argument, and is no index of Foo
-    // that a prediction would read to the end of the statement to rule out.
+    // a call statement whose argument is parenthesized is told from an assignment to an index (`Foo (1) = 2`) at the end of the statement, which the
+    // prediction of the statement reads to once: as far again in a statement twice as long, and no further.
     [TestMethod]
-    public void TheParenthesizedArgumentOfACallStatement_IsToldFromAnIndex_WithoutReadingToItsEnd()
+    public void ACallStatementWithAParenthesizedArgument_IsReadAheadOnce()
     {
-        var shallow = LExpressionLookahead(InProcedure("Foo (" + NestedCalls(20) + ")"));
-        var deep = LExpressionLookahead(InProcedure("Foo (" + NestedCalls(40) + ")"));
+        var shallow = Lookahead(InProcedure("Foo (" + NestedCalls(20) + ")"));
+        var deep = Lookahead(InProcedure("Foo (" + NestedCalls(40) + ")"));
+        var fewTerms = Lookahead(InProcedure("Foo (1)" + string.Concat(Enumerable.Repeat(" + (1)", 20)) + " + 1"));
+        var manyTerms = Lookahead(InProcedure("Foo (1)" + string.Concat(Enumerable.Repeat(" + (1)", 40)) + " + 1"));
 
-        Assert.AreEqual(shallow, deep);
-        Assert.IsLessThan(5, deep);
+        Assert.IsGreaterThan(0L, shallow);
+        Assert.IsLessThanOrEqualTo(2 * shallow, deep, $"{shallow} tokens read ahead with 20 nested calls, {deep} with 40");
+        Assert.IsGreaterThan(0L, fewTerms);
+        Assert.IsLessThanOrEqualTo(2 * fewTerms, manyTerms, $"{fewTerms} tokens read ahead with 20 terms, {manyTerms} with 40");
     }
 
     // a name called after blanks in a list to print is read ahead to the end of its own argument list, and no further: as far for the last name of a list
@@ -248,23 +290,27 @@ public class OutputListSeparationTests
     [TestMethod]
     public void NamesCalledAfterBlanks_AreEachReadAheadToTheEndOfTheirArguments()
     {
-        var few = LExpressionLookahead(InProcedure("Debug.Print " + string.Join("; ", Enumerable.Repeat("F (x)", 20))));
-        var many = LExpressionLookahead(InProcedure("Debug.Print " + string.Join("; ", Enumerable.Repeat("F (x)", 40))));
+        var few = Lookahead(InProcedure("Debug.Print " + string.Join("; ", Enumerable.Repeat("F (x)", 20))));
+        var many = Lookahead(InProcedure("Debug.Print " + string.Join("; ", Enumerable.Repeat("F (x)", 40))));
 
-        Assert.AreEqual(few, many);
-        Assert.IsGreaterThan(0, many);
+        Assert.IsGreaterThan(0L, few);
+        Assert.IsLessThanOrEqualTo(2 * few, many, $"{few} tokens read ahead for 20 names, {many} for 40");
     }
 
-    // within the arguments of a name called after blanks, blanks before parentheses are what they are in any other expression (a syntax error, today), and no
-    // index the prediction reads to the end of its arguments: read so at every depth, a call nested in calls was read ahead as many times as it is deep.
+    // SLL reads the context of a rule as the grammar's every context of it, and after a name, blanks then `(` can begin the argument of a call statement or a
+    // second output item as well as the name's own arguments: the prediction at each call reads to the end of its arguments, which hold every call nested
+    // in it. A chain of calls each written with blanks is read ahead as the square of its depth: four times as far at twice the depth, and no further.
     [TestMethod]
-    public void CallsNestedAfterBlanks_AreReadAheadAsMuchForEachCall_AtAnyDepth()
+    [DataRow("x = {0}")]
+    [DataRow("Debug.Print {0}")]
+    [DataRow("Foo ({0})")]
+    public void CallsNestedAfterBlanks_AreEachReadAheadToTheEndOfTheirArguments(string statement)
     {
-        var shallow = LExpressionLookaheadInAll(InProcedure("Debug.Print " + NestedCalls(20, "F (")));
-        var deep = LExpressionLookaheadInAll(InProcedure("Debug.Print " + NestedCalls(40, "F (")));
+        var shallow = Lookahead(InProcedure(string.Format(statement, NestedCalls(20, "F ("))));
+        var deep = Lookahead(InProcedure(string.Format(statement, NestedCalls(40, "F ("))));
 
         Assert.IsGreaterThan(0L, shallow);
-        Assert.IsLessThanOrEqualTo(2 * shallow, deep, $"{shallow} tokens read ahead at a depth of 20, {deep} at 40");
+        Assert.IsLessThanOrEqualTo(4 * shallow, deep, $"{shallow} tokens read ahead at a depth of 20, {deep} at 40");
     }
 
     private static string NestedCalls(int depth, string call = "F(") => string.Concat(Enumerable.Repeat(call, depth)) + "1" + new string(')', depth);
@@ -273,15 +319,15 @@ public class OutputListSeparationTests
 
     // the most tokens a decision of lExpression read ahead in a module.
     private static int LExpressionLookahead(string code)
-        => (int)LExpressionDecisions(code, parses: true).Max(decision => decision.SLL_MaxLook);
+        => (int)Decisions(code).Where(decision => decision.Rule == VBAParser.RULE_lExpression).Max(decision => decision.Info.SLL_MaxLook);
 
-    // the tokens all decisions of lExpression read ahead in a module, together, whether the module parses or not.
-    private static long LExpressionLookaheadInAll(string code)
-        => LExpressionDecisions(code, parses: null).Sum(decision => decision.SLL_TotalLook);
+    // the tokens every decision read ahead in a module, together.
+    private static long Lookahead(string code)
+        => Decisions(code).Sum(decision => decision.Info.SLL_TotalLook);
 
-    // the decisions of lExpression in a parse of a module, with a prediction cache of its own: the cache of VBAParser is the process's, shared with every
-    // other parse, and what it already holds is read ahead of nothing.
-    private static IEnumerable<DecisionInfo> LExpressionDecisions(string code, bool? parses)
+    // the decisions in a parse of a module that parses, each with the rule it is a decision of, with a prediction cache of its own: the cache of VBAParser
+    // is the process's, shared with every other parse, and what it already holds is read ahead of nothing.
+    private static IEnumerable<(int Rule, DecisionInfo Info)> Decisions(string code)
     {
         var atn = new ATNDeserializer().Deserialize(VBAParser._serializedATN.ToCharArray());
         var parser = new VBAParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(code))));
@@ -292,11 +338,8 @@ public class OutputListSeparationTests
         parser.Interpreter.PredictionMode = PredictionMode.Sll;
         parser.RemoveErrorListeners();
         parser.startRule();
-        if (parses is { } expected)
-        {
-            Assert.AreEqual(expected, parser.NumberOfSyntaxErrors == 0, $"{parser.NumberOfSyntaxErrors} syntax errors");
-        }
+        Assert.AreEqual(0, parser.NumberOfSyntaxErrors, "syntax errors");
 
-        return parser.ParseInfo.DecisionInfo.Where(decision => atn.decisionToState[decision.decision].ruleIndex == VBAParser.RULE_lExpression).ToArray();
+        return parser.ParseInfo.DecisionInfo.Select(decision => (atn.decisionToState[decision.decision].ruleIndex, decision)).ToArray();
     }
 }

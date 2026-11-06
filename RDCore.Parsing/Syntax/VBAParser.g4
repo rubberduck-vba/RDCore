@@ -726,8 +726,8 @@ lExpression :
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
     | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
-    // in a list to print, blanks before the argument list (`Debug.Print F (2)`): the last alternative, of the lowest precedence, which VBABaseParser
-    // raises lExpression above anywhere else (OutputListIndexPrecedence). Keep it last.
+    // blanks before the argument list (MS-VBAL 3.3: a token takes the white space before it), so `x = F (2)` calls F with 2. The last alternative, of
+    // the lowest precedence: VBABaseParser enters lExpression above it as the callee of a call statement, where `F (2)` is F called with (2). Keep it last.
     | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
 ;
 
