@@ -861,10 +861,11 @@ internal sealed class ProcedureAnalysis
     private int? SlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : FieldSlotOf(variable);
 
-    // an instance field of a scalar type of the class the procedure is a member of: a field of Me (MS-VBAL §5.6.10), numbered the first time it is named.
+    // an instance field of a scalar type of the class the procedure is a member of - a variable of the class module, declared in its instance scope: a
+    // field of Me (MS-VBAL §5.6.10), numbered the first time it is named.
     private int? FieldSlotOf(BoundVariable variable)
     {
-        if (variable is not { IsAutoInstantiated: false, Variable: VBInstanceFieldVariableMemberSymbol field }
+        if (variable is not { IsAutoInstantiated: false, Variable: VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Instance } field }
             || field.ParentUri.AbsoluteUri != _procedure.ParentUri.AbsoluteUri || ScalarKinds.Of(field.ResolvedType) is not { } kind)
         {
             return null;
