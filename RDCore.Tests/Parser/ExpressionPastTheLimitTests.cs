@@ -181,6 +181,21 @@ public sealed class ExpressionPastTheLimitTests
         StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
     }
 
+    // what the parse hands on is no deeper than the limit, whatever it is: the module as pruned, or what is salvaged of it when the prune fails (a holder it
+    // could not rebuild), which is pruned too, or is nothing.
+    [TestMethod]
+    [DataRow("x = {0}")]
+    [DataRow("Dim y(1 To {0}) As Long")]
+    public void NoTreeTheParseHandsOn_HoldsAnExpressionPastTheLimit_ButAnErrorNode(string statement)
+    {
+        var text = $"Public Sub Main()\r\n    {string.Format(statement, new string('(', 3000) + "1" + new string(')', 3000))}\r\nEnd Sub\r\n";
+
+        var tree = new ModuleParser().Parse(TestUri.TestModuleUri(), text).SyntaxTree;
+
+        var past = tree is null ? [] : Expressions(tree).Where(entry => entry.Nesting > ModuleParser.MaxExpressionNesting).Select(entry => entry.Expression).ToArray();
+        Assert.IsTrue(past.All(node => node is UnbuiltExpressionTriviaNode), string.Join(", ", past.Select(node => node.GetType().Name).Distinct()));
+    }
+
     // 3,000 levels of a shape of expression.
     private static string Deep(string shape)
     {
