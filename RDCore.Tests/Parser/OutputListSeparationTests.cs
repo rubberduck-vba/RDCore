@@ -313,6 +313,42 @@ public class OutputListSeparationTests
         Assert.IsLessThanOrEqualTo(4 * shallow, deep, $"{shallow} tokens read ahead at a depth of 20, {deep} at 40");
     }
 
+    // the forms the VBE writes, with no blanks before an argument list, are read ahead in proportion to their length: twice as far at twice the depth, and
+    // no further.
+    [TestMethod]
+    [DataRow("x = {0}", "F(")]
+    [DataRow("Debug.Print {0}", "F(")]
+    [DataRow("Foo {0}", "F(")]
+    [DataRow("Foo ({0})", "F(")]
+    [DataRow("Call Foo({0})", "F(")]
+    [DataRow("If {0} Then x = 1", "F(")]
+    [DataRow("x = {0}", "(")]
+    public void CallsNestedAsTheVBEWritesThem_AreReadAheadInProportionToTheirDepth(string statement, string call)
+    {
+        var shallow = Lookahead(InProcedure(string.Format(statement, NestedCalls(20, call))));
+        var deep = Lookahead(InProcedure(string.Format(statement, NestedCalls(40, call))));
+
+        Assert.IsGreaterThan(0L, shallow);
+        Assert.IsLessThanOrEqualTo(2 * shallow, deep, $"{shallow} tokens read ahead at a depth of 20, {deep} at 40");
+    }
+
+    // as above, for a chain of the links the VBE writes.
+    [TestMethod]
+    [DataRow("x = a", "(1).b", "")]
+    [DataRow("x = a", ".b(1)", "")]
+    [DataRow("a", "(1).b", " = 2")]
+    [DataRow("x = 1", " + F(1)", "")]
+    [DataRow("Debug.Print 1", "; F(1)", "")]
+    [DataRow("Foo 1", ", F(1)", "")]
+    public void ChainsAsTheVBEWritesThem_AreReadAheadInProportionToTheirLength(string head, string link, string tail)
+    {
+        var shallow = Lookahead(InProcedure(head + string.Concat(Enumerable.Repeat(link, 20)) + tail));
+        var deep = Lookahead(InProcedure(head + string.Concat(Enumerable.Repeat(link, 40)) + tail));
+
+        Assert.IsGreaterThan(0L, shallow);
+        Assert.IsLessThanOrEqualTo(2 * shallow, deep, $"{shallow} tokens read ahead with 20 links, {deep} with 40");
+    }
+
     private static string NestedCalls(int depth, string call = "F(") => string.Concat(Enumerable.Repeat(call, depth)) + "1" + new string(')', depth);
 
     private static string InProcedure(string statement) => $"Public Sub DoWork()\r\n    {statement}\r\nEnd Sub\r\n";
