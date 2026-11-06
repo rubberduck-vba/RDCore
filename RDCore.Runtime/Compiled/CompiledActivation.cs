@@ -1032,8 +1032,8 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell of the object in <paramref name="slot"/> (<see cref="ObjectCellOf"/>), found again after the interpreter ran an instruction - a <c>Set</c>
-    /// binds the slot to another - or the program waited.
+    /// The cell of the object in <paramref name="slot"/> (<see cref="ObjectCellOf"/>), found again after the interpreter ran an instruction or the program
+    /// waited. A <c>Set</c> stores the reference into the cell the slot holds, which this finds again.
     /// </summary>
     /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
     public bool TryReloadObjectCell(int slot, out object? cell)

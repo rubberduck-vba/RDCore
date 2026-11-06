@@ -19,7 +19,7 @@ public sealed class CompiledObjectTests
 
     // each answer a row gives is a bit of the number it prints, in the order they are given: any wrong answer is another number.
 
-    // an object variable compared with Nothing in a loop: the Set that makes it something is the interpreter's, and compiled code reads the cell it binds.
+    // an object variable compared with Nothing in a loop: the Set that makes it something is the interpreter's, and compiled code reads the reference it stores.
     [TestMethod]
     public async Task AnObjectComparedWithNothing_IsComparedInCompiledCode()
         => await AssertAlikeAsync(Program(
@@ -111,6 +111,60 @@ public sealed class CompiledObjectTests
             "        If TypeOf O Is Other Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
             "    Next",
             "End Function"), "Tested", recoveries: 6, classes: Things);
+
+    // TypeOf tests an interface too (MS-VBAL §5.6.7): an object of a class that implements it is of it, one of a class that does not is not; and so is the
+    // object a variable declared as the interface refers to. The interpreter runs each Set: the one before the loop and the one of each of 4 passes, 5; every
+    // TypeOf is compiled.
+    [TestMethod]
+    public async Task TypeOf_TestsAnInterfaceTheClassImplements()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Tested()",
+            "End Sub",
+            "Private Function Tested() As Long",
+            "    Dim O As Object",
+            "    Dim S As IShape",
+            "    Dim I As Long",
+            "    Set S = New Square",
+            "    For I = 1 To 4",
+            "        If I Mod 2 = 1 Then Set O = New Square Else Set O = New Thing",
+            "        If TypeOf O Is IShape Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
+            "        If TypeOf O Is Square Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
+            "        If TypeOf S Is IShape Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
+            "    Next",
+            "End Function"), "Tested", recoveries: 5, classes:
+            [
+                .. Things,
+                ("IShape", ModuleWorkspace.ClassModule("IShape", "Option Explicit", "Public Function Area() As Long", "End Function")),
+                ("Square", ModuleWorkspace.ClassModule("Square", "Option Explicit", "Implements IShape",
+                    "Private Function IShape_Area() As Long", "    IShape_Area = 4", "End Function")),
+            ]);
+
+    // an object let go of runs its Class_Terminate where the interpreter lets go of it - at the Set that drops its last reference, and at the end of the
+    // procedure - and the Is compared after each sees what is left. The interpreter runs, at each of 4 passes, the Set of A, the Debug.Print and the Set of
+    // B; the assignment of A's field at the 2 passes A refers to an object; and the Set of B after the loop: 4 * 3 + 2 + 1 = 15. Every Is is compiled.
+    [TestMethod]
+    public async Task ClassTerminate_RunsWhereTheLastReferenceGoes_AroundIsComparedInCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Watched()",
+            "    Debug.Print \"back\"",
+            "End Sub",
+            "Private Function Watched() As Long",
+            "    Dim A As Noisy",
+            "    Dim B As Noisy",
+            "    Dim I As Long",
+            "    For I = 1 To 4",
+            "        If I Mod 2 = 1 Then Set A = New Noisy Else Set A = Nothing",
+            "        If Not (A Is Nothing) Then A.Id = I",
+            "        If A Is Nothing Then Debug.Print \"none\"; I Else Debug.Print \"held\"; I",
+            "        Set B = A",
+            "        If B Is A Then Watched = Watched * 2 + 1 Else Watched = Watched * 2",
+            "    Next",
+            "    Set B = New Noisy",
+            "    If A Is B Then Watched = Watched * 2 + 1 Else Watched = Watched * 2",
+            "End Function"), "Watched", recoveries: 15, classes:
+            [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Option Explicit", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone\"; Id", "End Sub"))]);
 
     // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given.
     [TestMethod]

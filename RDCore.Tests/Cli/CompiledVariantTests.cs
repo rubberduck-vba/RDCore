@@ -138,7 +138,7 @@ public sealed class CompiledVariantTests
             "End Function"), "Flipped", recoveries: 0);
 
     // a Variant let-assigned to a scalar variable is converted to its type as any payload is: exactly, or by the interpreter, which rounds, running that
-    // statement alone - compiled code goes on after it.
+    // statement alone - compiled code goes on after it. L = V converts 6 exactly; L + V is 8.5, which the interpreter rounds: 1.
     [TestMethod]
     public async Task AVariantAssignedToALong_ThatIsNoInteger_IsRoundedByTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -156,7 +156,7 @@ public sealed class CompiledVariantTests
             "End Function"), "Rounded", recoveries: 1);
 
     // a loop condition reading a Variant that is Empty, which compiled code does not compare: the interpreter runs the Do statement alone, and the loop
-    // goes on compiled once the Variant holds a number.
+    // goes on compiled once the Variant holds a number. Empty is read twice: by the first test of the condition, and by the first S + 3: 2.
     [TestMethod]
     public async Task ALoopConditionOnAVariantThatIsEmpty_IsTheInterpretersOnce_AndTheLoopGoesOnCompiled()
         => await AssertAlikeAsync(Program(
@@ -172,7 +172,7 @@ public sealed class CompiledVariantTests
             "End Function"), "Climbed", recoveries: 2);
 
     // a condition reading a Variant that holds a String, which the interpreter compares as a number: each If is the interpreter's alone, and the loop it
-    // is in goes on compiled.
+    // is in goes on compiled. The If of each of the 3 passes of Judged("5") is the interpreter's; Judged(2) compares an Integer, compiled: 3.
     [TestMethod]
     public async Task AConditionOnAVariantHoldingAString_IsTheInterpreters_StatementByStatement()
         => await AssertAlikeAsync(Program(
