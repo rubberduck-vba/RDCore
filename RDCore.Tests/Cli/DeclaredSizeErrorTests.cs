@@ -118,6 +118,13 @@ public sealed class DeclaredSizeErrorTests
     public Task AFieldOfAUserDefinedType_IsSizedAsAVariableIs(string declaration, string expected)
         => AssertError(expected, [.. declaration.Split(": ")], "Debug.Print 1");
 
+    // a variable has no value until the code runs: the bound is no size to reduce, and its error is the one the bound has.
+    [TestMethod]
+    [DataRow("Dim n As Long: Dim a(n) As Byte")]
+    [DataRow("Dim n As Long: Dim a(1 To n, 2) As Byte")]
+    public Task ABoundAVariableGives_IsAConstantExpressionRequired(string statement)
+        => AssertError("Constant expression required", [], statement.Split(": "));
+
     [TestMethod]
     [DataRow("Const K = -1: Dim a(K) As Byte", "Range has no values")]
     [DataRow("Const L = 5, U = 2: Dim a(L To U) As Byte", "Range has no values")]
