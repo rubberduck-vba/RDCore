@@ -8,6 +8,7 @@ using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -90,12 +91,12 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
     [TestMethod]
     public void ACondition_NestedAsDeepAsRDVBAReads_IsEvaluated_OnASmallStack()
     {
-        var condition = "DEBUGMODE" + string.Concat(Enumerable.Repeat(" + 0", ModuleParser.MaxExpressionNesting));
-        var parse = ParseSub($"Sub Foo()\r\n#If {condition} Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+        var parse = ParseSub("Sub Foo()\r\n#If DEBUGMODE + 0 Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+        var trivia = WithCondition(parse.PrecompilerTrivia, condition => Chain((VBBinaryOperatorExpressionNode)condition, ModuleParser.MaxExpressionNesting));
         var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
 
         ImmutableArray<SourceRange> deadRanges = [];
-        var thrown = SmallStack.Run(() => deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia));
+        var thrown = SmallStack.Run(() => deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new(StaticSymbol.GlobalUri), trivia));
 
         Assert.IsNull(thrown, thrown?.ToString());
         Assert.AreEqual(4, Assert.ContainsSingle(deadRanges).Start.Line, "the #Else branch");
@@ -106,16 +107,74 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
     [TestMethod]
     public void ACondition_PastTheLimit_IsNotEvaluated_AndNoBranchIsDead()
     {
-        var condition = "DEBUGMODE" + string.Concat(Enumerable.Repeat(" + 0", 3_000));
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Sub Foo()\r\n#If {condition} Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+        var parse = ParseSub("Sub Foo()\r\n#If DEBUGMODE Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n");
+        var trivia = WithCondition(parse.PrecompilerTrivia, KeptAsText);
         var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
 
-        PrecompilerEvaluation evaluation = default;
-        var thrown = SmallStack.Run(() => evaluation = PrecompilerLiveBranchEvaluator.Evaluate(session, Evaluator(), new(StaticSymbol.GlobalUri), parse.PrecompilerTrivia));
+        var evaluation = PrecompilerLiveBranchEvaluator.Evaluate(session, Evaluator(), new(StaticSymbol.GlobalUri), trivia);
 
-        Assert.IsNull(thrown, thrown?.ToString());
         Assert.IsEmpty(evaluation.DeadRanges);
         Assert.IsEmpty(evaluation.Errors);
+    }
+
+    // a #Const whose value is past the limit has no value either, and no more does a condition that names it, or names a constant that does.
+    [TestMethod]
+    [DataRow("#Const L = 1\r\nSub Foo()\r\n#If L Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n", DisplayName = "named by the condition")]
+    [DataRow("#Const L = 1\r\n#Const M = L\r\nSub Foo()\r\n#If M Then\r\nx = 1\r\n#Else\r\nx = 2\r\n#End If\r\nEnd Sub\r\n", DisplayName = "named by another constant")]
+    public void AConstant_PastTheLimit_HasNoValue_AndNoBranchIsDead(string source)
+    {
+        var parse = ParseSub(source);
+        var trivia = WithConstantValue(parse.PrecompilerTrivia, "L", KeptAsText);
+
+        var evaluation = PrecompilerLiveBranchEvaluator.Evaluate(ComposeSession(), Evaluator(), new(StaticSymbol.GlobalUri), trivia);
+
+        Assert.IsEmpty(evaluation.DeadRanges);
+        Assert.IsEmpty(evaluation.Errors);
+    }
+
+    // an expression kept as text, at the place of one the parser built: what the parser makes of one nested past the limit.
+    private static ExpressionNode KeptAsText(ExpressionNode expression)
+        => new UnbuiltExpressionTriviaNode(expression.Identity, expression.Location, "<past the limit>", []);
+
+    // a chain of a binary operator `levels` deep, its left operand the innermost: `x + 0 + 0 …`, as the directive parse builds it.
+    private static ExpressionNode Chain(VBBinaryOperatorExpressionNode binary, int levels)
+    {
+        var chain = binary.Left;
+        for (var level = 0; level < levels; level++)
+        {
+            chain = binary with { Children = [chain, binary.Right] };
+        }
+
+        return chain;
+    }
+
+    // the directives of a module, with the condition of its #If replaced.
+    private static ImmutableArray<SyntaxNode> WithCondition(ImmutableArray<SyntaxNode> trivia, Func<ExpressionNode, ExpressionNode> replace)
+        => WithChildReplaced(trivia, node => node is PrecompilerInlineIfStatementNode, 0, replace);
+
+    // the directives of a module, with the value of the #Const of a name replaced.
+    private static ImmutableArray<SyntaxNode> WithConstantValue(ImmutableArray<SyntaxNode> trivia, string name, Func<ExpressionNode, ExpressionNode> replace)
+        => WithChildReplaced(trivia, node => node is PrecompilerConstantDeclarationNode { Children: [PrecompilerNameExpressionNode declared, ..] } && declared.Name == name, 1, replace);
+
+    // the directives of a module, with the expression at `index` of the one directive that is `target` replaced.
+    private static ImmutableArray<SyntaxNode> WithChildReplaced(ImmutableArray<SyntaxNode> trivia, Func<SyntaxNode, bool> target, int index,
+        Func<ExpressionNode, ExpressionNode> replace)
+    {
+        var replaced = 0;
+        SyntaxNode Rewrite(SyntaxNode node)
+        {
+            if (target(node))
+            {
+                replaced++;
+                return node with { Children = node.Children.SetItem(index, replace((ExpressionNode)node.Children[index])) };
+            }
+
+            return node is ExpressionNode || node.Children.IsDefaultOrEmpty ? node : node with { Children = [.. node.Children.Select(Rewrite)] };
+        }
+
+        var rewritten = trivia.Select(Rewrite).ToImmutableArray();
+        Assert.AreEqual(1, replaced, "the directive the test replaces an expression of");
+        return rewritten;
     }
 
     [TestMethod]
