@@ -2,7 +2,7 @@ using System.Reflection.Emit;
 
 namespace RDCore.Runtime.Compiled;
 
-// IR lowering S2.6b: arrays. Each array parameter or variable compiled code reads is a local holding the cell its frame holds it in, fetched at the entry
+// arrays. Each array parameter or variable compiled code reads is a local holding the cell its frame holds it in, fetched at the entry
 // and again wherever every variable is read back (EmitReload); an element is found in the array that cell holds each time it is read or written, and one
 // that isn't found - a subscript outside its dimension - is the interpreter's, at the instruction, which raises error 9.
 internal sealed partial class ProcedureEmitter

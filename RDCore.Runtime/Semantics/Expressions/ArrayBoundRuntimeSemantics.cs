@@ -65,7 +65,7 @@ public static class ArrayBoundRuntimeSemantics
 
     /// <summary>
     /// The lower or the upper bound of the dimension <paramref name="requested"/> of <paramref name="array"/>, counted from 1: what <see cref="Evaluate"/>
-    /// reads, and compiled code too (IR lowering S2.6b).
+    /// reads, and compiled code too.
     /// </summary>
     /// <returns><see langword="false"/> when the array has no such dimension: error 9.</returns>
     internal static bool TryBoundOf(VBArrayValue array, ArrayBoundKind kind, int requested, out int bound)

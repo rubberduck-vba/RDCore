@@ -1,6 +1,6 @@
 namespace RDCore.Runtime.Compiled;
 
-// the nodes and steps of arrays (IR lowering S2.6b): an array parameter or variable of the activation is held in the cell its frame holds it in, by the
+// the nodes and steps of arrays: an array parameter or variable of the activation is held in the cell its frame holds it in, by the
 // number of its slot (Array), and an element is found in the array that cell holds each time it is read or written (ArrayOperations).
 
 // what the elements of an array variable are, as compiled code reads them: a payload of a scalar kind, a Variant, an object; or none of these - a String, a

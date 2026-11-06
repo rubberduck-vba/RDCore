@@ -1108,7 +1108,7 @@ internal sealed partial class ProcedureAnalysis
     {
         switch (node)
         {
-            // an element of an array of objects compared, and tested (IR lowering S2.6b).
+            // an element of an array of objects compared, and tested.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsObjectElement(elementCompared.Left) || IsObjectElement(elementCompared.Right):
                 return ElementIs(elementCompared);
 
@@ -1168,7 +1168,7 @@ internal sealed partial class ProcedureAnalysis
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
 
-            // an element of an array, and its bounds (IR lowering S2.6b).
+            // an element of an array, and its bounds.
             case BoundIndex index:
                 return Element(index);
 

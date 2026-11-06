@@ -57,7 +57,7 @@ internal sealed class VariantCell : ICopyableBinding
     }
 
     /// <summary>
-    /// A Variant cell holding <paramref name="value"/>, known: what an element of a <c>Variant</c> array starts as, holding <c>Empty</c> (IR lowering S2.6b).
+    /// A Variant cell holding <paramref name="value"/>, known: what an element of a <c>Variant</c> array starts as, holding <c>Empty</c>.
     /// </summary>
     public static VariantCell Of(VBRuntimeVariantValue value)
     {
@@ -66,7 +66,7 @@ internal sealed class VariantCell : ICopyableBinding
         return cell;
     }
 
-    // a copy of an element of an array that is assigned (IR lowering S2.6b) is a Variant's cell too, holding a copy of what this one holds: an array or a
+    // a copy of an element of an array that is assigned is a Variant's cell too, holding a copy of what this one holds: an array or a
     // record it holds is copied with it, as DataValues.CopyCell copies any cell's value; a payload as it is.
     public IBindingHandle Copy()
     {

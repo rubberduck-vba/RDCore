@@ -7,7 +7,7 @@ using RDCore.SDK.Model.Values.Bindings;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// What compiled code does of an array parameter or variable (IR lowering S2.6b): it finds an element in the array held in the cell its frame holds the
+/// What compiled code does of an array parameter or variable: it finds an element in the array held in the cell its frame holds the
 /// variable in (<see cref="CompiledActivation.ArrayCellOf"/>), as the interpreter's evaluation on payloads finds it (<c>ElementCellOf</c>), and reads the
 /// bounds of a dimension as <c>LBound</c> and <c>UBound</c> do (<c>ArrayBoundRuntimeSemantics</c>). What it doesn't find - a subscript outside its dimension,
 /// an array of another rank, one with no dimensions, one that isn't known, an element held in a cell of another kind - is the interpreter's: each operation
@@ -21,14 +21,14 @@ public static class ArrayOperations
 {
     /// <summary>
     /// The cell of the element at <paramref name="first"/>, <paramref name="second"/> and <paramref name="third"/> - the first <paramref name="rank"/> of them,
-    /// each a <c>Long</c> - of the array held in <paramref name="holder"/>, when it is a cell that holds a payload of <paramref name="kind"/> (S1.6): what
+    /// each a <c>Long</c> - of the array held in <paramref name="holder"/>, when it is a cell that holds a payload of <paramref name="kind"/>: what
     /// <see cref="CompiledActivation.ReadIntegral"/> and the others read and write.
     /// </summary>
     public static object? ScalarElement(object? holder, ScalarKind kind, int rank, long first, long second, long third)
         => ElementOf(holder, rank, first, second, third) is ScalarCell cell && ScalarKinds.Of(cell.Type) == kind ? cell : null;
 
     /// <summary>
-    /// The cell of an element of an array of <c>Variant</c>s (<see cref="ScalarElement"/>), when it is a Variant's cell (S1.4): what
+    /// The cell of an element of an array of <c>Variant</c>s (<see cref="ScalarElement"/>), when it is a Variant's cell: what
     /// <see cref="VariantOperations.Read"/> and the others read and write.
     /// </summary>
     public static object? VariantElement(object? holder, int rank, long first, long second, long third)

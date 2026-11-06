@@ -579,14 +579,16 @@ public sealed partial class RuntimeExpressionEvaluator
     private const int MaxPayloadRank = 8;
 
     /// <summary>
-    /// The array the cell of an array variable holds, known, whose elements are read and written on payloads (S1.6): what an element of it is found in
-    /// (<see cref="ElementCellOf"/>), and what compiled code finds one in too (IR lowering S2.6b).
+    /// The array the cell of an array variable holds, known, whose elements are read and written on payloads: what an element of it is found in
+    /// (<see cref="ElementCellOf"/>), and what compiled code finds one in too.
     /// </summary>
     /// <returns><see langword="null"/> when the cell holds no array, one that is not known, or one of more dimensions than are read on payloads.</returns>
     internal static VBArrayValue? PayloadArrayOf(IBindingHandle? handle)
         => KnownArrayOf(handle) is { Rank: <= MaxPayloadRank } array ? array : null;
 
-    /// <summary>The array the cell of an array variable holds, when it is known: whose bounds <c>LBound</c> and <c>UBound</c> read.</summary>
+    /// <summary>
+    /// The array the cell of an array variable holds, when it is known: whose bounds <c>LBound</c> and <c>UBound</c> read.
+    /// </summary>
     internal static VBArrayValue? KnownArrayOf(IBindingHandle? handle)
         => handle is ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeArrayValue> { Value.Array: { IsIndeterminate: false } array } } ? array : null;
 

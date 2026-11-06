@@ -14,7 +14,7 @@ using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Compiled;
 
-// IR lowering S2.6b: arrays. An array parameter or variable of the activation - not a Static, which outlives it - is held in the cell its frame holds it in
+// arrays. An array parameter or variable of the activation - not a Static, which outlives it - is held in the cell its frame holds it in
 // (Arrays), and an element of it is found in the array that cell holds, each time it is read or written, as the interpreter's evaluation on payloads finds
 // it (RuntimeExpressionEvaluator.ElementCellOf): a subscript let-coerced to a Long, an element of a scalar kind read and written in the cell the array holds
 // it in. What isn't found - a subscript outside its dimension - is the interpreter's, which raises error 9. LBound and UBound read the array's bounds; a
@@ -22,7 +22,7 @@ namespace RDCore.Runtime.Compiled;
 internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
-    /// The array parameters and variables of the activation compiled code reads, in the order of their slots (IR lowering S2.6b): each is held in the cell
+    /// The array parameters and variables of the activation compiled code reads, in the order of their slots: each is held in the cell
     /// its frame holds it in, and an element of it is found in the array that cell holds.
     /// </summary>
     public IReadOnlyList<CompiledArray> Arrays => [.. _arrays.Values];

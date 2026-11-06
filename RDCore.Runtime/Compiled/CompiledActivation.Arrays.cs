@@ -3,11 +3,11 @@ using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.Runtime.Compiled;
 
-// IR lowering S2.6b: the arrays of an activation, held in the cells its frame holds them in.
+// the arrays of an activation, held in the cells its frame holds them in.
 public sealed partial class CompiledActivation
 {
     /// <summary>
-    /// The cell the frame holds the array parameter or variable in <paramref name="slot"/> in (IR lowering S2.6b): what compiled code finds an element in
+    /// The cell the frame holds the array parameter or variable in <paramref name="slot"/> in: what compiled code finds an element in
     /// (<see cref="ArrayOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter is in its caller's variable's cell, as a
     /// <c>Variant</c>'s is (<see cref="VariantCellOf"/>). A <c>ReDim</c> stores the array it makes in the same cell.
     /// </summary>

@@ -83,9 +83,9 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
 
     /// <inheritdoc/>
     /// <remarks>
-    /// An element of a scalar type is kept in a cell that holds it as a payload (IR lowering S1.6), as a scalar variable is: an expression of it is
-    /// evaluated on the payload, and an assignment to it writes one, with no value made of it either way. An element of a <c>Variant</c> array is kept in a
-    /// Variant's cell (S1.4), as a Variant variable is, where compiled code reads and writes the payload it holds (IR lowering S2.6b).
+    /// An element of a scalar type is kept in a cell that holds it as a payload, as a scalar variable is: an expression of it is evaluated on the payload,
+    /// and an assignment to it writes one, with no value made of it either way. An element of a <c>Variant</c> array is kept in a Variant's cell, as a
+    /// Variant variable is, where compiled code reads and writes the payload it holds.
     /// </remarks>
     public Func<IBindingHandle>? ElementCellOf(VBType itemType)
     {
