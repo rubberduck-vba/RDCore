@@ -643,11 +643,11 @@ public partial class ModuleParser(
     }
 
     // the tokens an output clause can begin with, but the whitespace a parenthesized expression may begin with.
-    private static readonly Antlr4.Runtime.Misc.IntervalSet OutputClauseStart = OutputClauseStartTokens();
+    private static readonly IntervalSet OutputClauseStart = OutputClauseStartTokens();
 
-    private static Antlr4.Runtime.Misc.IntervalSet OutputClauseStartTokens()
+    private static IntervalSet OutputClauseStartTokens()
     {
-        var start = new Antlr4.Runtime.Misc.IntervalSet(VBAParser._ATN.NextTokens(VBAParser._ATN.ruleToStartState[VBAParser.RULE_outputClause]));
+        var start = new IntervalSet(VBAParser._ATN.NextTokens(VBAParser._ATN.ruleToStartState[VBAParser.RULE_outputClause]));
         start.Remove(VBALexer.WS);
         start.Remove(VBALexer.LINE_CONTINUATION);
         return start;
@@ -658,7 +658,7 @@ public partial class ModuleParser(
     /// </summary>
     /// <remarks>
     /// <strong>MS-VBAL §5.4.5.8.1</strong> lets an output item follow another with nothing between them (<c>output-list = *output-item</c>). RD-VBA requires a
-    /// space, a <c>;</c> or a <c>,</c> between two output clauses (<strong>RD-VBAL §5.4.5.8</strong>), as the VBE writes them. The grammar reads no clause
+    /// space, a <c>;</c> or a <c>,</c> between two output clauses (<strong>RD-VBAL §5.4.5.8.1</strong>), as the VBE writes them. The grammar reads no clause
     /// there, so the token right after an output list that begins one is the clause written right after the list's last. The grammar's error at it, if there
     /// is one, is its consequence: in a <c>Print #</c> statement, the token is not the end of the statement. After the output list of <c>Debug.Print</c> and
     /// of an object's <c>Print</c>, which is an l-expression, the grammar reads a <c>(</c> as the index of the expression, and reports nothing.
@@ -1086,32 +1086,20 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         var location = new SourceLocation(_uri, new(position, position));
 
         // a semantic predicate is the grammar's, and no part of the language: where one fails (`Debug.Print Spc(1`, a Spc clause that is not complete), what
-        // the parser could not read is said as ANTLR says it where no alternative is viable, with the statement's input from there, and not the predicate's code.
-        if (e is FailedPredicateException && offendingSymbol is not null && recognizer is Parser { InputStream: ITokenStream tokens })
+        // the parser could not read is said as ANTLR says it where no alternative is viable (DefaultErrorStrategy.ReportNoViableAlternative): the input from
+        // where the rule's decision began to the token it failed at, and not the predicate's code.
+        if (e is FailedPredicateException { Context: ParserRuleContext { Start: { } start } } && offendingSymbol is not null
+            && recognizer is Parser { InputStream: ITokenStream tokens })
         {
-            msg = $"no viable alternative at input '{StatementTextFrom(tokens, offendingSymbol)}'";
+            msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
         }
 
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
 
-    // the text of a statement's tokens from one of them to the end of the statement.
-    private static string StatementTextFrom(ITokenStream tokens, IToken first)
-    {
-        var last = first;
-        for (var index = first.TokenIndex; index < tokens.Size; index++)
-        {
-            var token = tokens.Get(index);
-            if (token.Type is TokenConstants.Eof or VBALexer.NEWLINE or VBALexer.COLON or VBALexer.SINGLEQUOTE or VBALexer.REM)
-            {
-                break;
-            }
-
-            last = token;
-        }
-
-        return tokens.GetText(first, last);
-    }
+    // a token's text as ANTLR quotes it in an error (DefaultErrorStrategy.EscapeWSAndQuote, which is not public): its line breaks and tabs escaped.
+    private static string EscapeWSAndQuote(string text)
+        => $"'{text.Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")}'";
 
     /// <summary>
     /// Replaces what the grammar says of a module whose blocks do not match with what MS-VBA says of them (<see cref="BlockStructureScanner"/>): the
@@ -1138,7 +1126,8 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         Report(new SourceLocation(_uri, new(start, end)), id, verbose);
     }
 
-    // whether the grammar refused something of the module.
+    // whether the grammar refused something of the module. VBC00061 (OutputItemsNotSeparated) is not one: the grammar read the statement, and a segment
+    // that has it is stitched as a segment that read well is.
     public bool HasGrammarErrors => _errors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError);
 
     // the errors of a part of the module parsed on its own, already located in the module (a header alternative).

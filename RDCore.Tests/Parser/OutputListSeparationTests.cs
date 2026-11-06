@@ -74,6 +74,22 @@ public class OutputListSeparationTests
         Assert.IsInstanceOfType<IndexExpressionNode>(ItemsOf(result).Single().Value);
     }
 
+    // a KNOWN DIFFERENCE from MS-VBA, pinned as RD-VBA reads it today, as main did before VBC00061: the grammar allows no space before the argument list of a
+    // name (indexExpr), so `F (2)` is two items, F with no argument, then (2). MS-VBA calls F with 2, and the VBE writes it `F(2)` (oracle\s70 A09).
+    // fix/print-name-space-paren is to read it as the VBE does.
+    [TestMethod]
+    [DataRow("Debug.Print F (2)")]
+    [DataRow("Print #1, F (2)")]
+    public void ANameThenASpaceThenParentheses_IsTwoItems_UnlikeMSVBA(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var items = ItemsOf(result).Where(item => item.Value is not null).ToArray();
+        Assert.HasCount(2, items);
+        Assert.IsNotInstanceOfType<IndexExpressionNode>(items[0].Value);
+    }
+
     // a Spc clause that is not complete is the parser's error as any other is, said with what it could not read: not the code of the grammar's predicate
     // that tells a Spc clause from a call of a name Spc.
     [TestMethod]
@@ -82,7 +98,7 @@ public class OutputListSeparationTests
         var error = ParseInProcedure("Debug.Print Spc(1").SyntaxErrors.Single();
 
         Assert.AreEqual(VBCompileErrorId.SyntaxError, error.VBCompileErrorId);
-        Assert.AreEqual("no viable alternative at input 'Spc(1'", error.Verbose);
+        Assert.AreEqual("no viable alternative at input 'Spc'", error.Verbose);
     }
 
     private static IEnumerable<PrintOutputItemNode> ItemsOf(ModuleParseResult result)
@@ -109,19 +125,24 @@ public class OutputListSeparationTests
         Assert.IsLessThan(5, deep);
     }
 
-    // the most tokens a decision of lExpression read ahead, in a module-level constant of calls nested `depth` deep.
+    // the most tokens a decision of lExpression read ahead, in a module-level constant of calls nested `depth` deep, with a prediction cache of its own: the
+    // cache of VBAParser is the process's, shared with every other parse, and what it already holds is read ahead of nothing.
     private static int LExpressionLookahead(int depth)
     {
         var code = "Public Const X = " + string.Concat(Enumerable.Repeat("F(", depth)) + "1" + new string(')', depth) + "\r\n";
+        var atn = new ATNDeserializer().Deserialize(VBAParser._serializedATN.ToCharArray());
         var parser = new VBAParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(code))));
-        parser.Interpreter.PredictionMode = PredictionMode.Sll;
+        parser.Interpreter = new ParserATNSimulator(parser, atn);
+
+        // the profiler replaces the simulator with one of its ATN, and takes no prediction mode from it: the mode is set on the profiler.
         parser.Profile = true;
+        parser.Interpreter.PredictionMode = PredictionMode.Sll;
         parser.RemoveErrorListeners();
         parser.startRule();
         Assert.AreEqual(0, parser.NumberOfSyntaxErrors);
 
         return (int)parser.ParseInfo.DecisionInfo
-            .Where(decision => parser.Atn.decisionToState[decision.decision].ruleIndex == VBAParser.RULE_lExpression)
+            .Where(decision => atn.decisionToState[decision.decision].ruleIndex == VBAParser.RULE_lExpression)
             .Max(decision => decision.SLL_MaxLook);
     }
 }
