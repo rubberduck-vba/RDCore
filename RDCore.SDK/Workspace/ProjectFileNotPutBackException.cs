@@ -46,12 +46,18 @@ public sealed class ProjectFileNotPutBackException : IOException
         Restore = restore;
     }
 
-    /// <summary>The project file, which is no longer there: where the file as it was is to be put back.</summary>
+    /// <summary>
+    /// The path the backup must be renamed to; no file is there.
+    /// </summary>
     public string ProjectFilePath { get; }
 
-    /// <summary>Where the project file as it was is: next to it, as <c>.rdproj.bak</c> or the first free <c>.rdproj.N.bak</c>.</summary>
+    /// <summary>
+    /// The path of the backup copy: <c>.rdproj.bak</c>, or the first free <c>.rdproj.N.bak</c> next to the project file.
+    /// </summary>
     public string BackupPath { get; }
 
-    /// <summary>Why the project file could not be put back as it was.</summary>
+    /// <summary>
+    /// Why the project file could not be put back as it was.
+    /// </summary>
     public Exception Restore { get; }
 }

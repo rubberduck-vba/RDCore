@@ -48,9 +48,20 @@ RDCore opens a project file whatever version it says:
 - **A newer second number** (`1.1` when RDCore writes `1.0`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
 - **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
 
-Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or `0.1` and something: those files are in the format `1.0`, and open.
+Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open.
 
-A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, as it makes up the project of a folder that has none. It always asks first, because what only the project file says, such as the project's references, is lost. If you accept, the file as it was is kept next to it, as `.rdproj.bak` (or `.rdproj.1.bak` and so on, if that name is taken), and the new file replaces it. If the new file can't be written, the old one is put back as it was, and the project does not open, as if you hadn't accepted. If the old one can't be put back either, it stays as the `.bak` file, and RDCore says so, and what to rename it to. If you don't accept, nothing changes, and the project does not open until the file is fixed. An IDE asks in its own window, if it says it can answer while the project opens ([**RD-VBAL §2.0.2.1.3**](rd-vbal.2.0.2.client-server-capabilities.md#20213-what-the-server-asks-before-it-answers-initialize)); one that doesn't is not asked, and the project does not open. The `rdc` shell asks at its prompt, but only when someone is typing at it: a script piped into `rdc` is not asked, and none of its lines is taken for an answer. A question that comes while you are typing a line waits until you enter it, so your keys stay on the line. Under `--unattended`, nobody is there to answer, so nothing is asked: the project does not open, and RDCore says why.
+A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, the same way it builds a project for a folder that has no project file. It always asks first, because what only the project file says, such as the project's references, is lost.
+
+- **You accept.** The file as it was is kept next to it, as `.rdproj.bak` (or `.rdproj.1.bak` and so on, if that name is taken), and the new file replaces it.
+- **The new file cannot be written.** The old one is put back as it was, and the project does not open, as if you had not accepted.
+- **The old one cannot be put back either.** It stays as the `.bak` file, and RDCore says so, and what to rename it to.
+- **You decline.** Nothing changes, and the project does not open until the file is fixed.
+
+Who is asked:
+
+- **An IDE** asks in its own window, but only if it says it can answer while the project opens (`answersDuringInitialize`, [**RD-VBAL §2.0.2.1.3**](rd-vbal.2.0.2.client-server-capabilities.md#20213-what-the-server-asks-before-it-answers-initialize)). One that does not say so is not asked, and the project does not open.
+- **The `rdc` shell** asks at its prompt, but only when someone is typing at it: a script piped into `rdc` is not asked, and none of its lines is taken for an answer. A question that comes while you are typing a line waits until you enter it, so your keys stay on the line.
+- **Under `--unattended`**, nobody is there to answer, so nothing is asked: the project does not open, and RDCore says why.
 
 ## 2.2.3.1 RDCoreProject
 

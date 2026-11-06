@@ -111,7 +111,9 @@ internal sealed class ReplShowMessageHandler(IReplConsole console) : OmniSharp.E
         return MediatR.Unit.Task;
     }
 
-    /// <summary>The kind of the shell's message a server's message is written as.</summary>
+    /// <summary>
+    /// The kind of the shell's message a server's message is written as.
+    /// </summary>
     internal static MessageKind KindOf(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType type) => type switch
     {
         OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error => MessageKind.Error,
@@ -121,7 +123,9 @@ internal sealed class ReplShowMessageHandler(IReplConsole console) : OmniSharp.E
     };
 }
 
-/// <summary>Whether the shell runs unattended (<c>--unattended</c>): nobody is at its console to answer a question.</summary>
+/// <summary>
+/// Whether the shell runs unattended (<c>--unattended</c>): nobody is at its console to answer a question.
+/// </summary>
 /// <param name="IsUnattended">Whether it does.</param>
 internal sealed record ReplUnattended(bool IsUnattended);
 

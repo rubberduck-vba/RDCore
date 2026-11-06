@@ -10,7 +10,9 @@ namespace RDCore.CLI.App.Console;
 /// </remarks>
 public interface IConsoleInterjections
 {
-    /// <summary>Done once something waits to be asked; a task that is done at once while something does.</summary>
+    /// <summary>
+    /// Done once something waits to be asked; a task that is done at once while something does.
+    /// </summary>
     Task Waiting { get; }
 
     /// <summary>

@@ -717,16 +717,33 @@ internal static class ProjectFileEntry
 /// </remarks>
 public enum ProjectFileSchemaMatch
 {
-    /// <summary>The project file says no version: no platform wrote it yet.</summary>
+    /// <summary>
+    /// The project file says no version: no platform wrote it yet.
+    /// </summary>
     Unstamped,
-    /// <summary>The project file is in the format the platform reads and writes.</summary>
+
+    /// <summary>
+    /// The project file is in the format the platform reads and writes.
+    /// </summary>
     Same,
-    /// <summary>The project file is in an older format, or was written before the format had a version; it is in this one once it is written.</summary>
+
+    /// <summary>
+    /// The project file is in an older format, or was written before the format had a version; it is in this one once it is written.
+    /// </summary>
     Older,
-    /// <summary>The project file is in a newer minor of the format: a newer platform added members this one does not know, and keeps.</summary>
+
+    /// <summary>
+    /// The project file is in a newer minor of the format: a newer platform added members this one does not know, and keeps.
+    /// </summary>
     NewerMinor,
-    /// <summary>The project file is in a newer major of the format, which this platform may not read.</summary>
+
+    /// <summary>
+    /// The project file is in a newer major of the format, which this platform may not read.
+    /// </summary>
     NewerMajor,
-    /// <summary>The project file's version is no version: neither <c>major.minor</c> nor a number.</summary>
+
+    /// <summary>
+    /// The project file's version is no version: neither <c>major.minor</c> nor a number.
+    /// </summary>
     Unparseable,
 }

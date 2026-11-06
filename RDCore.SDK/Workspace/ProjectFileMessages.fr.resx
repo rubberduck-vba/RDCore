@@ -14,10 +14,10 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ProjectFile_Regenerate_Offer" xml:space="preserve">
-    <value>Le fichier de projet '{0}' ne peut pas être lu : il n'est pas valide à la ligne {1}, position {2}. Le régénérer à partir des fichiers source de son dossier ? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{3}'.</value>
+    <value>Le fichier de projet '{0}' ne peut pas être lu : il n'est pas valide à la ligne {1}, position {2}. Le régénérer à partir des fichiers source de son dossier? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{3}'.</value>
   </data>
   <data name="ProjectFile_Regenerate_Offer_Unplaced" xml:space="preserve">
-    <value>Le fichier de projet '{0}' ne peut pas être lu. Le régénérer à partir des fichiers source de son dossier ? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{1}'.</value>
+    <value>Le fichier de projet '{0}' ne peut pas être lu. Le régénérer à partir des fichiers source de son dossier? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{1}'.</value>
   </data>
   <data name="ProjectFile_Regenerate_Choice_Regenerate" xml:space="preserve">
     <value>Régénérer</value>

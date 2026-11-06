@@ -1,11 +1,11 @@
 namespace RDCore.SDK.Platform.Protocol;
 
 /// <summary>
-/// What a client says of itself to a server in the <c>initializationOptions</c> of the LSP <c>initialize</c> request - the part of the
-/// protocol that exists for exactly this: the settings of a server that no standard capability describes.
+/// What a client says of itself to a server in the <c>initializationOptions</c> of the LSP <c>initialize</c> request. That part of the
+/// protocol exists for exactly this: the settings of a server that no standard capability describes.
 /// </summary>
 /// <remarks>
-/// The language the workspace is written in is one: a server cannot tell RD-VBA from VB6 or BASIC by looking at the files, and the
+/// For example, the language the workspace is written in: a server cannot tell RD-VBA from VB6 or BASIC by looking at the files, and the
 /// dialect decides what it builds (the name of the standard library, where an undeclared name declares its variable, which statements
 /// exist at all). A server started with a command line has already been told, and what the client sends here wins.
 /// </remarks>
@@ -47,9 +47,10 @@ public sealed record class RDCoreInitializationOptions
     /// <c>initialize</c> unanswered for good, and the client waits for that answer: neither side moves again.
     /// </para>
     /// <para>
-    /// A client built on OmniSharp's language client (0.19.9) is one, unless it answers with a choice: until it is initialized, it writes no message but the
-    /// <c>initialize</c> request, the <c>initialized</c> notification and a response with a result, and holds every other one until it is. An error is
-    /// such a message: the one it answers with when its handler fails, when its user cannot be asked, or when it has no handler for the request at all.
+    /// A client built on OmniSharp's language client (0.19.9) is such a client, unless it answers with a choice. Until it is initialized, OmniSharp's language
+    /// client writes no message except the <c>initialize</c> request, the <c>initialized</c> notification and a response with a result, and holds every other
+    /// one until it is. Error responses are held as well, including the one it answers with when its handler fails, when its user cannot be asked, or when it has
+    /// no handler for the request at all.
     /// </para>
     /// <para>
     /// A server asks nothing before <c>initialize</c> is answered of a client that does not say <see langword="true"/>, nor of one that runs

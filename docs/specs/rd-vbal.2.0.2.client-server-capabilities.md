@@ -81,12 +81,15 @@ The language server loads its workspace while it answers `initialize`, and what 
 offered to be regenerated ([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). LSP allows a server to ask with `window/showMessageRequest` before it
 answers `initialize`, and the server waits for the answer, so a client that cannot answer then would wait forever for the answer to `initialize`.
 
-A client built on OmniSharp's language client (0.19.9, as `rdc` is) is one. Until it is initialized, it sends nothing but its `initialize` request, its
-`initialized` notification, and responses that carry a result; every other message waits until it is initialized. An error response is one of those: the
-answer of a handler that fails, of a client whose user cannot be asked, and of a client that has no handler for the request.
+The `rdc` shell is such a client: OmniSharp's language client (0.19.9) sends nothing before it is initialized except its `initialize` request, its
+`initialized` notification, and responses that carry a result; every other message waits until it is initialized. Error responses are held as well,
+including the answer of a handler that fails, of a client whose user cannot be asked, and of a client that has no handler for the request.
 
-So the server asks then only a client that says it answers, with a choice or with none and never with an error, in its `initializationOptions`
-([`AnswersDuringInitialize`](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)), and that does not say it runs unattended:
+So before it answers `initialize`, the server asks only a client whose `initializationOptions` say both of these:
+
+- `answersDuringInitialize` is `true` ([`AnswersDuringInitialize`](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)): the client
+  answers with a choice or with none, and never with an error;
+- the client is not `unattended`.
 
 ```json
 { "language": "basic", "answersDuringInitialize": true }
@@ -792,7 +795,11 @@ no other way for the language server to write a setting of a client, and the cli
 
 The language server sends the requests only to a client that expects the capability:
 
-- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer. A user who closes the question has answered it. A client with nobody there to answer answers the request with an error instead, as the `rdc` shell does when its input is a script or it has ended, and then the server asks again at the next start. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked at all, and is asked at a start where it does not expect it. When the user chooses _Import_ and the client can't apply the settings, the server asks again at the next start too.
+- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer:
+  - a user who closes the question has answered it;
+  - a client with nobody there to answer answers the request with an error instead, as the `rdc` shell does when its input is a script or it has ended, and the server asks again at the next start;
+  - a client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked at all that start, and is asked at a start where it does not expect it;
+  - when the user chooses _Import_ and the client cannot apply the settings, the server asks again at the next start.
 - **On request.** The command `rdcore.importIndenterSettings` ([`workspace/executeCommand`](#workspaceexecutecommand)) runs the two requests against the client that sent it, and answers `{ "source", "found", "applied", "message" }`. A client that does not expect the capability is refused with a message. That nothing was found is an answer, not a refusal.
 
 The interactive shell expects the capability. It reads Rubberduck on Windows, and answers `None` elsewhere. `CONFIG IMPORT RUBBERDUCK` in the shell, and `rdc config import rubberduck` in command mode, do the same
