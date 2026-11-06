@@ -55,6 +55,10 @@
   <data name="Rename_Unresolved" xml:space="preserve">
     <value>Ce que « {0} » désigne à {2} n'est pas connu : le renommage pourrait l'oublier.</value>
   </data>
+  <!-- What a client is told of the references of a symbol (SymbolNavigationTarget.Unresolved): {0} is its name, {1} where the first such name is written. -->
+  <data name="References_Incomplete" xml:space="preserve">
+    <value>Les références de « {0} » peuvent être incomplètes : ce que « {0} » désigne à {1} n'est pas connu.</value>
+  </data>
   <data name="CodeAction_Rename" xml:space="preserve">
     <value>Renommer « {0} »…</value>
   </data>

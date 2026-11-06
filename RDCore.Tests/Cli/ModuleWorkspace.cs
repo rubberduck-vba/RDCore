@@ -82,6 +82,14 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true);
 
     /// <summary>
+    /// The errors that stopped the <c>Program</c> standard module from loading, as <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>
+    /// gives them, of a module that may have syntax errors, which the language server sends the host as it sends any other module.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static Task<string[]> LoadErrorsWithSyntaxErrorsAsync(string program)
+        => RunCoreAsync([], program, errorsOnly: true, syntaxErrors: true);
+
+    /// <summary>
     /// The libraries a workspace's project references, and the source they are found in. A library is known by its name, as the project's reference says.
     /// </summary>
     /// <param name="References">The names of the libraries the project references, in order, after the standard library.</param>
@@ -163,6 +171,22 @@ internal static class ModuleWorkspace
     }
 
     /// <summary>
+    /// Runs <c>Program.Main</c> of a module that may have syntax errors, which the language server sends the host as it sends any other module, and the host
+    /// loads what the parser made of it. What came of the run, whatever it was.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program)
+    {
+        ExecuteResult? ran = null;
+        await RunCoreAsync([], program, errorsOnly: false, inspect: (_, result, _) =>
+        {
+            ran = result;
+            return Task.CompletedTask;
+        }, syntaxErrors: true);
+        return ran!;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host what the semantic analysis pass found out about it, as the language server does.
     /// </summary>
     /// <param name="classes">The class modules of the workspace.</param>
@@ -235,9 +259,10 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="moduleName">The module whose model is given.</param>
     /// <param name="language">The language the code is written in; RD-VBA unless said otherwise.</param>
+    /// <param name="syntaxErrors">Whether a module may have syntax errors, which the language server sends the host as it sends any other module.</param>
     public static async Task<SDK.Semantics.ModuleSemanticModel> ModelAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "Program", SupportedLanguage? language = null,
-        WorkspaceLibraries? libraries = null)
+        WorkspaceLibraries? libraries = null, bool syntaxErrors = false)
     {
         SDK.Semantics.ModuleSemanticModel? model = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
@@ -245,7 +270,7 @@ internal static class ModuleWorkspace
             // the facts of the code are evaluated in the background, after the model is stored.
             await sessionProvider.Image.Semantics.WhenAllEvaluatedAsync();
             model = sessionProvider.Image.Semantics.All.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == moduleName);
-        }, language: language, libraries: libraries);
+        }, language: language, libraries: libraries, syntaxErrors: syntaxErrors);
 
         return model!;
     }
@@ -299,7 +324,8 @@ internal static class ModuleWorkspace
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
-        bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false)
+        bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
+        bool syntaxErrors = false)
     {
         var loadErrors = new List<string>();
 
@@ -348,7 +374,8 @@ internal static class ModuleWorkspace
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
                 workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
-            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers);
+            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers,
+            syntaxErrors: syntaxErrors);
 
         foreach (var module in parsed)
         {
@@ -358,7 +385,8 @@ internal static class ModuleWorkspace
                 continue;
             }
 
-            Assert.IsEmpty(module.CodeErrors, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
+            // a module with syntax errors may not load, and its run is what says so.
+            Assert.IsTrue(syntaxErrors || module.CodeErrors.Count == 0, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
         }
 
         if (errorsOnly)
@@ -447,13 +475,13 @@ internal static class ModuleWorkspace
     private static async Task<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)[]> DefineAsync(
         EnvironmentSessionProvider sessionProvider, string projectName, (string Name, string Extension, ModuleType Type, string Source)[] modules,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols,
-        IReadOnlyCollection<string>? only = null, IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
+        IReadOnlyCollection<string>? only = null, IReadOnlyDictionary<string, DocClassType>? documentHosts = null, bool syntaxErrors = false)
     {
         var workspaceRoot = Wire.FileUri(Root);
         var parsed = modules.Select(module =>
         {
             var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
-            Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+            Assert.IsTrue(syntaxErrors || parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
 
             // as the language server does: the parse of a form has what its designer declares, which the parser does not read.
             parse = parse with { Designer = forms?.FirstOrDefault(form => form.Name == module.Name).Designer };

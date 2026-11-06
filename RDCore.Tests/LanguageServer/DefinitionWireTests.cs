@@ -167,7 +167,7 @@ public sealed class DefinitionWireTests
         var serving = OmniSharpLanguageServer.From(server => server
             .WithInput(toServer.Reader)
             .WithOutput(toClient.Writer)
-            .AddHandler(new ReferencesHandler(Workspace()))
+            .AddHandler(new ReferencesHandler(Workspace(), Substitute.For<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServerFacade>()))
             .AddHandler(new DocumentHighlightHandler(Workspace())), timeout.Token);
         var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);
 

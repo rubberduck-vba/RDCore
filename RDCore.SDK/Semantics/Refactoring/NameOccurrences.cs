@@ -236,6 +236,16 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             var lines = LinesOf(module.Source);
             foreach (var (node, parent) in Walk(module.Syntax))
             {
+                // a name written in an expression the parser kept as text is not analyzed (RD-VBAL 2.6.1): what it refers to there is not known.
+                if (node is UnbuiltExpressionTriviaNode unbuilt)
+                {
+                    foreach (var unbuiltName in unbuilt.Names.Where(each => string.Equals(each.Name, name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var kind = unbuiltName.IsMember ? OccurrenceKind.Member : OccurrenceKind.Name;
+                        unknown.Add(new NameOccurrence(module.Module, unbuiltName.Range, null, kind, ScopeAt(context, module, unbuiltName.Range.Start)));
+                    }
+                }
+
                 if (WrittenName(node, parent, lines) is not { } written || !string.Equals(written.Name, name, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
