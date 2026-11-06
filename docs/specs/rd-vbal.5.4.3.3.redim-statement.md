@@ -107,14 +107,15 @@ reads the sentence as **MS-VBA** does (recorded in Excel): as a `ReDim Preserve`
 `Preserve` keeps nothing of what the `Variant` held, and makes it an array whatever that was.
 
 Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). What an upper bound
-below its lower bound does depends on what is re-dimensioned and by how much (recorded in Excel, `oracle\s56` R03-R07, F01-F13, I05, I06):
+below its lower bound does depends on what is re-dimensioned and by how much (recorded in Excel, `oracle\s56` R03-R07, F01-F13, I05, I06, and `oracle\s68`):
 
 |Re-dimensioned|Upper bound|Error|The variable|
 |---|---|---|---|
-|A variable declared as an array, without `Preserve`|below the lower, in any dimension|9, `Subscript out of range`|Loses its dimensions, as `Erase` leaves it.|
+|A variable declared as an array, without `Preserve`, a parameter declared as one (`v() As Long`) too|below the lower, in any dimension|9, `Subscript out of range`|Loses its dimensions, as `Erase` leaves it.|
 |A variable declared as an array, with `Preserve`|below the lower|9|Keeps its bounds and its elements.|
-|A `Variant`|one below the lower (`5 To 4`), in any dimension, whatever the others are|9|Keeps what it held: an array, a number, `Empty`.|
-|A `Variant`, one dimension|further below (`5 To 3`)|7, `Out of memory`|Is left `Empty`, whatever it held (vb6.exe does the same). RD-VBA does the same for several dimensions none of which is one below, which is not measured.|
+|A `Variant`, a `Variant` reference parameter given a variable declared as an array too|one below the lower (`5 To 4`), in any dimension, whatever the others are|9|Keeps what it held: an array, a number, `Empty`.|
+|A `Variant`|further below (`5 To 3`), in one dimension or several, none of which is one below|7, `Out of memory`|Is left `Empty`, whatever it held (vb6.exe does the same for one dimension).|
+|A `Variant` reference parameter given a variable declared as an array (`G a`, of `Sub G(v)`)|further below, none one below|7|The caller's array loses its dimensions, as `Erase` leaves it: it is still declared an array (`oracle\s68` V07-V09, VV17-VV19).|
 |A `Variant` that holds an array, with `Preserve`|below the lower|9|Keeps the array.|
 |A `Variant` that holds no array, with `Preserve`|below the lower|13, `Type mismatch`|Keeps what it held.|
 
@@ -164,7 +165,9 @@ it (`oracle\s56` D01-D04, D11).
 
 RD-VBA holds each element of an array in a cell of its own, and an array holds at most 16,777,216 (2<sup>24</sup>) elements, in every dimension together
 ([VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html)`.MaximumLength`). A `ReDim` of more, with `Preserve` or without, is runtime error 7,
-`Out of memory`, before any element is made, and the variable keeps what it held. A fixed-size array declared with more is the compile error
+`Out of memory`, before any element is made. A `ReDim` without `Preserve` has let go of what the variable held, as MS-VBA has for an array it can't allocate
+(`ReDim a(2147483647)` of `Long`s, recorded in Excel, `oracle\s68` V10, LA40, BV30, W60): a variable declared as an array loses its dimensions, through a
+parameter too, and a `Variant` is left `Empty`. A `ReDim Preserve` keeps what the variable held. A fixed-size array declared with more is the compile error
 [VBC09380](../diagnostics/vbc09380.md) _Out of memory_.
 
 > [!NOTE]

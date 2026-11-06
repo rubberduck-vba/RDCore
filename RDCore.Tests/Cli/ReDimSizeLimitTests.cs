@@ -4,9 +4,10 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// <strong>RD-VBAL §5.4.3.3</strong> RD-VBA holds each element of an array in a cell of its own, and a <c>ReDim</c> of more than
-/// <see cref="VBArrayValue.MaximumLength"/> elements is run-time error 7, <em>Out of memory</em>, the variable keeping what it held. MS-VBA (64-bit) allocates
+/// <see cref="VBArrayValue.MaximumLength"/> elements is run-time error 7, <em>Out of memory</em>. MS-VBA (64-bit) allocates
 /// <c>ReDim b(2147483647) As Byte</c> and a billion <c>Long</c>s (recorded in Excel: oracle\s56 I07-I09, B09), where RD-VBA crashed, hung, or made an empty
-/// array that every subscript was out of range of.
+/// array that every subscript was out of range of. A <c>ReDim</c> that MS-VBA can't allocate lets go of what the variable held before it fails: a declared
+/// array is erased and a Variant is Empty (oracle\s68 V10, LA40, W60); a <c>ReDim Preserve</c> keeps it.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.3 ReDim Statement")]
@@ -31,10 +32,10 @@ public sealed class ReDimSizeLimitTests
     [DataRow("Variant", "-2147483648 To 2147483647", DisplayName = "every Long subscript")]
     [DataRow("Integer", "4096, 4096", DisplayName = "two dimensions")]
     [DataRow("Integer", "65535, 65535, 65535", DisplayName = "three dimensions")]
-    public async Task AReDimOfMoreElementsThanRDVBAHolds_IsOutOfMemory_AndTheArrayIsKept(string type, string bounds)
-        => CollectionAssert.AreEqual(new[] { "7", "2", "3" },
-            await RunAsync($"Dim b() As {type}", "ReDim b(2)", "b(2) = 3", $"ReDim b({bounds})", "Debug.Print Err.Number", "Err.Clear",
-                "Debug.Print UBound(b)", "Debug.Print b(2)"));
+    public async Task AReDimOfMoreElementsThanRDVBAHolds_IsOutOfMemory_AndTheArrayIsErased(string type, string bounds)
+        => CollectionAssert.AreEqual(new[] { "7", "9", $"{type}()" },
+            await RunAsync("Dim b() As " + type, "Dim n As Long", "ReDim b(2)", "b(2) = 3", $"ReDim b({bounds})", "Debug.Print Err.Number", "Err.Clear",
+                "n = UBound(b)", "Debug.Print Err.Number", "Debug.Print TypeName(b)"));
 
     [TestMethod]
     public async Task AReDimPreserveOfMoreElementsThanRDVBAHolds_IsOutOfMemory_AndTheArrayIsKept()
@@ -43,10 +44,10 @@ public sealed class ReDimSizeLimitTests
                 "Debug.Print UBound(b)", "Debug.Print b(2)"));
 
     [TestMethod]
-    public async Task AReDimOfAVariantToMoreElementsThanRDVBAHolds_IsOutOfMemory_AndTheVariantIsKept()
-        => CollectionAssert.AreEqual(new[] { "7", "Integer()", "1" },
+    public async Task AReDimOfAVariantToMoreElementsThanRDVBAHolds_IsOutOfMemory_AndTheVariantIsEmpty()
+        => CollectionAssert.AreEqual(new[] { "7", "Empty" },
             await RunAsync("Dim v As Variant", "ReDim v(1) As Integer", "ReDim v(2147483647)", "Debug.Print Err.Number", "Err.Clear",
-                "Debug.Print TypeName(v)", "Debug.Print UBound(v)"));
+                "Debug.Print TypeName(v)"));
 
     [TestMethod]
     [DataRow("Dim b(100000000) As Byte", DisplayName = "a local (C12)")]
