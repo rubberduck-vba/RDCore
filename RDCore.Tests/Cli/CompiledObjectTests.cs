@@ -17,6 +17,8 @@ public sealed class CompiledObjectTests
         ("Other", ModuleWorkspace.ClassModule("Other", "Option Explicit", "Public Value As Long")),
     ];
 
+    // each answer a row gives is a bit of the number it prints, in the order they are given: any wrong answer is another number.
+
     // an object variable compared with Nothing in a loop: the Set that makes it something is the interpreter's, and compiled code reads the cell it binds.
     [TestMethod]
     public async Task AnObjectComparedWithNothing_IsComparedInCompiledCode()
@@ -28,7 +30,7 @@ public sealed class CompiledObjectTests
             "    Dim T As Thing",
             "    Dim I As Long",
             "    For I = 1 To 6",
-            "        If T Is Nothing Then Counted = Counted + 1",
+            "        If T Is Nothing Then Counted = Counted * 2 + 1 Else Counted = Counted * 2",
             "        If I = 3 Then Set T = New Thing",
             "    Next",
             "End Function"), "Counted", recoveries: 1, classes: Things);
@@ -45,7 +47,7 @@ public sealed class CompiledObjectTests
             "    Dim B As Thing",
             "    Dim I As Long",
             "    For I = 1 To 6",
-            "        If A Is B Then Compared = Compared + 100 Else Compared = Compared + 1",
+            "        If A Is B Then Compared = Compared * 2 + 1 Else Compared = Compared * 2",
             "        If I = 1 Then Set A = New Thing",
             "        If I = 3 Then Set B = A",
             "        If I = 5 Then Set B = New Thing",
@@ -64,9 +66,9 @@ public sealed class CompiledObjectTests
             "    Dim I As Long",
             "    Dim N As Long",
             "    For I = 1 To 4",
-            "        If Nothing Is O Then N = N + 1",
-            "        If Not (O Is Nothing) Then N = N + 10",
-            "        If Nothing Is Nothing Then N = N + 100",
+            "        If Nothing Is O Then N = N * 2 + 1 Else N = N * 2",
+            "        If Not (O Is Nothing) Then N = N * 2 + 1 Else N = N * 2",
+            "        If Nothing Is Nothing Then N = N * 2 + 1 Else N = N * 2",
             "        If I = 2 Then Set O = New Other",
             "    Next",
             "    Sides = CStr(N)",
@@ -85,9 +87,9 @@ public sealed class CompiledObjectTests
             "    For I = 1 To 4",
             "        Select Case O Is Nothing",
             "            Case True",
-            "                Selected = Selected + 1",
+            "                Selected = Selected * 2 + 1",
             "            Case Else",
-            "                Selected = Selected + 10",
+            "                Selected = Selected * 2",
             "        End Select",
             "        If I = 2 Then Set O = New Thing",
             "    Next",
@@ -105,8 +107,8 @@ public sealed class CompiledObjectTests
             "    Dim I As Long",
             "    For I = 1 To 6",
             "        If I Mod 2 = 1 Then Set O = New Thing Else Set O = New Other",
-            "        If TypeOf O Is Thing Then Tested = Tested + 1",
-            "        If TypeOf O Is Other Then Tested = Tested + 100",
+            "        If TypeOf O Is Thing Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
+            "        If TypeOf O Is Other Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
             "    Next",
             "End Function"), "Tested", recoveries: 6, classes: Things);
 
@@ -139,7 +141,7 @@ public sealed class CompiledObjectTests
             "Private Function Made(ByRef T As Thing) As Long",
             "    Dim I As Long",
             "    For I = 1 To 4",
-            "        If T Is Nothing Then Made = Made + 1",
+            "        If T Is Nothing Then Made = Made * 2 + 1 Else Made = Made * 2",
             "        If I = 2 Then Set T = New Thing",
             "    Next",
             "End Function"), "Made", recoveries: 1, classes: Things);
