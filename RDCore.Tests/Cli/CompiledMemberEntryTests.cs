@@ -250,6 +250,70 @@ public sealed class CompiledMemberEntryTests
         AssertEntered(compiled, "InTurn", direct: 16, "Add", framesMade: 0);
     }
 
+    [TestMethod]
+    public async Task AnObjectAMemberWasCalledOn_IsCollected_OnceNothingHoldsIt()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        // the second run lets go of the object, then stops: the program is still on the stack - with what its compiled code keeps for its next call.
+        var program = Program(
+            "Private Kept As Tally",
+            "Public Sub Main()",
+            "    Dim Local As Tally",
+            "    If Kept Is Nothing Then",
+            "        Set Kept = New Tally",
+            "        Debug.Print Once(Kept)",
+            "    Else",
+            "        Set Local = Kept",
+            "        Set Kept = Nothing",
+            "        Debug.Print Once(Local)",
+            "        Set Local = Nothing",
+            "        Debug.Print \"released\"",
+            "        Stop",
+            "    End If",
+            "End Sub",
+            "Private Function Once(ByVal T As Tally) As Long",
+            "    T.Add 5",
+            "    Once = T.Total()",
+            "End Function");
+
+        foreach (var engine in (VBExecutionEngine[])[VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled])
+        {
+            using var running = CompiledExecution.Running(engine);
+            await ModuleWorkspace.InspectAsync(Tallies, program, async (provider, first, runAgain) =>
+            {
+                Assert.AreEqual("Completed | 5", string.Join(" | ", first.Outcome, string.Join(" ; ", first.Output.Select(line => line.Trim()))), first.ErrorMessage);
+                var kept = WeakInstanceOf(provider, "Kept");
+                var second = await runAgain();
+                Assert.AreEqual("Interrupted | 20 ; released", string.Join(" | ", second.Outcome, string.Join(" ; ", second.Output.Select(line => line.Trim()))),
+                    second.ErrorMessage);
+                Assert.IsGreaterThan(0, provider.Session.CallStack.Depth, "the program is stopped, not ended");
+
+                // the session, every compiled body in it, and the program's stack are still alive: only what held the object let go of it.
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                Assert.IsFalse(kept.IsAlive, $"{engine}: the object is held after the program let go of it");
+                // the second run's: each run compiles for its own scopes.
+                if (engine is VBExecutionEngine.Compiled)
+                {
+                    AssertEntered(CompiledExecutionTests.ByName(provider), "Once", direct: 2, "Add", framesMade: 0);
+                }
+            }, engine: engine);
+        }
+    }
+
+    // the object the module variable named holds, which the test does not hold: made out of the caller's frame, so that nothing of it is left there.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference WeakInstanceOf(EnvironmentSessionProvider provider, string name)
+    {
+        var symbols = provider.Session.Symbols;
+        Assert.IsTrue(symbols.TryGetModule("Program", out var module));
+        var field = symbols.MembersOf(module.Uri).OfType<RDCore.SDK.Model.Symbols.VBProject.VBModuleFieldVariableMemberSymbol>().Single(member => member.Name == name);
+        Assert.IsTrue(ObjectOperations.TryRead(symbols.Resolver.GetValue(field), out var id), $"{name} holds no object");
+        Assert.IsTrue(symbols.TryGetInstance(id, out var instance), $"{name} holds an object the session has not");
+        return new WeakReference(instance);
+    }
+
     private static readonly (string Name, string Source)[] Tallies =
     [
         ("Tally", ModuleWorkspace.ClassModule("Tally", "Option Explicit",
