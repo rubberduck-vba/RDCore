@@ -54,26 +54,35 @@ internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IRepl
 /// A shell that runs unattended (<c>--unattended</c>) is never asked, and chooses nothing: it says so as it starts
 /// (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a server that asks anyway is not answered. Nor is a shell whose input is a
 /// script (<see cref="ReplUserInteraction.Choose"/>).
+/// <para>
+/// The question is asked when the console is the shell's to ask it at (<see cref="ReplServerQuestions"/>): one that comes while a line is typed at the prompt
+/// waits for the line to be entered, and the keys of the line are the line's.
+/// </para>
 /// </remarks>
 /// <param name="interaction">The shell's dialogs.</param>
+/// <param name="questions">When the shell asks the server's questions.</param>
 /// <param name="unattended">Whether the shell runs unattended.</param>
-internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interaction, ReplUnattended unattended) : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageRequestHandler
+internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interaction, ReplServerQuestions questions, ReplUnattended unattended)
+    : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageRequestHandler
 {
     /// <inheritdoc/>
-    public Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageActionItem> Handle(
+    public async Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageActionItem> Handle(
         OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams request, CancellationToken cancellationToken)
-        => Task.Run(() =>
+    {
+        var actions = request.Actions?.ToArray() ?? [];
+        if (actions.Length == 0 || unattended.IsUnattended)
         {
-            var actions = request.Actions?.ToArray() ?? [];
-            if (actions.Length == 0 || unattended.IsUnattended)
-            {
-                return null!;
-            }
+            return null!;
+        }
 
-            // the last button is the one an empty line, or the Enter key at first, chooses: a server puts the one that changes nothing last.
-            var chosen = interaction.Choose("RDCore", request.Message, [.. actions.Select(action => action.Title)], actions.Length - 1, cancellationToken);
-            return chosen is { } index ? actions[index] : null!;
-        }, cancellationToken);
+        // the last button is the one the Enter key at first chooses: a server puts the one that changes nothing last. The console is read on a thread of its
+        // own: the question waits for a person, and the connection does not.
+        string[] titles = [.. actions.Select(action => action.Title)];
+        var chosen = await Task.Run(
+            () => questions.AskAsync((keys, token) => interaction.Choose("RDCore", request.Message, titles, actions.Length - 1, token, keys), cancellationToken),
+            cancellationToken);
+        return chosen is { } index ? actions[index] : null!;
+    }
 }
 
 /// <summary>Whether the shell runs unattended (<c>--unattended</c>): nobody is at its console to answer a question.</summary>

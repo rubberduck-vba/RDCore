@@ -236,9 +236,10 @@ public sealed class ReplInteractionTests
     public async Task TheShowMessageRequestHandler_AsksAtTheConsole_AndAnswersTheChosenAction(char pressed, string? chosen)
     {
         var key = pressed switch { '\r' => Key(ConsoleKey.Enter), '\u001b' => Key(ConsoleKey.Escape), _ => Char(pressed) };
-        var (interaction, output) = Shell(new ScriptedKeys().Press(key));
+        var keys = new ScriptedKeys().Press(key);
+        var (interaction, output) = Shell(keys);
 
-        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
 
         Assert.AreEqual(chosen, answer?.Title);
         StringAssert.Contains(output.ToString(), "Regenerate it?");
@@ -251,7 +252,7 @@ public sealed class ReplInteractionTests
         var keys = new ScriptedKeys().Press(Char('r'));
         var (interaction, output) = Shell(keys);
 
-        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplUnattended(true)).Handle(Regenerate(), CancellationToken.None);
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(true)).Handle(Regenerate(), CancellationToken.None);
 
         Assert.IsNull(answer);
         Assert.AreEqual(string.Empty, output.ToString());
@@ -265,7 +266,7 @@ public sealed class ReplInteractionTests
         var keys = new ScriptedKeys(interactive: false).Lines("Regenerate", "", "Debug.Print 1");
         var (interaction, output) = Shell(keys);
 
-        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
 
         Assert.IsNull(answer);
         Assert.AreEqual(string.Empty, output.ToString());

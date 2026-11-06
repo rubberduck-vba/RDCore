@@ -132,6 +132,16 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     public ConsoleSignatureSource? Signature { get; init; }
 
     /// <summary>
+    /// What waits to be asked at the console while a line is read, which the keys of the line must not answer: a question the language server asks the shell's
+    /// user. None is asked without it.
+    /// </summary>
+    /// <remarks>
+    /// While nothing is typed on the line, and no list is open, what waits is asked at once: the line and what is under it are erased, the question is asked
+    /// with the key the line was waiting for handed over to it, and the line is drawn again. Once something is typed, it waits for the line to be entered.
+    /// </remarks>
+    public IConsoleInterjections? Interjections { get; init; }
+
+    /// <summary>
     /// What the drawing of the console is serialized on: the editor draws the line holding it, and whatever else draws at the console while a line is not being
     /// edited holds it too.
     /// </summary>
@@ -214,6 +224,28 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         return entered;
     }
 
+    // the console's keys, handed over to a question asked while a line is read: the key the line was waiting for is the first one read.
+    private sealed class HandedOverKeys(IConsoleKeys keys, Task<ConsoleKeyInfo> pending) : IConsoleKeys
+    {
+        public Task<ConsoleKeyInfo>? Pending { get; private set; } = pending;
+
+        public bool IsInteractive => keys.IsInteractive;
+
+        public ConsoleKeyInfo ReadKey(CancellationToken token)
+        {
+            if (Pending is not { } waited)
+            {
+                return keys.ReadKey(token);
+            }
+
+            var key = waited.WaitAsync(token).GetAwaiter().GetResult();
+            Pending = null;
+            return key;
+        }
+
+        public string? ReadLine(CancellationToken token) => keys.ReadLine(token);
+    }
+
     private static bool IsNameCharacter(char character) => char.IsLetterOrDigit(character) || character == '_';
 
     private static string ToColumn(int column) => $"\u001b[{column}G";
@@ -285,8 +317,23 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                         waiting.Add(signing);
                     }
 
+                    // a question that waits is asked at a line where nothing is typed - after a key that is pressed already, which may type something - and
+                    // on any other line, waits for it to be entered.
                     waiting.AddRange([key, invalidated]);
+                    var interjection = IsIdle ? editor.Interjections?.Waiting : null;
+                    if (interjection is not null)
+                    {
+                        waiting.Add(interjection);
+                    }
+
                     var done = await Task.WhenAny(waiting);
+                    if (done == interjection)
+                    {
+                        key = Interject(key);
+                        Draw();
+                        continue;
+                    }
+
                     if (done == _asked)
                     {
                         Arrived(await _asked!);
@@ -330,6 +377,25 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 _asking?.Cancel();
                 _signingCancellation?.Cancel();
             }
+        }
+
+        // nothing is typed on the line, and nothing is open under it.
+        private bool IsIdle => _text.Length == 0 && _list is null && _snippet is null;
+
+        // what waits is asked where the line was, with the key the line waits for handed over to it; the line is drawn again after it, from the line down. The
+        // key the question did not take is the line's again; null when it took it.
+        private Task<ConsoleKeyInfo>? Interject(Task<ConsoleKeyInfo> key)
+        {
+            var handed = new HandedOverKeys(editor._keys, key);
+            lock (editor.Sync)
+            {
+                Output.Write("\r\u001b[J");
+                Output.Flush();
+                editor.Interjections!.AskWaiting(handed);
+                Volatile.Write(ref editor._erased, 1);
+            }
+
+            return handed.Pending;
         }
 
         // what a key does; whether the line is entered.

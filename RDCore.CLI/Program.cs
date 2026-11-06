@@ -167,6 +167,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                 System.Console.Out,
                 ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi,
                 consoleWidth: () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth))
+            // and the questions the language server asks, when the console is the shell's to ask them at.
+            .AddSingleton<ReplServerQuestions>()
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
@@ -230,10 +232,13 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                         Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
                         // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
                         ListAfterSpace = provider.GetRequiredService<ReplCompletion>().ListsAfterSpace,
+                        // a question the language server asks is asked at once while nothing is typed, and waits for the line to be entered otherwise.
+                        Interjections = provider.GetRequiredService<ReplServerQuestions>(),
                     };
 
-                    // from now on, the shell's messages are written above the line being edited, not over it.
+                    // from now on, the shell's messages are written above the line being edited, not over it, and wait for a question to be answered.
                     provider.GetRequiredService<PromptAwareMessageWriter>().Editor = editor;
+                    provider.GetRequiredService<ReplServerQuestions>().Editor = editor;
                     return editor;
                 })
                 // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.
@@ -323,6 +328,7 @@ internal class RDCoreConsoleClientApp(
     IPlatformSettings settings,
     ILiveSettings liveSettings,
     IOptions<AppOptions> appOptions,
+    ReplServerQuestions questions,
     ILogger<RDCoreConsoleClientApp> logger)
     : RDCoreClientApp(options, connectionFactory, logger)
 {
@@ -367,6 +373,7 @@ internal class RDCoreConsoleClientApp(
             .AddSingleton(settings)
             .AddSingleton(liveSettings)
             .AddSingleton(new ReplUnattended(appOptions.Value.Unattended))
+            .AddSingleton(questions)
             .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
