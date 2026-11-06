@@ -11,8 +11,11 @@ using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
@@ -54,8 +57,10 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
+    // on a thread whose stack has room for the deepest expression RD-VBA reads (LargeStackThread): the grammar's descent and the build of the tree recurse once
+    // or more for each level of an expression.
     public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
-        => Parse(uri, content, anchorOffset, [], Statistics, token);
+        => LargeStackThread.Run(() => Parse(uri, content, anchorOffset, [], Statistics, token));
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
     // of its own, so that no identity of its nodes is one of the module's. statistics: where how the module was read is counted; none for such a part, which
@@ -116,7 +121,7 @@ public partial class ModuleParser(
                 (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
                 statistics?.Count(SegmentationStatistics.Path.Whole);
             }
-            else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, statistics, token) is { } stitched)
+            else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, errorListener, statistics, token) is { } stitched)
             {
                 (ast, trivia) = (stitched.Module, stitched.Trivia);
                 errorListener.AddRange(stitched.Errors);
@@ -156,6 +161,7 @@ public partial class ModuleParser(
             }
 
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
+            ReportExpressionsNestedTooDeeply(ast, errorListener);
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
@@ -173,7 +179,17 @@ public partial class ModuleParser(
             // an exception past both parse attempts on a fresh listener is more likely a listener bug
             // than bad input, so log it — the module still degrades to located errors + trivia +
             // whatever the listener had already built (salvaged below).
-            _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
+            // A module nested deeper than the parse reads (StackDepthGuardListener) is bad input: its exception's trace is a frame for each level, tens of
+            // thousands of them, and is neither logged nor given to a client - the error says what is wrong with the module.
+            var outOfStack = IsOutOfStack(exception);
+            if (outOfStack)
+            {
+                _logger.LogWarning("❌ Parse of {uri} stopped: the module is nested deeper than the parse reads.", uri);
+            }
+            else
+            {
+                _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
+            }
 
             var salvaged = read?.Tree;
             try
@@ -185,17 +201,32 @@ public partial class ModuleParser(
                 _logger.LogDebug(salvageFailure, "The partial tree could not be salvaged for {uri}.", uri);
             }
 
+            // the errors the slow parse found before it stopped are the module's, and so is that it stopped: what is after it was not read.
+            var stopped = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
+                outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
             return new ModuleParseResult
             {
                 SyntaxTree = salvaged,
                 PrecompilerTrivia = precompilerTrivia,
                 Trivia = read?.Trivia ?? declarations?.Trivia ?? [],
-                SyntaxErrors = errorListener.Errors.IsEmpty
-                    ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
-                        SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
-                    : errorListener.Errors,
+                SyntaxErrors = errorListener.Errors.IsEmpty ? [stopped] : outOfStack ? errorListener.Errors.Add(stopped) : errorListener.Errors,
             };
         }
+    }
+
+    // whether the parse went deeper than it reads (StackDepthGuardListener.MaxRuleDepth) or ran out of its stack, however the exception that says so was wrapped on
+    // its way out of the grammar's descent.
+    private static bool IsOutOfStack(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is InsufficientExecutionStackException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -232,15 +263,18 @@ public partial class ModuleParser(
     // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
     // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error - what the grammar says is
     // wrong, and what the block scanner says instead, is a whole module's to say - or when its parse fails: the module is then parsed whole, as a module
-    // whose parse fails is, its partial tree salvaged.
+    // whose parse fails is, its partial tree salvaged. A segment nested deeper than the parse reads is not: the module is not read again whole, as a segment's
+    // parse has read it to that depth slowly already, and it stops where a parse of the whole module would. What that parse found wrong before it stopped is
+    // the module's (errorListener), as a slow parse of the whole module would have found it.
     private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
-        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, SegmentationStatistics? statistics, CancellationToken token)
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
+        CancellationToken token)
     {
         try
         {
-            return ParseEachSegment(uri, node, sanitized, segments, anchorOffset, statistics, token);
+            return ParseEachSegment(uri, node, sanitized, segments, anchorOffset, errorListener, statistics, token);
         }
-        catch (Exception exception) when (!token.IsCancellationRequested)
+        catch (Exception exception) when (!token.IsCancellationRequested && !IsOutOfStack(exception))
         {
             _logger.LogDebug(exception, "A segment of {uri} failed to parse; parsing it whole.", uri);
             statistics?.Count(SegmentationStatistics.Path.SegmentFailed);
@@ -249,7 +283,8 @@ public partial class ModuleParser(
     }
 
     private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
-        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, SegmentationStatistics? statistics, CancellationToken token)
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
+        CancellationToken token)
     {
         var lines = sanitized.Split('\n');
         var children = ImmutableArray.CreateBuilder<SyntaxNode>();
@@ -263,8 +298,18 @@ public partial class ModuleParser(
             var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
             var segmentErrors = new ErrorListener(uri, start);
             var first = next;
-            var listener = ParseWithFallback(text, segmentErrors, errors => new DeclarationsParseTreeListener(uri, node, errors) { NextModuleChildId = first, Anchor = start },
-                start, token);
+            DeclarationsParseTreeListener listener;
+            try
+            {
+                listener = ParseWithFallback(text, segmentErrors, errors => new DeclarationsParseTreeListener(uri, node, errors) { NextModuleChildId = first, Anchor = start },
+                    start, token);
+            }
+            catch (Exception exception) when (IsOutOfStack(exception))
+            {
+                errorListener.AddRange(segmentErrors.Errors);
+                throw;
+            }
+
             if (segmentErrors.HasGrammarErrors)
             {
                 statistics?.Count(SegmentationStatistics.Path.SegmentHadErrors);
@@ -474,7 +519,12 @@ public partial class ModuleParser(
         }
         catch (Exception exception) when (!token.IsCancellationRequested)
         {
-            if (exception is not (ParseCanceledException or RecognitionException))
+            if (IsOutOfStack(exception))
+            {
+                // its trace is a frame for each level the parse read, megabytes of them: the message says what stopped it.
+                _logger.LogDebug("SLL parse pass stopped: the module is nested deeper than the parse reads; retrying on LL.");
+            }
+            else if (exception is not (ParseCanceledException or RecognitionException))
             {
                 // a routine SLL bail needs no trace; anything else does, even though LL will retry.
                 _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
@@ -599,6 +649,62 @@ public partial class ModuleParser(
             line++;
         }
     }
+
+    // RD-VBA reads an expression nested in at most 2,500 others: MS-VBA runs a chain of 2,500 terms (2,499 additions), 2,000 nested parentheses and 1,000
+    // nested calls, and crashes the host past the chain, with no error (recorded in Excel: oracle\s65). MS-VBAL leaves the depth of an expression to the
+    // implementation. RD-VBAL: a deeper expression is a syntax error.
+    internal const int MaxExpressionNesting = 2500;
+
+    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in. The tree is walked with a stack
+    // of its own, as deep as the expression may be.
+    private static void ReportExpressionsNestedTooDeeply(ModuleNode module, ErrorListener errors)
+    {
+        var pending = new Stack<(SyntaxNode Node, int Nesting, ExpressionNode? Outermost)>();
+        pending.Push((module, 0, null));
+        while (pending.TryPop(out var entry))
+        {
+            var (node, nesting, outermost) = entry;
+            var expression = AsALevelOfNesting(node);
+            if (expression is not null)
+            {
+                outermost ??= expression;
+                if (nesting > MaxExpressionNesting)
+                {
+                    errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
+
+                    // what else of the outermost expression is pending is no more than this said already.
+                    while (pending.TryPeek(out var next) && ReferenceEquals(next.Outermost, outermost))
+                    {
+                        pending.Pop();
+                    }
+
+                    continue;
+                }
+            }
+
+            var inner = expression is null ? nesting : nesting + 1;
+            foreach (var child in node.ChildNodes().Reverse())
+            {
+                // the arguments of a bare call statement (`F 1, x`, `F (x)`) are nested in its call, as those of `Call F(1, x)` are in its index expression, and
+                // are reported with its callee, once for the statement.
+                if (node is CallStatementNode call && !ReferenceEquals(child, call.Callee))
+                {
+                    pending.Push((child, 1, call.Callee));
+                    continue;
+                }
+
+                pending.Push((child, outermost is null ? 0 : inner, outermost));
+            }
+        }
+    }
+
+    // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold, the owner of a member access, the
+    // callee of an index expression, what New, TypeOf...Is and AddressOf are written around). What is written around an argument to pass it by name (a:=) or
+    // ByVal nests it in nothing more than its call; Debug.Print takes an output list (MS-VBAL 5.4.5.8.1, the list of the Print statement of 5.4.5.8), not
+    // arguments, so neither it, an item of its list, nor a Spc or Tab clause nests what it prints.
+    private static ExpressionNode? AsALevelOfNesting(SyntaxNode node)
+        => node is ExpressionNode expression and not (NamedArgumentNode or ByValArgumentExpressionNode or ObjectPrintExpressionNode or PrintOutputItemNode
+            or PrintSpcClauseNode or PrintTabClauseNode) ? expression : null;
 }
 
 // Registered via AddParseListener (fires live, interleaved with the parser's own recursive descent) —
@@ -608,8 +714,47 @@ public partial class ModuleParser(
 // guard can't substitute for this.
 internal sealed class StackDepthGuardListener : VBAParserBaseListener
 {
+    /// <summary>
+    /// How many rules the parse may be inside at once: 32,000. Past it, the parse stops, and the module is a syntax error that it is nested too deeply to be read
+    /// (RD-VBAL 2.6.1). This is a limit of the implementation, and not of the language: an expression nested past
+    /// <see cref="ModuleParser.MaxExpressionNesting"/> is the language's own syntax error, <c>VBC00060</c>, and the ceiling is more than twice as deep as the
+    /// deepest such expression RD-VBA reads.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rules a level of nesting puts the parse inside of, measured on the grammar: 1 for parentheses, a print item, <c>Spc(</c>, <c>Tab(</c>,
+    /// <c>TypeOf</c>, a unary minus and <c>Not</c>; 6 for a call, however it is written (<c>Abs(</c>, <c>o.F(</c>, <c>Call F(G(</c>, <c>F G(</c>,
+    /// <c>F(ByVal</c>, <c>F(a:=</c>); 2 for a parenthesized right operand (<c>1 + (</c>). A chain of operators (<c>2 ^ 2 ^ …</c>, <c>1 + 1 + …</c>) and a chain
+    /// of argument lists (<c>a(1)(2)…</c>) do not nest the parse at all: 13 to 18 rules, however long. The deepest expression RD-VBA reads, 2,500 nested calls,
+    /// is 15,012 rules deep in a procedure; the ceiling leaves it a margin of as much again, and more.
+    /// </para>
+    /// <para>
+    /// Blocks nest the parse too: 3 rules for a <c>For</c> loop, 4 for an <c>If</c> or a <c>With</c> block, and 5 for a <c>Select Case</c>. A module whose
+    /// blocks are nested about 6,400 deep reaches the ceiling.
+    /// </para>
+    /// <para>
+    /// The parse runs on a stack of its own (<see cref="LargeStackThread"/>), which the ceiling is well inside of: the depth at which a parse stops is the same
+    /// whatever the size of its frames, in a Debug build as in a Release one. It also stops before its stack is deep enough to slow the process down: every
+    /// collection of the garbage collector scans the stack of every thread, and a parse that ran to the end of its stack, a hundred thousand levels and more,
+    /// made each one many times slower while it ran. The check of the stack itself
+    /// (<see cref="System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack"/>) is kept as a backstop.
+    /// </para>
+    /// </remarks>
+    internal const int MaxRuleDepth = 32_000;
+
+    private int _depth;
+
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
-        => System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+    {
+        if (++_depth > MaxRuleDepth)
+        {
+            throw new InsufficientExecutionStackException($"The parse is inside more than {MaxRuleDepth} rules.");
+        }
+
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+    }
+
+    public override void ExitEveryRule([NotNull] ParserRuleContext context) => _depth--;
 }
 
 // a parse that is no longer wanted stops at the next rule it enters: registered live, as StackDepthGuardListener is, on the directive pass and on the main

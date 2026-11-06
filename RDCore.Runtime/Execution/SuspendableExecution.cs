@@ -74,8 +74,9 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
 
             first = _next = NewStop();
             session.Halt.Gate = this;
-            // a stack with room for every activation the call stack takes (RuntimeCallStack.ProgramThreadStackSize).
-            _thread = new Thread(() => Run(program), Frames.RuntimeCallStack.ProgramThreadStackSize) { IsBackground = true, Name = "RDCore suspendable execution" };
+            // a stack with room for every activation the call stack takes (RuntimeCallStack.ProgramThreadStackSize), and for a parse or a load the program
+            // asks for, which runs on it.
+            _thread = SDK.Platform.LargeStackThread.NewThread(() => Run(program), "RDCore suspendable execution");
         }
 
         _thread.Start();

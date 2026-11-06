@@ -137,6 +137,12 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
     /// </summary>
     HashIfWithoutEndIf = 59,
+    /// <summary>
+    /// An expression is nested in more than 2,500 others: parentheses in parentheses, a call in the argument of a call, an operation of an operation.<br/>
+    /// <strong>RD-VBAL §2.6.1</strong> Syntax Errors. <strong>MS-VBAL</strong> leaves the depth of an expression to the implementation; MS-VBA runs a chain of
+    /// 2,500 terms, and crashes the host past it.
+    /// </summary>
+    ExpressionNestedTooDeeply = 60,
 
     #endregion
 

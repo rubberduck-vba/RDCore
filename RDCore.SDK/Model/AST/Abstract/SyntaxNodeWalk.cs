@@ -46,14 +46,33 @@ public static class SyntaxNodeWalk
     /// Every node under <paramref name="node"/>, depth first and in the order they are written, however deep in the blocks of structured statements; not the node itself.
     /// </summary>
     /// <param name="node">A node of the tree.</param>
+    /// <remarks>
+    /// The walk keeps its own stack of the nodes it is in: however deep the tree is, it uses no more of the caller's thread's stack than for a shallow one.
+    /// </remarks>
     public static IEnumerable<SyntaxNode> Descendants(this SyntaxNode node)
     {
-        foreach (var child in node.ChildNodes())
+        var pending = new Stack<IEnumerator<SyntaxNode>>();
+        pending.Push(node.ChildNodes().GetEnumerator());
+        try
         {
-            yield return child;
-            foreach (var descendant in child.Descendants())
+            while (pending.TryPeek(out var siblings))
             {
-                yield return descendant;
+                if (!siblings.MoveNext())
+                {
+                    pending.Pop().Dispose();
+                    continue;
+                }
+
+                var child = siblings.Current;
+                yield return child;
+                pending.Push(child.ChildNodes().GetEnumerator());
+            }
+        }
+        finally
+        {
+            while (pending.TryPop(out var unfinished))
+            {
+                unfinished.Dispose();
             }
         }
     }

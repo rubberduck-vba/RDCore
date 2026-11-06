@@ -21,7 +21,7 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     /// The size of the stack of a thread a program runs on: room for <see cref="MaxDepth"/> activations, each of which is CLR calls of its own - about 13 KB of
     /// them for an interpreted activation of a Debug build, where a thread's default 1 MB holds fewer than 100. It is reserved, and committed only as it is used.
     /// </summary>
-    public const int ProgramThreadStackSize = 256 * 1024 * 1024;
+    public const int ProgramThreadStackSize = SDK.Platform.LargeStackThread.StackSize;
 
     private CallStackFrame? _selected;
     private int _selectedDepth;
