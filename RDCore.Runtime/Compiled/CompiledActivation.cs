@@ -1,6 +1,5 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Execution.Memory;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
@@ -947,16 +946,16 @@ public sealed class CompiledActivation : ILightActivation
     {
         // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.
         var instance = _instance ?? (Frame.Target is { } target && _session.Symbols.TryGetInstance(target, out var on) ? on : null);
-        if (instance is null || _session.Storage is not SessionStorage storage)
+        if (instance is null)
         {
             return null;
         }
 
-        // the cell the body found last of the field of the same object, while nothing was allocated, freed or rebound since (CompiledBody.Fields).
+        // the cell the body found last of the field of the same object (CompiledBody.Fields).
         var known = _body.Fields;
-        if (known is null || !known.Object.Equals(instance.ObjectId) || known.Generation != storage.Generation)
+        if (known is null || !known.Object.Equals(instance.ObjectId))
         {
-            known = new FieldCells(instance.ObjectId, storage.Generation, new object?[_cells.Length]);
+            known = new FieldCells(instance.ObjectId, new object?[_cells.Length]);
             _body.Fields = known;
         }
 
@@ -1441,9 +1440,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public int MeSlot { get; init; } = -1;
 
     /// <summary>
-    /// The cells of the fields of <c>Me</c> the body found last (IR lowering S2.5e3b): those of the object an activation of it was last on, for as long as
-    /// what the session's storage binds is what it bound then - a field's cell is the one it was until anything is allocated, freed or rebound
-    /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of. The object is known by its identity, not held.
+    /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
+    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The object is known by its
+    /// identity, not held.
     /// </summary>
     internal FieldCells? Fields { get; set; }
 
