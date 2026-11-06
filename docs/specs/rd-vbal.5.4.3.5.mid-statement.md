@@ -23,6 +23,9 @@ The replacement-span mechanics of **MS-VBAL §5.4.3.5** split only on byte mode 
 `Mid`/`Mid$`), never on the `$` suffix. `IsStringInput` is preserved because it mirrors the `VBVariant`/`VBString`
 split of the `Mid`/`Mid$` function overloads, which matters for static semantics.
 
+Blanks may stand before the parenthesis, as before any token (**MS-VBAL §3.3**): `Mid (s, 1) = "x"` is the Mid statement `Mid(s, 1) = "x"` is, and no
+assignment to what a function `Mid` returns.
+
 ## Static Semantics
 
 The declared type of the target MUST be `String` or `Variant` (**MS-VBAL §5.4.3.5**); another is a `TypeMismatch`. The target is a variable: a literal, an operator's

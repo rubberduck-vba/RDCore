@@ -509,8 +509,8 @@ redimVariableDeclaration : expression (whiteSpace asTypeClause)?;
 
 // 5.4.3.5 Mid/MidB/Mid$/MidB$ Statement
 // This needs to be explicitly defined to distinguish between Mid as a function and Mid as a keyword.
-midStatement : modeSpecifier 
-    LPAREN whiteSpace? 
+midStatement : modeSpecifier whiteSpace?
+    LPAREN whiteSpace?
     lExpression whiteSpace? COMMA whiteSpace? expression whiteSpace? (COMMA whiteSpace? expression whiteSpace?)? 
     RPAREN 
     whiteSpace? EQ whiteSpace? 

@@ -890,6 +890,21 @@ End Sub
         Assert.AreEqual(expectedIsStringInput, mid.IsStringInput);
     }
 
+    // MS-VBAL §3.3: the `(` of a Mid statement takes the blanks before it, as any token does. With them, it is the Mid statement still, and no assignment
+    // to what a call of a function Mid returns.
+    [TestMethod]
+    [DataRow("Mid (x, 1, 3) = \"foo\"")]
+    [DataRow("Mid$ (x, 1) = \"foo\"")]
+    [DataRow("MidB\t(x, 1, 3) = \"foo\"")]
+    public void MidStatement_WithBlanksBeforeItsParentheses_IsAMidStatement(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)member.Children.OfType<MidStatementNode>().Single().Target).IdentifierName);
+    }
+
     [TestMethod]
     public void GoToStatement_CapturesLabelExpression()
     {
