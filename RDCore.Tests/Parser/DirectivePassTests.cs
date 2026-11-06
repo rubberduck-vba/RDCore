@@ -79,6 +79,17 @@ public sealed class DirectivePassTests
         Assert.IsLessThanOrEqualTo(4 * wellFormed, looks, $"{looks:n0} looks at the tokens, where the module without the stray directive takes {wellFormed:n0}");
     }
 
+    // a module with no directive has no directive pass, and its parse counts none: not the looks of the module parsed before it.
+    [TestMethod]
+    public void TheLooksOfAParse_AreItsOwn_NoneForAModuleWithNoDirective()
+    {
+        _ = Parse(Enumerable.Range(0, 3).SelectMany(Declare));
+        Assert.IsGreaterThan(0L, ModuleParser.DirectiveLooksOfLastParse);
+
+        _ = Parse(["Private Sub P()", "End Sub"]);
+        Assert.AreEqual(0L, ModuleParser.DirectiveLooksOfLastParse);
+    }
+
     // the blocks, branches and bodies of a module's trivia, with where each is: what says which lines each branch holds.
     private static string Shape(ModuleParseResult result) => string.Join(" ", result.PrecompilerTrivia.Select(Shape).Where(shape => shape.Length > 0));
 

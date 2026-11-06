@@ -560,6 +560,38 @@ public sealed class CompiledExecutionTests
         Assert.IsTrue(run.Compiled.ContainsKey("Total"), "Total was not called");
     }
 
+    // what is made of a procedure is told to the Compiled handlers whether or not it is compiled - a boxed one's too, which a handler that waits for a body
+    // learns it will not get - and once for its body: a second call finds it made.
+    [TestMethod]
+    public async Task WhereValuesAreHeldBoxed_TheCompiledHandlersAreToldOfEachProcedure_OnceForItsBody()
+    {
+        RequireBoxedValues();
+        var program = Program(
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print Total()",
+            "    Debug.Print Total()",
+            "End Sub",
+            "Private Function Total() As Long",
+            "    Total = 3",
+            "End Function");
+
+        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
+        await ModuleWorkspace.InspectAsync(NoClasses, program, async (provider, first, _) =>
+        {
+            // Main waits at its Stop, compiled - or found not to be - already; Total is called after it.
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            var told = new List<(string Procedure, IneligibilityKind Reason)>();
+            provider.Image.Compiler.Compiled += (procedure, result) => told.Add((procedure.Name, Assert.ContainsSingle(result.Reasons).Kind));
+
+            var ended = await new CLI.Host.Handlers.HostDebugResumeHandler(provider, Microsoft.Extensions.Logging.Abstractions.NullLogger<CLI.Host.Handlers.HostDebugResumeHandler>.Instance)
+                .Handle(new HostDebugResumeParams(), CancellationToken.None);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, ended.Outcome, ended.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { ("Total", IneligibilityKind.BoxedEvaluation) }, told);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     [TestMethod]
     public async Task WhereValuesAreHeldBoxed_TheStrictModeFailsTheCall()
     {
