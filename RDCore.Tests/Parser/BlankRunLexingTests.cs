@@ -114,6 +114,16 @@ public class BlankRunLexingTests
 
         Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
     }
+
+    // MS-VBAL §3.3.1: a line continuation is white space (WS), so it may stand between the two words that end a declaration, as it may between End and Sub.
+    [TestMethod]
+    [DataRow("Public Enum Colors\r\n    Red\r\nEnd   _\r\n    Enum\r\n")]
+    public void ADeclarationEndedOverALineContinuation_IsRead(string module)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), module);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+    }
     // a module with a directive is read by the directive pass, as blanks but for its directives: a line of 64,000 characters is 64,000 blanks there.
     [TestMethod]
     public void AModuleWithADirectiveAndALongLine_IsReadAsFastAsItsBlanksAreLexed()
