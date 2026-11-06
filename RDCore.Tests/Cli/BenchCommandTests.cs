@@ -49,7 +49,7 @@ public sealed class BenchCommandTests
         "Public Sub AppendsInALoop()",
         "    Dim I As Long, S As String, T As Long",
         "    For I = 1 To 3",
-        "        S = S & \"x\"",
+        "        S = S & CStr(I)",
         "        T = T + I",
         "    Next",
         "End Sub");

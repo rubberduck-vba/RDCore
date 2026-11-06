@@ -21,7 +21,7 @@ namespace RDCore.Runtime.Compiled;
 /// The IL references nothing but the members of <c>RDCore.Runtime.Compiled</c> (the support boundary, A4).
 /// </para>
 /// </remarks>
-internal sealed class ProcedureEmitter
+internal sealed partial class ProcedureEmitter
 {
     private static readonly Type Payloads = typeof(PayloadOperations);
     private static readonly Type Activation = typeof(CompiledActivation);
@@ -163,6 +163,8 @@ internal sealed class ProcedureEmitter
             _objects[slot] = _il.DeclareLocal(typeof(object));
         }
 
+        DeclareTextCells();
+
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
             if (_analysis.SpeculatedKinds.TryGetValue(next.Counter, out var counting) && !_variantLoops.ContainsKey(next.Opener))
@@ -291,6 +293,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ObjectCellOf))!);
             _il.Emit(OpCodes.Stloc, cell);
         }
+
+        EmitTextCells();
     }
 
     // the cell of a field of Me, found by the activation's object; none goes to orElse.
@@ -462,6 +466,10 @@ internal sealed class ProcedureEmitter
 
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
+                break;
+
+            case TextLetStep textLet:
+                EmitTextLet(textLet);
                 break;
         }
     }
@@ -903,6 +911,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReloadObjectCell))!);
             _il.Emit(OpCodes.Brfalse, unread);
         }
+
+        EmitReloadTextCells(unread);
 
         // the function result variable too, which the spill before the call wrote.
         if (_result is { } result)
@@ -1604,6 +1614,10 @@ internal sealed class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, same);
                 return AsBoolean();
             }
+
+            case TextCompareNode compared:
+                EmitTextCompare(compared, failure);
+                return AsBoolean();
 
             // TypeOf, as the interpreter tests it; of Nothing, which raises error 91, the interpreter's.
             case TypeOfNode typeOf:

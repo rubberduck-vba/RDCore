@@ -215,6 +215,21 @@ internal sealed record class IsNode(int? Left, int? Right) : PayloadNode(ScalarK
 // TypeOf of an object variable of the activation, against the class the body knows by its number (CompiledActivation.TypeOf).
 internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(ScalarKind.Boolean);
 
+// an expression of Strings (IR lowering S2.5d), as RuntimeExpressionEvaluator.TryEvaluateText evaluates it: to the text it is, with no value made of it.
+internal abstract record class TextNode;
+
+// a String literal, or Strings joined that are all literals: the text the literal's runtime value holds.
+internal sealed record class TextConstantNode(string Text) : TextNode;
+
+// a String variable of the activation, by its slot: the text its cell holds (StringOperations.TryRead).
+internal sealed record class TextSlotNode(int Slot) : TextNode;
+
+// two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
+internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
+
+// two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
+internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
@@ -226,6 +241,9 @@ internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Va
 // statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
 // speculated subtype the step is done in when it holds it (VariantSpeculation).
 internal sealed record class VariantForNextStep(int Offset, int Opener, int Body, int Counter) : CompiledStep(Offset);
+
+// a Let of a String variable of the activation - not a fixed-length one (IR lowering S2.5d): the text written into its cell as it is (MS-VBAL §5.4.3.8).
+internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);
