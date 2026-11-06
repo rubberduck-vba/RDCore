@@ -303,7 +303,7 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         {
             var path = ioPath.Combine(workspaceRoot, ProjectFile.FileName);
             var backup = ProjectFileRegeneration.BackupPathOf(path, ioFile.Exists);
-            if (!await ProjectFileRegeneration.AskAsync(path, backup, exception, ask, token))
+            if (!await ProjectFileRegeneration.AskAsync(path, backup, exception, TextOf(path), ask, token))
             {
                 logger.LogWarning("⚠️ The project file can't be read, and was not regenerated: the workspace will not be loaded.");
                 throw;
@@ -320,16 +320,41 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
             catch (Exception regeneration)
             {
                 // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start,
-                // without a word, and without what only the file said.
-                if (ioFile.Exists(path))
+                // without a word, and without what only the file said. The project its folder made is let go of, as for a project file the user would not have
+                // regenerated: a change to it would otherwise be written over the file that was put back.
+                projectFileService.Unload();
+                try
                 {
-                    ioFile.Delete(path);
+                    if (ioFile.Exists(path))
+                    {
+                        ioFile.Delete(path);
+                    }
+
+                    ioFile.Move(backup, path);
+                    logger.LogError("❌ The project file could not be regenerated, and is back as it was: {reason}", regeneration.Message);
+                }
+                catch (Exception restore)
+                {
+                    logger.LogError("❌ The project file could not be regenerated ({reason}), nor put back: it is kept as '{backup}' ({restore}).",
+                        regeneration.Message, backup, restore.Message);
                 }
 
-                ioFile.Move(backup, path);
-                logger.LogError("❌ The project file could not be regenerated, and is back as it was: {reason}", regeneration.Message);
                 throw;
             }
+        }
+    }
+
+    // the text of a project file that couldn't be read as a project, for the question to say where it stops being valid in characters; none when it can't be read
+    // at all, and the question then says it in the reader's bytes.
+    private string? TextOf(string path)
+    {
+        try
+        {
+            return ioFile.ReadAllText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 

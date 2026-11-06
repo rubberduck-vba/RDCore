@@ -305,6 +305,38 @@ public sealed class WorkspaceLoaderTests
         Assert.DoesNotContain("LineNumber", asked);
     }
 
+    // the position is counted in characters, as an editor counts them, not in the UTF-8 bytes the JSON reader counts: a name of three accented letters before
+    // the error puts it where three plain ones do.
+    [TestMethod]
+    public async Task WorkspaceService_LoadAsync_TheRegenerateQuestion_CountsThePositionInCharacters()
+    {
+        async Task<string> PositionWith(string name)
+        {
+            var fs = UnreadableProject();
+            fs.File.WriteAllText(ProjectFilePath, Unreadable.Replace("Broken", name, StringComparison.Ordinal), System.Text.Encoding.UTF8);
+            string? asked = null;
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => WorkspaceService(fs).LoadAsync(Root, [Root], (message, choices, _) =>
+            {
+                asked = message;
+                return Task.FromResult<string?>(choices[^1]);
+            }));
+            return System.Text.RegularExpressions.Regex.Match(asked!, @"line \d+, position \d+").Value;
+        }
+
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en");
+        try
+        {
+            var plain = await PositionWith("Eee");
+            StringAssert.Contains(plain, "position ", "the premise: the question says a position");
+            Assert.AreEqual(plain, await PositionWith("Éèé"));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+    }
+
     // the question goes over the wire while initialize is not answered yet, as the language server asks it, and is not asked of a client that says in its
     // initialization options that it runs unattended.
     [TestMethod]
@@ -373,18 +405,87 @@ public sealed class WorkspaceLoaderTests
         Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"), "and is not left as a backup beside nothing");
     }
 
-    // a disk that fills up as a project file is written: the file is made, and holds the start of what was written.
-    private sealed class FullDisk(MockFileSystem fs) : MockFile(fs)
+    // the project made up from the folder is let go of with the file it couldn't write: a change to the workspace afterwards (a rename, a file added) changes
+    // and writes no project, as after a project file the user would not have regenerated, and the file that was put back stays as it is.
+    [TestMethod]
+    public async Task WorkspaceService_LoadAsync_ARegeneratedProjectFileThatCantBeWritten_IsNotWrittenOverByTheNextChange()
     {
+        var fs = UnreadableProject();
+        var projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, fs.Path, new FullDisk(fs, failures: 1), new ProjectFileLoader(fs),
+            () => SupportedLanguages.RDVBA);
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+        var sut = new WorkspaceService(
+            InitializingState(), NullLogger<WorkspaceService>.Instance, fs.Path, fs.File, fs.Directory, projectFiles, documents, documentStates,
+            () => ProtocolSupportedLanguage.VBA, new WorkspaceProjects(projectFiles), new ProjectFileLoader(fs));
+        await Assert.ThrowsExactlyAsync<IOException>(() => sut.LoadAsync(Root, [Root], (_, choices, _) => Task.FromResult<string?>(choices[0])));
+        // the server goes on to run, as the language server does after a load that failed.
+        var running = Substitute.For<IServerStateProvider>();
+        running.State.Returns(ServerState.Running);
+        var reload = new WorkspaceReloadService(running, projectFiles, documents, documentStates, Substitute.For<RDCore.LanguageServer.Parsing.IParsingClientService>(),
+            Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>(), Substitute.For<RDCore.LanguageServer.IPlatformOrchestrationService>(), fs.Path,
+            Substitute.For<IWorkspaceRefresh>(), NullLogger<WorkspaceReloadService>.Instance);
+
+        var step = await reload.BeginChangeAsync(project => project.WithModule(new RDCoreModule { RelativeUri = "src/Renamed.bas" }), CancellationToken.None);
+
+        Assert.IsNull(step, "there is no project to change");
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file put back is not written over");
+        Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
+    }
+
+    // a project file that can't be put back either is kept where it was moved to, and the log says both what failed and where the file is; the load fails
+    // with why the file couldn't be written.
+    [TestMethod]
+    public async Task WorkspaceService_LoadAsync_ARegeneratedProjectFileThatCantBeWrittenNorPutBack_IsKeptAsTheBackup_AndTheLogSaysBoth()
+    {
+        var fs = UnreadableProject();
+        var file = new FullDisk(fs) { RefusesToPutBack = true };
+        var projectFiles = new ProjectFileService(NullLogger<ProjectFileService>.Instance, fs.Path, file, new ProjectFileLoader(fs), () => SupportedLanguages.RDVBA);
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+        var logger = new CapturingLogger();
+        var sut = new WorkspaceService(
+            InitializingState(), logger, fs.Path, file, fs.Directory, projectFiles, documents, documentStates,
+            () => ProtocolSupportedLanguage.VBA, new WorkspaceProjects(projectFiles), new ProjectFileLoader(fs));
+
+        var error = await Assert.ThrowsExactlyAsync<IOException>(() => sut.LoadAsync(Root, [Root], (_, choices, _) => Task.FromResult<string?>(choices[0])));
+
+        Assert.AreEqual("There is not enough space on the disk.", error.Message);
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath + ".bak"), "the file as it was is where it was moved to");
+        var said = logger.Entries.Single(entry => entry.Level == LogLevel.Error).Message;
+        StringAssert.Contains(said, "There is not enough space on the disk.");
+        StringAssert.Contains(said, ProjectFilePath + ".bak");
+        StringAssert.Contains(said, "The process cannot access the file because it is being used by another process.");
+    }
+
+    // a disk that fills up as a project file is written, the first times it is: the file is made, and holds the start of what was written. One that refuses to
+    // put a backup back fails that move, as a file another process holds open does.
+    private sealed class FullDisk(MockFileSystem fs, int failures = int.MaxValue) : MockFile(fs)
+    {
+        private int _failures = failures;
+
+        public bool RefusesToPutBack { get; init; }
+
         public override System.IO.Abstractions.FileSystemStream Open(string path, FileMode mode)
         {
-            if (mode == FileMode.Create && path.EndsWith(ProjectFile.FileName, StringComparison.Ordinal))
+            if (mode == FileMode.Create && path.EndsWith(ProjectFile.FileName, StringComparison.Ordinal) && _failures > 0)
             {
+                _failures--;
                 fs.AddFile(path, new MockFileData("{ \"Vers"));
                 throw new IOException("There is not enough space on the disk.");
             }
 
             return base.Open(path, mode);
+        }
+
+        public override void Move(string sourceFileName, string destFileName)
+        {
+            if (RefusesToPutBack && sourceFileName.EndsWith(".bak", StringComparison.Ordinal))
+            {
+                throw new IOException("The process cannot access the file because it is being used by another process.");
+            }
+
+            base.Move(sourceFileName, destFileName);
         }
     }
 

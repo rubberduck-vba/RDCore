@@ -16,6 +16,11 @@ internal interface IProjectFileService
     /// </summary>
     void Update(ProjectFile project);
 
+    /// <summary>
+    /// Lets go of the project: there is none until one is loaded again, as after a load that failed, and nothing changes it or writes it.
+    /// </summary>
+    void Unload();
+
     void AddReference(RDCoreReference reference);
     void RemoveReference(RDCoreReference reference);
 
@@ -66,6 +71,8 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
         ArgumentNullException.ThrowIfNull(project);
         _projectFile = project with { IsDirty = true };
     }
+
+    public void Unload() => _projectFile = default!;
 
     public async Task SaveAsync()
     {

@@ -47,18 +47,23 @@ public static class ProjectFileRegeneration
     /// Why it cannot be read, as its reader said (<see cref="IProjectFileLoader.LoadAsync"/>). The question says only where the file stops being valid JSON, in
     /// the lines and positions an editor counts from 1, when the reader's error says it: the rest of what the reader said is in the reader's own language.
     /// </param>
+    /// <param name="text">
+    /// The file's text, or <see langword="null"/> when it could not be read: the position is counted in its characters, as an editor counts them, where the
+    /// reader counts the bytes of its UTF-8. Without it, the position is the reader's, which is the same only on a line of ASCII.
+    /// </param>
     /// <param name="ask">Asks the user to choose among the buttons; <see langword="null"/> when they chose none.</param>
     /// <param name="token">A token that cancels the question.</param>
     /// <returns><see langword="true"/> when the user chose to regenerate it; <see langword="false"/> when they did not, or when the client could not ask.</returns>
     public static async Task<bool> AskAsync(
-        string projectFilePath, string backupPath, Exception unreadable, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>> ask, CancellationToken token)
+        string projectFilePath, string backupPath, Exception unreadable, string? text, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>> ask,
+        CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(unreadable);
         ArgumentNullException.ThrowIfNull(ask);
 
         var backup = Path.GetFileName(backupPath);
         var question = (unreadable as JsonException ?? unreadable.InnerException as JsonException) is { LineNumber: { } line } json
-            ? Say("ProjectFile_Regenerate_Offer", projectFilePath, line + 1, (json.BytePositionInLine ?? 0) + 1, backup)
+            ? Say("ProjectFile_Regenerate_Offer", projectFilePath, line + 1, ColumnOf(text, line, json.BytePositionInLine ?? 0) + 1, backup)
             : Say("ProjectFile_Regenerate_Offer_Unplaced", projectFilePath, backup);
         var regenerate = Say("ProjectFile_Regenerate_Choice_Regenerate");
         string? chosen;
@@ -74,6 +79,43 @@ public static class ProjectFileRegeneration
         }
 
         return chosen == regenerate;
+    }
+
+    // the characters before a position the JSON reader gives in UTF-8 bytes from the start of a line it counts from 0, lines ending at '\n' as it ends them.
+    private static long ColumnOf(string? text, long line, long bytes)
+    {
+        if (text is null)
+        {
+            return bytes;
+        }
+
+        var start = 0;
+        for (var at = 0L; at < line; at++)
+        {
+            var end = text.IndexOf('\n', start);
+            if (end < 0)
+            {
+                return bytes;
+            }
+
+            start = end + 1;
+        }
+
+        var stop = text.IndexOf('\n', start);
+        var counted = 0L;
+        var characters = 0L;
+        foreach (var rune in text.AsSpan(start, (stop < 0 ? text.Length : stop) - start).EnumerateRunes())
+        {
+            if (counted >= bytes)
+            {
+                break;
+            }
+
+            counted += rune.Utf8SequenceLength;
+            characters += rune.Utf16SequenceLength;
+        }
+
+        return characters;
     }
 
     private static string Say(string key, params object[] arguments)
