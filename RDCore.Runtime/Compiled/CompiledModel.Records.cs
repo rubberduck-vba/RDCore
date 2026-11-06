@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
 
-// a field of a record of the activation (IR lowering S2.6a): the slot of the record's holder - the cell its frame holds the record in - and the field's
+// a field of a record of the activation: the slot of the record's holder - the cell its frame holds the record in - and the field's
 // position in declaration order at each level, a record's field that is a record itself first.
 internal sealed record class FieldPath(int Holder, ImmutableArray<int> Indexes);
 

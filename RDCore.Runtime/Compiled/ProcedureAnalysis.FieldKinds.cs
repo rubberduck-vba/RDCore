@@ -18,7 +18,7 @@ internal sealed partial class ProcedureAnalysis
             return true;
         }
 
-        // a record is held by its cell, its holder (IR lowering S2.6a, RecordSlots), which compiled code finds the record and its fields in each time.
+        // a record is held by its cell, its holder (RecordSlots), which compiled code finds the record and its fields in each time.
         if (field.ResolvedType is VBUserDefinedType)
         {
             _ = _cellSlots.Add(slot);

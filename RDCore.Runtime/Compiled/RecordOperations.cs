@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// What compiled code does of a field of a record (IR lowering S2.6a): it reads and writes the field where the record holds it, as the interpreter does
+/// What compiled code does of a field of a record: it reads and writes the field where the record holds it, as the interpreter does
 /// (<c>RuntimeExpressionEvaluator.EvaluateInstanceField</c>, <c>LetAssignmentEvaluator.AssignField</c>).
 /// </summary>
 /// <remarks>
@@ -25,7 +25,9 @@ namespace RDCore.Runtime.Compiled;
 /// </remarks>
 public static class RecordOperations
 {
-    /// <summary>The record held in <paramref name="holder"/>, the cell its frame holds a record variable in; <see langword="null"/> when it holds none.</summary>
+    /// <summary>
+    /// The record held in <paramref name="holder"/>, the cell its frame holds a record variable in; <see langword="null"/> when it holds none.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? RecordIn(object? holder)
         => holder is IBindingHandle { Value: VBRuntimeValue<VBRuntimeUserDefinedTypeValue> boxed } ? boxed.StoredValue.UserDefinedType : null;
@@ -36,7 +38,9 @@ public static class RecordOperations
     /// </summary>
     public static object? FieldRecord(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBUserDefinedTypeValue;
 
-    /// <summary>The payload the field at <paramref name="index"/> of <paramref name="record"/>, of an integral kind, holds.</summary>
+    /// <summary>
+    /// The payload the field at <paramref name="index"/> of <paramref name="record"/>, of an integral kind, holds.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool ReadIntegral(object? record, int index, ScalarKind kind, out long value)
     {
@@ -45,7 +49,9 @@ public static class RecordOperations
         return read;
     }
 
-    /// <summary>The payload the field at <paramref name="index"/> of <paramref name="record"/>, of a floating-point kind, holds.</summary>
+    /// <summary>
+    /// The payload the field at <paramref name="index"/> of <paramref name="record"/>, of a floating-point kind, holds.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool ReadFloating(object? record, int index, ScalarKind kind, out double value)
     {
@@ -60,10 +66,14 @@ public static class RecordOperations
     /// </summary>
     public static bool WriteIntegral(object? record, int index, ScalarKind kind, long value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
 
-    /// <summary>Let-assigns a payload of the field's floating-point kind to the field at <paramref name="index"/> of <paramref name="record"/>.</summary>
+    /// <summary>
+    /// Let-assigns a payload of the field's floating-point kind to the field at <paramref name="index"/> of <paramref name="record"/>.
+    /// </summary>
     public static bool WriteFloating(object? record, int index, ScalarKind kind, double value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), 0, value));
 
-    /// <summary>The payload the <c>Variant</c> field at <paramref name="index"/> of <paramref name="record"/> holds, when it holds a known value of a scalar type.</summary>
+    /// <summary>
+    /// The payload the <c>Variant</c> field at <paramref name="index"/> of <paramref name="record"/> holds, when it holds a known value of a scalar type.
+    /// </summary>
     public static bool ReadVariant(object? record, int index, out VariantPayload value)
     {
         value = default;

@@ -463,7 +463,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a record is held in the cell its frame holds it in, whose fields compiled code reads and writes (IR lowering S2.6a).
+            // a record is held in the cell its frame holds it in, whose fields compiled code reads and writes.
             if (parameter is not ParamArrayParameterSymbol && TryHoldRecord(parameter.ResolvedType, _layout.ParameterSlots[i], parameter))
             {
                 continue;
@@ -1136,7 +1136,7 @@ internal sealed partial class ProcedureAnalysis
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
 
-            // a field of a record of the activation (IR lowering S2.6a).
+            // a field of a record of the activation.
             case BoundMember member when RecordFieldOf(member) is { } field:
                 return FieldPayload(member, field);
 

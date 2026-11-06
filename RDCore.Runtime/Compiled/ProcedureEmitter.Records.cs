@@ -3,7 +3,7 @@ using System.Reflection.Emit;
 namespace RDCore.Runtime.Compiled;
 
 /// <remarks>
-/// A record parameter or variable (IR lowering S2.6a) is a local holding its holder, the cell its frame holds it in, found as the activation begins and again
+/// A record parameter or variable is a local holding its holder, the cell its frame holds it in, found as the activation begins and again
 /// wherever the activation goes on after the interpreter ran an instruction, as an object's cell is. Each access of a field finds the record the holder holds
 /// then, and the field in it (<see cref="RecordOperations"/>): nothing is held of the record itself, so nothing is written into the frame or read back of it.
 /// A record that is a field of Me or of a module is held by the field's own cell, which is found and found again as any field's is.
@@ -12,7 +12,7 @@ internal sealed partial class ProcedureEmitter
 {
     private static readonly Type Records = typeof(RecordOperations);
 
-    // the record slots, each by the local its holder is held in (IR lowering S2.6a).
+    // the record slots, each by the local its holder is held in.
     private readonly Dictionary<int, LocalBuilder> _records = [];
 
     // a record field's holder is its cell, which the field's own (EmitFieldCell) finds and finds again.

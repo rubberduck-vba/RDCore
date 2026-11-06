@@ -16,7 +16,7 @@ public sealed partial class CompiledActivation
         // a scalar is a ScalarCell of its own type (IR lowering S2.5e).
         ScalarCell cell when cell.Type.Equals(((ITypedSymbol)field.Symbol).ResolvedType) => cell,
 
-        // a record is the cell that holds it, its holder (IR lowering S2.6a), which compiled code finds the record in each time it reads or writes a field.
+        // a record is the cell that holds it, its holder, which compiled code finds the record in each time it reads or writes a field.
         { Value: VBRuntimeValue<VBRuntimeUserDefinedTypeValue> } when ((ITypedSymbol)field.Symbol).ResolvedType is VBUserDefinedType => held,
         _ => null,
     };

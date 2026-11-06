@@ -13,7 +13,7 @@ using System.Collections.Immutable;
 namespace RDCore.Runtime.Compiled;
 
 /// <remarks>
-/// A record parameter or variable (IR lowering S2.6a) is held in the cell its frame holds it in - its holder (<see cref="RecordSlots"/>) - and compiled code
+/// A record parameter or variable is held in the cell its frame holds it in - its holder (<see cref="RecordSlots"/>) - and compiled code
 /// reads and writes its fields there (<see cref="RecordOperations"/>). A record that is a field compiled code reaches - <c>this</c> of a class's
 /// <c>Private this As TState</c>, a record of a standard module - is held by the cell Me or the session holds it in, found where the interpreter finds it
 /// (<see cref="Fields"/>), and its fields read and written there alike: a field of a scalar type, read as a payload of its kind and let-assigned one; a
@@ -23,7 +23,7 @@ namespace RDCore.Runtime.Compiled;
 internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
-    /// The slots of the record parameters and variables, in order (IR lowering S2.6a): each is held in the cell its frame holds it in, which compiled code
+    /// The slots of the record parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
     /// finds its fields in.
     /// </summary>
     public IReadOnlyList<int> RecordSlots => [.. _recordSlots];

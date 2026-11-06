@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A field of a record parameter or variable, compiled (IR lowering S2.6a): the record held in the cell its frame holds it in, and each field read and
+/// A field of a record parameter or variable, compiled: the record held in the cell its frame holds it in, and each field read and
 /// written where the record holds it - a field of a scalar type as a payload of its kind, a <c>Variant</c> field as a Variant variable is. What the
 /// interpreter does of the record - a Let of the whole record, a statement it runs alone, the caller whose variable it is - it does to that very record. A
 /// program runs the same either way.

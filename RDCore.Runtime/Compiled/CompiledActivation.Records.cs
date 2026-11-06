@@ -5,7 +5,7 @@ namespace RDCore.Runtime.Compiled;
 public sealed partial class CompiledActivation
 {
     /// <summary>
-    /// The cell the frame holds the record parameter or variable in <paramref name="slot"/> in (IR lowering S2.6a): the holder compiled code finds the record
+    /// The cell the frame holds the record parameter or variable in <paramref name="slot"/> in: the holder compiled code finds the record
     /// in, and its fields (<see cref="RecordOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter, which a record always
     /// is passed by reference (MS-VBAL §5.3.1.11), is in the cell of its caller's variable, as a <c>Variant</c>'s is (<see cref="VariantCellOf"/>).
     /// </summary>
