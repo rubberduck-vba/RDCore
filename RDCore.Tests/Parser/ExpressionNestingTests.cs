@@ -1,5 +1,8 @@
+using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.Parsing.Syntax;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
@@ -79,6 +82,26 @@ public sealed class ExpressionNestingTests
 
         Assert.IsTrue(result.IsSuccess, Describe(result));
     }
+
+    // the states the parser's prediction keeps for the choices of a rule, once an expression nested in `depth` calls is read with a prediction cache of its own:
+    // the cache of VBAParser is the process's, shared with every other parse.
+    private static int PredictionStatesOf(string rule, int depth)
+    {
+        var atn = new ATNDeserializer().Deserialize(VBAParser._serializedATN.ToCharArray());
+        var parser = new VBAParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(NestedAbs(depth))))) { ErrorHandler = new BailErrorStrategy() };
+        parser.Interpreter = new ParserATNSimulator(parser, atn) { PredictionMode = PredictionMode.Sll };
+        parser.RemoveErrorListeners();
+        parser.expression();
+
+        var ruleIndex = Array.IndexOf(parser.RuleNames, rule);
+        return atn.decisionToDFA.Where(dfa => dfa.atnStartState.ruleIndex == ruleIndex).Sum(dfa => dfa.states.Count);
+    }
+
+    // an argument is told from the bounds of a ReDim (`x(1 To n)`) by what follows its expression, not by reading the expression first: read for each call it
+    // is nested in, a nested call was read once for each level, and 2,500 of them took minutes to parse.
+    [TestMethod]
+    public void AnArgument_IsToldFromBounds_WithoutReadingItForEachCallItIsNestedIn()
+        => Assert.AreEqual(PredictionStatesOf("argumentExpression", 100), PredictionStatesOf("argumentExpression", 200));
 
     // a statement, the {0} in it the parenthesized literal, and the levels of nesting it writes around it: a call's argument is nested in the call, but neither
     // passing it by name or ByVal nor printing it nests it in anything more. The parentheses after a bare call's name group its one argument, a level of their

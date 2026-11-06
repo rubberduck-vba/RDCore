@@ -748,13 +748,14 @@ namedArgument : unrestrictedIdentifier whiteSpace? ASSIGN whiteSpace? argumentEx
 missingArgument : ;
 
 argumentExpression :
-    (BYVAL whiteSpace)? expression
+    BYVAL whiteSpace expression
     | addressOfExpression
-    // Special case for redim statements. The resolver doesn't have to deal with this because it is "picked apart" in the redim statement.
-    | lowerBoundArgumentExpression whiteSpace TO whiteSpace upperBoundArgumentExpression
+    // Special case for redim statements: `x(lower To upper)`. The resolver doesn't have to deal with this because it is "picked apart" in the redim statement.
+    // The bounds are the plain expression's alternative, To and the upper bound following it or not: as alternatives of their own, both begin with an
+    // expression, and telling them apart reads to the end of it - an argument nested in n calls was read again for each of them.
+    | expression (whiteSpace TO whiteSpace upperBoundArgumentExpression)?
 ;
 
-lowerBoundArgumentExpression : expression;
 upperBoundArgumentExpression : expression;
 
 // 5.6.16.8   AddressOf Expressions 
