@@ -273,13 +273,20 @@ printStmt : printMethod whiteSpace markedFileNumber whiteSpace? COMMA (whiteSpac
 unqualifiedObjectPrintStmt : printMethod (whiteSpace outputList)?;
 
 // 5.4.5.8.1 Output Lists
-outputList : outputItem (whiteSpace? outputItem)*;
-outputItem :
-    outputClause
-    | charPosition
-    | outputClause whiteSpace? charPosition
+// MS-VBAL lets an output item follow another with nothing between them (output-list = *output-item); RD-VBA requires a space, a `;` or a `,` between two
+// output clauses (RD-VBAL 5.4.5.8), as the VBE writes them: it writes `1(2)` as `1; (2)`. A segment is what the list holds between two spaces, in which a
+// clause is never right after another. With an item allowed right after an expression, the `(` that follows a name could begin either the name's argument
+// list or an item, and SLL read to the end of a nested call to tell them apart, once for each call it is nested in. A clause written right after another is
+// OutputItemsNotSeparated (ModuleParser.ReportOutputItemsNotSeparated).
+// An item is a value and a position a separator: MS-VBAL's output-item, a clause and a position together, is either of them, or both one after the other.
+outputList : outputSegment (whiteSpace outputSegment)*;
+outputSegment :
+    outputPosition* outputItem (outputPosition+ outputItem)* outputPosition*
+    | outputPosition+
 ;
-outputClause : spcClause | tabClause | outputExpression;
+outputItem : outputClause;
+outputPosition : charPosition;
+outputClause : spcClause | tabClause | {!IsSpcOrTabClauseAhead()}? outputExpression;
 charPosition : SEMICOLON | COMMA;
 outputExpression : expression;
 spcClause : SPC whiteSpace? LPAREN whiteSpace? spcNumber whiteSpace? RPAREN;
