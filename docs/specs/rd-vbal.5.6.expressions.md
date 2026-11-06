@@ -10,11 +10,11 @@ This section corresponds to [**MS-VBAL §5.6** Expressions](https://learn.micros
 
 |§|Title|MS-VBAL|
 |---|---|---|
-|5.6.1|[Expression Classifications](rd-vbal.5.6.1.expression-classifications.md) — *reserved*|[§5.6.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4d999406-a0ab-4f45-a8ef-03d10f911740)|
+|5.6.1|[Expression Classifications](rd-vbal.5.6.1.expression-classifications.md) (*reserved*)|[§5.6.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4d999406-a0ab-4f45-a8ef-03d10f911740)|
 |5.6.2|[Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md)|[§5.6.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/1d6362a2-0d3c-41a7-9c9f-c3afa0a11335)|
-|5.6.3|[Member Resolution](rd-vbal.5.6.3.member-resolution.md) — *reserved*|[§5.6.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/5ef0cb6d-7cb3-4806-8edf-926a530b4b89)|
-|5.6.4|[Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md) — *reserved*|[§5.6.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b892f8d6-cd0e-419e-8a02-bc932b8eff5c)|
-|5.6.5|[Literal Expressions](rd-vbal.5.6.5.literal-expressions.md) — *reserved*|[§5.6.5](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/13557712-af01-4c82-acfa-01a440a27262)|
+|5.6.3|[Member Resolution](rd-vbal.5.6.3.member-resolution.md) (*reserved*)|[§5.6.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/5ef0cb6d-7cb3-4806-8edf-926a530b4b89)|
+|5.6.4|[Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md) (*reserved*)|[§5.6.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b892f8d6-cd0e-419e-8a02-bc932b8eff5c)|
+|5.6.5|[Literal Expressions](rd-vbal.5.6.5.literal-expressions.md) (*reserved*)|[§5.6.5](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/13557712-af01-4c82-acfa-01a440a27262)|
 |5.6.6|[Parenthesized Expressions](rd-vbal.5.6.6.parenthesized-expressions.md)|[§5.6.6](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8c1b7427-670d-45e2-bc4b-39ab84ba5b20)|
 |5.6.7|[TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md)|[§5.6.7](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/22d0220a-65bc-412a-9052-adb02aadb875)|
 |5.6.8|[New Expressions](rd-vbal.5.6.8.new-expressions.md)|[§5.6.8](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b16c311f-3648-45fc-a382-1e6ddea34191)|

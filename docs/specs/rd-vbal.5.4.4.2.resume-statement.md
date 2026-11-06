@@ -24,7 +24,7 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) 
 
 |Condition|Compile error|
 |---|---|
-|`Resume` names a label that is not defined, e.g. `Resume Retry` with no `Retry:`.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
+|`Resume` names a label that is not defined, e.g. `Resume Retry` with no `Retry:`.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
 
 To resolve `VBC09309` for an undefined `Resume` label, define the label, or use `Resume Next` to continue after the
 statement that failed. `Resume 0` is not a jump, so `VBC09309` is not raised for it.
@@ -52,7 +52,7 @@ fault statement are held on the activation's
 
 |Condition|Run-time error|
 |---|---|
-|`Resume`, `Resume Next` or `Resume <label>` executes without an active error.|20 — Resume without error|
+|`Resume`, `Resume Next` or `Resume <label>` executes without an active error.|20 (Resume without error)|
 
 ## Implementation
 

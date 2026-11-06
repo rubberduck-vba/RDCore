@@ -23,7 +23,7 @@
 
 |Condition|Run-time error|
 |---|---|
-|The GoSub Resumption List is empty.|3 — Return without GoSub|
+|The GoSub Resumption List is empty.|3 (Return without GoSub)|
 
 Nested `GoSub`s unwind in LIFO order: the innermost `Return` is taken first.
 

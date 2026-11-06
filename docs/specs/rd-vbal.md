@@ -57,9 +57,9 @@ This specification follows the technical prose style of its inspirational Open S
   - 3.2.0 [Literal Expressions](rd-vbal.3.2.0.literals.md)
   - 3.3.0 [Operator Expressions](rd-vbal.3.3.0.operators.md)
     - 3.3.1 [Unary Operators](rd-vbal.3.3.1.unary-operators.md)
-    - 3.3.2 [Arithmetic Operators](rd-vbal.3.3.2.arithmetic-operators.md) — *reserved*
-    - 3.3.3 [Logical (Bitwise) Operators](rd-vbal.3.3.3.logical-operators.md) — *reserved*
-    - 3.3.4 [Relational (Comparison) Operators](rd-vbal.3.3.4.relational-operators.md) — *reserved*
+    - 3.3.2 [Arithmetic Operators](rd-vbal.3.3.2.arithmetic-operators.md) (*reserved*)
+    - 3.3.3 [Logical (Bitwise) Operators](rd-vbal.3.3.3.logical-operators.md) (*reserved*)
+    - 3.3.4 [Relational (Comparison) Operators](rd-vbal.3.3.4.relational-operators.md) (*reserved*)
   - 3.4.0 [Statements](rd-vbal.3.4.0.statements.md)
     - 3.4.1 [Block Statements](rd-vbal.3.4.1.block-statements.md)
     - 3.4.2 [Simple Statements](rd-vbal.3.4.2.simple-statements.md)
@@ -73,29 +73,29 @@ This specification follows the technical prose style of its inspirational Open S
 - 4.0 [Program Structure and Organization](rd-vbal.4.0.program-structure.md)
   - 4.1 [VBIDE Synchronization](rd-vbal.4.1.vbide-synchronization.md)
 - 5.0 [Semantics](rd-vbal.5.0.semantics.md)
-  - 5.1 [Module Body Structure](rd-vbal.5.1.module-body-structure.md) — *reserved*
-  - 5.2 [Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) — *reserved*
+  - 5.1 [Module Body Structure](rd-vbal.5.1.module-body-structure.md) (*reserved*)
+  - 5.2 [Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) (*reserved*)
     - 5.2.1 [Option Directives](rd-vbal.5.2.1.option-directives.md)
     - 5.2.2 [Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md)
     - 5.2.3 [Module Declarations](rd-vbal.5.2.3.module-declarations.md)
     - 5.2.4 [Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md)
-  - 5.3 [Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md) — *reserved*
-    - 5.3.1 [Procedure Declarations](rd-vbal.5.3.1.procedure-declarations.md) — *reserved*
+  - 5.3 [Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md) (*reserved*)
+    - 5.3.1 [Procedure Declarations](rd-vbal.5.3.1.procedure-declarations.md) (*reserved*)
   - 5.4 [Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)
-    - 5.4.1 [Statement Blocks](rd-vbal.5.4.1.statement-blocks.md) — *reserved*
+    - 5.4.1 [Statement Blocks](rd-vbal.5.4.1.statement-blocks.md) (*reserved*)
     - 5.4.2 [Control Statements](rd-vbal.5.4.2.control-statements.md)
     - 5.4.3 [Data Manipulation Statements](rd-vbal.5.4.3.data-manipulation-statements.md)
     - 5.4.4 [Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md)
     - 5.4.5 [File Statements](rd-vbal.5.4.5.file-statements.md)
   - 5.5 [Implicit coercion](rd-vbal.5.5.implicit-coercion.md)
     - 5.5.1 [Let-coercion](rd-vbal.5.5.1.let-coercion.md)
-    - 5.5.2 [Set-coercion](rd-vbal.5.5.2.set-coercion.md) — *reserved*
-  - 5.6 [Expressions](rd-vbal.5.6.expressions.md) — *reserved*
-    - 5.6.1 [Expression Classifications](rd-vbal.5.6.1.expression-classifications.md) — *reserved*
+    - 5.5.2 [Set-coercion](rd-vbal.5.5.2.set-coercion.md) (*reserved*)
+  - 5.6 [Expressions](rd-vbal.5.6.expressions.md) (*reserved*)
+    - 5.6.1 [Expression Classifications](rd-vbal.5.6.1.expression-classifications.md) (*reserved*)
     - 5.6.2 [Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md)
-    - 5.6.3 [Member Resolution](rd-vbal.5.6.3.member-resolution.md) — *reserved*
-    - 5.6.4 [Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md) — *reserved*
-    - 5.6.5 [Literal Expressions](rd-vbal.5.6.5.literal-expressions.md) — *reserved*
+    - 5.6.3 [Member Resolution](rd-vbal.5.6.3.member-resolution.md) (*reserved*)
+    - 5.6.4 [Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md) (*reserved*)
+    - 5.6.5 [Literal Expressions](rd-vbal.5.6.5.literal-expressions.md) (*reserved*)
     - 5.6.6 [Parenthesized Expressions](rd-vbal.5.6.6.parenthesized-expressions.md)
     - 5.6.7 [TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md)
     - 5.6.8 [New Expressions](rd-vbal.5.6.8.new-expressions.md)

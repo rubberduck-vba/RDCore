@@ -8,7 +8,7 @@
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
 |[ForStatementNode](../api/RDCore.SDK.Model.AST.Statements.ForStatementNode.html)|`ForOpener`|The `For` opener. Its `End` is the offset right past the `Next` closer.|
-|— (synthesized)|`ForNext`|The `Next` closer; `Node` is `null`. Its `Target` is the body's first instruction; its `Matching` is the offset of its `ForOpener`.|
+|None (synthesized)|`ForNext`|The `Next` closer; `Node` is `null`. Its `Target` is the body's first instruction; its `Matching` is the offset of its `ForOpener`.|
 
 `Next` has no AST node of its own: the whole `For...Next` construct is one `ForStatementNode` with a `Body`
 ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md)). The instruction fields are described in
@@ -109,11 +109,11 @@ state for its `Matching` offset, its `ForOpener` never ran in this activation.
 
 |Condition|Run-time error|
 |---|---|
-|`ForNext` finds no stored `ForLoopState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 — For loop not initialized|
-|The addition of `step` to the counter overflows.|6 — Overflow|
-|The start, the end or the step is no number: `"abc"`, an `Error`, an array, a `String` that is no date in a loop that counts in `Date`.|13 — Type mismatch|
-|The start, the end or the step is `Null`.|94 — Invalid use of Null|
-|The start, the end or the step is out of the range of the type the loop counts in (`For b = 1 To 300` with a `Byte` `b`).|6 — Overflow|
+|`ForNext` finds no stored `ForLoopState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 (For loop not initialized)|
+|The addition of `step` to the counter overflows.|6 (Overflow)|
+|The start, the end or the step is no number: `"abc"`, an `Error`, an array, a `String` that is no date in a loop that counts in `Date`.|13 (Type mismatch)|
+|The start, the end or the step is `Null`.|94 (Invalid use of Null)|
+|The start, the end or the step is out of the range of the type the loop counts in (`For b = 1 To 300` with a `Byte` `b`).|6 (Overflow)|
 
 Run-time error 92 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.ForLoopNotInitialized`
 ([**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)).

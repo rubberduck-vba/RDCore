@@ -313,12 +313,12 @@ RD-VBA run-time; such requirements are also resolved in favour of the evident in
 
 |§|Title|MS-VBAL|
 |---|---|---|
-|5.1|[Module Body Structure](rd-vbal.5.1.module-body-structure.md) — *reserved*|[§5.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/700b6540-33f4-4c9b-a151-cf1ee646e5ee)|
-|5.2|[Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) — *reserved*|[§5.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/501a2cb4-21a0-4982-9e5d-29fbb1c624f5)|
-|5.3|[Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md) — *reserved*|[§5.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/10d7f639-e0e0-4d05-be3a-cff2e542cd35)|
+|5.1|[Module Body Structure](rd-vbal.5.1.module-body-structure.md) (*reserved*)|[§5.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/700b6540-33f4-4c9b-a151-cf1ee646e5ee)|
+|5.2|[Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) (*reserved*)|[§5.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/501a2cb4-21a0-4982-9e5d-29fbb1c624f5)|
+|5.3|[Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md) (*reserved*)|[§5.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/10d7f639-e0e0-4d05-be3a-cff2e542cd35)|
 |5.4|[Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)|[§5.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/618815bc-c68b-4488-8082-ed1b36fac6d4)|
 |5.5|[Implicit coercion](rd-vbal.5.5.implicit-coercion.md)|[§5.5](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/72801139-6d53-4492-ad30-4d4363d6c6f9)|
-|5.6|[Expressions](rd-vbal.5.6.expressions.md) — *reserved*|[§5.6](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/65a708dc-e805-442e-8b9c-c02acb6254b2)|
+|5.6|[Expressions](rd-vbal.5.6.expressions.md) (*reserved*)|[§5.6](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/65a708dc-e805-442e-8b9c-c02acb6254b2)|
 
 ---
 > ⏮️ [**RD-VBAL §4.1** VBIDE Synchronization](rd-vbal.4.1.vbide-synchronization.md) | ⏭️ [**RD-VBAL §5.1** Module Body Structure](rd-vbal.5.1.module-body-structure.md)

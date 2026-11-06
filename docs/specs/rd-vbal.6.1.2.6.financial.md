@@ -13,9 +13,9 @@ its arguments alone.
 
 ## MS-VBA's Algorithm
 
-The specification states what each function computes, not how — and it is the how that decides the last digits of a
+The specification states what each function computes, not how, and it is the how that decides the last digits of a
 result, and which arguments have one at all. RD-VBA computes each function the way MS-VBA does: the VB runtime's
-algorithm, which .NET's `Microsoft.VisualBasic.Financial` ports, evaluated as MS-VBA's x87 code evaluates it — each
+algorithm, which .NET's `Microsoft.VisualBasic.Financial` ports, evaluated as MS-VBA's x87 code evaluates it: each
 statement's expression in the 80-bit extended format
 ([**RD-VBAL §5.6.9.3**](rd-vbal.5.6.9.3.arithmetic-operators.md#extended-intermediates)), its value stored in a
 `Double`, and a power by the platform's `Math.Pow`. A few places differ from the port, as MS-VBA does:
@@ -27,8 +27,8 @@ statement's expression in the 80-bit extended format
 - `SYD` keeps the depreciable amount over the sum of the digits in 80 bits.
 
 What a function returns is MS-VBA's to the last bit, recorded in Excel (grid `oracle\s43`: 30 random calls of each
-function, and the calls of the tests). Where the exact answer is another — a principal of nearly nothing, which as the
-payment less the interest is all rounding; a rate the iteration does not reach — RD-VBA answers what MS-VBA answers.
+function, and the calls of the tests). Where the exact answer is another (a principal of nearly nothing, which as the
+payment less the interest is all rounding; a rate the iteration does not reach), RD-VBA answers what MS-VBA answers.
 
 
 ## Errors
@@ -37,15 +37,15 @@ payment less the interest is all rounding; a rate the iteration does not reach �
 
 |When|Error|
 |---|---|
-|An argument a function cannot compute with — a period outside the life or the annuity, no periods, a rate of `-1` or less for `NPer`, a rate of `-1` for `NPV` or `MIRR`, an `IRR` `Guess` of `-1` or less, fewer than two flows for `IRR` or `MIRR`|`5`|
+|An argument a function cannot compute with: a period outside the life or the annuity, no periods, a rate of `-1` or less for `NPer`, a rate of `-1` for `NPV` or `MIRR`, an `IRR` `Guess` of `-1` or less, fewer than two flows for `IRR` or `MIRR`|`5`|
 |`Rate` or `IRR` finds no result ([Iteration](#iteration))|`5`|
-|A result overflows, or is no number — an infinity over an infinity, of a (1+_r_)ⁿ past the range of a `Double`|`6`|
+|A result overflows, or is no number: an infinity over an infinity, of a (1+_r_)ⁿ past the range of a `Double`|`6`|
 |`MIRR` has no payment to finance|`11`, the division by zero it is|
 |An optional argument is `Null`|`94`|
 |An optional argument is not a number, nor a `String` that reads as one|`13`|
 
 `PV(0.05, 20000, -100)`, `Pmt(0.05, 20000, 1000)` and the interest of a period of that annuity are error `6`: (1.05)²⁰⁰⁰⁰
-is past the range of a `Double`, though the exact answers — the perpetuity, the interest alone — are not.
+is past the range of a `Double`, though the exact answers (the perpetuity, the interest alone) are not.
 
 
 ## The Annuity Equation
@@ -101,7 +101,7 @@ can't find a result after 20 tries, [they fail]." MS-VBA's iteration is the seca
 So what MS-VBA finds depends on the guess, and on the shape of the equation near it. From the default guess it does
 not reach the rate of a 30-year mortgage's 361 flows, nor `Rate(10, -100, 1000)`, whose imbalance near a rate of `0` is
 noise above its tolerance; from a guess far from the rate, a loan's rate may be out of reach; and where the equation has
-two roots — a savings plan with a bonus to start it — it can find either. Each is error `5` where it finds none, and
+two roots (a savings plan with a bonus to start it), it can find either. Each is error `5` where it finds none, and
 the root it lands on where it does: `Rate(12, -1000, 500, 800, 0, 3)` is `-1.25`, which is no rate at all, and
 `Rate(10, 0, 1000)` is `-0.906`, where `1000` grown with nothing to offset it has fallen below the tolerance on the
 way to `-1`.
@@ -165,7 +165,7 @@ MS-VBA: a period greater than `0` and less than `NPer + 1` is accepted, and any 
 > This section describes the implementation of [**MS-VBAL §6.1.2.6.1.4** IRR](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/526c8b08-9ba0-4a24-9032-bd542062dd25).
 
 "The array MUST contain at least one negative value (a payment) and one positive value (a receipt)": without both
-there is no rate at which the flows balance, and the iteration finds none — error `5`. The internal rate of return is
+there is no rate at which the flows balance, and the iteration finds none: error `5`. The internal rate of return is
 the rate at which the flows' net present value is `0` ([Iteration](#iteration)).
 
 `ValueArray` is declared `Double()` through
@@ -208,8 +208,8 @@ none of the other functions do; RD-VBA raises the error and assigns nothing.
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.6.1.11** Rate](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/23d51c12-c6ec-4c10-85f8-80e3cb7e573b).
 
-`Rate` iterates as [Iteration](#iteration) describes. A savings plan with a bonus to start it — payments towards a
-larger future value, with a present value of the same sign — can have a second root, below the rate at which the
+`Rate` iterates as [Iteration](#iteration) describes. A savings plan with a bonus to start it (payments towards a
+larger future value, with a present value of the same sign) can have a second root, below the rate at which the
 payments are only the interest on the present value; from a guess near it, `Rate` can find it rather than the rate of
 the savings.
 

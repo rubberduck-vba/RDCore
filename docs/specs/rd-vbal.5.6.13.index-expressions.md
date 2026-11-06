@@ -75,10 +75,10 @@ dimension"; MS-VBA coerces it as any value is coerced to a `Long`
 
 |Condition|Run-time error|
 |---|---|
-|A subscript past the range of a `Long`.|6 — Overflow|
-|A subscript of text that is no number.|13 — Type mismatch|
-|A `Null` subscript.|94 — Invalid use of Null|
-|A subscript outside its dimension, or a number of subscripts other than the array's rank.|9 — Subscript out of range|
+|A subscript past the range of a `Long`.|6 (Overflow)|
+|A subscript of text that is no number.|13 (Type mismatch)|
+|A `Null` subscript.|94 (Invalid use of Null)|
+|A subscript outside its dimension, or a number of subscripts other than the array's rank.|9 (Subscript out of range)|
 
 ### Empty Argument List
 
