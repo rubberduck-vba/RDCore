@@ -184,21 +184,36 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // the second byte tap (C:\Dev\Claude\hexide-msgbox-tap2-2026-10-30.log): the language server asks the client to refresh its diagnostics while the program waits to
-    // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once.
+    // run, and the client, as HexIDE does, answers and pulls the document's diagnostics again at once. The refresh comes of the document's open and the
+    // workspace's bring-up, not of the run, so the client holds it and the program's MsgBox for each other: the document is pulled again while the program
+    // waits.
     [TestMethod]
-    [Ignore("nondeterministic: the refresh rides a real 300 ms debounce and may come after the run is answered. To be made deterministic before this runs again")]
     public async Task AProgramRunWhileTheClientPullsItsDiagnosticsAgain_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
         var rpc = platform.Rpc;
-        Task<JsonObject>? pulledAgain = null;
-        rpc.Answered = method =>
+        var refreshed = new TaskCompletionSource<Task<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        PullsAgainWhileTheProgramWaits(rpc, refreshed.Task);
+        rpc.Answered = (method, held) =>
         {
-            if (method == "workspace/diagnostic/refresh")
+            if (method == DiagnosticRefresh && held)
             {
-                pulledAgain ??= rpc.RequestAsync(6, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
+                _ = PullAgainAsync();
             }
         };
+
+        async Task PullAgainAsync()
+        {
+            try
+            {
+                refreshed.TrySetResult(await rpc.WriteRequestAsync(6, "textDocument/diagnostic",
+                    new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" }));
+            }
+            catch (Exception exception)
+            {
+                refreshed.TrySetException(exception);
+            }
+        }
 
         var initialize = await rpc.RequestAsync(2, "initialize", platform.InitializeParams(AsHexIdeDeclares));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
@@ -215,28 +230,37 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
+        var pulledAgain = await Unhung(refreshed.Task, "the server's refresh: asked " + string.Join(", ", platform.Asked));
         Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
         await platform.ShutdownAsync(7);
     }
 
     // the third byte tap (C:\Dev\Claude\hexide-msgbox-tap3-2026-10-30.log), in its order to the byte: HexIDE pulls the document's diagnostics again before it answers
     // the refresh, and writes both at once; the program's msgBox is then the language server's request 5, which is the id of the client's execute, still running.
+    // The client holds the refresh and the MsgBox for each other, as above: the pull and the refresh's answer are written while the program waits.
     [TestMethod]
-    [Ignore("nondeterministic: the refresh rides a real 300 ms debounce and may come after the run is answered. To be made deterministic before this runs again")]
     public async Task AProgramRunWhileTheClientPullsAgainBeforeItAnswersTheRefresh_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
         var rpc = platform.Rpc;
-        Task<JsonObject>? pulledAgain = null;
-        rpc.Before = method =>
+        var refreshed = new TaskCompletionSource<Task<JsonObject>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var written = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        PullsAgainWhileTheProgramWaits(rpc, written.Task);
+        rpc.Answered = (method, held) =>
         {
-            if (method != "workspace/diagnostic/refresh" || pulledAgain is not null)
+            if (method == DiagnosticRefresh && held)
+            {
+                written.TrySetResult();
+            }
+        };
+        rpc.Before = (method, held) =>
+        {
+            if (method != DiagnosticRefresh || !held)
             {
                 return null;
             }
 
-            pulledAgain = rpc.Expect(6);
+            refreshed.TrySetResult(rpc.Expect(6));
             return new JsonObject
             {
                 ["jsonrpc"] = "2.0",
@@ -261,9 +285,35 @@ public sealed class ClientWithoutOmniSharpTests
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
         Assert.IsNull((await diagnostics)["error"]);
-        Assert.IsNotNull(pulledAgain, "the server asked for a refresh: " + string.Join(", ", platform.Asked));
+        var pulledAgain = await Unhung(refreshed.Task, "the server's refresh: asked " + string.Join(", ", platform.Asked));
         Assert.IsNull((await pulledAgain)["error"], "and the second pull is answered");
         await platform.ShutdownAsync(7);
+    }
+
+    private const string DiagnosticRefresh = "workspace/diagnostic/refresh";
+
+    // the client answers the server's first diagnostics refresh once the program has asked its MsgBox, and the MsgBox once what the refresh makes it write
+    // is written: the document is pulled again while the program waits, whichever the server asks first. The pull is answered once the program is over.
+    private static void PullsAgainWhileTheProgramWaits(JsonRpc rpc, Task written)
+    {
+        var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refreshHeld = false;
+        rpc.Hold = method =>
+        {
+            if (method == RDCorePlatformProtocol.SessionMessageBox)
+            {
+                asked.TrySetResult();
+                return written;
+            }
+
+            if (method != DiagnosticRefresh || refreshHeld)
+            {
+                return null;
+            }
+
+            refreshHeld = true;
+            return asked.Task;
+        };
     }
 
     // overnight #39/#75, what hung HexIDE: its probe answered a vbOKOnly box with vbYes, and the host showed a native dialog nobody saw. A client that shows dialogs
@@ -555,22 +605,30 @@ public sealed class ClientWithoutOmniSharpTests
         /// <summary>What a failure says besides itself: what the server logged.</summary>
         public Func<string> Told { get; set; } = () => string.Empty;
 
-        /// <summary>What the client does once it has answered a request of the server, given its method.</summary>
-        public Action<string>? Answered { get; set; }
+        /// <summary>What the client does once it has answered a request of the server, given its method and whether it held it.</summary>
+        public Action<string, bool>? Answered { get; set; }
 
-        /// <summary>A message the client writes before it answers a request of the server, given its method, in the same write as the answer; or none.</summary>
-        public Func<string, JsonObject?>? Before { get; set; }
+        /// <summary>
+        /// A message the client writes before it answers a request of the server, given its method and whether it held it, in the same write as the answer; or none.
+        /// </summary>
+        public Func<string, bool, JsonObject?>? Before { get; set; }
+
+        /// <summary>What the client waits for before it answers a request of the server, given its method, reading on meanwhile; or nothing, to answer at once.</summary>
+        public Func<string, Task?>? Hold { get; set; }
 
         /// <summary>The answer to a request with this id, which the client writes itself.</summary>
         public Task<JsonObject> Expect(int id) => Unhung(Pending(id), $"the answer to request {id}");
 
         public Task NotifyAsync(string method, JsonObject parameters) => WriteAsync(new JsonObject { ["jsonrpc"] = "2.0", ["method"] = method, ["params"] = parameters });
 
-        public async Task<JsonObject> RequestAsync(int id, string method, JsonObject parameters)
+        public async Task<JsonObject> RequestAsync(int id, string method, JsonObject parameters) => await await WriteRequestAsync(id, method, parameters);
+
+        /// <summary>A request, written: what is given once it is written is its answer, which comes when it comes.</summary>
+        public async Task<Task<JsonObject>> WriteRequestAsync(int id, string method, JsonObject parameters)
         {
             var answered = Pending(id);
             await WriteAsync(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = method, ["params"] = parameters });
-            return await Unhung(answered, $"the answer to {method} ({id})");
+            return Unhung(answered, $"the answer to {method} ({id})");
         }
 
         /// <summary>
@@ -610,10 +668,16 @@ public sealed class ClientWithoutOmniSharpTests
                         var method = called.GetValue<string>();
                         if (message["id"] is { } asked)
                         {
-                            // a request from the server is answered: what the client does with it, or nothing.
-                            var answer = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = asked.DeepClone(), ["result"] = _answer(method, message["params"])?.DeepClone() };
-                            await WriteAsync(Before?.Invoke(method) is { } first ? [first, answer] : [answer]);
-                            Answered?.Invoke(method);
+                            // a request from the server is answered: what the client does with it, or nothing. One the client holds is answered once it lets
+                            // it go, and the client reads on meanwhile.
+                            if (Hold?.Invoke(method) is { } held)
+                            {
+                                _ = AnswerWhenAsync(held, method, asked.DeepClone(), message["params"]);
+                            }
+                            else
+                            {
+                                await AnswerAsync(method, asked.DeepClone(), message["params"], held: false);
+                            }
                         }
                         else if (method == "window/logMessage")
                         {
@@ -630,6 +694,26 @@ public sealed class ClientWithoutOmniSharpTests
             {
                 // whatever ended the reading - the pipe closed, a frame unread, the client disposed - nothing more is answered.
                 Fail(new InvalidOperationException($"the client stopped reading the server: {exception.Message}\n{Told()}", exception));
+            }
+        }
+
+        private async Task AnswerAsync(string method, JsonNode id, JsonNode? parameters, bool held)
+        {
+            var answer = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["result"] = _answer(method, parameters)?.DeepClone() };
+            await WriteAsync(Before?.Invoke(method, held) is { } first ? [first, answer] : [answer]);
+            Answered?.Invoke(method, held);
+        }
+
+        private async Task AnswerWhenAsync(Task held, string method, JsonNode id, JsonNode? parameters)
+        {
+            try
+            {
+                await held;
+                await AnswerAsync(method, id, parameters, held: true);
+            }
+            catch (Exception exception)
+            {
+                Fail(new InvalidOperationException($"the client could not answer {method}: {exception.Message}\n{Told()}", exception));
             }
         }
 

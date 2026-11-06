@@ -107,8 +107,6 @@ public sealed class WorkspaceDocumentRenameRaceTests
             _thread.Start();
         }
 
-        public ThreadState State => _thread.ThreadState;
-
         public void Join()
         {
             _thread.Join();
@@ -121,16 +119,15 @@ public sealed class WorkspaceDocumentRenameRaceTests
 
     private static Step Start(Action work) => new(work);
 
-    // a thread that waits for the step another has half made is blocked on it - the positive signal that it has come as far as it can; one that is done has not been held.
-    private static void UntilBlockedOrDone(Step step)
+    // a step started while another is half made, which the test waits for until it finds the changes' lock held: it then waits for the one half made.
+    private static Step StartWaitingFor(WorkspaceDocumentService documents, Action work)
     {
-        var spin = new SpinWait();
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        while ((step.State & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) == 0)
-        {
-            Assert.IsTrue(DateTime.UtcNow < deadline, "The thread neither waited nor finished.");
-            spin.SpinOnce();
-        }
+        using var contended = new ManualResetEventSlim();
+        documents.Contended = contended.Set;
+        var step = Start(work);
+        Assert.IsTrue(contended.Wait(TimeSpan.FromSeconds(30)), "The step never came to the change being made.");
+        documents.Contended = null;
+        return step;
     }
 
     [TestMethod]
@@ -144,8 +141,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
         var moving = Start(() => documents.Move(Old, New));
         Assert.IsTrue(states.Reached.Wait(TimeSpan.FromSeconds(30)), "The move never came to its state.");
 
-        var opening = Start(() => documents.Open(New.Uri.ToUri(), "client text", 5));
-        UntilBlockedOrDone(opening);
+        var opening = StartWaitingFor(documents, () => documents.Open(New.Uri.ToUri(), "client text", 5));
         states.Release.Set();
         moving.Join();
         opening.Join();
@@ -170,8 +166,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
         var changing = Start(() => documents.Change(Old.Uri.ToUri(), 2, [new TextDocumentContentChangeEvent { Text = "second" }]));
         Assert.IsTrue(states.Reached.Wait(TimeSpan.FromSeconds(30)), "The change never came to its state.");
 
-        var moving = Start(() => documents.Move(Old, New));
-        UntilBlockedOrDone(moving);
+        var moving = StartWaitingFor(documents, () => documents.Move(Old, New));
         states.Release.Set();
         changing.Join();
         moving.Join();

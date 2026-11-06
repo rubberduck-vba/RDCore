@@ -438,8 +438,7 @@ public sealed class SymbolSyncServiceTests
     }
 
     [TestMethod]
-    [Timeout(10_000, CooperativeCancellation = true)]
-    [Ignore("nondeterministic: a 10 s cap covers a real 300 ms delay, a Task.Run and the syncs. To be made deterministic before this runs again")]
+    [Timeout(60_000, CooperativeCancellation = true)]
     public async Task WhatIsDoneUnderAHold_IsNotInterleavedWithTheWorkspaceSync()
     {
         // the workspace sync defines every module, then loads the code of each: the host takes its time over the code of the scaffold. What is recorded is
@@ -485,23 +484,22 @@ public sealed class SymbolSyncServiceTests
         var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries());
 
         var workspace = sut.SyncWorkspaceAsync(CancellationToken.None);
-        await loading.Task;
+        await loading.Task.WaitAsync(Patience);
 
-        // a client's own text of the same module, defined and loaded to be asked about, while the workspace sync is not done.
-        var fragment = Task.Run(async () =>
-        {
-            var analyzed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Program.bas")), "Public Sub Main()\r\n    Dim Analyzed As Long\r\nEnd Sub");
-            await using (await sut.HoldAsync(CancellationToken.None))
-            {
-                await sut.SyncModuleAsync("Program", analyzed, CancellationToken.None);
-                await sut.LoadModuleCodeAsync("Program", analyzed, CancellationToken.None);
-            }
-        });
+        // a client's own text of the same module, defined and loaded to be asked about, while the workspace sync is not done. The hold is asked for on the
+        // test's own thread: whether it is given at once is decided before HoldAsync returns, by whether the workspace sync has it.
+        var holding = sut.HoldAsync(CancellationToken.None);
+        Assert.IsFalse(holding.IsCompleted, "the workspace sync has the hold while the host loads the scaffold's code");
 
-        // time enough for the fragment to be done, if nothing holds it back.
-        await Task.WhenAny(fragment, Task.Delay(300));
         release.SetResult();
-        await Task.WhenAll(workspace, fragment);
+        var analyzed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Program.bas")), "Public Sub Main()\r\n    Dim Analyzed As Long\r\nEnd Sub");
+        await using (await holding.WaitAsync(Patience))
+        {
+            await sut.SyncModuleAsync("Program", analyzed, CancellationToken.None);
+            await sut.LoadModuleCodeAsync("Program", analyzed, CancellationToken.None);
+        }
+
+        await workspace.WaitAsync(Patience);
 
         CollectionAssert.AreEqual(
             new[] { "workspace symbols", "workspace code", "fragment symbols", "fragment code" },

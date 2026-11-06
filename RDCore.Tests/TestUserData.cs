@@ -31,7 +31,10 @@ public static class TestUserData
         // RDCORE_WALKBACK=random hands every compiled activation to the interpreter at a safepoint of its own, to show the walk-back leaves nothing behind.
         RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom = string.Equals(Environment.GetEnvironmentVariable("RDCORE_WALKBACK"), "random", StringComparison.OrdinalIgnoreCase);
 
-        // the seed its safepoints are chosen with: a run that failed is replayed with the one it ran with.
+        // RDCORE_RELOADS=fail-at-random fails one access of the frame of every compiled activation, to show each hand-over it makes leaves nothing behind.
+        RDCore.Runtime.Compiled.CompiledExecution.FailsReloadsAtRandom = string.Equals(Environment.GetEnvironmentVariable("RDCORE_RELOADS"), "fail-at-random", StringComparison.OrdinalIgnoreCase);
+
+        // the seed its safepoints, and the failed accesses, are chosen with: a run that failed is replayed with the one it ran with.
         if (int.TryParse(Environment.GetEnvironmentVariable("RDCORE_WALKBACK_SEED"), out var seed))
         {
             RDCore.Runtime.Compiled.CompiledExecution.WalkBackSeed = seed;
