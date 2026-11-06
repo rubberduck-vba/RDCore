@@ -34,6 +34,3 @@ explicit `Exit Property`, or reaching the end of the body. The value read back i
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `ExitProcedure` instructions.
 - `RDCore.Runtime.Execution.RuntimeProcedureInvoker` reads the function result variable back from
   [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md) | ⏭️ [**RD-VBAL §5.4.2.20** RaiseEvent Statement](rd-vbal.5.4.2.20.raiseevent-statement.md)

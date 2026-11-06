@@ -76,6 +76,33 @@ public sealed class ReplProgressTests
         StringAssert.EndsWith(output.ToString(), "\r\u001b[2K", "the line is the output's again");
     }
 
+    // a question the server asks while a command's work is drawn: its menu line is not cleared by the bar of work that ends while it is asked, nor written over
+    // by a bar of work that goes on. The work is drawn as it is once the question is answered.
+    [TestMethod]
+    public void TheWorkDoneForACommand_IsNotDrawnIntoAQuestion_AndIsDrawnOnceItIsAnswered()
+    {
+        var tracker = new WorkProgressTracker();
+        var output = new StringWriter();
+        var messages = new PromptAwareMessageWriter(NSubstitute.Substitute.For<RDCore.SDK.ConsoleIO.IConsoleMessageWriter>());
+        using var display = new ReplProgressDisplay(tracker, output, () => 80, editor: null, messages: messages);
+        var (ending, going) = (new Reported(), new Reported());
+        tracker.Track("ending", ending);
+        ending.Push(new WorkDoneProgressBegin { Title = "Analyzing Program", Percentage = 20 });
+
+        var asked = messages.WhileAsking(() =>
+        {
+            output.Write("QUESTION 1) Yes 2) No");
+            var before = output.ToString();
+            ending.Push(new WorkDoneProgressEnd());
+            tracker.Track("going", going);
+            going.Push(new WorkDoneProgressBegin { Title = "Formatting", Percentage = 40 });
+            return output.ToString() == before;
+        });
+
+        Assert.IsTrue(asked, "nothing is drawn while the question is asked");
+        StringAssert.Contains(output.ToString()[output.ToString().IndexOf("QUESTION", StringComparison.Ordinal)..], "Formatting [", "the work that goes on is drawn once it is answered");
+    }
+
     [TestMethod]
     public void TheWorkTheServerDoesOfItsOwn_IsNotDrawnAmongACommandsOutput()
     {

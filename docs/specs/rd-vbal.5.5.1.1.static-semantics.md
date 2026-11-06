@@ -72,6 +72,3 @@ a function declared `As Integer()`; the value each holds is no array, and the as
 mismatch) when it runs. This is what MS-VBA does (Excel, `oracle\s46` F17a-b, `oracle\s48` J01-J02). The static pass states it
 (`ValueExpressionSemanticFlags.EmptyLetToArray`), and RDCore.Diagnostics reports
 [`RDC11016`](../diagnostics/rdc11016.md): the assignment fails whenever it runs.
-
----
-> ⏮️ [**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md) | ⏭️ [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)

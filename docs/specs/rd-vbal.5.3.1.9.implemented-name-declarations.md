@@ -60,6 +60,3 @@ dispatches `.Area` through it, and `With d` where `d` is declared as the class r
 
 Assigning to a public variable of the interface goes to the `Property Let` (or `Property Set`) that implements it, indexed or not, and so
 does an assignment in a `With` block.
-
----
-> ⏮️ [**RD-VBAL §5.3.1.8** Event Handler Declarations](rd-vbal.5.3.1.8.event-handler-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)

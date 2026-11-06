@@ -87,6 +87,3 @@ why record number 1 is byte 0 of the file
 |---|---|
 |`RecordDataFormat`|Implements the `Put`/`Get` record format: **MS-VBAL §5.4.5.11**'s Variant type descriptors and binary widths.|
 |[IFileChannel](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html)|A file channel. Its record surface is the one `Put` and `Get` use.|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.10** Input Statement](rd-vbal.5.4.5.10.input-statement.md) | ⏭️ [**RD-VBAL §5.4.5.12** Get Statement](rd-vbal.5.4.5.12.get-statement.md)
