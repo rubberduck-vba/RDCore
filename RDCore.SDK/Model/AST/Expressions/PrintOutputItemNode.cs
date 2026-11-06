@@ -40,9 +40,10 @@ public sealed record class PrintTabClauseNode(SyntaxNodeId Identity, SourceLocat
     : ExpressionNode(Identity, Location, Column is null ? [] : [Column]);
 
 /// <summary>
-/// <strong>MS-VBAL 5.6</strong> <c>object-print-expression</c> (<c>owner.Print outputList</c>, e.g.
-/// <c>Debug.Print "x"</c>) — part of the <c>l-expression</c> grammar family, reachable as a statement
-/// through <c>CallStatementNode</c>.
+/// <c>owner.Print outputList</c> (e.g. <c>Debug.Print "x"</c>): a call of an object's <c>Print</c> member that takes an
+/// output list (<strong>MS-VBAL 5.4.5.8.1</strong>, the list of the <c>Print</c> statement of <strong>MS-VBAL 5.4.5.8</strong>)
+/// in place of an argument list, written as a statement through <c>CallStatementNode</c>. <strong>MS-VBAL</strong> has no
+/// grammar of its own for it.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>

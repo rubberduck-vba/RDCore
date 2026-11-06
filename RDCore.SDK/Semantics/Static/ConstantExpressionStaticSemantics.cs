@@ -159,7 +159,7 @@ public static class ConstantExpressionStaticSemantics
         {
             foreach (var expression in new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>())
             {
-                if (FirstNotConstant(resolver, array.ParentUri, expression, IntrinsicCalls.Len | IntrinsicCalls.LenB) is { } offending)
+                if (FirstNotConstant(resolver, array.ParentUri, expression, IntrinsicCalls.Len | IntrinsicCalls.LenB, reporting: true) is { } offending)
                 {
                     yield return VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, offending.Location, Describe(offending) ?? string.Empty);
                 }
@@ -238,7 +238,7 @@ public static class ConstantExpressionStaticSemantics
             return VBCompileErrorInfo.For(VBCompileErrorId.InvalidDataTypeForConstant, value.Location, "Nothing");
         }
 
-        return FirstNotConstant(resolver, scope, value, admits) is { } offending
+        return FirstNotConstant(resolver, scope, value, admits, reporting: true) is { } offending
             ? VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, offending.Location, Describe(offending) ?? string.Empty)
             : null;
     }
@@ -290,17 +290,20 @@ public static class ConstantExpressionStaticSemantics
         "Int", "Fix", "Abs", "Sgn", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CLngLng", "CLngPtr", "CSng", "CStr", "CVar");
 
     // known: whether each expression already asked of is a constant expression, with every call admitted; one that is not is its own first.
+    // reporting: what is asked is the part a compile error is reported at. An expression kept as text (VBC00060, RD-VBAL 2.6.1) is not analyzed, so no part
+    // of it is reported; it is no constant expression all the same, and is never folded.
     private static ExpressionNode? FirstNotConstant(ISymbolResolver resolver, Uri scope, ExpressionNode expression, IntrinsicCalls admits = IntrinsicCalls.None,
-        Dictionary<ExpressionNode, bool>? known = null) => expression switch
+        Dictionary<ExpressionNode, bool>? known = null, bool reporting = false) => expression switch
     {
         _ when known is not null && known.TryGetValue(expression, out var isConstant) => isConstant ? null : expression,
         LiteralExpressionNode => null,
+        UnbuiltExpressionTriviaNode => reporting ? null : expression,
         // parentheses, - and Not, of a constant expression.
-        VBUnaryOperatorExpressionNode unary => FirstNotConstant(resolver, scope, unary.Operand, admits, known),
+        VBUnaryOperatorExpressionNode unary => FirstNotConstant(resolver, scope, unary.Operand, admits, known, reporting),
         VBBinaryOperatorExpressionNode binary
-            => FirstNotConstant(resolver, scope, binary.Left, admits, known) ?? FirstNotConstant(resolver, scope, binary.Right, admits, known),
+            => FirstNotConstant(resolver, scope, binary.Left, admits, known, reporting) ?? FirstNotConstant(resolver, scope, binary.Right, admits, known, reporting),
         IndexExpressionNode { Arguments: [var argument] } call when admits != IntrinsicCalls.None && IsAdmittedFunction(resolver, scope, call.Callee, admits)
-            => FirstNotConstant(resolver, scope, argument, admits, known),
+            => FirstNotConstant(resolver, scope, argument, admits, known, reporting),
         SimpleNameExpressionNode name => IsConstant(resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol) ? null : name,
         MemberAccessExpressionNode { Owner: { } owner } access => resolver.NamespaceOf(owner, scope) is { } qualifier
             ? IsConstant(resolver.ResolveMember(qualifier, access.Member, scope).Symbol) ? null : access

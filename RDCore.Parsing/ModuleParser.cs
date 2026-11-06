@@ -11,8 +11,11 @@ using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
@@ -54,8 +57,23 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
+    // on a thread whose stack has room for the deepest expression RD-VBA reads (LargeStackThread): the grammar's descent and the build of the tree recurse once
+    // or more for each level of an expression.
     public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
-        => Parse(uri, content, anchorOffset, [], Statistics, token);
+    {
+        // the looks are counted on the thread that parses, which is not the caller's when the parse moves to a large stack: they are told to the caller's.
+        var looks = 0L;
+        var result = LargeStackThread.Run(() =>
+        {
+            t_directiveLooks = 0;
+            var parsed = Parse(uri, content, anchorOffset, [], Statistics, token);
+            looks = t_directiveLooks;
+            return parsed;
+        });
+
+        t_directiveLooks = looks;
+        return result;
+    }
 
     // rootLineage: the lineage of the module node, which every node's identity extends - a part of the module parsed on its own (a header alternative) has one
     // of its own, so that no identity of its nodes is one of the module's. statistics: where how the module was read is counted; none for such a part, which
@@ -116,7 +134,7 @@ public partial class ModuleParser(
                 (ast, trivia) = (fast.BuildModuleNode(), fast.Trivia);
                 statistics?.Count(SegmentationStatistics.Path.Whole);
             }
-            else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, statistics, token) is { } stitched)
+            else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, errorListener, statistics, token) is { } stitched)
             {
                 (ast, trivia) = (stitched.Module, stitched.Trivia);
                 errorListener.AddRange(stitched.Errors);
@@ -156,6 +174,10 @@ public partial class ModuleParser(
             }
 
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
+            ast = PruneExpressionsNestedTooDeeply(ast, content, anchorOffset, errorListener);
+
+            // a directive's expression (#If, #ElseIf, #Const) is of the directive pass's own tree, and has the same limit.
+            precompilerTrivia = [.. precompilerTrivia.Select(directive => PruneExpressionsNestedTooDeeply(directive, content, anchorOffset, errorListener))];
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
@@ -173,7 +195,17 @@ public partial class ModuleParser(
             // an exception past both parse attempts on a fresh listener is more likely a listener bug
             // than bad input, so log it — the module still degrades to located errors + trivia +
             // whatever the listener had already built (salvaged below).
-            _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
+            // A module nested deeper than the parse reads (StackDepthGuardListener) is bad input: its exception's trace is a frame for each level, tens of
+            // thousands of them, and is neither logged nor given to a client - the error says what is wrong with the module.
+            var outOfStack = IsOutOfStack(exception);
+            if (outOfStack)
+            {
+                _logger.LogWarning("❌ Parse of {uri} stopped: the module is nested deeper than the parse reads.", uri);
+            }
+            else
+            {
+                _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
+            }
 
             var salvaged = read?.Tree;
             try
@@ -185,17 +217,39 @@ public partial class ModuleParser(
                 _logger.LogDebug(salvageFailure, "The partial tree could not be salvaged for {uri}.", uri);
             }
 
+            // what is salvaged is held to the limit as a module that was read is: the tree read before the prune failed is as deep as the module, and a stage
+            // after the parser that walks it runs out of stack.
+            salvaged = PrunedOrNone(uri, salvaged, content, anchorOffset, errorListener);
+
+            // and so are the directives, which the directive pass read before the parse failed (#If, #ElseIf, #Const), each of them on its own.
+            var directives = precompilerTrivia.Select(directive => PrunedOrNone(uri, directive, content, anchorOffset, errorListener)).OfType<SyntaxNode>().ToImmutableArray();
+
+            // the errors the slow parse found before it stopped are the module's, and so is that it stopped: what is after it was not read.
+            var stopped = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
+                outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
             return new ModuleParseResult
             {
                 SyntaxTree = salvaged,
-                PrecompilerTrivia = precompilerTrivia,
+                PrecompilerTrivia = directives,
                 Trivia = read?.Trivia ?? declarations?.Trivia ?? [],
-                SyntaxErrors = errorListener.Errors.IsEmpty
-                    ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
-                        SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
-                    : errorListener.Errors,
+                SyntaxErrors = errorListener.Errors.IsEmpty ? [stopped] : outOfStack ? errorListener.Errors.Add(stopped) : errorListener.Errors,
             };
         }
+    }
+
+    // whether the parse went deeper than it reads (StackDepthGuardListener.MaxRuleDepth) or ran out of its stack, however the exception that says so was wrapped on
+    // its way out of the grammar's descent.
+    private static bool IsOutOfStack(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is InsufficientExecutionStackException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -232,15 +286,18 @@ public partial class ModuleParser(
     // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
     // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error - what the grammar says is
     // wrong, and what the block scanner says instead, is a whole module's to say - or when its parse fails: the module is then parsed whole, as a module
-    // whose parse fails is, its partial tree salvaged.
+    // whose parse fails is, its partial tree salvaged. A segment nested deeper than the parse reads is not: the module is not read again whole, as a segment's
+    // parse has read it to that depth slowly already, and it stops where a parse of the whole module would. What that parse found wrong before it stopped is
+    // the module's (errorListener), as a slow parse of the whole module would have found it.
     private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
-        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, SegmentationStatistics? statistics, CancellationToken token)
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
+        CancellationToken token)
     {
         try
         {
-            return ParseEachSegment(uri, node, sanitized, segments, anchorOffset, statistics, token);
+            return ParseEachSegment(uri, node, sanitized, segments, anchorOffset, errorListener, statistics, token);
         }
-        catch (Exception exception) when (!token.IsCancellationRequested)
+        catch (Exception exception) when (!token.IsCancellationRequested && !IsOutOfStack(exception))
         {
             _logger.LogDebug(exception, "A segment of {uri} failed to parse; parsing it whole.", uri);
             statistics?.Count(SegmentationStatistics.Path.SegmentFailed);
@@ -249,7 +306,8 @@ public partial class ModuleParser(
     }
 
     private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
-        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, SegmentationStatistics? statistics, CancellationToken token)
+        IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
+        CancellationToken token)
     {
         var lines = sanitized.Split('\n');
         var children = ImmutableArray.CreateBuilder<SyntaxNode>();
@@ -263,8 +321,18 @@ public partial class ModuleParser(
             var start = new SourcePosition(segment.StartLine, 0).AnchoredAt(anchorOffset);
             var segmentErrors = new ErrorListener(uri, start);
             var first = next;
-            var listener = ParseWithFallback(text, segmentErrors, errors => new DeclarationsParseTreeListener(uri, node, errors) { NextModuleChildId = first, Anchor = start },
-                start, token);
+            DeclarationsParseTreeListener listener;
+            try
+            {
+                listener = ParseWithFallback(text, segmentErrors, errors => new DeclarationsParseTreeListener(uri, node, errors) { NextModuleChildId = first, Anchor = start },
+                    start, token);
+            }
+            catch (Exception exception) when (IsOutOfStack(exception))
+            {
+                errorListener.AddRange(segmentErrors.Errors);
+                throw;
+            }
+
             if (segmentErrors.HasGrammarErrors)
             {
                 statistics?.Count(SegmentationStatistics.Path.SegmentHadErrors);
@@ -421,19 +489,61 @@ public partial class ModuleParser(
     // token, never by the exception: SLL's bail is itself an OperationCanceledException.
     private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, CancellationToken token)
     {
+        var bailing = DirectiveParser(sanitized, new BailErrorStrategy(), token);
         try
         {
-            return DirectiveParser(sanitized, new BailErrorStrategy(), token).compilationUnit();
+            return bailing.compilationUnit();
         }
         catch (Exception exception) when ((exception is ParseCanceledException or RecognitionException) && !token.IsCancellationRequested)
         {
-            return DirectiveParser(sanitized, new DefaultErrorStrategy(), token).compilationUnit();
+            var recovering = DirectiveParser(sanitized, new DefaultErrorStrategy(), token);
+            try
+            {
+                return recovering.compilationUnit();
+            }
+            finally
+            {
+                t_directiveLooks += ((LookCountingTokenStream)recovering.InputStream).Looks;
+            }
+        }
+        finally
+        {
+            t_directiveLooks += ((LookCountingTokenStream)bailing.InputStream).Looks;
+        }
+    }
+
+    [ThreadStatic]
+    private static long t_directiveLooks;
+
+    /// <summary>
+    /// The work the directive passes of this thread's last <see cref="Parse(Uri, string, SourcePosition, CancellationToken)"/> did, the module's and its
+    /// header alternatives': each token their parses looked at, as many times as each looked at it, in prediction and in matching. None for a module with
+    /// no directive. What a guard of the pass's work counts, where a clock would count the machine. It isn't a function of the input alone: a decision the
+    /// shared DFA cache hasn't seen yet adds the looks of its full prediction, once.
+    /// </summary>
+    internal static long DirectiveLooksOfLastParse => t_directiveLooks;
+
+    // a token stream that counts the looks the parser takes at its tokens.
+    private sealed class LookCountingTokenStream(ITokenSource source) : CommonTokenStream(source)
+    {
+        public long Looks { get; private set; }
+
+        public override int La(int i)
+        {
+            Looks++;
+            return base.La(i);
+        }
+
+        public override IToken Lt(int k)
+        {
+            Looks++;
+            return base.Lt(k);
         }
     }
 
     private static VBAConditionalCompilationParser DirectiveParser(string sanitized, IAntlrErrorStrategy errorStrategy, CancellationToken token)
     {
-        var parser = new VBAConditionalCompilationParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
+        var parser = new VBAConditionalCompilationParser(new LookCountingTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
         {
             ErrorHandler = errorStrategy,
         };
@@ -474,7 +584,12 @@ public partial class ModuleParser(
         }
         catch (Exception exception) when (!token.IsCancellationRequested)
         {
-            if (exception is not (ParseCanceledException or RecognitionException))
+            if (IsOutOfStack(exception))
+            {
+                // its trace is a frame for each level the parse read, megabytes of them: the message says what stopped it.
+                _logger.LogDebug("SLL parse pass stopped: the module is nested deeper than the parse reads; retrying on LL.");
+            }
+            else if (exception is not (ParseCanceledException or RecognitionException))
             {
                 // a routine SLL bail needs no trace; anything else does, even though LL will retry.
                 _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
@@ -599,6 +714,219 @@ public partial class ModuleParser(
             line++;
         }
     }
+
+    // RD-VBA reads an expression nested in at most 2,500 others: MS-VBA runs a chain of 2,500 terms (2,499 additions), 2,000 nested parentheses and 1,000
+    // nested calls, and crashes the host past the chain, with no error (recorded in Excel: oracle\s65). MS-VBAL leaves the depth of an expression to the
+    // implementation. RD-VBAL: a deeper expression is a syntax error, kept as text and not analyzed.
+    internal const int MaxExpressionNesting = 2500;
+
+    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in, and prunes each: the tree - the
+    // module, or a directive of its own parse - comes back with every expression nested that deep an error node of its source text (UnbuiltExpressionTriviaNode),
+    // so that no stage after the parser is handed an expression deeper than the limit. The tree is walked with a stack of its own, as deep as the expression may be.
+    private static TNode PruneExpressionsNestedTooDeeply<TNode>(TNode module, string content, SourcePosition anchorOffset, ErrorListener errors) where TNode : SyntaxNode
+    {
+        var pending = new Stack<(SyntaxNode Node, int Depth, int Nesting, ExpressionNode? Outermost)>();
+        var path = new List<SyntaxNode>();
+        var reported = new HashSet<ExpressionNode>(ReferenceEqualityComparer.Instance);
+        var pruned = new Dictionary<SyntaxNode, SyntaxNode>(ReferenceEqualityComparer.Instance);
+        var holders = new Dictionary<SyntaxNode, int>(ReferenceEqualityComparer.Instance);
+        int[]? lineStarts = null;
+
+        pending.Push((module, 0, 0, null));
+        while (pending.TryPop(out var entry))
+        {
+            var (node, depth, nesting, outermost) = entry;
+            path.RemoveRange(depth, path.Count - depth);
+            path.Add(node);
+
+            var expression = AsALevelOfNesting(node);
+            if (expression is not null)
+            {
+                outermost ??= expression;
+                if (nesting > MaxExpressionNesting)
+                {
+                    // the rest of the outermost expression is no more than this says already.
+                    if (reported.Add(outermost))
+                    {
+                        errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
+                    }
+
+                    // what is held where only a name may be (the member of a member access) is pruned with what holds it.
+                    var at = depth;
+                    while (!SyntaxTreePruning.HoldsAnyExpressionWhere(path[at - 1], path[at]))
+                    {
+                        at--;
+                    }
+
+                    var prunedNode = path[at];
+                    lineStarts ??= LineStarts(content);
+                    if (!pruned.ContainsKey(prunedNode))
+                    {
+                        var text = TextAt(content, lineStarts, anchorOffset, prunedNode.SourceLocation.Range);
+                        pruned.Add(prunedNode, new UnbuiltExpressionTriviaNode(prunedNode.Identity, prunedNode.SourceLocation, text, [])
+                        {
+                            Names = NamesWrittenIn(text, prunedNode.SourceLocation.Range.Start),
+                        });
+                    }
+                    var holder = at - 1;
+                    while (holder >= 0 && holders.TryAdd(path[holder], holder))
+                    {
+                        holder--;
+                    }
+
+                    continue;
+                }
+            }
+
+            var inner = expression is null ? nesting : nesting + 1;
+            foreach (var child in node.ChildNodes().Reverse())
+            {
+                // the arguments of a bare call statement (`F 1, x`, `F (x)`) are nested in its call, as those of `Call F(1, x)` are in its index expression, and
+                // are reported with its callee, once for the statement.
+                if (node is CallStatementNode call && !ReferenceEquals(child, call.Callee))
+                {
+                    pending.Push((child, depth + 1, 1, call.Callee));
+                    continue;
+                }
+
+                pending.Push((child, depth + 1, outermost is null ? 0 : inner, outermost));
+            }
+        }
+
+        return pruned.Count == 0 ? module : (TNode)SyntaxTreePruning.Replaced(module, pruned, holders);
+    }
+
+    // a tree salvaged from a parse that failed, pruned as a module that was read is (PruneExpressionsNestedTooDeeply), or none if that fails too: no tree comes
+    // back with an expression deeper than the limit.
+    private TNode? PrunedOrNone<TNode>(Uri uri, TNode? salvaged, string content, SourcePosition anchorOffset, ErrorListener errors) where TNode : SyntaxNode
+    {
+        if (salvaged is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return PruneExpressionsNestedTooDeeply(salvaged, content, anchorOffset, errors);
+        }
+        catch (Exception pruneFailure)
+        {
+            _logger.LogDebug(pruneFailure, "The partial tree salvaged for {uri} could not be pruned to the limit; none is salvaged.", uri);
+            return null;
+        }
+    }
+
+    // where each line of a text begins: a line ends at its line feed, as the lexer counts lines (a carriage return before it is the end of its line).
+    private static int[] LineStarts(string text)
+    {
+        var starts = new List<int> { 0 };
+        for (var index = text.IndexOf('\n'); index >= 0; index = text.IndexOf('\n', index + 1))
+        {
+            starts.Add(index + 1);
+        }
+
+        return [.. starts];
+    }
+
+    // the text at a range of the module, whose positions are in the document a module parsed as its fragment is anchored in.
+    private static string TextAt(string text, int[] lineStarts, SourcePosition anchorOffset, SourceRange range)
+    {
+        int OffsetOf(SourcePosition position)
+        {
+            var line = position.Line - anchorOffset.Line;
+            var character = line == 0 ? position.Character - anchorOffset.Character : position.Character;
+            return Math.Clamp(lineStarts[Math.Clamp(line, 0, lineStarts.Length - 1)] + character, 0, text.Length);
+        }
+
+        var start = OffsetOf(range.Start);
+        return text[start..Math.Max(start, OffsetOf(range.End))];
+    }
+
+    // the names written in the text of an expression the tree keeps as text, which starts at a position of the document, as the lexer reads them: a word of
+    // its own, in brackets or not, and never what a literal or a comment holds. A word right after a `!` is the key of a dictionary access, the text of a string.
+    private static ImmutableArray<UnbuiltName> NamesWrittenIn(string text, SourcePosition start)
+    {
+        var lexer = new VBALexer(new AntlrInputStream(text));
+        lexer.RemoveErrorListeners();
+        var tokens = lexer.GetAllTokens();
+        var names = ImmutableArray.CreateBuilder<UnbuiltName>();
+        IToken? previous = null;
+        var member = false;
+        for (var index = 0; index < tokens.Count; index++)
+        {
+            var token = tokens[index];
+            if (token.Type is VBALexer.SINGLEQUOTE or VBALexer.REM)
+            {
+                while (index + 1 < tokens.Count && tokens[index + 1].Type != VBALexer.NEWLINE)
+                {
+                    index++;
+                }
+
+                continue;
+            }
+
+            if (token.Type is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+            {
+                previous = token;
+                continue;
+            }
+
+            var key = previous?.Type == VBALexer.EXCLAMATIONPOINT;
+            var close = token.Type == VBALexer.L_SQUARE_BRACKET ? IndexOfClosingBracket(tokens, index) : -1;
+            if (close > index + 1)
+            {
+                var first = tokens[index + 1];
+                if (!key)
+                {
+                    var name = text[first.StartIndex..tokens[close].StartIndex];
+                    names.Add(new UnbuiltName(name, RangeOf(first, name.Length), member));
+                }
+
+                index = close;
+            }
+            else if (!key && IsWord(token))
+            {
+                names.Add(new UnbuiltName(token.Text, RangeOf(token, token.Text.Length), member));
+            }
+
+            member = token.Type == VBALexer.DOT;
+            previous = tokens[index];
+        }
+
+        return names.ToImmutable();
+
+        SourceRange RangeOf(IToken token, int length)
+        {
+            var at = new SourcePosition(start.Line + token.Line - 1, (token.Line == 1 ? start.Character : 0) + token.Column);
+            return new SourceRange(at, new SourcePosition(at.Line, at.Character + length));
+        }
+    }
+
+    // the `]` that closes the `[` at an index of the tokens of a text, on its line; -1 if there is none.
+    private static int IndexOfClosingBracket(IList<IToken> tokens, int index)
+    {
+        for (var at = index + 1; at < tokens.Count && tokens[at].Type != VBALexer.NEWLINE; at++)
+        {
+            if (tokens[at].Type == VBALexer.R_SQUARE_BRACKET)
+            {
+                return at;
+            }
+        }
+
+        return -1;
+    }
+
+    // a token that is a name, or a keyword spelled as one: what an identifier is written as.
+    private static bool IsWord(IToken token)
+        => token.Type == VBALexer.IDENTIFIER || (token.Text.Length > 0 && char.IsLetter(token.Text[0]) && token.Text.All(c => char.IsLetterOrDigit(c) || c == '_'));
+
+    // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold, the owner of a member access, the
+    // callee of an index expression, what New, TypeOf...Is and AddressOf are written around). What is written around an argument to pass it by name (a:=) or
+    // ByVal nests it in nothing more than its call; Debug.Print takes an output list (MS-VBAL 5.4.5.8.1, the list of the Print statement of 5.4.5.8), not
+    // arguments, so neither it, an item of its list, nor a Spc or Tab clause nests what it prints.
+    private static ExpressionNode? AsALevelOfNesting(SyntaxNode node)
+        => node is ExpressionNode expression and not (NamedArgumentNode or ByValArgumentExpressionNode or ObjectPrintExpressionNode or PrintOutputItemNode
+            or PrintSpcClauseNode or PrintTabClauseNode) ? expression : null;
 }
 
 // Registered via AddParseListener (fires live, interleaved with the parser's own recursive descent) —
@@ -608,8 +936,47 @@ public partial class ModuleParser(
 // guard can't substitute for this.
 internal sealed class StackDepthGuardListener : VBAParserBaseListener
 {
+    /// <summary>
+    /// How many rules the parse may be inside at once: 32,000. Past it, the parse stops, and the module is a syntax error that it is nested too deeply to be read
+    /// (RD-VBAL 2.6.1). This is a limit of the implementation, and not of the language: an expression nested past
+    /// <see cref="ModuleParser.MaxExpressionNesting"/> is the language's own syntax error, <c>VBC00060</c>, and the ceiling is more than twice as deep as the
+    /// deepest such expression RD-VBA reads.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rules a level of nesting puts the parse inside of, measured on the grammar: 1 for parentheses, a print item, <c>Spc(</c>, <c>Tab(</c>,
+    /// <c>TypeOf</c>, a unary minus and <c>Not</c>; 6 for a call, however it is written (<c>Abs(</c>, <c>o.F(</c>, <c>Call F(G(</c>, <c>F G(</c>,
+    /// <c>F(ByVal</c>, <c>F(a:=</c>); 2 for a parenthesized right operand (<c>1 + (</c>). A chain of operators (<c>2 ^ 2 ^ …</c>, <c>1 + 1 + …</c>) and a chain
+    /// of argument lists (<c>a(1)(2)…</c>) do not nest the parse at all: 13 to 18 rules, however long. The deepest expression RD-VBA reads, 2,500 nested calls,
+    /// is 15,012 rules deep in a procedure; the ceiling leaves it a margin of as much again, and more.
+    /// </para>
+    /// <para>
+    /// Blocks nest the parse too: 3 rules for a <c>For</c> loop, 4 for an <c>If</c> or a <c>With</c> block, and 5 for a <c>Select Case</c>. A module whose
+    /// blocks are nested about 6,400 deep reaches the ceiling.
+    /// </para>
+    /// <para>
+    /// The parse runs on a stack of its own (<see cref="LargeStackThread"/>), which the ceiling is well inside of: the depth at which a parse stops is the same
+    /// whatever the size of its frames, in a Debug build as in a Release one. It also stops before its stack is deep enough to slow the process down: every
+    /// collection of the garbage collector scans the stack of every thread, and a parse that ran to the end of its stack, a hundred thousand levels and more,
+    /// made each one many times slower while it ran. The check of the stack itself
+    /// (<see cref="System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack"/>) is kept as a backstop.
+    /// </para>
+    /// </remarks>
+    internal const int MaxRuleDepth = 32_000;
+
+    private int _depth;
+
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
-        => System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+    {
+        if (++_depth > MaxRuleDepth)
+        {
+            throw new InsufficientExecutionStackException($"The parse is inside more than {MaxRuleDepth} rules.");
+        }
+
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+    }
+
+    public override void ExitEveryRule([NotNull] ParserRuleContext context) => _depth--;
 }
 
 // a parse that is no longer wanted stops at the next rule it enters: registered live, as StackDepthGuardListener is, on the directive pass and on the main

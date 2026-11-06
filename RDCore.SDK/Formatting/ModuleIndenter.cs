@@ -725,25 +725,22 @@ public static partial class ModuleIndenter
                 }
             }
 
+            // the tree is walked in the order it is written, with a stack of its own: an expression may be nested deeper than the caller's thread has stack for.
             var lastCode = Array.FindLastIndex(module.Lines, line => !string.IsNullOrWhiteSpace(line));
-            void Visit(SyntaxNode node)
+            var pending = new Stack<SyntaxNode>(tree.ChildNodes().Reverse());
+            while (pending.TryPop(out var node))
             {
                 if (IsCutShort(node, module, lastCode))
                 {
-                    return;
+                    continue;
                 }
 
                 Cover(covered, node, module);
                 IndentBodiesOf(node, module, options, splitHeaders, Indent);
-                foreach (var child in node.ChildNodes())
+                foreach (var child in node.ChildNodes().Reverse())
                 {
-                    Visit(child);
+                    pending.Push(child);
                 }
-            }
-
-            foreach (var node in tree.ChildNodes())
-            {
-                Visit(node);
             }
         }
 

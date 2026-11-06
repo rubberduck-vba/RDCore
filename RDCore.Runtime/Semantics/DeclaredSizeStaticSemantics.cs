@@ -158,7 +158,7 @@ public static class DeclaredSizeStaticSemantics
         foreach (var bound in declared)
         {
             ExpressionNode[] expressions = [.. new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>()];
-            if (expressions.All(IsLiteral) || expressions.Any(expression => ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is not null))
+            if (expressions.All(IsLiteral) || !expressions.All(expression => IsReducible(resolver, array, expression)))
             {
                 continue;
             }
@@ -205,6 +205,8 @@ public static class DeclaredSizeStaticSemantics
     {
         if (!array.TryGetProperty(SymbolProperties.ArrayBounds, out var declared) || declared.IsDefaultOrEmpty
             || declared.All(bound => new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>().All(IsLiteral))
+            || !declared.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>())
+                .All(expression => IsReducible(session.Symbols.Resolver, array, expression))
             || declared[^1].UpperExpression is not { } last)
         {
             return null;
@@ -229,6 +231,12 @@ public static class DeclaredSizeStaticSemantics
                 string.Format(Exceptions.VBCompileError_OutOfMemory_ArrayElements_Verbose, array.Name, VBArrayValue.MaximumLength))
             : null;
     }
+
+    // whether a bound of an array is one this check reduces: a constant expression. One that is not is "Constant expression required"
+    // (ConstantExpressionStaticSemantics), and has no value until the code runs; one kept as text (VBC00060, RD-VBAL 2.6.1) is not analyzed.
+    private static bool IsReducible(ISymbolResolver resolver, Symbol array, ExpressionNode expression)
+        => expression is not UnbuiltExpressionTriviaNode && !expression.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any()
+            && ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is null;
 
     private static bool IsLiteral(ExpressionNode expression) => expression is LiteralExpressionNode
         or VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp, Operand: LiteralExpressionNode };

@@ -2,6 +2,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform.Protocol;
 using System.Text;
 
@@ -36,7 +37,7 @@ public sealed class DeepSyntaxTreeJsonTests
     public void ADeepTree_RoundTripsThroughThePlatformsJson_OnASmallStack(string shape)
     {
         var expression = shape == "chain" ? AdditionChain(40 * 1024) : new string('(', 250) + "1" + new string(')', 250);
-        var module = ParseSuccessfully($"Sub Test()\r\n    x = {expression}\r\nEnd Sub\r\n");
+        var module = ParseTree($"Sub Test()\r\n    x = {expression}\r\nEnd Sub\r\n");
 
         string? json = null;
         string? again = null;
@@ -60,10 +61,13 @@ public sealed class DeepSyntaxTreeJsonTests
         Assert.AreEqual(json, again);
     }
 
-    private static ModuleNode ParseSuccessfully(string source)
+    // the tree of the module, which a parse has whether or not an expression of it is nested deeper than RD-VBA reads: the chain is (VBC00060), and its tree
+    // crosses the wire with the error.
+    private static ModuleNode ParseTree(string source)
     {
         var result = new ModuleParser().Parse(Uri, source);
-        Assert.IsTrue(result.IsSuccess, string.Join(", ", result.SyntaxErrors.Select(e => e.Verbose)));
+        Assert.IsTrue(result.SyntaxErrors.All(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply),
+            string.Join(", ", result.SyntaxErrors.Select(e => e.Verbose)));
         return result.SyntaxTree!;
     }
 }

@@ -15,10 +15,11 @@ namespace RDCore.Tests.Cli;
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]
 public sealed class HostSemanticsPhaseTests
 {
-    private static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(250);
+    // only a hang guard: each wait is for an answer the test has made due. The evaluation holds a pool thread until it is released, so the answers' own
+    // continuations may wait for the pool to add one.
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(60);
 
     [TestMethod]
-    [Ignore("nondeterministic: an evaluation blocks a pool thread while three 5 s waits need the pool, which can starve on 2 cores. To be made deterministic before this runs again")]
     public async Task TheStaticPhase_IsNotKeptWaitingForTheEvaluationOfTheCode_ButTheRuntimePhaseWaitsForIt()
     {
         await ModuleWorkspace.WithHostAsync([], "Attribute VB_Name = \"Program\"\r\n", async provider =>
@@ -34,23 +35,29 @@ public sealed class HostSemanticsPhaseTests
                     return ImmutableDictionary<SemanticId, RuntimeFacts>.Empty.Add(procedure, RuntimeFacts.None);
                 });
             var handler = new HostSemanticsHandler(provider);
+            try
+            {
+                var staticAnswer = await handler.Handle(new HostSemanticsParams { ModuleName = "Slow", Phase = AnalysisPhase.Static }, CancellationToken.None)
+                    .WaitAsync(Patience);
+                var everything = handler.Handle(new HostSemanticsParams { ModuleName = "Slow", Phase = AnalysisPhase.All }, CancellationToken.None);
+                var everythingEmptyName = handler.Handle(new HostSemanticsParams { Phase = AnalysisPhase.Runtime }, CancellationToken.None);
 
-            var staticAnswer = await handler.Handle(new HostSemanticsParams { ModuleName = "Slow", Phase = AnalysisPhase.Static }, CancellationToken.None)
-                .WaitAsync(TimeSpan.FromSeconds(5));
-            var everything = handler.Handle(new HostSemanticsParams { ModuleName = "Slow", Phase = AnalysisPhase.All }, CancellationToken.None);
-            var everythingEmptyName = handler.Handle(new HostSemanticsParams { Phase = AnalysisPhase.Runtime }, CancellationToken.None);
+                var statically = PlatformJson.Deserialize<SemanticsPayload>(staticAnswer.Json).Modules.Single();
+                Assert.IsNull(statically.Procedures.Single().Runtime, "the static answer is the model as it is, and does not claim the code was evaluated");
 
-            var statically = PlatformJson.Deserialize<SemanticsPayload>(staticAnswer.Json).Modules.Single();
-            Assert.IsNull(statically.Procedures.Single().Runtime, "the static answer is the model as it is, and does not claim the code was evaluated");
+                // the evaluation is held until it is released below, so neither request can have been answered.
+                Assert.IsFalse(everything.IsCompleted, "a request for everything waits for the evaluation");
+                Assert.IsFalse(everythingEmptyName.IsCompleted, "and so does one that names no module");
 
-            await Task.Delay(Settle);
-            Assert.IsFalse(everything.IsCompleted, "a request for everything waits for the evaluation");
-            Assert.IsFalse(everythingEmptyName.IsCompleted, "and so does one that names no module");
-
-            release.Set();
-            var complete = PlatformJson.Deserialize<SemanticsPayload>((await everything.WaitAsync(TimeSpan.FromSeconds(5))).Json).Modules.Single();
-            Assert.IsNotNull(complete.Procedures.Single().Runtime);
-            await everythingEmptyName.WaitAsync(TimeSpan.FromSeconds(5));
+                release.Set();
+                var complete = PlatformJson.Deserialize<SemanticsPayload>((await everything.WaitAsync(Patience)).Json).Modules.Single();
+                Assert.IsNotNull(complete.Procedures.Single().Runtime);
+                await everythingEmptyName.WaitAsync(Patience);
+            }
+            finally
+            {
+                release.Set();
+            }
         });
     }
 
@@ -67,11 +74,18 @@ public sealed class HostSemanticsPhaseTests
                 return ImmutableDictionary<SemanticId, RuntimeFacts>.Empty;
             });
 
-            using var cancellation = new CancellationTokenSource(Settle);
-            await Assert.ThrowsAsync<OperationCanceledException>(
-                () => new HostSemanticsHandler(provider).Handle(new HostSemanticsParams { ModuleName = "Slow" }, cancellation.Token));
-
-            release.Set();
+            try
+            {
+                // cancelled while it waits for the evaluation, which is held until it is released below.
+                using var cancellation = new CancellationTokenSource();
+                var waiting = new HostSemanticsHandler(provider).Handle(new HostSemanticsParams { ModuleName = "Slow" }, cancellation.Token);
+                cancellation.Cancel();
+                await Assert.ThrowsAsync<OperationCanceledException>(() => waiting.WaitAsync(Patience));
+            }
+            finally
+            {
+                release.Set();
+            }
         });
     }
 }

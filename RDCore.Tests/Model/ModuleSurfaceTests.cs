@@ -42,6 +42,23 @@ public sealed class ModuleSurfaceTests
     public void IsTheSame_ForTheSameText()
         => AssertSame(Module);
 
+    // a module nested past the parser's limit (VBC00060) is still parsed into a tree, and the language server makes its surface on whatever thread opens or
+    // edits it: on a small stack, it is made without a crash.
+    [TestMethod]
+    public void OfAModuleNestedPastTheLimit_IsMadeOnASmallStack()
+    {
+        var chain = Parser.ExpressionNestingTests.ChainPastTheLimit();
+        var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Const Max = {chain}\r\nPublic Sub Foo()\r\n    x = {chain}\r\n    y = Max\r\nEnd Sub\r\n");
+        Assert.IsNotNull(parse.SyntaxTree);
+
+        ModuleSurface? surface = null;
+        var thrown = SmallStack.Run(() => surface = ModuleSurface.Of(parse));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        StringAssert.Contains(surface!.Declarations, "ConstantDeclarationNode", "what it declares is told");
+        StringAssert.Contains(surface.References, "n:MAX\n", "and the names its procedure uses, after the expression past the limit");
+    }
+
     [TestMethod]
     [DataRow("Value * Times + 0", "Value * Times + 1", DisplayName = "a literal")]
     [DataRow("Value * Times + 0", "Value + Times - 0", DisplayName = "an operator")]

@@ -95,22 +95,31 @@ public sealed record class ModuleSurface(string Declarations, string References)
 
     // a directive, and those nested in it: the directives of the module are held in the code they are written in (PrecompilerTriviaNode), which is the syntax
     // tree's, and is not told. An #If inside a procedure, and what its condition is made of, is that procedure's body's; a #Const is told wherever it is.
-    private static void AppendDirective(StringBuilder surface, SyntaxNode node, SourceRange[] procedures, bool inProcedure)
+    private static void AppendDirective(StringBuilder surface, SyntaxNode directive, SourceRange[] procedures, bool inProcedure)
     {
-        if (node is PrecompilerIfBlockStatementNode or PrecompilerConstantDeclarationNode)
+        // a stack of what is left to tell, not a call per node: a module nested past the parser's limit still has a tree, and its surface is made on an
+        // ordinary thread. The children are pushed last first, so the nodes are told in the order a recursive walk would tell them.
+        var pending = new Stack<(SyntaxNode Node, bool InProcedure)>();
+        pending.Push((directive, inProcedure));
+        while (pending.TryPop(out var next))
         {
-            var start = node.SourceLocation.Range.Start;
-            inProcedure = node is not PrecompilerConstantDeclarationNode && procedures.Any(range => range.Start < start && start <= range.End);
-        }
+            var (node, nodeInProcedure) = next;
+            if (node is PrecompilerIfBlockStatementNode or PrecompilerConstantDeclarationNode)
+            {
+                var start = node.SourceLocation.Range.Start;
+                nodeInProcedure = node is not PrecompilerConstantDeclarationNode && procedures.Any(range => range.Start < start && start <= range.End);
+            }
 
-        if (node is not PrecompilerTriviaNode && !inProcedure)
-        {
-            Describe(surface, node);
-        }
+            if (node is not PrecompilerTriviaNode && !nodeInProcedure)
+            {
+                Describe(surface, node);
+            }
 
-        foreach (var child in NodesOf(node))
-        {
-            AppendDirective(surface, child, procedures, inProcedure);
+            var children = NodesOf(node).ToList();
+            for (var index = children.Count - 1; index >= 0; index--)
+            {
+                pending.Push((children[index], nodeInProcedure));
+            }
         }
     }
 
@@ -123,30 +132,39 @@ public sealed record class ModuleSurface(string Declarations, string References)
                 : string.Empty;
     }
 
-    private static void Append(StringBuilder declarations, StringBuilder references, SyntaxNode node, bool inBody, Branches branches)
+    private static void Append(StringBuilder declarations, StringBuilder references, SyntaxNode root, bool inBody, Branches branches)
     {
-        if (!inBody)
+        // a stack of what is left to tell, not a call per node, as for the directives: the children are pushed last first, in the order of a recursive walk.
+        var pending = new Stack<(SyntaxNode Node, bool InBody)>();
+        pending.Push((root, inBody));
+        while (pending.TryPop(out var next))
         {
-            Describe(declarations, node, branches.At(node));
-        }
-        else if (node is SimpleNameExpressionNode name)
-        {
-            // a name is a name however it is cased.
-            references.Append("n:").Append(name.IdentifierName.ToUpperInvariant()).Append('\n');
-        }
-        else if (node is VariableDeclarationNode or ConstantDeclarationNode or VBTypedDeclarationExpressionNode or RedimDeclarationNode)
-        {
-            // what a body declares is no other module's to see, and decides what the body's names mean.
-            Describe(references, node);
-        }
+            var (node, nodeInBody) = next;
+            if (!nodeInBody)
+            {
+                Describe(declarations, node, branches.At(node));
+            }
+            else if (node is SimpleNameExpressionNode name)
+            {
+                // a name is a name however it is cased.
+                references.Append("n:").Append(name.IdentifierName.ToUpperInvariant()).Append('\n');
+            }
+            else if (node is VariableDeclarationNode or ConstantDeclarationNode or VBTypedDeclarationExpressionNode or RedimDeclarationNode)
+            {
+                // what a body declares is no other module's to see, and decides what the body's names mean.
+                Describe(references, node);
+            }
 
-        var isProcedure = IsProcedure(node);
-        foreach (var child in NodesOf(node))
-        {
-            // the statements of a procedure, the variables and constants it declares and its labels and line numbers, which nothing outside of it can go to, are
-            // its body; its parameters, the type it returns and its attributes are its signature.
-            Append(declarations, references, child,
-                inBody || (isProcedure && child is StatementNode or VariableDeclarationNode or ConstantDeclarationNode or LineLabelNode), branches);
+            var isProcedure = IsProcedure(node);
+            var children = NodesOf(node).ToList();
+            for (var index = children.Count - 1; index >= 0; index--)
+            {
+                // the statements of a procedure, the variables and constants it declares and its labels and line numbers, which nothing outside of it can go to,
+                // are its body; its parameters, the type it returns and its attributes are its signature.
+                var child = children[index];
+                pending.Push((child,
+                    nodeInBody || (isProcedure && child is StatementNode or VariableDeclarationNode or ConstantDeclarationNode or LineLabelNode)));
+            }
         }
     }
 

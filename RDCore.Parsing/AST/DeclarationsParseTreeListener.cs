@@ -420,9 +420,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
                 continue;
             }
 
-            var lower = CaptureIsolatedExpression(expression.lowerBoundArgumentExpression()?.expression());
-            var upper = CaptureIsolatedExpression(
-                expression.upperBoundArgumentExpression()?.expression() ?? expression.expression());
+            // `lower To upper`, or the upper bound alone.
+            var upperBound = expression.upperBoundArgumentExpression();
+            var lower = upperBound is null ? null : CaptureIsolatedExpression(expression.expression());
+            var upper = CaptureIsolatedExpression(upperBound?.expression() ?? expression.expression());
 
             if (upper is not null)
             {

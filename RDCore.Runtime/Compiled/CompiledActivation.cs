@@ -305,6 +305,7 @@ public sealed class CompiledActivation : ILightActivation
     private bool IsStopping()
     {
         _untilPoll = PollInterval;
+        _body.NoteLook();
 
         // a cancellation the program was resumed from is not asked about again: the interpreter would run the activation on without breaking.
         return CompiledExecution.WalksBackAtRandom || _executor.IsCancellationPending || _halt.WantsInterpreter;
@@ -1116,6 +1117,22 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public long Recoveries => Interlocked.Read(ref _recovered);
 
     internal void CountRecovered() => Interlocked.Increment(ref _recovered);
+
+    private readonly TaskCompletionSource _looked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Completes when an activation of the body first looks whether the program is to stop, at a back edge of a loop
+    /// (<see cref="CompiledActivation.ShouldWalkBack"/>): what is asked of it after that - a breakpoint, a pause - is seen at its next look.
+    /// </summary>
+    public Task Looked => _looked.Task;
+
+    internal void NoteLook()
+    {
+        if (!_looked.Task.IsCompleted)
+        {
+            _ = _looked.TrySetResult();
+        }
+    }
 }
 
 /// <summary>

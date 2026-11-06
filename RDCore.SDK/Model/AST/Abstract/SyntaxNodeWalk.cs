@@ -12,12 +12,16 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// <c>If</c> and the <c>Case</c> branches of a <c>Select Case</c>. Walking <see cref="SyntaxNode.Children"/> alone therefore never gets inside any of them: a
 /// declaration, or a statement, written in one is not found. This is where the tree is walked for whoever needs to see all of it.
 /// </para>
+/// <para>
+/// The bounds of a declared array (<c>Dim a(1 To n)</c>) are held the same way: an <see cref="Declarations.ArrayBoundsNode"/> has no children, and keeps the
+/// expression of each bound in its <see cref="Declarations.ArrayBoundsNode.Bounds"/>. They are walked as what the clause is made of.
+/// </para>
 /// </remarks>
 public static class SyntaxNodeWalk
 {
     /// <summary>
-    /// The nodes <paramref name="node"/> is directly made of: its <see cref="SyntaxNode.Children"/>, the branches of a structured statement, and the statements of
-    /// its own blocks.
+    /// The nodes <paramref name="node"/> is directly made of: its <see cref="SyntaxNode.Children"/>, the branches of a structured statement, the statements of
+    /// its own blocks, and the expressions of the bounds of a declared array.
     /// </summary>
     /// <param name="node">A node of the tree.</param>
     /// <returns>The nodes, in the order they are written.</returns>
@@ -46,14 +50,33 @@ public static class SyntaxNodeWalk
     /// Every node under <paramref name="node"/>, depth first and in the order they are written, however deep in the blocks of structured statements; not the node itself.
     /// </summary>
     /// <param name="node">A node of the tree.</param>
+    /// <remarks>
+    /// The walk keeps its own stack of the nodes it is in: however deep the tree is, it uses no more of the caller's thread's stack than for a shallow one.
+    /// </remarks>
     public static IEnumerable<SyntaxNode> Descendants(this SyntaxNode node)
     {
-        foreach (var child in node.ChildNodes())
+        var pending = new Stack<IEnumerator<SyntaxNode>>();
+        pending.Push(node.ChildNodes().GetEnumerator());
+        try
         {
-            yield return child;
-            foreach (var descendant in child.Descendants())
+            while (pending.TryPeek(out var siblings))
             {
-                yield return descendant;
+                if (!siblings.MoveNext())
+                {
+                    pending.Pop().Dispose();
+                    continue;
+                }
+
+                var child = siblings.Current;
+                yield return child;
+                pending.Push(child.ChildNodes().GetEnumerator());
+            }
+        }
+        finally
+        {
+            while (pending.TryPop(out var unfinished))
+            {
+                unfinished.Dispose();
             }
         }
     }
@@ -110,6 +133,22 @@ public static class SyntaxNodeWalk
                 foreach (var clause in caseExpression.RangeClauses)
                 {
                     yield return clause;
+                }
+
+                break;
+
+            case Declarations.ArrayBoundsNode arrayBounds when !arrayBounds.Bounds.IsDefault:
+                foreach (var bound in arrayBounds.Bounds)
+                {
+                    if (bound.LowerExpression is { } lower)
+                    {
+                        yield return lower;
+                    }
+
+                    if (bound.UpperExpression is { } upper)
+                    {
+                        yield return upper;
+                    }
                 }
 
                 break;

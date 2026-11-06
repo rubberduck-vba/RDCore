@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
+using RDCore.SDK.Platform;
 
 namespace RDCore.SDK.Semantics.Refactoring;
 
@@ -85,8 +86,17 @@ public static class SymbolHierarchy
     /// <summary>
     /// What the item calls, each with where in the item the calls are written.
     /// </summary>
+    /// <remarks>
+    /// The references of each name the item writes are found by the static pass, which runs on a large-stack thread (<see cref="NameOccurrences.Find"/>): one
+    /// for the call, and not one for each name.
+    /// </remarks>
     public static IReadOnlyList<HierarchyCall> OutgoingCalls(RenameContext context, HierarchyItem item)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => OutgoingCalls(context, item));
+        }
+
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == item.Module.AbsoluteUri) is not { } source)
         {
             return [];

@@ -1043,6 +1043,27 @@ namespace RDCore.SDK {
             }
         }
 
+        /// <summary>Looks up a localized string similar to Expression nested too deeply.</summary>
+        public static string VBCompileError_ExpressionNestedTooDeeply {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpressionNestedTooDeeply", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This expression is nested in more than 2,500 others. Write part of it to a variable first.</summary>
+        public static string VBCompileError_ExpressionNestedTooDeeply_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpressionNestedTooDeeply_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This module is nested too deeply to be read: an expression or a block in it is nested in many thousands of others. Split its deepest part into smaller ones..</summary>
+        public static string VBCompileError_ModuleNestedTooDeeplyToRead_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModuleNestedTooDeeplyToRead_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>Looks up a localized string similar to Expected: Then. An #If or #ElseIf directive is written #If expression Then.</summary>
         public static string VBCompileError_DirectiveExpectedThen_Verbose {
             get {

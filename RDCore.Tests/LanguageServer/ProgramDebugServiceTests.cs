@@ -77,6 +77,22 @@ public sealed class ProgramDebugServiceTests
         Assert.AreEqual(DebuggerMessages.ExpressionIsOneLine, result.Breakpoints.Single().ConditionError);
     }
 
+    // the parse of a condition as deep as RD-VBA reads (RD-VBAL 2.6.1) is walked with a stack of the walk's own, on a thread no larger than one a request is
+    // answered on.
+    [TestMethod]
+    public void ACondition_NestedAsDeepAsRDVBAReads_ReachesTheHost_OnASmallStack()
+    {
+        var condition = new string('(', ModuleParser.MaxExpressionNesting) + "1" + new string(')', ModuleParser.MaxExpressionNesting);
+
+        DebugBreakpointsResult? result = null;
+        var thrown = SmallStack.Run(() => result = _service.SetBreakpointsAsync("Prog", [new SessionBreakpointLine { Line = 4, Condition = condition }],
+            CancellationToken.None).GetAwaiter().GetResult());
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.IsNull(result!.Breakpoints.Single().ConditionError);
+        Assert.IsNotNull(_sent!.Breakpoints.Single().ConditionJson);
+    }
+
     [TestMethod]
     public async Task ADisabledBreakpoint_GoesToTheHost_Disabled()
     {
