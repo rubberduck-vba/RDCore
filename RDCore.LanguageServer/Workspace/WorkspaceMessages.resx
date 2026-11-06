@@ -27,4 +27,7 @@
   <data name="SyncCancelled" xml:space="preserve">
     <value>it was not loaded before the loading was stopped</value>
   </data>
+  <data name="PullDeclinedWhileADialogIsOpen" xml:space="preserve">
+    <value>The program waits for a dialog to be answered: its diagnostics are given once the dialog is closed.</value>
+  </data>
 </root>

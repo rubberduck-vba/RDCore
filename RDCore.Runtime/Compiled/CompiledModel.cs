@@ -225,6 +225,19 @@ internal sealed record class ReturnStep(int Offset) : CompiledStep(Offset);
 // On...GoSub (CompiledActivation.Recover).
 internal sealed record class SteppedStep(int Offset) : CompiledStep(Offset);
 
+// a Select Case of a scalar selector (MS-VBAL §5.4.2.10): the selector evaluated once, into the local of the Select (Select, of CompiledBody.Selects).
+internal sealed record class SelectStep(int Offset, int Select, PayloadNode Selector) : CompiledStep(Offset);
+
+// a Case header of a Select Case of a scalar selector: its clauses compared in order, the first that matches falling through into its block; none, going to
+// Else - the next Case, the Case Else, or past the Select.
+internal sealed record class CaseStep(int Offset, IReadOnlyList<CaseClause> Clauses, int Else) : CompiledStep(Offset);
+
+// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made.
+internal sealed record class CaseClause(CompareNode Lower, CompareNode? Upper = null);
+
+// the selector of a Select Case of a scalar selector, as its SelectStep evaluated it.
+internal sealed record class SelectorNode(int Select, ScalarKind Kind) : PayloadNode(Kind);
+
 // the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
 // in, which the parameter is a second name for. Only an argument of a call.
 internal sealed record class ReferenceNode(int Slot, ScalarKind Kind) : PayloadNode(Kind);
