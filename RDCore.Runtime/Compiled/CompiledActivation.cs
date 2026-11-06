@@ -379,7 +379,99 @@ public sealed class CompiledActivation : ILightActivation
         }
 
         _suspensionsBeforeCall = Suspensions;
-        var result = called.TakesReferences ? invoker.Invoke(called.Procedure, _session.Symbols.Resolver, ArgumentsOf(called)) : invoker.InvokeScalars(called.Procedure, PayloadsOf(called));
+        var result = called.TakesReferences ? invoker.Invoke(called.Procedure, _session.Symbols.Resolver, ArgumentsOf(called, 0)) : invoker.InvokeScalars(called.Procedure, PayloadsOf(called));
+        return Returned(called, result, out integral, out floating);
+    }
+
+    // the member a call of a member of an object invokes, and the object it invokes it on (IR lowering S2.5e3): found before the call (CanCallMember), and
+    // let go of as it is made (CallMember).
+    private VBTypeMemberSymbol? _member;
+    private IRuntimeValue? _receiver;
+
+    /// <summary>
+    /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
+    /// <paramref name="cell"/> refers to (IR lowering S2.5e3): the member the object's class invokes for it is found as the interpreter finds it
+    /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called - its parameters after <c>Me</c> of the same
+    /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
+    /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
+    /// member: the interpreter makes the call.
+    /// </summary>
+    public bool CanCallMember(int callee, object? cell)
+    {
+        (_member, _receiver) = (null, null);
+        var called = _body.Callees[callee];
+        if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
+            || !_session.Symbols.TryGetInstance(instance, out var target)
+            || _executor.Expressions.MemberOf(called.Site!, target.ClassModule) is not { } member || !Takes(called, member))
+        {
+            return false;
+        }
+
+        (_member, _receiver) = (member, Unsafe.As<ValueBindingHandle>(cell!).Value);
+        return true;
+    }
+
+    // whether a member is called as the member a call was bound to: itself, or one whose parameters after Me, and what it returns, are of the same kinds. The
+    // last one found to be is remembered, as an object of one class nearly always is what a call is made on.
+    private static bool Takes(CompiledCallee called, VBTypeMemberSymbol member)
+    {
+        if (ReferenceEquals(member, called.Procedure) || ReferenceEquals(member, called.Implementation))
+        {
+            return true;
+        }
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(member);
+        var returned = ScalarKinds.Of((member as VBFunctionMemberSymbol)?.ResolvedType);
+        if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
+            || parameters.Length - 1 != called.Parameters.Count
+            || (called.Result is { } read ? returned != read : member is VBFunctionMemberSymbol && returned is null))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < called.Parameters.Count; i++)
+        {
+            var parameter = parameters[i + 1];
+            if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
+                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i])
+            {
+                return false;
+            }
+        }
+
+        called.Implementation = member;
+        return true;
+    }
+
+    /// <summary>
+    /// Calls the member <see cref="CanCallMember"/> found, on the object it found, with the arguments given (<see cref="SetArgument"/>,
+    /// <see cref="SetReference"/>), as the interpreter calls a member of an object: through its binding, the object given as <c>Me</c>. The instruction at
+    /// <paramref name="pc"/> is the one that makes the call, which the frame says while the member runs.
+    /// </summary>
+    /// <returns>Whether the call returned, as <see cref="Call"/> says.</returns>
+    public bool CallMember(int pc, int callee, out long integral, out double floating)
+    {
+        SetPc(pc);
+        _failed = null;
+        _body.CountIndirectCall();
+        var called = _body.Callees[callee];
+        var (member, receiver) = (_member!, _receiver!);
+        (_member, _receiver) = (null, null);
+
+        _suspensionsBeforeCall = Suspensions;
+        var arguments = ArgumentsOf(called, 1);
+        arguments[0] = receiver;
+        var expressions = _executor.Expressions;
+        var result = expressions.Bindings is { } bindings
+            ? bindings.ForMember(member).Call(_session.Symbols.Resolver, arguments)
+            : expressions.ProcedureInvoker is { } invoker ? invoker.Invoke(member, _session.Symbols.Resolver, arguments) : RuntimeSemanticsEvaluationResult.InternalError();
+        return Returned(called, result, out integral, out floating);
+    }
+
+    // what a call returned: a payload of the callee's kind, or why it did not return.
+    private bool Returned(CompiledCallee called, RuntimeSemanticsEvaluationResult result, out long integral, out double floating)
+    {
+        (integral, floating) = (0, 0);
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
@@ -414,13 +506,14 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
-    // of which the callee makes a cell of its own when the parameter is passed by reference.
-    private IRuntimeValue[] ArgumentsOf(CompiledCallee called)
+    // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
+    // the object a member is called on.
+    private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
-        var arguments = new IRuntimeValue[called.Parameters.Count];
-        for (var i = 0; i < arguments.Length; i++)
+        var arguments = new IRuntimeValue[first + called.Parameters.Count];
+        for (var i = 0; i < called.Parameters.Count; i++)
         {
-            arguments[i] = i < _references.Length && _references[i] is { } cell
+            arguments[first + i] = i < _references.Length && _references[i] is { } cell
                 ? new CellReference(Unsafe.As<ScalarCell>(cell))
                 : new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating).Box();
         }

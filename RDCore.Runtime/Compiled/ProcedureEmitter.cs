@@ -648,6 +648,16 @@ internal sealed class ProcedureEmitter
             arguments[i] = EmitArgument(call.Arguments[i], failure);
         }
 
+        // a member of an object (IR lowering S2.5e3): the object the variable refers to, and the member its class invokes, found before anything is called.
+        if (call.Receiver is { } receiver)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldloc, _objects[receiver]);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
+            _il.Emit(OpCodes.Brfalse, failure);
+        }
+
         var called = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.SpillsBeforeCalls))!.GetMethod!);
@@ -724,7 +734,7 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, call.Callee);
         _il.Emit(OpCodes.Ldloca, integral);
         _il.Emit(OpCodes.Ldloca, floating);
-        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Call))!);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(call.Receiver is null ? nameof(CompiledActivation.Call) : nameof(CompiledActivation.CallMember))!);
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
         _il.MarkLabel(returned);
 

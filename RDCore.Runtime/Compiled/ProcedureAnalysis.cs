@@ -19,6 +19,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Binding;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Semantics.Plans;
+using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -520,10 +521,12 @@ internal sealed class ProcedureAnalysis
                 return AnalyzeLet(instruction.Offset, assignment);
 
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
-                return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))
-                    is BoundCall bound && CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made
-                    ? made
-                    : RefusedCall(call.Callee, location);
+                return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments)) switch
+                {
+                    BoundCall bound when CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made => made,
+                    BoundMember member when MemberCallOf(member, CallStep.NoResult, instruction.Offset, resultKind: null) is { } madeOn => madeOn,
+                    _ => RefusedCall(call.Callee, location),
+                };
 
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
@@ -626,13 +629,21 @@ internal sealed class ProcedureAnalysis
         switch (Bind(assignment.Target))
         {
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
-                return assigned is BoundCall resultCall
-                    ? CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation)
-                    : PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null;
+                return assigned switch
+                {
+                    BoundCall resultCall => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
+                    BoundMember { Member: VBFunctionMemberSymbol } resultMember => MemberCallOf(resultMember, -1, offset, result)
+                        ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
+                    _ => PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null,
+                };
             case BoundVariable variable when SlotOf(variable) is { } slot:
-                return assigned is BoundCall slotCall
-                    ? CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation)
-                    : PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null;
+                return assigned switch
+                {
+                    BoundCall slotCall => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
+                    BoundMember { Member: VBFunctionMemberSymbol } slotMember => MemberCallOf(slotMember, slot, offset, _slots[slot])
+                        ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
+                    _ => PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null,
+                };
 
             // a Variant is assigned the payload as it is, of its own type (MS-VBAL §5.5.1.2.12), as TryAssignUnboxed assigns it.
             case BoundVariable variable when VariantSlotOf(variable) is { } variantSlot:
@@ -673,6 +684,40 @@ internal sealed class ProcedureAnalysis
             return null;
         }
 
+        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null);
+    }
+
+    // a call of a member of an object variable of the activation declared as a class (IR lowering S2.5e3), its parameters after Me taken as CallOf takes a
+    // procedure's. The member is the one the class the variable is declared as has: the one the object's class invokes for it is found when the call is
+    // made (CompiledActivation.CanCallMember), as the interpreter finds it (EvaluateBoundMember), and the call is made as the interpreter makes it, the
+    // object given as Me.
+    private CallStep? MemberCallOf(BoundMember call, int result, int offset, ScalarKind? resultKind)
+    {
+        if (call is not { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol, Owner: BoundVariable owner, IsLateBound: false }
+            || ObjectSlotOf(owner) is not { } receiver)
+        {
+            return null;
+        }
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(call.Member);
+        if (parameters is not [{ Name: Tokens.Me }, ..])
+        {
+            return null;
+        }
+
+        // a member called with no parentheses is given no argument; one written with them is given the arguments bound for it.
+        var arguments = call.BoundArguments ?? (call.Arguments is null ? [] : default);
+        if (arguments.IsDefault || arguments.Length != parameters.Length - 1)
+        {
+            return null;
+        }
+
+        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver);
+    }
+
+    private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
+        ScalarKind? resultKind, BoundMember? site, int? receiver)
+    {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar: an object it returned would be held by the statement until it ends.
         if (resultKind is { } read && (procedure is not VBFunctionMemberSymbol { ResolvedType: var returned } || ScalarKinds.Of(returned) != read)
@@ -703,8 +748,8 @@ internal sealed class ProcedureAnalysis
 
         // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
         _cellSlots.UnionWith(escaping);
-        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference));
-        return new CallStep(offset, Callees.Count - 1, values, result);
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site });
+        return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
 
     // the argument of a parameter of kind: a value let-coerced to it, for one passed by value or for one passed by reference that is given no variable; the
@@ -729,7 +774,12 @@ internal sealed class ProcedureAnalysis
     {
         if (_reasons.Count == 0)
         {
-            Refuse(IneligibilityKind.Call, (callee as SimpleNameExpressionNode)?.IdentifierName ?? callee.GetType().Name, location);
+            Refuse(IneligibilityKind.Call, callee switch
+            {
+                SimpleNameExpressionNode name => name.IdentifierName,
+                MemberAccessExpressionNode member => member.Member.IdentifierName,
+                _ => callee.GetType().Name,
+            }, location);
         }
 
         return null;

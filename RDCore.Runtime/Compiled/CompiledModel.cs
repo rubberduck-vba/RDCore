@@ -287,8 +287,9 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // a call of a procedure of the workspace (Callee, of CompiledBody.Callees), every argument a scalar passed by value, or the cell of one passed by reference
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
-// an instruction is handed to the interpreter at its start only before the call is made, which it would make again.
-internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result) : CompiledStep(Offset)
+// an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
+// slot of the object variable it is made on (Receiver, IR lowering S2.5e3).
+internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
 }
@@ -303,6 +304,18 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 {
     /// <summary>Whether any parameter is passed by reference.</summary>
     public bool TakesReferences { get; } = ByReference.Contains(true);
+
+    /// <summary>
+    /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
+    /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
+    /// </summary>
+    public SDK.Semantics.Binding.BoundMember? Site { get; init; }
+
+    /// <summary>
+    /// The member other than <see cref="Procedure"/> the call last invoked, of an object of another class, found to be called as
+    /// <see cref="Procedure"/> is (<see cref="CompiledActivation.CanCallMember"/>): one implementing it, of an object declared as an interface.
+    /// </summary>
+    public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 }
 
 /// <summary>

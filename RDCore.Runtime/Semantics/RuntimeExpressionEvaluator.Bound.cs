@@ -399,6 +399,12 @@ public sealed partial class RuntimeExpressionEvaluator
     // always, so the member is found once.
     private readonly ConcurrentDictionary<BoundMember, (VBClassModuleSymbol Class, VBTypeMemberSymbol? Member)> _memberSites = new(ReferenceEqualityComparer.Instance);
 
+    /// <summary>
+    /// The member an object of <paramref name="actual"/> invokes for the member <paramref name="bound"/> was bound to, an expression of an object declared as a
+    /// class, as this evaluation finds it (MS-VBAL §5.3.1.9): what compiled code calls for it (IR lowering S2.5e3). A field of the object is the member too.
+    /// </summary>
+    internal VBTypeMemberSymbol? MemberOf(BoundMember bound, VBClassModuleSymbol actual) => ImplementationOf(bound, actual);
+
     // the member an object of `actual` invokes for a member of the class the expression is declared as (MS-VBAL §5.3.1.9): the member itself, of an object of
     // that class; the one implementing it, of a class that implements it as an interface; or the class's own member by that name, as it is found
     // late-bound.

@@ -321,9 +321,14 @@ public sealed class BenchCommandTests
 
         var lines = output.ToString().Split(Environment.NewLine);
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
+        var interpreted = lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal));
+        StringAssert.StartsWith(interpreted, "interpreted");
+        StringAssert.Contains(interpreted, "Raise (line ");
+
+        // a member of an object is called by compiled code (IR lowering S2.5e3): the Set that gives the variable its object is the interpreter's.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
-        StringAssert.StartsWith(objectCall, "interpreted");
-        StringAssert.Contains(objectCall, "line ");
+        StringAssert.StartsWith(objectCall, "compiled");
+        StringAssert.Contains(objectCall, "Assignment (line ");
 
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it
         // (IR lowering S2.5e1).

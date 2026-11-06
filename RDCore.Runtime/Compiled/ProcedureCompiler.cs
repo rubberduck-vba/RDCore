@@ -204,7 +204,8 @@ internal sealed class ProcedureCompiler
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
-        if (evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        // a member of an object is called through its binding, the object given as Me (CompiledActivation.CallMember).
+        if (callee.Site is not null || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }
