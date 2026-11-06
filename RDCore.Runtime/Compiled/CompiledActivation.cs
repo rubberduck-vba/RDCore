@@ -755,6 +755,26 @@ public sealed class CompiledActivation : ILightActivation
     public int StepVariantFor(int opener)
         => Frame.TryGetForLoopState(opener, out var state) && _executor.Expressions.TryStepForUnboxed(_session, state, _context, out var past) ? (past ? 1 : 0) : -1;
 
+    /// <summary>
+    /// The step and the end of the loop of a Variant counter held in <paramref name="cell"/> whose <c>For</c> statement is at <paramref name="opener"/>,
+    /// in the subtype <paramref name="kind"/> compiled code speculates the counter holds, and whether it counts down: what each Next that finds the counter
+    /// holding a value of that subtype steps it with, as the interpreter does (<c>RuntimeExpressionEvaluator.TryVariantForBounds</c>).
+    /// </summary>
+    /// <returns>1 when each Next is stepped in that subtype; -1 when each is stepped as any is (<see cref="StepVariantFor"/>).</returns>
+    public int VariantForBounds(int opener, object? cell, ScalarKind kind, out long stepIntegral, out double stepFloating, out long endIntegral,
+        out double endFloating, out bool countsDown)
+    {
+        (stepIntegral, stepFloating, endIntegral, endFloating, countsDown) = (0, 0, 0, 0, false);
+        if (cell is not VariantCell variant || !Frame.TryGetForLoopState(opener, out var state)
+            || !_executor.Expressions.TryVariantForBounds(_session, state, _context, variant, ScalarKinds.TypeOf(kind), out var step, out var end))
+        {
+            return -1;
+        }
+
+        (stepIntegral, stepFloating, endIntegral, endFloating, countsDown) = (step.Integral, step.Floating, end.Integral, end.Floating, state.CountsDown);
+        return 1;
+    }
+
     /// <summary>Writes the variable in <paramref name="slot"/>, of an integral kind, into its cell.</summary>
     public void SpillIntegral(int slot, long value) => Spill(slot, value, 0);
 

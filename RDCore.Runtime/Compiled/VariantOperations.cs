@@ -71,6 +71,69 @@ public static class VariantOperations
         return done;
     }
 
+    /// <summary>
+    /// The payload the Variant held in <paramref name="cell"/> holds, when it holds one of the subtype <paramref name="kind"/>, an integral one: what compiled
+    /// code reads a Variant as where the analysis speculates its subtype (IR lowering S2.5c, <c>VariantSpeculation</c>). Any other is read by
+    /// <see cref="Read"/>.
+    /// </summary>
+    public static bool ReadIntegralAs(object? cell, ScalarKind kind, out long value)
+    {
+        if (cell is not null && Unsafe.As<VariantCell>(cell).TryRead(out var payload) && ReferenceEquals(payload.Type, TypeOf[(int)kind]))
+        {
+            value = payload.Integral;
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    /// <summary>The payload of a Variant of the subtype <paramref name="kind"/>, a floating-point one (<see cref="ReadIntegralAs"/>).</summary>
+    public static bool ReadFloatingAs(object? cell, ScalarKind kind, out double value)
+    {
+        if (cell is not null && Unsafe.As<VariantCell>(cell).TryRead(out var payload) && ReferenceEquals(payload.Type, TypeOf[(int)kind]))
+        {
+            value = payload.Floating;
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    /// <summary>Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, an integral one, as <see cref="Write"/> does.</summary>
+    public static bool WriteIntegralAs(object? cell, ScalarKind kind, long value) => WritePayload(cell, new ScalarPayload(TypeOf[(int)kind], value, 0));
+
+    /// <summary>Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, a floating-point one, as <see cref="Write"/> does.</summary>
+    public static bool WriteFloatingAs(object? cell, ScalarKind kind, double value) => WritePayload(cell, new ScalarPayload(TypeOf[(int)kind], 0, value));
+
+    // RuntimeExpressionEvaluator.TryWritePayload's Variant: over what holds no object.
+    private static bool WritePayload(object? cell, ScalarPayload payload)
+    {
+        if (cell is null || !Unsafe.As<VariantCell>(cell).HoldsNoObject)
+        {
+            return false;
+        }
+
+        Unsafe.As<VariantCell>(cell).Write(payload);
+        return true;
+    }
+
+    // the type of each kind, by its number: what a payload of the kind is of.
+    private static readonly SDK.Model.Types.Abstract.VBType?[] TypeOf = TypesOfKinds();
+
+    private static SDK.Model.Types.Abstract.VBType?[] TypesOfKinds()
+    {
+        var kinds = Enum.GetValues<ScalarKind>();
+        var types = new SDK.Model.Types.Abstract.VBType?[kinds.Max(kind => (int)kind) + 1];
+        foreach (var kind in kinds)
+        {
+            types[(int)kind] = ScalarKinds.TypeOf(kind);
+        }
+
+        return types;
+    }
+
     /// <summary><paramref name="value"/> let-coerced to <paramref name="kind"/>, when the conversion is exact.</summary>
     public static bool Convert(VariantPayload value, ScalarKind kind, out long integral, out double floating)
     {

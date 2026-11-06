@@ -118,8 +118,58 @@ internal sealed class ProcedureAnalysis
 
     private readonly SortedSet<int> _variantSlots = [];
 
-    // the For statements of a Variant counter, which the interpreter runs; their Next is compiled code's (VariantForNextStep).
-    private readonly HashSet<int> _variantLoops = [];
+    // the For statements of a Variant counter, which the interpreter runs, and the counter's slot; their Next is compiled code's (VariantForNextStep).
+    private readonly Dictionary<int, int> _variantLoops = [];
+
+    /// <summary>
+    /// The subtype each <c>Variant</c> slot is speculated to hold (IR lowering S2.5c, <see cref="VariantSpeculation"/>): the join of the subtypes of what
+    /// compiled code assigns it, and of the type a loop it counts counts in, where those are known when the procedure is compiled. A slot assigned anything
+    /// else - or that compiled code assigns nothing of a known subtype - has no speculation, and is evaluated as any Variant is.
+    /// </summary>
+    public IReadOnlyDictionary<int, ScalarKind> SpeculatedKinds => _speculatedKinds ??= Speculate();
+
+    private Dictionary<int, ScalarKind>? _speculatedKinds;
+
+    // what compiled code assigns each Variant slot (VariantLetStep), and the kind each Variant counter's loop counts in.
+    private readonly List<(int Slot, VariantNode Value)> _variantAssignments = [];
+    private readonly List<(int Slot, ScalarKind Kind)> _variantCountings = [];
+
+    // the speculations, joined until none changes: an assignment of an operation of the slot itself (S = S + I) is of the subtype the slot is speculated to
+    // hold, which is first what its other assignments make it. A join only widens, so few passes are made.
+    private Dictionary<int, ScalarKind> Speculate()
+    {
+        var kinds = new Dictionary<int, ScalarKind>();
+        foreach (var (slot, kind) in _variantCountings)
+        {
+            kinds[slot] = kinds.TryGetValue(slot, out var held) ? VariantSpeculation.Join(held, kind) : kind;
+        }
+
+        for (var pass = 0; pass < 8; pass++)
+        {
+            var changed = false;
+            foreach (var (slot, value) in _variantAssignments)
+            {
+                if (VariantSpeculation.KindOf(value, kinds) is not { } assigned)
+                {
+                    continue;
+                }
+
+                var joined = kinds.TryGetValue(slot, out var held) ? VariantSpeculation.Join(held, assigned) : assigned;
+                if (!kinds.TryGetValue(slot, out var before) || before != joined)
+                {
+                    kinds[slot] = joined;
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                break;
+            }
+        }
+
+        return kinds;
+    }
 
     /// <summary>The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</summary>
     public ScalarKind? ResultKind { get; private set; }
@@ -453,8 +503,9 @@ internal sealed class ProcedureAnalysis
             case InstructionKind.ForOpener when instruction.Node is ForStatementNode forStatement && instruction.End is { } past:
                 return AnalyzeForOpener(instruction.Offset, forStatement, past);
 
-            case InstructionKind.ForNext when instruction.Matching is { } variantOpener && instruction.Target is { } variantBody && _variantLoops.Contains(variantOpener):
-                return new VariantForNextStep(instruction.Offset, variantOpener, variantBody);
+            case InstructionKind.ForNext when instruction.Matching is { } variantOpener && instruction.Target is { } variantBody
+                && _variantLoops.TryGetValue(variantOpener, out var variantCounter):
+                return new VariantForNextStep(instruction.Offset, variantOpener, variantBody, variantCounter);
 
             case InstructionKind.ForNext when instruction.Matching is { } opener && instruction.Target is { } body && _loopOfOpener.TryGetValue(opener, out var loop):
                 return new ForNextStep(instruction.Offset, loop, CounterSlotOf(loop), _loops[loop].Kind, body);
@@ -539,7 +590,13 @@ internal sealed class ProcedureAnalysis
 
             // a Variant is assigned the payload as it is, of its own type (MS-VBAL §5.5.1.2.12), as TryAssignUnboxed assigns it.
             case BoundVariable variable when VariantSlotOf(variable) is { } variantSlot:
-                return Dynamic(assigned) is { } variantValue ? new VariantLetStep(offset, variantSlot, variantValue) : null;
+                if (Dynamic(assigned) is not { } variantValue)
+                {
+                    return null;
+                }
+
+                _variantAssignments.Add((variantSlot, variantValue));
+                return new VariantLetStep(offset, variantSlot, variantValue);
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
@@ -640,9 +697,15 @@ internal sealed class ProcedureAnalysis
         // a Variant counter counts in the type its start, end and step decide (ForLoopEvaluator.Operands): the interpreter runs the statement, and compiled
         // code steps the loop with the state it gives the frame (IR lowering S2.5c).
         if (forStatement.ControlExpression is SimpleNameExpressionNode variantName && Bind(forStatement.ControlExpression) is BoundVariable variantCounter
-            && VariantSlotOf(variantCounter) is not null)
+            && VariantSlotOf(variantCounter) is { } counterSlot)
         {
-            _ = _variantLoops.Add(offset);
+            _variantLoops[offset] = counterSlot;
+            if (VariantSpeculation.CountingKindOf(SpeculatedKindOf(forStatement.StartExpression), SpeculatedKindOf(forStatement.EndExpression),
+                forStatement.StepExpression is { } variantStep ? SpeculatedKindOf(variantStep) : ScalarKind.Integer) is { } counting)
+            {
+                _variantCountings.Add((counterSlot, counting));
+            }
+
             _stepped.Add(new Ineligibility(IneligibilityKind.ForCounter, variantName.IdentifierName, forStatement.SourceLocation));
             return new SteppedStep(offset);
         }
@@ -679,6 +742,16 @@ internal sealed class ProcedureAnalysis
     }
 
     private readonly List<int> _counterSlots = [];
+
+    // the subtype a bound of a loop of a Variant counter is of, when it is a payload of a known kind (a literal, a typed variable, a constant): looked at
+    // only, its refusals not the procedure's.
+    private ScalarKind? SpeculatedKindOf(ExpressionNode expression)
+    {
+        var mark = _reasons.Count;
+        var kind = Dynamic(Bind(expression)) is VariantOfNode { Value.Kind: var payload } ? payload : (ScalarKind?)null;
+        _reasons.RemoveRange(mark, _reasons.Count - mark);
+        return kind;
+    }
 
     private int CounterSlotOf(int loop) => _counterSlots[loop];
 

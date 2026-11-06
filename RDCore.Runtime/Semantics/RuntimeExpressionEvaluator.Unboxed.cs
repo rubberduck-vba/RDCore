@@ -300,6 +300,35 @@ public sealed partial class RuntimeExpressionEvaluator
         return true;
     }
 
+    /// <summary>
+    /// The step and the end of a loop of a Variant counter held in <paramref name="cell"/>, converted to <paramref name="counterType"/>, when every Next
+    /// of it that finds the counter holding a value of that type is stepped on payloads (<see cref="TryStepForUnboxed"/>) with these plans: counter + step
+    /// done in the counter's type, and its comparison with the end too (IR lowering S2.5c, compiled code's speculation of the counter's subtype).
+    /// </summary>
+    /// <returns><see langword="false"/> when the loop is not stepped on payloads, or not in that type: each Next is then stepped as any is.</returns>
+    internal bool TryVariantForBounds(IRuntimeSession session, ForLoopState state, RuntimeEvaluationContext context, VariantCell cell, VBType counterType,
+        out ScalarPayload step, out ScalarPayload end)
+    {
+        step = end = default;
+        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
+            || state.RuntimeState is not ForLoopPayloads loop || loop.IsDeclined
+            || !(loop.IsReady && ReferenceEquals(loop.Scopes, session.Symbols.Scopes)) && !TryPrepareFor(session, state, context, loop)
+            || BindingOf(session, loop.Counter!) is not (VariantCell counter, null) || !ReferenceEquals(counter, cell))
+        {
+            return false;
+        }
+
+        var sum = OperationPlanner.ForValues(Tokens.AdditionOp, counterType, loop.Step.Type);
+        if (sum.OperandDestination is not { } destination || !destination.Equals(counterType) || sum.EffectiveType is not { } summed || !summed.Equals(counterType))
+        {
+            return false;
+        }
+
+        var comparison = OperationPlanner.ForValues(state.CountsDown ? Tokens.CompareLessThanOp : Tokens.CompareGreaterThanOp, summed, loop.End.Type);
+        return comparison.OperandDestination is { } compared && compared.Equals(counterType)
+            && TryConvertPayload(loop.Step, counterType, out step) && TryConvertPayload(loop.End, counterType, out end);
+    }
+
     // a Variant counter (S1.4), which the loop gave a value of the type it counts in (ForLoopEvaluator.Operands): counter + step and the comparison with
     // the end are Variant operations, planned for what the counter holds - a sum that overflows declines, and the boxed loop widens the counter as MS-VBA
     // does. The plans are made again only when the counter's subtype changes.

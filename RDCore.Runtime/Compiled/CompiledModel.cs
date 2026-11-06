@@ -217,8 +217,9 @@ internal abstract record class CompiledStep(int Offset);
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
 
 // the Next of a For whose counter is a Variant (IR lowering S2.5c): stepped as the interpreter steps it on payloads, with the state its stepped For
-// statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's.
-internal sealed record class VariantForNextStep(int Offset, int Opener, int Body) : CompiledStep(Offset);
+// statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
+// speculated subtype the step is done in when it holds it (VariantSpeculation).
+internal sealed record class VariantForNextStep(int Offset, int Opener, int Body, int Counter) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);
