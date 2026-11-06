@@ -26,6 +26,3 @@ And one that the specification does not name but the language has: the library's
 |§|Module|SDK declaration|
 |---|---|---|
 |6.1.2.13|[Hidden Module](rd-vbal.6.1.2.13.hidden-module.md)|[IStdHiddenModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdHiddenModule.html)|
-
----
-> ⏮️ [**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md) | ⏭️ [**RD-VBAL §6.1.2.1** ColorConstants Module](rd-vbal.6.1.2.1.colorconstants-module.md)

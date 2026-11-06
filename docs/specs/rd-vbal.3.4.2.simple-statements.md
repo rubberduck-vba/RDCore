@@ -78,6 +78,3 @@ The SDK documentation of `OnErrorGoToStatementNode` also covers the `On Error Go
 `ResumeStatementNode.LabelExpression` is nullable: a bare `Resume` has no label.
 
 `Resume Next` has its own node type, `ResumeNextStatementNode`. It is not a `ResumeStatementNode` with a "Next" label.
-
----
-> ⏮️ [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md) | ⏭️ [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md)

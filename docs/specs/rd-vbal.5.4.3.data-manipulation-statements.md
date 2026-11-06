@@ -24,6 +24,3 @@ it lowers to, and the RD-VBAL page that describes its implementation. The node c
 [AssignmentKind](../api/RDCore.SDK.Model.AST.Statements.AssignmentKind.html) `Kind`. A `Simple` instruction's
 statement is dispatched by its own type to its statement runtime semantics; see
 [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md) | ⏭️ [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)

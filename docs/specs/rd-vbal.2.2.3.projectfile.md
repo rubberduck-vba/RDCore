@@ -23,7 +23,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ```javascript
 {
-  "Version": "",
+  "Version": "1.0",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -31,12 +31,37 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 |Member|Type|Description|
 |---|---|---|
-|`Version`|`string`|The RD-VBA _language core_ version the project file was _serialized_ with.|
+|`Version`|`string`|The version of the `.rdproj` format the file is written in, as _major.minor_ ([§2.2.3.0](#2230-the-formats-version)). It is not the version of RDCore. A file written by hand may leave it out or leave it empty.|
 |`Configuration`|array of `string`|The locations (relative paths) of any configuration files to bind at run-time.|
 |`ProjectInfo`|[`RDCoreProject`](#2231-rdcoreproject)|An object that describes the content of an RD-VBA project.|
 
 > [!TIP]
 > This model is intended to natively support VB6 _project files_ (`.vbp`).
+
+## 2.2.3.0 The format's version
+
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.1`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+
+RDCore opens a project file whatever version it says:
+
+- **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
+- **A newer second number** (`1.1` when RDCore writes `1.0`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
+
+Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open.
+
+A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, the same way it builds a project for a folder that has no project file. It always asks first, because what only the project file says, such as the project's references, is lost.
+
+- **You accept.** The file as it was is kept next to it, as `.rdproj.bak` (or `.rdproj.1.bak` and so on, if that name is taken), and the new file replaces it.
+- **The new file cannot be written.** The old one is put back as it was, and the project does not open, as if you had not accepted.
+- **The old one cannot be put back either.** It stays as the `.bak` file, and RDCore says so, and what to rename it to.
+- **You decline.** Nothing changes, and the project does not open until the file is fixed.
+
+Who is asked:
+
+- **An IDE** asks in its own window, but only if it says it can answer while the project opens (`answersDuringInitialize`, [**RD-VBAL §2.0.2.1.3**](rd-vbal.2.0.2.client-server-capabilities.md#20213-what-the-server-asks-before-it-answers-initialize)). One that does not say so is not asked, and the project does not open.
+- **The `rdc` shell** asks at its prompt, but only when someone is typing at it: a script piped into `rdc` is not asked, and none of its lines is taken for an answer. A question that comes while you are typing a line waits until you enter it, so your keys stay on the line.
+- **Under `--unattended`**, nobody is there to answer, so nothing is asked: the project does not open, and RDCore says why.
 
 ## 2.2.3.1 RDCoreProject
 

@@ -78,6 +78,3 @@ Set-assigned. When `DefaultValue` is `null`, it falls back to the parameter's de
 
 How the arguments passed to a `ParamArray` parameter are collected is described in
 [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md).
-
----
-> ⏮️ [**RD-VBAL §5.3.1.4** Function Type Declarations](rd-vbal.5.3.1.4.function-type-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md)

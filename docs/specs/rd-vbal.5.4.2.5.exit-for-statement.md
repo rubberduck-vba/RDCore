@@ -40,6 +40,3 @@ lowering both ask: the statement is lexically inside a loop of the kind, at any 
 - [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) resolves the
   `ExitLoop` target ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
 - `ProcedureExecutor` uses the same `case` arm for `ExitLoop` and `Jump`.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md) | ⏭️ [**RD-VBAL §5.4.2.6** Do Statement](rd-vbal.5.4.2.6.do-statement.md)
