@@ -2270,10 +2270,8 @@ End Sub
     }
 
     [TestMethod]
-    // this grammar's outputItem never actually pairs a value with its trailing separator in one node
-    // (outputClause and charPosition each surface as their own item, confirmed empirically here, not
-    // assumed) - a value item's own Separator is always null; the separator that visually follows it
-    // is the *next* item, with a null Value.
+    // the grammar reads a value (outputItem) and a separator (outputPosition) as items of their own, and so does the tree: a value item's own Separator is
+    // always null, and the separator that follows it is the *next* item, with a null Value.
     public void PrintStatement_CapturesFileNumberAndItemsWithSeparators()
     {
         var result = ParseInProcedure("""Print #1, "a"; "b", "c" """.TrimEnd());
@@ -2595,19 +2593,19 @@ End Sub
     }
 
     [TestMethod]
-    // a Tab or Spc clause before the `=` is still in an output list, so the statement is no Let. MS-VBAL reserves neither name (3.3.5.2), so each of these is
-    // also an output list with an equality in it (`Tab(2) = 5`, the clause `Tab` and then `(2) = 5`); which one it is, is left to the parser's full LL pass.
+    // a Tab or Spc clause before the `=` is still in an output list, so the statement is no Let; and what follows the clause is no item of the list. MS-VBAL
+    // would read `Tab(2) = 5` as the clause `Tab` right before the item `(2) = 5`; RD-VBA requires a separator between two clauses (RD-VBAL 5.4.5.8), and MS-VBA
+    // refuses each of these, kept as typed, with "Compile error: Syntax error" (Excel, oracle\s70 A14-A17).
     [DataRow("Debug.Print Tab(2) = 5")]
     [DataRow("Debug.Print Spc(2) = 5")]
     [DataRow("Debug.Print Tab = 5")]
     [DataRow("Debug.Print x; Tab(2) = 5")]
-    public void AnObjectPrintWithATabOrSpcClauseBeforeAnEqualSign_IsNoLet(string statement)
+    public void AnObjectPrintWithATabOrSpcClauseBeforeAnEqualSign_IsASyntaxError_AndNoLet(string statement)
     {
-        var result = ParseInProcedure(statement);
-        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var result = ParseWithoutExpectation(statement);
 
-        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
-        Assert.ContainsSingle(member.Children.OfType<DebugPrintStatementNode>());
+        Assert.IsFalse(result.IsSuccess, statement);
+        Assert.IsEmpty(result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<AssignmentStatementNode>(), statement);
     }
 
     [TestMethod]

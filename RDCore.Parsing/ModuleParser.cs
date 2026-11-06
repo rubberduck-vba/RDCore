@@ -590,7 +590,7 @@ public partial class ModuleParser(
         try
         {
             var reported = errorListener.Fresh();
-            var listener = ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory(reported), anchorOffset, token);
+            var listener = ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, reported, listenerFactory(reported), anchorOffset, token);
             errorListener.AddRange(reported.Errors);
             return listener;
         }
@@ -614,10 +614,11 @@ public partial class ModuleParser(
     // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
     private TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
-        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listener, anchorOffset, token);
+        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
 
-    private TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener,
-        SourcePosition anchorOffset, CancellationToken token)
+    // errorListener hears the grammar's errors, and none when it is null; findings is where what the parse finds of the tokens around its rules is reported.
+    private TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, ErrorListener findings,
+        TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
     {
         var stream = new AntlrInputStream(content);
@@ -643,11 +644,54 @@ public partial class ModuleParser(
         {
             parser.AddParseListener(new CancellationListener(token));
         }
+        var outputLists = new OutputListCollector();
+        parser.AddParseListener(outputLists);
 
         var tree = parser.startRule();
         AnchorTree(tree, anchorOffset);
+        ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
         ParseTreeWalker.Default.Walk(listener, tree);
         return listener;
+    }
+
+    // the tokens an output clause can begin with, but the whitespace a parenthesized expression may begin with.
+    private static readonly IntervalSet OutputClauseStart = OutputClauseStartTokens();
+
+    private static IntervalSet OutputClauseStartTokens()
+    {
+        var start = new IntervalSet(VBAParser._ATN.NextTokens(VBAParser._ATN.ruleToStartState[VBAParser.RULE_outputClause]));
+        start.Remove(VBALexer.WS);
+        start.Remove(VBALexer.LINE_CONTINUATION);
+        return start;
+    }
+
+    /// <summary>
+    /// Reports each output item written right after another, with nothing between them: <c>Debug.Print 1(2)</c>, <c>Print #1, "a"x</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>MS-VBAL §5.4.5.8.1</strong> lets an output item follow another with nothing between them (<c>output-list = *output-item</c>). RD-VBA requires a
+    /// space, a <c>;</c> or a <c>,</c> between two output clauses (<strong>RD-VBAL §5.4.5.8.1</strong>), as the VBE writes them. The grammar reads no clause
+    /// there, so the token right after an output list that begins one is the clause written right after the list's last. The grammar's error at it, if there
+    /// is one, is its consequence: in a <c>Print #</c> statement, the token is not the end of the statement. After the output list of <c>Debug.Print</c> and
+    /// of an object's <c>Print</c>, which is an l-expression, the grammar reads a <c>(</c> as the index of the expression, and reports nothing.
+    /// </remarks>
+    private static void ReportOutputItemsNotSeparated(IEnumerable<VBAParser.OutputListContext> lists, ITokenStream tokens, ErrorListener findings)
+    {
+        // a list the grammar stopped in is checked as well: what stopped it is often the clause written right after another (`Spc(1)x`), which is the error
+        // to say. Where it stopped on anything else, no clause begins after it.
+        foreach (var list in lists)
+        {
+            if (list.Stop is not { } last || last.TokenIndex < list.Start.TokenIndex || last.TokenIndex + 1 >= tokens.Size)
+            {
+                continue;
+            }
+
+            var next = tokens.Get(last.TokenIndex + 1);
+            if (OutputClauseStart.Contains(next.Type))
+            {
+                findings.ReplaceGrammarErrorAt(next, VBCompileErrorId.OutputItemsNotSeparated, SDK.Exceptions.VBCompileError_OutputItemsNotSeparated_Verbose);
+            }
+        }
     }
 
     // every VBABaseParserRuleContext in a freshly-built tree is constructed anchored at L0C0 (ANTLR's
@@ -1005,6 +1049,14 @@ internal sealed class CancellationListener(CancellationToken token) : IParseTree
     public void VisitErrorNode(IErrorNode node) { }
 }
 
+// the output lists of a parse, registered live: each with its last token, which the parser sets before it says the rule is exited.
+internal sealed class OutputListCollector : VBAParserBaseListener
+{
+    public List<VBAParser.OutputListContext> Lists { get; } = [];
+
+    public override void ExitOutputList([NotNull] VBAParser.OutputListContext context) => Lists.Add(context);
+}
+
 // grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):
 // EnterEveryRule fires for every rule context regardless of which parser produced the tree, so the same
 // listener anchors both the precompiler tree (VBAConditionalCompilationParser) and the main declarations
@@ -1045,8 +1097,22 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         // anchor's own column.
         var position = new SourcePosition(line - 1, charPositionInLine).AnchoredAt(anchorOffset);
         var location = new SourceLocation(_uri, new(position, position));
+
+        // a semantic predicate is the grammar's, and no part of the language: where one fails (`Debug.Print Spc(1`, a Spc clause that is not complete), what
+        // the parser could not read is said as ANTLR says it where no alternative is viable (DefaultErrorStrategy.ReportNoViableAlternative): the input from
+        // where the rule's decision began to the token it failed at, and not the predicate's code.
+        if (e is FailedPredicateException { Context: ParserRuleContext { Start: { } start } } && offendingSymbol is not null
+            && recognizer is Parser { InputStream: ITokenStream tokens })
+        {
+            msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
+        }
+
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
+
+    // a token's text as ANTLR quotes it in an error (DefaultErrorStrategy.EscapeWSAndQuote, which is not public): its line breaks and tabs escaped.
+    private static string EscapeWSAndQuote(string text)
+        => $"'{text.Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")}'";
 
     /// <summary>
     /// Replaces what the grammar says of a module whose blocks do not match with what MS-VBA says of them (<see cref="BlockStructureScanner"/>): the
@@ -1064,7 +1130,17 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _errors.AddRange(blockErrors);
     }
 
-    // whether the grammar refused something of the module.
+    // reports what is wrong at a token, in place of what the grammar said there: its error at the token, if it has one, is the consequence.
+    public void ReplaceGrammarErrorAt(IToken token, VBCompileErrorId id, string verbose)
+    {
+        var start = new SourcePosition(token.Line - 1, token.Column).AnchoredAt(anchorOffset);
+        var end = new SourcePosition(token.Line - 1, token.Column + token.Text.Length).AnchoredAt(anchorOffset);
+        _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.Equals(start));
+        Report(new SourceLocation(_uri, new(start, end)), id, verbose);
+    }
+
+    // whether the grammar refused something of the module. VBC00061 (OutputItemsNotSeparated) is not one: the grammar read the statement, and a segment
+    // that has it is stitched as a segment that read well is.
     public bool HasGrammarErrors => _errors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError);
 
     // the errors of a part of the module parsed on its own, already located in the module (a header alternative).

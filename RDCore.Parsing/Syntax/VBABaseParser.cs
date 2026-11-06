@@ -188,6 +188,27 @@ public abstract class VBABaseParser : Parser
 
         return TokenTypeAtRelativePosition(offset) == VBALexer.COLON;
     }
+
+    // MS-VBAL §5.4.5.8.1: at the start of an output clause, `Tab` is a tab clause and `Spc` followed by `(` a spc clause, never an expression that calls a name
+    // Spc or Tab. The VBE writes `Spc(1)(2)` as `Spc(1); (2)` (oracle\s69 O04). Without this, the argument list of a name read `Spc(1)(2)` as one
+    // expression, an index of `Spc(1)`, when what follows the clause was no output item it could be.
+    protected bool IsSpcOrTabClauseAhead()
+    {
+        switch (TokenTypeAtRelativePosition(1))
+        {
+            case VBALexer.TAB:
+                return true;
+            case VBALexer.SPC:
+                var offset = 2;
+                while (TokenTypeAtRelativePosition(offset) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+                {
+                    offset++;
+                }
+                return TokenTypeAtRelativePosition(offset) == VBALexer.LPAREN;
+            default:
+                return false;
+        }
+    }
     #endregion
 
     #region Grammar-level recovery helpers
