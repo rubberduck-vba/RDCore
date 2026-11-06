@@ -665,6 +665,8 @@ public partial class ModuleParser(
     /// </remarks>
     private static void ReportOutputItemsNotSeparated(IEnumerable<VBAParser.OutputListContext> lists, ITokenStream tokens, ErrorListener findings)
     {
+        // a list the grammar stopped in is checked as well: what stopped it is often the clause written right after another (`Spc(1)x`), which is the error
+        // to say. Where it stopped on anything else, no clause begins after it.
         foreach (var list in lists)
         {
             if (list.Stop is not { } last || last.TokenIndex < list.Start.TokenIndex || last.TokenIndex + 1 >= tokens.Size)
@@ -1082,7 +1084,33 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         // anchor's own column.
         var position = new SourcePosition(line - 1, charPositionInLine).AnchoredAt(anchorOffset);
         var location = new SourceLocation(_uri, new(position, position));
+
+        // a semantic predicate is the grammar's, and no part of the language: where one fails (`Debug.Print Spc(1`, a Spc clause that is not complete), what
+        // the parser could not read is said as ANTLR says it where no alternative is viable, with the statement's input from there, and not the predicate's code.
+        if (e is FailedPredicateException && offendingSymbol is not null && recognizer is Parser { InputStream: ITokenStream tokens })
+        {
+            msg = $"no viable alternative at input '{StatementTextFrom(tokens, offendingSymbol)}'";
+        }
+
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
+    }
+
+    // the text of a statement's tokens from one of them to the end of the statement.
+    private static string StatementTextFrom(ITokenStream tokens, IToken first)
+    {
+        var last = first;
+        for (var index = first.TokenIndex; index < tokens.Size; index++)
+        {
+            var token = tokens.Get(index);
+            if (token.Type is TokenConstants.Eof or VBALexer.NEWLINE or VBALexer.COLON or VBALexer.SINGLEQUOTE or VBALexer.REM)
+            {
+                break;
+            }
+
+            last = token;
+        }
+
+        return tokens.GetText(first, last);
     }
 
     /// <summary>

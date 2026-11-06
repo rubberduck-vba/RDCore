@@ -74,6 +74,17 @@ public class OutputListSeparationTests
         Assert.IsInstanceOfType<IndexExpressionNode>(ItemsOf(result).Single().Value);
     }
 
+    // a Spc clause that is not complete is the parser's error as any other is, said with what it could not read: not the code of the grammar's predicate
+    // that tells a Spc clause from a call of a name Spc.
+    [TestMethod]
+    public void ASpcClauseThatIsNotComplete_IsASyntaxError_OfWhatIsNotRead()
+    {
+        var error = ParseInProcedure("Debug.Print Spc(1").SyntaxErrors.Single();
+
+        Assert.AreEqual(VBCompileErrorId.SyntaxError, error.VBCompileErrorId);
+        Assert.AreEqual("no viable alternative at input 'Spc(1'", error.Verbose);
+    }
+
     private static IEnumerable<PrintOutputItemNode> ItemsOf(ModuleParseResult result)
     {
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
