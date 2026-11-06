@@ -4,34 +4,65 @@ A procedure can run as IL instead of in the interpreter ([**RD-VBAL §3.5.4** Ex
 `Environment.ExecutionEngine` decides it ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#build-configuration)):
 
 - `Interpreter`, the default, runs every procedure in the interpreter.
-- `Compiled` compiles a procedure the first time it is called, when compiled code can do everything in it. Any other procedure runs in the interpreter.
+- `Compiled` compiles a procedure the first time it is called, when compiled code can do enough of it. Any other procedure runs in the interpreter.
 
 A program does the same thing in either engine: what it prints, the errors it raises, and where it raises them.
 
 ## When a procedure is compiled
 
-A procedure is compiled when it is a `Sub`, a `Function` or a `Property Get` of a standard module and its signature meets these conditions:
+Any `Sub`, `Function` or `Property` procedure can be compiled, in a standard module or in a class. Compiled code holds the procedure's scalar parameters,
+passed `ByVal` or `ByRef`, its scalar variables, and the result of a function that returns a scalar. The scalars are `Byte`, `Integer`, `Long`, `LongLong`,
+`Boolean`, `Currency`, `Single`, `Double` and `Date`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`,
+an object, a `String`, a `Variant`, an array, a record, and a `Static` variable.
 
-- every parameter is a scalar, passed `ByVal` or `ByRef`, and none is a `ParamArray`;
-- every variable is a scalar and none is `Static`;
-- a function returns a scalar.
-
-The scalars are `Byte`, `Integer`, `Long`, `LongLong`, `Boolean`, `Currency`, `Single`, `Double` and `Date`.
-
-Its body may contain only these:
+Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
 |Expressions|Literals, constants, the procedure's parameters and variables, the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types.|
 |Statements|`Let` of a variable or of the function's result.|
-|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module whose parameters are scalars. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
-|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`; `On … GoTo` and `On … GoSub`.|
-|Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`; `Resume`, `Resume Next` and `Resume` a label; the `Error` statement.|
+|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module whose parameters are scalars (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
+|Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
-Anything else keeps the procedure in the interpreter, for example `GoTo`, `With`, `Select Case` or `For Each`, a member (`Err.Number` is one), an
-element of an array, a `String` or a `Variant`. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled, and what keeps it in
-the interpreter.
+The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
+`Resume Next`, `Resume` a label and the `Error` statement (see Error handling, below); a statement that uses something that stays in the frame (a
+`String`, an object, a field of `Me`, a `Static`); a call of a member (`Err.Number` is one); an element of an array; and a `For` whose counter or bounds
+compiled code doesn't do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
+the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
+interpreter, errors included.
+
+A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
+address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
+compiled code can't read a variable back from the frame, or write it there, the interpreter runs the rest of the activation, with the variables as the frame
+has them.
+
+A `Select Case` of a scalar selector evaluates the selector once, and compares it with the values of each `Case` in order, as the interpreter does
+([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)): each value converted to the selector's type, except an integer compared with a `Single`
+selector, which is compared at its exact value. When a value can't be converted exactly, compiled code hands the activation to the interpreter at that
+`Case`, as it does when an operation declines (below). A `Long` too large for an `Integer` selector is one; so is every `Double` compared with a `Single`
+selector, `4#` included, since only a `Single` converts exactly to a `Double` and not the other way. The interpreter runs a `Case` whose value is no scalar,
+such as a `String`, on its own, with the selector compiled code evaluated. When compiled code declines the selector itself as it evaluates it (an operation
+that declines, such as `D \ 1` with `D` a `Double`), the interpreter runs the rest of the activation, from the `Select Case`.
+
+The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` and its `End With`, and each statement in
+the block that uses its object; a `For Each` and its `Next`; and a `Select Case` and its `Case`s when the selector is no scalar, such as a `String` or a
+`Variant`, or is a scalar compiled code can't evaluate, such as `Len(S)` with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
+same place in either engine: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop,
+by its `Next`, an `Exit For`, a jump or a `Return`.
+
+These keep the whole procedure in the interpreter:
+
+- a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
+- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop (a `For Each` is one), and compiled code does
+  nothing at each pass of it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The loop is the innermost
+  one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
+  its variables into the frame and read them back, which costs more than it saves.
+
+A procedure whose frame holds something compiled code doesn't is always called with its frame, through the interpreter's call, never through the
+compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
+for a compiled procedure, what the interpreter runs of it.
 
 No procedure runs compiled during an analysis. Under a debugger, compiled code writes its variables into its frame before each call, so the debugger sees
 every activation while the program waits.
@@ -45,7 +76,7 @@ parameters. A parameter bound to something other than a variable's cell, such as
 
 ## The semantics are the interpreter's
 
-Compiled code evaluates an expression exactly as the interpreter evaluates it on payloads (IR lowering S1.2). It calls the same operations, in
+Compiled code evaluates an expression exactly as the interpreter evaluates it on payloads. It calls the same operations, in
 `RDCore.Runtime.Compiled`:
 
 - `PayloadOperations`: the integer operations, the comparisons, the logical operators and the exact conversions. Each returns a status: `Ok`, `Overflow`,
@@ -55,17 +86,17 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   Otherwise it computes in the 80-bit format.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
-cell, the function result into its variable, and the state of each `For` loop whose `For` statement ran into the frame. A loop that ended keeps the end and
-the step it last had, as it does in the interpreter: a `Resume` can go back into it, and its `For` statement can fail when it runs again. The interpreter
-then evaluates the instruction as it always does, so the error raised, its message and its location are the interpreter's. The rest of the activation runs
-in the interpreter.
+cell, the function result into its variable, the state of each `For` loop whose `For` statement ran, and the selector of each `Select Case` whose `Select`
+ran, into the frame. A loop that ended keeps the end and the step it last had, as it does in the interpreter: a `Resume` can go back into it, and its `For`
+statement can fail when it runs again. The interpreter then evaluates the instruction as it always does, so the error raised, its message and its location
+are the interpreter's. The rest of the activation runs in the interpreter.
 
 Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
 activation under the debugger.
 
 ## Error handling
 
-A procedure with an `On Error` statement is handed to the interpreter for one instruction at a time (IR lowering S2.4):
+A procedure with an `On Error` statement is handed to the interpreter for one instruction at a time:
 
 - **An instruction that fails.** Compiled code writes its variables into the frame as above. The interpreter runs that instruction alone and gives its error to
   the activation's handler, as it gives any error, so `Err`, `Erl` and the error break of a debugger are the interpreter's. If the handler goes on with the

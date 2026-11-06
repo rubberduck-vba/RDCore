@@ -62,6 +62,9 @@ public sealed class IndenterSettingsOfferingTests
 
         public List<string> Log { get; } = [];
 
+        // the clock the offering waits by: it moves only when a test moves it, so a wait ends at its timeout only when a test says so.
+        public ManualClock Clock { get; } = new();
+
         public Platform(bool clientExpects)
         {
             var environment = Substitute.For<IPlatformEnvironment>();
@@ -116,7 +119,9 @@ public sealed class IndenterSettingsOfferingTests
         }
 
         public IndenterSettingsOffering Offering()
-            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(500), Log.Add);
+            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), SettingsWait, Log.Add, Clock);
+
+        public static TimeSpan SettingsWait { get; } = TimeSpan.FromMilliseconds(500);
 
         public ValueTask DisposeAsync()
         {
@@ -205,7 +210,11 @@ public sealed class IndenterSettingsOfferingTests
 
         using var offering = platform.Offering();
 
-        Assert.IsNull(await offering.RunAsync(CancellationToken.None));
+        // the wait for the settings is made before RunAsync returns: the handshake is in, and nothing before the wait awaits.
+        var running = offering.RunAsync(CancellationToken.None);
+        platform.Clock.Advance(Platform.SettingsWait);
+
+        Assert.IsNull(await running);
         Assert.AreEqual(0, platform.Questions.Count);
         Assert.HasCount(1, platform.Log);
         StringAssert.StartsWith(platform.Log[0], "The client did not say its settings in time", "the line that says why is the timeout's");
@@ -227,7 +236,6 @@ public sealed class IndenterSettingsOfferingTests
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    [Ignore("nondeterministic: the offering waits for the client's settings on a real 10 s timeout and returns null when it passes. To be made deterministic before this runs again")]
     public async Task AClientThatAnswersTheEditorsTabSize_IsOffered_AsTheUserSetNothing()
     {
         // the follower and the offering as the language server starts them, over a client that has configuration to pull and an editor with a tab size.
@@ -260,7 +268,8 @@ public sealed class IndenterSettingsOfferingTests
             {
                 ClientConfigurationFollower.Follow(services, started, () => Task.CompletedTask, _ => { });
                 offering.SetResult(new IndenterSettingsOffering(
-                    started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { }));
+                    started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { },
+                    new ManualClock()));
                 return Task.CompletedTask;
             }));
         var connecting = LanguageClient.From(client =>

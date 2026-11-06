@@ -16,13 +16,14 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledErrorHandlingTests
 {
-    private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(string program, VBExecutionEngine engine)
+    private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(string program, VBExecutionEngine engine,
+        IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         (string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled) made = default;
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync(classes ?? [], program, (provider, run, _) =>
         {
-            made = (Observed(run), provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result));
+            made = (Observed(run), CompiledExecutionTests.ByName(provider));
             return Task.CompletedTask;
         }, engine: engine);
         return made;
@@ -30,33 +31,36 @@ public sealed class CompiledErrorHandlingTests
 
     // the program run both ways: the compiled run is the interpreted one, and the procedure named was compiled, and ran to its end in compiled code - or was
     // handed to the interpreter as often as walkBacks says - having the interpreter run recovered instructions alone.
-    private static async Task<CompiledBody> AssertAlikeAsync(string program, string compiled, long recoveries, long walkBacks = 0)
+    internal static async Task<CompilationResult> AssertAlikeAsync(string program, string compiled, long recoveries, long walkBacks = 0,
+        IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         CompiledExecutionTests.RequirePayloads();
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
-        var run = await RunAsync(program, VBExecutionEngine.Compiled);
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
+        var run = await RunAsync(program, VBExecutionEngine.Compiled, classes);
         Assert.AreEqual(interpreted.Observed, run.Observed);
 
         Assert.IsTrue(run.Compiled.TryGetValue(compiled, out var result), $"{compiled} was not called");
         Assert.IsNotNull(result.Body, $"{compiled}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
 
         // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(walkBacks, result.Body.WalkBacks, $"{compiled}'s walk-backs");
             Assert.AreEqual(recoveries, result.Body.Recoveries, $"{compiled}'s recoveries");
         }
 
-        return result.Body;
+        return result;
     }
 
-    // the program run both ways, whatever compiled code does of it.
-    private static async Task AssertAlikeAsync(string program)
+    // the program run both ways, whatever compiled code does of it: what was compiled.
+    internal static async Task<IReadOnlyDictionary<string, CompilationResult>> AssertAlikeAsync(string program,
+        IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         CompiledExecutionTests.RequirePayloads();
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
-        var run = await RunAsync(program, VBExecutionEngine.Compiled);
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
+        var run = await RunAsync(program, VBExecutionEngine.Compiled, classes);
         Assert.AreEqual(interpreted.Observed, run.Observed);
+        return run.Compiled;
     }
 
     [TestMethod]
@@ -487,7 +491,7 @@ public sealed class CompiledErrorHandlingTests
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
             var stopped = await ResumeAsync(provider);
             Assert.AreEqual((ExecutionOutcome.Suspended, stopLine), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
-            if (!CompiledExecution.WalksBackAtRandom)
+            if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
                     "Outer is running compiled, in the middle of its call");

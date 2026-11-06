@@ -37,6 +37,12 @@ internal interface IWorkspaceRefresh
     /// </summary>
     void ReferencesChanged();
 
+    /// <summary>
+    /// A diagnostics pull of the client was declined, and nothing changed: the client is asked to pull its diagnostics again, and nothing else, once the burst
+    /// of changes is over. <see cref="Generation"/> is what it was: what the client was last answered is still what is found out.
+    /// </summary>
+    void PullsDeclined();
+
     /// <summary>The server whose client is asked; until it is attached, a change only changes <see cref="Generation"/>.</summary>
     /// <param name="server">The server, initialized: what its client said it is asked for is known.</param>
     void Attach(ILanguageServerFacade server);
@@ -59,7 +65,7 @@ internal sealed class WorkspaceRefresh(TimeSpan burst, TimeProvider? clock = nul
     /// </remarks>
     public static IReadOnlyList<(string Method, Func<WorkspaceClientCapabilities, bool> IsSupported)> Requests { get; } =
     [
-        ("workspace/diagnostic/refresh", workspace => workspace.Diagnostics is { IsSupported: true, Value.RefreshSupport: true }),
+        (DiagnosticRefresh, workspace => workspace.Diagnostics is { IsSupported: true, Value.RefreshSupport: true }),
         ("workspace/semanticTokens/refresh", workspace => workspace.SemanticTokens is { IsSupported: true, Value.RefreshSupport: true }),
         ("workspace/inlayHint/refresh", workspace => workspace.InlayHint is { IsSupported: true, Value.RefreshSupport: true }),
         (CodeLensRefresh, workspace => workspace.CodeLens is { IsSupported: true, Value.RefreshSupport: true }),
@@ -68,10 +74,23 @@ internal sealed class WorkspaceRefresh(TimeSpan burst, TimeProvider? clock = nul
     /// <summary>The refresh of what is counted of a member's references, which is all a change of what a module's code refers to asks for.</summary>
     public const string CodeLensRefresh = "workspace/codeLens/refresh";
 
+    /// <summary>The refresh of the diagnostics, which is all a declined pull asks for.</summary>
+    public const string DiagnosticRefresh = "workspace/diagnostic/refresh";
+
+    // the refreshes a change asks for.
+    [Flags]
+    private enum Asked
+    {
+        None = 0,
+        CodeLenses = 1,
+        Diagnostics = 2,
+        Everything = ~0,
+    }
+
     private readonly object _sync = new();
     private ITimer? _timer;
     private long _generation;
-    private bool _everything;
+    private Asked _asked;
     private ILanguageServerFacade? _server;
 
     public long Generation => Interlocked.Read(ref _generation);
@@ -81,24 +100,26 @@ internal sealed class WorkspaceRefresh(TimeSpan burst, TimeProvider? clock = nul
     public void Changed()
     {
         Interlocked.Increment(ref _generation);
-        Schedule(everything: true);
+        Schedule(Asked.Everything);
     }
 
-    public void ReferencesChanged() => Schedule(everything: false);
+    public void ReferencesChanged() => Schedule(Asked.CodeLenses);
 
-    private void Schedule(bool everything)
+    public void PullsDeclined() => Schedule(Asked.Diagnostics);
+
+    private void Schedule(Asked asked)
     {
         if (burst <= TimeSpan.Zero)
         {
-            Send(everything);
+            Send(asked);
             return;
         }
 
-        // a change that comes before the burst is over puts the request off: the client is asked once, for all of them, and for every refresh when any of
-        // them asked for every refresh.
+        // a change that comes before the burst is over puts the request off: the client is asked once, for all of them, and for each refresh any of them asked
+        // for.
         lock (_sync)
         {
-            _everything |= everything;
+            _asked |= asked;
             _timer ??= (clock ?? TimeProvider.System).CreateTimer(_ => SendScheduled(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             _timer.Change(burst, Timeout.InfiniteTimeSpan);
         }
@@ -106,13 +127,13 @@ internal sealed class WorkspaceRefresh(TimeSpan burst, TimeProvider? clock = nul
 
     private void SendScheduled()
     {
-        bool everything;
+        Asked asked;
         lock (_sync)
         {
-            (everything, _everything) = (_everything, false);
+            (asked, _asked) = (_asked, Asked.None);
         }
 
-        Send(everything);
+        Send(asked);
     }
 
     /// <summary>The methods of the refreshes a client said it is asked for.</summary>
@@ -121,14 +142,16 @@ internal sealed class WorkspaceRefresh(TimeSpan burst, TimeProvider? clock = nul
             ? Requests.Where(request => request.IsSupported(workspace)).Select(request => request.Method)
             : [];
 
-    private void Send(bool everything)
+    private void Send(Asked asked)
     {
         if (_server is not { } server)
         {
             return;
         }
 
-        foreach (var method in SupportedBy(server).Where(method => everything || method == CodeLensRefresh))
+        foreach (var method in SupportedBy(server).Where(method => asked == Asked.Everything
+            || (asked.HasFlag(Asked.CodeLenses) && method == CodeLensRefresh)
+            || (asked.HasFlag(Asked.Diagnostics) && method == DiagnosticRefresh)))
         {
             _ = SendAsync(server, method);
         }

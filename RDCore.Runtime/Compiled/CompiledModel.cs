@@ -103,18 +103,28 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
     /// <param name="session">The session the image is the code of.</param>
     /// <param name="executor">The interpreter of the session's pipeline, whose evaluator binds the body's expressions.</param>
     /// <param name="procedure">The procedure.</param>
-    /// <returns><see langword="null"/> for a procedure that has no body in the image.</returns>
+    /// <returns>
+    /// <see langword="null"/> for a member that is no <c>Sub</c>, <c>Function</c> or <c>Property</c> procedure - an <c>Enum</c>, a <c>Type</c>, a
+    /// <c>Const</c> - and for a procedure that has no body in the image.
+    /// </returns>
     public static ProcedureCompilation? Of(Execution.ProgramImage image, SDK.Runtime.Abstract.Execution.IRuntimeSession session, Execution.ProcedureExecutor executor,
         SDK.Model.Symbols.Abstract.VBTypeMemberSymbol procedure)
     {
-        if (!image.TryGetValue(procedure.SemanticId, out var body))
+        if (procedure is not (SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol or SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol
+            or SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol) || !image.TryGetValue(procedure.SemanticId, out var body))
         {
             return null;
         }
 
         var result = image.Compiler.Compile(session, executor.Expressions, procedure, body);
-        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons);
+        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
     }
+
+    /// <summary>
+    /// What the interpreter runs of a compiled procedure, one instruction at a time, and why: each instruction compiled code does not do yet, which it hands
+    /// to the interpreter alone, going on where the interpreter leaves the activation (IR lowering S2.5a). Empty for a procedure that is not compiled.
+    /// </summary>
+    public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
 }
 
 /// <summary>
@@ -123,7 +133,11 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
 /// <param name="Body">The compiled body; <see langword="null"/> when the procedure is not compiled.</param>
 /// <param name="Reasons">Why it is not; empty when it is.</param>
 /// <param name="Elapsed">How long compiling it took, or finding out it is not compiled.</param>
-internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList<Ineligibility> Reasons, TimeSpan Elapsed);
+internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList<Ineligibility> Reasons, TimeSpan Elapsed)
+{
+    /// <summary>The instructions of a compiled body the interpreter runs alone, and why (<see cref="ProcedureCompilation.Stepped"/>).</summary>
+    public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
+}
 
 // a payload, the value of an expression of a scalar kind: in a long when it is of an integral kind, in a double when it is of a floating-point one.
 internal abstract record class PayloadNode(ScalarKind Kind);
@@ -210,6 +224,19 @@ internal sealed record class ReturnStep(int Offset) : CompiledStep(Offset);
 // an instruction the interpreter runs alone, and the activation goes on compiled wherever it leaves it: a Resume, an Error statement, an On...GoTo and an
 // On...GoSub (CompiledActivation.Recover).
 internal sealed record class SteppedStep(int Offset) : CompiledStep(Offset);
+
+// a Select Case of a scalar selector (MS-VBAL §5.4.2.10): the selector evaluated once, into the local of the Select (Select, of CompiledBody.Selects).
+internal sealed record class SelectStep(int Offset, int Select, PayloadNode Selector) : CompiledStep(Offset);
+
+// a Case header of a Select Case of a scalar selector: its clauses compared in order, the first that matches falling through into its block; none, going to
+// Else - the next Case, the Case Else, or past the Select.
+internal sealed record class CaseStep(int Offset, IReadOnlyList<CaseClause> Clauses, int Else) : CompiledStep(Offset);
+
+// a range clause of a Case: one comparison of the selector, or the two of a To range (Upper), which are both made.
+internal sealed record class CaseClause(CompareNode Lower, CompareNode? Upper = null);
+
+// the selector of a Select Case of a scalar selector, as its SelectStep evaluated it.
+internal sealed record class SelectorNode(int Select, ScalarKind Kind) : PayloadNode(Kind);
 
 // the argument of a parameter passed by reference that is a variable of the activation of the parameter's kind (MS-VBAL §5.3.1.11): the cell it is held
 // in, which the parameter is a second name for. Only an argument of a call.

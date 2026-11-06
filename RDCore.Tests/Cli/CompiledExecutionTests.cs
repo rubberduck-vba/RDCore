@@ -30,6 +30,15 @@ public sealed class CompiledExecutionTests
         }
     }
 
+    // what was compiled, by the name of each procedure: a Property Let or Set by its kind and its name, as its Property Get has the same name.
+    internal static IReadOnlyDictionary<string, CompilationResult> ByName(EnvironmentSessionProvider provider)
+        => provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure switch
+        {
+            RDCore.SDK.Model.Symbols.VBProject.VBPropertyLetMemberSymbol let => $"Let {let.Name}",
+            RDCore.SDK.Model.Symbols.VBProject.VBPropertySetMemberSymbol set => $"Set {set.Name}",
+            var procedure => procedure.Name,
+        }, entry => entry.Result);
+
     // what compiled code does without payloads is to be seen only where the suite is run without them.
     private static void RequireBoxedValues()
     {
@@ -50,7 +59,7 @@ public sealed class CompiledExecutionTests
         await ModuleWorkspace.InspectAsync(classes ?? NoClasses, program, (provider, run, _) =>
         {
             result = run;
-            compiled = provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result);
+            compiled = ByName(provider);
             return Task.CompletedTask;
         }, cancelWhen, engine: engine);
 
@@ -84,7 +93,7 @@ public sealed class CompiledExecutionTests
                 Assert.IsGreaterThan(0L, result.Body.WalkBacks, $"{name} ran to its end in compiled code");
             }
             // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
-            else if (!CompiledExecution.WalksBackAtRandom)
+            else if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.AreEqual(0L, result.Body.WalkBacks, $"{name} was handed to the interpreter");
             }
@@ -312,9 +321,9 @@ public sealed class CompiledExecutionTests
             "End Sub"), "Outer", "Twice", "Touch");
 
     // a function returning an object, called as a statement: what it returns is let go of when the statement is over, which compiled code holds nothing
-    // of - the caller is not compiled, and says why.
+    // of - the interpreter runs the statement alone, in the compiled caller, and the caller says so.
     [TestMethod]
-    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsNotCalledFromCompiledCode()
+    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsCalledByTheInterpreter()
     {
         RequirePayloads();
         var program = Program(
@@ -344,8 +353,9 @@ public sealed class CompiledExecutionTests
 
         Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
         CollectionAssert.AreEqual(new[] { "terminate 1", "report 1", "terminate 2", "report 2", "after outer" }, run.Result.Output.Select(line => line.Trim()).ToArray());
-        var reason = Assert.ContainsSingle(run.Compiled["Outer"].Reasons);
-        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (reason.Kind, reason.Detail));
+        Assert.IsNotNull(run.Compiled["Outer"].Body, string.Join("; ", run.Compiled["Outer"].Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        var stepped = Assert.ContainsSingle(run.Compiled["Outer"].Stepped);
+        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (stepped.Kind, stepped.Detail));
     }
 
     // an error raised in the callee reaches the compiled caller at its call, and the interpreter gives it the handler a caller of it has: the same error,
@@ -426,7 +436,7 @@ public sealed class CompiledExecutionTests
         Assert.AreEqual(6, run.Result.ErrorNumber);
 
         // under the random walk-back the activation may be handed over before it gets to the store, and the interpreter raises the error all the same.
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
             Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
@@ -510,19 +520,16 @@ public sealed class CompiledExecutionTests
     {
         var run = await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Guarded(0)",
+            "    Guarded",
             "End Sub",
-            "Private Function Guarded(ByVal N As Long) As Long",
-            "    Select Case N",
-            "        Case 0: Guarded = 10",
-            "    End Select",
-            "    Guarded = Guarded + 1",
-            "End Function"));
+            "Private Sub Guarded()",
+            "    Debug.Print \"guarded\"",
+            "End Sub"));
 
         var guarded = run.Compiled["Guarded"];
         Assert.IsNull(guarded.Body);
-        Assert.AreEqual(IneligibilityKind.Instruction, guarded.Reasons.Single().Kind);
-        Assert.AreEqual(nameof(SDK.Semantics.Instructions.InstructionKind.Select), guarded.Reasons.Single().Detail);
+        var reason = Assert.ContainsSingle(guarded.Reasons);
+        Assert.AreEqual((IneligibilityKind.Statement, 4), (reason.Kind, reason.Location!.Value.Range.Start.Line), $"{reason.Kind} {reason.Detail}");
     }
 
     [TestMethod]
@@ -576,12 +583,11 @@ public sealed class CompiledExecutionTests
         using var strictly = CompiledExecution.Strictly();
         var run = await RunAsync(Program(
             "Public Sub Main()",
-            "    Select Case 1",
-            "    End Select",
+            "    Debug.Print \"x\"",
             "End Sub"), VBExecutionEngine.Compiled);
 
         Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));
-        Assert.AreEqual(IneligibilityKind.Instruction, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
+        Assert.AreEqual(IneligibilityKind.Statement, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
     }
 
     [TestMethod]

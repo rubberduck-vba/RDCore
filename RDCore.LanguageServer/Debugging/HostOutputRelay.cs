@@ -32,8 +32,20 @@ internal interface IHostOutputRelay
 internal sealed class HostOutputRelay : IHostOutputRelay
 {
     private readonly object _sync = new();
+    private readonly TimeProvider _clock;
     private long _arrived;
     private TaskCompletionSource _advanced = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public HostOutputRelay()
+        : this(TimeProvider.System)
+    {
+    }
+
+    // the clock the timeout of a wait is kept by.
+    internal HostOutputRelay(TimeProvider clock)
+    {
+        _clock = clock;
+    }
 
     public event Action<IReadOnlyList<string>>? Printed;
 
@@ -55,8 +67,8 @@ internal sealed class HostOutputRelay : IHostOutputRelay
 
     public async Task WaitForAsync(long total, TimeSpan timeout, CancellationToken token)
     {
-        using var expiry = CancellationTokenSource.CreateLinkedTokenSource(token);
-        expiry.CancelAfter(timeout);
+        using var expiry = new CancellationTokenSource(timeout, _clock);
+        using var ended = CancellationTokenSource.CreateLinkedTokenSource(token, expiry.Token);
         try
         {
             while (true)
@@ -72,7 +84,7 @@ internal sealed class HostOutputRelay : IHostOutputRelay
                     advanced = _advanced.Task;
                 }
 
-                await advanced.WaitAsync(expiry.Token);
+                await advanced.WaitAsync(ended.Token);
             }
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
