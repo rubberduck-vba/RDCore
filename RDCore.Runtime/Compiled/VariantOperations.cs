@@ -29,10 +29,19 @@ public readonly struct VariantPayload
 /// </remarks>
 public static class VariantOperations
 {
-    /// <summary>The payload the Variant held in <paramref name="cell"/> holds, when it holds one: a known value of a scalar type.</summary>
+    /// <summary>
+    /// The payload the Variant held in <paramref name="cell"/> holds, when it holds one: a known value of a scalar type. A Variant its frame holds in no
+    /// Variant's cell (<see langword="null"/>, <see cref="CompiledActivation.VariantCellOf"/>) holds none compiled code reads.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Read(object cell, out VariantPayload value)
+    public static bool Read(object? cell, out VariantPayload value)
     {
+        if (cell is null)
+        {
+            value = default;
+            return false;
+        }
+
         var read = Unsafe.As<VariantCell>(cell).TryRead(out var payload);
         value = new VariantPayload(payload);
         return read;
@@ -40,10 +49,10 @@ public static class VariantOperations
 
     /// <summary>
     /// Let-assigns <paramref name="value"/> to the Variant held in <paramref name="cell"/>, as the interpreter's assignment on payloads does: not over an
-    /// object, an array or a record, which the assignment lets go of.
+    /// object, an array or a record, which the assignment lets go of; nor into a Variant its frame holds in no Variant's cell (<see cref="Read"/>).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Write(object cell, VariantPayload value) => RuntimeExpressionEvaluator.TryWriteVariant(Unsafe.As<VariantCell>(cell), value.Value);
+    public static bool Write(object? cell, VariantPayload value) => cell is not null && RuntimeExpressionEvaluator.TryWriteVariant(Unsafe.As<VariantCell>(cell), value.Value);
 
     /// <summary>A binary operation of <paramref name="left"/> and <paramref name="right"/>, planned for their subtypes (MS-VBAL §5.6.9).</summary>
     /// <returns><see langword="false"/> when it is the interpreter's: it raises an error, or its result is no payload.</returns>

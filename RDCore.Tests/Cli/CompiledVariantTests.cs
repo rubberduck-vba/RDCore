@@ -172,8 +172,8 @@ public sealed class CompiledVariantTests
             "    Next",
             "End Sub"), "Bumped", recoveries: 0);
 
-    // a Variant parameter passed a variable of another type by reference reads and writes it as its type (MS-VBAL §5.3.1.11): no Variant's cell, and the
-    // activation is the interpreter's from the start.
+    // a Variant parameter passed a variable of another type by reference reads and writes it as its type (MS-VBAL §5.3.1.11): it is in no Variant's cell,
+    // and each statement that reads or writes it is the interpreter's.
     [TestMethod]
     public async Task AVariantParameterPassedALong_IsTheInterpreters()
         => await AssertAlikeAsync(Program(
@@ -188,7 +188,7 @@ public sealed class CompiledVariantTests
             "    For I = 1 To 3",
             "        V = V + By",
             "    Next",
-            "End Sub"), "Bumped", recoveries: 0, walkBacks: 1);
+            "End Sub"), "Bumped", recoveries: 3);
 
     // a Variant counter that overflows the type it counts in is stepped by the interpreter, which widens it.
     [TestMethod]

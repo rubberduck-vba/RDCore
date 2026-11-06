@@ -243,15 +243,14 @@ internal sealed class ProcedureEmitter
             }
         }
 
-        // each Variant's cell, as the frame holds it: one held otherwise makes the activation the interpreter's from the start.
+        // each Variant's cell, as the frame holds it: none, for one held otherwise, which compiled code then reads and writes nothing of - each statement
+        // that does is the interpreter's.
         foreach (var (slot, cell) in _variants)
         {
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantCellOf))!);
             _il.Emit(OpCodes.Stloc, cell);
-            _il.Emit(OpCodes.Ldloc, cell);
-            _il.Emit(OpCodes.Brfalse, WalkBackAt(0));
         }
     }
 
@@ -672,9 +671,8 @@ internal sealed class ProcedureEmitter
         {
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ReloadVariantCell))!);
-            _il.Emit(OpCodes.Stloc, cell);
-            _il.Emit(OpCodes.Ldloc, cell);
+            _il.Emit(OpCodes.Ldloca, cell);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReloadVariantCell))!);
             _il.Emit(OpCodes.Brfalse, unread);
         }
 

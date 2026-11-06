@@ -719,18 +719,33 @@ public sealed class CompiledActivation : ILightActivation
     /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
     /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
     /// </summary>
-    /// <returns><see langword="null"/> when the frame holds it in no Variant's cell - a variable of another type, an element of an array: the activation is then the interpreter's.</returns>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no Variant's cell - a Variant parameter passed a <c>String</c> by value, a variable of another type
+    /// passed by reference, an element of an array: compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
+    /// runs each statement that does.
+    /// </returns>
     public object? VariantCellOf(int slot)
     {
         var frame = Frame;
-        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryGetAddressedSlot(slot, out cell)) && cell is VariantCell variant ? variant : null;
+        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is VariantCell variant ? variant : null;
     }
 
     /// <summary>
     /// The cell of the <c>Variant</c> in <paramref name="slot"/> (<see cref="VariantCellOf"/>), found again after the interpreter ran an instruction or the
     /// program waited.
     /// </summary>
-    public object? ReloadVariantCell(int slot) => FailsAccessAtRandom() ? null : VariantCellOf(slot);
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadVariantCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = VariantCellOf(slot);
+        return true;
+    }
 
     /// <summary>
     /// Steps the <c>For</c> loop whose statement is at <paramref name="opener"/>, of a <c>Variant</c> counter, as the interpreter steps it on payloads
