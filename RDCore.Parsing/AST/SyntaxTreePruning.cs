@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using System.Collections;
@@ -78,6 +79,7 @@ internal static class SyntaxTreePruning
     {
         SyntaxNode node => [node],
         StatementBlock block => block.Children,
+        ImmutableArray<ArrayDimensionBound> bounds => ExpressionsOf(bounds),
         IEnumerable nodes => nodes.OfType<SyntaxNode>(),
         _ => [],
     };
@@ -104,6 +106,13 @@ internal static class SyntaxTreePruning
             return new Slot(property, typeof(StatementBlock), writable ? static (value, rebuilt) => ReplacedBlock((StatementBlock)value, rebuilt) : null);
         }
 
+        // the bounds of a declared array hold their expressions in a struct of their own.
+        if (type == typeof(ImmutableArray<ArrayDimensionBound>))
+        {
+            return new Slot(property, typeof(ExpressionNode),
+                writable ? static (value, rebuilt) => ReplacedBounds((ImmutableArray<ArrayDimensionBound>)value, rebuilt) : null);
+        }
+
         if (type.IsArray && type.GetElementType() is { } element && typeof(SyntaxNode).IsAssignableFrom(element))
         {
             return new Slot(property, element, writable ? Replacing(ReplacedArrayOf.MakeGenericMethod(element)) : null);
@@ -123,6 +132,20 @@ internal static class SyntaxTreePruning
 
     private static StatementBlock ReplacedBlock(StatementBlock block, IReadOnlyDictionary<SyntaxNode, SyntaxNode> rebuilt)
         => block with { Children = ReplacedImmutableArray(block.Children, rebuilt) };
+
+    private static ImmutableArray<ArrayDimensionBound> ReplacedBounds(ImmutableArray<ArrayDimensionBound> bounds,
+        IReadOnlyDictionary<SyntaxNode, SyntaxNode> rebuilt)
+    {
+        ExpressionNode? Replaced(ExpressionNode? expression) => expression is null ? null : (ExpressionNode)rebuilt.GetValueOrDefault(expression, expression);
+
+        return !ExpressionsOf(bounds).Any(rebuilt.ContainsKey)
+            ? bounds
+            : [.. bounds.Select(bound => bound with { LowerExpression = Replaced(bound.LowerExpression), UpperExpression = Replaced(bound.UpperExpression) })];
+    }
+
+    // the expressions of the bounds of a declared array, each bound's lower one before its upper one.
+    private static IEnumerable<SyntaxNode> ExpressionsOf(ImmutableArray<ArrayDimensionBound> bounds)
+        => bounds.IsDefault ? [] : bounds.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }).OfType<SyntaxNode>();
 
     // a node replaced with one of a type its holder cannot hold is a cast that fails, not a node that is silently left out.
     private static ImmutableArray<T> ReplacedImmutableArray<T>(ImmutableArray<T> nodes, IReadOnlyDictionary<SyntaxNode, SyntaxNode> rebuilt) where T : SyntaxNode

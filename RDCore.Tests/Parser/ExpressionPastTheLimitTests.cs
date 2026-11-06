@@ -137,7 +137,8 @@ public sealed class ExpressionPastTheLimitTests
     }
 
     // 3,000 levels of each shape, in each place a statement holds an expression: what holds what is past the limit - an operator, a member access, a block, a
-    // Case clause, a named argument, an item of a print list, the bounds of a declaration - is rebuilt around the error node.
+    // Case clause, a named argument, an item of a print list, a bound of a declared array (held by an ArrayDimensionBound, a struct of its own) - is rebuilt
+    // around the error node.
     [TestMethod]
     [DataRow("x = {0}", "parentheses")]
     [DataRow("x = {0}", "members")]
@@ -146,15 +147,10 @@ public sealed class ExpressionPastTheLimitTests
     [DataRow("Select Case x\r\n        Case 1, {0}\r\n    End Select", "parentheses")]
     [DataRow("F a:={0}", "indexes")]
     [DataRow("Debug.Print 1; {0}", "chain")]
+    [DataRow("Dim y(1 To {0}) As Long", "parentheses")]
+    [DataRow("Dim y({0} To 5, 2) As Long", "chain")]
     public void AnExpressionPastTheLimit_IsAnErrorNode_WhereverItIsWritten(string statement, string shape)
         => AssertPrunedWhereWritten(statement, shape);
-
-    // the bounds of a declared array are held by ArrayDimensionBound, a struct the walk of the tree (SyntaxNodeWalk.ChildNodes) does not enter: the static pass
-    // evaluates them, but the check of the limit never sees them.
-    [TestMethod]
-    [Ignore("the bounds of a declared array are not walked: SyntaxNodeWalk.ChildNodes does not yield ArrayDimensionBound's expressions")]
-    public void ABoundOfADeclaredArrayPastTheLimit_IsAnErrorNode()
-        => AssertPrunedWhereWritten("Dim y(1 To {0}) As Long", "parentheses");
 
     // what is kept as text is not analyzed (RD-VBAL 2.6.1): no check of the static pass reports on it, wherever it is written, and the error the parser
     // reported is the module's only one.
@@ -183,6 +179,21 @@ public sealed class ExpressionPastTheLimitTests
         var errors = await ModuleWorkspace.LoadErrorsWithSyntaxErrorsAsync(program);
 
         StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
+    }
+
+    // what the parse hands on is no deeper than the limit, whatever it is: the module as pruned, or what is salvaged of it when the prune fails (a holder it
+    // could not rebuild), which is pruned too, or is nothing.
+    [TestMethod]
+    [DataRow("x = {0}")]
+    [DataRow("Dim y(1 To {0}) As Long")]
+    public void NoTreeTheParseHandsOn_HoldsAnExpressionPastTheLimit_ButAnErrorNode(string statement)
+    {
+        var text = $"Public Sub Main()\r\n    {string.Format(statement, new string('(', 3000) + "1" + new string(')', 3000))}\r\nEnd Sub\r\n";
+
+        var tree = new ModuleParser().Parse(TestUri.TestModuleUri(), text).SyntaxTree;
+
+        var past = tree is null ? [] : Expressions(tree).Where(entry => entry.Nesting > ModuleParser.MaxExpressionNesting).Select(entry => entry.Expression).ToArray();
+        Assert.IsTrue(past.All(node => node is UnbuiltExpressionTriviaNode), string.Join(", ", past.Select(node => node.GetType().Name).Distinct()));
     }
 
     // 3,000 levels of a shape of expression.
@@ -275,12 +286,14 @@ public sealed class ExpressionPastTheLimitTests
         Assert.IsTrue(model.Procedures.Any(procedure => !procedure.Expressions.IsEmpty), "the facts of the module's expressions");
     }
 
-    // what is kept as text is not analyzed (RD-VBAL 2.6.1): it is no expression a constant's value is required to be, and the error the parser reported is
-    // the module's only one.
+    // what is kept as text is not analyzed (RD-VBAL 2.6.1): it is no expression a constant's value or an array's bound is required to be, and the error the
+    // parser reported is the module's only one.
     [TestMethod]
     [DataRow("Const K = {0}", "", DisplayName = "a constant of the module")]
     [DataRow("", "Const K = {0}", DisplayName = "a constant of the procedure")]
     [DataRow("Const K = 1 + {0}", "", DisplayName = "an operand of a constant's value")]
+    [DataRow("", "Dim y(1 To {0}) As Long", DisplayName = "a bound of an array of the procedure")]
+    [DataRow("Private y({0} To 5, 2) As Long", "", DisplayName = "a bound of an array of the module")]
     public async Task AConstantPastTheLimit_IsExpressionNestedTooDeeply_Only(string declarations, string body)
     {
         var deep = $"{new string('(', 3000)}1{new string(')', 3000)}";

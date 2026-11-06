@@ -153,6 +153,8 @@ public sealed class ExpressionNestingTests
     // own: `F (x)` nests x as `Call F((x))` does.
     [TestMethod]
     [DataRow("x = {0}", 0)]
+    [DataRow("Dim y(1 To {0}) As Long", 0)]
+    [DataRow("Dim y({0} To 5) As Long", 0)]
     [DataRow("Debug.Print {0}", 0)]
     [DataRow("Debug.Print 1; {0};", 0)]
     [DataRow("Debug.Print Spc({0}); 1", 0)]
