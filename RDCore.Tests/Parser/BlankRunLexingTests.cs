@@ -2,6 +2,9 @@ using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
 using RDCore.Parsing;
 using RDCore.Parsing.Syntax;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Errors;
 
 namespace RDCore.Tests.Parser;
 
@@ -97,5 +100,21 @@ public class BlankRunLexingTests
         Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
         Assert.IsGreaterThan(0L, looks);
         Assert.IsLessThanOrEqualTo(LooksABlank * 64_000, looks, $"{looks:n0} looks at the blanks of the line");
+    }
+
+    // a parse that fails after the directive pass (a module nested deeper than the parse reads) holds its directives to the expression limit, as a module
+    // that was read does: a #Const past it is an error node, and VBC00060, beside the error that says the module is nested too deeply to be read.
+    [TestMethod]
+    public void AFailedParse_PrunesItsDirectives()
+    {
+        var depth = StackDepthGuardListener.MaxRuleDepth;
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(),
+            $"#Const L = {new string('-', ModuleParser.MaxExpressionNesting + 1)}1\r\nPublic Const X = {new string('(', depth)}1{new string(')', depth)}\r\n");
+
+        var errors = string.Join(" | ", result.SyntaxErrors.Select(error => $"{error.VBCompileErrorId}@{error.Location.Range.Start.Line}"));
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Verbose == SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.VBCompileErrorId == VBCompileErrorId.ExpressionNestedTooDeeply && error.Location.Range.Start.Line == 0), errors);
+        var constant = result.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node)).OfType<PrecompilerConstantDeclarationNode>().Single();
+        Assert.IsTrue(constant.Descendants().Any(node => node is UnbuiltExpressionTriviaNode), "the constant's value past the limit is an error node");
     }
 }
