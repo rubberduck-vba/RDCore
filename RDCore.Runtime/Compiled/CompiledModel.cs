@@ -332,14 +332,55 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
-/// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
+/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.ObjectFields"/>), by the number compiled code knows each
+/// field by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
 /// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does.
 /// </summary>
 /// <param name="Object">The object's identity.</param>
 /// <param name="Generation">What the session's storage bound when they were found: a cell is the field's for as long as that has not changed.</param>
 /// <param name="Cells">The cells, by number.</param>
 internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, int Generation, object?[] Cells)
+{
+}
+
+/// <summary>
+/// The cells of the variables of the session a body found (IR lowering S2.6c, <see cref="CompiledBody.SessionFields"/>), by the number compiled code knows
+/// each field by, as <see cref="FieldCells"/> are an object's. The storage is known by a weak reference: a body is shared by every session composed over the
+/// same scopes, and keeps none of them alive.
+/// </summary>
+/// <param name="Storage">The storage they were found in.</param>
+/// <param name="Generation">What the storage bound when they were found: a cell is the variable's for as long as that has not changed.</param>
+/// <param name="Cells">The cells, by number.</param>
+internal sealed record class SessionFieldCells(WeakReference<Execution.Memory.SessionStorage> Storage, int Generation, object?[] Cells)
+{
+}
+
+/// <summary>
+/// Where a field compiled code reaches is held (IR lowering S2.6c, <see cref="ProcedureAnalysis.Fields"/>): what its cell is found in, and cached by.
+/// </summary>
+internal enum FieldScope
+{
+    /// <summary>
+    /// On the object the activation is a call on, <c>Me</c>: a variable of its class module, of object extent (MS-VBAL §2.3), or a <c>Static</c> variable of
+    /// a member of the class, which each object holds its own of (MS-VBA).
+    /// </summary>
+    Object,
+
+    /// <summary>
+    /// In the session, which no activation and no object holds: a variable of a standard module, or a <c>Static</c> variable of a procedure of one - both
+    /// of module extent (MS-VBAL §2.3).
+    /// </summary>
+    Session,
+}
+
+/// <summary>
+/// A field compiled code reaches (IR lowering S2.6c): a variable of the activation's object or of the session, held in a cell compiled code finds where the
+/// interpreter finds it, by the number it knows the field by.
+/// </summary>
+/// <param name="Slot">The slot compiled code numbers it by, past the slots of the procedure's layout.</param>
+/// <param name="Symbol">The variable.</param>
+/// <param name="Scope">Where its cell is held.</param>
+internal sealed record class CompiledField(int Slot, SDK.Model.Symbols.Abstract.Symbol Symbol, FieldScope Scope)
 {
 }
 

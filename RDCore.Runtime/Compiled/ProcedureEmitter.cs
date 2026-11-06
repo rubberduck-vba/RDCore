@@ -35,6 +35,9 @@ internal sealed partial class ProcedureEmitter
     private readonly Dictionary<int, LocalBuilder> _cells = [];
     private readonly Dictionary<int, int> _cellNumbers = [];
 
+    // the number of each field's slot (ProcedureAnalysis.Fields), which CompiledActivation.FieldCellOf finds its cell by.
+    private readonly Dictionary<int, int> _fieldNumbers = [];
+
     // the Variant slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5c).
     private readonly Dictionary<int, LocalBuilder> _variants = [];
     private static readonly Type Variants = typeof(VariantOperations);
@@ -143,6 +146,11 @@ internal sealed partial class ProcedureEmitter
         {
             _cells[cellSlots[i]] = _il.DeclareLocal(typeof(object));
             _cellNumbers[cellSlots[i]] = i;
+        }
+
+        for (var i = 0; i < _analysis.Fields.Count; i++)
+        {
+            _fieldNumbers[_analysis.Fields[i].Slot] = i;
         }
 
         foreach (var (slot, kind) in _analysis.Slots)
@@ -297,11 +305,11 @@ internal sealed partial class ProcedureEmitter
         EmitRecordCells();
     }
 
-    // the cell of a field of Me, found by the activation's object; none goes to orElse.
+    // the cell of a field, found where the interpreter finds it; none goes to orElse.
     private void EmitFieldCell(int slot, Label orElse, string find)
     {
         _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Ldc_I4, _cellNumbers[slot]);
+        _il.Emit(OpCodes.Ldc_I4, _fieldNumbers[slot]);
         _il.Emit(OpCodes.Call, Activation.GetMethod(find)!);
         _il.Emit(OpCodes.Stloc, _cells[slot]);
         _il.Emit(OpCodes.Ldloc, _cells[slot]);

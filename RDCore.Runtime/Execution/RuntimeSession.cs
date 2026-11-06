@@ -498,6 +498,17 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private CallStackAwareSymbolResolver? _bindingsField;
     private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings, this);
 
+    /// <summary>
+    /// The cell the session holds a variable of a module, or a <c>Static</c> variable of a procedure of a standard module, in: where the resolver finds it
+    /// for an activation that is a call on no object, whatever activation is current.
+    /// </summary>
+    /// <returns><see langword="false"/> when the session holds no storage for it.</returns>
+    internal bool TryGetSessionCell(Symbol variable, [NotNullWhen(true)] out IBindingHandle? cell)
+    {
+        cell = null;
+        return SessionBindings.TryGetAddress(variable, out var address) && SessionBindings.TryRead(address, out cell) && cell is not null;
+    }
+
     // a module is defined again by one request while a program that waits is asked what was edited by another.
     private readonly Lock _resetLock = new();
     private ImmutableArray<Symbol> _valuesReset = [];

@@ -289,14 +289,15 @@ internal static class ModuleWorkspace
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     /// <param name="engine">What runs the program; the interpreter when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>; none when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
-        VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
+        VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
-            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
+            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
