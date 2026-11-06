@@ -118,7 +118,7 @@ public static class ProjectFileRegeneration
         return characters;
     }
 
-    private static string Say(string key, params object[] arguments)
+    internal static string Say(string key, params object[] arguments)
     {
         var culture = CultureInfo.CurrentUICulture;
         return string.Format(culture, Messages.GetString(key, culture) ?? key, arguments);

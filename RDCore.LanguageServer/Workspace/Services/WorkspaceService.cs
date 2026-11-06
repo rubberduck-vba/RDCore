@@ -337,6 +337,8 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
                 {
                     logger.LogError("❌ The project file could not be regenerated ({reason}), nor put back: it is kept as '{backup}' ({restore}).",
                         regeneration.Message, backup, restore.Message);
+                    // the user is the one to put it back: the load fails with where the file is, which the client is shown.
+                    throw new ProjectFileNotPutBackException(path, backup, regeneration, restore);
                 }
 
                 throw;

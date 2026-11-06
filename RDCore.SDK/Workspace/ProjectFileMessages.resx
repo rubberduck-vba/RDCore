@@ -25,4 +25,7 @@
   <data name="ProjectFile_Regenerate_Choice_NotNow" xml:space="preserve">
     <value>Not now</value>
   </data>
+  <data name="ProjectFile_Regenerate_NotPutBack" xml:space="preserve">
+    <value>The project file '{0}' could not be regenerated ({1}), nor put back as it was ({2}). The file as it was is kept next to it, as '{3}': rename it back to '{0}' to load the project as it was.</value>
+  </data>
 </root>

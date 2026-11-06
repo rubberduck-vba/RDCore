@@ -434,9 +434,45 @@ public sealed class WorkspaceLoaderTests
     }
 
     // a project file that can't be put back either is kept where it was moved to, and the log says both what failed and where the file is; the load fails
-    // with why the file couldn't be written.
+    // with why the file couldn't be written, and the user is told where the file as it was is, in their language: the language server shows them what the load
+    // failed with.
+    [TestMethod]
+    [DataRow("en", "nor put back as it was")]
+    [DataRow("fr", "ni remis tel qu'il était")]
+    public async Task WorkspaceService_LoadAsync_ARegeneratedProjectFileThatCantBeWrittenNorPutBack_IsKeptAsTheBackup_AndTheUserIsToldWhere(string culture, string said)
+    {
+        var before = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+        ProjectFileNotPutBackException error;
+        try
+        {
+            (error, _, _) = await ARegeneratedProjectFileThatCantBeWrittenNorPutBackAsync();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = before;
+        }
+
+        StringAssert.Contains(error.Message, said);
+        StringAssert.Contains(error.Message, ProjectFilePath + ".bak", "where the file as it was is");
+        Assert.AreEqual(ProjectFilePath + ".bak", error.BackupPath);
+        Assert.AreEqual("There is not enough space on the disk.", error.InnerException?.Message, "why it couldn't be regenerated");
+    }
+
     [TestMethod]
     public async Task WorkspaceService_LoadAsync_ARegeneratedProjectFileThatCantBeWrittenNorPutBack_IsKeptAsTheBackup_AndTheLogSaysBoth()
+    {
+        var (error, fs, logger) = await ARegeneratedProjectFileThatCantBeWrittenNorPutBackAsync();
+
+        Assert.AreEqual("There is not enough space on the disk.", error.InnerException?.Message);
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath + ".bak"), "the file as it was is where it was moved to");
+        var said = logger.Entries.Single(entry => entry.Level == LogLevel.Error).Message;
+        StringAssert.Contains(said, "There is not enough space on the disk.");
+        StringAssert.Contains(said, ProjectFilePath + ".bak");
+        StringAssert.Contains(said, "The process cannot access the file because it is being used by another process.");
+    }
+
+    private static async Task<(ProjectFileNotPutBackException Error, MockFileSystem Fs, CapturingLogger Logger)> ARegeneratedProjectFileThatCantBeWrittenNorPutBackAsync()
     {
         var fs = UnreadableProject();
         var file = new FullDisk(fs) { RefusesToPutBack = true };
@@ -448,14 +484,8 @@ public sealed class WorkspaceLoaderTests
             InitializingState(), logger, fs.Path, file, fs.Directory, projectFiles, documents, documentStates,
             () => ProtocolSupportedLanguage.VBA, new WorkspaceProjects(projectFiles), new ProjectFileLoader(fs));
 
-        var error = await Assert.ThrowsExactlyAsync<IOException>(() => sut.LoadAsync(Root, [Root], (_, choices, _) => Task.FromResult<string?>(choices[0])));
-
-        Assert.AreEqual("There is not enough space on the disk.", error.Message);
-        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath + ".bak"), "the file as it was is where it was moved to");
-        var said = logger.Entries.Single(entry => entry.Level == LogLevel.Error).Message;
-        StringAssert.Contains(said, "There is not enough space on the disk.");
-        StringAssert.Contains(said, ProjectFilePath + ".bak");
-        StringAssert.Contains(said, "The process cannot access the file because it is being used by another process.");
+        var error = await Assert.ThrowsExactlyAsync<ProjectFileNotPutBackException>(() => sut.LoadAsync(Root, [Root], (_, choices, _) => Task.FromResult<string?>(choices[0])));
+        return (error, fs, logger);
     }
 
     // a disk that fills up as a project file is written, the first times it is: the file is made, and holds the start of what was written. One that refuses to
