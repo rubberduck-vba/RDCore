@@ -57,6 +57,18 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
+    // ruleDepthCeiling: how many rules the parse may be inside at once, past which it stops and the module is nested too deeply to be read.
+    internal ModuleParser(int ruleDepthCeiling, IOptions<SdkServerOptions>? serverOptions = null, ILogger<ModuleParser>? logger = null)
+        : this(serverOptions, logger)
+    {
+        RuleDepthCeiling = ruleDepthCeiling;
+    }
+
+    /// <summary>
+    /// How many rules the parse may be inside at once: <see cref="StackDepthGuardListener.MaxRuleDepth"/>, unless the parser was made with a ceiling of its own.
+    /// </summary>
+    internal int RuleDepthCeiling { get; } = StackDepthGuardListener.MaxRuleDepth;
+
     // on a thread whose stack has room for the deepest expression RD-VBA reads (LargeStackThread): the grammar's descent and the build of the tree recurse once
     // or more for each level of an expression.
     public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default, CancellationToken token = default)
@@ -600,12 +612,12 @@ public partial class ModuleParser(
     }
 
     // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
-    private static TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
+    private TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
         => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
 
     // errorListener hears the grammar's errors, and none when it is null; findings is where what the parse finds of the tokens around its rules is reported.
-    private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, ErrorListener findings,
+    private TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, ErrorListener findings,
         TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
     {
@@ -627,7 +639,7 @@ public partial class ModuleParser(
         // guard, but that only runs once startRule() has already returned — for input deep enough to
         // overflow the parser's OWN recursive descent, that point is never reached at all, so a
         // dedicated guard must run live, interleaved with the parse itself.
-        parser.AddParseListener(new StackDepthGuardListener());
+        parser.AddParseListener(new StackDepthGuardListener(RuleDepthCeiling));
         if (token.CanBeCanceled)
         {
             parser.AddParseListener(new CancellationListener(token));
@@ -978,7 +990,8 @@ public partial class ModuleParser(
 // of its own: its only job is to fail fast, during parsing itself, before pathological nesting can
 // exhaust the stack past the point of no return. See ParseOnce's remarks for why a walk-time-only
 // guard can't substitute for this.
-internal sealed class StackDepthGuardListener : VBAParserBaseListener
+// ceiling: how many rules the parse may be inside at once; a module parser's own is MaxRuleDepth.
+internal sealed class StackDepthGuardListener(int ceiling) : VBAParserBaseListener
 {
     /// <summary>
     /// How many rules the parse may be inside at once: 32,000. Past it, the parse stops, and the module is a syntax error that it is nested too deeply to be read
@@ -1012,9 +1025,9 @@ internal sealed class StackDepthGuardListener : VBAParserBaseListener
 
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
     {
-        if (++_depth > MaxRuleDepth)
+        if (++_depth > ceiling)
         {
-            throw new InsufficientExecutionStackException($"The parse is inside more than {MaxRuleDepth} rules.");
+            throw new InsufficientExecutionStackException($"The parse is inside more than {ceiling} rules.");
         }
 
         System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
