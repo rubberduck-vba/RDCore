@@ -194,7 +194,7 @@ public sealed class EnvironmentSessionProvider(
 
         // and the libraries the project references, by name: the same symbols the language server bound the workspace's names to.
         var source = librarySource ?? new DirectoryLibrarySource(fileSystem, string.Empty);
-        var referenced = LibrarySymbolProvider.Load(source, project.References);
+        var referenced = LibrarySymbolProvider.Load(source, project.References, environment.Language);
         foreach (var problem in referenced.Problems)
         {
             logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",

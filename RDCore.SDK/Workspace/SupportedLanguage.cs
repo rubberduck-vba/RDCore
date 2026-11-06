@@ -79,6 +79,18 @@ public class SupportedLanguage
     /// (<strong>MS-VBAL §5.4.4.3</strong>).
     /// </remarks>
     public bool UsesClassicBasicSyntax { get; init; }
+
+    /// <summary>
+    /// The libraries every project of the language references without its project file listing them, by name, in the order they come before the references it
+    /// lists (<strong>RD-VBAL §2.3.1.2</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The standard library (<c>VBA</c>) is every language's, and is none of them. A VB6 project also has the Visual Basic runtime objects and procedures
+    /// (<c>VBRUN</c>, the third type library of <c>MSVBVM60.DLL</c>): the constants of its forms and controls (<c>vbModal</c>, <c>vbKeyEscape</c>,
+    /// <c>vbFormControlMenu</c>) and its <c>PropertyBag</c>, which a <c>.vbp</c> never lists and the VB6 IDE does not let a project remove.
+    /// </remarks>
+    public IReadOnlyList<string> ImplicitReferences { get; init; } = [];
+
     /// <summary>The patterns of the files written in the language, as a document filter pattern.</summary>
     public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
 
@@ -108,7 +120,10 @@ public static class SupportedLanguages
     /// <summary>
     /// VB6.
     /// </summary>
-    public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm");
+    public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm")
+    {
+        ImplicitReferences = ["VBRUN"],
+    };
 
     /// <summary>
     /// The platform's BASIC, which an interactive shell is written in.

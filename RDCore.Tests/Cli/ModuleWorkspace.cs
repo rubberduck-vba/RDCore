@@ -372,7 +372,7 @@ internal static class ModuleWorkspace
         var librarySymbols = libraries is null
             ? null
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
-                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
+                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References, language)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
             [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers,
             syntaxErrors: syntaxErrors);

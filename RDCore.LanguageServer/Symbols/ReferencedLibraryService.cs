@@ -69,7 +69,7 @@ internal sealed class ReferencedLibraryService(
             {
                 if (_loaded is not { } loaded || loaded.Key != key)
                 {
-                    var libraries = LibrarySymbolProvider.Load(source, references);
+                    var libraries = LibrarySymbolProvider.Load(source, references, options.Value.Workspace.SupportedLanguage);
                     foreach (var problem in libraries.Problems)
                     {
                         logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
