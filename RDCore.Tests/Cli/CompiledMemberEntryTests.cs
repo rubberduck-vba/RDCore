@@ -264,15 +264,16 @@ public sealed class CompiledMemberEntryTests
         Assert.AreEqual((0L, indirect), (called.DirectCalls, called.IndirectCalls), $"{caller}'s calls made directly, and through a binding");
     }
 
-    // a member with a GoTo, which is not compiled: compiled code calls it through its binding, on the object the variable refers to, as the interpreter does.
-    private static string Jumping(string name) => string.Join("\r\n",
+    // a member whose one statement is a CallByName, late-bound and so the interpreter's, which leaves it nothing compiled code does: it is not compiled,
+    // and compiled code calls it through its binding, on the object the variable refers to, as the interpreter does. The member it calls by name, on Me,
+    // works on the object's field.
+    private static string LateBound(string name) => string.Join("\r\n",
         $"Private Function {name}(ByVal N As Long) As Long",
+        $"    {name} = CallByName(Me, \"Raised\", VbMethod, N)",
+        "End Function",
+        "Public Function Raised(ByVal N As Long) As Long",
         "    mTotal = mTotal * 3 + N",
-        "    If N > 2 Then GoTo Large",
-        $"    {name} = mTotal",
-        "    Exit Function",
-        "Large:",
-        $"    {name} = mTotal + 1000",
+        "    If N > 2 Then Raised = mTotal + 1000 Else Raised = mTotal",
         "End Function");
 
     // the member that is not compiled is called through its binding each time, and its fields are the object's, from call to call.
@@ -294,7 +295,7 @@ public sealed class CompiledMemberEntryTests
             "    Next",
             "End Function"), [("Jumper", ModuleWorkspace.ClassModule("Jumper", "Option Explicit",
                 "Private mTotal As Long",
-                Jumping("Scaled").Replace("Private Function", "Public Function")))]);
+                LateBound("Scaled").Replace("Private Function Scaled", "Public Function Scaled")))]);
 
         StringAssert.Contains(observed, "| 4184 |");
         AssertCalledThroughBinding(compiled, "Bound", indirect: 4, "Scaled");
@@ -324,7 +325,7 @@ public sealed class CompiledMemberEntryTests
                 ("Square", ModuleWorkspace.ClassModule("Square", "Option Explicit",
                     "Implements IShape",
                     "Private mTotal As Long",
-                    Jumping("IShape_Area")))]);
+                    LateBound("IShape_Area")))]);
 
         StringAssert.Contains(observed, "| 4184 |");
         AssertCalledThroughBinding(compiled, "Bound", indirect: 4, "IShape_Area");
@@ -539,7 +540,7 @@ public sealed class CompiledMemberEntryTests
         "    Total = mTotal",
         "End Function"]);
 
-    private static async Task<string> WaitedInMemberAsync(VBExecutionEngine engine, string? statement, string? edited)
+    private static async Task<string> WaitedInMemberAsync(VBExecutionEngine engine, string? statement, string? edited, long direct)
     {
         var observed = string.Empty;
         using var running = CompiledExecution.Running(engine);
@@ -571,7 +572,7 @@ public sealed class CompiledMemberEntryTests
                 {
                     Assert.AreEqual(0L, BodyOf(provider, "Add").FramesMade, "Add is entered with its frame under a debugger");
                     var counted = BodyOf(provider, "Counted");
-                    Assert.AreEqual((4L, 0L), (counted.DirectCalls, counted.IndirectCalls), "Counted's calls made directly, and through a binding, under a debugger");
+                    Assert.AreEqual((direct, 0L), (counted.DirectCalls, counted.IndirectCalls), "Counted's calls made directly, and through a binding, under a debugger");
                 }
             }
             finally
@@ -585,16 +586,18 @@ public sealed class CompiledMemberEntryTests
         return observed;
     }
 
+    // Counted makes its 3 calls of Add and its call of Total directly: 4. When the class is edited, the symbols are defined again while Add waits, and the
+    // interpreter goes on with Counted's activation once Add returns: the 2 calls of Add before it are the ones made directly.
     [TestMethod]
-    [DataRow(null, null, DisplayName = "the program resumed")]
-    [DataRow("mTotal = 100", null, DisplayName = "a field of Me assigned in the member's frame")]
-    [DataRow(null, "Private mExtra As Long", DisplayName = "a field added to the class")]
-    public async Task AMemberWaitedInUnderADebugger_IsWhatTheInterpreterHas(string? statement, string? field)
+    [DataRow(null, null, 4L, DisplayName = "the program resumed")]
+    [DataRow("mTotal = 100", null, 4L, DisplayName = "a field of Me assigned in the member's frame")]
+    [DataRow(null, "Private mExtra As Long", 2L, DisplayName = "a field added to the class")]
+    public async Task AMemberWaitedInUnderADebugger_IsWhatTheInterpreterHas(string? statement, string? field, long direct)
     {
         CompiledExecutionTests.RequirePayloads();
         var edited = field is null ? null : Counter(field);
-        var interpreted = await WaitedInMemberAsync(VBExecutionEngine.Interpreter, statement, edited);
-        var compiled = await WaitedInMemberAsync(VBExecutionEngine.Compiled, statement, edited);
+        var interpreted = await WaitedInMemberAsync(VBExecutionEngine.Interpreter, statement, edited, direct);
+        var compiled = await WaitedInMemberAsync(VBExecutionEngine.Compiled, statement, edited, direct);
         Assert.AreEqual(interpreted, compiled);
     }
 }
