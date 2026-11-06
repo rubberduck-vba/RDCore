@@ -10,25 +10,19 @@ namespace RDCore.Tests.Cli;
 [TestCategory("MS-VBAL 3.2.2 Logical Line Grammar")]
 public sealed class LineContinuationLimitTests
 {
-    // Main assigns x a sum continued over the given number of line-continuations, each written with the given blanks before its underscore, and prints it.
-    private static string Program(int continuations, string after = "", string blanks = " ")
-        => $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Dim x As Long\r\n    x = 1{blanks}_\r\n"
-            + string.Concat(Enumerable.Repeat($"        + 1{blanks}_\r\n", continuations - 1)) + "        + 1\r\n" + after + "    Debug.Print x\r\nEnd Sub\r\n";
+    // Main assigns x a sum continued over the given number of line-continuations, and prints it.
+    private static string Program(int continuations, string after = "")
+        => "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Dim x As Long\r\n    x = 1 _\r\n"
+            + string.Concat(Enumerable.Repeat("        + 1 _\r\n", continuations - 1)) + "        + 1\r\n" + after + "    Debug.Print x\r\nEnd Sub\r\n";
 
     [TestMethod]
-    [DataRow(" ", DisplayName = "a space")]
-    [DataRow("    ", DisplayName = "spaces")]
-    [DataRow("\t\t", DisplayName = "tabs")]
-    public async Task TwentyFourLineContinuations_AreOneStatement(string blanks)
-        => CollectionAssert.AreEqual(new[] { "25" }, await ModuleWorkspace.RunAsync([], Program(24, blanks: blanks)));
+    public async Task TwentyFourLineContinuations_AreOneStatement()
+        => CollectionAssert.AreEqual(new[] { "25" }, await ModuleWorkspace.RunAsync([], Program(24)));
 
     [TestMethod]
-    [DataRow(" ", DisplayName = "a space")]
-    [DataRow("    ", DisplayName = "spaces")]
-    [DataRow("\t\t", DisplayName = "tabs")]
-    public void TheTwentyFifthLineContinuation_IsASyntaxError(string blanks)
+    public void TheTwentyFifthLineContinuation_IsASyntaxError()
     {
-        var result = new ModuleParser().Parse(new Uri("file:///C:/Program.bas"), Program(25, blanks: blanks));
+        var result = new ModuleParser().Parse(new Uri("file:///C:/Program.bas"), Program(25));
 
         var error = Assert.ContainsSingle(result.SyntaxErrors);
         Assert.AreEqual((int)RDCore.SDK.Model.Errors.VBCompileErrorId.SyntaxError, error.ErrorId);

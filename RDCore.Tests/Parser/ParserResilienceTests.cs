@@ -392,12 +392,8 @@ public sealed class ParserResilienceTests
         }
     }
 
-    // how many rules deep a parse that is to stop goes before it stops: a parenthesis is a rule, and at the ceiling of every parse, 32,000 of them took a
-    // test most of a minute to read. Where the parse stops is the parser's to say (AModuleParser_StopsAtTheRuleDepthOfEveryParse pins its own ceiling).
-    private const int RuleDepthCeiling = 2_000;
-
     // what the parser gives for source, asked on a thread whose stack is a quarter of a thread's default (256 KB): what it throws, or what it returns.
-    private static (ModuleParseResult? Result, Exception? Thrown) ParseOnASmallStack(string source, ModuleParser? parser = null)
+    private static (ModuleParseResult? Result, Exception? Thrown) ParseOnASmallStack(string source)
     {
         ModuleParseResult? result = null;
         Exception? thrown = null;
@@ -406,7 +402,7 @@ public sealed class ParserResilienceTests
             {
                 try
                 {
-                    result = (parser ?? new ModuleParser()).Parse(Uri, source);
+                    result = Parse(source);
                 }
                 catch (Exception exception)
                 {
@@ -433,10 +429,10 @@ public sealed class ParserResilienceTests
     public void NestingPastTheDepthTheParseReads_IsAFailedParse_NotACrash()
     {
         // A5: pathological nesting recurses through the expression rule to an uncatchable stack overflow. The parse stops past a depth of rules
-        // (the parser's ceiling), well inside its own stack: a parenthesis is a rule, and the line's own rules take it just past the ceiling.
+        // (StackDepthGuardListener.MaxRuleDepth), well inside its own stack: a parenthesis is a rule, and the line's own rules take it just past the ceiling.
         // Where it stops is not a matter of the size of a frame, and the outcome is the same in a Debug build as in a Release one.
-        const int levels = RuleDepthCeiling;
-        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', levels) + "1" + new string(')', levels), new ModuleParser(RuleDepthCeiling));
+        const int levels = StackDepthGuardListener.MaxRuleDepth;
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', levels) + "1" + new string(')', levels));
 
         Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
         Assert.IsNotNull(result);
@@ -470,17 +466,17 @@ public sealed class ParserResilienceTests
     }
 
     // a module read a part at a time once the fast prediction fails on the whole of it: a declaration nested past the depth the parse reads, and a procedure.
-    // The declaration is a constant's: the prediction of a statement in a procedure reads its expression to the end before the parse is in it, before the
-    // parse stops.
+    // The declaration is a constant's: the prediction of a statement in a procedure reads its expression to the end before the parse is in it, seconds for
+    // each pass at this depth, before the parse stops.
     private static string AConstantNestedPastTheDepthTheParseReads_ThenAProcedure(string body)
-        => $"Public Const X = {new string('(', RuleDepthCeiling)}1{new string(')', RuleDepthCeiling)}\r\nPublic Sub A()\r\n    {body}\r\nEnd Sub\r\n";
+        => $"Public Const X = {new string('(', StackDepthGuardListener.MaxRuleDepth)}1{new string(')', StackDepthGuardListener.MaxRuleDepth)}\r\nPublic Sub A()\r\n    {body}\r\nEnd Sub\r\n";
 
     [TestMethod]
     public void NestingPastTheDepthTheParseReads_IsLoggedWithoutTheTraceThatStoppedIt_AndReadSlowlyOnce()
     {
         // the trace of the exception that stops the parse has a frame for each level it read: megabytes, which the log, and a client tracing it, never gets.
         var logger = new CapturingLogger();
-        var parser = new ModuleParser(RuleDepthCeiling, logger: logger);
+        var parser = new ModuleParser(logger: logger);
 
         parser.Parse(Uri, AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
 
@@ -498,7 +494,7 @@ public sealed class ParserResilienceTests
     public void NestingPastTheDepthTheParseReads_AfterASyntaxError_IsBothErrors()
     {
         // what the slow parse found wrong before it stopped, and that it stopped: what follows wasn't read.
-        var result = new ModuleParser(RuleDepthCeiling).Parse(Uri, "Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
+        var result = Parse("Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
 
         var errors = string.Join("; ", result.SyntaxErrors.Select(error => $"{error.ErrorId} {error.Location.Range.Start.Line} {error.Verbose[..Math.Min(error.Verbose.Length, 100)]}"));
         Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 0 && error.Verbose != SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);

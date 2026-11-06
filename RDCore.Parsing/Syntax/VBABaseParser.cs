@@ -109,15 +109,9 @@ public abstract class VBABaseParser : Parser
     // `i` is the index of the token after a dot.
     private bool IsPrintWithOutputList(int i)
     {
-        // a line continuation is the blank right before its underscore: the blanks written before that one are whitespace tokens ahead of it.
-        var continuation = i;
-        while (TokenTypeAt(continuation) == VBALexer.WS)
+        if (TokenTypeAt(i) == VBALexer.LINE_CONTINUATION)
         {
-            continuation++;
-        }
-        if (TokenTypeAt(continuation) == VBALexer.LINE_CONTINUATION)
-        {
-            i = continuation + 1;
+            i++;
             while (TokenTypeAt(i) == VBALexer.WS)
             {
                 i++;
