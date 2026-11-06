@@ -7,11 +7,79 @@ namespace RDCore.Tests.Cli;
 /// An array parameter or variable, compiled (IR lowering S2.6b): held in the cell its frame holds it in, an element of it found in the array that cell holds
 /// each time it is read or written (MS-VBAL §5.6.13.1), as the interpreter's evaluation on payloads finds it; <c>LBound</c> and <c>UBound</c> read where the
 /// interpreter reads them (MS-VBAL §3.3.5.2). A subscript outside its dimension is the interpreter's, which raises error 9; a <c>ReDim</c> and an
-/// <c>Erase</c> are the interpreter's statements, run as support calls. A program runs the same either way.
+/// <c>Erase</c> are the interpreter's statements, run as support calls. An element of an array of <c>Variant</c>s is read and written in its Variant's cell, as
+/// a Variant variable is; an element of an array of objects is compared and tested, its <c>Set</c> the interpreter's. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledArrayTests
 {
+    private static readonly (string Name, string Source)[] Noisy =
+        [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Id", "End Sub"))];
+
+    // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
+    // the interpreter's to read - and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 6 statements
+    // the interpreter runs (the String, Len, the Set, the member, the prints).
+    [TestMethod]
+    public async Task AnElementOfAVariantArray_IsReadAndWrittenInItsVariantsCell()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Mixed()",
+            "End Sub",
+            "Private Function Mixed() As Double",
+            "    Dim V(1 To 6) As Variant",
+            "    Dim I As Long",
+            "    For I = 1 To 5",
+            "        V(I) = I * 1.5",
+            "    Next",
+            "    For I = 1 To 5",
+            "        V(I) = V(I) * 2 + I",
+            "    Next",
+            "    V(3) = \"x\"",
+            "    For I = 1 To 5",
+            "        If I <> 3 Then Mixed = Mixed * 1.5 + V(I)",
+            "    Next",
+            "    Mixed = Mixed + Len(V(3)) + IsEmpty(V(6))",
+            "    Set V(2) = New Noisy",
+            "    V(2).Id = 7",
+            "    Debug.Print \"held\"",
+            "    V(2) = 4",
+            "    Debug.Print \"let go\"",
+            "    Mixed = Mixed + V(2)",
+            "End Function"), "Mixed", recoveries: 6 + 1, classes: Noisy);
+
+    // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
+    // to holds Nothing. Each Set is the interpreter's, and the object two elements held is let go of at the second Set of Nothing, which prints there: the
+    // 10 statements the interpreter runs are the Sets, the member and the prints, none of the loop.
+    [TestMethod]
+    public async Task AnElementOfAnObjectArray_IsComparedInCompiledCode_AndLetGoOfWhereTheInterpreterSetsIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Held()",
+            "End Sub",
+            "Private Function Held() As Long",
+            "    Dim A(1 To 3) As Noisy",
+            "    Dim O As Object",
+            "    Dim I As Long",
+            "    Set A(1) = New Noisy",
+            "    A(1).Id = 1",
+            "    Set A(2) = A(1)",
+            "    Set O = A(1)",
+            "    For I = 1 To 3",
+            "        If A(I) Is Nothing Then Held = Held * 2 Else Held = Held * 2 + 1",
+            "        If A(I) Is A(1) Then Held = Held + 100",
+            "        If Not A(I) Is Nothing Then",
+            "            If TypeOf A(I) Is Noisy Then Held = Held + 1000",
+            "        End If",
+            "        If O Is A(I) Then Held = Held + 10000",
+            "    Next",
+            "    Set O = Nothing",
+            "    Debug.Print \"before\"",
+            "    Set A(1) = Nothing",
+            "    Debug.Print \"middle\"",
+            "    Held = Held + (A(1) Is Nothing) + (A(2) Is Nothing)",
+            "    Set A(2) = Nothing",
+            "    Debug.Print \"after\"",
+            "End Function"), "Held", recoveries: 10, classes: Noisy);
     // an array filled, then summed, element by element: none of it is the interpreter's.
     [TestMethod]
     public async Task AnArrayFilledThenSummed_IsReadAndWrittenInCompiledCode()

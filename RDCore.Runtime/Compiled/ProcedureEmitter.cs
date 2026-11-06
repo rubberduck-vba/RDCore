@@ -467,7 +467,7 @@ internal sealed partial class ProcedureEmitter
                 EmitVariantForNext(variantNext);
                 break;
 
-            case ElementLetStep or ArrayStatementStep:
+            case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
                 EmitArrayStep(step);
                 break;
         }
@@ -1819,6 +1819,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
             }
+
+            default:
+                EmitArrayVariantInto(node, result, failure);
+                break;
         }
     }
 

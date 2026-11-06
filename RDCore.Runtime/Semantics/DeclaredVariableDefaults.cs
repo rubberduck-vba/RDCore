@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Runtime.Semantics;
@@ -83,12 +84,23 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     /// <inheritdoc/>
     /// <remarks>
     /// An element of a scalar type is kept in a cell that holds it as a payload (IR lowering S1.6), as a scalar variable is: an expression of it is
-    /// evaluated on the payload, and an assignment to it writes one, with no value made of it either way.
+    /// evaluated on the payload, and an assignment to it writes one, with no value made of it either way. An element of a <c>Variant</c> array is kept in a
+    /// Variant's cell (S1.4), as a Variant variable is, where compiled code reads and writes the payload it holds (IR lowering S2.6b).
     /// </remarks>
     public Func<IBindingHandle>? ElementCellOf(VBType itemType)
-        => UnboxedEvaluation.IsEnabled && ScalarPayload.TryOf(itemType, itemType.DefaultValue.RuntimeValue, out var initial)
-            ? () => ScalarCell.Of(initial)
-            : null;
+    {
+        if (!UnboxedEvaluation.IsEnabled)
+        {
+            return null;
+        }
+
+        if (ScalarPayload.TryOf(itemType, itemType.DefaultValue.RuntimeValue, out var initial))
+        {
+            return () => ScalarCell.Of(initial);
+        }
+
+        return itemType is VBVariantType && itemType.DefaultValue.RuntimeValue is VBRuntimeVariantValue empty ? () => VariantCell.Of(empty) : null;
+    }
 
     private (int, int)[]? TryReduce(Symbol variable, IReadOnlyList<ArrayDimensionBound> declared)
     {

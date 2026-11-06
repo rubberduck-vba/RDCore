@@ -1,3 +1,4 @@
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -107,19 +108,77 @@ internal sealed partial class ProcedureAnalysis
         return new ArrayBoundNode(array.Slot, bound.ArrayBound.Kind == ArrayBoundKind.Upper, dimension);
     }
 
-    // a Let of an element (MS-VBAL §5.4.3.8), as TryAssignUnboxed assigns one: its cell found, then the value let-coerced to the element's kind.
+    // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), or an element of an
+    // array of Variants.
+    private bool IsVariant(BoundNode node) => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node);
+
+    private bool IsVariantElement(BoundNode node) => node is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
+
+    // an element of an array of Variants, read in the Variant's cell the array holds it in: Dynamic's BoundIndex.
+    private VariantNode? VariantElement(BoundIndex index)
+        => Subscripts(index) is { } subscripts ? new VariantElementNode(ArrayOf(index.Callee)!.Slot, subscripts) : null;
+
+    // a Let of an element (MS-VBAL §5.4.3.8), as TryAssignUnboxed assigns one: its cell found, then the value let-coerced to the element's kind - or, of an
+    // element of an array of Variants, the value as it is, of its own type, as a Variant variable is assigned it (MS-VBAL §5.5.1.2.12).
     private CompiledStep? AnalyzeElementLet(int offset, AssignmentStatementNode assignment)
     {
-        if (Bind(assignment.Target) is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Scalar })
+        var target = Bind(assignment.Target);
+        if (target is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Scalar })
         {
             return Element(index) is ElementNode element && PayloadAs(Bind(assignment.Value), element.Kind) is { } value
                 ? new ElementLetStep(offset, element, value)
                 : null;
         }
 
+        if (target is BoundIndex variantIndex && IsVariantElement(variantIndex))
+        {
+            return VariantElement(variantIndex) is VariantElementNode element && Dynamic(Bind(assignment.Value)) is { } value
+                ? new VariantElementLetStep(offset, element, value)
+                : null;
+        }
+
         Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
         return null;
     }
+
+    private bool IsObjectElement(BoundNode node) => node is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Object };
+
+    // left Is right where either is an element of an array of objects (MS-VBAL §5.6.9.7): each operand an element, an object variable of the activation, or
+    // Nothing (null), as TryObjectOperand takes them.
+    private PayloadNode? ElementIs(BoundBinary compared)
+        => TryElementOperand(compared.Left, out var left) && TryElementOperand(compared.Right, out var right) ? new ElementIsNode(left, right) : null;
+
+    private bool TryElementOperand(BoundNode operand, out ObjectOperand? read)
+    {
+        read = null;
+        switch (operand)
+        {
+            case BoundIndex index when IsObjectElement(index):
+                if (Subscripts(index) is not { } subscripts)
+                {
+                    return false;
+                }
+
+                read = new ObjectElementNode(ArrayOf(index.Callee)!.Slot, subscripts);
+                return true;
+
+            case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
+                return TryElementOperand(enclosed, out read);
+
+            default:
+                if (!TryObjectOperand(operand, out var slot))
+                {
+                    return false;
+                }
+
+                read = slot is { } held ? new ObjectSlotOperand(held) : null;
+                return true;
+        }
+    }
+
+    // TypeOf of an element of an array of objects (MS-VBAL §5.6.7), tested as the interpreter tests it.
+    private PayloadNode? ElementTypeOf(BoundTypeOf typeOf, BoundIndex index)
+        => Subscripts(index) is { } subscripts ? new ElementTypeOfNode(new ObjectElementNode(ArrayOf(index.Callee)!.Slot, subscripts), ClassNumberOf(typeOf.Class)) : null;
 
     // a ReDim of an array of a scalar kind of the activation whose bounds are payloads - which call nothing, so that nothing the statement does but the array
     // is compiled code's to read back - or an Erase of such arrays (MS-VBAL §5.4.3.3-4): the interpreter's statement, run as a support call. An array of

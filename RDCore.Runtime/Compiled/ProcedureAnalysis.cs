@@ -319,7 +319,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or ElementLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or ElementLetStep or VariantElementLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -1057,7 +1057,7 @@ internal sealed partial class ProcedureAnalysis
     private PayloadNode? Condition(ExpressionNode condition)
     {
         var node = Bind(condition);
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        if (IsVariant(node))
         {
             return Dynamic(node) is { } value ? new TruthNode(value) : null;
         }
@@ -1073,7 +1073,7 @@ internal sealed partial class ProcedureAnalysis
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
         // a Variant's payload, of its subtype, converted to the destination as any payload is (IR lowering S2.5c).
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        if (IsVariant(node))
         {
             return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
         }
@@ -1108,6 +1108,13 @@ internal sealed partial class ProcedureAnalysis
     {
         switch (node)
         {
+            // an element of an array of objects compared, and tested (IR lowering S2.6b).
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsObjectElement(elementCompared.Left) || IsObjectElement(elementCompared.Right):
+                return ElementIs(elementCompared);
+
+            case BoundTypeOf { Operand: BoundIndex element } elementTypeOf when IsObjectElement(element):
+                return ElementTypeOf(elementTypeOf, element);
+
             // MS-VBAL §5.6.9.7: two object references compared as they are (IR lowering S2.5e2).
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
                 return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
@@ -1181,6 +1188,9 @@ internal sealed partial class ProcedureAnalysis
         {
             case BoundVariable variable when VariantSlotOf(variable) is { } slot:
                 return new VariantSlotNode(slot);
+
+            case BoundIndex index when IsVariantElement(index):
+                return VariantElement(index);
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Dynamic(enclosed);
