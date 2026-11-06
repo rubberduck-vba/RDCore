@@ -144,7 +144,7 @@ public class BlankRunLexingTests
     public void AFailedParse_PrunesItsDirectives()
     {
         const int ceiling = 2_000;
-        var result = new ModuleParser(ceiling).Parse(TestUri.TestModuleUri(),
+        var result = new ModuleParser { RuleDepthCeiling = ceiling }.Parse(TestUri.TestModuleUri(),
             $"#Const L = {new string('-', ModuleParser.MaxExpressionNesting + 1)}1\r\nPublic Const X = {new string('(', ceiling)}1{new string(')', ceiling)}\r\n");
 
         var errors = string.Join(" | ", result.SyntaxErrors.Select(error => $"{error.VBCompileErrorId}@{error.Location.Range.Start.Line}"));

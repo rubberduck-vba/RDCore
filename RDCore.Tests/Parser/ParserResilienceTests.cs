@@ -436,7 +436,7 @@ public sealed class ParserResilienceTests
         // (the parser's ceiling), well inside its own stack: a parenthesis is a rule, and the line's own rules take it just past the ceiling.
         // Where it stops is not a matter of the size of a frame, and the outcome is the same in a Debug build as in a Release one.
         const int levels = RuleDepthCeiling;
-        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', levels) + "1" + new string(')', levels), new ModuleParser(RuleDepthCeiling));
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', levels) + "1" + new string(')', levels), new ModuleParser { RuleDepthCeiling = RuleDepthCeiling });
 
         Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
         Assert.IsNotNull(result);
@@ -480,7 +480,7 @@ public sealed class ParserResilienceTests
     {
         // the trace of the exception that stops the parse has a frame for each level it read: megabytes, which the log, and a client tracing it, never gets.
         var logger = new CapturingLogger();
-        var parser = new ModuleParser(RuleDepthCeiling, logger: logger);
+        var parser = new ModuleParser(logger: logger) { RuleDepthCeiling = RuleDepthCeiling };
 
         parser.Parse(Uri, AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
 
@@ -498,7 +498,7 @@ public sealed class ParserResilienceTests
     public void NestingPastTheDepthTheParseReads_AfterASyntaxError_IsBothErrors()
     {
         // what the slow parse found wrong before it stopped, and that it stopped: what follows wasn't read.
-        var result = new ModuleParser(RuleDepthCeiling).Parse(Uri, "Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
+        var result = new ModuleParser { RuleDepthCeiling = RuleDepthCeiling }.Parse(Uri, "Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
 
         var errors = string.Join("; ", result.SyntaxErrors.Select(error => $"{error.ErrorId} {error.Location.Range.Start.Line} {error.Verbose[..Math.Min(error.Verbose.Length, 100)]}"));
         Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 0 && error.Verbose != SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);

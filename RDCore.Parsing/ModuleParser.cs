@@ -57,17 +57,21 @@ public partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
-    // ruleDepthCeiling: how many rules the parse may be inside at once, past which it stops and the module is nested too deeply to be read.
-    internal ModuleParser(int ruleDepthCeiling, IOptions<SdkServerOptions>? serverOptions = null, ILogger<ModuleParser>? logger = null)
-        : this(serverOptions, logger)
-    {
-        RuleDepthCeiling = ruleDepthCeiling;
-    }
-
     /// <summary>
-    /// How many rules the parse may be inside at once: <see cref="StackDepthGuardListener.MaxRuleDepth"/>, unless the parser was made with a ceiling of its own.
+    /// How many rules the parse may be inside at once, past which it stops and the module is nested too deeply to be read: 1 to
+    /// <see cref="StackDepthGuardListener.MaxRuleDepth"/>, which is the default.
     /// </summary>
-    internal int RuleDepthCeiling { get; } = StackDepthGuardListener.MaxRuleDepth;
+    /// <remarks>
+    /// It is set as the parser is made, and is no parameter of a constructor: the parse server's container (OmniSharp's) makes a service from any of its
+    /// constructors, the internal ones too, and gives a number it is asked for a value of its own, whatever the parameter's default - a ceiling no parse reads to.
+    /// </remarks>
+    internal int RuleDepthCeiling
+    {
+        get;
+        init => field = value is > 0 and <= StackDepthGuardListener.MaxRuleDepth
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, $"A parse reads 1 to {StackDepthGuardListener.MaxRuleDepth} rules deep.");
+    } = StackDepthGuardListener.MaxRuleDepth;
 
     // on a thread whose stack has room for the deepest expression RD-VBA reads (LargeStackThread): the grammar's descent and the build of the tree recurse once
     // or more for each level of an expression.
