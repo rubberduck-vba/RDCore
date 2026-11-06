@@ -49,6 +49,20 @@ the expression of an assignment is not. **MS-VBAL** leaves the depth of an expre
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**
 > was seen to run, and reports a syntax error where **MS-VBA** crashes: an expression nested in more than 2,500 others.
 
+Apart from the language's limit, the RD-VBA parse has one of its own: it reads a module whose rules nest at most **30,000** deep, and stops past it. The
+module is then a syntax error (`VBC00001`), "This module is nested too deeply to be read", at its start, and nothing of it is analyzed. This is a limit of
+the implementation, and not of the language: `VBC00060` is the language's error of an expression nested too deeply, located at it, with the rest of the
+module read as usual. The ceiling is twice as deep as the deepest expression RD-VBA reads:
+
+|What is nested|Rules a level|Nested deep enough to stop the parse|
+|---|---|---|
+|Parentheses, a `Spc(`, `Tab(` or `TypeOf` operand, a unary `-`, `Not`|1|about 30,000: far past `VBC00060`'s 2,500|
+|A call, however it is written (`Abs(`, `o.F(`, `Call F(G(`, `F G(`, `F(ByVal`, `F(a:=`)|6|about 5,000: 2,500 nested calls are about 15,000 rules deep|
+|A chain of operators (`1 + 1 + …`) or of argument lists (`a(1)(2)…`)|none|never, however long|
+|A `For` loop|3|about 10,000 nested loops|
+|A block `If`, a `With` block|4|about 7,500 nested blocks|
+|A `Select Case`|5|about 6,000 nested statements|
+
 ## Conditional Compilation
 
 A directive is a logical line (**MS-VBAL §3.2.2**, §3.4): the physical lines a line-continuation joins to a line that starts with `#` are the directive's, and are

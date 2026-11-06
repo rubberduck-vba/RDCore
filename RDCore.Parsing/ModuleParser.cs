@@ -179,12 +179,12 @@ public partial class ModuleParser(
             // an exception past both parse attempts on a fresh listener is more likely a listener bug
             // than bad input, so log it — the module still degrades to located errors + trivia +
             // whatever the listener had already built (salvaged below).
-            // A module nested past the parse's own stack (StackDepthGuardListener) is bad input: its exception's trace is a frame for each level, tens of
+            // A module nested deeper than the parse reads (StackDepthGuardListener) is bad input: its exception's trace is a frame for each level, tens of
             // thousands of them, and is neither logged nor given to a client - the error says what is wrong with the module.
             var outOfStack = IsOutOfStack(exception);
             if (outOfStack)
             {
-                _logger.LogWarning("❌ Parse of {uri} stopped: the module is nested deeper than the parse's stack.", uri);
+                _logger.LogWarning("❌ Parse of {uri} stopped: the module is nested deeper than the parse reads.", uri);
             }
             else
             {
@@ -214,7 +214,8 @@ public partial class ModuleParser(
         }
     }
 
-    // whether the parse ran out of its stack, however the exception that says so was wrapped on its way out of the grammar's descent.
+    // whether the parse went deeper than it reads (StackDepthGuardListener.MaxRuleDepth) or ran out of its stack, however the exception that says so was wrapped on
+    // its way out of the grammar's descent.
     private static bool IsOutOfStack(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
@@ -694,8 +695,47 @@ public partial class ModuleParser(
 // guard can't substitute for this.
 internal sealed class StackDepthGuardListener : VBAParserBaseListener
 {
+    /// <summary>
+    /// How many rules the parse may be inside at once: 30,000. Past it, the parse stops, and the module is a syntax error that it is nested too deeply to be read
+    /// (RD-VBAL 2.6.1). This is a limit of the implementation, and not of the language: an expression nested past
+    /// <see cref="ModuleParser.MaxExpressionNesting"/> is the language's own syntax error, <c>VBC00060</c>, and the ceiling is twice as deep as the deepest such
+    /// expression RD-VBA reads.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rules a level of nesting puts the parse inside of, measured on the grammar: 1 for parentheses, a print item, <c>Spc(</c>, <c>Tab(</c>,
+    /// <c>TypeOf</c>, a unary minus and <c>Not</c>; 6 for a call, however it is written (<c>Abs(</c>, <c>o.F(</c>, <c>Call F(G(</c>, <c>F G(</c>,
+    /// <c>F(ByVal</c>, <c>F(a:=</c>); 2 for a parenthesized right operand (<c>1 + (</c>). A chain of operators (<c>2 ^ 2 ^ …</c>, <c>1 + 1 + …</c>) and a chain
+    /// of argument lists (<c>a(1)(2)…</c>) do not nest the parse at all: 13 to 18 rules, however long. The deepest expression RD-VBA reads, 2,500 nested calls,
+    /// is 15,012 rules deep; the ceiling leaves it a margin of as much again.
+    /// </para>
+    /// <para>
+    /// Blocks nest the parse too: 3 rules for a <c>For</c> loop, 4 for an <c>If</c> or a <c>With</c> block, and 5 for a <c>Select Case</c>. A module whose
+    /// blocks are nested about 6,000 deep reaches the ceiling.
+    /// </para>
+    /// <para>
+    /// The parse runs on a stack of its own (<see cref="LargeStackThread"/>), which the ceiling is well inside of: the depth at which a parse stops is the same
+    /// whatever the size of its frames, in a Debug build as in a Release one. It also stops before its stack is deep enough to slow the process down: every
+    /// collection of the garbage collector scans the stack of every thread, and a parse that ran to the end of its stack, a hundred thousand levels and more,
+    /// made each one many times slower while it ran. The check of the stack itself
+    /// (<see cref="System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack"/>) is kept as a backstop.
+    /// </para>
+    /// </remarks>
+    internal const int MaxRuleDepth = 30_000;
+
+    private int _depth;
+
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
-        => System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+    {
+        if (++_depth > MaxRuleDepth)
+        {
+            throw new InsufficientExecutionStackException($"The parse is inside more than {MaxRuleDepth} rules.");
+        }
+
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
+    }
+
+    public override void ExitEveryRule([NotNull] ParserRuleContext context) => _depth--;
 }
 
 // a parse that is no longer wanted stops at the next rule it enters: registered live, as StackDepthGuardListener is, on the directive pass and on the main

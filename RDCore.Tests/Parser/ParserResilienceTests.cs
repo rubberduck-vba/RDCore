@@ -426,11 +426,13 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
-    public void NestingPastTheStackOfTheParse_IsAFailedParse_NotACrash()
+    public void NestingPastTheDepthTheParseReads_IsAFailedParse_NotACrash()
     {
-        // A5: pathological nesting recurses through the expression rule to an uncatchable stack overflow, past even the parse's own stack. EnterEveryRule's
-        // stack guard converts it to a catchable, located failure.
-        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', 1_000_000) + "1" + new string(')', 1_000_000));
+        // A5: pathological nesting recurses through the expression rule to an uncatchable stack overflow. The parse stops past a depth of rules
+        // (StackDepthGuardListener.MaxRuleDepth), well inside its own stack: a parenthesis is a rule, and the line's own rules take it just past the ceiling.
+        // Where it stops is not a matter of the size of a frame, and the outcome is the same in a Debug build as in a Release one.
+        const int levels = StackDepthGuardListener.MaxRuleDepth;
+        var (result, thrown) = ParseOnASmallStack("Public Const X = " + new string('(', levels) + "1" + new string(')', levels));
 
         Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
         Assert.IsNotNull(result);
