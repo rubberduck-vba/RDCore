@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Execution.Memory;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
@@ -84,6 +85,7 @@ public sealed class CompiledActivation : ILightActivation
     private void Begin()
     {
         Array.Clear(_cells);
+        (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
         (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
         _untilPoll = PollInterval;
@@ -105,7 +107,10 @@ public sealed class CompiledActivation : ILightActivation
 
     CallStackFrame ILightActivation.MakeFrame()
     {
-        var frame = _invoker.CreateCompiledFrame(_procedure!, _list);
+        // a member of a class entered on an object (EnterMemberDirectly): its frame holds Me in the cell the activation held it in, which lets go of it.
+        var frame = _entered is { } member && _me is { } me
+            ? _invoker.CreateMemberFrame(member, _list, _instance!.ObjectId, me)
+            : _invoker.CreateCompiledFrame(_procedure!, _list);
         (frame.Pc, frame.RunsCompiled) = (_pc, true);
         if (_hasResult)
         {
@@ -387,6 +392,7 @@ public sealed class CompiledActivation : ILightActivation
     // let go of as it is made (CallMember).
     private VBTypeMemberSymbol? _member;
     private IRuntimeValue? _receiver;
+    private IObjectInstance? _memberInstance;
 
     /// <summary>
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
@@ -398,7 +404,7 @@ public sealed class CompiledActivation : ILightActivation
     /// </summary>
     public bool CanCallMember(int callee, object? cell)
     {
-        (_member, _receiver) = (null, null);
+        (_member, _receiver, _memberInstance) = (null, null, null);
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
             || !_session.Symbols.TryGetInstance(instance, out var target)
@@ -407,7 +413,7 @@ public sealed class CompiledActivation : ILightActivation
             return false;
         }
 
-        (_member, _receiver) = (member, Unsafe.As<ValueBindingHandle>(cell!).Value);
+        (_member, _receiver, _memberInstance) = (member, Unsafe.As<ValueBindingHandle>(cell!).Value, target);
         return true;
     }
 
@@ -456,7 +462,7 @@ public sealed class CompiledActivation : ILightActivation
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
         var (member, receiver) = (_member!, _receiver!);
-        (_member, _receiver) = (null, null);
+        (_member, _receiver, _memberInstance) = (null, null, null);
 
         _suspensionsBeforeCall = Suspensions;
         var arguments = ArgumentsOf(called, 1);
@@ -601,9 +607,11 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The activation of the member <see cref="CanCallMember"/> found, which compiled code is about to call through its typed entry (<see cref="MemberEntry"/>)
-    /// with the arguments as it holds them, on the object it found (IR lowering S2.5e3b): made with its frame (<c>RuntimeProcedureInvoker.PushMemberActivation</c>),
-    /// as the invoker would make it, the object its <c>Me</c>. The instruction at <paramref name="pc"/> is the one that makes the call, which the frame says
-    /// while the member runs. The call is made through its binding (<see cref="CallMember"/>) when it is not made this way, or not now, for the reasons
+    /// with the arguments as it holds them, on the object it found (IR lowering S2.5e3b), the object its <c>Me</c>: on the stack without a frame, as
+    /// <see cref="EnterDirectly"/> makes one, when the frame would hold nothing compiled code does not but <c>Me</c> (<see cref="CompiledBody.EntersWithoutFrame"/>)
+    /// and no debugger is to see it - the activation holds <c>Me</c>, and its frame, once something is to see it, is the one the invoker would have made; with
+    /// its frame otherwise (<c>RuntimeProcedureInvoker.PushMemberActivation</c>). The instruction at <paramref name="pc"/> is the one that makes the call,
+    /// which the frame says while the member runs. The call is made through its binding (<see cref="CallMember"/>) when it is not made this way, or not now, for the reasons
     /// <see cref="EnterDirectly"/> gives; or when the member is not compiled, or is not the workspace's to run.
     /// </summary>
     /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
@@ -619,16 +627,53 @@ public sealed class CompiledActivation : ILightActivation
 
         SetPc(pc);
         _failed = null;
-        if (_invoker.PushMemberActivation(member, entry.List, receiver) is not { } frame)
+        CompiledActivation activation;
+        if (entry.Body.EntersWithoutFrame && _halt.Gate is null && _stack is not null && UnboxedEvaluation.IsEnabled)
+        {
+            // a member whose frame would hold nothing compiled code does not but Me is on the stack without one, as a procedure called directly is: in the
+            // activation that last left its place of the stack, begun again, when that was an activation of the same member. Me is held as the invoker
+            // holds it, by a cell of the activation's own, for as long as the activation is: two activations of the member on the stack - a recursion, a
+            // call on another object - each hold their own.
+            if (_stack.TakeSpare() is CompiledActivation spare && ReferenceEquals(spare._procedure, member) && ReferenceEquals(spare._list, entry.List)
+                && ReferenceEquals(spare._body, entry.Body) && ReferenceEquals(spare._invoker, _invoker))
+            {
+                spare._frame = null;
+                spare.Begin();
+                activation = spare;
+            }
+            else
+            {
+                activation = new CompiledActivation(_session, entry.List, _executor, entry.Context, entry.Body, _invoker, member);
+                entry.Body.CountActivationMade();
+            }
+
+            if (!_stack.TryPushLight(activation))
+            {
+                return null;
+            }
+
+            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, new ValueBindingHandle(receiver));
+            ObjectReferences.Rebind(_session, activation._me, ObjectReferences.Held.None);
+        }
+        else if (_invoker.PushMemberActivation(member, entry.List, receiver) is { } frame)
+        {
+            activation = new CompiledActivation(_session, frame, entry.List, _executor, entry.Context, entry.Body, _invoker) { _entered = member };
+        }
+        else
         {
             return null;
         }
 
-        (_member, _receiver, _memberEntry) = (null, null, entry.Entry);
+        (_member, _receiver, _memberInstance, _memberEntry) = (null, null, null, entry.Entry);
         _body.CountDirectCall();
         _suspensionsBeforeCall = Suspensions;
-        return new CompiledActivation(_session, frame, entry.List, _executor, entry.Context, entry.Body, _invoker) { _entered = member };
+        return activation;
     }
+
+    // the object an activation of a member of a class entered without a frame is on (EnterMemberDirectly), and the cell it holds Me in: the frame it is given
+    // later holds Me in that cell (MakeFrame), and the activation lets go of it as the frame would have, when it returns (ReturnedDirectly).
+    private IObjectInstance? _instance;
+    private ValueBindingHandle? _me;
 
     /// <summary>The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.</summary>
     public nint MemberEntry => _memberEntry;
@@ -669,9 +714,9 @@ public sealed class CompiledActivation : ILightActivation
     public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        outcome = callee._entered is { } member
-            ? _invoker.PopMemberActivation(callee._frame!, member, outcome)
-            : _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+        outcome = callee._entered is not { } member ? _invoker.PopCompiledActivation(outcome, light: callee._frame is null)
+            : callee._me is { } me && callee._frame is null ? EndMember(callee, me, outcome)
+            : _invoker.PopMemberActivation(callee._frame!, member, outcome);
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure)
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
@@ -694,6 +739,19 @@ public sealed class CompiledActivation : ILightActivation
 
         (integral, floating) = (payload.Integral, payload.Floating);
         return true;
+    }
+
+    // the end of an activation of a member entered without a frame, which still has none (EnterMemberDirectly): Me let go of as the invoker lets go of it
+    // (RuntimeProcedureInvoker.PopMemberActivation) - unless the program was ended in it - while the activation is still on the stack. A Class_Terminate that
+    // runs then gives it its frame, as any call does; it is then taken off the stack with that frame, which holds Me in the same cell, let go of already.
+    private RuntimeExecutionOutcome EndMember(CompiledActivation callee, ValueBindingHandle me, RuntimeExecutionOutcome outcome)
+    {
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        {
+            ObjectReferences.Release(_session, me);
+        }
+
+        return _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
     }
 
     /// <summary>
@@ -881,9 +939,30 @@ public sealed class CompiledActivation : ILightActivation
     /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
     public object? FieldCellOf(int number)
     {
-        // the activation of a member of a class has its frame (ProcedureAnalysis.NeedsFrame), the current one, whose object is Me.
+        // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.
+        var instance = _instance ?? (Frame.Target is { } target && _session.Symbols.TryGetInstance(target, out var on) ? on : null);
+        if (instance is null || _session.Storage is not SessionStorage storage)
+        {
+            return null;
+        }
+
+        // the cell the body found last of the field of the same object, while nothing was allocated, freed or rebound since (CompiledBody.Fields).
+        var known = _body.Fields;
+        if (known is null || !ReferenceEquals(known.Instance, instance) || known.Generation != storage.Generation)
+        {
+            known = new FieldCells(instance, storage.Generation, new object?[_cells.Length]);
+            _body.Fields = known;
+        }
+
+        if (known.Cells[number] is { } cached)
+        {
+            return cached;
+        }
+
         var field = _body.SlotSymbols[_body.CellSlots[number]];
-        return _session.Symbols.Resolver.GetValue(field) is ScalarCell cell && cell.Type.Equals(((ITypedSymbol)field).ResolvedType) ? cell : null;
+        var found = instance.TryResolve(field, out var held) && held is ScalarCell cell && cell.Type.Equals(((ITypedSymbol)field).ResolvedType) ? cell : null;
+        known.Cells[number] = found;
+        return found;
     }
 
     /// <summary>The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.</summary>
@@ -933,6 +1012,12 @@ public sealed class CompiledActivation : ILightActivation
     /// </returns>
     public object? ObjectCellOf(int slot)
     {
+        // Me, of a member entered without a frame: the cell the activation holds it in, which its frame is given when it has one (EnterMemberDirectly).
+        if (_frame is null && _me is { } me && slot == _body.MeSlot)
+        {
+            return me;
+        }
+
         var frame = Frame;
         return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is ValueBindingHandle handle ? handle : null;
     }
@@ -1339,6 +1424,22 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// the invoker, which makes the frame, and never directly without one.
     /// </summary>
     public bool NeedsFrame { get; init; }
+
+    /// <summary>
+    /// Whether the body is of a member of a class that a call compiled code makes of it on an object enters without a frame (IR lowering S2.5e3b,
+    /// <see cref="ProcedureAnalysis.EntersWithoutFrame"/>).
+    /// </summary>
+    public bool EntersWithoutFrame { get; init; }
+
+    /// <summary>The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.</summary>
+    public int MeSlot { get; init; } = -1;
+
+    /// <summary>
+    /// The cells of the fields of <c>Me</c> the body found last (IR lowering S2.5e3b): those of the object an activation of it was last on, for as long as
+    /// what the session's storage binds is what it bound then - a field's cell is the one it was until anything is allocated, freed or rebound
+    /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of.
+    /// </summary>
+    internal FieldCells? Fields { get; set; }
 
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];

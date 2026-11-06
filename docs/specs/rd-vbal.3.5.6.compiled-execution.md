@@ -45,6 +45,13 @@ object's class implements it with. It then calls that member as the interpreter 
 the call. A call on `Nothing` is the interpreter's, which raises error 91, and so is a call of a variable declared `Object` or `Variant`, which is
 late-bound.
 
+When the member is compiled too, compiled code calls the member's compiled code directly. A member that keeps nothing in its frame but `Me` and values of
+scalar types runs without a frame, as a compiled procedure called directly does. Its activation still holds `Me`, so an object is let go of, and its
+`Class_Terminate` runs, exactly when the interpreter would do it. The activation gets the frame the interpreter would have made as soon as anything needs
+it: an error, a statement the interpreter runs, another object's `Class_Terminate`. Under a debugger, every member gets its frame when it is called.
+Compiled code remembers where it last found an object's fields. It looks for them again for another object, and whenever anything in memory has been
+allocated, freed or rebound since.
+
 Compiled code does these itself:
 
 |Kind|What compiled code does|

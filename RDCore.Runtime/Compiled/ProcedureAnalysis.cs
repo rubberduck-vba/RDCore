@@ -229,6 +229,11 @@ internal sealed class ProcedureAnalysis
     {
         var analysis = new ProcedureAnalysis(session, evaluator, procedure);
         analysis.Analyze(list);
+
+        // Me, and the fields found through it, are what a frame holds of a member of a class that nothing else makes it hold: such a member is entered
+        // without one, and its activation holds Me (IR lowering S2.5e3b). Any other member is called with its frame.
+        analysis.EntersWithoutFrame = analysis.MeSlot is not null && !analysis.NeedsFrame;
+        analysis.NeedsFrame |= analysis.MeSlot is not null || analysis._fieldSlots.Count > 0;
         return analysis;
     }
 
@@ -409,6 +414,16 @@ internal sealed class ProcedureAnalysis
     /// </summary>
     public bool NeedsFrame { get; private set; }
 
+    /// <summary>The slot of <c>Me</c>, an object slot (<see cref="ObjectSlots"/>), when the procedure is a member of a class; <see langword="null"/> otherwise.</summary>
+    public int? MeSlot { get; private set; }
+
+    /// <summary>
+    /// Whether the procedure is a member of a class whose frame holds nothing compiled code does not but <c>Me</c> (IR lowering S2.5e3b): a call compiled
+    /// code makes of it on an object enters it without a frame, as it enters a procedure (<see cref="CompiledActivation.EnterMemberDirectly"/>), its
+    /// activation holding <c>Me</c>, and its fields found on the object.
+    /// </summary>
+    public bool EntersWithoutFrame { get; private set; }
+
     // where a declaration is, which is what a reason it gives is reported at.
     private static SourceLocation LocationOf(BoundTypedSymbol declared) => new(declared.Uri, declared.Range);
 
@@ -430,6 +445,15 @@ internal sealed class ProcedureAnalysis
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
+
+            // Me is held as an object parameter is (below), in the cell its frame holds it in - or its activation, for a member entered without a frame.
+            if (i == 0 && parameter.Name == Tokens.Me && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
+            {
+                MeSlot = _layout.ParameterSlots[i];
+                _ = _objectSlots.Add(_layout.ParameterSlots[i]);
+                _slotSymbols[_layout.ParameterSlots[i]] = parameter;
+                continue;
+            }
 
             // a Variant is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c).
             if (parameter is not ParamArrayParameterSymbol && parameter.ResolvedType is VBVariantType && _layout.ParameterSlots[i] >= 0)
@@ -958,7 +982,6 @@ internal sealed class ProcedureAnalysis
             _slotSymbols[slot] = field;
             _ = _cellSlots.Add(slot);
             _ = _fieldSlots.Add(slot);
-            NeedsFrame = true;
         }
 
         return slot;

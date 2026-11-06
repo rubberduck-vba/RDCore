@@ -332,6 +332,17 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
+/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
+/// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type.
+/// </summary>
+/// <param name="Instance">The object.</param>
+/// <param name="Generation">What the session's storage bound when they were found: a cell is the field's for as long as that has not changed.</param>
+/// <param name="Cells">The cells, by number.</param>
+internal sealed record class FieldCells(SDK.Runtime.Abstract.Execution.IObjectInstance Instance, int Generation, object?[] Cells)
+{
+}
+
+/// <summary>
 /// A call compiled code makes of a procedure that is compiled too (IR lowering S2.3b): the callee's typed entry, which the caller's IL calls with the
 /// arguments as they are, and what its activation is made of.
 /// </summary>

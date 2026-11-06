@@ -932,6 +932,17 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     internal void PushCell(Symbol symbol, ScalarCell cell, int slot) => Hold(symbol, cell, cell.Type.DefaultValue.Size, slot);
 
     /// <summary>
+    /// Declares <paramref name="symbol"/>, a parameter of an object, held in <paramref name="cell"/>: the cell of its reference, as <see cref="HoldArgument"/>
+    /// gives it one - the cell an activation of a member of a class entered without a frame held its <c>Me</c> in (IR lowering S2.5e3b), which the activation
+    /// lets go of as its own.
+    /// </summary>
+    /// <param name="symbol">The parameter.</param>
+    /// <param name="type">Its declared type.</param>
+    /// <param name="cell">The cell of its reference.</param>
+    /// <param name="slot">The number of its slot.</param>
+    internal void PushObject(Symbol symbol, VBType type, ValueBindingHandle cell, int slot) => Hold(symbol, cell, type.DefaultValue.Size, slot);
+
+    /// <summary>
     /// What is bound at the address the variable in slot <paramref name="slot"/> was given, when the slot holds an address rather than a cell: the variable's
     /// cell, unless something other than a cell is bound there.
     /// </summary>

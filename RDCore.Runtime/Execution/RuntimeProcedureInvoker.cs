@@ -596,6 +596,26 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     /// <summary>
+    /// The frame of an activation of <paramref name="member"/>, a member of a class, that a call compiled code made of it on an object entered without one
+    /// (IR lowering S2.5e3b), as <see cref="PushMemberActivation"/> makes it, but not pushed: <paramref name="target"/> its object, its function result made,
+    /// and <c>Me</c> held in <paramref name="me"/>, the cell the activation held it in, which holds its reference already. Its other parameters and its
+    /// variables are scalars, which the activation gives it (<see cref="CreateCompiledFrame"/>).
+    /// </summary>
+    internal CallStackFrame CreateMemberFrame(VBTypeMemberSymbol member, InstructionList body, VBRuntimeObjectId target, ValueBindingHandle me)
+    {
+        var frame = CreateCompiledFrame(member, body);
+        frame.Target = target;
+        if (member is VBReturningMemberSymbol returning)
+        {
+            frame.ReturnValue = returning.ResolvedType.DefaultValue;
+        }
+
+        var parameter = GetParameters(member)[0];
+        frame.PushObject(parameter, parameter.ResolvedType, me, frame.Layout!.ParameterSlots[0]);
+        return frame;
+    }
+
+    /// <summary>
     /// The end of an activation <see cref="PushMemberActivation"/> made, as <see cref="Activate"/> ends one: <c>Me</c> and the objects its locals held let go
     /// of (MS-VBAL §5.3.1.10), unless the program was stopped in it, and then as <see cref="PopCompiledActivation"/> ends it.
     /// </summary>
