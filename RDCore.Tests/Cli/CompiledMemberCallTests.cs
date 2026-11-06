@@ -62,10 +62,21 @@ public sealed class CompiledMemberCallTests
             "End Sub")),
     ];
 
+    // the program run both ways, as AssertAlikeAsync runs it, and each call of a member compiled code made, made through the member's typed entry (IR
+    // lowering S2.5e3b): none through its binding.
+    private static async Task AssertCalledAsync(string program, string compiled, long recoveries, long direct)
+    {
+        var result = await AssertAlikeAsync(program, compiled, recoveries, classes: Classes);
+        if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual((direct, 0L), (result.Body!.DirectCalls, result.Body.IndirectCalls), $"{compiled}'s calls made directly, and through a binding");
+        }
+    }
+
     // a Sub called in a loop, given an argument; a Function whose result is assigned whole. Only the Set is the interpreter's.
     [TestMethod]
     public async Task AMemberOfAnObject_IsCalledByCompiledCode()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Called()",
             "End Sub",
@@ -77,12 +88,12 @@ public sealed class CompiledMemberCallTests
             "        T.Add I",
             "    Next",
             "    Called = T.Total()",
-            "End Function"), "Called", recoveries: 1, classes: Classes);
+            "End Function"), "Called", recoveries: 1, direct: 6);
 
     // a Function given an argument, its result assigned to a variable, then folded.
     [TestMethod]
     public async Task AFunctionMember_ReturnsWhatItsVariableIsAssigned()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Folded()",
             "End Sub",
@@ -96,12 +107,12 @@ public sealed class CompiledMemberCallTests
             "        V = T.Twice(I)",
             "        Folded = Folded * 7 + V",
             "    Next",
-            "End Function"), "Folded", recoveries: 1, classes: Classes);
+            "End Function"), "Folded", recoveries: 1, direct: 8);
 
     // a variable passed by reference to a member is the member's parameter: what it assigns it, it assigns the variable.
     [TestMethod]
     public async Task AVariablePassedByReferenceToAMember_IsAssignedThroughIt()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Bumped()",
             "End Sub",
@@ -115,12 +126,12 @@ public sealed class CompiledMemberCallTests
             "        N = N + I",
             "    Next",
             "    Bumped = N",
-            "End Function"), "Bumped", recoveries: 1, classes: Classes);
+            "End Function"), "Bumped", recoveries: 1, direct: 5);
 
     // two objects of one class: each call is made on the object its variable refers to, which is Set again in the loop.
     [TestMethod]
     public async Task EachCall_IsMadeOnTheObjectItsVariableRefersTo()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Twice()",
             "End Sub",
@@ -140,12 +151,12 @@ public sealed class CompiledMemberCallTests
             "    Next",
             "    V = B.Total()",
             "    Twice = Twice + V",
-            "End Function"), "Twice", recoveries: 8, classes: Classes);
+            "End Function"), "Twice", recoveries: 8, direct: 13);
 
     // a variable declared as an interface: the member called is the one the object's class implements it with, of one class then of another.
     [TestMethod]
     public async Task AMemberOfAnInterface_IsTheOneTheObjectsClassImplementsItWith()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Counted()",
             "End Sub",
@@ -160,12 +171,12 @@ public sealed class CompiledMemberCallTests
             "        V = C.Value()",
             "        Counted = Counted * 3 + V",
             "    Next",
-            "End Function"), "Counted", recoveries: 2, classes: Classes);
+            "End Function"), "Counted", recoveries: 2, direct: 12);
 
     // a call on Nothing raises error 91: the interpreter makes it, and the handler is given the error.
     [TestMethod]
     public async Task ACallOnNothing_IsMadeByTheInterpreter_WhichRaisesTheError()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Raised()",
             "End Sub",
@@ -179,12 +190,12 @@ public sealed class CompiledMemberCallTests
             "        Err.Clear",
             "        If I = 2 Then Set T = New Tally",
             "    Next",
-            "End Function"), "Raised", recoveries: 9, classes: Classes);
+            "End Function"), "Raised", recoveries: 9, direct: 1);
 
     // the object a member is called on lives at least as long as the call: Set to another, the one before is let go of after the call, and terminates.
     [TestMethod]
     public async Task TheObjectAMemberIsCalledOn_TerminatesWhenItsLastReferenceGoes()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Touched()",
             "End Sub",
@@ -197,12 +208,12 @@ public sealed class CompiledMemberCallTests
             "        T.Touch I + 1",
             "    Next",
             "    Touched = I",
-            "End Function"), "Touched", recoveries: 3, classes: Classes);
+            "End Function"), "Touched", recoveries: 3, direct: 6);
 
     // a member of a variable declared Object is late-bound: the interpreter's.
     [TestMethod]
     public async Task AMemberOfAnObjectDeclaredObject_IsCalledByTheInterpreter()
-        => await AssertAlikeAsync(Program(
+        => await AssertCalledAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Late()",
             "End Sub",
@@ -214,5 +225,5 @@ public sealed class CompiledMemberCallTests
             "        O.Add I",
             "    Next",
             "    Late = 1",
-            "End Function"), "Late", recoveries: 4, classes: Classes);
+            "End Function"), "Late", recoveries: 4, direct: 0);
 }

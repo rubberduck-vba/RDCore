@@ -593,9 +593,74 @@ public sealed class CompiledActivation : ILightActivation
         return activation;
     }
 
+    // the member of a class the activation is of, entered directly on an object (EnterMemberDirectly): its end lets go of Me and of what its locals hold.
+    private VBTypeMemberSymbol? _entered;
+
+    // the typed entry of the member EnterMemberDirectly entered last, which compiled code calls next.
+    private nint _memberEntry;
+
+    /// <summary>
+    /// The activation of the member <see cref="CanCallMember"/> found, which compiled code is about to call through its typed entry (<see cref="MemberEntry"/>)
+    /// with the arguments as it holds them, on the object it found (IR lowering S2.5e3b): made with its frame (<c>RuntimeProcedureInvoker.PushMemberActivation</c>),
+    /// as the invoker would make it, the object its <c>Me</c>. The instruction at <paramref name="pc"/> is the one that makes the call, which the frame says
+    /// while the member runs. The call is made through its binding (<see cref="CallMember"/>) when it is not made this way, or not now, for the reasons
+    /// <see cref="EnterDirectly"/> gives; or when the member is not compiled, or is not the workspace's to run.
+    /// </summary>
+    /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
+    public CompiledActivation? EnterMemberDirectly(int pc, int callee)
+    {
+        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
+            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
+            || EntryOf(_body.Callees[callee], member) is not { } entry)
+        {
+            return null;
+        }
+
+        SetPc(pc);
+        _failed = null;
+        if (_invoker.PushMemberActivation(member, entry.List, receiver) is not { } frame)
+        {
+            return null;
+        }
+
+        (_member, _receiver, _memberEntry) = (null, null, entry.Entry);
+        _body.CountDirectCall();
+        _suspensionsBeforeCall = Suspensions;
+        return new CompiledActivation(_session, frame, entry.List, _executor, entry.Context, entry.Body, _invoker) { _entered = member };
+    }
+
+    /// <summary>The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.</summary>
+    public nint MemberEntry => _memberEntry;
+
+    // the compiled member a call enters directly: the one it entered last, while its body is the one the invoker runs; else the member compiled now, when it
+    // is the workspace's to run - its binding is this invoker's.
+    private MemberEntry? EntryOf(CompiledCallee called, VBTypeMemberSymbol member)
+    {
+        if (called.Entered is { } entered && ReferenceEquals(entered.Member, member) && ReferenceEquals(_invoker.BodyOf(member), entered.List))
+        {
+            return entered;
+        }
+
+        var expressions = _executor.Expressions;
+        var invoker = expressions.Bindings is { } bindings
+            ? bindings.ForMember(member) is CallableBindingHandle { Receiver: null } handle ? handle.Invoker : null
+            : expressions.ProcedureInvoker;
+        if (!ReferenceEquals(invoker, _invoker) || _invoker.BodyOf(member) is not { } list
+            || _invoker.CompiledBodyOf(member, list) is not { Entry: { } method } body)
+        {
+            return null;
+        }
+
+        entered = new MemberEntry(member, list, body, method.MethodHandle.GetFunctionPointer(), new RuntimeEvaluationContext(member.Uri));
+        called.Entered = entered;
+        return entered;
+    }
+
     /// <summary>
     /// Ends the activation <paramref name="callee"/> of the call numbered <paramref name="call"/> of the body, which compiled code made through the callee's
-    /// typed entry (<see cref="EnterDirectly"/>), and which returned <paramref name="outcome"/>: the frame off the stack, as the invoker takes it off.
+    /// typed entry (<see cref="EnterDirectly"/>, <see cref="EnterMemberDirectly"/>), and which returned <paramref name="outcome"/>: the frame off the stack,
+    /// as the invoker takes it off.
     /// </summary>
     /// <returns>
     /// Whether the call returned: what it returned is then a payload of its kind, when what it returns is read. When not, the interpreter is given the call
@@ -604,7 +669,9 @@ public sealed class CompiledActivation : ILightActivation
     public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        outcome = _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+        outcome = callee._entered is { } member
+            ? _invoker.PopMemberActivation(callee._frame!, member, outcome)
+            : _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure)
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.

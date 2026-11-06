@@ -316,6 +316,19 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// <see cref="Procedure"/> is (<see cref="CompiledActivation.CanCallMember"/>): one implementing it, of an object declared as an interface.
     /// </summary>
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
+
+    /// <summary>The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).</summary>
+    public MemberEntry? Entered { get; set; }
+}
+
+/// <summary>
+/// A member of a class a compiled call of a member of an object enters directly (IR lowering S2.5e3b): its body, compiled, and its typed entry, which the
+/// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
+/// holds them.
+/// </summary>
+internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, SDK.Semantics.Instructions.InstructionList List, CompiledBody Body,
+    nint Entry, Semantics.RuntimeEvaluationContext Context)
+{
 }
 
 /// <summary>

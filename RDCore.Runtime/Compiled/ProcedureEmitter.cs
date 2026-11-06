@@ -670,8 +670,10 @@ internal sealed class ProcedureEmitter
         var returned = _il.DefineLabel();
 
         // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
-        // way (CompiledActivation.EnterDirectly); through the invoker otherwise.
-        if (_directs[call.Callee] is { } direct)
+        // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
+        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has (IR lowering S2.5e3b).
+        var direct = _directs[call.Callee];
+        if (direct is not null || call.Receiver is not null)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -679,7 +681,7 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, call.Offset);
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.EnterDirectly))!);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(direct is null ? nameof(CompiledActivation.EnterMemberDirectly) : nameof(CompiledActivation.EnterDirectly))!);
             _il.Emit(OpCodes.Stloc, callee);
             _il.Emit(OpCodes.Ldloc, callee);
             _il.Emit(OpCodes.Brfalse, indirect);
@@ -694,7 +696,19 @@ internal sealed class ProcedureEmitter
                 Load(given[i], call.Arguments[i].Kind);
             }
 
-            _il.Emit(OpCodes.Call, direct.Entry);
+            if (direct is not null)
+            {
+                _il.Emit(OpCodes.Call, direct.Entry);
+            }
+            else
+            {
+                var member = _analysis.Callees[call.Callee];
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.MemberEntry))!.GetMethod!);
+                _il.EmitCalli(OpCodes.Calli, CallingConventions.Standard, typeof(RuntimeExecutionOutcome),
+                    [typeof(CompiledActivation), .. member.Parameters.Select((kind, i) => member.ByReference[i] ? typeof(object) : ClrTypeOf(kind))], null);
+            }
+
             _il.Emit(OpCodes.Stloc, outcome);
             _il.BeginFaultBlock();
             _il.Emit(OpCodes.Ldarg_0);

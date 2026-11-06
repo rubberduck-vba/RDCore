@@ -562,6 +562,61 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         return outcome;
     }
 
+    /// <summary>
+    /// The activation of <paramref name="member"/>, a member of a class, that a call compiled code makes of it on <paramref name="receiver"/> runs in (IR
+    /// lowering S2.5e3b): made as <see cref="Activate"/> makes one, on the stack, the object its <c>Target</c>, <c>Me</c> held for as long as the
+    /// activation is, its function result and its locals made. Its other parameters are scalars, which the member's compiled code is given, as a call
+    /// compiled code makes of a procedure gives them (<see cref="PushCompiledActivation"/>).
+    /// </summary>
+    /// <returns><see langword="null"/> when the call stack is full: the call is then made as any other, which says so (<see cref="VBRuntimeErrorId.OutOfStackSpace"/>).</returns>
+    internal CallStackFrame? PushMemberActivation(VBTypeMemberSymbol member, InstructionList body, VBRuntimeValue<VBRuntimeObjectId> receiver)
+    {
+        var frame = CreateCompiledFrame(member, body);
+        frame.Target = receiver.StoredValue;
+        if (!Session.CallStack.TryPush(frame))
+        {
+            return null;
+        }
+
+        if (member is VBReturningMemberSymbol returning)
+        {
+            frame.ReturnValue = returning.ResolvedType.DefaultValue;
+        }
+
+        // Me is held as Activate holds a parameter given a copy of its argument: the member runs on a live object, whatever its code does with the
+        // variables that refer to it.
+        var me = GetParameters(member)[0];
+        if ((frame.HoldArgument(me, me.ResolvedType, receiver, frame.Layout!.ParameterSlots[0]) ?? (frame.TryResolve(me, out var resolved) ? resolved : null)) is { } cell)
+        {
+            ObjectReferences.Rebind(Session, cell, ObjectReferences.Held.None);
+        }
+
+        HoistLocals(Session, frame, GetLocals(member));
+        return frame;
+    }
+
+    /// <summary>
+    /// The end of an activation <see cref="PushMemberActivation"/> made, as <see cref="Activate"/> ends one: <c>Me</c> and the objects its locals held let go
+    /// of (MS-VBAL §5.3.1.10), unless the program was stopped in it, and then as <see cref="PopCompiledActivation"/> ends it.
+    /// </summary>
+    /// <returns>The activation's outcome, as its caller is to see it.</returns>
+    internal RuntimeExecutionOutcome PopMemberActivation(CallStackFrame frame, VBTypeMemberSymbol member, RuntimeExecutionOutcome outcome)
+    {
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        {
+            ReleaseLocals(frame, GetLocals(member), GetParameters(member), arguments: null);
+        }
+
+        return PopCompiledActivation(outcome);
+    }
+
+    /// <summary>
+    /// The compiled body of <paramref name="procedure"/>, whose body is <paramref name="list"/>, as this invoker would run it (<see cref="Run"/>);
+    /// <see langword="null"/> when it is not compiled.
+    /// </summary>
+    internal CompiledBody? CompiledBodyOf(VBTypeMemberSymbol procedure, InstructionList list)
+        => Bodies is ProgramImage image ? image.Compiler.Compile(Session, Executor.Expressions, procedure, list).Body : null;
+
     // MS-VBAL 5.2.1: a procedure's code runs under the Option directives of the module declaring it, whichever module called it. A StaticSymbol has no link
     // back to its module, so the frame is what carries them.
     private Activation ActivationOf(VBTypeMemberSymbol procedure) => new(
