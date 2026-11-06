@@ -59,12 +59,16 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // where a variable the activation does not hold is held, as the interpreter resolves it (CallStackAwareSymbolResolver, RuntimeExpressionEvaluator.BindingOf):
-    // a variable of the class the procedure is a member of, on Me (MS-VBAL §5.6.10); a variable of a standard module, of any, in the session. Any other is the
-    // interpreter's.
+    // a variable of the class the procedure is a member of, on Me (MS-VBAL §5.6.10); a variable of a standard module, of any, in the session; a Static
+    // variable of the procedure, on Me for a member of a class (MS-VBA: each object has its own) and in the session otherwise. Any other is the interpreter's.
+    // A Static is given its storage by the call that first needs it (RuntimeProcedureInvoker.HoistLocals), which a procedure that has one is called through
+    // (NeedsFrame), so its cell is there when compiled code looks for it.
     private FieldScope? ScopeOf(Symbol variable) => variable switch
     {
         VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Instance } field when field.ParentUri.AbsoluteUri == _procedure.ParentUri.AbsoluteUri => FieldScope.Object,
         VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Module or ScopeKind.Global } => FieldScope.Session,
+        VBLocalVariableSymbol { IsStatic: true } local when local.ParentUri.AbsoluteUri == _procedure.Uri.AbsoluteUri
+            => MeSlot is null ? FieldScope.Session : FieldScope.Object,
         _ => null,
     };
 }

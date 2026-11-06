@@ -118,9 +118,10 @@ public sealed class CompiledSteppingTests
                 "    Total = mItems.Count + mTotal",
                 "End Function"))]);
 
-    // a Static outlives the activation: the frame's, from one call to the next.
+    // a Static outlives the activation: held where the interpreter holds it, which compiled code reads and writes it in, from one call to the next
+    // (CompiledStaticTests).
     [TestMethod]
-    public async Task AStatic_IsTheInterpreters_FromOneCallToTheNext()
+    public async Task AStatic_IsKeptFromOneCallToTheNext()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Counted(); Counted()",
@@ -133,7 +134,7 @@ public sealed class CompiledSteppingTests
             "        T = T + I",
             "        Counted = Counted + Calls + T",
             "    Next",
-            "End Function"), "Counted", recoveries: 8);
+            "End Function"), "Counted", recoveries: 0);
 
     // a For whose end is not compiled code's: the interpreter opens the loop and steps it, and the body is compiled.
     [TestMethod]
