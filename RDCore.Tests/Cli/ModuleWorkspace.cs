@@ -82,6 +82,14 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true);
 
     /// <summary>
+    /// The errors that stopped the <c>Program</c> standard module from loading, as <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>
+    /// gives them, of a module that may have syntax errors, which the language server sends the host as it sends any other module.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static Task<string[]> LoadErrorsWithSyntaxErrorsAsync(string program)
+        => RunCoreAsync([], program, errorsOnly: true, syntaxErrors: true);
+
+    /// <summary>
     /// The libraries a workspace's project references, and the source they are found in. A library is known by its name, as the project's reference says.
     /// </summary>
     /// <param name="References">The names of the libraries the project references, in order, after the standard library.</param>

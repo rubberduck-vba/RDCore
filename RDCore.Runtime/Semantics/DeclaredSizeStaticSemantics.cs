@@ -158,7 +158,9 @@ public static class DeclaredSizeStaticSemantics
         foreach (var bound in declared)
         {
             ExpressionNode[] expressions = [.. new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>()];
-            if (expressions.All(IsLiteral) || expressions.Any(expression => ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is not null))
+            // a bound kept as text (VBC00060, RD-VBAL 2.6.1) is not analyzed.
+            if (expressions.All(IsLiteral) || expressions.Any(expression => expression is UnbuiltExpressionTriviaNode || expression.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any()
+                || ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is not null))
             {
                 continue;
             }

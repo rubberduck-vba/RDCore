@@ -156,10 +156,40 @@ public sealed class ExpressionPastTheLimitTests
     public void ABoundOfADeclaredArrayPastTheLimit_IsAnErrorNode()
         => AssertPrunedWhereWritten("Dim y(1 To {0}) As Long", "parentheses");
 
-    private static void AssertPrunedWhereWritten(string statement, string shape)
+    // what is kept as text is not analyzed (RD-VBAL 2.6.1): no check of the static pass reports on it, wherever it is written, and the error the parser
+    // reported is the module's only one.
+    [TestMethod]
+    [DataRow("x = {0}", "parentheses")]
+    [DataRow("x = 1 + {0}", "chain")]
+    [DataRow("x = {0}", "members")]
+    [DataRow("Set x = {0}", "fluent")]
+    [DataRow("If x Then\r\n        x = {0}\r\n    End If", "chain")]
+    [DataRow("Select Case x\r\n        Case 1, {0}\r\n    End Select", "parentheses")]
+    [DataRow("F a:={0}", "parentheses")]
+    [DataRow("Debug.Print 1; {0}", "chain")]
+    public async Task AnExpressionPastTheLimit_IsExpressionNestedTooDeeply_Only_WhereverItIsWritten(string statement, string shape)
+    {
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Sub Main()",
+            "    Dim x As Variant",
+            "    Dim b As Object",
+            $"    {string.Format(statement, Deep(shape))}",
+            "End Sub",
+            "Public Sub F(Optional ByVal a As Variant)",
+            "End Sub",
+            "");
+
+        var errors = await ModuleWorkspace.LoadErrorsWithSyntaxErrorsAsync(program);
+
+        StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
+    }
+
+    // 3,000 levels of a shape of expression.
+    private static string Deep(string shape)
     {
         const int levels = 3000;
-        var expression = shape switch
+        return shape switch
         {
             "parentheses" => new string('(', levels) + "1" + new string(')', levels),
             "members" => "b" + string.Concat(Enumerable.Repeat(".c", levels)),
@@ -167,7 +197,11 @@ public sealed class ExpressionPastTheLimitTests
             "chain" => ExpressionNestingTests.Chain(levels),
             _ => "a" + string.Concat(Enumerable.Repeat("(1)", levels)),
         };
-        var text = $"Public Sub Main()\r\n    {string.Format(statement, expression)}\r\nEnd Sub\r\n";
+    }
+
+    private static void AssertPrunedWhereWritten(string statement, string shape)
+    {
+        var text = $"Public Sub Main()\r\n    {string.Format(statement, Deep(shape))}\r\nEnd Sub\r\n";
 
         var result = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
 
@@ -239,6 +273,28 @@ public sealed class ExpressionPastTheLimitTests
         var model = await ModuleWorkspace.ModelAsync([], Source, syntaxErrors: true);
 
         Assert.IsTrue(model.Procedures.Any(procedure => !procedure.Expressions.IsEmpty), "the facts of the module's expressions");
+    }
+
+    // what is kept as text is not analyzed (RD-VBAL 2.6.1): it is no expression a constant's value is required to be, and the error the parser reported is
+    // the module's only one.
+    [TestMethod]
+    [DataRow("Const K = {0}", "", DisplayName = "a constant of the module")]
+    [DataRow("", "Const K = {0}", DisplayName = "a constant of the procedure")]
+    [DataRow("Const K = 1 + {0}", "", DisplayName = "an operand of a constant's value")]
+    public async Task AConstantPastTheLimit_IsExpressionNestedTooDeeply_Only(string declarations, string body)
+    {
+        var deep = $"{new string('(', 3000)}1{new string(')', 3000)}";
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            string.Format(declarations, deep),
+            "Public Sub Main()",
+            string.Format(body, deep),
+            "End Sub",
+            "");
+
+        var errors = await ModuleWorkspace.LoadErrorsWithSyntaxErrorsAsync(program);
+
+        StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
     }
 
     // what is kept as text is no code: a run of the module is refused before any of it runs, with the error the parser reported.
