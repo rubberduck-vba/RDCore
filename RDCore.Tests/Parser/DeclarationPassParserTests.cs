@@ -1256,6 +1256,43 @@ End Sub
     }
 
     [TestMethod]
+    // the lower bound is the expression before `To`: the grammar reads it as an argument's expression, and `To` after it. `-1` is a literal of its own.
+    public void Redim_NegativeLowerBound_IsTheExpressionBeforeTo()
+    {
+        const string content = """
+            Public Sub Grow(ByVal x As Long)
+                ReDim a(-1 To x)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var dimension = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<RedimDeclarationNode>().Single().Bounds!.Dimensions.Single();
+
+        Assert.AreEqual(-1L, IntValue(dimension.LowerBound!));
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)dimension.UpperBound).IdentifierName);
+    }
+
+    [TestMethod]
+    // `To` between two expressions is a ReDim's, but the grammar reads it in any argument list, as it did before an argument and a ReDim's bounds were one
+    // alternative of the grammar: what the argument means is the declaration pass's to say.
+    public void ToBetweenTwoArguments_OutsideAReDim_IsRead()
+    {
+        const string content = """
+            Public Sub Grow()
+                Dim x As Variant
+                x = F(1 To 2)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+
+        Assert.IsTrue(result.IsSuccess, string.Join("; ", result.SyntaxErrors.Select(error => error.Description)));
+    }
+
+    [TestMethod]
     public void Redim_UpperBoundOnly_HasNullLowerBound()
     {
         const string content = """

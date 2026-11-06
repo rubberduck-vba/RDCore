@@ -9,6 +9,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Platform;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
 
@@ -101,6 +102,49 @@ public sealed class ExpressionNestingTests
     [TestMethod]
     public void AnArgument_IsToldFromBounds_WithoutReadingItForEachCallItIsNestedIn()
         => Assert.AreEqual(PredictionStatesOf("argumentExpression", 100), PredictionStatesOf("argumentExpression", 200));
+
+    // how many rules the parse is inside at most.
+    private sealed class RuleDepth : VBAParserBaseListener
+    {
+        private int _current;
+
+        public int Max { get; private set; }
+
+        public override void EnterEveryRule(ParserRuleContext context) => Max = Math.Max(Max, ++_current);
+
+        public override void ExitEveryRule(ParserRuleContext context) => _current--;
+    }
+
+    // the deepest the parse of a procedure goes, the {0} of its statement nested `depth` times in `open` and as many closing parentheses.
+    private static int RuleDepthOf(string statement, string open, int depth)
+    {
+        var nested = string.Concat(Enumerable.Repeat(open, depth)) + "1" + new string(')', depth);
+        var parser = new VBAParser(new CommonTokenStream(new VBALexer(new AntlrInputStream($"Public Sub Main()\r\n    {string.Format(statement, nested)}\r\nEnd Sub\r\n"))))
+        {
+            ErrorHandler = new BailErrorStrategy(),
+        };
+        parser.Interpreter.PredictionMode = PredictionMode.Sll;
+        parser.RemoveErrorListeners();
+        var depthOf = new RuleDepth();
+        parser.AddParseListener(depthOf);
+        LargeStackThread.Run(() => parser.startRule());
+        return depthOf.Max;
+    }
+
+    // the ceiling of the parse (StackDepthGuardListener.MaxRuleDepth) is twice as deep as the deepest expression RD-VBA reads: a call nests the parse the
+    // deepest of all the forms, 6 rules a level, and 2,500 nested calls are about 15,000 rules deep. The rules a level are counted between 100 and 200 levels.
+    [TestMethod]
+    [DataRow("x = {0}", "Abs(")]
+    [DataRow("x = {0}", "o.F(")]
+    [DataRow("x = {0}", "F(a:=")]
+    [DataRow("Call F({0})", "G(")]
+    public void TheDeepestExpressionRDVBAReads_IsReadAtHalfTheCeilingOfTheParse_OrLess(string statement, string open)
+    {
+        var (at100, at200) = (RuleDepthOf(statement, open, 100), RuleDepthOf(statement, open, 200));
+        var atTheLimit = at200 + (int)Math.Ceiling((at200 - at100) / 100.0 * (ModuleParser.MaxExpressionNesting - 200));
+
+        Assert.IsLessThanOrEqualTo(StackDepthGuardListener.MaxRuleDepth / 2, atTheLimit, $"{at100} rules at 100 levels, {at200} at 200");
+    }
 
     // a statement, the {0} in it a parenthesized chain, and the levels of nesting it writes around it: a call's argument is nested in the call, but neither
     // passing it by name or ByVal nor printing it nests it in anything more. The parentheses after a bare call's name group its one argument, a level of their

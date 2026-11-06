@@ -446,6 +446,61 @@ public sealed class ParserResilienceTests
             ((VBCompileErrorId)error.ErrorId, error.Verbose), errors);
     }
 
+    // what the parser logs, kept.
+    private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<ModuleParser>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message, Exception? Exception)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            lock (Entries)
+            {
+                Entries.Add((logLevel, formatter(state, exception), exception));
+            }
+        }
+    }
+
+    // a module read a part at a time once the fast prediction fails on the whole of it: a declaration nested past the depth the parse reads, and a procedure.
+    // The declaration is a constant's: the prediction of a statement in a procedure reads its expression to the end before the parse is in it, seconds for
+    // each pass at this depth, before the parse stops.
+    private static string AConstantNestedPastTheDepthTheParseReads_ThenAProcedure(string body)
+        => $"Public Const X = {new string('(', StackDepthGuardListener.MaxRuleDepth)}1{new string(')', StackDepthGuardListener.MaxRuleDepth)}\r\nPublic Sub A()\r\n    {body}\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public void NestingPastTheDepthTheParseReads_IsLoggedWithoutTheTraceThatStoppedIt_AndReadSlowlyOnce()
+    {
+        // the trace of the exception that stops the parse has a frame for each level it read: megabytes, which the log, and a client tracing it, never gets.
+        var logger = new CapturingLogger();
+        var parser = new ModuleParser(logger: logger);
+
+        parser.Parse(Uri, AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
+
+        var entries = string.Join(Environment.NewLine, logger.Entries.Select(entry => $"{entry.Level} {entry.Message[..Math.Min(entry.Message.Length, 200)]}"));
+        Assert.IsFalse(logger.Entries.Any(entry => entry.Exception is not null), entries);
+        Assert.IsFalse(logger.Entries.Any(entry => entry.Message.Contains(" at ", StringComparison.Ordinal)), entries);
+
+        // the module read fast, then its declarations fast and slowly: the parse of the declarations stopped where a slow parse of the module would, which
+        // isn't made.
+        Assert.AreEqual(2, logger.Entries.Count(entry => entry.Message.StartsWith("SLL parse pass stopped", StringComparison.Ordinal)), entries);
+        Assert.AreEqual(0L, parser.Statistics[SegmentationStatistics.Path.SegmentFailed], entries);
+    }
+
+    [TestMethod]
+    public void NestingPastTheDepthTheParseReads_AfterASyntaxError_IsBothErrors()
+    {
+        // what the slow parse found wrong before it stopped, and that it stopped: what follows wasn't read.
+        var result = Parse("Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
+
+        var errors = string.Join("; ", result.SyntaxErrors.Select(error => $"{error.ErrorId} {error.Location.Range.Start.Line} {error.Verbose[..Math.Min(error.Verbose.Length, 100)]}"));
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 0 && error.Verbose != SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
+        Assert.AreEqual(SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose, result.SyntaxErrors[^1].Verbose, errors);
+    }
+
     [TestMethod]
     public void FailedParse_StillCarriesPrecompilerTrivia()
     {
