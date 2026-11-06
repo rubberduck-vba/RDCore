@@ -1,0 +1,104 @@
+using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
+using System.Runtime.CompilerServices;
+
+namespace RDCore.Runtime.Compiled;
+
+/// <summary>
+/// What compiled code does of a field of a record (IR lowering S2.6a): it reads and writes the field where the record holds it, as the interpreter does
+/// (<c>RuntimeExpressionEvaluator.EvaluateInstanceField</c>, <c>LetAssignmentEvaluator.AssignField</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Compiled code holds the cell its frame holds the record in - its <em>holder</em> - and nothing below it: each access finds the record the holder holds
+/// now, then the field. What the interpreter does of the record in between - a Let of the whole record, which holds a copy of another
+/// (<see cref="VBUserDefinedTypeValue.DataCopy"/>), a Let of one of its fields, which gives the field a value of its own - compiled code then sees.
+/// </para>
+/// <para>
+/// What it doesn't read or write - a holder that holds no record, a field that holds no payload of its type, a <c>Variant</c> field over an object - is the
+/// interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the statement.
+/// </para>
+/// </remarks>
+public static class RecordOperations
+{
+    /// <summary>The record held in <paramref name="holder"/>, the cell its frame holds a record variable in; <see langword="null"/> when it holds none.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static object? RecordIn(object? holder)
+        => holder is IBindingHandle { Value: VBRuntimeValue<VBRuntimeUserDefinedTypeValue> boxed } ? boxed.StoredValue.UserDefinedType : null;
+
+    /// <summary>
+    /// The record the field at <paramref name="index"/> of <paramref name="record"/> holds, a field declared as a record type: the field itself, whose own
+    /// fields are written in place (MS-VBAL §2.1). <see langword="null"/> when it holds none.
+    /// </summary>
+    public static object? FieldRecord(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBUserDefinedTypeValue;
+
+    /// <summary>The payload the field at <paramref name="index"/> of <paramref name="record"/>, of an integral kind, holds.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool ReadIntegral(object? record, int index, ScalarKind kind, out long value)
+    {
+        var read = TryRead(record, index, kind, out var payload);
+        value = payload.Integral;
+        return read;
+    }
+
+    /// <summary>The payload the field at <paramref name="index"/> of <paramref name="record"/>, of a floating-point kind, holds.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool ReadFloating(object? record, int index, ScalarKind kind, out double value)
+    {
+        var read = TryRead(record, index, kind, out var payload);
+        value = payload.Floating;
+        return read;
+    }
+
+    /// <summary>
+    /// Let-assigns a payload of the field's integral kind to the field at <paramref name="index"/> of <paramref name="record"/>: the field holds a value of
+    /// its own (MS-VBAL §5.4.3.8), as <c>AssignField</c> gives it one.
+    /// </summary>
+    public static bool WriteIntegral(object? record, int index, ScalarKind kind, long value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
+
+    /// <summary>Let-assigns a payload of the field's floating-point kind to the field at <paramref name="index"/> of <paramref name="record"/>.</summary>
+    public static bool WriteFloating(object? record, int index, ScalarKind kind, double value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), 0, value));
+
+    /// <summary>The payload the <c>Variant</c> field at <paramref name="index"/> of <paramref name="record"/> holds, when it holds a known value of a scalar type.</summary>
+    public static bool ReadVariant(object? record, int index, out VariantPayload value)
+    {
+        value = default;
+        if ((record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is not { RuntimeValue: VBRuntimeVariantValue { WrappedValue: { IsIndeterminate: false } held } }
+            || !ScalarPayload.IsScalar(held.TypeInfo) || !ScalarPayload.TryOf(held.TypeInfo, held.RuntimeValue, out var payload))
+        {
+            return false;
+        }
+
+        value = new VariantPayload(payload);
+        return true;
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="value"/> to the <c>Variant</c> field at <paramref name="index"/> of <paramref name="record"/>, of its own subtype
+    /// (MS-VBAL §5.5.1.2.12): not over an object, an array or a record, which the interpreter's assignment lets go of (<c>ObjectReferences.RebindField</c>).
+    /// </summary>
+    public static bool WriteVariant(object? record, int index, VariantPayload value)
+    {
+        if (record is not VBUserDefinedTypeValue held || held.StoredFieldAt(index) is not { RuntimeValue: VBRuntimeVariantValue { WrappedValue: var before } }
+            || ObjectReferences.CanHoldAnObject(before?.TypeInfo))
+        {
+            return false;
+        }
+
+        return held.TrySetFieldAt(index, VBVariantType.TypeInfo.CreateValue(new ValueBindingHandle(VariantCell.Holding(value.Value.Type, value.Value.Box()))));
+    }
+
+    private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
+    {
+        payload = default;
+        return (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is { } field && ScalarPayload.TryOf(ScalarKinds.TypeOf(kind), field.RuntimeValue, out payload);
+    }
+
+    private static bool TryWrite(object? record, int index, ScalarPayload payload)
+        => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is { } before && ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _)
+            && held.TrySetFieldAt(index, payload.Type.CreateValue(new ValueBindingHandle(payload.Box())));
+}

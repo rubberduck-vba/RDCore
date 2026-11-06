@@ -79,7 +79,7 @@ namespace RDCore.Runtime.Compiled;
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
 /// </remarks>
-internal sealed class ProcedureAnalysis
+internal sealed partial class ProcedureAnalysis
 {
     private readonly IRuntimeSession _session;
     private readonly RuntimeExpressionEvaluator _evaluator;
@@ -319,7 +319,7 @@ internal sealed class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or FieldLetStep or VariantFieldLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -473,6 +473,12 @@ internal sealed class ProcedureAnalysis
                 continue;
             }
 
+            // a record is held in the cell its frame holds it in, whose fields compiled code reads and writes (IR lowering S2.6a).
+            if (parameter is not ParamArrayParameterSymbol && TryHoldRecord(parameter.ResolvedType, _layout.ParameterSlots[i], parameter))
+            {
+                continue;
+            }
+
             // what is not a scalar the frame holds: a ParamArray, an object, a String, a Variant, an array, a record; and Me.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
             {
@@ -510,6 +516,8 @@ internal sealed class ProcedureAnalysis
                     NeedsFrame = true;
                     _ = _objectSlots.Add(_layout.LocalSlots[i]);
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false } variable when TryHoldRecord(variable.ResolvedType, _layout.LocalSlots[i], variable):
                     continue;
 
                 // a Static outlives the activation, and what is no scalar is held as the interpreter holds it: both are the frame's, and the instructions that
@@ -642,6 +650,11 @@ internal sealed class ProcedureAnalysis
     // its type.
     private CompiledStep? AnalyzeLet(int offset, AssignmentStatementNode assignment)
     {
+        if (assignment.Target is MemberAccessExpressionNode)
+        {
+            return AnalyzeFieldLet(offset, assignment);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode)
         {
             Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
@@ -1049,7 +1062,7 @@ internal sealed class ProcedureAnalysis
     private PayloadNode? Condition(ExpressionNode condition)
     {
         var node = Bind(condition);
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        if (IsVariant(node))
         {
             return Dynamic(node) is { } value ? new TruthNode(value) : null;
         }
@@ -1065,7 +1078,7 @@ internal sealed class ProcedureAnalysis
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
         // a Variant's payload, of its subtype, converted to the destination as any payload is (IR lowering S2.5c).
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        if (IsVariant(node))
         {
             return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
         }
@@ -1153,6 +1166,10 @@ internal sealed class ProcedureAnalysis
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
 
+            // a field of a record of the activation (IR lowering S2.6a).
+            case BoundMember member when RecordFieldOf(member) is { } field:
+                return FieldPayload(member, field);
+
             default:
                 return Unsupported(node);
         }
@@ -1181,6 +1198,9 @@ internal sealed class ProcedureAnalysis
 
             case BoundUnary { Plan: { IsDeferred: true } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
                 return Dynamic(operand) is { } value ? new VariantUnaryNode(plan.Operator, value, unary.NegatesAConstantExpression) : null;
+
+            case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
+                return new VariantFieldNode(field.Path);
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;

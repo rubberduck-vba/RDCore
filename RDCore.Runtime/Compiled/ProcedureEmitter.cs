@@ -21,7 +21,7 @@ namespace RDCore.Runtime.Compiled;
 /// The IL references nothing but the members of <c>RDCore.Runtime.Compiled</c> (the support boundary, A4).
 /// </para>
 /// </remarks>
-internal sealed class ProcedureEmitter
+internal sealed partial class ProcedureEmitter
 {
     private static readonly Type Payloads = typeof(PayloadOperations);
     private static readonly Type Activation = typeof(CompiledActivation);
@@ -163,6 +163,8 @@ internal sealed class ProcedureEmitter
             _objects[slot] = _il.DeclareLocal(typeof(object));
         }
 
+        DeclareRecords();
+
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
             if (_analysis.SpeculatedKinds.TryGetValue(next.Counter, out var counting) && !_variantLoops.ContainsKey(next.Opener))
@@ -291,6 +293,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ObjectCellOf))!);
             _il.Emit(OpCodes.Stloc, cell);
         }
+
+        EmitRecordCells();
     }
 
     // the cell of a field of Me, found by the activation's object; none goes to orElse.
@@ -462,6 +466,14 @@ internal sealed class ProcedureEmitter
 
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
+                break;
+
+            case FieldLetStep fieldLet:
+                EmitFieldLet(fieldLet);
+                break;
+
+            case VariantFieldLetStep variantFieldLet:
+                EmitVariantFieldLet(variantFieldLet);
                 break;
         }
     }
@@ -903,6 +915,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReloadObjectCell))!);
             _il.Emit(OpCodes.Brfalse, unread);
         }
+
+        EmitReloadRecordCells(unread);
 
         // the function result variable too, which the spill before the call wrote.
         if (_result is { } result)
@@ -1413,6 +1427,9 @@ internal sealed class ProcedureEmitter
             case SlotNode slot:
                 return new Operand(_slots[slot.Slot], 0, 0);
 
+            case FieldNode field:
+                return EmitField(field, failure);
+
             case OperandNode evaluated:
                 return evaluated.Operand;
 
@@ -1774,6 +1791,10 @@ internal sealed class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
                 _il.Emit(OpCodes.Brfalse, failure);
+                break;
+
+            case VariantFieldNode field:
+                EmitVariantField(field, result, failure);
                 break;
 
             case VariantOfNode of:
