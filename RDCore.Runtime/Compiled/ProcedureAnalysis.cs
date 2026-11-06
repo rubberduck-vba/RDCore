@@ -46,8 +46,17 @@ namespace RDCore.Runtime.Compiled;
 /// Any other instruction compiled code does not do, the interpreter runs alone the same way (IR lowering S2.5a), with the reason recorded
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
 /// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
-/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A <c>With</c>, a <c>For Each</c> and a
-/// <c>Select Case</c> keep their procedure in the interpreter, and so does a body none of whose instructions that do something are compiled code's.
+/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A body none of whose instructions that do
+/// something are compiled code's is kept in the interpreter.
+/// </para>
+/// <para>
+/// The interpreter steps a block whose state the frame holds too (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it
+/// that uses its object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar, or that compiled code does not
+/// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
+/// </para>
+/// <para>
+/// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
+/// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>).
 /// </para>
 /// <para>
 /// A parameter passed by reference, and a variable the procedure passes by reference, is held in a cell for the whole activation (IR lowering S2.3c),
@@ -177,13 +186,16 @@ internal sealed class ProcedureAnalysis
         {
             _reasons.AddRange(_stepped);
             _stepped.Clear();
+            return;
         }
+
+        FindBlockExits(list);
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
-    // have compiled code do something at each pass - a Let, a call, a condition, the loop's back edge with its condition or a Next counting - which saves
-    // more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another loop does saves nothing of this
-    // one's passes. When it steps nothing in a loop, anything at all will do.
+    // have compiled code do something at each pass - a Let, a call, a condition, a Case it compares and its Select Case, the loop's back edge with its
+    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another
+    // loop does saves nothing of this one's passes. When it steps nothing in a loop, anything at all will do.
     private bool GainsAnything(InstructionList list)
     {
         var loops = new List<(int First, int Last)>();
@@ -193,13 +205,16 @@ internal sealed class ProcedureAnalysis
             {
                 loops.Add((target, instruction.Offset));
             }
-            else if (instruction.Kind is InstructionKind.ForNext && instruction.Matching is { } opener)
+            else if (instruction.Kind is InstructionKind.ForNext or InstructionKind.ForEachNext && instruction.Matching is { } opener)
             {
                 loops.Add((opener, instruction.Offset));
             }
         }
 
-        static bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or LoopBackStep or ForNextStep;
+        // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
+        var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
+        bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep
+            || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
         {
@@ -235,13 +250,48 @@ internal sealed class ProcedureAnalysis
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));
 
-    // an instruction the interpreter runs alone, compiled code going on where it leaves the activation: every one whose state the frame holds, and none that
-    // holds what a block lets go of where the program leaves it - a With's target, a For Each's enumerator - nor a Select Case, whose Case headers compare
-    // what the Select keeps; those keep their procedure in the interpreter.
+    // an instruction the interpreter runs alone, compiled code going on where it leaves the activation: every one whose state the frame holds - a With's
+    // target, a For Each's enumerator, a Select's selector, which compiled code writes into the frame before a Case it does not compare.
     private static bool IsStepped(Instruction instruction) => instruction.Kind is InstructionKind.Simple or InstructionKind.ConditionalBranch
         or InstructionKind.LoopBack or InstructionKind.Jump or InstructionKind.ExitLoop or InstructionKind.ForOpener or InstructionKind.ForNext
-        or InstructionKind.Halt or InstructionKind.Break
-        && instruction.EnclosingWith is null && !(instruction.Kind is InstructionKind.ConditionalBranch && instruction.Matching is not null);
+        or InstructionKind.Halt or InstructionKind.Break or InstructionKind.With or InstructionKind.EndWith or InstructionKind.ForEachOpener
+        or InstructionKind.ForEachNext or InstructionKind.Select;
+
+    private readonly HashSet<int> _blockExits = [];
+
+    /// <summary>
+    /// Where compiled code lands outside a <c>For Each</c> it jumps out of - a jump, a branch or a <c>GoSub</c> inside the block to an instruction past
+    /// it - where what the block held is let go of, as the interpreter lets go of it before the instruction (<c>CompiledActivation.LeaveBlocks</c>).
+    /// </summary>
+    public IReadOnlySet<int> BlockExits => _blockExits;
+
+    /// <summary>Whether the body has a <c>For Each</c>, whose enumerator a <c>Return</c> out of it lets go of too.</summary>
+    public bool HasForEach { get; private set; }
+
+    private void FindBlockExits(InstructionList list)
+    {
+        foreach (var opener in list.Items)
+        {
+            if (opener is not { Kind: InstructionKind.ForEachOpener, End: { } end })
+            {
+                continue;
+            }
+
+            HasForEach = true;
+            for (var offset = opener.Offset + 1; offset < end; offset++)
+            {
+                var instruction = list.Items[offset];
+                IEnumerable<int?> targets = instruction.Targets.IsDefault ? [] : instruction.Targets;
+                foreach (var target in targets.Append(instruction.Target).Append(instruction.Else))
+                {
+                    if (target is { } at && (at < opener.Offset || at >= end))
+                    {
+                        _blockExits.Add(at);
+                    }
+                }
+            }
+        }
+    }
 
     private readonly List<Ineligibility> _stepped = [];
 
@@ -373,6 +423,13 @@ internal sealed class ProcedureAnalysis
 
             case InstructionKind.ForNext when instruction.Matching is { } opener && instruction.Target is { } body && _loopOfOpener.TryGetValue(opener, out var loop):
                 return new ForNextStep(instruction.Offset, loop, CounterSlotOf(loop), _loops[loop].Kind, body);
+
+            case InstructionKind.Select when instruction.Node is SelectCaseStatementNode selectCase && instruction.End is { } end:
+                return AnalyzeSelect(instruction.Offset, selectCase, end);
+
+            case InstructionKind.ConditionalBranch when instruction.Matching is { } select && instruction.Else is { } next
+                && instruction.Node is CaseExpressionStatementNode caseBlock && _selectOfOpener.TryGetValue(select, out var selectNumber):
+                return AnalyzeCase(instruction.Offset, caseBlock, selectNumber, next);
 
             case InstructionKind.ExitProcedure:
                 return new ExitStep(instruction.Offset);
@@ -575,6 +632,89 @@ internal sealed class ProcedureAnalysis
     private readonly List<int> _counterSlots = [];
 
     private int CounterSlotOf(int loop) => _counterSlots[loop];
+
+    /// <summary>The <c>Select Case</c> statements of a scalar selector, numbered.</summary>
+    public IReadOnlyList<CompiledSelect> Selects => _selects;
+
+    private readonly List<CompiledSelect> _selects = [];
+    private readonly Dictionary<int, int> _selectOfOpener = [];
+
+    // MS-VBAL §5.4.2.10, as ProcedureExecutor.ExecuteSelect does it on payloads (TryEvaluateSelectorUnboxed): a selector of a scalar type, evaluated once. A
+    // selector declared Variant is compared as a Variant, its Case values not converted to its type (RD-VBAL §5.4.2.10): the interpreter's.
+    private CompiledStep? AnalyzeSelect(int offset, SelectCaseStatementNode selectCase, int end)
+    {
+        var bound = Bind(selectCase.ControlExpression);
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(bound))
+        {
+            Refuse(IneligibilityKind.VariantOperand, "Select Case", selectCase.ControlExpression.Location);
+            return null;
+        }
+
+        if (Payload(bound) is not { } selector)
+        {
+            return null;
+        }
+
+        _selectOfOpener[offset] = _selects.Count;
+        _selects.Add(new CompiledSelect(offset, end, selector.Kind));
+        return new SelectStep(offset, _selects.Count - 1, selector);
+    }
+
+    // CaseMatchEvaluator.TryMatchUnboxed: each range clause compared with the selector, in order - a To range as both its comparisons - each value converted
+    // to the type of the selector, then both to the type the comparison is made in. A conversion that is not exact fails the Case, which the interpreter then
+    // matches boxed, as it does when its own payload comparison declines.
+    private CompiledStep? AnalyzeCase(int offset, CaseExpressionStatementNode caseBlock, int select, int next)
+    {
+        var selector = new SelectorNode(select, _selects[select].Kind);
+        var clauses = new List<CaseClause>(caseBlock.RangeClauses.Length);
+        foreach (var clause in caseBlock.RangeClauses)
+        {
+            var compared = clause switch
+            {
+                CaseValueRangeClauseNode value => CaseComparison(Tokens.CompareEqualOp, selector, value.Value) is { } equal ? new CaseClause(equal) : null,
+                CaseComparisonRangeClauseNode comparison
+                    => CaseComparison(comparison.ComparisonOperator, selector, comparison.Value) is { } compare ? new CaseClause(compare) : null,
+                CaseToRangeClauseNode range => CaseComparison(Tokens.CompareGreaterThanOrEqualOp, selector, range.Start) is { } above
+                    && CaseComparison(Tokens.CompareLessThanOrEqualOp, selector, range.End) is { } below ? new CaseClause(above, below) : null,
+                _ => null,
+            };
+
+            if (compared is null)
+            {
+                if (_reasons.Count == 0)
+                {
+                    Refuse(IneligibilityKind.Instruction, "Case", clause.SourceLocation);
+                }
+
+                return null;
+            }
+
+            clauses.Add(compared);
+        }
+
+        return new CaseStep(offset, clauses, next);
+    }
+
+    // TryCompareUnboxed: selector operator value, on payloads.
+    private CompareNode? CaseComparison(string token, SelectorNode selector, ExpressionNode value)
+    {
+        if (Payload(Bind(value)) is not { } evaluated)
+        {
+            return null;
+        }
+
+        var selectorType = ScalarKinds.TypeOf(selector.Kind);
+        var valueType = RuntimeExpressionEvaluator.CaseValueTypeOf(selectorType, ScalarKinds.TypeOf(evaluated.Kind));
+        if (ScalarKinds.Of(valueType) is not { } valueKind
+            || OperationPlanner.ForValues(token, selectorType, valueType) is not { OperandDestination: { } destinationType }
+            || ScalarKinds.Of(destinationType) is not { } destination || OperatorTokens.ComparisonOf(token) is not { } comparison)
+        {
+            Refuse(IneligibilityKind.Operator, token, value.Location);
+            return null;
+        }
+
+        return new CompareNode(comparison, Converted(selector, destination), Converted(Converted(evaluated, valueKind), destination));
+    }
 
     private BoundNode Bind(ExpressionNode expression) => _evaluator.BindInProcedure(_session, expression, _procedure);
 

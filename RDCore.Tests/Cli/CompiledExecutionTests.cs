@@ -520,19 +520,16 @@ public sealed class CompiledExecutionTests
     {
         var run = await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Guarded(0)",
+            "    Guarded",
             "End Sub",
-            "Private Function Guarded(ByVal N As Long) As Long",
-            "    Select Case N",
-            "        Case 0: Guarded = 10",
-            "    End Select",
-            "    Guarded = Guarded + 1",
-            "End Function"));
+            "Private Sub Guarded()",
+            "    Debug.Print \"guarded\"",
+            "End Sub"));
 
         var guarded = run.Compiled["Guarded"];
         Assert.IsNull(guarded.Body);
-        Assert.AreEqual(IneligibilityKind.Instruction, guarded.Reasons.Single().Kind);
-        Assert.AreEqual(nameof(SDK.Semantics.Instructions.InstructionKind.Select), guarded.Reasons.Single().Detail);
+        var reason = Assert.ContainsSingle(guarded.Reasons);
+        Assert.AreEqual((IneligibilityKind.Statement, 4), (reason.Kind, reason.Location!.Value.Range.Start.Line), $"{reason.Kind} {reason.Detail}");
     }
 
     [TestMethod]
@@ -586,12 +583,11 @@ public sealed class CompiledExecutionTests
         using var strictly = CompiledExecution.Strictly();
         var run = await RunAsync(Program(
             "Public Sub Main()",
-            "    Select Case 1",
-            "    End Select",
+            "    Debug.Print \"x\"",
             "End Sub"), VBExecutionEngine.Compiled);
 
         Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));
-        Assert.AreEqual(IneligibilityKind.Instruction, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
+        Assert.AreEqual(IneligibilityKind.Statement, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
     }
 
     [TestMethod]
