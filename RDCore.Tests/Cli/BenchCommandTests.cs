@@ -325,10 +325,9 @@ public sealed class BenchCommandTests
         StringAssert.StartsWith(objectCall, "interpreted");
         StringAssert.Contains(objectCall, "line ");
 
-        // a member of a class is compiled as any procedure is; the one statement of this one assigns a field, which the interpreter would run alone.
-        var member = lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal));
-        StringAssert.StartsWith(member, "interpreted");
-        StringAssert.Contains(member, "mCount (line ");
+        // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it
+        // (IR lowering S2.5e1).
+        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
 
         // a compiled procedure says what of it the interpreter runs, and where.
         var stepping = lines.Single(line => line.Contains("Cases.AppendsInALoop ", StringComparison.Ordinal));
