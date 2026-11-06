@@ -74,7 +74,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(observed, "| 105 |");
         AssertCalls(100, (direct, 0));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             var (frames, activations) = (0L, 0L);
             await RunAsync(program, VBExecutionEngine.Compiled, [], provider =>
@@ -182,7 +182,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(observed, "| 65 |");
         AssertCalls(2 + 10 + 4, (direct, 0));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             var activations = (await RunAsync(program, VBExecutionEngine.Compiled, [], provider => BodyOf(provider, "Add").ActivationsMade)).Measured;
             Assert.IsGreaterThanOrEqualTo(1L, activations, "Add is called directly");
@@ -275,7 +275,7 @@ public sealed class CompiledByRefCallTests
             "End Sub"), provider => BodyOf(provider, "Increment").DirectCalls + BodyOf(provider, "Increment").WalkBacks, classes);
 
         StringAssert.StartsWith(observed, "Completed |");
-        if (CompiledExecution.WalksBackAtRandom)
+        if (CompiledExecution.HandsOverAtRandom)
         {
             Assert.IsGreaterThanOrEqualTo(2L, entered);
         }
@@ -333,7 +333,7 @@ public sealed class CompiledByRefCallTests
 
         StringAssert.Contains(compiled.Observed, "| 100 |");
         Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(300L, compiled.Indirect, "Go is compiled, and calls Touch through the invoker");
         }
@@ -374,7 +374,7 @@ public sealed class CompiledByRefCallTests
             "End Sub"), provider => BodyOf(provider, "Count").IndirectCalls);
 
         StringAssert.Contains(observed, "| 10 |");
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(10L, indirect);
         }
@@ -461,7 +461,7 @@ public sealed class CompiledByRefCallTests
                         CancellationToken.None).WaitAsync(Patience);
                 Assert.IsTrue(assigned.Success, assigned.Error);
                 observed += $" | n={ValueIn("Go", "n")}";
-                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.WalksBackAtRandom)
+                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.AreEqual(1L, BodyOf(provider, "Go").DirectCalls, "Go calls Bump through its typed entry");
                 }
@@ -522,6 +522,67 @@ public sealed class CompiledByRefCallTests
             }
         }, debug: true, engine: engine);
         return observed;
+    }
+
+    // a byte POKEd at the address of a variable of a compiled caller - given it by a VarPtr the interpreter ran - while the program waits in a callee compiled
+    // code called: the byte is written into the variable's cell at the address, which compiled code reads back after the call and goes on with.
+    private static async Task<(string Observed, long WalkBacks)> PokedAboveWaitAsync(VBExecutionEngine engine)
+    {
+        (string Observed, long WalkBacks) observed = default;
+        using var running = CompiledExecution.Running(engine);
+        await ModuleWorkspace.InspectAsync([], Program(
+            "Public Sub Main()",
+            "    Debug.Print Go()",
+            "End Sub",
+            "Private Function Go() As Long",
+            "    Dim n As Long, p As LongLong, i As Long",
+            "    n = 1",
+            "    p = VarPtr(n)",
+            "    Wait p",
+            "    For i = 1 To 2",
+            "        Go = Go + n",
+            "    Next",
+            "End Function",
+            "Private Sub Wait(ByVal p As LongLong)",
+            "    Stop",
+            "End Sub"), async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var wait = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Wait").Id;
+                var address = int.Parse(provider.Execution.Variables(wait, DebugVariableScope.Locals, 0).Variables.Single(variable => variable.Name == "p").Value,
+                    System.Globalization.CultureInfo.InvariantCulture);
+                var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = address, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
+                Assert.IsTrue(poked.IsWritten);
+                observed.Observed = Observed(await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                    .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience));
+                observed.WalkBacks = provider.Image.Compiler.Results.SingleOrDefault(entry => entry.Procedure.Name == "Go").Result?.Body?.WalkBacks ?? -1;
+            }
+            finally
+            {
+                if (provider.Execution.State is not ProgramState.Idle)
+                {
+                    _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+                }
+            }
+        }, debug: true, engine: engine);
+        return observed;
+    }
+
+    [TestMethod]
+    public async Task AByteWrittenAtTheAddressOfACompiledVariable_WhileTheProgramWaitsInACallee_IsReadByCompiledCodeAfterTheCall()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await PokedAboveWaitAsync(VBExecutionEngine.Interpreter);
+        var compiled = await PokedAboveWaitAsync(VBExecutionEngine.Compiled);
+
+        StringAssert.Contains(interpreted.Observed, "| 84 |");
+        Assert.AreEqual(interpreted.Observed, compiled.Observed);
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(0, compiled.WalkBacks, "Go's walk-backs");
+        }
     }
 
     [TestMethod]

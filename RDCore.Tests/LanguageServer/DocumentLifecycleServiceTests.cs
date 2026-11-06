@@ -79,6 +79,20 @@ public sealed class DocumentLifecycleServiceTests
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
+    // set when a wait for the host on the module is handed on from a refresh that ended without the host having its text, to the one that superseded it.
+    private static Task HandedOn(DocumentLifecycleService sut)
+    {
+        var handedOn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        sut.HandedOn = uri =>
+        {
+            if (uri == Mod1)
+            {
+                handedOn.TrySetResult();
+            }
+        };
+        return handedOn.Task;
+    }
+
     private static Diagnostic Diagnostic() => new() { Message = "wrong", Range = new Range(new Position(0, 0), new Position(0, 1)) };
 
     private static TextDocumentContentChangeEvent Full(string text) => new() { Text = text };
@@ -283,14 +297,14 @@ public sealed class DocumentLifecycleServiceTests
         _ = sut.Changed(Mod1, 2, [Full("b")]);
         var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
         await started[0].Task.WaitAsync(Patience);
-        var superseded = sut.WhenRefreshedAsync(Mod1);
         _ = sut.Changed(Mod1, 3, [Full("c")]);
         _ = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
         await started[1].Task.WaitAsync(Patience);
+        var handedOn = HandedOn(sut);
         released[0].SetResult();
-        await superseded.WaitAsync(Patience);
-        await Task.WhenAny(synced, Task.Delay(100));
 
+        // the wait is handed on to the refresh that superseded it, whose sync is still held: it cannot be over yet.
+        await handedOn.WaitAsync(Patience);
         Assert.IsFalse(synced.IsCompleted, "the host does not have the text there is yet");
         released[1].SetResult();
         await synced.WaitAsync(Patience);
@@ -309,13 +323,13 @@ public sealed class DocumentLifecycleServiceTests
         _ = sut.Changed(Mod1, 2, [Full("b")]);
         var synced = sut.WhenSyncedAsync(Mod1, CancellationToken.None);
         await started[0].Task.WaitAsync(Patience);
-        var edited = sut.WhenRefreshedAsync(Mod1);
         sut.Saved(Mod1, text: null);
         await started[1].Task.WaitAsync(Patience);
+        var handedOn = HandedOn(sut);
         released[0].SetResult();
-        await edited.WaitAsync(Patience);
-        await Task.WhenAny(synced, Task.Delay(100));
 
+        // the wait is handed on to the save's refresh, whose sync is still held: it cannot be over yet.
+        await handedOn.WaitAsync(Patience);
         Assert.IsFalse(synced.IsCompleted, "the save's refresh has not brought the host up to date yet");
         released[1].SetResult();
         await synced.WaitAsync(Patience);

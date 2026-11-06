@@ -10,12 +10,16 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class HostOutputRelayTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(5);
+    // the timeout of a wait, kept by a clock that never moves unless the test moves it: no wait ends at it unless the test says so.
+    private static readonly TimeSpan Expiry = TimeSpan.FromSeconds(2);
+
+    // not a timing: a wait that never ends fails the test here instead of hanging the run.
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
 
     [TestMethod]
     public async Task WhatWasSaid_IsPassedOn_InTheOrderItArrived()
     {
-        var relay = new HostOutputRelay();
+        var relay = new HostOutputRelay(new ManualClock());
         var heard = new List<string>();
         relay.Printed += lines => heard.AddRange(lines);
 
@@ -23,40 +27,47 @@ public sealed class HostOutputRelayTests
         relay.Publish(new HostOutputNotification { Lines = ["b", "c"], Total = 3 });
 
         CollectionAssert.AreEqual(new[] { "a", "b", "c" }, heard);
-        await relay.WaitForAsync(3, Patience, CancellationToken.None);
+        await relay.WaitForAsync(3, Expiry, CancellationToken.None).WaitAsync(HangGuard);
     }
 
+    // the line that is here is counted when the wait starts, before it returns: the wait is not over on that one, and nothing else can end it but the second.
     [TestMethod]
-    [Ignore("nondeterministic: the relay's real 5 s timeout ends the wait normally, and a stall before the check outlasts it. To be made deterministic before this runs again")]
     public async Task AWait_ForLinesThatHaveNotArrived_EndsWhenTheyDo()
     {
-        var relay = new HostOutputRelay();
-        var waiting = relay.WaitForAsync(2, Patience, CancellationToken.None);
+        var relay = new HostOutputRelay(new ManualClock());
         relay.Publish(new HostOutputNotification { Lines = ["a"], Total = 1 });
-        await Task.Delay(50);
+
+        var waiting = relay.WaitForAsync(2, Expiry, CancellationToken.None);
         Assert.IsFalse(waiting.IsCompleted, "one of the two lines is not here");
 
         relay.Publish(new HostOutputNotification { Lines = ["b"], Total = 2 });
 
-        await waiting.WaitAsync(Patience);
+        await waiting.WaitAsync(HangGuard);
     }
 
     [TestMethod]
-    [Ignore("nondeterministic: the signal is a real 100 ms timer that has to fire within a 5 s bound. To be made deterministic before this runs again")]
-    public async Task AWait_ForLinesThatDoNotCome_EndsAtTheTimeout()
+    public async Task AWait_ForLinesThatDoNotCome_EndsAtTheTimeout_AndNotBefore()
     {
-        var relay = new HostOutputRelay();
+        var clock = new ManualClock();
+        var relay = new HostOutputRelay(clock);
+        var waiting = relay.WaitForAsync(5, Expiry, CancellationToken.None);
 
-        await relay.WaitForAsync(5, TimeSpan.FromMilliseconds(100), CancellationToken.None).WaitAsync(Patience);
+        clock.Advance(Expiry - TimeSpan.FromTicks(1));
+        Assert.IsFalse(waiting.IsCompleted, "the timeout is not reached");
+
+        clock.Advance(TimeSpan.FromTicks(1));
+        await waiting.WaitAsync(HangGuard);
     }
 
     [TestMethod]
-    [Ignore("nondeterministic: the test's real 100 ms cancel races the relay's own real 5 s expiry. To be made deterministic before this runs again")]
     public async Task AWait_ThatIsCancelled_IsCancelled()
     {
-        var relay = new HostOutputRelay();
-        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        var relay = new HostOutputRelay(new ManualClock());
+        using var cancel = new CancellationTokenSource();
+        var waiting = relay.WaitForAsync(5, Expiry, cancel.Token);
 
-        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => relay.WaitForAsync(5, Patience, cancel.Token));
+        await cancel.CancelAsync();
+
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => waiting.WaitAsync(HangGuard));
     }
 }

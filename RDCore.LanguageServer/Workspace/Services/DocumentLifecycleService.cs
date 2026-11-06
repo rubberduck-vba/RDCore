@@ -292,8 +292,16 @@ internal sealed class DocumentLifecycleService(
             {
                 return;
             }
+
+            HandedOn?.Invoke(documentUri);
         }
     }
+
+    /// <summary>
+    /// Called when a wait for the host (<see cref="WhenSyncedAsync"/>) is handed on from a refresh that ended without the host having the text, to the one that
+    /// superseded it.
+    /// </summary>
+    internal Action<Uri>? HandedOn { get; set; }
 
     public Task WhenAllSyncedAsync(CancellationToken token)
     {

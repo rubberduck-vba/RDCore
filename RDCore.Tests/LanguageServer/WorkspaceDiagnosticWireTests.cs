@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
@@ -37,6 +38,7 @@ public sealed class WorkspaceDiagnosticWireTests
     private readonly IDocumentDiagnosticsService _diagnostics = Substitute.For<IDocumentDiagnosticsService>();
     private readonly IDocumentLifecycleService _lifecycle = Substitute.For<IDocumentLifecycleService>();
     private readonly IncomingDocumentChanges _incoming = new();
+    private readonly OpenDialogs _dialogs = new();
 
     public WorkspaceDiagnosticWireTests()
     {
@@ -99,7 +101,8 @@ public sealed class WorkspaceDiagnosticWireTests
                 .AddSingleton(_diagnostics)
                 .AddSingleton(_lifecycle)
                 .AddSingleton<IWorkProgressReporter>(new WorkProgressReporter())
-                .AddSingleton(_incoming))
+                .AddSingleton(_incoming)
+                .AddSingleton(_dialogs))
             .WithHandler<WorkspaceDiagnosticHandler>(), token);
         var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer), token);
         await Task.WhenAll(serving, connecting);
@@ -217,5 +220,49 @@ public sealed class WorkspaceDiagnosticWireTests
 
         var modified = await Assert.ThrowsAsync<OmniSharp.Extensions.JsonRpc.Server.ContentModifiedException>(() => pulling);
         Assert.IsNotNull(modified);
+    }
+
+    // a program that waits for its client to answer a dialog: the host takes no other text until it is answered. The pull would wait for it, and is
+    // declined at once instead, ServerCancelled, which the client is told not to retrigger: it is asked to pull again once the dialog is answered.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task APullWhileADialogIsOpen_IsAnsweredServerCancelled_NotToBeRetriggered_AndTheClientIsAskedAgainOnceItIsAnswered()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var answer = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pullAgain = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _lifecycle.WhenAllSyncedAsync(Arg.Any<CancellationToken>()).Returns(call => answer.Task.WaitAsync(call.Arg<CancellationToken>()));
+        _dialogs.PullAgain = () => pullAgain.TrySetResult();
+        var (server, client, wire) = await ConnectAsync(timeout.Token);
+        using var _server = server;
+        using var _client = client;
+        var asked = _dialogs.WhileOpenAsync(() => answer.Task);
+
+        var pulling = PullAsync(client, new WorkspaceDiagnosticParams { PreviousResultIds = new Container<PreviousResultId>() }, timeout.Token);
+        try
+        {
+            await pulling;
+            Assert.Fail("the pull was answered while the dialog was open");
+        }
+        catch (Exception exception) when (exception is not AssertFailedException)
+        {
+            Assert.IsFalse(timeout.IsCancellationRequested, "the pull was declined at once, not left to wait for the program: " + exception.Message);
+        }
+
+        JObject error;
+        lock (wire)
+        {
+            error = (JObject)wire.Single(message => message["error"] is JObject).Value<JObject>("error")!;
+        }
+
+        Assert.AreEqual(-32802, error.Value<int>("code"), "ServerCancelled: " + error);
+        Assert.IsFalse(error["data"]!.Value<bool>("retriggerRequest"), "a client that retriggers would ask again and again while the dialog is open: " + error);
+        Assert.IsFalse(pullAgain.Task.IsCompleted, "the client is not asked to pull again while the dialog is open");
+
+        answer.SetResult(1);
+        await asked.WaitAsync(timeout.Token);
+        await pullAgain.Task.WaitAsync(timeout.Token);
+        var again = await PullAsync(client, new WorkspaceDiagnosticParams { PreviousResultIds = new Container<PreviousResultId>() }, timeout.Token);
+        CollectionAssert.AreEqual(new[] { "Closed.bas full v1.0 v=null 1", "Open.bas full v3.0 v=3 1" }, Reported(again["items"]!));
     }
 }

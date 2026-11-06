@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Compiled;
@@ -84,7 +85,7 @@ public sealed class CompiledActivation : ILightActivation
     {
         Array.Clear(_cells);
         _scopes = _session.Symbols.Scopes;
-        (_pc, _hasResult, _failed) = (0, false, null);
+        (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
         _untilPoll = PollInterval;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
@@ -92,7 +93,15 @@ public sealed class CompiledActivation : ILightActivation
         {
             _untilPoll = _body.NextRandomSafepoint();
         }
+
+        _untilFailedAccess = CompiledExecution.FailsReloadsAtRandom ? _body.NextRandomFailedAccess() : 0;
     }
+
+    // how many accesses of the frame the activation makes before the one it fails, under the random failed accesses (CompiledExecution.FailsReloadsAtRandom):
+    // 0 when it fails none.
+    private int _untilFailedAccess;
+
+    private bool FailsAccessAtRandom() => _untilFailedAccess > 0 && --_untilFailedAccess == 0;
 
     CallStackFrame ILightActivation.MakeFrame()
     {
@@ -307,6 +316,9 @@ public sealed class CompiledActivation : ILightActivation
     // what the last call that did not return did: the error it raised, or that the program was stopped in it; none when the callee was not one compiled code
     // calls, and the interpreter makes the call.
     private RuntimeExecutionOutcome? _failed;
+
+    // a variable compiled code could not write into its frame (Spill): the frame has the activation as compiled code does not, and the interpreter goes on with it.
+    private bool _unspilled;
 
     private int _suspensionsBeforeCall;
 
@@ -547,6 +559,29 @@ public sealed class CompiledActivation : ILightActivation
     /// </summary>
     public bool WaitedDuringCall => Suspensions != _suspensionsBeforeCall;
 
+    /// <summary>
+    /// Whether compiled code reads its variables back after the call it made returned: the program waited during it (<see cref="WaitedDuringCall"/>). Under
+    /// the random failed accesses (<see cref="CompiledExecution.FailsReloadsAtRandom"/>), the first read-back then fails, whatever the seed: every call that
+    /// waited reaches the hand-over of a variable compiled code can't read back.
+    /// </summary>
+    public bool ReadsBackAfterCall
+    {
+        get
+        {
+            if (!WaitedDuringCall)
+            {
+                return false;
+            }
+
+            if (CompiledExecution.FailsReloadsAtRandom)
+            {
+                _untilFailedAccess = 1;
+            }
+
+            return true;
+        }
+    }
+
     // the symbols compiled code was compiled against: a procedure it calls, defined again since - its parameters retyped, passed another way, one added - is
     // another call than the one compiled.
     private ScopeTree _scopes = null!;
@@ -590,11 +625,14 @@ public sealed class CompiledActivation : ILightActivation
         return _executor.RunAfter(_session, frame, list, _context, pc, outcome);
     }
 
-    /// <summary>The payload of the parameter in <paramref name="slot"/>, of an integral kind, when its cell holds one.</summary>
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of an integral kind, when its cell holds one it knows. When it does not, compiled code hands the
+    /// activation to the interpreter, which reads the variable where the frame has it.
+    /// </summary>
     public bool TryReadIntegral(int slot, out long value)
     {
         value = 0;
-        if (!Frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
+        if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
             return false;
         }
@@ -603,11 +641,14 @@ public sealed class CompiledActivation : ILightActivation
         return true;
     }
 
-    /// <summary>The payload of the parameter in <paramref name="slot"/>, of a floating-point kind, when its cell holds one.</summary>
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of a floating-point kind, when its cell holds one it knows. When it does not, compiled code
+    /// hands the activation to the interpreter.
+    /// </summary>
     public bool TryReadFloating(int slot, out double value)
     {
         value = 0;
-        if (!Frame.TryGetSlotCell(slot, out var cell) || cell is not ScalarCell scalar || !scalar.TryRead(out var payload))
+        if (!TryGetScalarCell(slot, out var scalar) || !scalar.TryRead(out var payload))
         {
             return false;
         }
@@ -616,10 +657,49 @@ public sealed class CompiledActivation : ILightActivation
         return true;
     }
 
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of an integral kind, read back after the interpreter ran an instruction or the program waited
+    /// (<see cref="TryReadIntegral"/>).
+    /// </summary>
+    public bool TryReloadIntegral(int slot, out long value)
+    {
+        value = 0;
+        return !FailsAccessAtRandom() && TryReadIntegral(slot, out value);
+    }
+
+    /// <summary>
+    /// The payload of the variable in <paramref name="slot"/>, of a floating-point kind, read back after the interpreter ran an instruction or the program
+    /// waited (<see cref="TryReadFloating"/>).
+    /// </summary>
+    public bool TryReloadFloating(int slot, out double value)
+    {
+        value = 0;
+        return !FailsAccessAtRandom() && TryReadFloating(slot, out value);
+    }
+
+    // the cell of the variable in slot: the one its slot holds; or, once the variable was given an address - passed by reference to a Declare, its VarPtr
+    // taken - the cell bound at the address, while that is a cell of the variable's type.
+    private bool TryGetScalarCell(int slot, [NotNullWhen(true)] out ScalarCell? scalar)
+    {
+        var frame = Frame;
+        if (frame.TryGetSlotCell(slot, out var cell))
+        {
+            scalar = cell as ScalarCell;
+            return scalar is not null;
+        }
+
+        scalar = frame.TryGetAddressedSlot(slot, out var bound) && bound is ScalarCell held
+            && _body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && held.Type.Equals(type)
+            ? held
+            : null;
+        return scalar is not null;
+    }
+
     /// <summary>The payload of the function result variable, of an integral kind, when it holds one: what a debugger may have assigned it while the program waited.</summary>
     public bool TryReadResultIntegral(out long value)
     {
-        var read = TryReadResult(out var payload);
+        ScalarPayload payload = default;
+        var read = !FailsAccessAtRandom() && TryReadResult(out payload);
         value = read ? payload.Integral : 0;
         return read;
     }
@@ -627,7 +707,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>The payload of the function result variable, of a floating-point kind, when it holds one.</summary>
     public bool TryReadResultFloating(out double value)
     {
-        var read = TryReadResult(out var payload);
+        ScalarPayload payload = default;
+        var read = !FailsAccessAtRandom() && TryReadResult(out payload);
         value = read ? payload.Floating : 0;
         return read;
     }
@@ -640,14 +721,18 @@ public sealed class CompiledActivation : ILightActivation
 
     private void Spill(int slot, long integral, double floating)
     {
-        var frame = Frame;
-        if (frame.TryGetSlotCell(slot, out var cell))
+        if (TryGetScalarCell(slot, out var scalar))
         {
-            if (cell is ScalarCell scalar)
-            {
-                scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
-            }
+            scalar.Write(new ScalarPayload(scalar.Type, integral, floating));
+            _unspilled |= FailsAccessAtRandom();
+            return;
+        }
 
+        // a variable the frame holds where compiled code cannot write it - a cell of another kind, at its address - is the interpreter's (Recover).
+        var frame = Frame;
+        if (frame.IsSlotFilled(slot))
+        {
+            _unspilled = true;
             return;
         }
 
@@ -710,10 +795,20 @@ public sealed class CompiledActivation : ILightActivation
     /// <remarks>
     /// The interpreter goes on with the activation when the program waited while the instruction ran - at its error, which a debugger asked to see - or the
     /// interpreter is wanted, or the symbols were defined again; and when the activation goes on inside a <c>For</c> loop the frame holds no state of, which
-    /// compiled code would step with what it does not have.
+    /// compiled code would step with what it does not have. It runs the activation from <paramref name="pc"/> without stepping, when compiled code could not
+    /// write a variable into the frame.
     /// </remarks>
     public int Recover(int pc)
     {
+        // a variable not written into the frame: the interpreter runs the activation from the instruction, as the frame has it.
+        if (_unspilled)
+        {
+            _unspilled = false;
+            _recovered = _failed is null ? Interpret(pc) : AfterFailedCall(pc);
+            _failed = null;
+            return -1;
+        }
+
         var frame = Frame;
         (frame.Pc, frame.RunsCompiled) = (pc, false);
         var failed = _failed;
@@ -727,7 +822,12 @@ public sealed class CompiledActivation : ILightActivation
             return -1;
         }
 
-        if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list) || !CanGoOnAt(frame, list, frame.Pc))
+        // an instruction that falls through goes on inside the loops it was inside, whose state the frame has: compiled code was there. A For statement is the
+        // one that falls through into a loop, when its start, end or step failed under Resume Next - and the interpreter gave the loop a state then, the one
+        // it had or a 0 end and step (ProcedureExecutor.Unevaluated, as MS-VBA does), which the re-entry reads back. A Select falls through into the block
+        // it gave its selector - boxed, when the interpreter evaluated it boxed - which is checked as a jump's destination is.
+        if (Suspensions != suspensions || WantsInterpreterAfterCall || !ReferenceEquals(frame.Body ?? list, list)
+            || ((frame.Pc != pc + 1 || list.Items[pc].Kind is InstructionKind.Select) && !CanGoOnAt(frame, list, frame.Pc)))
         {
             _recovered = Interpret(frame.Pc);
             return -1;
@@ -735,13 +835,33 @@ public sealed class CompiledActivation : ILightActivation
 
         _body.CountRecovered();
         frame.RunsCompiled = true;
+        LeaveBlocks(frame.Pc);
         return frame.Pc;
+    }
+
+    /// <summary>
+    /// Lets go of what a block the activation is no longer in held at <paramref name="pc"/> - a <c>For Each</c>'s enumerator, or the array it reads - as the
+    /// interpreter does before each instruction it runs (<c>ProcedureExecutor.RunInstructions</c>): after a step, and where a jump of compiled code out of
+    /// a <c>For Each</c> lands.
+    /// </summary>
+    public void LeaveBlocks(int pc)
+    {
+        if (_frame is not { } frame)
+        {
+            return;
+        }
+
+        foreach (var holder in frame.TakeBlockHoldersOutside(pc))
+        {
+            ObjectReferences.Release(_session, holder);
+        }
     }
 
     /// <summary>What the activation returns when <see cref="Recover"/> said it goes on nowhere.</summary>
     public RuntimeExecutionOutcome Recovered() => _recovered;
 
-    // whether compiled code can go on at pc: every For loop it is inside has its state in the frame, of the kind compiled code steps it in.
+    // whether compiled code can go on at pc: every For loop it is inside has its state in the frame, of the kind compiled code steps it in; and every
+    // Select Case its selector, of the kind compiled code compares it in - one the interpreter evaluated boxed is compared boxed.
     private bool CanGoOnAt(CallStackFrame frame, InstructionList list, int pc)
     {
         for (var i = 0; i < _body.Loops.Count; i++)
@@ -753,7 +873,50 @@ public sealed class CompiledActivation : ILightActivation
             }
         }
 
+        for (var i = 0; i < _body.Selects.Count; i++)
+        {
+            var select = _body.Selects[i];
+            if (pc > select.Opener && pc < select.End && !TryReadSelector(frame, select, out _))
+            {
+                return false;
+            }
+        }
+
         return true;
+    }
+
+    private static bool TryReadSelector(CallStackFrame frame, CompiledSelect select, out ScalarPayload selector)
+        => frame.TryGetSelectorPayload(select.Opener, out selector) && ScalarKinds.Of(selector.Type) == select.Kind;
+
+    /// <summary>
+    /// Writes the selector of the <c>Select Case</c> numbered <paramref name="select"/> into the frame, as the interpreter stashes a selector evaluated on
+    /// payloads (<c>CallStackFrame.SetSelectorPayload</c>).
+    /// </summary>
+    public void SpillSelector(int select, long integral, double floating)
+    {
+        var info = _body.Selects[select];
+        Frame.SetSelectorPayload(info.Opener, new ScalarPayload(ScalarKinds.TypeOf(info.Kind), integral, floating));
+    }
+
+    /// <summary>
+    /// The selector of the <c>Select Case</c> numbered <paramref name="select"/>, of an integral kind, read back from the frame: whether it was evaluated.
+    /// </summary>
+    public bool ReloadSelectorIntegral(int select, out long selector)
+    {
+        var evaluated = TryReadSelector(Frame, _body.Selects[select], out var payload);
+        selector = payload.Integral;
+        return evaluated;
+    }
+
+    /// <summary>
+    /// The selector of the <c>Select Case</c> numbered <paramref name="select"/>, of a floating-point kind, read back from the frame: whether it was
+    /// evaluated.
+    /// </summary>
+    public bool ReloadSelectorFloating(int select, out double selector)
+    {
+        var evaluated = TryReadSelector(Frame, _body.Selects[select], out var payload);
+        selector = payload.Floating;
+        return evaluated;
     }
 
     private static bool TryReadForLoop(CallStackFrame frame, CompiledForLoop info, out ScalarPayload end, out ScalarPayload step, out bool countsDown)
@@ -882,6 +1045,15 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<int> CellSlots { get; init; } = [];
 
     /// <summary>
+    /// Whether an activation of the body holds in its frame what compiled code does not (<see cref="ProcedureAnalysis.NeedsFrame"/>): it is called through
+    /// the invoker, which makes the frame, and never directly without one.
+    /// </summary>
+    public bool NeedsFrame { get; init; }
+
+    /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
+    public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
+
+    /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -
     /// under that mode every instruction boundary is one. It is chosen from the body's name, how many activations of it came before, and the seed
     /// (<see cref="CompiledExecution.WalkBackSeed"/>), so that a run can be replayed whatever else runs beside it; and from 1 to 3,969 (a 5-bit count
@@ -898,6 +1070,26 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
         hash = (hash ^ (uint)CompiledExecution.WalkBackSeed) * 16777619u;
         hash = (hash ^ (uint)Interlocked.Increment(ref _activations)) * 2654435761u;
         return 1 + (int)((hash >> 27) << (int)((hash >> 8) % 8));
+    }
+
+    private int _failedAccesses;
+
+    /// <summary>
+    /// The access of its frame the next activation of the body fails, under the random failed accesses (<see cref="CompiledExecution.FailsReloadsAtRandom"/>):
+    /// how many it makes first. Chosen as <see cref="NextRandomSafepoint"/> is, with a hash of its own, and from 1 to 121 (a 4-bit count times a power of two
+    /// up to 8): an activation that steps few instructions makes few.
+    /// </summary>
+    internal int NextRandomFailedAccess()
+    {
+        var hash = 2166136261u ^ 0x5bd1e995u;
+        foreach (var character in Name)
+        {
+            hash = (hash ^ character) * 16777619u;
+        }
+
+        hash = (hash ^ (uint)CompiledExecution.WalkBackSeed) * 16777619u;
+        hash = (hash ^ (uint)Interlocked.Increment(ref _failedAccesses)) * 2654435761u;
+        return 1 + (int)((hash >> 28) << (int)((hash >> 8) % 4));
     }
 
     /// <summary>How many times an activation of the body was handed to the interpreter.</summary>
@@ -934,3 +1126,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 /// <param name="Control">The counter's expression.</param>
 /// <param name="Kind">The kind it counts in, the counter's.</param>
 internal sealed record class CompiledForLoop(int Opener, Symbol Counter, ExpressionNode Control, ScalarKind Kind);
+
+/// <summary>
+/// A <c>Select Case</c> of a scalar selector, of a compiled body (MS-VBAL §5.4.2.10).
+/// </summary>
+/// <param name="Opener">The offset of its <c>Select</c>, which its selector is stashed by.</param>
+/// <param name="End">The offset right past its block.</param>
+/// <param name="Kind">The kind of its selector.</param>
+internal sealed record class CompiledSelect(int Opener, int End, ScalarKind Kind);

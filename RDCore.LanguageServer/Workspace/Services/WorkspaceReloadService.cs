@@ -372,9 +372,10 @@ internal sealed class WorkspaceReloadService(
             {
                 await FinishAsync(batch, _lifetime.Token);
             }
-            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            catch (Exception) when (_lifetime.IsCancellationRequested)
             {
-                // only the server stopping cancels what the changes left to do.
+                // only the server stopping cancels what the changes left to do; and once it is stopping, what fails because the components are going away
+                // - a host shut down as it is waited for - is not a failure but the same end.
                 foreach (var pending in batch)
                 {
                     pending.Done.TrySetCanceled(_lifetime.Token);

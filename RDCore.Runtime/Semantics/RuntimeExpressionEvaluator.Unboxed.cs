@@ -765,8 +765,8 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // whether an expression evaluated on payloads is declared Variant: a Variant variable or constant, what parentheses enclose of one, and an operation of a
-    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value (S1.4).
-    private static bool IsDeclaredVariant(BoundNode node) => node switch
+    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value (S1.4). A selector compiled code compares is none.
+    internal static bool IsDeclaredVariant(BoundNode node) => node switch
     {
         BoundVariable { Variable: ITypedSymbol { ResolvedType: VBVariantType } } => true,
         BoundName { Symbol: ITypedSymbol { ResolvedType: VBVariantType } } or BoundQualifiedName { Member: ITypedSymbol { ResolvedType: VBVariantType } } => true,
@@ -809,8 +809,8 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // the type the value of a Case is converted to, for a selector of a type (RD-VBAL 5.4.2.10): the selector's, but for an integer and a Single selector,
-    // where the integer is compared at its exact value (s48 M02, s42 D22) - as CaseMatchEvaluator converts a value that is no payload.
-    private static VBType CaseValueTypeOf(VBType selector, VBType value)
+    // where the integer is compared at its exact value (s48 M02, s42 D22) - as CaseMatchEvaluator converts a value that is no payload, and compiled code does.
+    internal static VBType CaseValueTypeOf(VBType selector, VBType value)
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an

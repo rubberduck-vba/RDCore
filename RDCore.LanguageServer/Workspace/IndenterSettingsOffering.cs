@@ -24,6 +24,7 @@ internal sealed class IndenterSettingsOffering : IDisposable
     private readonly TimeSpan _handshakeWait;
     private readonly TimeSpan _settingsWait;
     private readonly Action<string> _log;
+    private readonly TimeProvider _clock;
     private readonly TaskCompletionSource _settingsSaid = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <param name="server">The language server.</param>
@@ -33,8 +34,10 @@ internal sealed class IndenterSettingsOffering : IDisposable
     /// <param name="handshakeWait">How long the platform handshake is waited for.</param>
     /// <param name="settingsWait">How long the client's settings are waited for.</param>
     /// <param name="log">Says why an offer was not made, when it is not for want of anything to offer.</param>
+    /// <param name="clock">The clock the waits are kept by; the system's when <see langword="null"/>.</param>
     public IndenterSettingsOffering(
-        ILanguageServer server, IPlatformClientCapabilitiesService capabilities, IndenterSettingsOffer offer, ILiveSettings liveSettings, TimeSpan handshakeWait, TimeSpan settingsWait, Action<string> log)
+        ILanguageServer server, IPlatformClientCapabilitiesService capabilities, IndenterSettingsOffer offer, ILiveSettings liveSettings, TimeSpan handshakeWait, TimeSpan settingsWait, Action<string> log,
+        TimeProvider? clock = null)
     {
         _server = server;
         _capabilities = capabilities;
@@ -43,6 +46,7 @@ internal sealed class IndenterSettingsOffering : IDisposable
         _handshakeWait = handshakeWait;
         _settingsWait = settingsWait;
         _log = log;
+        _clock = clock ?? TimeProvider.System;
         _liveSettings.Changed += SettingsSaid;
 
         // the client's settings may be in already: the follower starts before this does.
@@ -61,10 +65,10 @@ internal sealed class IndenterSettingsOffering : IDisposable
     /// <returns>What was imported; <see langword="null"/> when nothing was offered, or the user chose not to import.</returns>
     public async Task<IndenterSettingsImportOutcome?> RunAsync(CancellationToken token)
     {
-        var deadline = DateTime.UtcNow + _handshakeWait;
-        while (!_capabilities.IsHandshakeCompleted && DateTime.UtcNow < deadline)
+        var deadline = _clock.GetUtcNow() + _handshakeWait;
+        while (!_capabilities.IsHandshakeCompleted && _clock.GetUtcNow() < deadline)
         {
-            await Task.Delay(50, token);
+            await Task.Delay(TimeSpan.FromMilliseconds(50), _clock, token);
         }
 
         // a client that runs unattended has nobody to answer the question, and is not asked it: the offer is made at a start that has someone to answer.
@@ -79,7 +83,7 @@ internal sealed class IndenterSettingsOffering : IDisposable
         {
             try
             {
-                await _settingsSaid.Task.WaitAsync(_settingsWait, token);
+                await _settingsSaid.Task.WaitAsync(_settingsWait, _clock, token);
             }
             catch (TimeoutException)
             {
