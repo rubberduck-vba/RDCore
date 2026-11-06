@@ -23,7 +23,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ```javascript
 {
-  "Version": "",
+  "Version": "1.0",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -31,12 +31,26 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 |Member|Type|Description|
 |---|---|---|
-|`Version`|`string`|The RD-VBA _language core_ version the project file was _serialized_ with.|
+|`Version`|`string`|The version of the `.rdproj` format the file is written in, as _major.minor_ ([§2.2.3.0](#2230-the-formats-version)). It is not the version of RDCore. A file written by hand may leave it out or leave it empty.|
 |`Configuration`|array of `string`|The locations (relative paths) of any configuration files to bind at run-time.|
 |`ProjectInfo`|[`RDCoreProject`](#2231-rdcoreproject)|An object that describes the content of an RD-VBA project.|
 
 > [!TIP]
 > This model is intended to natively support VB6 _project files_ (`.vbp`).
+
+## 2.2.3.0 The format's version
+
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.1`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+
+RDCore opens a project file whatever version it says:
+
+- **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
+- **A newer second number** (`1.1` when RDCore writes `1.0`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens.
+
+Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or `0.1` and something: those files are in the format `1.0`, and open.
+
+A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, as it makes up the project of a folder that has none. It always asks first, because what only the project file says, such as the project's references, is lost. If you accept, the file as it was is kept next to it, as `.rdproj.bak` (or `.rdproj.1.bak` and so on, if that name is taken), and the new file replaces it. If you don't, nothing changes, and the project does not open until the file is fixed. An IDE asks in its own window. The `rdc` shell asks at its prompt. Under `--unattended`, nobody is there to answer, so nothing is asked: the project does not open, and RDCore says why.
 
 ## 2.2.3.1 RDCoreProject
 
