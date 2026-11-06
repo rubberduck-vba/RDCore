@@ -187,7 +187,7 @@ internal sealed record class ExtendedOperationNode(string Token, ExtendedNode Le
 // Extended.Negate.
 internal sealed record class ExtendedNegateNode(ExtendedNode Operand) : ExtendedNode;
 
-// the value of an expression of a Variant (IR lowering S2.5c): a payload whose kind is the subtype it is of, which is known only when it is evaluated
+// the value of an expression of a Variant: a payload whose kind is the subtype it is of, which is known only when it is evaluated
 // (VariantPayload).
 internal abstract record class VariantNode;
 
@@ -233,11 +233,11 @@ internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNo
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
-// a Let of a Variant variable of the activation (IR lowering S2.5c): the payload written into its cell, of its own subtype - when the cell holds no object,
+// a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
 
-// the Next of a For whose counter is a Variant (IR lowering S2.5c): stepped as the interpreter steps it on payloads, with the state its stepped For
+// the Next of a For whose counter is a Variant: stepped as the interpreter steps it on payloads, with the state its stepped For
 // statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
 // speculated subtype the step is done in when it holds it (VariantSpeculation).
 internal sealed record class VariantForNextStep(int Offset, int Opener, int Body, int Counter) : CompiledStep(Offset);
@@ -306,7 +306,7 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver, IR lowering S2.5e3).
+// slot of the object variable it is made on (Receiver).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
@@ -335,12 +335,14 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// </summary>
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
-    /// <summary>The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).</summary>
+    /// <summary>
+    /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
+    /// </summary>
     public MemberEntry? Entered { get; set; }
 }
 
 /// <summary>
-/// A member of a class a compiled call of a member of an object enters directly (IR lowering S2.5e3b): its body, compiled, and its typed entry, which the
+/// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
 /// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
 /// holds them.
 /// </summary>
@@ -350,14 +352,15 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
+/// The cells of the fields of an object a body found (<see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
 /// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
-/// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does.
+/// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does. A live object keeps the cell
+/// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
+/// again, with none found.
 /// </summary>
 /// <param name="Object">The object's identity.</param>
-/// <param name="Generation">What the session's storage bound when they were found: a cell is the field's for as long as that has not changed.</param>
 /// <param name="Cells">The cells, by number.</param>
-internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, int Generation, object?[] Cells)
+internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, object?[] Cells)
 {
 }
 

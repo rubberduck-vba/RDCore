@@ -1,6 +1,5 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Execution.Memory;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
@@ -388,7 +387,7 @@ public sealed class CompiledActivation : ILightActivation
         return Returned(called, result, out integral, out floating);
     }
 
-    // the member a call of a member of an object invokes, and the object it invokes it on (IR lowering S2.5e3): found before the call (CanCallMember), and
+    // the member a call of a member of an object invokes, and the object it invokes it on: found before the call (CanCallMember), and
     // let go of as it is made (CallMember).
     private VBTypeMemberSymbol? _member;
     private IRuntimeValue? _receiver;
@@ -396,7 +395,7 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
-    /// <paramref name="cell"/> refers to (IR lowering S2.5e3): the member the object's class invokes for it is found as the interpreter finds it
+    /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
     /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called - its parameters after <c>Me</c> of the same
     /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
     /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
@@ -607,7 +606,7 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The activation of the member <see cref="CanCallMember"/> found, which compiled code is about to call through its typed entry (<see cref="MemberEntry"/>)
-    /// with the arguments as it holds them, on the object it found (IR lowering S2.5e3b), the object its <c>Me</c>: on the stack without a frame, as
+    /// with the arguments as it holds them, on the object it found, the object its <c>Me</c>: on the stack without a frame, as
     /// <see cref="EnterDirectly"/> makes one, when the frame would hold nothing compiled code does not but <c>Me</c> (<see cref="CompiledBody.EntersWithoutFrame"/>)
     /// and no debugger is to see it - the activation holds <c>Me</c>, and its frame, once something is to see it, is the one the invoker would have made; with
     /// its frame otherwise (<c>RuntimeProcedureInvoker.PushMemberActivation</c>). The instruction at <paramref name="pc"/> is the one that makes the call,
@@ -675,7 +674,9 @@ public sealed class CompiledActivation : ILightActivation
     private IObjectInstance? _instance;
     private ValueBindingHandle? _me;
 
-    /// <summary>The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.</summary>
+    /// <summary>
+    /// The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.
+    /// </summary>
     public nint MemberEntry => _memberEntry;
 
     // the compiled member a call enters directly: the one it entered last, while its body is the one the invoker runs; else the member compiled now, when it
@@ -939,7 +940,7 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type (IR lowering S2.5e): the one the object holds it in, as the
+    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type: the one the object holds it in, as the
     /// interpreter resolves it, which compiled code reads and writes it in.
     /// </summary>
     /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
@@ -947,16 +948,16 @@ public sealed class CompiledActivation : ILightActivation
     {
         // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.
         var instance = _instance ?? (Frame.Target is { } target && _session.Symbols.TryGetInstance(target, out var on) ? on : null);
-        if (instance is null || _session.Storage is not SessionStorage storage)
+        if (instance is null)
         {
             return null;
         }
 
-        // the cell the body found last of the field of the same object, while nothing was allocated, freed or rebound since (CompiledBody.Fields).
+        // the cell the body found last of the field of the same object (CompiledBody.Fields).
         var known = _body.Fields;
-        if (known is null || !known.Object.Equals(instance.ObjectId) || known.Generation != storage.Generation)
+        if (known is null || !known.Object.Equals(instance.ObjectId))
         {
-            known = new FieldCells(instance.ObjectId, storage.Generation, new object?[_cells.Length]);
+            known = new FieldCells(instance.ObjectId, new object?[_cells.Length]);
             _body.Fields = known;
         }
 
@@ -971,11 +972,13 @@ public sealed class CompiledActivation : ILightActivation
         return found;
     }
 
-    /// <summary>The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.</summary>
+    /// <summary>
+    /// The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.
+    /// </summary>
     public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
 
     /// <summary>
-    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5c): what compiled code reads and
+    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads and
     /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
     /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
     /// </summary>
@@ -1008,7 +1011,7 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell the frame holds the object parameter or variable in <paramref name="slot"/> in (IR lowering S2.5e2): what compiled code reads the reference
+    /// The cell the frame holds the object parameter or variable in <paramref name="slot"/> in: what compiled code reads the reference
     /// it holds from (<see cref="ObjectOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is
     /// bound to its caller's variable's address is in the cell held at that address, as a <c>Variant</c>'s is (<see cref="VariantCellOf"/>).
     /// </summary>
@@ -1486,25 +1489,29 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public bool NeedsFrame { get; init; }
 
     /// <summary>
-    /// Whether the body is of a member of a class that a call compiled code makes of it on an object enters without a frame (IR lowering S2.5e3b,
-    /// <see cref="ProcedureAnalysis.EntersWithoutFrame"/>).
+    /// Whether the body is of a member of a class that a call compiled code makes of it on an object enters without a frame
+    /// (<see cref="ProcedureAnalysis.EntersWithoutFrame"/>).
     /// </summary>
     public bool EntersWithoutFrame { get; init; }
 
-    /// <summary>The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.</summary>
+    /// <summary>
+    /// The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.
+    /// </summary>
     public int MeSlot { get; init; } = -1;
 
     /// <summary>
-    /// The cells of the fields of <c>Me</c> the body found last (IR lowering S2.5e3b): those of the object an activation of it was last on, for as long as
-    /// what the session's storage binds is what it bound then - a field's cell is the one it was until anything is allocated, freed or rebound
-    /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of. The object is known by its identity, not held.
+    /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
+    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The object is known by its
+    /// identity, not held.
     /// </summary>
     internal FieldCells? Fields { get; set; }
 
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
 
-    /// <summary>The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).</summary>
+    /// <summary>
+    /// The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).
+    /// </summary>
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>

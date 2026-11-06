@@ -341,7 +341,7 @@ public sealed class CompiledDebuggingTests
     }
 
     // a stop in the middle of a loop that speculates what a Variant holds, and an edit there that makes it hold a Double from then on: the loop goes on with
-    // what the Variant holds, as the interpreter's does (IR lowering S2.5c).
+    // what the Variant holds, as the interpreter's does.
     [TestMethod]
     [DataRow(null, "150 Long", DisplayName = "resumed")]
     [DataRow("        S = S + t|        S = S + t + 0.5", "151.5 Double", DisplayName = "edited to add a Double")]

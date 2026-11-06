@@ -14,7 +14,7 @@ using static RDCore.Tests.Cli.CompiledDirectCallTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A member of a class compiled code calls on an object, entered without a frame (IR lowering S2.5e3b): its activation holds <c>Me</c> as the invoker
+/// A member of a class compiled code calls on an object, entered without a frame: its activation holds <c>Me</c> as the invoker
 /// holds it, by a cell of its own, and finds the fields of <c>Me</c> on the object; the frame it is given once something is to see it is the one the invoker
 /// would have made. What the program does - which object a call is made on, when an object terminates, what the interpreter, an error or a debugger sees -
 /// is what it does when the interpreter makes the call.
@@ -250,6 +250,86 @@ public sealed class CompiledMemberEntryTests
         AssertEntered(compiled, "InTurn", direct: 16, "Add", framesMade: 0);
     }
 
+    // what the caller called through a binding, the object given as Me (CompiledActivation.CallMember) - each a call of the member named, which is not
+    // compiled - and nothing directly.
+    private static void AssertCalledThroughBinding(IReadOnlyDictionary<string, CompilationResult> compiled, string caller, long indirect, string member)
+    {
+        Assert.IsTrue(compiled.TryGetValue(member, out var result) && result.Body is null, $"{member} is compiled, or was not called");
+        if (CompiledExecution.HandsOverAtRandom)
+        {
+            return;
+        }
+
+        var called = Compiled(compiled, caller);
+        Assert.AreEqual((0L, indirect), (called.DirectCalls, called.IndirectCalls), $"{caller}'s calls made directly, and through a binding");
+    }
+
+    // a member with a GoTo, which is not compiled: compiled code calls it through its binding, on the object the variable refers to, as the interpreter does.
+    private static string Jumping(string name) => string.Join("\r\n",
+        $"Private Function {name}(ByVal N As Long) As Long",
+        "    mTotal = mTotal * 3 + N",
+        "    If N > 2 Then GoTo Large",
+        $"    {name} = mTotal",
+        "    Exit Function",
+        "Large:",
+        $"    {name} = mTotal + 1000",
+        "End Function");
+
+    // the member that is not compiled is called through its binding each time, and its fields are the object's, from call to call.
+    [TestMethod]
+    public async Task AMemberThatIsNotCompiled_IsCalledThroughItsBinding_OnTheObject()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Bound()",
+            "End Sub",
+            "Private Function Bound() As Long",
+            "    Dim J As Jumper",
+            "    Dim I As Long",
+            "    Dim V As Long",
+            "    Set J = New Jumper",
+            "    For I = 1 To 4",
+            "        V = J.Scaled(I)",
+            "        Bound = Bound * 3 + V",
+            "    Next",
+            "End Function"), [("Jumper", ModuleWorkspace.ClassModule("Jumper", "Option Explicit",
+                "Private mTotal As Long",
+                Jumping("Scaled").Replace("Private Function", "Public Function")))]);
+
+        StringAssert.Contains(observed, "| 4184 |");
+        AssertCalledThroughBinding(compiled, "Bound", indirect: 4, "Scaled");
+    }
+
+    // a variable of an interface, the member implementing it not compiled: the call is the implementing member's, through its binding.
+    [TestMethod]
+    public async Task AnImplementingMemberThatIsNotCompiled_IsCalledThroughItsBinding_OnTheObject()
+    {
+        var (observed, compiled) = await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Bound()",
+            "End Sub",
+            "Private Function Bound() As Long",
+            "    Dim S As IShape",
+            "    Dim I As Long",
+            "    Dim V As Long",
+            "    Set S = New Square",
+            "    For I = 1 To 4",
+            "        V = S.Area(I)",
+            "        Bound = Bound * 3 + V",
+            "    Next",
+            "End Function"), [
+                ("IShape", ModuleWorkspace.ClassModule("IShape", "Option Explicit",
+                    "Public Function Area(ByVal N As Long) As Long",
+                    "End Function")),
+                ("Square", ModuleWorkspace.ClassModule("Square", "Option Explicit",
+                    "Implements IShape",
+                    "Private mTotal As Long",
+                    Jumping("IShape_Area")))]);
+
+        StringAssert.Contains(observed, "| 4184 |");
+        AssertCalledThroughBinding(compiled, "Bound", indirect: 4, "IShape_Area");
+    }
+
     [TestMethod]
     public async Task AnObjectAMemberWasCalledOn_IsCollected_OnceNothingHoldsIt()
     {
@@ -276,30 +356,25 @@ public sealed class CompiledMemberEntryTests
             "    Once = T.Total()",
             "End Function");
 
-        foreach (var engine in (VBExecutionEngine[])[VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled])
+        // compiled only: what the interpreter keeps is not in question, and anything the test itself held the object by would fail the row, not pass it.
+        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
+        await ModuleWorkspace.InspectAsync(Tallies, program, async (provider, first, runAgain) =>
         {
-            using var running = CompiledExecution.Running(engine);
-            await ModuleWorkspace.InspectAsync(Tallies, program, async (provider, first, runAgain) =>
-            {
-                Assert.AreEqual("Completed | 5", string.Join(" | ", first.Outcome, string.Join(" ; ", first.Output.Select(line => line.Trim()))), first.ErrorMessage);
-                var kept = WeakInstanceOf(provider, "Kept");
-                var second = await runAgain();
-                Assert.AreEqual("Interrupted | 20 ; released", string.Join(" | ", second.Outcome, string.Join(" ; ", second.Output.Select(line => line.Trim()))),
-                    second.ErrorMessage);
-                Assert.IsGreaterThan(0, provider.Session.CallStack.Depth, "the program is stopped, not ended");
+            Assert.AreEqual("Completed | 5", string.Join(" | ", first.Outcome, string.Join(" ; ", first.Output.Select(line => line.Trim()))), first.ErrorMessage);
+            var kept = WeakInstanceOf(provider, "Kept");
+            var second = await runAgain();
+            Assert.AreEqual("Interrupted | 20 ; released", string.Join(" | ", second.Outcome, string.Join(" ; ", second.Output.Select(line => line.Trim()))),
+                second.ErrorMessage);
+            Assert.IsGreaterThan(0, provider.Session.CallStack.Depth, "the program is stopped, not ended");
 
-                // the session, every compiled body in it, and the program's stack are still alive: only what held the object let go of it.
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                Assert.IsFalse(kept.IsAlive, $"{engine}: the object is held after the program let go of it");
-                // the second run's: each run compiles for its own scopes.
-                if (engine is VBExecutionEngine.Compiled)
-                {
-                    AssertEntered(CompiledExecutionTests.ByName(provider), "Once", direct: 2, "Add", framesMade: 0);
-                }
-            }, engine: engine);
-        }
+            // the session, every compiled body in it, and the program's stack are still alive: only what held the object let go of it.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.IsFalse(kept.IsAlive, "the object is held after the program let go of it");
+            // the second run's: each run compiles for its own scopes.
+            AssertEntered(CompiledExecutionTests.ByName(provider), "Once", direct: 2, "Add", framesMade: 0);
+        }, engine: VBExecutionEngine.Compiled);
     }
 
     // the object the module variable named holds, which the test does not hold: made out of the caller's frame, so that nothing of it is left there.
@@ -495,6 +570,8 @@ public sealed class CompiledMemberEntryTests
                 if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.AreEqual(0L, BodyOf(provider, "Add").FramesMade, "Add is entered with its frame under a debugger");
+                    var counted = BodyOf(provider, "Counted");
+                    Assert.AreEqual((4L, 0L), (counted.DirectCalls, counted.IndirectCalls), "Counted's calls made directly, and through a binding, under a debugger");
                 }
             }
             finally

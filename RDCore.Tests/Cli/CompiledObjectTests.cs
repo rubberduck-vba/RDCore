@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// An object parameter or variable, compiled (IR lowering S2.5e2): held in the cell its frame holds it in, whose reference compiled code reads for <c>Is</c>
+/// An object parameter or variable, compiled: held in the cell its frame holds it in, whose reference compiled code reads for <c>Is</c>
 /// (MS-VBAL §5.6.9.7) and <c>TypeOf</c> (MS-VBAL §5.6.7), as the interpreter compares and tests it. A <c>Set</c> is the interpreter's, and compiled code finds
 /// the cell again after it. A program runs the same either way.
 /// </summary>

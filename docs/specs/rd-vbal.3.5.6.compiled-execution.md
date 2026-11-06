@@ -26,7 +26,7 @@ When a procedure is compiled, compiled code also guesses the type each of its `V
 `Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
 operation on `Variant`s that hold the types they are guessed to hold is then compiled as an operation on those types, using the same operations as the
 interpreter (`PayloadOperations`). The `Next` of a `For` loop of a `Variant` counter, and a condition such as `S > 100`, are compiled the same way. Each
-time it runs, compiled code first checks the type the `Variant` holds. When it doesn't hold the guessed type, the operation is worked out as above, for
+time it runs, compiled code first checks the type the `Variant` holds. When it does not hold the guessed type, the operation is worked out as above, for
 the type it does hold. That is the case for an `Empty` `Variant` before its first assignment, a `Variant` that came to hold a `String` or `Null`, and a sum
 that has overflowed to a wider type. A wrong guess makes the operation slower, never its result different.
 
@@ -56,8 +56,10 @@ When the member is compiled too, compiled code calls the member's compiled code 
 scalar types runs without a frame, as a compiled procedure called directly does. Its activation still holds `Me`, so an object is let go of, and its
 `Class_Terminate` runs, exactly when the interpreter would do it. The activation gets the frame the interpreter would have made as soon as anything needs
 it: an error, a statement the interpreter runs, another object's `Class_Terminate`. Under a debugger, every member gets its frame when it is called.
-Compiled code remembers where it last found an object's fields. It looks for them again for another object, and whenever anything in memory has been
-allocated, freed or rebound since. What it remembers never keeps an object alive: once nothing else holds the object, it is gone.
+
+Compiled code remembers where it last found an object's fields, and looks for them again for another object. An object keeps the same place for each
+field for as long as it lives, and a procedure is compiled again when its class is edited. What compiled code remembers never keeps an object alive: once
+nothing else holds the object, it is gone.
 
 Compiled code does these itself:
 
@@ -66,25 +68,25 @@ Compiled code does these itself:
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar fields of `Me`, the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables and `Nothing`, and `TypeOf` of one of its object variables.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of a scalar field of `Me`, or of the function's result.|
-|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's object variables declared as a class or an interface, whose parameters are scalars (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of an object variable declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
 `Resume Next`, `Resume` a label and the `Error` statement (see Error handling, below); a statement that uses something that stays in the frame (a
-fixed-length `String`, an object, a field of `Me` that is no scalar, a `Static`); a call of a member of anything other than one of the procedure's object variables (`Err.Number` is one); an element of an array; and a `For` whose counter or bounds
-compiled code doesn't do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
+fixed-length `String`, an object, a field of `Me` that is not of a scalar type, a `Static`); a call of a member of anything other than one of the procedure's object variables (`Err.Number` is one); an element of an array; and a `For` whose counter or bounds
+compiled code does not do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
 
 A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
 address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
-compiled code can't read a variable back from the frame, or write it there, the interpreter runs the rest of the activation, with the variables as the frame
+compiled code cannot read a variable back from the frame, or write it there, the interpreter runs the rest of the activation, with the variables as the frame
 has them.
 
 A `Select Case` of a scalar selector evaluates the selector once, and compares it with the values of each `Case` in order, as the interpreter does
 ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)): each value converted to the selector's type, except an integer compared with a `Single`
-selector, which is compared at its exact value. When a value can't be converted exactly, compiled code hands the activation to the interpreter at that
+selector, which is compared at its exact value. When a value cannot be converted exactly, compiled code hands the activation to the interpreter at that
 `Case`, as it does when an operation declines (below). A `Long` too large for an `Integer` selector is one; so is every `Double` compared with a `Single`
 selector, `4#` included, since only a `Single` converts exactly to a `Double` and not the other way. The interpreter runs a `Case` whose value is no scalar,
 such as a `String`, on its own, with the selector compiled code evaluated. When compiled code declines the selector itself as it evaluates it (an operation
@@ -92,7 +94,7 @@ that declines, such as `D \ 1` with `D` a `Double`), the interpreter runs the re
 
 The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` and its `End With`, and each statement in
 the block that uses its object; a `For Each` and its `Next`; and a `Select Case` and its `Case`s when the selector is no scalar, such as a `String` or a
-`Variant`, or is a scalar compiled code can't evaluate, such as `Len(S)` with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
+`Variant`, or is a scalar compiled code cannot evaluate, such as `Len(S)` with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
 same place in either engine: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop,
 by its `Next`, an `Exit For`, a jump or a `Return`.
 
@@ -104,7 +106,7 @@ These keep the whole procedure in the interpreter:
   one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
   its variables into the frame and read them back, which costs more than it saves.
 
-A procedure whose frame holds something compiled code doesn't is always called with its frame, through the interpreter's call, never through the
+A procedure whose frame holds something compiled code does not hold is always called with its frame, through the interpreter's call, never through the
 compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
 for a compiled procedure, what the interpreter runs of it.
 
@@ -132,7 +134,7 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   values its operands hold. Each calls the interpreter's own code for it. A `Variant` read as the type it is guessed to hold fails when it holds another,
   and a `Variant` written as one fails when it holds an object.
 - `ObjectOperations`: the reference an object variable holds, read where its frame keeps it, and `Is` of two of them or of one and `Nothing`. A
-  variable whose reference compiled code can't read fails.
+  variable whose reference compiled code cannot read fails.
 - `StringOperations`: the text a `String` variable holds, read where its frame keeps it, two texts joined, and a text written as a `Let` assigns it. A
   `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own comparison of the module's mode.
 
@@ -141,6 +143,9 @@ cell, the function result into its variable, the state of each `For` loop whose 
 ran, into the frame. A loop that ended keeps the end and the step it last had, as it does in the interpreter: a `Resume` can go back into it, and its `For`
 statement can fail when it runs again. The interpreter then evaluates the instruction as it always does, so the error raised, its message and its location
 are the interpreter's. The rest of the activation runs in the interpreter.
+
+A `Variant` that holds what compiled code does not evaluate is the exception: the interpreter runs that one statement, whether it assigns, tests a
+condition or ends a loop, and compiled code goes on after it, as described above.
 
 Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
 activation under the debugger.
@@ -166,7 +171,7 @@ The rest of the activation runs in the interpreter instead when any of these hol
 - a debugger wants the interpreter;
 - the code was edited (while the program waited in a callee, the activation goes on after the call in the edited code, with its handler, its `GoSub` returns
   and its loops where they now are);
-- the activation goes on inside a `For` loop whose state the frame doesn't have: a `Resume` to a label inside a loop whose `For` statement never ran.
+- the activation goes on inside a `For` loop whose state the frame does not have: a `Resume` to a label inside a loop whose `For` statement never ran.
 
 `Exit` and the end of the body clear `Err` after an error a handler caught, as in the interpreter (MS-VBAL §6.1.3.2.1).
 
@@ -180,6 +185,7 @@ The rest of the activation runs in the interpreter instead when any of these hol
 |`CompiledActivation`|What compiled code is given: its parameters, the cells of its `ByRef` variables, its calls, the poll, the hand-over to the interpreter, and `Recover`, which has the interpreter run one instruction.|
 |`PayloadOperations`|The operations compiled code and the interpreter share.|
 |`VariantOperations`|What compiled code does with a `Variant`: reads and writes it in the frame, and runs its operations through the interpreter's own code.|
+|`ObjectOperations`|What compiled code does with an object variable: reads the reference it holds in the frame, and compares references with `Is`.|
 |`StringOperations`|What compiled code does with a `String`: reads and writes its text in the frame, and joins two texts.|
 |`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 

@@ -4,7 +4,7 @@ using RDCore.SDK.Semantics.Plans;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// The subtypes compiled code speculates a <c>Variant</c> holds (IR lowering S2.5c): where every Variant an expression reads holds the subtype the analysis
+/// The subtypes compiled code speculates a <c>Variant</c> holds: where every Variant an expression reads holds the subtype the analysis
 /// speculates it holds (<see cref="ProcedureAnalysis.SpeculatedKinds"/>), the expression's operations are planned when it is compiled - the plan
 /// <c>TryOperateDeferred</c> makes for those subtypes - and done on the interpreter's own payload operations (<see cref="PayloadOperations"/>). A Variant
 /// that holds another subtype, or what is no payload, is evaluated as any is (<see cref="VariantOperations.Binary"/>): a speculation that does not hold is
@@ -41,7 +41,9 @@ internal static class VariantSpeculation
             : null;
     }
 
-    /// <summary>The subtype both operands of a comparison of payloads of <paramref name="left"/> and <paramref name="right"/> are compared in (<c>TryCompare</c>).</summary>
+    /// <summary>
+    /// The subtype both operands of a comparison of payloads of <paramref name="left"/> and <paramref name="right"/> are compared in (<c>TryCompare</c>).
+    /// </summary>
     public static ScalarKind? ComparisonOf(string token, ScalarKind? left, ScalarKind? right)
     {
         if (left is not { } l || right is not { } r || OperatorTokens.ComparisonOf(token) is null)

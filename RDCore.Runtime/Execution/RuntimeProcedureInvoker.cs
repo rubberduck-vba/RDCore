@@ -563,8 +563,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     /// <summary>
-    /// The activation of <paramref name="member"/>, a member of a class, that a call compiled code makes of it on <paramref name="receiver"/> runs in (IR
-    /// lowering S2.5e3b): made as <see cref="Activate"/> makes one, on the stack, the object its <c>Target</c>, <c>Me</c> held for as long as the
+    /// The activation of <paramref name="member"/>, a member of a class, that a call compiled code makes of it on <paramref name="receiver"/> runs in:
+    /// made as <see cref="Activate"/> makes one, on the stack, the object its <c>Target</c>, <c>Me</c> held for as long as the
     /// activation is, its function result and its locals made. Its other parameters are scalars, which the member's compiled code is given, as a call
     /// compiled code makes of a procedure gives them (<see cref="PushCompiledActivation"/>).
     /// </summary>
@@ -596,8 +596,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     /// <summary>
-    /// The frame of an activation of <paramref name="member"/>, a member of a class, that a call compiled code made of it on an object entered without one
-    /// (IR lowering S2.5e3b), as <see cref="PushMemberActivation"/> makes it, but not pushed: <paramref name="target"/> its object, its function result made,
+    /// The frame of an activation of <paramref name="member"/>, a member of a class, that a call compiled code made of it on an object entered without one,
+    /// as <see cref="PushMemberActivation"/> makes it, but not pushed: <paramref name="target"/> its object, its function result made,
     /// and <c>Me</c> held in <paramref name="me"/>, the cell the activation held it in, which holds its reference already. Its other parameters and its
     /// variables are scalars, which the activation gives it (<see cref="CreateCompiledFrame"/>).
     /// </summary>

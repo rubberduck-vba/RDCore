@@ -58,20 +58,20 @@ namespace RDCore.Runtime.Compiled;
 /// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
 /// </para>
 /// <para>
-/// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c,
-/// <see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
+/// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes
+/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
 /// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines - a Variant that holds no payload, a sum that
 /// overflows its subtype - the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
-/// A <c>String</c> parameter or variable - not a fixed-length one - is held in the cell its frame holds it in too (IR lowering S2.5d, <see cref="TextSlots"/>):
+/// A <c>String</c> parameter or variable - not a fixed-length one - is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
 /// a <c>Let</c> of an expression of Strings - a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c> - writes the text it is, and two Strings
 /// are compared under the module's comparison mode, as <c>TryEvaluateText</c> and <c>TryCompareText</c> evaluate them. A String that holds no text compiled
 /// code reads - one that ends with a lone byte - the interpreter runs the statement of.
 /// </para>
 /// <para>
-/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (IR lowering S2.5e, <see cref="FieldSlots"/>), found where the
+/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="FieldSlots"/>), found where the
 /// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
 /// an instruction: compiled code reads and writes it as it does a variable held in a cell.
 /// </para>
@@ -125,7 +125,7 @@ internal sealed partial class ProcedureAnalysis
     private readonly SortedSet<int> _cellSlots = [];
 
     /// <summary>
-    /// The slots of the <c>Variant</c> parameters and variables, in order (IR lowering S2.5c): each is held in the cell its frame holds it in, which compiled
+    /// The slots of the <c>Variant</c> parameters and variables, in order: each is held in the cell its frame holds it in, which compiled
     /// code reads and writes it in.
     /// </summary>
     public IReadOnlyList<int> VariantSlots => [.. _variantSlots];
@@ -133,14 +133,16 @@ internal sealed partial class ProcedureAnalysis
     private readonly SortedSet<int> _variantSlots = [];
 
     /// <summary>
-    /// The slots of the object parameters and variables, in order (IR lowering S2.5e2): each is held in the cell its frame holds it in, which compiled code
+    /// The slots of the object parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
     /// reads the reference it holds from - for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
     /// </summary>
     public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
 
     private readonly SortedSet<int> _objectSlots = [];
 
-    /// <summary>The classes the procedure's <c>TypeOf</c> expressions test against, by the number compiled code knows each by.</summary>
+    /// <summary>
+    /// The classes the procedure's <c>TypeOf</c> expressions test against, by the number compiled code knows each by.
+    /// </summary>
     public IReadOnlyList<VBClassModuleSymbol> Classes => _classes;
 
     private readonly List<VBClassModuleSymbol> _classes = [];
@@ -149,7 +151,7 @@ internal sealed partial class ProcedureAnalysis
     private readonly Dictionary<int, int> _variantLoops = [];
 
     /// <summary>
-    /// The subtype each <c>Variant</c> slot is speculated to hold (IR lowering S2.5c, <see cref="VariantSpeculation"/>): the join of the subtypes of what
+    /// The subtype each <c>Variant</c> slot is speculated to hold (<see cref="VariantSpeculation"/>): the join of the subtypes of what
     /// compiled code assigns it, and of the type a loop it counts counts in, where those are known when the procedure is compiled. A slot assigned anything
     /// else - or that compiled code assigns nothing of a known subtype - has no speculation, and is evaluated as any Variant is.
     /// </summary>
@@ -199,7 +201,7 @@ internal sealed partial class ProcedureAnalysis
     }
 
     /// <summary>
-    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout (IR lowering S2.5e): each is held
+    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout: each is held
     /// in the cell the object holds it in (<see cref="CellSlots"/>), which compiled code reads and writes it in, as it does a parameter passed by reference.
     /// </summary>
     public IReadOnlySet<int> FieldSlots => _fieldSlots;
@@ -237,7 +239,7 @@ internal sealed partial class ProcedureAnalysis
         analysis.Analyze(list);
 
         // Me, and the fields found through it, are what a frame holds of a member of a class that nothing else makes it hold: such a member is entered
-        // without one, and its activation holds Me (IR lowering S2.5e3b). Any other member is called with its frame.
+        // without one, and its activation holds Me. Any other member is called with its frame.
         analysis.EntersWithoutFrame = analysis.MeSlot is not null && !analysis.NeedsFrame;
         analysis.NeedsFrame |= analysis.MeSlot is not null || analysis._fieldSlots.Count > 0;
         return analysis;
@@ -420,11 +422,13 @@ internal sealed partial class ProcedureAnalysis
     /// </summary>
     public bool NeedsFrame { get; private set; }
 
-    /// <summary>The slot of <c>Me</c>, an object slot (<see cref="ObjectSlots"/>), when the procedure is a member of a class; <see langword="null"/> otherwise.</summary>
+    /// <summary>
+    /// The slot of <c>Me</c>, an object slot (<see cref="ObjectSlots"/>), when the procedure is a member of a class; <see langword="null"/> otherwise.
+    /// </summary>
     public int? MeSlot { get; private set; }
 
     /// <summary>
-    /// Whether the procedure is a member of a class whose frame holds nothing compiled code does not but <c>Me</c> (IR lowering S2.5e3b): a call compiled
+    /// Whether the procedure is a member of a class whose frame holds nothing compiled code does not but <c>Me</c>: a call compiled
     /// code makes of it on an object enters it without a frame, as it enters a procedure (<see cref="CompiledActivation.EnterMemberDirectly"/>), its
     /// activation holding <c>Me</c>, and its fields found on the object.
     /// </summary>
@@ -461,7 +465,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a Variant is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c).
+            // a Variant is held in the cell its frame holds it in, which compiled code reads and writes.
             if (parameter is not ParamArrayParameterSymbol && parameter.ResolvedType is VBVariantType && _layout.ParameterSlots[i] >= 0)
             {
                 NeedsFrame = true;
@@ -470,7 +474,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // an object is held in the cell its frame holds it in, whose reference compiled code reads (IR lowering S2.5e2).
+            // an object is held in the cell its frame holds it in, whose reference compiled code reads.
             if (parameter is not ParamArrayParameterSymbol && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
             {
                 NeedsFrame = true;
@@ -731,7 +735,7 @@ internal sealed partial class ProcedureAnalysis
         return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null);
     }
 
-    // a call of a member of an object variable of the activation declared as a class (IR lowering S2.5e3), its parameters after Me taken as CallOf takes a
+    // a call of a member of an object variable of the activation declared as a class, its parameters after Me taken as CallOf takes a
     // procedure's. The member is the one the class the variable is declared as has: the one the object's class invokes for it is found when the call is
     // made (CompiledActivation.CanCallMember), as the interpreter finds it (EvaluateBoundMember), and the call is made as the interpreter makes it, the
     // object given as Me.
@@ -835,7 +839,7 @@ internal sealed partial class ProcedureAnalysis
     private CompiledStep? AnalyzeForOpener(int offset, ForStatementNode forStatement, int past)
     {
         // a Variant counter counts in the type its start, end and step decide (ForLoopEvaluator.Operands): the interpreter runs the statement, and compiled
-        // code steps the loop with the state it gives the frame (IR lowering S2.5c).
+        // code steps the loop with the state it gives the frame.
         if (forStatement.ControlExpression is SimpleNameExpressionNode variantName && Bind(forStatement.ControlExpression) is BoundVariable variantCounter
             && VariantSlotOf(variantCounter) is { } counterSlot)
         {
@@ -1007,7 +1011,7 @@ internal sealed partial class ProcedureAnalysis
         return slot;
     }
 
-    // a Variant variable of the activation, by its slot (IR lowering S2.5c).
+    // a Variant variable of the activation, by its slot.
     private int? VariantSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
@@ -1084,7 +1088,7 @@ internal sealed partial class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
-        // a Variant's payload, of its subtype, converted to the destination as any payload is (IR lowering S2.5c).
+        // a Variant's payload, of its subtype, converted to the destination as any payload is.
         if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
         {
             return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
@@ -1120,7 +1124,7 @@ internal sealed partial class ProcedureAnalysis
     {
         switch (node)
         {
-            // MS-VBAL §5.6.9.7: two object references compared as they are (IR lowering S2.5e2).
+            // MS-VBAL §5.6.9.7: two object references compared as they are.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
                 return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
                     ? new IsNode(leftObject, rightObject)
@@ -1182,7 +1186,7 @@ internal sealed partial class ProcedureAnalysis
         }
     }
 
-    // TryEvaluatePayload of what a Variant is (IR lowering S2.5c): a Variant variable of the activation; an operation of a Variant operand, whose plan is
+    // TryEvaluatePayload of what a Variant is: a Variant variable of the activation; an operation of a Variant operand, whose plan is
     // deferred - each operand evaluated on payloads, then planned for their types (PlanFor); and anything else evaluated on payloads, of its own kind.
     private VariantNode? Dynamic(BoundNode node)
     {

@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A field of <c>Me</c> of a scalar type, compiled (IR lowering S2.5e): held in the cell the object holds it in, found where the interpreter finds it, and
+/// A field of <c>Me</c> of a scalar type, compiled: held in the cell the object holds it in, found where the interpreter finds it, and
 /// read and written there by compiled code as a variable held in a cell is. What the interpreter does of the field - a statement it runs alone, a member
 /// called on the object, a caller outside the class - it does in that cell too. A program runs the same either way.
 /// </summary>
