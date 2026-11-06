@@ -34,6 +34,10 @@ internal sealed class ProcedureEmitter
     // the slots held in cells, each by the local its cell is held in, and by its number of the activation's cells (CompiledActivation.TakeReference).
     private readonly Dictionary<int, LocalBuilder> _cells = [];
     private readonly Dictionary<int, int> _cellNumbers = [];
+
+    // the Variant slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5c).
+    private readonly Dictionary<int, LocalBuilder> _variants = [];
+    private static readonly Type Variants = typeof(VariantOperations);
     private readonly Dictionary<int, Label> _instructions = [];
     private readonly Dictionary<int, Label> _failures = [];
     private readonly Dictionary<int, Label> _recoveries = [];
@@ -139,6 +143,11 @@ internal sealed class ProcedureEmitter
             }
         }
 
+        foreach (var slot in _analysis.VariantSlots)
+        {
+            _variants[slot] = _il.DeclareLocal(typeof(object));
+        }
+
         if (_analysis.ResultKind is { } resultKind)
         {
             _result = _il.DeclareLocal(ClrTypeOf(resultKind));
@@ -173,7 +182,7 @@ internal sealed class ProcedureEmitter
 
             // every instruction boundary is a safepoint: under the random walk-back the activation may be handed to the interpreter at any of them, and not only
             // where it polls for a program to stop - which a step that polls already does, before it.
-            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
+            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep or VariantForNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
             {
                 EmitPoll(step.Offset);
             }
@@ -232,6 +241,17 @@ internal sealed class ProcedureEmitter
                 var kind = _analysis.Slots[slot];
                 EmitCellOf(slot, kind, _cells[slot], () => LoadZero(kind));
             }
+        }
+
+        // each Variant's cell, as the frame holds it: one held otherwise makes the activation the interpreter's from the start.
+        foreach (var (slot, cell) in _variants)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, slot);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantCellOf))!);
+            _il.Emit(OpCodes.Stloc, cell);
+            _il.Emit(OpCodes.Ldloc, cell);
+            _il.Emit(OpCodes.Brfalse, WalkBackAt(0));
         }
     }
 
@@ -354,7 +374,36 @@ internal sealed class ProcedureEmitter
             case CaseStep caseStep:
                 EmitCase(caseStep);
                 break;
+
+            // what the Variant holds decides what its Let is: one the evaluation on payloads declines - of a String, over an object - the interpreter runs
+            // alone, and compiled code goes on after it.
+            case VariantLetStep variantLet:
+            {
+                var failure = RecoverAt(variantLet.Offset);
+                var value = EmitVariant(variantLet.Value, failure);
+                _il.Emit(OpCodes.Ldloc, _variants[variantLet.Slot]);
+                _il.Emit(OpCodes.Ldloc, value);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Write))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
+            case VariantForNextStep variantNext:
+                EmitVariantForNext(variantNext);
+                break;
         }
+    }
+
+    // the Next of a loop of a Variant counter, stepped with the state the frame holds (CompiledActivation.StepVariantFor): the body again, or past the loop;
+    // a step it declines, the interpreter runs alone.
+    private void EmitVariantForNext(VariantForNextStep next)
+    {
+        EmitPoll(next.Offset);
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, next.Opener);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.StepVariantFor))!);
+        _il.Emit(OpCodes.Switch, new[] { _instructions[next.Body], _instructions[next.Offset + 1] });
+        EmitStepped(next.Offset);
     }
 
     private void EmitLeaveBlocks(Action loadPc)
@@ -615,6 +664,17 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, _slots[slot]);
             _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(kind) ? nameof(CompiledActivation.TryReloadIntegral) : nameof(CompiledActivation.TryReloadFloating))!);
+            _il.Emit(OpCodes.Brfalse, unread);
+        }
+
+        // each Variant's cell, found again: what the interpreter ran may have bound the slot to another.
+        foreach (var (slot, cell) in _variants)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, slot);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ReloadVariantCell))!);
+            _il.Emit(OpCodes.Stloc, cell);
+            _il.Emit(OpCodes.Ldloc, cell);
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
@@ -1263,9 +1323,84 @@ internal sealed class ProcedureEmitter
                 return AsBoolean();
             }
 
+            case UnvariantNode unvariant:
+            {
+                var value = EmitVariant(unvariant.Value, failure);
+                var integral = _il.DeclareLocal(typeof(long));
+                var floating = _il.DeclareLocal(typeof(double));
+                _il.Emit(OpCodes.Ldloc, value);
+                _il.Emit(OpCodes.Ldc_I4, (int)unvariant.Kind);
+                _il.Emit(OpCodes.Ldloca, integral);
+                _il.Emit(OpCodes.Ldloca, floating);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Convert))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                return new Operand(ScalarKinds.IsIntegral(unvariant.Kind) ? integral : floating, 0, 0);
+            }
+
+            case TruthNode truth:
+            {
+                var value = EmitVariant(truth.Value, failure);
+                _il.Emit(OpCodes.Ldloc, value);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.IsTrue))!);
+                return AsBoolean();
+            }
+
             default:
                 throw new InvalidOperationException($"No IL for {node.GetType().Name}.");
         }
+    }
+
+    // evaluates what a Variant is into a local (IR lowering S2.5c): each operation planned for the subtypes of its operands, and one the evaluation on
+    // payloads declines going to failure.
+    private LocalBuilder EmitVariant(VariantNode node, Label failure)
+    {
+        var result = _il.DeclareLocal(typeof(VariantPayload));
+        switch (node)
+        {
+            case VariantSlotNode slot:
+                _il.Emit(OpCodes.Ldloc, _variants[slot.Slot]);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Read))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+
+            case VariantOfNode of:
+            {
+                var value = EmitPayload(of.Value, failure);
+                _il.Emit(OpCodes.Ldc_I4, (int)of.Value.Kind);
+                LoadAsBoth(value, of.Value.Kind);
+                _il.Emit(OpCodes.Call, typeof(VariantPayload).GetMethod(nameof(VariantPayload.Of))!);
+                _il.Emit(OpCodes.Stloc, result);
+                break;
+            }
+
+            case VariantBinaryNode binary:
+            {
+                var left = EmitVariant(binary.Left, failure);
+                var right = EmitVariant(binary.Right, failure);
+                _il.Emit(OpCodes.Ldstr, binary.Token);
+                _il.Emit(OpCodes.Ldloc, left);
+                _il.Emit(OpCodes.Ldloc, right);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Binary))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
+            case VariantUnaryNode unary:
+            {
+                var operand = EmitVariant(unary.Operand, failure);
+                _il.Emit(OpCodes.Ldstr, unary.Token);
+                _il.Emit(OpCodes.Ldloc, operand);
+                _il.Emit(unary.OfAConstantExpression ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Unary))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+        }
+
+        return result;
     }
 
     // a payload of a kind whose every value is a Double: what an extended operation of two of them is computed in Double for, when its result is exact.

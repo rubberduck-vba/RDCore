@@ -714,6 +714,27 @@ public sealed class CompiledActivation : ILightActivation
         return read;
     }
 
+    /// <summary>
+    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5c): what compiled code reads and
+    /// writes it in, for as long as the interpreter runs nothing of the activation.
+    /// </summary>
+    /// <returns><see langword="null"/> when the frame holds it in no Variant's cell - at an address, in a cell of a caller that is no Variant's: the activation is then the interpreter's.</returns>
+    public object? VariantCellOf(int slot) => Frame.TryGetSlotCell(slot, out var cell) && cell is VariantCell variant ? variant : null;
+
+    /// <summary>
+    /// The cell of the <c>Variant</c> in <paramref name="slot"/> (<see cref="VariantCellOf"/>), found again after the interpreter ran an instruction or the
+    /// program waited.
+    /// </summary>
+    public object? ReloadVariantCell(int slot) => FailsAccessAtRandom() ? null : VariantCellOf(slot);
+
+    /// <summary>
+    /// Steps the <c>For</c> loop whose statement is at <paramref name="opener"/>, of a <c>Variant</c> counter, as the interpreter steps it on payloads
+    /// (<c>RuntimeExpressionEvaluator.TryStepForUnboxed</c>), with the state its statement, which the interpreter ran, gave the frame.
+    /// </summary>
+    /// <returns>1 when the counter is past the end and the loop ends; 0 when the body runs again; -1 when the step is the interpreter's.</returns>
+    public int StepVariantFor(int opener)
+        => Frame.TryGetForLoopState(opener, out var state) && _executor.Expressions.TryStepForUnboxed(_session, state, _context, out var past) ? (past ? 1 : 0) : -1;
+
     /// <summary>Writes the variable in <paramref name="slot"/>, of an integral kind, into its cell.</summary>
     public void SpillIntegral(int slot, long value) => Spill(slot, value, 0);
 

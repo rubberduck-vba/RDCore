@@ -46,13 +46,20 @@ namespace RDCore.Runtime.Compiled;
 /// Any other instruction compiled code does not do, the interpreter runs alone the same way (IR lowering S2.5a), with the reason recorded
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
 /// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
-/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A body none of whose instructions that do
+/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's, but for a Variant's (below). A body none of whose instructions that do
 /// something are compiled code's is kept in the interpreter.
 /// </para>
 /// <para>
 /// The interpreter steps a block whose state the frame holds too (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it
 /// that uses its object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar, or that compiled code does not
 /// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
+/// </para>
+/// <para>
+/// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c,
+/// <see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
+/// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines - a Variant that holds no payload, a sum that
+/// overflows its subtype - the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
+/// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
@@ -102,6 +109,17 @@ internal sealed class ProcedureAnalysis
     public IReadOnlyList<int> CellSlots => [.. _cellSlots];
 
     private readonly SortedSet<int> _cellSlots = [];
+
+    /// <summary>
+    /// The slots of the <c>Variant</c> parameters and variables, in order (IR lowering S2.5c): each is held in the cell its frame holds it in, which compiled
+    /// code reads and writes it in.
+    /// </summary>
+    public IReadOnlyList<int> VariantSlots => [.. _variantSlots];
+
+    private readonly SortedSet<int> _variantSlots = [];
+
+    // the For statements of a Variant counter, which the interpreter runs; their Next is compiled code's (VariantForNextStep).
+    private readonly HashSet<int> _variantLoops = [];
 
     /// <summary>The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</summary>
     public ScalarKind? ResultKind { get; private set; }
@@ -213,7 +231,7 @@ internal sealed class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -330,6 +348,15 @@ internal sealed class ProcedureAnalysis
         {
             var parameter = parameters[i];
 
+            // a Variant is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c).
+            if (parameter is not ParamArrayParameterSymbol && parameter.ResolvedType is VBVariantType && _layout.ParameterSlots[i] >= 0)
+            {
+                NeedsFrame = true;
+                _ = _variantSlots.Add(_layout.ParameterSlots[i]);
+                _slotSymbols[_layout.ParameterSlots[i]] = parameter;
+                continue;
+            }
+
             // what is not a scalar the frame holds: a ParamArray, an object, a String, a Variant, an array, a record; and Me.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
             {
@@ -356,6 +383,11 @@ internal sealed class ProcedureAnalysis
                     continue;
                 case VBLocalVariableSymbol { IsStatic: false } variable when ScalarKinds.Of(variable.ResolvedType) is { } kind && _layout.LocalSlots[i] >= 0:
                     _slots[_layout.LocalSlots[i]] = kind;
+                    _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false, ResolvedType: VBVariantType } variable when _layout.LocalSlots[i] >= 0:
+                    NeedsFrame = true;
+                    _ = _variantSlots.Add(_layout.LocalSlots[i]);
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
                     continue;
 
@@ -420,6 +452,9 @@ internal sealed class ProcedureAnalysis
 
             case InstructionKind.ForOpener when instruction.Node is ForStatementNode forStatement && instruction.End is { } past:
                 return AnalyzeForOpener(instruction.Offset, forStatement, past);
+
+            case InstructionKind.ForNext when instruction.Matching is { } variantOpener && instruction.Target is { } variantBody && _variantLoops.Contains(variantOpener):
+                return new VariantForNextStep(instruction.Offset, variantOpener, variantBody);
 
             case InstructionKind.ForNext when instruction.Matching is { } opener && instruction.Target is { } body && _loopOfOpener.TryGetValue(opener, out var loop):
                 return new ForNextStep(instruction.Offset, loop, CounterSlotOf(loop), _loops[loop].Kind, body);
@@ -501,6 +536,10 @@ internal sealed class ProcedureAnalysis
                 return assigned is BoundCall slotCall
                     ? CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation)
                     : PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null;
+
+            // a Variant is assigned the payload as it is, of its own type (MS-VBAL §5.5.1.2.12), as TryAssignUnboxed assigns it.
+            case BoundVariable variable when VariantSlotOf(variable) is { } variantSlot:
+                return Dynamic(assigned) is { } variantValue ? new VariantLetStep(offset, variantSlot, variantValue) : null;
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
@@ -598,6 +637,16 @@ internal sealed class ProcedureAnalysis
     // MS-VBAL §5.4.2.3, as ProcedureExecutor.ExecuteForOpener and TryStepForUnboxed do it: a counter of the activation, which counts in its own type.
     private CompiledStep? AnalyzeForOpener(int offset, ForStatementNode forStatement, int past)
     {
+        // a Variant counter counts in the type its start, end and step decide (ForLoopEvaluator.Operands): the interpreter runs the statement, and compiled
+        // code steps the loop with the state it gives the frame (IR lowering S2.5c).
+        if (forStatement.ControlExpression is SimpleNameExpressionNode variantName && Bind(forStatement.ControlExpression) is BoundVariable variantCounter
+            && VariantSlotOf(variantCounter) is not null)
+        {
+            _ = _variantLoops.Add(offset);
+            _stepped.Add(new Ineligibility(IneligibilityKind.ForCounter, variantName.IdentifierName, forStatement.SourceLocation));
+            return new SteppedStep(offset);
+        }
+
         if (forStatement.ControlExpression is not SimpleNameExpressionNode || Bind(forStatement.ControlExpression) is not BoundVariable counter
             || SlotOf(counter) is not { } slot)
         {
@@ -722,6 +771,10 @@ internal sealed class ProcedureAnalysis
     private int? SlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : null;
 
+    // a Variant variable of the activation, by its slot (IR lowering S2.5c).
+    private int? VariantSlotOf(BoundVariable variable)
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
+
     // the condition of an If, an ElseIf, an inline If and a loop, and whether it is an Until (ProcedureExecutor.GetCondition).
     private static (ExpressionNode? Condition, bool Negate) ConditionOf(StatementNode? node) => node switch
     {
@@ -741,6 +794,11 @@ internal sealed class ProcedureAnalysis
     private PayloadNode? Condition(ExpressionNode condition)
     {
         var node = Bind(condition);
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        {
+            return Dynamic(node) is { } value ? new TruthNode(value) : null;
+        }
+
         return IsExtended(node) ? PayloadAs(node, ScalarKind.Boolean) : Payload(node);
     }
 
@@ -751,6 +809,12 @@ internal sealed class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
+        // a Variant's payload, of its subtype, converted to the destination as any payload is (IR lowering S2.5c).
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        {
+            return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
+        }
+
         if (IsExtended(node))
         {
             return Extended(node) is { } extended ? new StoreNode(extended, destination) : null;
@@ -796,6 +860,10 @@ internal sealed class ProcedureAnalysis
                         ? new ConstantNode(literalKind, payload.Integral, payload.Floating)
                         : Unsupported(literal);
 
+            case BoundVariable variable when VariantSlotOf(variable) is not null:
+                Refuse(IneligibilityKind.VariantOperand, variable.Variable.Name, variable.Expression.Location);
+                return null;
+
             case BoundVariable variable:
                 return SlotOf(variable) is { } slot ? new SlotNode(slot, _slots[slot]) : Unsupported(variable);
 
@@ -824,6 +892,40 @@ internal sealed class ProcedureAnalysis
                 return Unsupported(node);
         }
     }
+
+    // TryEvaluatePayload of what a Variant is (IR lowering S2.5c): a Variant variable of the activation; an operation of a Variant operand, whose plan is
+    // deferred - each operand evaluated on payloads, then planned for their types (PlanFor); and anything else evaluated on payloads, of its own kind.
+    private VariantNode? Dynamic(BoundNode node)
+    {
+        switch (node)
+        {
+            case BoundVariable variable when VariantSlotOf(variable) is { } slot:
+                return new VariantSlotNode(slot);
+
+            case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
+                return Dynamic(enclosed);
+
+            case BoundBinary { Plan: { IsDeferred: true } plan } binary:
+                if (!IsPayloadOperator(plan.Operator))
+                {
+                    Refuse(IneligibilityKind.Operator, plan.Operator, binary.Expression.Location);
+                    return null;
+                }
+
+                return Dynamic(binary.Left) is { } left && Dynamic(binary.Right) is { } right ? new VariantBinaryNode(plan.Operator, left, right) : null;
+
+            case BoundUnary { Plan: { IsDeferred: true } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
+                return Dynamic(operand) is { } value ? new VariantUnaryNode(plan.Operator, value, unary.NegatesAConstantExpression) : null;
+
+            default:
+                return Payload(node) is { } payload ? new VariantOfNode(payload) : null;
+        }
+    }
+
+    // the binary operators TryOperateBinary does on payloads: the arithmetic ones but ^, the comparisons and the logical operators.
+    private static bool IsPayloadOperator(string token)
+        => token is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.DivisionOp or Tokens.IntegerDivisionOp or Tokens.ModuloOp
+            || OperatorTokens.ComparisonOf(token) is not null || OperatorTokens.LogicalOf(token) is not null;
 
     private PayloadNode? Constant(BoundNode node, Symbol constant)
     {

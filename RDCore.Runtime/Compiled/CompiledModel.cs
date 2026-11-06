@@ -187,8 +187,38 @@ internal sealed record class ExtendedOperationNode(string Token, ExtendedNode Le
 // Extended.Negate.
 internal sealed record class ExtendedNegateNode(ExtendedNode Operand) : ExtendedNode;
 
+// the value of an expression of a Variant (IR lowering S2.5c): a payload whose kind is the subtype it is of, which is known only when it is evaluated
+// (VariantPayload).
+internal abstract record class VariantNode;
+
+// a Variant parameter or variable of the activation, read in the cell its frame holds it in, by the number of its slot.
+internal sealed record class VariantSlotNode(int Slot) : VariantNode;
+
+// a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
+internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
+
+// an operation of a Variant operand (VariantOperations.Binary): planned for the subtypes of the payloads, as the interpreter plans it.
+internal sealed record class VariantBinaryNode(string Token, VariantNode Left, VariantNode Right) : VariantNode;
+
+// a negation or a Not of a Variant operand (VariantOperations.Unary).
+internal sealed record class VariantUnaryNode(string Token, VariantNode Operand, bool OfAConstantExpression) : VariantNode;
+
+// a Variant's payload converted to a kind exactly (VariantOperations.Convert).
+internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) : PayloadNode(Kind);
+
+// whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
+internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
+
+// a Let of a Variant variable of the activation (IR lowering S2.5c): the payload written into its cell, of its own subtype - when the cell holds no object,
+// which the interpreter's assignment lets go of.
+internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
+
+// the Next of a For whose counter is a Variant (IR lowering S2.5c): stepped as the interpreter steps it on payloads, with the state its stepped For
+// statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's.
+internal sealed record class VariantForNextStep(int Offset, int Opener, int Body) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);

@@ -558,6 +558,25 @@ public sealed partial class RuntimeExpressionEvaluator
     private static OperationPlan PlanFor(OperationPlan plan, ScalarPayload left, ScalarPayload right)
         => plan.IsDeferred ? OperationPlanner.ForValues(plan.Operator, left.Type, right.Type) : plan;
 
+    /// <summary>
+    /// An operation of a <c>Variant</c> operand, on the payloads of its operands (MS-VBAL §5.6.9): planned for their types, as a deferred plan is made again
+    /// here - what compiled code evaluates one with (IR lowering S2.5c).
+    /// </summary>
+    /// <returns><see langword="false"/> when the operation is not done on payloads: it raises an error, or its result is no payload.</returns>
+    internal static bool TryOperateDeferred(string token, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
+        => TryOperateBinary(OperationPlanner.ForValues(token, lhs.Type, rhs.Type), lhs, rhs, out result);
+
+    /// <summary>A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).</summary>
+    internal static bool TryOperateDeferred(string token, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
+        => TryOperateUnary(OperationPlanner.ForValue(token, operand.Type), operand, ofAConstantExpression, out result);
+
+    /// <summary>A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.</summary>
+    internal static bool TryConvertExactly(ScalarPayload payload, VBType destination, out ScalarPayload converted)
+        => TryConvertPayload(payload, destination, out converted);
+
+    /// <summary>A payload let-assigned to a <c>Variant</c>'s cell, as an assignment on payloads writes it (MS-VBAL §5.5.1.2.12): not over an object.</summary>
+    internal static bool TryWriteVariant(VariantCell cell, ScalarPayload payload) => TryWritePayload(cell, payload);
+
     private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
     {
         result = default;
