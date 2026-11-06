@@ -51,9 +51,10 @@ internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IRepl
 /// a project file it cannot read, and the shell asks at its console.
 /// </summary>
 /// <remarks>
-/// A shell that runs unattended (<c>--unattended</c>) is never asked, and chooses nothing: it says so as it starts
-/// (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a server that asks anyway is not answered. Nor is a shell whose input is a
-/// script (<see cref="ReplUserInteraction.Choose"/>).
+/// A shell that runs unattended (<c>--unattended</c>) is never asked: it says so as it starts
+/// (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a server that asks anyway is answered with an error, that nobody answers
+/// (<see cref="ReplNobodyAnswersException"/>) - not with no choice, which is a user who closed the question. So is a server that asks a shell whose input is a
+/// script, or one that has ended.
 /// <para>
 /// The question is asked when the console is the shell's to ask it at (<see cref="ReplServerQuestions"/>): one that comes while a line is typed at the prompt
 /// waits for the line to be entered, and the keys of the line are the line's.
@@ -69,8 +70,13 @@ internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interact
     public async Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageActionItem> Handle(
         OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams request, CancellationToken cancellationToken)
     {
+        if (unattended.IsUnattended)
+        {
+            throw new ReplNobodyAnswersException();
+        }
+
         var actions = request.Actions?.ToArray() ?? [];
-        if (actions.Length == 0 || unattended.IsUnattended)
+        if (actions.Length == 0)
         {
             return null!;
         }

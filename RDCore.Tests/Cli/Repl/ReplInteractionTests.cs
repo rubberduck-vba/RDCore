@@ -245,30 +245,32 @@ public sealed class ReplInteractionTests
         StringAssert.Contains(output.ToString(), "Regenerate it?");
     }
 
-    // rdc --unattended has nobody at its console: a question the server asks anyway is answered with no choice, and no key is read for it.
+    // rdc --unattended has nobody at its console: a question the server asks anyway is answered that nobody answers - not with no choice, which is a user
+    // who closed it - and no key is read for it.
     [TestMethod]
-    public async Task TheShowMessageRequestHandler_OfAShellThatRunsUnattended_ChoosesNothing_AndReadsNoKey()
+    public async Task TheShowMessageRequestHandler_OfAShellThatRunsUnattended_SaysNobodyAnswers_AndReadsNoKey()
     {
         var keys = new ScriptedKeys().Press(Char('r'));
         var (interaction, output) = Shell(keys);
+        var handler = new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(true));
 
-        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(true)).Handle(Regenerate(), CancellationToken.None);
+        await Assert.ThrowsExactlyAsync<ReplNobodyAnswersException>(() => handler.Handle(Regenerate(), CancellationToken.None));
 
-        Assert.IsNull(answer);
         Assert.AreEqual(string.Empty, output.ToString());
         Assert.AreEqual('r', keys.ReadKey(CancellationToken.None).KeyChar, "the key is still there");
     }
 
-    // a server's question comes when the server asks it, not where the script is: a script piped to the shell is not asked, and keeps every line.
+    // a server's question comes when the server asks it, not where the script is: a script piped to the shell is not asked, nobody answers, and the script
+    // keeps every line.
     [TestMethod]
-    public async Task TheShowMessageRequestHandler_OfAShellWhoseInputIsAScript_ChoosesNothing_AndTheScriptKeepsItsLines()
+    public async Task TheShowMessageRequestHandler_OfAShellWhoseInputIsAScript_SaysNobodyAnswers_AndTheScriptKeepsItsLines()
     {
         var keys = new ScriptedKeys(interactive: false).Lines("Regenerate", "", "Debug.Print 1");
         var (interaction, output) = Shell(keys);
+        var handler = new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(false));
 
-        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
+        await Assert.ThrowsExactlyAsync<ReplNobodyAnswersException>(() => handler.Handle(Regenerate(), CancellationToken.None));
 
-        Assert.IsNull(answer);
         Assert.AreEqual(string.Empty, output.ToString());
         Assert.AreEqual("Regenerate", keys.ReadLine(CancellationToken.None));
         Assert.AreEqual(string.Empty, keys.ReadLine(CancellationToken.None));

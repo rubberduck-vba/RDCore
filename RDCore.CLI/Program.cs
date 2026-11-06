@@ -167,8 +167,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                 System.Console.Out,
                 ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi,
                 consoleWidth: () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth))
-            // and the questions the language server asks, when the console is the shell's to ask them at.
-            .AddSingleton<ReplServerQuestions>()
+            // and the questions the language server asks, when the console is the shell's to ask them at: the shell's messages wait while one is asked.
+            .AddSingleton(provider => new ReplServerQuestions(provider.GetRequiredService<IConsoleKeys>(), provider.GetService<PromptAwareMessageWriter>()))
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
@@ -236,9 +236,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                         Interjections = provider.GetRequiredService<ReplServerQuestions>(),
                     };
 
-                    // from now on, the shell's messages are written above the line being edited, not over it, and wait for a question to be answered.
+                    // from now on, the shell's messages are written above the line being edited, not over it.
                     provider.GetRequiredService<PromptAwareMessageWriter>().Editor = editor;
-                    provider.GetRequiredService<ReplServerQuestions>().Editor = editor;
                     return editor;
                 })
                 // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.

@@ -14,14 +14,19 @@ namespace RDCore.CLI.App.Repl;
 /// (<see cref="ConsolePromptEditor.Interjections"/>).
 /// </para>
 /// <para>
-/// A shell whose input is a script asks nothing, nor does one that has ended (<see cref="Close"/>): the question is answered with no choice.
+/// The shell's messages that come while a question is asked are written once it is answered (<see cref="PromptAwareMessageWriter.WhileAsking"/>), and what
+/// writes them does not wait for the user.
+/// </para>
+/// <para>
+/// A shell whose input is a script asks nothing, nor does one that has ended (<see cref="Close"/>): nobody answers (<see cref="ReplNobodyAnswersException"/>),
+/// which is not the user closing the question.
 /// </para>
 /// </remarks>
 /// <param name="keys">The shell's keys.</param>
-internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterjections
+/// <param name="messages">The shell's messages, which wait while a question is asked; <see langword="null"/> where they are not written above a prompt's line.</param>
+internal sealed class ReplServerQuestions(IConsoleKeys keys, PromptAwareMessageWriter? messages = null) : IConsoleInterjections
 {
     private readonly object _sync = new();
-    private readonly object _console = new();
     private readonly SemaphoreSlim _asking = new(1, 1);
     private readonly Queue<Question> _waiting = new();
     private TaskCompletionSource _arrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -29,12 +34,6 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
     private bool _closed;
 
     private sealed record Question(Func<IConsoleKeys, CancellationToken, int?> Ask, CancellationToken Token, TaskCompletionSource<int?> Answer);
-
-    /// <summary>
-    /// The prompt's line editor, whose drawing a question is serialized with: what is written above the line waits for the answer. <see langword="null"/> where
-    /// the shell reads its lines without one.
-    /// </summary>
-    public ConsolePromptEditor? Editor { get; set; }
 
     /// <inheritdoc/>
     public Task Waiting
@@ -53,12 +52,14 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
     /// </summary>
     /// <param name="ask">Asks it with the keys given, and answers the index of the choice, or <see langword="null"/> for none.</param>
     /// <param name="token">A token that withdraws the question.</param>
-    /// <returns>What <paramref name="ask"/> answered; <see langword="null"/> when nobody is at the console.</returns>
+    /// <returns>What <paramref name="ask"/> answered.</returns>
+    /// <exception cref="ReplNobodyAnswersException">Nobody is at the console: its input is a script, or the shell has ended.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="token"/> withdrew the question before it was answered.</exception>
     public async Task<int?> AskAsync(Func<IConsoleKeys, CancellationToken, int?> ask, CancellationToken token)
     {
         if (!keys.IsInteractive)
         {
-            return null;
+            throw new ReplNobodyAnswersException();
         }
 
         var question = new Question(ask, token, new(TaskCreationOptions.RunContinuationsAsynchronously));
@@ -87,14 +88,14 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
         return await question.Answer.Task;
     }
 
-    // whether the question waits to be asked, which it is put in line for; a shell that has ended answers it with no choice.
+    // whether the question waits to be asked, which it is put in line for; nobody answers it in a shell that has ended.
     private bool Waits(Question question)
     {
         lock (_sync)
         {
             if (_closed)
             {
-                question.Answer.TrySetResult(null);
+                question.Answer.TrySetException(new ReplNobodyAnswersException());
                 return true;
             }
 
@@ -113,7 +114,7 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
     /// Asks the questions that wait, in the order they came, with the keys given; from the first call on, a question waits to be asked. Called before the shell
     /// draws a prompt, and by the prompt while nothing is typed on its line.
     /// </summary>
-    /// <param name="keys">Where the answers are read: the shell's, or the prompt's, which hand over the key it was waiting for.</param>
+    /// <param name="keys">Where the answers are read: the shell's, or the prompt's, which stopped reading its key to have them asked.</param>
     public void AskWaiting(IConsoleKeys keys)
     {
         lock (_sync)
@@ -137,7 +138,7 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
     }
 
     /// <summary>
-    /// The shell has ended: what waits is answered with no choice, and nothing more is asked.
+    /// The shell has ended: nobody answers what waits, and nothing more is asked.
     /// </summary>
     public void Close()
     {
@@ -151,7 +152,7 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
 
         foreach (var question in left)
         {
-            question.Answer.TrySetResult(null);
+            question.Answer.TrySetException(new ReplNobodyAnswersException());
         }
     }
 
@@ -173,7 +174,7 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
         }
     }
 
-    // a question that was withdrawn is not asked; one is asked holding what the console's drawing is serialized on, so that nothing is written into it.
+    // a question that was withdrawn is not asked; the shell's messages that come while one is asked wait for its answer, so that none is written into it.
     private void Ask(Question question, IConsoleKeys keys)
     {
         if (question.Answer.Task.IsCompleted || question.Token.IsCancellationRequested)
@@ -184,10 +185,8 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
 
         try
         {
-            lock (Editor?.Sync ?? _console)
-            {
-                question.Answer.TrySetResult(question.Ask(keys, question.Token));
-            }
+            var answer = messages is null ? question.Ask(keys, question.Token) : messages.WhileAsking(() => question.Ask(keys, question.Token));
+            question.Answer.TrySetResult(answer);
         }
         catch (OperationCanceledException)
         {
@@ -199,3 +198,9 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys) : IConsoleInterject
         }
     }
 }
+
+/// <summary>
+/// Nobody is at the shell's console to answer a question the language server asks: its input is a script, it runs unattended, or it has ended. The server is
+/// answered with an error, not with no choice, which is a user who closed the question: an offer made once is still to make (<see cref="SDK.Formatting.IndenterSettingsOffer"/>).
+/// </summary>
+internal sealed class ReplNobodyAnswersException() : Exception("Nobody is at the shell's console to answer the question.");

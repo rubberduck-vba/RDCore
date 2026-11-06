@@ -14,7 +14,7 @@ public interface IConsoleInterjections
     Task Waiting { get; }
 
     /// <summary>
-    /// Asks what waits to be asked, in the order it came, with the keys given: the prompt's, which hand over the key it was waiting for.
+    /// Asks what waits to be asked, in the order it came, with the keys given: the prompt's, which it stopped reading to have it asked.
     /// </summary>
     /// <param name="keys">Where the answers are read.</param>
     void AskWaiting(IConsoleKeys keys);
