@@ -219,7 +219,7 @@
     <value>Les bibliothèques de types sont lues dans le registre et les fichiers d'une machine Windows : cette commande ne s'exécute que sous Windows.</value>
   </data>
   <data name="ExportLibrary_NotFound" xml:space="preserve">
-    <value>Cette machine n'a aucune bibliothèque de types '{0}'. Une bibliothèque se donne par un fichier, par l'identifiant que la machine lui a donné, ou par son nom.</value>
+    <value>Cette machine n'a aucune bibliothèque de types '{0}'. Une bibliothèque se donne par un fichier, par une bibliothèque qu'un fichier contient après sa première, suivie du numéro de sa ressource (MSVBVM60.DLL\3), par l'identifiant que la machine lui a donné, ou par son nom.</value>
   </data>
   <data name="ExportLibrary_Written" xml:space="preserve">
     <value>Bibliothèque '{0}' décrite : {1}</value>

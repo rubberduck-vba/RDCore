@@ -37,7 +37,10 @@ internal static class TypeLibraryLocator
     /// <summary>
     /// Loads a library.
     /// </summary>
-    /// <param name="reference">A file (<c>scrrun.dll</c>, <c>EXCEL.EXE</c>, a <c>.tlb</c>), the identifier a machine gave a library, or the name of one.</param>
+    /// <param name="reference">
+    /// A file (<c>scrrun.dll</c>, <c>EXCEL.EXE</c>, a <c>.tlb</c>), a library a file holds after its first, by the number of its resource (<c>MSVBVM60.DLL\3</c>), the
+    /// identifier a machine gave a library, or the name of one.
+    /// </param>
     /// <param name="progress">Told what is being done when it takes a while.</param>
     /// <returns>The library, or <see langword="null"/> when the machine has none of the reference.</returns>
     public static LoadedTypeLibrary? Load(string reference, Action<string>? progress = null)
@@ -47,12 +50,35 @@ internal static class TypeLibraryLocator
             return FromFile(Path.GetFullPath(reference));
         }
 
+        if (ResourceOf(reference) is var (file, resource))
+        {
+            return FromFile($@"{Path.GetFullPath(file)}\{resource}");
+        }
+
         if (Guid.TryParse(reference, out var guid))
         {
             return Registered(guid) is { } registered ? FromFile(registered) : null;
         }
 
         return ByName(reference, progress);
+    }
+
+    /// <summary>
+    /// The name of the file a library was loaded from, without the folder it is in on this machine: with the number of its resource when it is not the file's
+    /// first library (<c>MSVBVM60.DLL\3</c>), as a <c>.vbp</c> references it.
+    /// </summary>
+    /// <param name="path">The path the library was loaded from.</param>
+    public static string FileNameOf(string path)
+        => ResourceOf(path) is var (file, resource) ? $@"{Path.GetFileName(file)}\{resource}" : Path.GetFileName(path);
+
+    // a type library a file holds besides its first is the file's resource of that number, which LoadTypeLibEx loads when it is written after the file's path.
+    private static (string File, int Resource)? ResourceOf(string reference)
+    {
+        var separator = reference.LastIndexOfAny(['\\', '/']);
+        return separator > 0 && int.TryParse(reference.AsSpan(separator + 1), System.Globalization.NumberStyles.None, null, out var resource) && resource > 0
+            && File.Exists(reference[..separator])
+                ? (reference[..separator], resource)
+                : null;
     }
 
     private static LoadedTypeLibrary? FromFile(string path)

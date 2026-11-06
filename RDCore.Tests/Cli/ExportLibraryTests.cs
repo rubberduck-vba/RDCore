@@ -31,6 +31,21 @@ public sealed class ExportLibraryTests
         Assert.IsEmpty(description.DependsOn);
     }
 
+    // a file can hold more than one library, each a resource of its own number, and a reference names the one it means after the file: the VB6 runtime's
+    // MSVBVM60.DLL\3 is VBRUN, as a .vbp references it, where MSVBVM60.DLL alone is its first, VBA.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ALibraryThatIsNotTheFirstOfItsFile_IsFoundByTheNumberOfItsResource()
+    {
+        var runtime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "MSVBVM60.DLL");
+
+        var description = Export(runtime + @"\3");
+
+        Assert.AreEqual("VBRUN", description.Name);
+        Assert.AreEqual(@"MSVBVM60.DLL\3", description.Origin?.File, "the file and the number of its resource, and not the folder it is in on this machine");
+        Assert.AreEqual("VBA", TypeLibraryLocator.Load(runtime)?.Name, "the file alone is its first library");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ALibraryIsFoundByItsName_AsWellAsByItsFile()

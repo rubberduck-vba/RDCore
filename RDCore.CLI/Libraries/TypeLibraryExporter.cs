@@ -115,7 +115,7 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             {
                 Guid = attributes.guid.ToString("B").ToUpperInvariant(),
                 Version = $"{attributes.wMajorVerNum}.{attributes.wMinorVerNum}",
-                File = loaded.File is null ? null : Path.GetFileName(loaded.File),
+                File = loaded.File is null ? null : TypeLibraryLocator.FileNameOf(loaded.File),
                 ExportedBy = exportedBy,
             },
             DependsOn = [.. _dependencies.Keys.Order(StringComparer.OrdinalIgnoreCase)],
@@ -217,9 +217,15 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
         {
             info.GetFuncDesc(i, out var pointer);
             MemberDescription? member;
+            var function = Marshal.PtrToStructure<FUNCDESC>(pointer);
             try
             {
-                member = Member(loaded, info, Marshal.PtrToStructure<FUNCDESC>(pointer));
+                member = Member(loaded, info, function);
+            }
+            catch (COMException exception) when (exception.HResult == CannotLoadLibrary)
+            {
+                member = null;
+                SkipMemberOfAMissingLibrary(info, function.memid);
             }
             finally
             {
@@ -246,7 +252,18 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
                 info.ReleaseVarDesc(pointer);
             }
 
-            foreach (var property in DispatchProperty(loaded, info, variable))
+            List<MemberDescription> properties;
+            try
+            {
+                properties = [.. DispatchProperty(loaded, info, variable)];
+            }
+            catch (COMException exception) when (exception.HResult == CannotLoadLibrary)
+            {
+                properties = [];
+                SkipMemberOfAMissingLibrary(info, variable.memid);
+            }
+
+            foreach (var property in properties)
             {
                 yield return property;
             }
@@ -262,6 +279,13 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             }
         }
     }
+
+    // TYPE_E_CANTLOADLIBRARY: a type is declared by a library the machine does not have.
+    private const int CannotLoadLibrary = unchecked((int)0x80029C4A);
+
+    // a member of a type of a library the machine does not have is not described: what that type is - an object or not - is the other library's to say, and
+    // the member is said once among what was not described (VBRUN's DataBinding.DataFormat is a StdDataFormat, of MSSTDFMT.DLL).
+    private void SkipMemberOfAMissingLibrary(ITypeInfo info, int memberId) => _skipped.Add($"member {Name(info)}.{NameOf(info, memberId)}");
 
     private IEnumerable<MemberDescription> DispatchProperty(LoadedTypeLibrary loaded, ITypeInfo info, VARDESC variable)
     {

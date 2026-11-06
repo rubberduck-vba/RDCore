@@ -167,7 +167,7 @@ Either way, the application configures its LSP _capabilities_, and the _handlers
 > rdc.exe export-library Excel --dependencies --output Symbols
 > ```
 >
-> `export-library` takes a file (`scrrun.dll`), the identifier the machine gave the library, or its name; when several versions of a library are registered, the latest is described. `--dependencies` describes the libraries it depends on too, which a project needs in order to reference it.
+> `export-library` takes a file (`scrrun.dll`), the identifier the machine gave the library, or its name; when several versions of a library are registered, the latest is described. A file that holds more than one library is given with the number of the library's resource, as a `.vbp` references it: `MSVBVM60.DLL\3` is `VBRUN`, where `MSVBVM60.DLL` alone is its first library, `VBA`. `--dependencies` describes the libraries it depends on too, which a project needs in order to reference it. A member whose type is declared by a library the machine does not have is not described, and the export says which.
 >
 > The description is what a project is _checked_ against; what it _runs_ against are the objects of the library on the machine that runs it. `New Scripting.Dictionary` is a real dictionary, and `New Excel.Application` starts a real Excel, driven from the sidelines through its object model. These are the automation servers of Windows. On another system, a program that creates one of these objects is told that the platform has none (error 429), but the same program can be analyzed anywhere. Every such call passes through the same interception chain as any call outside the workspace, and an administrator can refuse them all with `"AllowAutomation": false` in `appsettings.json` (error 70, _Permission denied_).
 
