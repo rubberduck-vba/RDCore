@@ -978,7 +978,7 @@ public sealed class CompiledActivation : ILightActivation
     public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
 
     /// <summary>
-    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5c): what compiled code reads and
+    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads and
     /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
     /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
     /// </summary>
