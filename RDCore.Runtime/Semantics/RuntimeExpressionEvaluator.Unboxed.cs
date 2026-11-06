@@ -813,13 +813,15 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // whether an expression evaluated on payloads is declared Variant: a Variant variable or constant, what parentheses enclose of one, and an operation of a
-    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value (S1.4). A selector compiled code compares is none.
+    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value (S1.4). A selector compiled code compares is none. An Is
+    // of an operand declared Object is deferred too, but is a Boolean whatever its operands hold (MS-VBAL §5.6.9.7).
     internal static bool IsDeclaredVariant(BoundNode node) => node switch
     {
         BoundVariable { Variable: ITypedSymbol { ResolvedType: VBVariantType } } => true,
         BoundName { Symbol: ITypedSymbol { ResolvedType: VBVariantType } } or BoundQualifiedName { Member: ITypedSymbol { ResolvedType: VBVariantType } } => true,
         BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp
             or SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed } => IsDeclaredVariant(enclosed),
+        BoundBinary { Operation.Token: Tokens.CompareIsOp } => false,
         BoundBinary { Plan: not { IsDeferred: false } } or BoundUnary { Plan: not { IsDeferred: false } } => true,
         _ => false,
     };
