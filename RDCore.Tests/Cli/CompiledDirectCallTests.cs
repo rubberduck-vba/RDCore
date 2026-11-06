@@ -516,7 +516,9 @@ public sealed class CompiledDirectCallTests
                         _ = await Terminate(provider);
                     }
                 }
-            }, debug: true, engine: VBExecutionEngine.Compiled);
+
+                // the engine is the one every session is told, which the test changes: a program run with an engine of its own would keep it.
+            }, debug: true);
         }
         finally
         {
