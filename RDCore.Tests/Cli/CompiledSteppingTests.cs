@@ -148,7 +148,7 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Summed", recoveries: 5);
 
-    // the For statement of a Variant counter decides the type its loop counts in, and is the interpreter's; each Next is compiled code's (IR lowering S2.5c).
+    // the For statement of a Variant counter decides the type its loop counts in, and is the interpreter's; each Next is compiled code's.
     [TestMethod]
     public async Task AForWithAVariantCounter_IsSteppedByTheInterpreter_AndItsNextIsCompiled()
         => await AssertAlikeAsync(Program(

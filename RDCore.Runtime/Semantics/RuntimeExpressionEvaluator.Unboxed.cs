@@ -303,7 +303,7 @@ public sealed partial class RuntimeExpressionEvaluator
     /// <summary>
     /// The step and the end of a loop of a Variant counter held in <paramref name="cell"/>, converted to <paramref name="counterType"/>, when every Next
     /// of it that finds the counter holding a value of that type is stepped on payloads (<see cref="TryStepForUnboxed"/>) with these plans: counter + step
-    /// done in the counter's type, and its comparison with the end too (IR lowering S2.5c, compiled code's speculation of the counter's subtype).
+    /// done in the counter's type, and its comparison with the end too (compiled code's speculation of the counter's subtype).
     /// </summary>
     /// <returns><see langword="false"/> when the loop is not stepped on payloads, or not in that type: each Next is then stepped as any is.</returns>
     internal bool TryVariantForBounds(IRuntimeSession session, ForLoopState state, RuntimeEvaluationContext context, VariantCell cell, VBType counterType,
@@ -589,21 +589,27 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// An operation of a <c>Variant</c> operand, on the payloads of its operands (MS-VBAL §5.6.9): planned for their types, as a deferred plan is made again
-    /// here - what compiled code evaluates one with (IR lowering S2.5c).
+    /// here - what compiled code evaluates one with.
     /// </summary>
     /// <returns><see langword="false"/> when the operation is not done on payloads: it raises an error, or its result is no payload.</returns>
     internal static bool TryOperateDeferred(string token, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
         => TryOperateBinary(OperationPlanner.ForValues(token, lhs.Type, rhs.Type), lhs, rhs, out result);
 
-    /// <summary>A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).</summary>
+    /// <summary>
+    /// A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).
+    /// </summary>
     internal static bool TryOperateDeferred(string token, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
         => TryOperateUnary(OperationPlanner.ForValue(token, operand.Type), operand, ofAConstantExpression, out result);
 
-    /// <summary>A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.</summary>
+    /// <summary>
+    /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.
+    /// </summary>
     internal static bool TryConvertExactly(ScalarPayload payload, VBType destination, out ScalarPayload converted)
         => TryConvertPayload(payload, destination, out converted);
 
-    /// <summary>A payload let-assigned to a <c>Variant</c>'s cell, as an assignment on payloads writes it (MS-VBAL §5.5.1.2.12): not over an object.</summary>
+    /// <summary>
+    /// A payload let-assigned to a <c>Variant</c>'s cell, as an assignment on payloads writes it (MS-VBAL §5.5.1.2.12): not over an object.
+    /// </summary>
     internal static bool TryWriteVariant(VariantCell cell, ScalarPayload payload) => TryWritePayload(cell, payload);
 
     private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)

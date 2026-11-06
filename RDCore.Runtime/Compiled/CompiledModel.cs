@@ -187,7 +187,7 @@ internal sealed record class ExtendedOperationNode(string Token, ExtendedNode Le
 // Extended.Negate.
 internal sealed record class ExtendedNegateNode(ExtendedNode Operand) : ExtendedNode;
 
-// the value of an expression of a Variant (IR lowering S2.5c): a payload whose kind is the subtype it is of, which is known only when it is evaluated
+// the value of an expression of a Variant: a payload whose kind is the subtype it is of, which is known only when it is evaluated
 // (VariantPayload).
 internal abstract record class VariantNode;
 
@@ -212,11 +212,11 @@ internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKi
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
-// a Let of a Variant variable of the activation (IR lowering S2.5c): the payload written into its cell, of its own subtype - when the cell holds no object,
+// a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
 
-// the Next of a For whose counter is a Variant (IR lowering S2.5c): stepped as the interpreter steps it on payloads, with the state its stepped For
+// the Next of a For whose counter is a Variant: stepped as the interpreter steps it on payloads, with the state its stepped For
 // statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
 // speculated subtype the step is done in when it holds it (VariantSpeculation).
 internal sealed record class VariantForNextStep(int Offset, int Opener, int Body, int Counter) : CompiledStep(Offset);

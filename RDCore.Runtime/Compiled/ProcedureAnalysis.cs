@@ -55,8 +55,8 @@ namespace RDCore.Runtime.Compiled;
 /// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
 /// </para>
 /// <para>
-/// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c,
-/// <see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
+/// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes
+/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
 /// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines - a Variant that holds no payload, a sum that
 /// overflows its subtype - the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
@@ -111,7 +111,7 @@ internal sealed class ProcedureAnalysis
     private readonly SortedSet<int> _cellSlots = [];
 
     /// <summary>
-    /// The slots of the <c>Variant</c> parameters and variables, in order (IR lowering S2.5c): each is held in the cell its frame holds it in, which compiled
+    /// The slots of the <c>Variant</c> parameters and variables, in order: each is held in the cell its frame holds it in, which compiled
     /// code reads and writes it in.
     /// </summary>
     public IReadOnlyList<int> VariantSlots => [.. _variantSlots];
@@ -122,7 +122,7 @@ internal sealed class ProcedureAnalysis
     private readonly Dictionary<int, int> _variantLoops = [];
 
     /// <summary>
-    /// The subtype each <c>Variant</c> slot is speculated to hold (IR lowering S2.5c, <see cref="VariantSpeculation"/>): the join of the subtypes of what
+    /// The subtype each <c>Variant</c> slot is speculated to hold (<see cref="VariantSpeculation"/>): the join of the subtypes of what
     /// compiled code assigns it, and of the type a loop it counts counts in, where those are known when the procedure is compiled. A slot assigned anything
     /// else - or that compiled code assigns nothing of a known subtype - has no speculation, and is evaluated as any Variant is.
     /// </summary>
@@ -398,7 +398,7 @@ internal sealed class ProcedureAnalysis
         {
             var parameter = parameters[i];
 
-            // a Variant is held in the cell its frame holds it in, which compiled code reads and writes (IR lowering S2.5c).
+            // a Variant is held in the cell its frame holds it in, which compiled code reads and writes.
             if (parameter is not ParamArrayParameterSymbol && parameter.ResolvedType is VBVariantType && _layout.ParameterSlots[i] >= 0)
             {
                 NeedsFrame = true;
@@ -695,7 +695,7 @@ internal sealed class ProcedureAnalysis
     private CompiledStep? AnalyzeForOpener(int offset, ForStatementNode forStatement, int past)
     {
         // a Variant counter counts in the type its start, end and step decide (ForLoopEvaluator.Operands): the interpreter runs the statement, and compiled
-        // code steps the loop with the state it gives the frame (IR lowering S2.5c).
+        // code steps the loop with the state it gives the frame.
         if (forStatement.ControlExpression is SimpleNameExpressionNode variantName && Bind(forStatement.ControlExpression) is BoundVariable variantCounter
             && VariantSlotOf(variantCounter) is { } counterSlot)
         {
@@ -844,7 +844,7 @@ internal sealed class ProcedureAnalysis
     private int? SlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : null;
 
-    // a Variant variable of the activation, by its slot (IR lowering S2.5c).
+    // a Variant variable of the activation, by its slot.
     private int? VariantSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
@@ -882,7 +882,7 @@ internal sealed class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
-        // a Variant's payload, of its subtype, converted to the destination as any payload is (IR lowering S2.5c).
+        // a Variant's payload, of its subtype, converted to the destination as any payload is.
         if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
         {
             return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
@@ -966,7 +966,7 @@ internal sealed class ProcedureAnalysis
         }
     }
 
-    // TryEvaluatePayload of what a Variant is (IR lowering S2.5c): a Variant variable of the activation; an operation of a Variant operand, whose plan is
+    // TryEvaluatePayload of what a Variant is: a Variant variable of the activation; an operation of a Variant operand, whose plan is
     // deferred - each operand evaluated on payloads, then planned for their types (PlanFor); and anything else evaluated on payloads, of its own kind.
     private VariantNode? Dynamic(BoundNode node)
     {

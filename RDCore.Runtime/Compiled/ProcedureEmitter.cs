@@ -35,7 +35,7 @@ internal sealed class ProcedureEmitter
     private readonly Dictionary<int, LocalBuilder> _cells = [];
     private readonly Dictionary<int, int> _cellNumbers = [];
 
-    // the Variant slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5c).
+    // the Variant slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _variants = [];
     private static readonly Type Variants = typeof(VariantOperations);
 
@@ -1582,7 +1582,7 @@ internal sealed class ProcedureEmitter
         }
     }
 
-    // evaluates what a Variant is into a local (IR lowering S2.5c): each operation planned for the subtypes of its operands, and one the evaluation on
+    // evaluates what a Variant is into a local: each operation planned for the subtypes of its operands, and one the evaluation on
     // payloads declines going to failure.
     private LocalBuilder EmitVariant(VariantNode node, Label failure)
     {

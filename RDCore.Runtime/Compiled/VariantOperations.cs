@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
-/// What a <c>Variant</c> holds when it holds a value of a scalar type, as compiled code holds it (IR lowering S2.5c): the payload, of the Variant's subtype,
+/// What a <c>Variant</c> holds when it holds a value of a scalar type, as compiled code holds it: the payload, of the Variant's subtype,
 /// which is known only when it is read.
 /// </summary>
 public readonly struct VariantPayload
@@ -14,12 +14,14 @@ public readonly struct VariantPayload
 
     internal ScalarPayload Value { get; }
 
-    /// <summary>A payload of <paramref name="kind"/>, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).</summary>
+    /// <summary>
+    /// A payload of <paramref name="kind"/>, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
+    /// </summary>
     public static VariantPayload Of(ScalarKind kind, long integral, double floating) => new(new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating));
 }
 
 /// <summary>
-/// The operations compiled code does on a <c>Variant</c> (IR lowering S2.5c): each is the interpreter's own on payloads - the cell the frame holds the
+/// The operations compiled code does on a <c>Variant</c>: each is the interpreter's own on payloads - the cell the frame holds the
 /// Variant in read and written, an operation planned for the subtypes of its operands - and declines where the interpreter's evaluation on payloads
 /// declines, which hands the instruction to the interpreter.
 /// </summary>
@@ -56,7 +58,9 @@ public static class VariantOperations
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Write(object? cell, VariantPayload value) => cell is not null && RuntimeExpressionEvaluator.TryWriteVariant(Unsafe.As<VariantCell>(cell), value.Value);
 
-    /// <summary>A binary operation of <paramref name="left"/> and <paramref name="right"/>, planned for their subtypes (MS-VBAL §5.6.9).</summary>
+    /// <summary>
+    /// A binary operation of <paramref name="left"/> and <paramref name="right"/>, planned for their subtypes (MS-VBAL §5.6.9).
+    /// </summary>
     /// <returns><see langword="false"/> when it is the interpreter's: it raises an error, or its result is no payload.</returns>
     public static bool Binary(string token, VariantPayload left, VariantPayload right, out VariantPayload result)
     {
@@ -65,7 +69,9 @@ public static class VariantOperations
         return done;
     }
 
-    /// <summary>A negation or a <c>Not</c> of <paramref name="operand"/>, planned for its subtype.</summary>
+    /// <summary>
+    /// A negation or a <c>Not</c> of <paramref name="operand"/>, planned for its subtype.
+    /// </summary>
     public static bool Unary(string token, VariantPayload operand, bool ofAConstantExpression, out VariantPayload result)
     {
         var done = RuntimeExpressionEvaluator.TryOperateDeferred(token, operand.Value, ofAConstantExpression, out var payload);
@@ -75,7 +81,7 @@ public static class VariantOperations
 
     /// <summary>
     /// The payload the Variant held in <paramref name="cell"/> holds, when it holds one of the subtype <paramref name="kind"/>, an integral one: what compiled
-    /// code reads a Variant as where the analysis speculates its subtype (IR lowering S2.5c, <c>VariantSpeculation</c>). Any other is read by
+    /// code reads a Variant as where the analysis speculates its subtype (<c>VariantSpeculation</c>). Any other is read by
     /// <see cref="Read"/>.
     /// </summary>
     public static bool ReadIntegralAs(object? cell, ScalarKind kind, out long value)
@@ -90,7 +96,9 @@ public static class VariantOperations
         return false;
     }
 
-    /// <summary>The payload of a Variant of the subtype <paramref name="kind"/>, a floating-point one (<see cref="ReadIntegralAs"/>).</summary>
+    /// <summary>
+    /// The payload of a Variant of the subtype <paramref name="kind"/>, a floating-point one (<see cref="ReadIntegralAs"/>).
+    /// </summary>
     public static bool ReadFloatingAs(object? cell, ScalarKind kind, out double value)
     {
         if (cell is not null && Unsafe.As<VariantCell>(cell).TryRead(out var payload) && ReferenceEquals(payload.Type, TypeOf[(int)kind]))
@@ -103,10 +111,14 @@ public static class VariantOperations
         return false;
     }
 
-    /// <summary>Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, an integral one, as <see cref="Write"/> does.</summary>
+    /// <summary>
+    /// Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, an integral one, as <see cref="Write"/> does.
+    /// </summary>
     public static bool WriteIntegralAs(object? cell, ScalarKind kind, long value) => WritePayload(cell, new ScalarPayload(TypeOf[(int)kind], value, 0));
 
-    /// <summary>Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, a floating-point one, as <see cref="Write"/> does.</summary>
+    /// <summary>
+    /// Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, a floating-point one, as <see cref="Write"/> does.
+    /// </summary>
     public static bool WriteFloatingAs(object? cell, ScalarKind kind, double value) => WritePayload(cell, new ScalarPayload(TypeOf[(int)kind], 0, value));
 
     // RuntimeExpressionEvaluator.TryWritePayload's Variant: over what holds no object. The cell is null or a VariantCell, by construction (Read).
@@ -136,7 +148,9 @@ public static class VariantOperations
         return types;
     }
 
-    /// <summary><paramref name="value"/> let-coerced to <paramref name="kind"/>, when the conversion is exact.</summary>
+    /// <summary>
+    /// <paramref name="value"/> let-coerced to <paramref name="kind"/>, when the conversion is exact.
+    /// </summary>
     public static bool Convert(VariantPayload value, ScalarKind kind, out long integral, out double floating)
     {
         var converted = RuntimeExpressionEvaluator.TryConvertExactly(value.Value, ScalarKinds.TypeOf(kind), out var payload);
@@ -144,6 +158,8 @@ public static class VariantOperations
         return converted;
     }
 
-    /// <summary>Whether <paramref name="value"/> is not zero: what it is let-coerced to a <c>Boolean</c> as (MS-VBAL §5.5.1.2.2).</summary>
+    /// <summary>
+    /// Whether <paramref name="value"/> is not zero: what it is let-coerced to a <c>Boolean</c> as (MS-VBAL §5.5.1.2.2).
+    /// </summary>
     public static bool IsTrue(VariantPayload value) => value.Value.IsTrue;
 }
