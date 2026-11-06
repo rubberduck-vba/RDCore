@@ -52,6 +52,15 @@ public sealed class NamesakeDeclarationsTests
         => Assert.AreEqual("10", await RunStandardAsync(EnumF,
             "Public Function F(ByVal n As Long) As Long\r\n    If n <= 0 Then F = 0 Else F = n + F(n - 1)\r\nEnd Function", "    Debug.Print Program.F(4)"));
 
+    // a Property Get and its Property Let beside an Enum of their name: assigned, the name is the Let; read, the Get; as a type, the Enum. Not measured in
+    // Excel yet (oracle-pending-rows: S01): what MS-VBAL says, as the measured Function and Get rows have it.
+    [TestMethod]
+    public async Task InAStandardModule_AnEnumBesideAPropertyGetAndLetOfItsName_IsAType_AndTheNameAValueOfTheProperty()
+        => Assert.AreEqual("5 1", await RunStandardAsync(
+            "Public Enum X\r\n    Red\r\n    Green\r\nEnd Enum\r\nPrivate stored As Long",
+            "Public Property Get X() As Long\r\n    X = stored\r\nEnd Property\r\nPublic Property Let X(ByVal value As Long)\r\n    stored = value\r\nEnd Property",
+            "    X = 5\r\n    Debug.Print X\r\n    Dim t As X\r\n    t = Green\r\n    Debug.Print t"));
+
     [TestMethod]
     public async Task InAStandardModule_TheNameAsAType_IsTheEnum_AndAsAValue_TheFunction()
         // E16

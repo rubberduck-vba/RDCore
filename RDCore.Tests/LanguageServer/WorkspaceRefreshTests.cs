@@ -135,6 +135,46 @@ public sealed class WorkspaceRefreshTests
         Assert.AreEqual(before, refresh.Generation, "the diagnostics of the other modules are what they were");
     }
 
+    // a pull declined while a dialog was open is asked again, and nothing else: what the client was last answered is still what is found out.
+    [TestMethod]
+    public void APullDeclined_AsksForTheDiagnosticsAlone_AndLeavesTheGeneration()
+    {
+        var server = ServerFor(Refreshing());
+        using var refresh = new WorkspaceRefresh(TimeSpan.Zero);
+        refresh.Attach(server);
+        var before = refresh.Generation;
+
+        refresh.PullsDeclined();
+
+        server.Received(1).SendRequest(WorkspaceRefresh.DiagnosticRefresh);
+        foreach (var method in Methods.Where(method => method != WorkspaceRefresh.DiagnosticRefresh))
+        {
+            server.DidNotReceive().SendRequest(method);
+        }
+
+        Assert.AreEqual(before, refresh.Generation, "no document is answered in full for it");
+    }
+
+    // a burst of a declined pull and a change of what code refers to asks for both of those, once each, and for nothing else.
+    [TestMethod]
+    public void ABurstOfADeclinedPullAndAChangeOfReferences_AsksForTheDiagnosticsAndTheCodeLenses_Once()
+    {
+        var server = ServerFor(Refreshing());
+        var clock = new ManualClock();
+        using var refresh = new WorkspaceRefresh(TimeSpan.FromMilliseconds(100), clock);
+        refresh.Attach(server);
+
+        refresh.PullsDeclined();
+        refresh.ReferencesChanged();
+        refresh.PullsDeclined();
+        clock.Advance(TimeSpan.FromMilliseconds(100));
+
+        server.Received(1).SendRequest(WorkspaceRefresh.DiagnosticRefresh);
+        server.Received(1).SendRequest(WorkspaceRefresh.CodeLensRefresh);
+        server.DidNotReceive().SendRequest("workspace/semanticTokens/refresh");
+        server.DidNotReceive().SendRequest("workspace/inlayHint/refresh");
+    }
+
     // a burst of both is asked for once, and for every refresh.
     [TestMethod]
     public void ABurstOfChangesOfBothKinds_AsksForEachRefreshOnce()

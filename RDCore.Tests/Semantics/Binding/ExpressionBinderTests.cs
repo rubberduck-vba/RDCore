@@ -300,6 +300,34 @@ public sealed class ExpressionBinderTests
         Assert.HasCount(2, bound.Class.DefaultInterfaceMembers, "the class as it is declared now");
     }
 
+    // the call the runtime makes of a member an assignment writes through (`c(1) = 5` of an object whose default member returns a Variant): the call, the
+    // member's access and its name are made of the object's expression, and have its Identity. Each is bound to what it is, whichever of them is bound last,
+    // and what owns the member is the object.
+    [TestMethod]
+    public void ExpressionsThatShareAnIdentity_AreEachBoundToWhatTheyAre()
+    {
+        var bag = new VBClassModuleSymbol(Root, Root, "Bag");
+        var item = new VBPropertyGetMemberSymbol(Root, bag.Uri, ScopeKind.Instance, "Item", R, R, AccessModifier.Public) { ResolvedType = VBVariantType.TypeInfo };
+        var module = new VBStandardModuleSymbol(Root, Root, "Module1");
+        var field = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "c", ScopeKind.Module, VBClassType.Of(bag), R, R, AccessModifier.Implicit);
+        var tree = ScopeTreeBuilder.Build([module with { Members = [field] }, field, bag with { Members = [item], DefaultInterfaceMembers = [item] }, item]);
+        var context = new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
+
+        var identity = NextId();
+        var owner = new SimpleNameExpressionNode(identity, TestLocations.TestLocation, "c");
+        var access = new MemberAccessExpressionNode(identity, TestLocations.TestLocation, owner, new SimpleNameExpressionNode(identity, TestLocations.TestLocation, "Item"));
+        var call = new IndexExpressionNode(identity, TestLocations.TestLocation, access,
+            [new LiteralExpressionNode(NextId(), TestLocations.TestLocation, new RDCore.SDK.Model.Values.Intrinsic.VBLongValue(1))]);
+
+        var bindings = ExpressionBinder.Bind(context, call);
+
+        Assert.IsInstanceOfType<BoundVariable>(bindings.NodeOf(owner));
+        Assert.AreEqual("Item", Assert.IsInstanceOfType<BoundMember>(bindings.NodeOf(access)).Member?.Name);
+        var called = Assert.IsInstanceOfType<BoundMember>(bindings.NodeOf(call));
+        Assert.AreSame(call, called.Expression);
+        Assert.IsInstanceOfType<BoundVariable>(called.Owner, "the member is the object's, and not the member's own");
+    }
+
     // MS-VBAL 5.6.15: with no object before the dot, the member is one of the With block's target, which the context types.
     [TestMethod]
     public void AMemberOfTheTargetOfAWithBlock_IsBoundWithNoOwner()

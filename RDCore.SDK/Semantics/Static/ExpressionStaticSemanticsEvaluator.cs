@@ -47,6 +47,18 @@ public static class ExpressionStaticSemanticsEvaluator
     /// </returns>
     public static StaticSemanticsEvaluationResult Evaluate(StaticEvaluationContext context, ExpressionNode expression)
     {
+        // the evaluation of a tree keeps what each of its expressions evaluated to, so that a check that looks at an operand again does not evaluate it again.
+        var evaluations = context.Evaluations;
+        if (evaluations is null)
+        {
+            evaluations = new ExpressionEvaluations();
+            context = context with { Evaluations = evaluations };
+        }
+        else if (evaluations.TryGet(context, expression, out var evaluated))
+        {
+            return evaluated;
+        }
+
         var result = EvaluateCore(context, expression);
         if (context.Facts is { } facts)
         {
@@ -58,6 +70,7 @@ public static class ExpressionStaticSemanticsEvaluator
         // so are its bindings, so that the plan of an operation is made for the declared types of its operands.
         context.Bindings?.Record(context, expression, result);
 
+        evaluations.Add(context, expression, result);
         return result;
     }
 

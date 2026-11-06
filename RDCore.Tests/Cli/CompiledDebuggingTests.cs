@@ -87,7 +87,7 @@ public sealed class CompiledDebuggingTests
 
                 // under the random walk-back the activation may have been handed to the interpreter at its first look, before the breakpoint was set, which
                 // stops it all the same.
-                if (!RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom)
+                if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.AreEqual(walkedBack + 1, spin.WalkBacks, "the compiled activation that was running walked back to stop there");
                 }
@@ -175,7 +175,7 @@ public sealed class CompiledDebuggingTests
                 Assert.AreEqual("Outer", provider.Execution.Stack().Frames[1].Procedure);
 
                 // under the random walk-back Outer may have been handed to the interpreter before it made the call, and is edited as any frame is.
-                if (!RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom)
+                if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
                         "Outer is running compiled, in the middle of its call");
@@ -306,7 +306,7 @@ public sealed class CompiledDebuggingTests
             {
                 var stopped = await Resume(provider);
                 Assert.AreEqual((ExecutionOutcome.Suspended, 12), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
-                if (!RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom)
+                if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.IsTrue(provider.Session.CallStack.Frames.OfType<RDCore.Runtime.Execution.Frames.CallStackFrame>().ElementAt(1).RunsCompiled,
                         "Outer is running compiled, in the middle of its call");
@@ -362,7 +362,7 @@ public sealed class CompiledDebuggingTests
 
                 // compiled code polls at the loop's back edge, and is handed to the interpreter there; under the random walk-back, at any line of the loop.
                 Assert.AreEqual(ExecutionOutcome.Suspended, paused.Outcome, paused.ErrorMessage);
-                if (RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom)
+                if (RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
                 {
                     CollectionAssert.Contains(new[] { 8, 9 }, paused.ErrorLine, "a line of the loop, and not none");
                 }

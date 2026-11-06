@@ -259,6 +259,18 @@ public static class ConstantExpressionStaticSemantics
     public static bool IsConstantExpression(ISymbolResolver resolver, Uri scope, ExpressionNode expression)
         => FirstNotConstant(resolver, scope, expression, IntrinsicCalls.All) is null;
 
+    // whether an expression is a constant expression, where what is known of the expressions of its tree is kept: an expression asked of after those it is
+    // made of looks no further than them, so that asking of every call of a nested call takes time that grows with its depth, not with its square.
+    internal static bool IsConstantExpression(ISymbolResolver resolver, Uri scope, ExpressionNode expression, Dictionary<ExpressionNode, bool> known)
+    {
+        if (!known.TryGetValue(expression, out var isConstant))
+        {
+            known[expression] = isConstant = FirstNotConstant(resolver, scope, expression, IntrinsicCalls.All, known) is null;
+        }
+
+        return isConstant;
+    }
+
     // which calls of the standard library's functions MS-VBAL §5.6.16.1 names are constant expressions where they are written. MS-VBA admits Len and LenB
     // in the bounds of an array (Excel-verified, oracle\s46 F02a, F02b, oracle\s44 C06: `Dim d(Len(K))`), Len alone in the value of a Const of a procedure
     // (C03, C04, which the author lets slip with RDC11021: MS-VBA compiles it, and its run crashes the host), and none in the value of a Const of a module
@@ -277,15 +289,18 @@ public static class ConstantExpressionStaticSemantics
     private static readonly ImmutableHashSet<string> OtherIntrinsicFunctions = ImmutableHashSet.Create(StringComparer.OrdinalIgnoreCase,
         "Int", "Fix", "Abs", "Sgn", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CLngLng", "CLngPtr", "CSng", "CStr", "CVar");
 
-    private static ExpressionNode? FirstNotConstant(ISymbolResolver resolver, Uri scope, ExpressionNode expression, IntrinsicCalls admits = IntrinsicCalls.None) => expression switch
+    // known: whether each expression already asked of is a constant expression, with every call admitted; one that is not is its own first.
+    private static ExpressionNode? FirstNotConstant(ISymbolResolver resolver, Uri scope, ExpressionNode expression, IntrinsicCalls admits = IntrinsicCalls.None,
+        Dictionary<ExpressionNode, bool>? known = null) => expression switch
     {
+        _ when known is not null && known.TryGetValue(expression, out var isConstant) => isConstant ? null : expression,
         LiteralExpressionNode => null,
         // parentheses, - and Not, of a constant expression.
-        VBUnaryOperatorExpressionNode unary => FirstNotConstant(resolver, scope, unary.Operand, admits),
+        VBUnaryOperatorExpressionNode unary => FirstNotConstant(resolver, scope, unary.Operand, admits, known),
         VBBinaryOperatorExpressionNode binary
-            => FirstNotConstant(resolver, scope, binary.Left, admits) ?? FirstNotConstant(resolver, scope, binary.Right, admits),
+            => FirstNotConstant(resolver, scope, binary.Left, admits, known) ?? FirstNotConstant(resolver, scope, binary.Right, admits, known),
         IndexExpressionNode { Arguments: [var argument] } call when admits != IntrinsicCalls.None && IsAdmittedFunction(resolver, scope, call.Callee, admits)
-            => FirstNotConstant(resolver, scope, argument, admits),
+            => FirstNotConstant(resolver, scope, argument, admits, known),
         SimpleNameExpressionNode name => IsConstant(resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol) ? null : name,
         MemberAccessExpressionNode { Owner: { } owner } access => resolver.NamespaceOf(owner, scope) is { } qualifier
             ? IsConstant(resolver.ResolveMember(qualifier, access.Member, scope).Symbol) ? null : access

@@ -14,6 +14,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.Parsing;
+using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services.States;
@@ -442,6 +443,34 @@ public sealed class WorkspaceReloadServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => first.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
         await Assert.ThrowsAsync<OperationCanceledException>(() => second.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
+        _refresh.DidNotReceive().Changed();
+    }
+
+    // the server stops as the host is waited for, and the host, shut down with it, says so: the change is cancelled as the server stopping cancels it, and
+    // nothing is logged as a failure.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task WhenTheServerStops_AHostShutDownAsItIsWaitedFor_CancelsTheChange_AndIsNotAFailure()
+    {
+        await LoadAsync("A.bas");
+        var log = new CapturingLogger();
+        var sut = ServiceLogging(log);
+        _host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            sut.Stop();
+            return Task.FromException(new ServerProtocolSdkException("The connection is shutting down."));
+        });
+
+        var step = (await Adding(sut, "B.cls", []))!;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => step.Completed.WaitAsync(TimeSpan.FromSeconds(20)));
+        Assert.IsTrue(step.Completed.IsCanceled);
+        lock (log.Entries)
+        {
+            CollectionAssert.AreEqual(Array.Empty<string>(), log.Entries.Where(entry => entry.Level >= LogLevel.Warning).Select(entry => entry.Message).ToArray());
+        }
+
         await _symbols.DidNotReceiveWithAnyArgs().SyncWorkspaceAsync(default, default, default);
         _refresh.DidNotReceive().Changed();
     }
