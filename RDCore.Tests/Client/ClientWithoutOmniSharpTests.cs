@@ -188,7 +188,6 @@ public sealed class ClientWithoutOmniSharpTests
     // workspace's bring-up, not of the run, so the client holds it and the program's MsgBox for each other: the document is pulled again while the program
     // waits.
     [TestMethod]
-    [Ignore("nondeterministic: the refresh rides a real 300 ms debounce and may come after the run is answered. To be made deterministic before this runs again")]
     public async Task AProgramRunWhileTheClientPullsItsDiagnosticsAgain_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
@@ -240,7 +239,6 @@ public sealed class ClientWithoutOmniSharpTests
     // the refresh, and writes both at once; the program's msgBox is then the language server's request 5, which is the id of the client's execute, still running.
     // The client holds the refresh and the MsgBox for each other, as above: the pull and the refresh's answer are written while the program waits.
     [TestMethod]
-    [Ignore("nondeterministic: the refresh rides a real 300 ms debounce and may come after the run is answered. To be made deterministic before this runs again")]
     public async Task AProgramRunWhileTheClientPullsAgainBeforeItAnswersTheRefresh_AsksTheClient_AndCompletesWithItsAnswer()
     {
         await using var platform = await Platform.StartAsync(others: 60);
