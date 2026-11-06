@@ -79,7 +79,10 @@ public sealed record class IndenterSettingsImportResult(RubberduckIndenterSettin
 /// </summary>
 /// <remarks>
 /// Rubberduck offered its user the settings of the legacy Smart Indenter the same way. The offer is made once, whatever the answer: a file in the folder of the platform's
-/// user - it is no setting - remembers it was made, and <c>rdcore.importIndenterSettings</c> imports at any time.
+/// user - it is no setting - remembers it was made, and <c>rdcore.importIndenterSettings</c> imports at any time. A question nobody answered - the client says
+/// so with an error, as a shell whose input is a script does - or one withdrawn before it was, was not an offer made: it is made at the next start. Neither is
+/// an import the user chose that the client could not take. What the user chose is done even when the file can't be written, and the offer is then made again at
+/// the next start, unless the import set a <c>Formatting</c> setting.
 /// </remarks>
 /// <param name="fileSystem">The file system the file that remembers the offer is in.</param>
 /// <param name="markerPath">The path of the file that remembers the offer was made (<see cref="MarkerIn"/>).</param>
@@ -100,7 +103,9 @@ public sealed class IndenterSettingsOffer(IFileSystem fileSystem, string markerP
     /// </summary>
     /// <param name="formattingWasSet">Whether the client said any <c>Formatting</c> setting: the user chose already.</param>
     /// <param name="read">Sends <see cref="RubberduckIndenterSettingsParams"/> to the client.</param>
-    /// <param name="ask">Asks the user to choose among the buttons; <see langword="null"/> when they chose none.</param>
+    /// <param name="ask">
+    /// Asks the user to choose among the buttons; <see langword="null"/> when they chose none. It throws when nobody answered: the offer is still to make.
+    /// </param>
     /// <param name="apply">Sends <see cref="RubberduckIndenterSettingsApplyParams"/> to the client.</param>
     /// <param name="token">A token that cancels the requests.</param>
     /// <returns>What was imported; <see langword="null"/> when nothing was offered, or the user did not choose to import.</returns>
@@ -116,16 +121,30 @@ public sealed class IndenterSettingsOffer(IFileSystem fileSystem, string markerP
             return null;
         }
 
-        // asked once: a user who closes the question is not asked again at the next start.
-        if (fileSystem.Path.GetDirectoryName(markerPath) is { Length: > 0 } directory)
-        {
-            fileSystem.Directory.CreateDirectory(directory);
-        }
-
-        fileSystem.File.WriteAllText(markerPath, string.Empty);
-
         var import = IndenterSettingsImportText.Import();
         var chosen = await ask(IndenterSettingsImportText.Offer(found.Source), [import, IndenterSettingsImportText.NotNow()], token);
-        return chosen == import ? await IndenterSettingsImportFlow.ApplyAsync(found, apply, token) : null;
+
+        // what the user chose is done before the offer is remembered: an import the client could not take is offered again at the next start.
+        var outcome = chosen == import ? await IndenterSettingsImportFlow.ApplyAsync(found, apply, token) : null;
+        Remember();
+        return outcome;
+    }
+
+    // asked once, once answered: a user who closes the question is not asked again at the next start. An offer that can't be remembered is made again at the
+    // next start, unless the import set the settings it would set: what the user chose is done all the same.
+    private void Remember()
+    {
+        try
+        {
+            if (fileSystem.Path.GetDirectoryName(markerPath) is { Length: > 0 } directory)
+            {
+                fileSystem.Directory.CreateDirectory(directory);
+            }
+
+            fileSystem.File.WriteAllText(markerPath, string.Empty);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 }

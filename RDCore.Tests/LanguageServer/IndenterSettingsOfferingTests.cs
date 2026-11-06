@@ -65,7 +65,7 @@ public sealed class IndenterSettingsOfferingTests
         // the clock the offering waits by: it moves only when a test moves it, so a wait ends at its timeout only when a test says so.
         public ManualClock Clock { get; } = new();
 
-        public Platform(bool clientExpects)
+        public Platform(bool clientExpects, bool unattended = false)
         {
             var environment = Substitute.For<IPlatformEnvironment>();
             environment.UserDataDirectory.Returns(UserFolder);
@@ -75,7 +75,10 @@ public sealed class IndenterSettingsOfferingTests
             Live.Said.Returns(new Dictionary<string, string>());
             Capabilities.Record(new PlatformInitializeParams
             {
-                Expected = new CorePlatformClientCapabilities { LanguageServer = new LanguageServerCapabilities { RubberduckIndenterSettings = new RubberduckIndenterSettings(clientExpects) } },
+                Expected = new CorePlatformClientCapabilities
+                {
+                    LanguageServer = new LanguageServerCapabilities { RubberduckIndenterSettings = new RubberduckIndenterSettings(clientExpects), Unattended = new Unattended(unattended) },
+                },
             });
         }
 
@@ -183,6 +186,20 @@ public sealed class IndenterSettingsOfferingTests
 
         Assert.IsNull(await offering.RunAsync(CancellationToken.None));
         Assert.AreEqual(0, platform.Questions.Count);
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatRunsUnattended_IsNeverAsked_AndIsOfferedAtTheNextStart()
+    {
+        await using var platform = new Platform(clientExpects: true, unattended: true);
+        await platform.StartAsync();
+
+        using var offering = platform.Offering();
+
+        Assert.IsNull(await offering.RunAsync(CancellationToken.None));
+        Assert.AreEqual(0, platform.Questions.Count);
+        Assert.IsFalse(new IndenterSettingsOffer(platform.Markers, IndenterSettingsOffer.MarkerIn(UserFolder)).WasMade, "not made: a start that has someone to answer is offered it");
     }
 
     [TestMethod]
