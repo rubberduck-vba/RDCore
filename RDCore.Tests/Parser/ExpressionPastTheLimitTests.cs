@@ -217,6 +217,10 @@ public sealed class ExpressionPastTheLimitTests
         CollectionAssert.AreEqual(
             Expressions(tree).Select(entry => entry.Expression).OfType<UnbuiltExpressionTriviaNode>().Select(node => node.Source).ToArray(),
             Expressions(again).Select(entry => entry.Expression).OfType<UnbuiltExpressionTriviaNode>().Select(node => node.Source).ToArray());
+        var names = Expressions(tree).Select(entry => entry.Expression).OfType<UnbuiltExpressionTriviaNode>().SelectMany(node => node.Names).ToArray();
+        Assert.IsNotEmpty(names);
+        CollectionAssert.AreEqual(names,
+            Expressions(again).Select(entry => entry.Expression).OfType<UnbuiltExpressionTriviaNode>().SelectMany(node => node.Names).ToArray());
     }
 
     [TestMethod]
@@ -311,40 +315,48 @@ public sealed class ExpressionPastTheLimitTests
         Assert.AreEqual((RenameRefusalKind.Unresolved, IndexedA), (plan.Refusal?.Kind, plan.Refusal?.Position));
     }
 
-    // a name is written past the limit where it is a token of the text: not where a longer name, a string, a date or a number holds it, nor where it is the
-    // key of a dictionary access, which is the text of a string.
+    // a name is written past the limit where it is a token of the text, as the VBA lexer reads it: not where a longer name, a string, a date or a number holds
+    // it (the VBE writes 1.0 as `1#`), nor where it is the key of a dictionary access, which is the text of a string. A comment after the statement is no part
+    // of the expression.
     [TestMethod]
-    [DataRow("ab", true)]
-    [DataRow("a", false)]
-    public void ANameWrittenPastTheLimit_IsATokenOfItsText(string renamed, bool refused)
+    [DataRow("ab & \"a\" & c!a & #1/1/2000# & &HA", "ab", 0)]
+    [DataRow("ab & \"a\" & c!a & #1/1/2000# & &HA", "a", -1)]
+    [DataRow("a * 1# + b * 2#", "b", 9)]
+    [DataRow("s &hName", "hName", 3)]
+    [DataRow("&HFF + c", "c", 7)]
+    [DataRow("#1/2/2026# + d", "d", 13)]
+    [DataRow("1@ + e", "e", 5)]
+    [DataRow("a + 1", "hName", -1)]
+    public void ANameWrittenPastTheLimit_IsATokenOfItsText(string expression, string renamed, int refusedAt)
     {
         const int levels = 3000;
+        string[] declared = ["a", "ab", "b", "c", "d", "e", "hName", "s", "x"];
         var text = string.Join("\r\n",
-            "Attribute VB_Name = \"Program\"",
-            "Public Sub Main()",
-            "    Dim a As Long",
-            "    Dim ab As Long",
-            "    Dim c As Object",
-            "    Dim x As Variant",
-            $"    x = {new string('(', levels)}ab & \"a\" & c!a & #1/1/2000# & &HA{new string(')', levels)}",
-            "End Sub",
-            "");
+            [
+                "Attribute VB_Name = \"Program\"",
+                "Public Sub Main()",
+                .. declared.Select(name => $"    Dim {name} As Variant"),
+                $"    x = {new string('(', levels)}{expression}{new string(')', levels)} ' hName",
+                "End Sub",
+                "",
+            ]);
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Program.bas"), text);
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Program, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var context = new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(Program, parse.SyntaxTree!, text)]);
-        var declared = new SourcePosition(renamed == "a" ? 2 : 3, 8);
+        var declaration = new SourcePosition(2 + Array.IndexOf(declared, renamed), 8);
 
-        var plan = LargeStackThread.Run(() => SymbolRename.Plan(context, SymbolRename.Prepare(context, Program, declared).Target!, "z"));
+        var plan = LargeStackThread.Run(() => SymbolRename.Plan(context, SymbolRename.Prepare(context, Program, declaration).Target!, "z"));
 
         Assert.AreEqual(VBCompileErrorId.ExpressionNestedTooDeeply, (VBCompileErrorId)Assert.ContainsSingle(parse.SyntaxErrors).ErrorId);
-        Assert.AreEqual(refused ? RenameRefusalKind.Unresolved : null, plan.Refusal?.Kind);
-        if (refused)
+        if (refusedAt >= 0)
         {
-            Assert.AreEqual(new SourcePosition(6, 8 + levels), plan.Refusal!.Position);
+            Assert.AreEqual((RenameRefusalKind.Unresolved, new SourcePosition(2 + declared.Length, 8 + levels + refusedAt)),
+                (plan.Refusal?.Kind, plan.Refusal?.Position));
         }
         else
         {
-            Assert.AreEqual(declared, Assert.ContainsSingle(plan.Edits).Range.Start);
+            Assert.IsNull(plan.Refusal?.Kind);
+            Assert.AreEqual(declaration, Assert.ContainsSingle(plan.Edits).Range.Start);
         }
     }
 

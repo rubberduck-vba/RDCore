@@ -32,7 +32,7 @@ public record class AnnotationTriviaNode(SyntaxNodeId Identity, SourceLocation S
 /// <strong>RD-VBAL §2.6.1</strong>).
 /// </summary>
 /// <remarks>
-/// The AST must stay a faithful, lossless representation of the source even where no semantic node stands for it — silently building a <em>different</em>,
+/// The AST must stay a faithful, lossless representation of the source even where no semantic node stands for it: silently building a <em>different</em>,
 /// wrong-meaning node in its place (or building nothing at all) would misrepresent the source rather than merely under-represent it. <see cref="Source"/> is
 /// the exact original text, which lets a consumer that needs to reconstruct the source (e.g. a formatter) do so verbatim, while a consumer that only cares
 /// about semantics can tell at a glance that this position wasn't modeled.
@@ -41,7 +41,7 @@ public record class AnnotationTriviaNode(SyntaxNodeId Identity, SourceLocation S
 /// parsed is thrown away. An expression nested in more than 2,500 others (<c>VBC00060</c>) is the other way around: what it holds is thrown away on purpose
 /// and <see cref="Inputs"/> is empty, so that no stage after the parser is handed a tree deeper than the limit. A name written in its text is not analyzed -
 /// it is neither bound nor counted as a use - and a rename of what it could refer to is refused
-/// (<see cref="Semantics.Refactoring.RenameRefusalKind.Unresolved"/>).
+/// (<see cref="Semantics.Refactoring.RenameRefusalKind.Unresolved"/>). Where each such name is written is in <see cref="Names"/>.
 /// </para>
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
@@ -51,7 +51,26 @@ public record class AnnotationTriviaNode(SyntaxNodeId Identity, SourceLocation S
 /// Whatever sub-expression(s) the grammar's own walk already built underneath it; none for an expression nested too deeply to be analyzed.
 /// </param>
 public sealed record class UnbuiltExpressionTriviaNode(SyntaxNodeId Identity, SourceLocation Location, string Source, ImmutableArray<SyntaxNode> Inputs)
-    : ExpressionNode(Identity, Location, Inputs);
+    : ExpressionNode(Identity, Location, Inputs)
+{
+    /// <summary>
+    /// The names written in <see cref="Source"/> that no node of <see cref="Inputs"/> stands for, in the order they are written, as the VBA lexer reads them.
+    /// </summary>
+    /// <remarks>
+    /// A name is a token of its own: never a part of a string, date or numeric literal (<c>1#</c> is the number <c>1</c>, <c>&amp;HFF</c> a number too), nor
+    /// of a comment. The key of a dictionary access (<c>b</c> in <c>a!b</c>) is the text of a string, and is no name. Empty for an expression whose every name
+    /// is in what the walk built of it.
+    /// </remarks>
+    public ImmutableArray<UnbuiltName> Names { get; init; } = [];
+}
+
+/// <summary>
+/// A name written in the text of an <see cref="UnbuiltExpressionTriviaNode"/>.
+/// </summary>
+/// <param name="Name">The name as it is written, without its type character (<c>b</c> of <c>b%</c>) or the brackets of a foreign name (<c>a b</c> of <c>[a b]</c>).</param>
+/// <param name="Range">Where <paramref name="Name"/> is written: inside the brackets of a foreign name.</param>
+/// <param name="IsMember">Whether the name is written after a <c>.</c>: it names a member of what is before the <c>.</c>, not what is in scope.</param>
+public readonly record struct UnbuiltName(string Name, SourceRange Range, bool IsMember);
 
 /// <summary>
 /// Preserves the raw source text of a <em>required</em> statement-level construct that ANTLR's own

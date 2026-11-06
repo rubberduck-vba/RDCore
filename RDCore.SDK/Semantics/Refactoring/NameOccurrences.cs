@@ -239,9 +239,10 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
                 // a name written in an expression the parser kept as text is not analyzed (RD-VBAL 2.6.1): what it refers to there is not known.
                 if (node is UnbuiltExpressionTriviaNode unbuilt)
                 {
-                    foreach (var (range, kind) in NamesWrittenIn(unbuilt, name))
+                    foreach (var unbuiltName in unbuilt.Names.Where(each => string.Equals(each.Name, name, StringComparison.OrdinalIgnoreCase)))
                     {
-                        unknown.Add(new NameOccurrence(module.Module, range, null, kind, ScopeAt(context, module, range.Start)));
+                        var kind = unbuiltName.IsMember ? OccurrenceKind.Member : OccurrenceKind.Name;
+                        unknown.Add(new NameOccurrence(module.Module, unbuiltName.Range, null, kind, ScopeAt(context, module, unbuiltName.Range.Start)));
                     }
                 }
 
@@ -537,122 +538,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     private static IReadOnlyList<string> LinesOf(string source) => [.. source.Split('\n').Select(line => line.TrimEnd('\r'))];
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
-
-    // where a name is written in the text of an expression the parser kept as text, outside what it built of it: a token of the text, never a part of a longer
-    // name, of a string literal, of a date literal or of a number. A name after a `.` is a member's; one after a `!` is the text of a string, which names nothing.
-    private static IEnumerable<(SourceRange Range, OccurrenceKind Kind)> NamesWrittenIn(UnbuiltExpressionTriviaNode unbuilt, string name)
-    {
-        var text = unbuilt.Source;
-        var start = unbuilt.Location.Range.Start;
-        var built = unbuilt.ChildNodes().Select(child => child.SourceLocation.Range).ToArray();
-        var line = start.Line;
-        var lineStart = 0;
-        var member = false;
-        var index = 0;
-
-        SourcePosition At(int at) => new(line, (line == start.Line ? start.Character : 0) + at - lineStart);
-
-        while (index < text.Length)
-        {
-            var c = text[index];
-            if (c == '\n')
-            {
-                line++;
-                lineStart = ++index;
-            }
-            else if (c == '.')
-            {
-                member = true;
-                index++;
-            }
-            else if (char.IsWhiteSpace(c) || c == '_')
-            {
-                index++;
-            }
-            else if (c == '"')
-            {
-                index = StringLiteralEnd(text, index);
-                member = false;
-            }
-            else if (c == '#')
-            {
-                var end = text.IndexOfAny(['#', '\n'], index + 1);
-                index = end >= 0 && text[end] == '#' ? end + 1 : index + 1;
-                member = false;
-            }
-            else if (char.IsDigit(c) || (c == '&' && index + 1 < text.Length && text[index + 1] is 'h' or 'H' or 'o' or 'O'))
-            {
-                index = WordEnd(text, index + 1);
-                member = false;
-            }
-            else if (char.IsLetter(c) || c == '[')
-            {
-                var foreign = c == '[';
-                var nameStart = foreign ? index + 1 : index;
-                var nameEnd = foreign ? text.IndexOfAny([']', '\n'], nameStart) : WordEnd(text, index);
-                nameEnd = nameEnd < 0 ? text.Length : nameEnd;
-                var position = At(nameStart);
-                if (nameEnd - nameStart == name.Length && string.Compare(text, nameStart, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) == 0
-                    && !built.Any(range => Contains(range, position)))
-                {
-                    yield return (new SourceRange(position, At(nameEnd)), member ? OccurrenceKind.Member : OccurrenceKind.Name);
-                }
-
-                index = foreign && nameEnd < text.Length && text[nameEnd] == ']' ? nameEnd + 1 : nameEnd;
-                if (index + 1 < text.Length && text[index] == '!' && (char.IsLetter(text[index + 1]) || text[index + 1] == '['))
-                {
-                    // the key of a dictionary access (`a!b`) is the text of a string.
-                    var close = text[index + 1] == '[' ? text.IndexOfAny([']', '\n'], index + 2) : -1;
-                    index = close >= 0 ? close + 1 : WordEnd(text, index + 1);
-                }
-                else if (index < text.Length && text[index] is '%' or '&' or '^' or '@' or '!' or '#' or '$')
-                {
-                    index++;
-                }
-
-                member = false;
-            }
-            else
-            {
-                member = false;
-                index++;
-            }
-        }
-    }
-
-    // the end of the letters, digits and underscores from an index of a text.
-    private static int WordEnd(string text, int index)
-    {
-        while (index < text.Length && (char.IsLetterOrDigit(text[index]) || text[index] == '_'))
-        {
-            index++;
-        }
-
-        return index;
-    }
-
-    // the end of the string literal that begins at an index of a text: a doubled quote is a quote it holds.
-    private static int StringLiteralEnd(string text, int index)
-    {
-        index++;
-        while (index < text.Length && text[index] != '\n')
-        {
-            if (text[index] == '"')
-            {
-                if (index + 1 < text.Length && text[index + 1] == '"')
-                {
-                    index += 2;
-                    continue;
-                }
-
-                return index + 1;
-            }
-
-            index++;
-        }
-
-        return index;
-    }
 
     // every node of the tree with the node that holds it, as it is written.
     private static IEnumerable<(SyntaxNode Node, SyntaxNode? Parent)> Walk(SyntaxNode root)

@@ -699,8 +699,14 @@ public partial class ModuleParser(
 
                     var prunedNode = path[at];
                     lineStarts ??= LineStarts(content);
-                    pruned.TryAdd(prunedNode, new UnbuiltExpressionTriviaNode(prunedNode.Identity, prunedNode.SourceLocation,
-                        TextAt(content, lineStarts, anchorOffset, prunedNode.SourceLocation.Range), []));
+                    if (!pruned.ContainsKey(prunedNode))
+                    {
+                        var text = TextAt(content, lineStarts, anchorOffset, prunedNode.SourceLocation.Range);
+                        pruned.Add(prunedNode, new UnbuiltExpressionTriviaNode(prunedNode.Identity, prunedNode.SourceLocation, text, [])
+                        {
+                            Names = NamesWrittenIn(text, prunedNode.SourceLocation.Range.Start),
+                        });
+                    }
                     var holder = at - 1;
                     while (holder >= 0 && holders.TryAdd(path[holder], holder))
                     {
@@ -774,6 +780,84 @@ public partial class ModuleParser(
         var start = OffsetOf(range.Start);
         return text[start..Math.Max(start, OffsetOf(range.End))];
     }
+
+    // the names written in the text of an expression the tree keeps as text, which starts at a position of the document, as the lexer reads them: a word of
+    // its own, in brackets or not, and never what a literal or a comment holds. A word right after a `!` is the key of a dictionary access, the text of a string.
+    private static ImmutableArray<UnbuiltName> NamesWrittenIn(string text, SourcePosition start)
+    {
+        var lexer = new VBALexer(new AntlrInputStream(text));
+        lexer.RemoveErrorListeners();
+        var tokens = lexer.GetAllTokens();
+        var names = ImmutableArray.CreateBuilder<UnbuiltName>();
+        IToken? previous = null;
+        var member = false;
+        for (var index = 0; index < tokens.Count; index++)
+        {
+            var token = tokens[index];
+            if (token.Type is VBALexer.SINGLEQUOTE or VBALexer.REM)
+            {
+                while (index + 1 < tokens.Count && tokens[index + 1].Type != VBALexer.NEWLINE)
+                {
+                    index++;
+                }
+
+                continue;
+            }
+
+            if (token.Type is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+            {
+                previous = token;
+                continue;
+            }
+
+            var key = previous?.Type == VBALexer.EXCLAMATIONPOINT;
+            var close = token.Type == VBALexer.L_SQUARE_BRACKET ? IndexOfClosingBracket(tokens, index) : -1;
+            if (close > index + 1)
+            {
+                var first = tokens[index + 1];
+                if (!key)
+                {
+                    var name = text[first.StartIndex..tokens[close].StartIndex];
+                    names.Add(new UnbuiltName(name, RangeOf(first, name.Length), member));
+                }
+
+                index = close;
+            }
+            else if (!key && IsWord(token))
+            {
+                names.Add(new UnbuiltName(token.Text, RangeOf(token, token.Text.Length), member));
+            }
+
+            member = token.Type == VBALexer.DOT;
+            previous = tokens[index];
+        }
+
+        return names.ToImmutable();
+
+        SourceRange RangeOf(IToken token, int length)
+        {
+            var at = new SourcePosition(start.Line + token.Line - 1, (token.Line == 1 ? start.Character : 0) + token.Column);
+            return new SourceRange(at, new SourcePosition(at.Line, at.Character + length));
+        }
+    }
+
+    // the `]` that closes the `[` at an index of the tokens of a text, on its line; -1 if there is none.
+    private static int IndexOfClosingBracket(IList<IToken> tokens, int index)
+    {
+        for (var at = index + 1; at < tokens.Count && tokens[at].Type != VBALexer.NEWLINE; at++)
+        {
+            if (tokens[at].Type == VBALexer.R_SQUARE_BRACKET)
+            {
+                return at;
+            }
+        }
+
+        return -1;
+    }
+
+    // a token that is a name, or a keyword spelled as one: what an identifier is written as.
+    private static bool IsWord(IToken token)
+        => token.Type == VBALexer.IDENTIFIER || (token.Text.Length > 0 && char.IsLetter(token.Text[0]) && token.Text.All(c => char.IsLetterOrDigit(c) || c == '_'));
 
     // an expression that the expressions in it are nested in (RD-VBAL 2.6.1: an operand, an argument, what parentheses hold, the owner of a member access, the
     // callee of an index expression, what New, TypeOf...Is and AddressOf are written around). What is written around an argument to pass it by name (a:=) or
