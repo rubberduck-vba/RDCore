@@ -15,10 +15,22 @@ public sealed class DeclareRecordTests
     private static Task<string[]> Run(string declarations, params string[] lines)
         => RunAsync([], $"Attribute VB_Name = \"Program\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n");
 
+    // the year GetSystemTime filled in, and whether its month is one: the year is the one of the clock before the run, or after it, should the run span a new
+    // year.
+    private static void AssertTheTime(int yearBefore, string[] printed)
+    {
+        var yearAfter = DateTime.UtcNow.Year;
+        Assert.HasCount(2, printed);
+        CollectionAssert.Contains(new[] { yearBefore.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            yearAfter.ToString(System.Globalization.CultureInfo.InvariantCulture) }, printed[0].Trim(), "the year");
+        Assert.AreEqual("True", printed[1], "the month");
+    }
+
     [TestMethod]
-    [Ignore("nondeterministic: the year is read when the source is built, and a run across New Year UTC prints False. To be made deterministic before this runs again")]
     public async Task ARecordOfNumbers_IsFilledInByTheFunction()
-        => CollectionAssert.AreEqual(new[] { "True", "True" }, await Run(
+    {
+        var yearBefore = DateTime.UtcNow.Year;
+        AssertTheTime(yearBefore, await Run(
             string.Join("\r\n",
                 "Private Type SYSTEMTIME",
                 "    wYear As Integer",
@@ -33,15 +45,17 @@ public sealed class DeclareRecordTests
                 "Private Declare PtrSafe Sub GetSystemTime Lib \"kernel32\" (lpSystemTime As SYSTEMTIME)"),
             "Dim clock As SYSTEMTIME",
             "GetSystemTime clock",
-            $"Debug.Print (clock.wYear = {DateTime.UtcNow.Year})",
+            "Debug.Print clock.wYear",
             "Debug.Print clock.wMonth >= 1 And clock.wMonth <= 12"));
+    }
 
     // the type of another module travels to the host with that module's name, and the copy is laid out from the type the variable has, whichever name
     // the declaration used.
     [TestMethod]
-    [Ignore("nondeterministic: the year is read when the source is built, and a run across New Year UTC prints False. To be made deterministic before this runs again")]
     public async Task ARecordOfAnotherModule_IsFilledInByTheFunction()
-        => CollectionAssert.AreEqual(new[] { "True", "True" }, await RunAsync(
+    {
+        var yearBefore = DateTime.UtcNow.Year;
+        AssertTheTime(yearBefore, await RunAsync(
             [],
             [("Mod2", StandardModule("Mod2",
                 "Public Type SYSTEMTIME",
@@ -60,10 +74,11 @@ public sealed class DeclareRecordTests
                 "Public Sub Main()",
                 "Dim clock As SYSTEMTIME",
                 "GetSystemTime clock",
-                $"Debug.Print (clock.wYear = {DateTime.UtcNow.Year})",
+                "Debug.Print clock.wYear",
                 "Debug.Print clock.wMonth >= 1 And clock.wMonth <= 12",
                 "End Sub",
                 "")));
+    }
 
     // the classic: a fixed-length String is 128 ANSI bytes in the copy, so the size the function is told is Len of the type, 148 - as the A flavour expects.
     [TestMethod]

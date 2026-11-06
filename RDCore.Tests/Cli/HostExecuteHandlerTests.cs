@@ -677,14 +677,27 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
-    [Ignore("nondeterministic: a real 2 s cancel can land in any phase of the run, not only in the loop. To be made deterministic before this runs again")]
     public async Task AnEndlessLoop_StopsWhenTheRunIsCancelled()
     {
         // the interpreter checks the token between instructions, so a program whose own control flow
-        // never terminates still does. Cancelled on a timer, from outside, while it spins.
-        using var cancelled = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        // never terminates still does. Cancelled from outside once the program is seen in Main, where it
+        // spins for as long as it is let: never before it runs, whatever the machine's speed.
+        var source = Module("10 GoTo 10");
+        var composed = Compose(source);
+        using var cancelled = new CancellationTokenSource();
+        var running = Task.Run(() => ExecuteAsync(composed, source, token: cancelled.Token));
 
-        var result = await ExecuteAsync(Module("10 GoTo 10"), token: cancelled.Token);
+        // only a hang guard: the program is in Main until it is cancelled.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (composed.Session.Session.CallStack.Depth < 1)
+        {
+            Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
+            Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen in Main");
+            await Task.Delay(5);
+        }
+
+        await cancelled.CancelAsync();
+        var result = await running.WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result.Outcome);
     }

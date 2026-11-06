@@ -117,8 +117,23 @@ internal sealed class ProcedureCompiler
             Report(procedure, failure);
         }
 
+        try
+        {
+            Compiled?.Invoke(procedure, result);
+        }
+        catch (Exception)
+        {
+            // as a failure is told: what is told of a result cannot fail the call.
+        }
+
         return result;
     }
+
+    /// <summary>
+    /// Raised when a procedure was compiled, or found not to be, for the session's scopes: once for each time its <see cref="CompilationResult"/> is made, on
+    /// the thread of the call that made it, before the call goes on.
+    /// </summary>
+    public event Action<VBTypeMemberSymbol, CompilationResult>? Compiled;
 
     // what is told of a failure is told once it is the procedure's result, and what is told of it cannot fail the call.
     private void Report(VBTypeMemberSymbol procedure, Exception failure)

@@ -466,19 +466,60 @@ public partial class ModuleParser(
     // token, never by the exception: SLL's bail is itself an OperationCanceledException.
     private static VBAConditionalCompilationParser.CompilationUnitContext ParseDirectives(string sanitized, CancellationToken token)
     {
+        t_directiveLooks = 0;
+        var bailing = DirectiveParser(sanitized, new BailErrorStrategy(), token);
         try
         {
-            return DirectiveParser(sanitized, new BailErrorStrategy(), token).compilationUnit();
+            return bailing.compilationUnit();
         }
         catch (Exception exception) when ((exception is ParseCanceledException or RecognitionException) && !token.IsCancellationRequested)
         {
-            return DirectiveParser(sanitized, new DefaultErrorStrategy(), token).compilationUnit();
+            var recovering = DirectiveParser(sanitized, new DefaultErrorStrategy(), token);
+            try
+            {
+                return recovering.compilationUnit();
+            }
+            finally
+            {
+                t_directiveLooks += ((LookCountingTokenStream)recovering.InputStream).Looks;
+            }
+        }
+        finally
+        {
+            t_directiveLooks += ((LookCountingTokenStream)bailing.InputStream).Looks;
+        }
+    }
+
+    [ThreadStatic]
+    private static long t_directiveLooks;
+
+    /// <summary>
+    /// The work the last directive pass of this thread did: each token its parses looked at, as many times as each looked at it, in prediction and in
+    /// matching. What a guard of the pass's work counts, where a clock would count the machine.
+    /// </summary>
+    internal static long LooksOfLastDirectivePass => t_directiveLooks;
+
+    // a token stream that counts the looks the parser takes at its tokens.
+    private sealed class LookCountingTokenStream(ITokenSource source) : CommonTokenStream(source)
+    {
+        public long Looks { get; private set; }
+
+        public override int La(int i)
+        {
+            Looks++;
+            return base.La(i);
+        }
+
+        public override IToken Lt(int k)
+        {
+            Looks++;
+            return base.Lt(k);
         }
     }
 
     private static VBAConditionalCompilationParser DirectiveParser(string sanitized, IAntlrErrorStrategy errorStrategy, CancellationToken token)
     {
-        var parser = new VBAConditionalCompilationParser(new CommonTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
+        var parser = new VBAConditionalCompilationParser(new LookCountingTokenStream(new VBALexer(new AntlrInputStream(sanitized))))
         {
             ErrorHandler = errorStrategy,
         };

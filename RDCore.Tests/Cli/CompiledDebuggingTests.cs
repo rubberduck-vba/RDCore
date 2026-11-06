@@ -17,19 +17,18 @@ public sealed class CompiledDebuggingTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    // Main waits at its Stop, then calls Spin for as long as the program runs, and Spin counts for seconds in a loop that compiles.
+    // Main waits at its Stop, then calls Spin once, whose loop compiles and never ends: its Step of 0 leaves the counter where it is. Whatever the test asks
+    // of the program while it runs is asked of that one activation of Spin, however late it comes.
     private static readonly string Spinning = Program(
         "Public Sub Main()",
         "    Stop",
-        "    Do While True",
-        "        Spin",
-        "    Loop",
+        "    Spin",
         "End Sub",
         "Private Sub Spin()",
         "    Dim i As Long",
         "    Dim n As Long",
-        "    For i = 1 To 2000000000",
-        "        n = n + 1",
+        "    For i = 1 To 2 Step 0",
+        "        n = n Xor 1",
         "    Next",
         "End Sub");
 
@@ -50,53 +49,52 @@ public sealed class CompiledDebuggingTests
     private static Task<DebugAck> Terminate(EnvironmentSessionProvider provider)
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
-    // how often the compiled body of Spin was handed to the interpreter; none while it was never compiled.
-    private static long WalkBacksOfSpin(EnvironmentSessionProvider provider)
-        => provider.Image.Compiler.Results.Where(result => result.Procedure.Name == "Spin").Select(result => result.Result.Body?.WalkBacks ?? 0).Sum();
-
-    private static bool SpinIsCompiled(EnvironmentSessionProvider provider)
-        => provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "Spin" && result.Result.Body is not null);
-
-    private static async Task WaitForAsync(Func<bool> condition)
+    // the compiled body of Spin, once its activation has first looked whether the program is to stop, at the back edge of its loop: it is running compiled
+    // code then, and a breakpoint or a pause asked for after it is seen at its next look. Called before the program goes on to call Spin.
+    private static Task<RDCore.Runtime.Compiled.CompiledBody> SpinLookedAsync(EnvironmentSessionProvider provider)
     {
-        var deadline = DateTime.UtcNow + Patience;
-        while (!condition())
+        var looked = new TaskCompletionSource<RDCore.Runtime.Compiled.CompiledBody>(TaskCreationOptions.RunContinuationsAsynchronously);
+        provider.Image.Compiler.Compiled += (procedure, result) =>
         {
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "timed out");
-            await Task.Delay(10);
-        }
+            if (procedure.Name == "Spin" && result.Body is { } body)
+            {
+                _ = body.Looked.ContinueWith(_ => looked.TrySetResult(body), TaskScheduler.Default);
+            }
+        };
+
+        return looked.Task.WaitAsync(Patience);
     }
 
     [TestMethod]
-    [Ignore("nondeterministic: a breakpoint set between two Spin calls lands in an interpreted activation. To be made deterministic before this runs again")]
     public async Task ABreakpointSetWhileACompiledLoopRuns_IsWaitedAt_InTheLoop()
     {
         CompiledExecutionTests.RequirePayloads();
         await ModuleWorkspace.InspectAsync([], Spinning, async (provider, first, runAgain) =>
         {
-            // the program waits at Main's Stop, before Spin is called: the first call of Spin compiles it, and that activation is the one running once it is
-            // compiled, counting for seconds.
+            // the program waits at Main's Stop, before Spin is called: its call compiles Spin, and that activation runs compiled until it is stopped.
             Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);
             try
             {
+                var looked = SpinLookedAsync(provider);
                 var running = Resume(provider);
-                await WaitForAsync(() => provider.Execution.State is ProgramState.Running && SpinIsCompiled(provider));
-                var walkedBack = WalkBacksOfSpin(provider);
+                var spin = await looked;
+                var walkedBack = spin.WalkBacks;
 
-                _ = await SetBreakpoints(provider, 10);
+                _ = await SetBreakpoints(provider, 8);
                 var hit = await running;
 
-                Assert.AreEqual((ExecutionOutcome.Suspended, 10), (hit.Outcome, hit.ErrorLine), hit.ErrorMessage);
+                Assert.AreEqual((ExecutionOutcome.Suspended, 8), (hit.Outcome, hit.ErrorLine), hit.ErrorMessage);
 
-                // under the random walk-back the activation may have been handed to the interpreter before the breakpoint was set, which stops it all the same.
+                // under the random walk-back the activation may have been handed to the interpreter at its first look, before the breakpoint was set, which
+                // stops it all the same.
                 if (!RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
                 {
-                    Assert.IsGreaterThan(walkedBack, WalkBacksOfSpin(provider), "the compiled activation that was running walked back to stop there");
+                    Assert.AreEqual(walkedBack + 1, spin.WalkBacks, "the compiled activation that was running walked back to stop there");
                 }
             }
             finally
             {
-                // a program that is left running counts for seconds yet, on its own thread.
+                // a program that is left running spins on its own thread until it is ended.
                 _ = await Terminate(provider);
             }
         }, debug: true, engine: VBExecutionEngine.Compiled);
@@ -347,7 +345,6 @@ public sealed class CompiledDebuggingTests
 
     // a loop paused where it goes round again is shown at its Next, as MS-VBA shows it: the back edge has no statement of its own.
     [TestMethod]
-    [Ignore("nondeterministic: a pause between two Spin calls stops in Main, not in the loop. To be made deterministic before this runs again")]
     public async Task ACompiledLoopPaused_IsShownWaitingAtItsNext()
     {
         CompiledExecutionTests.RequirePayloads();
@@ -356,8 +353,9 @@ public sealed class CompiledDebuggingTests
             Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);
             try
             {
+                var looked = SpinLookedAsync(provider);
                 var running = Resume(provider);
-                await WaitForAsync(() => provider.Execution.State is ProgramState.Running && SpinIsCompiled(provider));
+                _ = await looked;
 
                 Assert.IsTrue((await Pause(provider)).Acted);
                 var paused = await running;
@@ -366,11 +364,11 @@ public sealed class CompiledDebuggingTests
                 Assert.AreEqual(ExecutionOutcome.Suspended, paused.Outcome, paused.ErrorMessage);
                 if (RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
                 {
-                    CollectionAssert.Contains(new[] { 10, 11 }, paused.ErrorLine, "a line of the loop, and not none");
+                    CollectionAssert.Contains(new[] { 8, 9 }, paused.ErrorLine, "a line of the loop, and not none");
                 }
                 else
                 {
-                    Assert.AreEqual(11, paused.ErrorLine, "the loop's Next");
+                    Assert.AreEqual(9, paused.ErrorLine, "the loop's Next");
                 }
 
                 Assert.AreEqual("Spin", provider.Execution.Stack().Frames[0].Procedure);
