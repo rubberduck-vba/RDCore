@@ -3,15 +3,15 @@
 > [!NOTE]
 > This specification may be incomplete at this time.
 
-🎯 Every problem the **RDCore** platform finds in a workspace surfaces to the editor as an **LSP diagnostic**. Such problems include syntax errors, static or runtime compilation errors, and analyzer findings.
+Every problem the **RDCore** platform finds in a workspace surfaces to the editor as an **LSP diagnostic**. Such problems include syntax errors, static or runtime compilation errors, and analyzer findings.
 
-🎯 Every RDCore LSP diagnostic carries:
+Every RDCore LSP diagnostic carries:
 
 - a stable **code**;
 - a **help URL** for that code;
 - for an error diagnostic, structured **detail**.
 
-🧩 **RDCore.Diagnostics** is the core platform extension responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP orchestration layer. See [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
+**RDCore.Diagnostics** is the core platform extension responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP orchestration layer. See [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
 
 Diagnostics reach the editor through an LSP pull pipeline that asks diagnostics providers; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 

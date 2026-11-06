@@ -13,7 +13,7 @@ without qualification ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.n
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.2.3.1** Module Variable Declaration Lists](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/0f9113df-fd9c-485a-9583-fdb0e9d68e1b).
 
-👉 When an array declaration specifies no _item type_, the declared item type of the array is `Variant`
+When an array declaration specifies no _item type_, the declared item type of the array is `Variant`
 ([**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md);
 [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
 
@@ -93,7 +93,7 @@ field of a `Type` alike, as **MS-VBA** reduces it (recorded in Excel):
 `LenB` in one of a procedure, with [VBC09350](../diagnostics/vbc09350.md) _Constant expression required_ (recorded in Excel), and so does RD-VBA: that is no
 check MS-VBA skips but one it adds, so no warning goes with it.
 
-🎯 A `Const` of a procedure valued `Len` of a constant (`Const K3 = Len(K)`) compiles in MS-VBA, inconsistently, and running it crashed the host. RD-VBA
+**RD-VBA differs from MS-VBA:** a `Const` of a procedure valued `Len` of a constant (`Const K3 = Len(K)`) compiles in MS-VBA, inconsistently, and running it crashed the host. RD-VBA
 compiles it, gives it the length MS-VBAL gives it (`4`), and warns with [RDC11021](../diagnostics/rdc11021.md). `String * Len(K)` is a syntax error in both.
 
 ### 5.2.3.1.4 Variable Type Declarations
@@ -206,7 +206,7 @@ within the enclosing module.
 |Symbol parent|An enum constant (Enum member) symbol parents to its Enum rather than to a scope.|
 |Scope placement|[ScopeTreeBuilder](../api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) resolves an Enum member's scope placement through its Enum ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).|
 
-👉 Because Enum members are placed through their Enum, an Enum member such as `vbSunday` is a name on its own,
+Because Enum members are placed through their Enum, an Enum member such as `vbSunday` is a name on its own,
 resolvable without qualification.
 
 A public `Enum` declared in a class module reaches the project scope. A class module's other members need an

@@ -87,7 +87,7 @@ The symbol kind of a `Symbol` is as specified in **LSP 3.17**. The symbol kinds 
 
 ### Extension Symbol Kinds
 
-🧩 RD-VBA additionally defines the following _extension symbol kinds_ in `SymbolKindExt`:
+RD-VBA additionally defines the following _extension symbol kinds_ in `SymbolKindExt`:
 
 - `Ignored`
 - `Attribute`

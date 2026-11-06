@@ -54,7 +54,7 @@ end of the procedure body.
 A `GoTo` from anywhere in the procedure into the middle of a loop body or an `If` body resolves in the same way as any
 other jump ([**RD-VBAL §5.4.2.12** GoTo Statement](rd-vbal.5.4.2.12.goto-statement.md)).
 
-> 👉 Jumping into the middle of a loop body has a consequence for the loop's hidden per-activation state. A `Next`
+> Jumping into the middle of a loop body has a consequence for the loop's hidden per-activation state. A `Next`
 > closer reached without its opener having run in the activation raises run-time error 92
 > ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md),
 > [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)).

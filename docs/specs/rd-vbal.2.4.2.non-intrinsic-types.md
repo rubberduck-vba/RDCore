@@ -64,7 +64,7 @@ The default member of a class type can be implicitly invoked through _let-coerci
 
 ## 2.4.2.3 VBCollectionType
 
-> 🧩 _Object value_ types (inheriting [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)) that represent an instance of a collection type should implement [IEnumerableObject](../api/RDCore.SDK.Model.Types.Abstract.IEnumerableObject.html).
+> **Extension point:** _Object value_ types (inheriting [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)) that represent an instance of a collection type should implement [IEnumerableObject](../api/RDCore.SDK.Model.Types.Abstract.IEnumerableObject.html).
 
 `VBCollectionType` is a subclass of `VBClassType` that exposes a `NewEnum` member.
 
@@ -113,7 +113,7 @@ A `VBHostProjectType` project can be introduced into the _RD-VBA environment_ by
 
 Additional workspace source code may be added to a host project if it is _open_ ("an open host project"). Workspace source code is added to an open host project by agents other than the host application.
 
-> 👉 An [RDCoreReference](../api/RDCore.SDK.Workspace.RDCoreReference.html) for a reference to a `VBHostProjectType` project must have the "unremovable" flag set; see [**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md).
+> An [RDCoreReference](../api/RDCore.SDK.Workspace.RDCoreReference.html) for a reference to a `VBHostProjectType` project must have the "unremovable" flag set; see [**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md).
 
 ## 2.4.2.5 VBUnknownType
 
@@ -130,7 +130,7 @@ The `UserDefinedTypeNotDefined` wording can be confusing when it is raised for a
 
 `VBVoidType` is the data type returned by `Sub`, `Property Let`, and `Property Set` procedures; see [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md) and [**RD-VBAL §5.3.1.7** Property Declarations](rd-vbal.5.3.1.7.property-declarations.md).
 
-> 👉 The internal representation of `VBVoidType` is a managed `Int32` value (0), because the intent is to ultimately support `HRESULT` interoperability.
+> The internal representation of `VBVoidType` is a managed `Int32` value (0), because the intent is to ultimately support `HRESULT` interoperability.
 
 ---
 > ⏮️ [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md) | ⏭️ [**RD-VBAL §2.4.3** Meta and Advanced Types](rd-vbal.2.4.3.meta-and-advanced-types.md)

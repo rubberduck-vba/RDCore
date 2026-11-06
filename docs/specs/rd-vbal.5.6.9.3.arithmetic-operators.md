@@ -90,10 +90,10 @@ This section corresponds to [**MS-VBAL §5.6.9.3.1** Unary - Operator](https://l
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.6.9.3.2** + Operator](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/91621d4b-3da3-4fe9-9581-adda857efe05).
 
-🧩 RD-VBA explicitly adds runtime semantics for a unary `+` operator, as a language core extension
+RD-VBA explicitly adds runtime semantics for a unary `+` operator, as a language core extension
 ([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)).
 
-👉 A `For` loop's `ForNext` instruction adds `step` to the counter through the addition operator,
+A `For` loop's `ForNext` instruction adds `step` to the counter through the addition operator,
 `RDCore.Runtime.Semantics.Operators.Arithmetic.BinaryAdditionOperatorRuntimeSemantics`. The step addition is therefore
 an overflow-checked operation, not a plain CLR addition
 ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)).

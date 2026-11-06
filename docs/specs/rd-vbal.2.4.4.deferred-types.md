@@ -66,7 +66,7 @@ Only one unnamed deferred module may be _semantically_ (but not _statically_) de
 
 [VBDeferredClassType](../api/RDCore.SDK.Model.Types.Complex.VBDeferredClassType.html) represents a deferred [VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html).
 
-👉 Deferred class types cannot be presumed to have a _default instance_. A default instance is set by a `VB_PredeclaredId` module attribute with the value `True`; see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md).
+Deferred class types cannot be presumed to have a _default instance_. A default instance is set by a `VB_PredeclaredId` module attribute with the value `True`; see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md).
 
 A deferred class is semantically defined when an _unbound member call_ is made against an _object variable_ of a class type that may or may not be defined in the workspace source code.
 
@@ -79,7 +79,7 @@ The default name of a deferred class is the word `Class` followed by a number, t
 
 `VBDeferredTypeDesc` represents (describes) a [VBDeferredType](../api/RDCore.SDK.Model.Types.Complex.VBDeferredType.html) within the type system.
 
-👉 A value of the `VBDeferredTypeDesc` meta type, a [VBDeferredTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBDeferredTypeDescValue.html), is used in the implementation of the `Is` relational operator; see [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md). The `Is` operator uses a deferred type descriptor value because its semantics demand knowledge of a _data type_ where a _value_ is normally required.
+A value of the `VBDeferredTypeDesc` meta type, a [VBDeferredTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBDeferredTypeDescValue.html), is used in the implementation of the `Is` relational operator; see [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md). The `Is` operator uses a deferred type descriptor value because its semantics demand knowledge of a _data type_ where a _value_ is normally required.
 
 > [!NOTE]
 > **Not implemented.** None of the other deferred descriptor types are in use.
@@ -125,7 +125,7 @@ RD-VBAL groups the following descriptors under `VBDeferredMemberDesc`:
 
 [VBDeferredParameterDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredParameterDesc.html) is a descriptor that represents (describes) a single _parameter_ of a deferred member.
 
-👉 Deferred parameters are inferred from the arguments provided at the call sites of deferred members.
+Deferred parameters are inferred from the arguments provided at the call sites of deferred members.
 
 The data type of a deferred parameter depends on how many call sites supply an argument for the parameter. It also depends on the data types of the arguments supplied for it at the call sites:
 

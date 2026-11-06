@@ -17,7 +17,7 @@ interface, because a constant is substituted where it is used, never called.
 |`vbCrLf`|`String`|`Chr$(13) + Chr$(10)`|
 |`vbFormFeed`|`String`|`Chr$(12)`|
 |`vbLf`|`String`|`Chr$(10)`|
-|`vbNewLine`|`String`|🎯 `Chr$(13) + Chr$(10)`, whatever platform the environment host runs on.|
+|`vbNewLine`|`String`|`Chr$(13) + Chr$(10)`, whatever platform the environment host runs on.|
 |`vbNullChar`|`String`|`Chr$(0)`|
 |`vbTab`|`String`|`Chr$(9)`|
 |`vbVerticalTab`|`String`|`Chr$(11)`|

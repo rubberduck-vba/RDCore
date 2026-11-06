@@ -22,7 +22,7 @@ there are index parameters. A `Property Let` or `Property Set` with no parameter
 receive what is being assigned, and is reported as [VBC09321](../diagnostics/vbc09321.md). See also
 [**RD-VBAL §5.3.1.7** Property Declarations](rd-vbal.5.3.1.7.property-declarations.md).
 
-> 👉 UDT values **must** be passed by reference (`ByRef`). See
+> UDT values **must** be passed by reference (`ByRef`). See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
 
 ### Array parameters

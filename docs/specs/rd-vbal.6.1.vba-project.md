@@ -8,10 +8,10 @@ The `VBA` project is a _host project_. It is present in every _VBA environment_.
 The `VBA` project consists of a set of classes, functions, `Enum` types and constants that together form VBA's
 _standard library_.
 
-🎯 Because the `VBA` project is present in every VBA environment, the **RDCore** platform must implement the VBA
+Because the `VBA` project is present in every VBA environment, the **RDCore** platform must implement the VBA
 standard library.
 
-🎯 The _environment host_ shall inject the VBA standard library's symbols into all `VBA` projects. The injected
+The _environment host_ shall inject the VBA standard library's symbols into all `VBA` projects. The injected
 symbols shall carry the appropriate _return type_ metadata.
 
 The SDK defines the interfaces for the _internal representation_ of each standard-library module, and the environment

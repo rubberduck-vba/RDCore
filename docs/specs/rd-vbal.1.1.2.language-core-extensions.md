@@ -16,9 +16,9 @@ The following are *language core extensions*:
 
 These extensions do not *alter* the language; they *reveal* it.
 
-> ✅ **A valid language core extension makes explicit what was implicit.**
+> **A valid language core extension makes explicit what was implicit.**
 >
-> ❌ **An invalid language core extension introduces new semantics.**
+> **An invalid language core extension introduces new semantics.**
 
 ## Valid Examples
 

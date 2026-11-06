@@ -78,7 +78,7 @@ With `s` holding the bytes `41 00 42` (the character `A` and a trailing byte):
 |`Mid(s, 1) = "ZQ"`|`5A 00 42`: `s` has one character, so one is replaced.|
 
 > [!NOTE]
-> 🎯 **RD-VBAL differs from MS-VBA** in the last row, as the VB6 runtime runs it. That runtime copies bytes up to the
+> **RD-VBAL differs from MS-VBA** in the last row, as the VB6 runtime runs it. That runtime copies bytes up to the
 > target's byte length rather than whole characters, and writes `51`, the first byte of `Q`, over the trailing byte.
 > **MS-VBAL §5.4.3.5** replaces characters, and a trailing byte is not one, so RD-VBA leaves it. The other rows agree.
 

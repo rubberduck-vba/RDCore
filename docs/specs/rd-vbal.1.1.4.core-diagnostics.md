@@ -1,10 +1,10 @@
 # 1.1.4 Core Diagnostics
 
-> 🧩 **RDCore.Diagnostics** is the *core platform extension* responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP *orchestration layer*.
+> **RDCore.Diagnostics** is the *core platform extension* responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP *orchestration layer*.
 
 A *diagnostics provider* is a platform extension whose manifest advertises the [DiagnoseDocument](../api/RDCore.SDK.Client.DiagnoseDocument.html) capability. RDCore.Diagnostics is the core-bundled diagnostics provider; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 
-🧩 The role of *analyzers* in extensions like RDCore.Diagnostics is to inspect the flags and errors in *semantic contexts*, and issue diagnostics. Semantic flags are described in [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md).
+The role of *analyzers* in extensions like RDCore.Diagnostics is to inspect the flags and errors in *semantic contexts*, and issue diagnostics. Semantic flags are described in [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md).
 
 ## Diagnostic Codes
 
@@ -18,7 +18,7 @@ The schema of a *diagnostic* is specified by [LSP 3.17 § Diagnostic](https://mi
 |`RDC00000`|**RDCore** *core diagnostics*|[**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md)|
 |`RDX00000`|**RDCore** *extension diagnostics*|The documentation pertaining to the extension|
 
-🎯 Every RDCore LSP diagnostic carries a stable code. See [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md).
+Every RDCore LSP diagnostic carries a stable code. See [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md).
 
 ## Numeric Portion
 

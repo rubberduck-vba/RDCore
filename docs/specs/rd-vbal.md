@@ -8,7 +8,7 @@ This specification describes the **RDCore Language Platform and SDK**; its inspi
 
 **RD-VBA** is an implementation of the **MS-VBAL specification** that is independent from its historical **MS-VBA** runtime host. **RD-VBAL** is the name of the specification and documentation of the _language server platform_. It _includes_ the **RD-VBA** _language core_, but covers more than the language specification alone.
 
-🎯 **The formalization of _RD-VBAL_ is a work in progress**.  
+**The formalization of _RD-VBAL_ is a work in progress**.  
 
 This specification follows the technical prose style of its inspirational Open Spec source material.
 
@@ -124,7 +124,7 @@ This specification follows the technical prose style of its inspirational Open S
 |Chapters 1–4; the overview sections 5.0 and 6.0; section 6.2|RD-VBAL's own numbering.|
 |Chapters 5 and 6, except 5.0, 6.0 and 6.2|Mirrors MS-VBAL: RD-VBAL §N is about MS-VBAL §N.|
 |An RD-VBA addition that is a variant of an MS-VBAL member|A child number of that member. `GetAllJsonSettings` is [§6.1.2.8.1.7.1](rd-vbal.6.1.2.8.interaction.md), a variant of `GetAllSettings` (§6.1.2.8.1.7).|
-|An RD-VBA addition with no MS-VBAL counterpart|The next number after the last MS-VBAL sibling, marked 🧩. Several such additions are numbered in alphabetical order. `Erl` is [§6.1.2.7.1.14](rd-vbal.6.1.2.7.information.md) and the `Err` function is §6.1.2.7.1.15 (Information module); `ErrObject.StackTrace` is [§6.1.3.2.2.7](rd-vbal.6.1.3.2.err-class.md) (Err class properties).|
+|An RD-VBA addition with no MS-VBAL counterpart|The next number after the last MS-VBAL sibling. Several such additions are numbered in alphabetical order. `Erl` is [§6.1.2.7.1.14](rd-vbal.6.1.2.7.information.md) and the `Err` function is §6.1.2.7.1.15 (Information module); `ErrObject.StackTrace` is [§6.1.3.2.2.7](rd-vbal.6.1.3.2.err-class.md) (Err class properties).|
 |A section number without a prefix|An RD-VBAL section. An MS-VBAL section is always written with the `MS-VBAL` prefix, as in **MS-VBAL §5.4.2.3**.|
 
 ### Notes
@@ -133,16 +133,6 @@ This specification follows the technical prose style of its inspirational Open S
 |---|---|
 |Reserved. This section has no content yet.|The section only reserves its number. In chapters 5 and 6, a reserved page still names the MS-VBAL section it corresponds to. When the content lives on another page, a `See …` line after the note links that page.|
 |**Not implemented.** …|A limitation: what RD-VBA does not implement, and what happens instead when that is known.|
-
-### Markers
-
-|Marker|Meaning|
-|---|---|
-|🎯|An RD-VBA objective, or a deliberate RD-VBA departure from MS-VBA.|
-|🧩|An extension point, or an RD-VBA addition to MS-VBAL.|
-|👉|A consequence worth calling out.|
-|✅|Valid.|
-|❌|Invalid.|
 
 ---
 ## Intellectual Property Rights Notice for Open Specifications Documentation
@@ -156,7 +146,4 @@ The publisher of the **RDCore** platform project and of _this present documentat
 - [MS-VBAL: VBA Language Specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74#intellectual-property-rights-notice-for-open-specifications-documentation)
 
 
-✅ **Challenge: Accepted**.
-
----
-> ⏭️ [**RD-VBAL §1.0** Introduction](rd-vbal.1.0.introduction.md)
+**Challenge: Accepted**.

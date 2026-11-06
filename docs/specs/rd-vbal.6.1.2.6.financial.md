@@ -200,7 +200,7 @@ nearly the whole payment has a principal of nearly nothing, which as the payment
 `PV`'s description is the one that leaves unsaid what an omitted `FV` stands for. RD-VBA takes it as its siblings'
 descriptions do: `0`.
 
-👉 MS-VBA assigns the `NaN` of `PV(0.05, 20000, -100)` to the variable it is assigned to before raising error `6`, which
+MS-VBA assigns the `NaN` of `PV(0.05, 20000, -100)` to the variable it is assigned to before raising error `6`, which
 none of the other functions do; RD-VBA raises the error and assigns nothing.
 
 ### 6.1.2.6.1.11 Rate

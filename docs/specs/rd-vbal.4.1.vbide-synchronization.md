@@ -3,7 +3,7 @@
 > [!NOTE]
 > This specification is incomplete at this time.
 
-🎯 The **RDCore** platform tooling shall ultimately include a _lightweight VBIDE add-in_.
+This section specifies a _lightweight VBIDE add-in_ for the **RDCore** platform tooling.
 
 The VBIDE add-in is responsible for:
 

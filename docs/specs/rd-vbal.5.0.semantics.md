@@ -33,7 +33,7 @@ Static semantics always yield a
 |`Success`|A [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html): the declared type.|
 |`Error`|A [VBCompileErrorInfo](../api/RDCore.SDK.Model.Errors.VBCompileErrorInfo.html): compile-time error metadata.|
 
-> 👉 In most static-semantics error cases, the compile-time error metadata returned is for a `TypeMismatch` error
+> In most static-semantics error cases, the compile-time error metadata returned is for a `TypeMismatch` error
 > ([VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)).
 
 ### Static evaluation context
@@ -118,7 +118,7 @@ The role of _runtime semantics_ depends on the type of node being evaluated:
 |_Operators_|Evaluate a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) from their _operands_ ([**RD-VBAL §5.6.9** Operator Expressions](rd-vbal.5.6.9.operator-expressions.md)).|
 |_Statements_|Induce _side-effects_ to _program_, _global_, or _host environment_ state ([**RD-VBAL §5.4** Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)).|
 
-🎯 Evaluation returns an evaluation result record,
+Evaluation returns an evaluation result record,
 [RuntimeSemanticsEvaluationResult](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html), that
 describes and encapsulates either the evaluation result or runtime error metadata
 ([**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md)).
@@ -168,7 +168,7 @@ analysis step:
 The language core features an analytical pipeline that attaches detailed _semantic flags_ to abstract syntax tree
 (AST) nodes ([**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)).
 
-> 👉 The role of the `Analyze` method at this level is to report the _semantic facts_ of an operation. These facts
+> The role of the `Analyze` method at this level is to report the _semantic facts_ of an operation. These facts
 > usually cannot be inferred from the operands or _effective type_ alone.
 
 Semantic flags are _facts_, not _opinions_.
@@ -270,7 +270,7 @@ caller's; a variable of the module or a `Static` local, entered with whatever th
 procedure the analysis does not run returns - the subtype is not known either. An operation of a `Variant` whose subtype is
 not known states no effective type and nothing of what it does, a conversion of one states that it converts a `Variant`,
 and what either yields is a `Variant` whose subtype is not known. An operation of a `Variant` whose subtype is known yields
-a `Variant` of the type of its result. 👉 The analysis presumes there is no overflow: a `Byte`, `Integer`, `Long`, `Single` or
+a `Variant` of the type of its result. The analysis presumes there is no overflow: a `Byte`, `Integer`, `Long`, `Single` or
 `Date` result of an arithmetic operator of a `Variant` that overflows is the narrowest of `Integer`, `Long` or `Double` it
 fits (**MS-VBAL §5.6.9.3**, which lists no `Byte`: MS-VBA widens one as it does an `Integer`, `CByte(200) + CByte(100)` being the
 `Integer` 300 - recorded in Excel), which a value that is not known cannot tell - an edge case, not worth what the subtype tells
@@ -283,7 +283,7 @@ target; an `Exit` that is not where it may be has no instruction).
 
 ### Diagnostics
 
-> 🧩 The role of _analyzers_ in extensions like **RDCore.Diagnostics** is to inspect the flags and errors in
+> The role of _analyzers_ in extensions like **RDCore.Diagnostics** is to inspect the flags and errors in
 > semantic contexts, and issue _diagnostics_ ([**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md)).
 
 |Diagnostic|Use|
