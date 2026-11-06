@@ -137,7 +137,8 @@ public sealed class ExpressionPastTheLimitTests
     }
 
     // 3,000 levels of each shape, in each place a statement holds an expression: what holds what is past the limit - an operator, a member access, a block, a
-    // Case clause, a named argument, an item of a print list, the bounds of a declaration - is rebuilt around the error node.
+    // Case clause, a named argument, an item of a print list, a bound of a declared array (held by an ArrayDimensionBound, a struct of its own) - is rebuilt
+    // around the error node.
     [TestMethod]
     [DataRow("x = {0}", "parentheses")]
     [DataRow("x = {0}", "members")]
@@ -146,15 +147,10 @@ public sealed class ExpressionPastTheLimitTests
     [DataRow("Select Case x\r\n        Case 1, {0}\r\n    End Select", "parentheses")]
     [DataRow("F a:={0}", "indexes")]
     [DataRow("Debug.Print 1; {0}", "chain")]
+    [DataRow("Dim y(1 To {0}) As Long", "parentheses")]
+    [DataRow("Dim y({0} To 5, 2) As Long", "chain")]
     public void AnExpressionPastTheLimit_IsAnErrorNode_WhereverItIsWritten(string statement, string shape)
         => AssertPrunedWhereWritten(statement, shape);
-
-    // the bounds of a declared array are held by ArrayDimensionBound, a struct the walk of the tree (SyntaxNodeWalk.ChildNodes) does not enter: the static pass
-    // evaluates them, but the check of the limit never sees them.
-    [TestMethod]
-    [Ignore("the bounds of a declared array are not walked: SyntaxNodeWalk.ChildNodes does not yield ArrayDimensionBound's expressions")]
-    public void ABoundOfADeclaredArrayPastTheLimit_IsAnErrorNode()
-        => AssertPrunedWhereWritten("Dim y(1 To {0}) As Long", "parentheses");
 
     // what is kept as text is not analyzed (RD-VBAL 2.6.1): no check of the static pass reports on it, wherever it is written, and the error the parser
     // reported is the module's only one.
