@@ -30,20 +30,24 @@ time it runs, compiled code first checks the type the `Variant` holds. When it d
 the type it does hold. That is the case for an `Empty` `Variant` before its first assignment, a `Variant` that came to hold a `String` or `Null`, and a sum
 that has overflowed to a wider type. A wrong guess makes the operation slower, never its result different.
 
+In a procedure of a class, compiled code reads and writes a field of `Me` of a scalar type where the object keeps it, so the member's code and a caller
+outside the class (`C.Total = 10`) see the same field. A field passed `ByRef` is passed as the field itself: what the callee assigns its parameter, it
+assigns the field. Each object has its own fields, and a member called on one reads and writes that object's.
+
 Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, constants, the procedure's parameters and variables, its `Variant`s, the function's own result variable, and parentheses.|
+|Expressions|Literals, constants, the procedure's parameters and variables, its `Variant`s, the scalar fields of `Me`, the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one.|
-|Statements|`Let` of a variable, of a `Variant`, or of the function's result.|
+|Statements|`Let` of a variable, of a `Variant`, of a scalar field of `Me`, or of the function's result.|
 |Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module whose parameters are scalars (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
 `Resume Next`, `Resume` a label and the `Error` statement (see Error handling, below); a statement that uses something that stays in the frame (a
-`String`, an object, a field of `Me`, a `Static`); a call of a member (`Err.Number` is one); an element of an array; and a `For` whose counter or bounds
+`String`, an object, a field of `Me` that is no scalar, a `Static`); a call of a member (`Err.Number` is one); an element of an array; and a `For` whose counter or bounds
 compiled code doesn't do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
