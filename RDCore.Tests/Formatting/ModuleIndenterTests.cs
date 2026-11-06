@@ -25,7 +25,7 @@ public sealed class ModuleIndenterTests
     [TestMethod]
     public void AModuleWithAnExpressionPastTheLimitOfNesting_IsIndented()
     {
-        var chain = Parser.ExpressionNestingTests.Chain(40_000);
+        var chain = Parser.ExpressionNestingTests.ChainPastTheLimit();
 
         var indented = string.Empty;
         var thrown = SmallStack.Run(() => indented = Indented(Lines("Public Sub Foo()", $"x = {chain}", "End Sub")));

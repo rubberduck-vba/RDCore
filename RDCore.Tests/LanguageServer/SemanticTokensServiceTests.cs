@@ -114,7 +114,7 @@ public sealed class SemanticTokensServiceTests
     [TestMethod]
     public void AModuleWithAnExpressionPastTheLimitOfNesting_HasItsNamesToldApart()
     {
-        _documents.Open(Mod1, $"Public Const Max = 10\r\nPublic Sub Foo()\r\n    x = {Parser.ExpressionNestingTests.Chain(40_000)}\r\n    x = Max\r\nEnd Sub\r\n", 1);
+        _documents.Open(Mod1, $"Public Const Max = 10\r\nPublic Sub Foo()\r\n    x = {Parser.ExpressionNestingTests.ChainPastTheLimit()}\r\n    x = Max\r\nEnd Sub\r\n", 1);
 
         IReadOnlyList<SemanticToken> tokens = [];
         var thrown = SmallStack.Run(() => tokens = _sut.GetAsync(Mod1, CancellationToken.None).GetAwaiter().GetResult());

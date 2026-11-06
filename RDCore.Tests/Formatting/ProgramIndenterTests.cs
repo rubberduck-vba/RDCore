@@ -20,7 +20,7 @@ public sealed class ProgramIndenterTests
     [TestMethod]
     public void AProgramWithAnExpressionPastTheLimitOfNesting_IsIndented()
     {
-        var chain = Parser.ExpressionNestingTests.Chain(40_000);
+        var chain = Parser.ExpressionNestingTests.ChainPastTheLimit();
 
         IReadOnlyList<string> indented = [];
         var thrown = SmallStack.Run(() => indented = Indented("If x Then", $"y = {chain}", "End If"));

@@ -47,7 +47,7 @@ public sealed class ModuleSurfaceTests
     [TestMethod]
     public void OfAModuleNestedPastTheLimit_IsMadeOnASmallStack()
     {
-        var chain = Parser.ExpressionNestingTests.Chain(40_000);
+        var chain = Parser.ExpressionNestingTests.ChainPastTheLimit();
         var parse = new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Const Max = {chain}\r\nPublic Sub Foo()\r\n    x = {chain}\r\n    y = Max\r\nEnd Sub\r\n");
         Assert.IsNotNull(parse.SyntaxTree);
 

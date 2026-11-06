@@ -29,6 +29,13 @@ public sealed class ExpressionNestingTests
 
     internal static string Chain(int terms) => string.Join(" + ", Enumerable.Repeat("1", terms));
 
+    // the shortest chain past the limit: its first term is nested in 2,501 additions.
+    internal static string ChainPastTheLimit() => Chain(ModuleParser.MaxExpressionNesting + 2);
+
+    // a chain in parentheses, whose first term is nested in `levels` expressions: the parentheses and every addition but one, as deep as in `levels` parentheses.
+    // A chain doesn't nest the parse, which reads it in a fraction of the time it reads as many parentheses.
+    private static string ParenthesizedChain(int levels) => "(" + Chain(levels) + ")";
+
     private static ModuleParseResult Parse(string expression)
         => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    Dim x As Variant\r\n    x = {expression}\r\nEnd Sub\r\n");
 
@@ -95,7 +102,7 @@ public sealed class ExpressionNestingTests
     public void AnArgument_IsToldFromBounds_WithoutReadingItForEachCallItIsNestedIn()
         => Assert.AreEqual(PredictionStatesOf("argumentExpression", 100), PredictionStatesOf("argumentExpression", 200));
 
-    // a statement, the {0} in it the parenthesized literal, and the levels of nesting it writes around it: a call's argument is nested in the call, but neither
+    // a statement, the {0} in it a parenthesized chain, and the levels of nesting it writes around it: a call's argument is nested in the call, but neither
     // passing it by name or ByVal nor printing it nests it in anything more. The parentheses after a bare call's name group its one argument, a level of their
     // own: `F (x)` nests x as `Call F((x))` does.
     [TestMethod]
@@ -116,8 +123,8 @@ public sealed class ExpressionNestingTests
     [DataRow("x = TypeOf {0} Is Object", 1)]
     public void AnExpressionAtTheLimit_IsRead_AndOnePast_IsExpressionNestedTooDeeply(string statement, int levels)
     {
-        ModuleParseResult ParseWith(int parentheses)
-            => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    {string.Format(statement, Parenthesized(parentheses))}\r\nEnd Sub\r\n");
+        ModuleParseResult ParseWith(int nesting)
+            => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    {string.Format(statement, ParenthesizedChain(nesting))}\r\nEnd Sub\r\n");
 
         var atTheLimit = ParseWith(ModuleParser.MaxExpressionNesting - levels);
         var pastIt = ParseWith(ModuleParser.MaxExpressionNesting - levels + 1);
@@ -147,7 +154,7 @@ public sealed class ExpressionNestingTests
     [TestMethod]
     public void TwoArgumentsOfABareCallPastTheLimit_AreReportedOnce_AsInACallWithCall()
     {
-        var past = Parenthesized(ModuleParser.MaxExpressionNesting);
+        var past = ParenthesizedChain(ModuleParser.MaxExpressionNesting);
         ModuleParseResult ParseWith(string statement)
             => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    {statement}\r\nEnd Sub\r\n");
 
@@ -161,7 +168,7 @@ public sealed class ExpressionNestingTests
     [TestMethod]
     public void TwoExpressionsPastTheLimit_AreEachReported()
     {
-        var past = Parenthesized(ModuleParser.MaxExpressionNesting + 1);
+        var past = ParenthesizedChain(ModuleParser.MaxExpressionNesting + 1);
         var result = new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n    Dim x As Variant\r\n    x = {past}\r\n    x = {past}\r\nEnd Sub\r\n");
 
         Assert.AreEqual(2, result.SyntaxErrors.Count(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(result));
@@ -189,7 +196,7 @@ public sealed class ExpressionNestingTests
     public void AModuleWithAnExpressionPastTheLimit_DeclaresWhatItDeclares()
     {
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"),
-            $"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim x As Variant\r\n    x = {Chain(40_000)}\r\nEnd Sub\r\n");
+            $"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim x As Variant\r\n    x = {ChainPastTheLimit()}\r\nEnd Sub\r\n");
         Assert.IsTrue(parse.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(parse));
 
         string[] declared = [];
@@ -207,12 +214,12 @@ public sealed class ExpressionNestingTests
     [TestMethod]
     public void TheNodesOfAModuleWithAnExpressionPastTheLimit_AreWalked()
     {
-        var parse = Parse(Chain(40_000));
+        var parse = Parse(ChainPastTheLimit());
 
         var count = 0;
         var thrown = SmallStack.Run(() => count = parse.SyntaxTree!.Descendants().Count(node => node is LiteralExpressionNode));
 
         Assert.IsNull(thrown, thrown?.ToString());
-        Assert.AreEqual(40_000, count);
+        Assert.AreEqual(ModuleParser.MaxExpressionNesting + 2, count);
     }
 }
