@@ -17,10 +17,13 @@ public sealed class ReplServerQuestionsTests
     public TestContext TestContext { get; set; } = null!;
 
     private CancellationToken Token => TestContext.CancellationToken;
-    // keys that come when the test sends them, so that a question can come while the line is edited.
+    // keys that come when the test sends them, so that a question can come while the line is edited. A read of the nth key says that every key before it
+    // was handled: the reader asks for the next key only once it is done with the last.
     private sealed class WaitingKeys : IConsoleKeys
     {
         private readonly BlockingCollection<ConsoleKeyInfo> _keys = [];
+        private readonly List<(int Count, TaskCompletionSource Read)> _waiting = [];
+        private int _reads;
 
         public bool IsInteractive => true;
 
@@ -32,7 +35,36 @@ public sealed class ReplServerQuestionsTests
             }
         }
 
-        public ConsoleKeyInfo ReadKey(CancellationToken token) => _keys.Take(token);
+        // completes when the reader asks for its nth key.
+        public Task ReadingAsync(int nth)
+        {
+            lock (_waiting)
+            {
+                if (_reads >= nth)
+                {
+                    return Task.CompletedTask;
+                }
+
+                var read = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiting.Add((nth, read));
+                return read.Task;
+            }
+        }
+
+        public ConsoleKeyInfo ReadKey(CancellationToken token)
+        {
+            lock (_waiting)
+            {
+                _reads++;
+                foreach (var waiting in _waiting.Where(waiting => waiting.Count <= _reads).ToList())
+                {
+                    waiting.Read.SetResult();
+                    _waiting.Remove(waiting);
+                }
+            }
+
+            return _keys.Take(token);
+        }
 
         public string? ReadLine(CancellationToken token) => null;
     }
@@ -68,15 +100,6 @@ public sealed class ReplServerQuestionsTests
         }
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        while (!condition())
-        {
-            await Task.Delay(10, timeout.Token);
-        }
-    }
-
     // the prompt, and the questions it asks: the shell has read its first line, so a question waits to be asked from now on.
     private static (WaitingKeys Keys, Console Output, ReplServerQuestions Questions, ConsolePromptEditor Editor) Prompt()
     {
@@ -96,7 +119,9 @@ public sealed class ReplServerQuestionsTests
         var (keys, output, questions, editor) = Prompt();
         var reading = editor.ReadLineAsync(Token);
         keys.Send(Char('a'), Char('b'));
-        await WaitUntilAsync(() => output.Text.Contains("ab", StringComparison.Ordinal));
+        // the line asks for its third key: "a" and "b" are typed.
+        await keys.ReadingAsync(3).WaitAsync(Token);
+        StringAssert.Contains(output.Text, "ab");
 
         var read = new List<char>();
         var answer = questions.AskAsync((at, token) =>
