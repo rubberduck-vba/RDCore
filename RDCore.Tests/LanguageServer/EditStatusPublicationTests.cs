@@ -63,10 +63,20 @@ public sealed class EditStatusPublicationTests
             _allPublished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
+        _diagnostics.ClearReceivedCalls();
         _monitor.Changed += Raise.Event<Action<DebugEditStatusResult, DebugEditStatusResult>>(previous, current);
+
+        // which modules are pushed again is decided as the change is told: each one's findings are asked for before the push of any of them waits on anything.
+        // What was asked by then is every module that is ever pushed for this change.
+        var asked = _diagnostics.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IDocumentDiagnosticsService.GetAsync))
+            .Select(call => (Uri)call.GetArguments()[0]!)
+            .ToArray();
+
         await _allPublished.Task.WaitAsync(Patience);
         lock (_published)
         {
+            CollectionAssert.AreEquivalent(asked, _published, "what is pushed is what was asked for");
             return [.. _published];
         }
     }
