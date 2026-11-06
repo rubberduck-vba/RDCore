@@ -64,7 +64,7 @@ public sealed class CompiledDirectCallTests
     // activation is handed to the interpreter at a safepoint of its own, which makes the calls after it, and neither count says how many.
     internal static void AssertCalls(long all, (long Direct, long Indirect) made)
     {
-        if (CompiledExecution.WalksBackAtRandom)
+        if (CompiledExecution.HandsOverAtRandom)
         {
             Assert.IsLessThanOrEqualTo(all, made.Direct + made.Indirect);
             return;
@@ -154,7 +154,7 @@ public sealed class CompiledDirectCallTests
             "End Function"), "IsEven", "IsOdd");
 
         StringAssert.Contains(observed, "| 0  1 |");
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.IsGreaterThan(0L, direct, "IsEven calls IsOdd through its typed entry");
             Assert.IsGreaterThan(0L, indirect, "IsOdd calls IsEven through the invoker");
@@ -190,7 +190,7 @@ public sealed class CompiledDirectCallTests
             "    Divide = 10 \\ z",
             "End Function"), "Outer");
 
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.IsGreaterThan(0L, direct, "Outer calls Divide through its typed entry");
         }
@@ -240,7 +240,7 @@ public sealed class CompiledDirectCallTests
                 var variables = provider.Execution.Variables(middle.Id, DebugVariableScope.Locals, 0).Variables;
                 observed = $"{string.Join(" < ", stack.Select(frame => $"{frame.Procedure}@{frame.Line}"))} | "
                     + $"{string.Join(", ", variables.Select(variable => $"{variable.Name}={variable.Value}"))}";
-                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.WalksBackAtRandom)
+                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.AreEqual(1L, BodyOf(provider, "Outer").DirectCalls, "Outer calls Middle through its typed entry");
                 }
@@ -428,7 +428,7 @@ public sealed class CompiledDirectCallTests
                 StringAssert.Contains(Observed(first), "| 12 |");
                 var again = await RunWithAsync(provider, Calling("x * 3"));
                 StringAssert.Contains(Observed(again), "| 18 |", engine.ToString());
-                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.WalksBackAtRandom)
+                if (engine is VBExecutionEngine.Compiled && !CompiledExecution.HandsOverAtRandom)
                 {
                     Assert.AreEqual(3L, BodyOf(provider, "Outer").DirectCalls, "the first run's calls only");
                 }
@@ -455,7 +455,7 @@ public sealed class CompiledDirectCallTests
     public async Task AfterTheSymbolsAreDefinedAgain_NoCallIsMadeThroughATypedEntry()
     {
         CompiledExecutionTests.RequirePayloads();
-        if (CompiledExecution.WalksBackAtRandom)
+        if (CompiledExecution.HandsOverAtRandom)
         {
             Assert.Inconclusive("under the random walk-back, the caller may be handed to the interpreter before it calls");
         }
@@ -490,7 +490,7 @@ public sealed class CompiledDirectCallTests
     public async Task TheEngineChangedWhileACompiledCallerWaits_ItsCallsAfterAreInterpreted()
     {
         CompiledExecutionTests.RequirePayloads();
-        if (CompiledExecution.WalksBackAtRandom)
+        if (CompiledExecution.HandsOverAtRandom)
         {
             Assert.Inconclusive("under the random walk-back, the caller may be handed to the interpreter before it calls");
         }
@@ -564,7 +564,7 @@ public sealed class CompiledDirectCallTests
         StringAssert.Contains(observed, "| 28 ");
         var depth = observed.Split(" < ").Length;
         Assert.IsGreaterThan(1000, depth, "the trace has every activation");
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.IsGreaterThan(1000L, direct, "Deep calls itself through its typed entry");
         }
@@ -641,7 +641,7 @@ public sealed class CompiledDirectCallTests
         AssertCalls(100, (direct, indirect));
 
         // under the random walk-back, an activation handed to the interpreter is given its frame to be run in.
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual((0L, 1L), await MadeAsync(program, "Twice"), "no frame; one activation, each call made in it again");
         }
@@ -671,7 +671,7 @@ public sealed class CompiledDirectCallTests
         // Fib(15) makes 1,972 calls of Fib besides the first, at most 14 deep below it.
         StringAssert.Contains(observed, "| 610 |");
         AssertCalls(1972, (direct, indirect));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             var (frames, activations) = await MadeAsync(program, "Fib");
             Assert.AreEqual(0L, frames);
@@ -712,7 +712,7 @@ public sealed class CompiledDirectCallTests
         var (observed, direct, _) = await AssertAlikeAsync(program, "First", "Second");
 
         StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@\d+:\d+ < Third@-1:-1 < Second@-1:-1 < First@-1:-1 < Main@"));
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(2L, direct, "First calls Second, and Second calls Third, through their typed entries");
             Assert.AreEqual(2L, await FramesMadeAsync(program, "Second", "Third"), "Second and Third, given their frames when Interpreted's is pushed");

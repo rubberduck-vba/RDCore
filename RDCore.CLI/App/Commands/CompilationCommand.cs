@@ -16,7 +16,8 @@ internal sealed class CompilationCommandOptions
 }
 
 /// <summary>
-/// <c>rdc compilation [path]</c>: says, for each procedure of a workspace, whether it runs compiled, and what keeps it in the interpreter when it does not.
+/// <c>rdc compilation [path]</c>: says, for each procedure of a workspace, whether it runs compiled, and what keeps it in the interpreter when it does not -
+/// or, when it does, what of it the interpreter runs.
 /// </summary>
 /// <remarks>
 /// The workspace is loaded as <c>rdc bench</c> loads it, and each procedure compiled as its first call would compile it; nothing is run.
@@ -83,9 +84,13 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         foreach (var (module, compilation) in procedures)
         {
             var name = $"{module}.{compilation.Procedure.Name}".PadRight(width);
+            // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do yet.
             if (compilation.IsCompiled)
             {
-                Output.WriteLine($"{Resources.Compilation_Compiled.PadRight(label)}{name}");
+                Output.WriteLine(compilation.Stepped.Count == 0
+                    ? $"{Resources.Compilation_Compiled.PadRight(label)}{name}"
+                    : $"{Resources.Compilation_Compiled.PadRight(label)}{name}"
+                        + string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Stepped, string.Join("; ", compilation.Stepped.Select(Describe))));
                 continue;
             }
 

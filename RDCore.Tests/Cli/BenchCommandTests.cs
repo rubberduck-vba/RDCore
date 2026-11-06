@@ -45,6 +45,13 @@ public sealed class BenchCommandTests
         "Public Function BenchFunctionIsNoCase() As Long",
         "End Function",
         "Public Sub NotNamedForACase()",
+        "End Sub",
+        "Public Sub AppendsInALoop()",
+        "    Dim I As Long, S As String, T As Long",
+        "    For I = 1 To 3",
+        "        S = S & \"x\"",
+        "        T = T + I",
+        "    Next",
         "End Sub");
 
     private static readonly string Tally = ClassModule("Tally",
@@ -317,9 +324,60 @@ public sealed class BenchCommandTests
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "interpreted");
         StringAssert.Contains(objectCall, "line ");
-        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "interpreted");
-        StringAssert.Contains(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "a member of a class");
+
+        // a member of a class is compiled as any procedure is; the one statement of this one assigns a field, which the interpreter would run alone.
+        var member = lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal));
+        StringAssert.StartsWith(member, "interpreted");
+        StringAssert.Contains(member, "mCount (line ");
+
+        // a compiled procedure says what of it the interpreter runs, and where.
+        var stepping = lines.Single(line => line.Contains("Cases.AppendsInALoop ", StringComparison.Ordinal));
+        StringAssert.StartsWith(stepping, "compiled");
+        StringAssert.Contains(stepping, "run by the interpreter: ");
+        StringAssert.Contains(stepping, "(line ");
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
+    }
+
+    // an Enum, a Type, a Const and a field are members of a module that are no procedure: the report says nothing of them - of an Enum a Property Get is
+    // named as either, as an interface's PlayerType is. A Property Get and its Let are two.
+    [TestMethod]
+    public async Task TheCompilationReport_IsOfTheSubFunctionAndPropertyProcedures_Only()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Player.cls", ClassModule("Player",
+            "Attribute VB_Exposed = True",
+            "Option Explicit",
+            "Public Enum PlayerType",
+            "    HumanControlled",
+            "    ComputerControlled",
+            "End Enum",
+            "Private Type State",
+            "    Kind As PlayerType",
+            "End Type",
+            "Private Const Limit As Long = 3",
+            "Private this As State",
+            "Private mCount As Long",
+            "Public Property Get PlayerType() As PlayerType",
+            "End Property",
+            "Public Property Get Count() As Long",
+            "    Count = mCount",
+            "End Property",
+            "Public Property Let Count(ByVal Value As Long)",
+            "    mCount = Value",
+            "End Property",
+            "Public Function Twice(ByVal N As Long) As Long",
+            "    Twice = N * Limit",
+            "End Function")));
+        var output = new StringWriter();
+        var command = new CompilationCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem), Runner(fileSystem), output);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root], CancellationToken.None), output.ToString());
+
+        var listed = output.ToString().Split(Environment.NewLine).Where(line => line.Contains("Player.", StringComparison.Ordinal)).ToArray();
+        Assert.HasCount(4, listed, output.ToString());
+        Assert.HasCount(1, listed.Where(line => line.Contains("Player.PlayerType ", StringComparison.Ordinal)), output.ToString());
+        Assert.HasCount(2, listed.Where(line => line.Contains("Player.Count ", StringComparison.Ordinal)), output.ToString());
+        Assert.HasCount(1, listed.Where(line => line.Contains("Player.Twice ", StringComparison.Ordinal)), output.ToString());
+        StringAssert.Contains(output.ToString(), " of 4 procedures compiled.");
     }
 
     [TestMethod]

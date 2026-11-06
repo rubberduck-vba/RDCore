@@ -3,6 +3,7 @@ using NSubstitute;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.Parsing;
+using RDCore.Runtime.Compiled;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
@@ -51,8 +52,14 @@ public sealed class CompiledCallerWaitingTests
     // Main waits at its Stop; resumed, it calls Outer, which waits in its call of Inner; then the module is defined again as edited, or a debugger runs
     // statements in Outer's frame, and the program goes on to its end. What it is to the person who runs it.
     private static async Task<string> WaitedInAsync(string program, string? edited, string[] statements, VBExecutionEngine engine)
+        => (await WaitedInWithOuterAsync(program, edited, statements, engine)).Observed;
+
+    // the same, and the compiled body of Outer, what its activation did counted there: none when Outer is not compiled.
+    private static async Task<(string Observed, CompiledBody? Outer)> WaitedInWithOuterAsync(string program, string? edited, string[] statements,
+        VBExecutionEngine engine)
     {
         var observed = "";
+        CompiledBody? outer = null;
         await ModuleWorkspace.InspectAsync([], program, async (provider, first, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
@@ -77,6 +84,7 @@ public sealed class CompiledCallerWaitingTests
                 }
 
                 observed = Observed(await Resume(provider));
+                outer = provider.Image.Compiler.Results.SingleOrDefault(result => result.Procedure.Name == "Outer").Result?.Body;
             }
             finally
             {
@@ -86,7 +94,7 @@ public sealed class CompiledCallerWaitingTests
                 }
             }
         }, debug: true, engine: engine);
-        return observed;
+        return (observed, outer);
     }
 
     private static async Task<string> AssertAlikeAsync(string program, string? edited, params string[] statements)
@@ -211,4 +219,77 @@ public sealed class CompiledCallerWaitingTests
             "            t = t + u",
             "        Next",
             "    Next"), null), "| 129 |");
+
+    // Outer's call of Inner is a statement the interpreter runs alone - its argument is a String - and the program waits in Inner.
+    private static readonly string SteppedCalling = Program(
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(3)",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As Long",
+        "    Dim i As Long, t As Long, s As String, u As Long",
+        "    For i = 1 To n",
+        "        s = \"n\" & i",
+        "        t = t + Inner(s)",
+        "        u = u + i",
+        "    Next",
+        "    Outer = t + u",
+        "End Function",
+        "Private Function Inner(ByVal x As String) As Long",
+        "    If x = \"n1\" Then Stop",
+        "    Inner = Len(x)",
+        "End Function");
+
+    // SteppedCalling run both ways, waiting in Inner's first call: Outer compiled, the interpreter having run one statement of it alone that compiled code
+    // went on after - the first s = - before the call it waits in, after which the interpreter runs the rest of the activation.
+    private static async Task<string> AssertSteppedAsync(string? edited, params string[] statements)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await WaitedInAsync(SteppedCalling, edited, statements, VBExecutionEngine.Interpreter);
+        var (compiled, outer) = await WaitedInWithOuterAsync(SteppedCalling, edited, statements, VBExecutionEngine.Compiled);
+        Assert.AreEqual(interpreted, compiled);
+        Assert.IsNotNull(outer, "Outer is compiled");
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(1L, outer.Recoveries, "Outer's recoveries");
+        }
+
+        return compiled;
+    }
+
+    // Outer's compiled call of Inner waited, and a debugger set a variable of Outer meanwhile. Compiled code reads its variables back after the call and goes
+    // on with what was set, handed to no one. Under the random failed accesses the first read-back after a wait fails, whatever the seed, and Outer, which
+    // reads nothing back before the call, is handed to the interpreter there, from the statement after it: what reaches that hand-over is asserted here.
+    [TestMethod]
+    public async Task ACompiledCallerThatWaited_ReadsBackWhatADebuggerSet_OrIsHandedOverFromAfterItsCall()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var program = Calling(Constant, "Private Function Helper(ByVal y As Long) As Long\r\n    Helper = y\r\nEnd Function");
+        var interpreted = await WaitedInAsync(program, null, ["t = 100"], VBExecutionEngine.Interpreter);
+        var (compiled, outer) = await WaitedInWithOuterAsync(program, null, ["t = 100"], VBExecutionEngine.Compiled);
+
+        Assert.AreEqual(interpreted, compiled);
+        StringAssert.Contains(compiled, "| 127 |");
+        Assert.IsNotNull(outer, "Outer is compiled");
+        if (CompiledExecution.FailsReloadsAtRandom && !CompiledExecution.WalksBackAtRandom)
+        {
+            Assert.AreEqual(1L, outer.WalkBacks, "Outer's walk-backs");
+            Assert.AreEqual(9, outer.LastWalkedBackAt?.Range.Start.Line, "where Outer was handed over: the statement after its call");
+        }
+        else if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(0L, outer.WalkBacks, "Outer's walk-backs");
+        }
+    }
+
+    // the program waited while the interpreter ran the statement alone: the activation goes on with what the debugger set, as the interpreter's does.
+    [TestMethod]
+    public async Task AVariableOfACompiledCaller_SetWhileItWaitsInAStatementTheInterpreterRuns_IsWhatItGoesOnWith()
+        => StringAssert.Contains(await AssertSteppedAsync(null, "i = 3"), "| 5 |");
+
+    // the edit is the callee's where the program waits in it too: it goes on in the edited body.
+    [TestMethod]
+    public async Task ACallee_EditedWhileACompiledCallerWaitsInAStatementTheInterpreterRuns_IsCalledAsItNowIs()
+        => StringAssert.Contains(await AssertSteppedAsync(SteppedCalling.Replace("    Inner = Len(x)", "    Inner = Len(x) * 10", StringComparison.Ordinal)),
+            "| 66 |");
 }

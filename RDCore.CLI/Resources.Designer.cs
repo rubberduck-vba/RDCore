@@ -133,6 +133,15 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to run by the interpreter: {0}.
+        /// </summary>
+        public static string Compilation_Stepped {
+            get {
+                return ResourceManager.GetString("Compilation_Stepped", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Times the interpreter on a workspace, or on the built-in corpus: parse, load, sweep, then each Bench* case..
         /// </summary>
         public static string Bench_Summary {
