@@ -674,7 +674,9 @@ public sealed class CompiledActivation : ILightActivation
     private IObjectInstance? _instance;
     private ValueBindingHandle? _me;
 
-    /// <summary>The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.</summary>
+    /// <summary>
+    /// The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.
+    /// </summary>
     public nint MemberEntry => _memberEntry;
 
     // the compiled member a call enters directly: the one it entered last, while its body is the one the invoker runs; else the member compiled now, when it
@@ -970,7 +972,9 @@ public sealed class CompiledActivation : ILightActivation
         return found;
     }
 
-    /// <summary>The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.</summary>
+    /// <summary>
+    /// The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.
+    /// </summary>
     public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
 
     /// <summary>
@@ -1436,7 +1440,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// </summary>
     public bool EntersWithoutFrame { get; init; }
 
-    /// <summary>The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.</summary>
+    /// <summary>
+    /// The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.
+    /// </summary>
     public int MeSlot { get; init; } = -1;
 
     /// <summary>
@@ -1449,7 +1455,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
 
-    /// <summary>The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).</summary>
+    /// <summary>
+    /// The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).
+    /// </summary>
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>

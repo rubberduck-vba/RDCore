@@ -134,7 +134,9 @@ internal sealed class ProcedureAnalysis
 
     private readonly SortedSet<int> _objectSlots = [];
 
-    /// <summary>The classes the procedure's <c>TypeOf</c> expressions test against, by the number compiled code knows each by.</summary>
+    /// <summary>
+    /// The classes the procedure's <c>TypeOf</c> expressions test against, by the number compiled code knows each by.
+    /// </summary>
     public IReadOnlyList<VBClassModuleSymbol> Classes => _classes;
 
     private readonly List<VBClassModuleSymbol> _classes = [];
@@ -414,7 +416,9 @@ internal sealed class ProcedureAnalysis
     /// </summary>
     public bool NeedsFrame { get; private set; }
 
-    /// <summary>The slot of <c>Me</c>, an object slot (<see cref="ObjectSlots"/>), when the procedure is a member of a class; <see langword="null"/> otherwise.</summary>
+    /// <summary>
+    /// The slot of <c>Me</c>, an object slot (<see cref="ObjectSlots"/>), when the procedure is a member of a class; <see langword="null"/> otherwise.
+    /// </summary>
     public int? MeSlot { get; private set; }
 
     /// <summary>

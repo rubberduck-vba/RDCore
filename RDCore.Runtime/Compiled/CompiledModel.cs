@@ -317,7 +317,9 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// </summary>
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
-    /// <summary>The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).</summary>
+    /// <summary>
+    /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
+    /// </summary>
     public MemberEntry? Entered { get; set; }
 }
 

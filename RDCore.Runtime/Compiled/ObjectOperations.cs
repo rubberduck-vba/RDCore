@@ -11,7 +11,9 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 public static class ObjectOperations
 {
-    /// <summary>The reference the object held in <paramref name="cell"/> is: <c>Nothing</c> is the default one.</summary>
+    /// <summary>
+    /// The reference the object held in <paramref name="cell"/> is: <c>Nothing</c> is the default one.
+    /// </summary>
     internal static bool TryRead(object? cell, out VBRuntimeObjectId instance)
     {
         if (cell is ValueBindingHandle { IsKnown: true, Value: VBRuntimeValue<VBRuntimeObjectId> held })
@@ -40,7 +42,9 @@ public static class ObjectOperations
         return true;
     }
 
-    /// <summary><c>cell Is Nothing</c> (MS-VBAL §5.6.9.7): whether the object held in <paramref name="cell"/> is <c>Nothing</c>.</summary>
+    /// <summary>
+    /// <c>cell Is Nothing</c> (MS-VBAL §5.6.9.7): whether the object held in <paramref name="cell"/> is <c>Nothing</c>.
+    /// </summary>
     public static bool IsNothing(object? cell, out bool nothing)
     {
         nothing = false;
