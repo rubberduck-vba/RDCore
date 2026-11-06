@@ -456,6 +456,7 @@ public sealed class WorkspaceLoaderTests
         StringAssert.Contains(error.Message, said);
         StringAssert.Contains(error.Message, ProjectFilePath + ".bak", "where the file as it was is");
         Assert.AreEqual(ProjectFilePath + ".bak", error.BackupPath);
+        Assert.AreEqual(ProjectFilePath, error.ProjectFilePath);
         Assert.AreEqual("There is not enough space on the disk.", error.InnerException?.Message, "why it couldn't be regenerated");
     }
 
