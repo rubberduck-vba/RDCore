@@ -964,9 +964,12 @@ internal sealed partial class ProcedureAnalysis
     private int? VariantSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
-    // an object variable of the activation: one declared As New is made when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's.
+    // an object variable of the activation, or an object field it reaches (ProcedureAnalysis.Fields.cs): one declared As New is made when it is read
+    // (MS-VBAL §5.2.3.1.4), which is the interpreter's.
     private int? ObjectSlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index) ? slot.Index : null;
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index)
+            ? slot.Index
+            : FieldSlotOf(variable) is { } field && _objectSlots.Contains(field) ? field : null;
 
     // a type whose values are object references: Object, a class or an interface.
     private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;

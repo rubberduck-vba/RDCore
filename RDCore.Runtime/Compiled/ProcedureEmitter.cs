@@ -291,13 +291,10 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, cell);
         }
 
-        // each object's cell, as each Variant's is.
+        // each object's cell, as each Variant's is: a field's where the interpreter finds it (CompiledActivation.FieldCellOf).
         foreach (var (slot, cell) in _objects)
         {
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Ldc_I4, slot);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ObjectCellOf))!);
-            _il.Emit(OpCodes.Stloc, cell);
+            EmitObjectCell(slot, cell, nameof(CompiledActivation.FieldCellOf));
         }
     }
 
@@ -890,10 +887,14 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
-        // each field's cell, found again, as each Variant's is: an edit made while the program waited may have given the object others.
+        // each field's cell, found again, as each Variant's is: an edit made while the program waited may have given the object others. An object field's is
+        // found again with the other objects'.
         foreach (var slot in _analysis.FieldSlots)
         {
-            EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
+            if (_cells.ContainsKey(slot))
+            {
+                EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
+            }
         }
 
         // each Variant's cell, found again: what the interpreter ran may have bound the slot to another.
@@ -906,9 +907,16 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
-        // each object's cell, found again: a Set the interpreter ran binds the slot to another.
+        // each object's cell, found again: a Set the interpreter ran binds the slot to another. A field's is found again where the interpreter finds it, as a
+        // scalar field's is; none is a cell compiled code reads nothing of, as at the entry.
         foreach (var (slot, cell) in _objects)
         {
+            if (_fieldNumbers.ContainsKey(slot))
+            {
+                EmitObjectCell(slot, cell, nameof(CompiledActivation.ReloadFieldCell));
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, cell);

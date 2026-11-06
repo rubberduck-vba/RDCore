@@ -16,6 +16,13 @@ internal sealed partial class ProcedureAnalysis
             return true;
         }
 
+        // an object is held in its cell (ObjectSlots), whose reference compiled code reads, and which a Set it runs stores in and counts, as the interpreter does.
+        if (IsObjectType(field.ResolvedType))
+        {
+            _ = _objectSlots.Add(slot);
+            return true;
+        }
+
         return false;
     }
 }

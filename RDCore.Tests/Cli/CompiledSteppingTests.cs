@@ -93,7 +93,7 @@ public sealed class CompiledSteppingTests
         await AssertAlikeAsync(program, "Value", recoveries: 0, classes: box);
     }
 
-    // a Property Set: its object parameter is the frame's, and what it does with it the interpreter's.
+    // a Property Set: compiled code Sets the object field to its object parameter; a call of a member of a library's class is the interpreter's.
     [TestMethod]
     public async Task APropertySet_IsCompiled()
         => await AssertAlikeAsync(Program(
@@ -101,7 +101,7 @@ public sealed class CompiledSteppingTests
             "    Dim H As New Holder",
             "    Set H.Items = New Collection",
             "    Debug.Print H.Total",
-            "End Sub"), "Set Items", recoveries: 4, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
+            "End Sub"), "Set Items", recoveries: 3, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
                 "Private mItems As Collection",
                 "Private mTotal As Long",

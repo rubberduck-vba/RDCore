@@ -1,5 +1,7 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.Runtime.Compiled;
@@ -13,6 +15,9 @@ public sealed partial class CompiledActivation
     {
         // a scalar is a ScalarCell of its own type.
         ScalarCell cell when cell.Type.Equals(((ITypedSymbol)field.Symbol).ResolvedType) => cell,
+
+        // an object is the ValueBindingHandle that holds its reference, which a Set stores in and counts, as a variable of the activation's is.
+        ValueBindingHandle cell when ((ITypedSymbol)field.Symbol).ResolvedType is VBObjectType or VBClassType => cell,
         _ => null,
     };
 }

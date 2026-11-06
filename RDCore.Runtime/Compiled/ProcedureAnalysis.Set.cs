@@ -13,8 +13,9 @@ namespace RDCore.Runtime.Compiled;
 internal sealed partial class ProcedureAnalysis
 {
     // MS-VBAL §5.4.3.9, as ExecuteSetAssignment assigns: an object variable of the activation - neither Me nor a parameter passed by reference, whose cell is
-    // its caller's - or the function result variable of a function returning an object, given an object variable of the activation, Me, or Nothing. What it
-    // is given is Set-coerced to the declared type of what it is assigned to, at run time (CompiledActivation.TrySet). Any other Set is the interpreter's.
+    // its caller's - or an object field it reaches, or the function result variable of a function returning an object, given an object variable or field,
+    // Me, or Nothing. What it is given is Set-coerced to the declared type of what it is assigned to, at run time (CompiledActivation.TrySet). A WithEvents
+    // variable has its handlers detached and attached again by the Set, which is the interpreter's, as is any other Set.
     private CompiledStep? AnalyzeSet(int offset, AssignmentStatementNode assignment)
     {
         if (assignment.Target is not SimpleNameExpressionNode name)
@@ -30,7 +31,8 @@ internal sealed partial class ProcedureAnalysis
                 && IsObjectType(returned):
                 target = SetStep.Result;
                 break;
-            case BoundVariable variable when ObjectSlotOf(variable) is { } slot && slot != MeSlot && !IsPassedByReference(slot):
+            case BoundVariable variable when ObjectSlotOf(variable) is { } slot && slot != MeSlot && !IsPassedByReference(slot)
+                && !variable.Variable.GetProperty(SymbolProperties.WithEvents):
                 target = slot;
                 break;
             default:
@@ -43,7 +45,7 @@ internal sealed partial class ProcedureAnalysis
 
     private bool IsPassedByReference(int slot) => _slotSymbols[slot] is VBParameterSymbol { ParameterKind: var kind } && RuntimeProcedureInvoker.IsByRef(kind);
 
-    // what a Set is given that compiled code reads: an object variable of the activation, Me, or Nothing.
+    // what a Set is given that compiled code reads: an object variable of the activation or an object field it reaches, Me, or Nothing.
     private bool TrySetSource(BoundNode value, out int? slot)
     {
         slot = null;
