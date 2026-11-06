@@ -42,6 +42,8 @@ public static class VariantOperations
             return false;
         }
 
+        // a cell these operations are given is null or a VariantCell, by construction: only the IL ProcedureEmitter emits calls them, with what
+        // CompiledActivation.VariantCellOf found for a Variant slot, so the cast is not checked.
         var read = Unsafe.As<VariantCell>(cell).TryRead(out var payload);
         value = new VariantPayload(payload);
         return read;
@@ -107,7 +109,7 @@ public static class VariantOperations
     /// <summary>Let-assigns the Variant held in <paramref name="cell"/> a payload of <paramref name="kind"/>, a floating-point one, as <see cref="Write"/> does.</summary>
     public static bool WriteFloatingAs(object? cell, ScalarKind kind, double value) => WritePayload(cell, new ScalarPayload(TypeOf[(int)kind], 0, value));
 
-    // RuntimeExpressionEvaluator.TryWritePayload's Variant: over what holds no object.
+    // RuntimeExpressionEvaluator.TryWritePayload's Variant: over what holds no object. The cell is null or a VariantCell, by construction (Read).
     private static bool WritePayload(object? cell, ScalarPayload payload)
     {
         if (cell is null || !Unsafe.As<VariantCell>(cell).HoldsNoObject)

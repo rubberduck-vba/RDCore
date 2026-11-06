@@ -288,22 +288,22 @@ internal sealed class ProcedureEmitter
         switch (step)
         {
             case LetStep let when let.Slot < 0:
-                Store(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, _result!);
+                Store(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, _result!);
                 break;
 
             case LetStep let:
-                StoreSlot(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, let.Slot);
+                StoreSlot(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, let.Slot);
                 break;
 
             case BranchStep branch:
                 // true falls through into the branch, false goes to its Else.
-                EmitBranch(branch.Condition, branch.Negate, whenFalse: _instructions[branch.Else], FailureAt(branch.Offset));
+                EmitBranch(branch.Condition, branch.Negate, whenFalse: _instructions[branch.Else], FailureOf(branch.Condition, branch.Offset));
                 break;
 
             case LoopBackStep loopBack:
                 EmitPoll(loopBack.Offset);
                 var past = _il.DefineLabel();
-                EmitBranch(loopBack.Condition, loopBack.Negate, whenFalse: past, FailureAt(loopBack.Offset));
+                EmitBranch(loopBack.Condition, loopBack.Negate, whenFalse: past, FailureOf(loopBack.Condition, loopBack.Offset));
                 _il.Emit(OpCodes.Br, _instructions[loopBack.Target]);
                 _il.MarkLabel(past);
                 break;
@@ -1007,6 +1007,33 @@ internal sealed class ProcedureEmitter
     // the label an operation of the instruction at offset goes to when it fails: the instruction is the interpreter's, from there on - or, in a body with an
     // error handler, the interpreter's alone, which gives its error to the handler, and the activation goes on compiled where the handler sends it.
     private Label FailureAt(int offset) => _analysis.HandlesErrors ? RecoverAt(offset) : WalkBackAt(offset);
+
+    // the label the evaluation of value in the instruction at offset goes to when it fails: a Variant it reads declines when it holds what compiled code
+    // does not evaluate, which is no error - the interpreter runs the instruction alone, as it does a Let of the Variant, and compiled code goes on after it.
+    private Label FailureOf(PayloadNode value, int offset) => ReadsVariant(value) ? RecoverAt(offset) : FailureAt(offset);
+
+    private static bool ReadsVariant(PayloadNode node) => node switch
+    {
+        UnvariantNode or TruthNode => true,
+        ConvertNode convert => ReadsVariant(convert.Operand),
+        IntegralNode integral => ReadsVariant(integral.Left) || ReadsVariant(integral.Right),
+        LogicalNode logical => ReadsVariant(logical.Left) || ReadsVariant(logical.Right),
+        CompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
+        NotNode not => ReadsVariant(not.Operand),
+        NegateNode negate => ReadsVariant(negate.Operand),
+        StoreNode store => ReadsVariant(store.Value),
+        ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
+        TemporaryNode temporary => ReadsVariant(temporary.Value),
+        _ => false,
+    };
+
+    private static bool ReadsVariant(ExtendedNode node) => node switch
+    {
+        WidenNode widen => ReadsVariant(widen.Operand),
+        ExtendedOperationNode operation => ReadsVariant(operation.Left) || ReadsVariant(operation.Right),
+        ExtendedNegateNode negate => ReadsVariant(negate.Operand),
+        _ => false,
+    };
 
     // the label the activation is handed to the interpreter at, before the instruction at offset, for good.
     private Label WalkBackAt(int offset)
