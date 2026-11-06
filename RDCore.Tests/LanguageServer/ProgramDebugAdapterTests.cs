@@ -33,7 +33,8 @@ public sealed class ProgramDebugAdapterTests
 
         public IDebugWorkspace Workspace { get; } = Substitute.For<IDebugWorkspace>();
         public IProgramDebugService Debugging { get; } = Substitute.For<IProgramDebugService>();
-        public HostOutputRelay Relay { get; } = new();
+        // on a clock that never moves: the lines a result says were streamed are waited for until they come, and never given up on.
+        public HostOutputRelay Relay { get; } = new(new ManualClock());
 
         // what the program that waits does not have of the edits, as the host says it: nothing, unless a test says otherwise.
         public EditStatusMonitor EditStatus { get; }
