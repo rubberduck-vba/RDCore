@@ -63,6 +63,40 @@ public sealed class ServerInitializationOptionsTests
         Assert.IsFalse(RDCore.SDK.Client.RDCoreClientApp.InitializationOptionsOf("vba", System.Globalization.CultureInfo.InvariantCulture, new()).Unattended, "a client that expects nothing says nothing");
     }
 
+    // a client says it answers what the server asks before initialize is answered only when it does, and one that runs unattended answers nothing.
+    [TestMethod]
+    [DataRow(true, false, true)]
+    [DataRow(false, false, false)]
+    [DataRow(true, true, false)]
+    [DataRow(false, true, false)]
+    public void APlatformsClient_SaysItAnswersDuringInitialize_OnlyWhenItDoes_AndNotUnattended(bool answers, bool unattended, bool says)
+    {
+        var expected = new RDCore.SDK.Client.CorePlatformClientCapabilities
+        {
+            LanguageServer = new RDCore.SDK.Client.LanguageServerCapabilities { Unattended = new RDCore.SDK.Client.Unattended(unattended) },
+        };
+
+        var options = RDCore.SDK.Client.RDCoreClientApp.InitializationOptionsOf("vba", System.Globalization.CultureInfo.InvariantCulture, expected, answers);
+
+        Assert.AreEqual(says, options.AnswersDuringInitialize);
+    }
+
+    // and the server asks then only a client that says it answers, and does not say it runs unattended; one that sends no options is not asked.
+    [TestMethod]
+    [DataRow(true, false, true)]
+    [DataRow(false, false, false)]
+    [DataRow(true, true, false)]
+    public void TheServer_ReadsWhetherTheClientAnswersDuringInitialize_FromTheWire(bool answers, bool unattended, bool asks)
+    {
+        var request = new OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams
+        {
+            InitializationOptions = JToken.FromObject(new RDCoreInitializationOptions { AnswersDuringInitialize = answers, Unattended = unattended }),
+        };
+
+        Assert.AreEqual(asks, RDCoreServerApp.ClientAnswersDuringInitialize(request));
+        Assert.IsFalse(RDCoreServerApp.ClientAnswersDuringInitialize(new OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams()), "a client that says nothing is not asked");
+    }
+
     [TestMethod]
     public void WhetherTheClientRunsUnattended_IsReadBackFromTheWire()
         => Assert.IsTrue(RDCoreServerApp.ReadInitializationOptions(JToken.FromObject(new RDCoreInitializationOptions { Unattended = true }))!.Unattended);

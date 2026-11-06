@@ -35,6 +35,11 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys, PromptAwareMessageW
 
     private sealed record Question(Func<IConsoleKeys, CancellationToken, int?> Ask, CancellationToken Token, TaskCompletionSource<int?> Answer);
 
+    /// <summary>
+    /// Whether a question is answered at all: nobody answers one at a console whose input is a script (<see cref="ReplNobodyAnswersException"/>).
+    /// </summary>
+    public bool AreAnswered => keys.IsInteractive;
+
     /// <inheritdoc/>
     public Task Waiting
     {

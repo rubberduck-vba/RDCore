@@ -54,7 +54,8 @@ internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IRepl
 /// A shell that runs unattended (<c>--unattended</c>) is never asked: it says so as it starts
 /// (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a server that asks anyway is answered with an error, that nobody answers
 /// (<see cref="ReplNobodyAnswersException"/>) - not with no choice, which is a user who closed the question. So is a server that asks a shell whose input is a
-/// script, or one that has ended.
+/// script, or one that has ended. Such a shell is not asked as it starts either: it says so (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.AnswersDuringInitialize"/>),
+/// since its language client would hold the error until the server has answered <c>initialize</c>, which the server would not do before it is answered.
 /// <para>
 /// The question is asked when the console is the shell's to ask it at (<see cref="ReplServerQuestions"/>): one that comes while a line is typed at the prompt
 /// waits for the line to be entered, and the keys of the line are the line's.

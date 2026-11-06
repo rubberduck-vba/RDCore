@@ -1,5 +1,6 @@
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -337,14 +338,16 @@ public sealed class WorkspaceLoaderTests
         }
     }
 
-    // the question goes over the wire while initialize is not answered yet, as the language server asks it, and is not asked of a client that says in its
-    // initialization options that it runs unattended.
+    // the question goes over the wire while initialize is not answered yet, as the language server asks it, of a client that says in its initialization options
+    // that it answers then; not of one that does not say so, nor of one that runs unattended, whatever else it says.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    [DataRow(false, DisplayName = "asked, and regenerated, before initialize is answered")]
-    [DataRow(true, DisplayName = "a client that runs unattended is not asked")]
-    public async Task TheRegenerateQuestion_IsAskedDuringInitialize_OverTheWire(bool unattended)
+    [DataRow(true, false, DisplayName = "asked, and regenerated, before initialize is answered")]
+    [DataRow(false, false, DisplayName = "a client that does not say it answers is not asked")]
+    [DataRow(true, true, DisplayName = "a client that runs unattended is not asked")]
+    public async Task TheRegenerateQuestion_IsAskedDuringInitialize_OverTheWire(bool answers, bool unattended)
     {
+        var asked = answers && !unattended;
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var fs = UnreadableProject();
         var sut = WorkspaceService(fs);
@@ -367,7 +370,7 @@ public sealed class WorkspaceLoaderTests
             }), timeout.Token);
         var connecting = OmniSharp.Extensions.LanguageServer.Client.LanguageClient.From(client => client
             .WithInput(toClient.Reader).WithOutput(toServer.Writer)
-            .WithInitializationOptions(new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Unattended = unattended })
+            .WithInitializationOptions(new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Unattended = unattended, AnswersDuringInitialize = answers })
             .OnShowMessageRequest(request =>
             {
                 questions.Add(request.Message);
@@ -379,10 +382,64 @@ public sealed class WorkspaceLoaderTests
         using var client = await connecting;
 
         // initialize is answered once the load is over: what the load asked, and did, is in by now.
-        Assert.HasCount(unattended ? 0 : 1, questions);
-        Assert.AreEqual(!unattended, loaded);
-        Assert.AreEqual(!unattended, fs.File.Exists(ProjectFilePath + ".bak"));
-        Assert.AreEqual(unattended, fs.File.ReadAllText(ProjectFilePath) == Unreadable);
+        Assert.HasCount(asked ? 1 : 0, questions);
+        Assert.AreEqual(asked, loaded);
+        Assert.AreEqual(asked, fs.File.Exists(ProjectFilePath + ".bak"));
+        Assert.AreEqual(!asked, fs.File.ReadAllText(ProjectFilePath) == Unreadable);
+    }
+
+    // the shell's own language client - what it says in its initializationOptions, the handler it answers the question with, the connection it makes - started
+    // on a workspace whose project file can't be read. A shell whose input is a script was asked whether to regenerate it anyway, and answered that nobody does:
+    // with an error, which its language client (OmniSharp's) holds until the server has answered initialize, while the server waited for the answer to answer
+    // it. Neither moved again. It is not asked now; a shell at its console is, and answers, before initialize is answered.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    [DataRow(false, DisplayName = "a shell whose input is a script is not asked")]
+    [DataRow(true, DisplayName = "a shell at its console is asked, and answers")]
+    public async Task TheShell_StartedOnAProjectFileThatCantBeRead_HasInitializeAnswered(bool interactive)
+    {
+        var fs = UnreadableProject();
+        var sut = WorkspaceService(fs);
+        var asked = 0;
+        using var languageServer = new InProcessLanguageServer(async (server, request, token) =>
+        {
+            var ask = RDCore.LanguageServer.CoreLanguageServerApp.RegenerateQuestionOf(server, request);
+            try
+            {
+                await sut.LoadAsync(Root, [Root], ask is null ? null : (message, choices, askToken) =>
+                {
+                    Interlocked.Increment(ref asked);
+                    return ask(message, choices, askToken);
+                }, token);
+            }
+            catch (InvalidDataException)
+            {
+            }
+        });
+        // the Enter key chooses the last choice, which changes nothing.
+        var keys = new Cli.Repl.ScriptedKeys(interactive).Press(Cli.Repl.ScriptedKeys.Key(ConsoleKey.Enter));
+        var shell = new RDCore.CLI.RDCoreConsoleClientApp(
+            Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions { Server = { MaxRestartAttempts = 0 } }),
+            languageServer,
+            new RDCore.CLI.App.Repl.ReplUserInteraction(keys, new StringWriter()),
+            Substitute.For<RDCore.CLI.App.Repl.IReplConsole>(),
+            new RDCore.SDK.Formatting.RubberduckIndenterSettingsReader(
+                new MockFileSystem(), Root, Substitute.For<RDCore.SDK.Formatting.ILegacyIndenterRegistry>(), isWindows: false),
+            Substitute.For<RDCore.CLI.App.Configuration.IPlatformSettings>(),
+            Substitute.For<RDCore.SDK.Server.Configuration.ILiveSettings>(),
+            Microsoft.Extensions.Options.Options.Create(new RDCore.CLI.AppOptions()),
+            new RDCore.CLI.App.Repl.ReplServerQuestions(keys),
+            NullLogger<RDCore.CLI.RDCoreConsoleClientApp>.Instance);
+        var platform = Substitute.For<RDCore.SDK.Platform.IPlatformCompositionService>();
+        platform.GetManifest().Returns(new RDCore.SDK.Platform.PlatformManifest { LangService = "RDCore.LanguageServer/RDCore.LanguageServer.exe" });
+        using var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection().AddSingleton(platform).BuildServiceProvider();
+
+        // not a timing: an initialize that is never answered fails the test here instead of hanging the run.
+        await shell.RunAsync(services, []).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.AreEqual(interactive ? 1 : 0, asked);
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file is as it was: the shell chose to keep it, or was not asked");
+        Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
     }
 
     // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without
@@ -559,5 +616,78 @@ public sealed class WorkspaceLoaderTests
         var sut = WorkspaceService(FileSystemWith(("src/Mod1.bas", "")), state);
 
         await Assert.ThrowsExactlyAsync<InvalidServerStateException>(() => sut.LoadAsync(Root));
+    }
+
+    // what the shell starts as its language server, and connects to: an OmniSharp server on the pipe, in this process, which answers initialize as it is given
+    // to, and the platform handshake after it.
+    private sealed class InProcessLanguageServer(Func<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer, OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams, CancellationToken, Task> initialize)
+        : RDCore.SDK.Client.IRDCoreServerProcess, RDCore.SDK.Client.Connection.IChildConnectionFactory
+    {
+        private readonly TaskCompletionSource _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly List<IDisposable> _held = [];
+
+        public int ProcessId => Environment.ProcessId;
+
+        public bool HasExited => _exit.Task.IsCompleted;
+
+        public int ExitCode => 0;
+
+        public RDCore.SDK.Client.Connection.ChildConnection Create()
+            => Hold(new RDCore.SDK.Client.Connection.ChildConnection(
+                this, new RDCore.SDK.Server.RDCorePlatformDefaultTransportLayer(Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions())),
+                NullLogger<RDCore.SDK.Client.Connection.ChildConnection>.Instance));
+
+        public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, string? mode = null)
+        {
+            var pipe = Hold(new System.IO.Pipes.NamedPipeServerStream(pipeName, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte,
+                System.IO.Pipes.PipeOptions.CurrentUserOnly | System.IO.Pipes.PipeOptions.Asynchronous));
+            _ = ServeAsync(pipe);
+            return Task.CompletedTask;
+        }
+
+        private async Task ServeAsync(System.IO.Pipes.NamedPipeServerStream pipe)
+        {
+            await pipe.WaitForConnectionAsync();
+            Hold(await OmniSharp.Extensions.LanguageServer.Server.LanguageServer.From(server => server
+                .WithInput(System.IO.Pipelines.PipeReader.Create(pipe))
+                .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
+                .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
+                .OnInitialize((server, request, token) => initialize(server, request, token))
+                .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>
+                    Task.FromResult<Newtonsoft.Json.Linq.JToken>(Newtonsoft.Json.Linq.JObject.FromObject(
+                        new { component = (int)RDCore.SDK.Client.CoreServerComponent.LanguageServer, provided = Array.Empty<string>() })))));
+        }
+
+        private T Hold<T>(T disposable) where T : IDisposable
+        {
+            lock (_held)
+            {
+                _held.Add(disposable);
+            }
+
+            return disposable;
+        }
+
+        public Task WaitForExitAsync() => _exit.Task;
+
+        public void Shutdown() => _exit.TrySetResult();
+
+        // the connection first, then the server, then the pipe it served on.
+        public void Dispose()
+        {
+            IDisposable[] held;
+            lock (_held)
+            {
+                held = [.. _held];
+                _held.Clear();
+            }
+
+            _exit.TrySetResult();
+            foreach (var disposable in held.OfType<RDCore.SDK.Client.Connection.ChildConnection>().Concat<IDisposable>(
+                held.Where(each => each is not RDCore.SDK.Client.Connection.ChildConnection).Reverse()))
+            {
+                disposable.Dispose();
+            }
+        }
     }
 }

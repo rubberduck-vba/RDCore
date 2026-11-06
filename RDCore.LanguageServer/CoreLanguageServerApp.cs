@@ -272,9 +272,10 @@ internal sealed class CoreLanguageServerApp(
     }
 
     // a project file that can't be read is offered to be regenerated: asked with window/showMessageRequest, which LSP allows before initialize is answered, and
-    // never of a client that says nobody is there to answer (the platform handshake that says it too comes after).
+    // only of a client that says it answers then. One that can't, or has no handler for the request, would leave initialize unanswered for good; one that runs
+    // unattended has nobody to answer (the platform handshake that says it too comes after).
     internal static Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? RegenerateQuestionOf(ILanguageServer server, InitializeParams request)
-        => ClientRunsUnattended(request) ? null : async (message, choices, token) =>
+        => !ClientAnswersDuringInitialize(request) ? null : async (message, choices, token) =>
             (await server.Window.ShowMessageRequest(new ShowMessageRequestParams
             {
                 Type = MessageType.Warning,

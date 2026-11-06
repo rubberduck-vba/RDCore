@@ -11,8 +11,9 @@ namespace RDCore.SDK.Workspace;
 /// </summary>
 /// <remarks>
 /// The offer is a question the user answers, never something done without asking: what only the project file says, such as the project's references, is lost.
-/// A server asks nothing of a client that runs unattended (<see cref="Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and then the project does not
-/// load.
+/// A server asks only a client that says it answers before <c>initialize</c> is answered
+/// (<see cref="Platform.Protocol.RDCoreInitializationOptions.AnswersDuringInitialize"/>), and nothing of one that runs unattended
+/// (<see cref="Platform.Protocol.RDCoreInitializationOptions.Unattended"/>): then the project does not load.
 /// </remarks>
 public static class ProjectFileRegeneration
 {

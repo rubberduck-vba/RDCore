@@ -337,6 +337,10 @@ internal class RDCoreConsoleClientApp(
     // the shell shows the progress of the work the language server does, where its console can draw it.
     protected override bool SupportsWorkDoneProgress => !System.Console.IsOutputRedirected;
 
+    // the shell answers what the language server asks as it starts, at its console, where somebody is there to: not at one whose input is a script, which
+    // would answer that nobody does, with an error the language client holds until the server has answered initialize.
+    protected override bool AnswersDuringInitialize => !appOptions.Value.Unattended && questions.AreAnswered;
+
     // what rdc.exe asks the language server to serve beyond LSP. The language server records these
     // and refuses a request family the client never advertised, so the negotiation is real in both
     // directions: PlatformInfo tells us back what it actually provides.

@@ -75,6 +75,26 @@ reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the
 the English ones. Only the language of the user interface is the client's: how numbers and dates are written and read does not depend on it. A `locale`
 the platform does not know is logged and ignored; a client that sends none is answered in the language the server's process starts in.
 
+## 2.0.2.1.3 What the server asks before it answers initialize
+
+The language server loads its workspace while it answers `initialize`, and what it finds there can need the user's answer: a project file it cannot read is
+offered to be regenerated ([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). LSP allows a server to ask with `window/showMessageRequest` before it
+answers `initialize`, and the server waits for the answer, so a client that cannot answer then would wait forever for the answer to `initialize`.
+
+A client built on OmniSharp's language client (0.19.9, as `rdc` is) is one. Until it is initialized, it sends nothing but its `initialize` request, its
+`initialized` notification, and responses that carry a result; every other message waits until it is initialized. An error response is one of those: the
+answer of a handler that fails, of a client whose user cannot be asked, and of a client that has no handler for the request.
+
+So the server asks then only a client that says it answers, with a choice or with none and never with an error, in its `initializationOptions`
+([`AnswersDuringInitialize`](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)), and that does not say it runs unattended:
+
+```json
+{ "language": "basic", "answersDuringInitialize": true }
+```
+
+A client that does not say so is not asked: the server does without the answer, as it does when a user closes the question, and says why the project did
+not open (`window/showMessage`). The `rdc` shell says so when someone is typing at it, and not when its input is a script or it runs `--unattended`.
+
 ## 2.0.2.2 Platform components
 
 |`CoreServerComponent`|Process|Role|

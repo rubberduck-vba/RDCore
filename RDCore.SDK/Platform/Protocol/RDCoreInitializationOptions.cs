@@ -32,7 +32,29 @@ public sealed record class RDCoreInitializationOptions
     /// A server loads its workspace while it answers <c>initialize</c>, and the platform handshake (<c>rdcore/platform/initialize</c>) follows that answer: what
     /// the server asks as it loads, such as whether to regenerate a project file it cannot read, it cannot wait for the handshake to know whether to ask. A
     /// server asks nothing of a client that says <see langword="true"/>, and does without the answer, as the handshake's <see cref="Client.Unattended"/> has it
-    /// do with a program's dialogs. A client that does not say is asked.
+    /// do with a program's dialogs, whatever it says of <see cref="AnswersDuringInitialize"/>.
     /// </remarks>
     public bool Unattended { get; init; }
+
+    /// <summary>
+    /// Whether the client answers what the server asks its user (<strong>LSP 3.17</strong> <c>window/showMessageRequest</c>) before <c>initialize</c> is
+    /// answered, with a choice or with none, and never with an error.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// LSP allows a server to send <c>window/showMessageRequest</c> while it answers <c>initialize</c>, and a server waits for the answer: what it asks as it
+    /// loads its workspace, such as whether to regenerate a project file it cannot read, decides what it loads. A client that cannot answer then leaves
+    /// <c>initialize</c> unanswered for good, and the client waits for that answer: neither side moves again.
+    /// </para>
+    /// <para>
+    /// A client built on OmniSharp's language client (0.19.9) is one, unless it answers with a choice: until it is initialized, it writes no message but the
+    /// <c>initialize</c> request, the <c>initialized</c> notification and a response with a result, and holds every other one until it is. An error is
+    /// such a message: the one it answers with when its handler fails, when its user cannot be asked, or when it has no handler for the request at all.
+    /// </para>
+    /// <para>
+    /// A server asks nothing before <c>initialize</c> is answered of a client that does not say <see langword="true"/>, nor of one that runs
+    /// <see cref="Unattended"/>, and does without the answer, as it does without the answer of a user who did not choose.
+    /// </para>
+    /// </remarks>
+    public bool AnswersDuringInitialize { get; init; }
 }
