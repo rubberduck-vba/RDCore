@@ -97,6 +97,27 @@ public sealed class EndAndStopTests
         Assert.AreEqual(ExecutionOutcome.Halted, run.Again.Outcome);
     }
 
+    // a Static variable is given its storage by its procedure's first call, not by the definition of its module: End lets go of it all the same, and the
+    // next run's first call gives it storage again, from nothing.
+    [TestMethod]
+    public async Task End_LeavesNoStaticOfTheProgram_SoTheNextRunCountsFromTheStart()
+    {
+        var run = await RunTwiceAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print Counted(); Counted()",
+            "    End",
+            "End Sub",
+            "Private Function Counted() As Long",
+            "    Static Seen As Long",
+            "    Seen = Seen + 1",
+            "    Counted = Seen",
+            "End Function"));
+
+        CollectionAssert.AreEqual(new[] { "1  2" }, run.Result.Output.Select(line => line.Trim()).ToArray());
+        CollectionAssert.AreEqual(new[] { "1  2" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "the Static starts from nothing again");
+    }
+
     [TestMethod]
     public async Task End_RunsNoTerminate_AndAProgramThatEndsNormallyDoes()
     {
