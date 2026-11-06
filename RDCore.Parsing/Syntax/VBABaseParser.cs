@@ -210,19 +210,21 @@ public abstract class VBABaseParser : Parser
     #region Precedence of an l-expression
     // MS-VBAL §3.3: a token takes the white space before it, so blanks between an l-expression and `(` leave the parentheses its argument list, and
     // `x = F (2)` calls F with 2, as MS-VBA reads it. In a list to print, the blanks are no separator of two output items: `Debug.Print F (2)` calls F too.
-    // The one place they are read otherwise is right after the callee of a call statement, where `F (2)` is F called with the argument (2).
-    // That reading is lExpression's last alternative, of this precedence, the lowest. As the callee of a call statement without Call, lExpression is entered
-    // above it, and the alternative is left out of each of its predictions before a token is read: a predicate of its own would be evaluated only once the
-    // prediction had read the statement to its end, and `Foo (Bar(1))` would be read to its end to tell a call statement from an index.
+    // They are read otherwise right after the callee of a call statement, where `F (2)` is F called with the argument (2), and after the object of a Line
+    // statement, where `Line (0, 0) - (1, 1)` begins with its first point.
+    // That reading is lExpression's last alternative, of this precedence, the lowest. As such a callee, lExpression is entered above it, and the alternative
+    // is left out of each of its predictions before a token is read: a predicate of its own would be evaluated only once the prediction had read the
+    // statement to its end, and `Foo (Bar(1))` would be read to its end to tell a call statement from an index.
     private const int BlankArgumentListPrecedence = 1;
 
     public override void EnterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence)
         => base.EnterRecursionRule(localctx, state, ruleIndex,
             ruleIndex == VBAParser.RULE_lExpression && IsCallee(localctx) ? Math.Max(precedence, BlankArgumentListPrecedence + 1) : precedence);
 
-    // whether an l-expression is what a call statement without Call calls: with Call, `Call F (2)` calls F with 2.
+    // whether an l-expression is what a call statement without Call calls, or the object and the word of a Line statement: with Call, `Call F (2)` calls F
+    // with 2.
     private static bool IsCallee(RuleContext context)
-        => context.Parent is VBAParser.CallStmtContext call && call.CALL() is null;
+        => context.Parent is VBAParser.CallStmtContext call && call.CALL() is null || context.Parent is VBAParser.LineSpecialFormContext;
     #endregion
 
     #region Grammar-level recovery helpers

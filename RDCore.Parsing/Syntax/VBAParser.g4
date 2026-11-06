@@ -603,7 +603,9 @@ withStmt :
 
 // Special forms with special syntax, only available in VBA reports or VB6 forms and pictureboxes.
 // lineSpecialFormOption is required if expression is missing
-lineSpecialForm : expression whiteSpace ((STEP whiteSpace?)? tuple)?
+// the object and the word together are one l-expression (`Line`, `Form1.Line`, `.Line`), entered as a callee: VBABaseParser leaves the blanks before an
+// argument list out of it, so `Line (0, 0) - (1, 1)` begins with its first point, and not with an index of Line.
+lineSpecialForm : lExpression whiteSpace ((STEP whiteSpace?)? tuple)?
     whiteSpace? MINUS whiteSpace?
 	(STEP whiteSpace?)? tuple whiteSpace?
 	(COMMA whiteSpace? expression? whiteSpace?)?
