@@ -77,11 +77,37 @@ public class BlankRunLexingTests
         Assert.AreEqual(2, tokens.Count(token => token.Type == VBALexer.WS), "the two blanks before the continuation's");
     }
 
+    // a line continuation is a blank, an underscore, and the end of the line, the blanks after the underscore aside: an underscore anywhere else is none, and
+    // the tokens of a line are its characters, whatever they are.
+    [TestMethod]
+    [DataRow("x _\r\n    y\n", 1, DisplayName = "a space before the underscore")]
+    [DataRow("x\t_\r\n    y\n", 1, DisplayName = "a tab before the underscore")]
+    [DataRow("x \t \t_\r\n    y\n", 1, DisplayName = "spaces and tabs before the underscore")]
+    [DataRow("x _ \t\r\n    y\n", 1, DisplayName = "blanks after the underscore")]
+    [DataRow("x _\n    y\n", 1, DisplayName = "a line feed alone")]
+    [DataRow("x   _\r\n   _\r\n    y\n", 2, DisplayName = "a line of an underscore alone, continued")]
+    [DataRow("' a comment   _\r\n    continued\n", 1, DisplayName = "a comment, continued")]
+    [DataRow("a_b\n", 0, DisplayName = "an underscore in a name")]
+    [DataRow("a _b\n", 0, DisplayName = "an underscore before a name")]
+    [DataRow("x   _", 0, DisplayName = "an underscore at the end of the module")]
+    [DataRow("x_\r\n", 0, DisplayName = "an underscore with no blank before it")]
+    public void ALineContinuation_IsABlankAnUnderscoreAndTheEndOfTheLine(string text, int continuations)
+    {
+        var (_, tokens) = Lex(text);
+
+        Assert.AreEqual(text, string.Concat(tokens.Select(token => token.Text)));
+        Assert.AreEqual(continuations, tokens.Count(token => token.Type == VBALexer.LINE_CONTINUATION));
+        Assert.IsTrue(tokens.Where(token => token.Type == VBALexer.LINE_CONTINUATION).All(token => token.Text[0] is ' ' or '\t' && token.Text[1] == '_'),
+            "each continuation begins with the blank right before its underscore");
+    }
+
     // a member access or an index written over a line continuation with blanks before it reads as it did when the continuation began with all of them.
     [TestMethod]
     [DataRow("Set x = obj   _\r\n        .Item")]
     [DataRow("x = obj   _\r\n        (1)")]
     [DataRow("With obj\r\n        x = .Item   _\r\n            .Value\r\n    End With")]
+    [DataRow("On   _\r\n        Error Resume Next")]
+    [DataRow("Exit\t\t_\r\n        Sub")]
     public void AnExpressionContinued_AfterSeveralBlanks_IsRead(string statement)
     {
         var result = new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub DoWork()\r\n    Dim x As Variant, obj As Object\r\n    {statement}\r\nEnd Sub\r\n");
