@@ -68,12 +68,13 @@ public sealed class DirectivePassTests
     public void DirectivesThatDoNotFit_AreParsedAsFast_AndTheBlocksAfterThemAreEachTheirOwn(string first, int blocks)
     {
         _ = Parse(Enumerable.Range(0, 100).SelectMany(Declare));
-        var wellFormed = ModuleParser.LooksOfLastDirectivePass;
+        var wellFormed = ModuleParser.DirectiveLooksOfLastParse;
         var result = Parse(Enumerable.Range(0, 100).SelectMany(Declare).Prepend(first));
-        var looks = ModuleParser.LooksOfLastDirectivePass;
+        var looks = ModuleParser.DirectiveLooksOfLastParse;
 
         // the work of the pass, counted where a clock would time it: the bail, then the recovery, each a pass over the module as SLL makes it. LL, which took
-        // 46 s here, reads on to the end of the module at each block.
+        // 46 s here, reads on to the end of the module at each block. A cold DFA cache only adds looks, once for each decision it predicts in full, which the
+        // factor of 4 absorbs: the count is not the input's alone.
         Assert.HasCount(blocks, Blocks(result));
         Assert.IsLessThanOrEqualTo(4 * wellFormed, looks, $"{looks:n0} looks at the tokens, where the module without the stray directive takes {wellFormed:n0}");
     }

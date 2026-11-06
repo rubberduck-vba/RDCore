@@ -91,6 +91,7 @@ internal sealed class LikePattern
     /// <exception cref="InvalidLikePatternException">The match reached an invalid element.</exception>
     public bool IsMatch(ReadOnlySpan<char> text, StringComparisonRules rules)
     {
+        t_steps = 0;
         if (!rules.IgnoresCase)
         {
             return IsMatch(new TextUnits(text, textInfo: null), _binary, _binaryInvalidFrom);

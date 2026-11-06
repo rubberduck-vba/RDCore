@@ -62,6 +62,14 @@ internal sealed class ProcedureCompiler
             return known.Result;
         }
 
+        // compiled code works on payloads: where the process holds its values boxed, no procedure is compiled, and each says why, once for its body.
+        if (!UnboxedEvaluation.IsEnabled)
+        {
+            _bodies.AddOrUpdate(list, new Entry(scopes, Boxed));
+            _results[procedure.SemanticId] = (procedure, Boxed);
+            return Told(procedure, Boxed);
+        }
+
         CompilationResult result;
         Exception? failure = null;
         lock (_compiling)
@@ -69,14 +77,6 @@ internal sealed class ProcedureCompiler
             if (_bodies.TryGetValue(list, out known) && ReferenceEquals(known.Scopes, scopes))
             {
                 return known.Result;
-            }
-
-            // compiled code works on payloads: where the process holds its values boxed, no procedure is compiled, and each says why, once for its body.
-            if (!UnboxedEvaluation.IsEnabled)
-            {
-                _bodies.AddOrUpdate(list, new Entry(scopes, Boxed));
-                _results[procedure.SemanticId] = (procedure, Boxed);
-                return Boxed;
             }
 
             var stopwatch = Stopwatch.StartNew();
@@ -115,13 +115,18 @@ internal sealed class ProcedureCompiler
             Report(procedure, failure);
         }
 
+        return Told(procedure, result);
+    }
+
+    // the result made, told to the Compiled handlers: as a failure is told, what is told of a result cannot fail the call.
+    private CompilationResult Told(VBTypeMemberSymbol procedure, CompilationResult result)
+    {
         try
         {
             Compiled?.Invoke(procedure, result);
         }
         catch (Exception)
         {
-            // as a failure is told: what is told of a result cannot fail the call.
         }
 
         return result;
