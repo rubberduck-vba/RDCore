@@ -201,6 +201,10 @@ public partial class ModuleParser(
                 _logger.LogDebug(salvageFailure, "The partial tree could not be salvaged for {uri}.", uri);
             }
 
+            // what is salvaged is held to the limit as a module that was read is: the tree read before the prune failed is as deep as the module, and a stage
+            // after the parser that walks it runs out of stack.
+            salvaged = PrunedOrNone(uri, salvaged, content, anchorOffset, errorListener);
+
             // the errors the slow parse found before it stopped are the module's, and so is that it stopped: what is after it was not read.
             var stopped = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
                 outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
@@ -697,8 +701,10 @@ public partial class ModuleParser(
                     lineStarts ??= LineStarts(content);
                     pruned.TryAdd(prunedNode, new UnbuiltExpressionTriviaNode(prunedNode.Identity, prunedNode.SourceLocation,
                         TextAt(content, lineStarts, anchorOffset, prunedNode.SourceLocation.Range), []));
-                    for (var holder = at - 1; holder >= 0 && holders.TryAdd(path[holder], holder); holder--)
+                    var holder = at - 1;
+                    while (holder >= 0 && holders.TryAdd(path[holder], holder))
                     {
+                        holder--;
                     }
 
                     continue;
@@ -721,6 +727,26 @@ public partial class ModuleParser(
         }
 
         return pruned.Count == 0 ? module : (ModuleNode)SyntaxTreePruning.Replaced(module, pruned, holders);
+    }
+
+    // a tree salvaged from a parse that failed, pruned as a module that was read is (PruneExpressionsNestedTooDeeply), or none if that fails too: no tree comes
+    // back with an expression deeper than the limit.
+    private ModuleNode? PrunedOrNone(Uri uri, ModuleNode? salvaged, string content, SourcePosition anchorOffset, ErrorListener errors)
+    {
+        if (salvaged is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return PruneExpressionsNestedTooDeeply(salvaged, content, anchorOffset, errors);
+        }
+        catch (Exception pruneFailure)
+        {
+            _logger.LogDebug(pruneFailure, "The partial tree salvaged for {uri} could not be pruned to the limit; none is salvaged.", uri);
+            return null;
+        }
     }
 
     // where each line of a text begins: a line ends at its line feed, as the lexer counts lines (a carriage return before it is the end of its line).
