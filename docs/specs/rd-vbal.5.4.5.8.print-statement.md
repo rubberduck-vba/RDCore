@@ -101,13 +101,10 @@ whose default member takes an argument (a `Collection`) error 450.
 >
 > Nor is a name, spaces, then parentheses. **MS-VBAL §3.3** makes the spaces before a token part of it, so
 > `Debug.Print F (2)` reads both as the index expression `F(2)` and as the two items `F` and `(2)`. MS-VBA reads the
-> index expression, and the VBE writes the line `Debug.Print F(2)`. RD-VBA reads it as MS-VBA does, for a name that is
-> an output item or an operand of one (`Debug.Print x + F (2)`). A value that is no name stays two items:
-> `Debug.Print 1 (2)` prints 1, then 2.
->
-> RD-VBA reads spaces before an argument list in a call statement (`F (2)`, where `(2)` is the argument) and in an
-> output item. In any other expression, the arguments of a call within an output item included (`Debug.Print F (G (1))`),
-> they are a syntax error, where MS-VBA reads them: the VBE writes `x = F (2)` as `x = F(2)`.
+> index expression, and the VBE writes the line `Debug.Print F(2)`. RD-VBA reads it as MS-VBA does, in an output item,
+> an operand of one (`Debug.Print x + F (2)`) and the arguments of a call within one (`Debug.Print F (G (1))`), as in any
+> expression ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)). A value that is no name stays
+> two items: `Debug.Print 1 (2)` prints 1, then 2.
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 

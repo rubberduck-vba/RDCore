@@ -12,6 +12,10 @@
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md).
 
+Without `Call`, blanks then parentheses right after what the statement calls begin its arguments: `F (2)` calls `F` with the argument `(2)`, which is
+parenthesized. Anywhere else, the parentheses are the argument list of what is before them: `Call F (2)` calls `F` with `2`, and `F (1) = 2` is an
+assignment to `F(1)` ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)).
+
 ## Static Semantics
 
 What a call statement calls is a procedure: a `Sub`, a `Function` or a `Property`, of the workspace, of a library or a `Declare`. A variable or a
