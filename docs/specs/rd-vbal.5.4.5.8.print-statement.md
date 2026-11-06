@@ -83,10 +83,21 @@ whose default member takes an argument (a `Collection`) error 450.
 |[PrintTabClauseNode](../api/RDCore.SDK.Model.AST.Expressions.PrintTabClauseNode.html)|A `Tab` clause.|
 
 > [!TIP]
-> In a parsed output list, a value and its trailing separator are always two separate, alternating
-> `PrintOutputItemNode`s: one value-only, one separator-only. MS-VBAL's `outputItem` grammar rule admits combining
-> a value and its separator into one output item, but the generated parser never takes that alternative. A
-> consumer of `Items` should walk the alternating list rather than assume `(value, separator)` pairs.
+> In a parsed output list, a value and the `;` or `,` after it are always two separate `PrintOutputItemNode`s: one
+> value-only, one separator-only. The grammar reads them so: an output item and a separator are two rules of their own.
+> A consumer of `Items` should walk the list as it is rather than assume `(value, separator)` pairs: two separators can
+> follow each other (`1;;2`), and two values with a space between them have none (`1 2`).
+
+> [!NOTE]
+> 🎯 **RD-VBAL diverges from MS-VBAL** in what may stand between two output items.
+>
+> **MS-VBAL §5.4.5.8.1** reads `output-list = *output-item`, so an output item may follow another with nothing between
+> them: `Debug.Print 1(2)` is the two items `1` and `(2)`. The VBE does not keep such a line as it is written: it lists
+> it again with a `;` between the items (`Debug.Print 1; (2)`), in every form of the statement, `Write #` included.
+>
+> RD-VBA requires a space, a `;` or a `,` between two output items, and reports two items written side by side as
+> [`VBC00061`](../diagnostics/vbc00061.md), at the second one. A name right before parentheses is not two items: in
+> `Debug.Print F(2)` and `Debug.Print F (2)` alike, `F` is called with the argument `2`, as in MS-VBA.
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
