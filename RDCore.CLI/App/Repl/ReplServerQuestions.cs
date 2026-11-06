@@ -203,4 +203,4 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys, PromptAwareMessageW
 /// Nobody is at the shell's console to answer a question the language server asks: its input is a script, it runs unattended, or it has ended. The server is
 /// answered with an error, not with no choice, which is a user who closed the question: an offer made once is still to make (<see cref="SDK.Formatting.IndenterSettingsOffer"/>).
 /// </summary>
-internal sealed class ReplNobodyAnswersException() : Exception("Nobody is at the shell's console to answer the question.");
+internal sealed class ReplNobodyAnswersException() : Exception(Resources.Repl_NobodyAnswers);
