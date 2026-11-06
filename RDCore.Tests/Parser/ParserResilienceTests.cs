@@ -436,9 +436,12 @@ public sealed class ParserResilienceTests
         Assert.IsNotNull(result);
         Assert.IsFalse(result!.IsSuccess);
 
-        // the guard stopped the parse: no tree was built for the depth of its expression to be found too deep (VBC00060).
-        Assert.IsFalse(result.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply),
-            string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
+        // the guard stopped the parse: no tree was built for the depth of its expression to be found too deep (VBC00060). The error says what is wrong with the
+        // module, and not with the parse: the trace of the exception that stopped it has a frame for each of the levels it read, and was megabytes long.
+        var errors = string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose[..Math.Min(error.Verbose.Length, 200)]));
+        var error = Assert.ContainsSingle(result.SyntaxErrors, errors);
+        Assert.AreEqual((VBCompileErrorId.SyntaxError, SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose),
+            ((VBCompileErrorId)error.ErrorId, error.Verbose), errors);
     }
 
     [TestMethod]

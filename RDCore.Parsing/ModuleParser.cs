@@ -179,7 +179,17 @@ public partial class ModuleParser(
             // an exception past both parse attempts on a fresh listener is more likely a listener bug
             // than bad input, so log it — the module still degrades to located errors + trivia +
             // whatever the listener had already built (salvaged below).
-            _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
+            // A module nested past the parse's own stack (StackDepthGuardListener) is bad input: its exception's trace is a frame for each level, tens of
+            // thousands of them, and is neither logged nor given to a client - the error says what is wrong with the module.
+            var outOfStack = IsOutOfStack(exception);
+            if (outOfStack)
+            {
+                _logger.LogWarning("❌ Parse of {uri} stopped: the module is nested deeper than the parse's stack.", uri);
+            }
+            else
+            {
+                _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
+            }
 
             var salvaged = read?.Tree;
             try
@@ -198,10 +208,24 @@ public partial class ModuleParser(
                 Trivia = read?.Trivia ?? declarations?.Trivia ?? [],
                 SyntaxErrors = errorListener.Errors.IsEmpty
                     ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
-                        SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
+                        outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
                     : errorListener.Errors,
             };
         }
+    }
+
+    // whether the parse ran out of its stack, however the exception that says so was wrapped on its way out of the grammar's descent.
+    private static bool IsOutOfStack(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is InsufficientExecutionStackException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
