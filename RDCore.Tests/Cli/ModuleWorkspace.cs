@@ -163,6 +163,22 @@ internal static class ModuleWorkspace
     }
 
     /// <summary>
+    /// Runs <c>Program.Main</c> of a module that may have syntax errors, which the language server sends the host as it sends any other module, and the host
+    /// loads what the parser made of it. What came of the run, whatever it was.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program)
+    {
+        ExecuteResult? ran = null;
+        await RunCoreAsync([], program, errorsOnly: false, inspect: (_, result, _) =>
+        {
+            ran = result;
+            return Task.CompletedTask;
+        }, syntaxErrors: true);
+        return ran!;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host what the semantic analysis pass found out about it, as the language server does.
     /// </summary>
     /// <param name="classes">The class modules of the workspace.</param>
@@ -361,7 +377,8 @@ internal static class ModuleWorkspace
                 continue;
             }
 
-            Assert.IsEmpty(module.CodeErrors, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
+            // a module with syntax errors may not load, and its run is what says so.
+            Assert.IsTrue(syntaxErrors || module.CodeErrors.Count == 0, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
         }
 
         if (errorsOnly)

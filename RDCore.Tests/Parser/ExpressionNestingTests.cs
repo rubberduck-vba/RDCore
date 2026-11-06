@@ -53,6 +53,8 @@ public sealed class ExpressionNestingTests
         var result = Parse(Parenthesized(ModuleParser.MaxExpressionNesting));
 
         Assert.IsTrue(result.IsSuccess, Describe(result));
+        Assert.IsFalse(result.SyntaxTree!.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any(), "nothing of a module at the limit is kept as text");
+        Assert.IsTrue(result.SyntaxTree.Descendants().OfType<LiteralExpressionNode>().Any(), "the literal the parentheses are around");
     }
 
     [TestMethod]

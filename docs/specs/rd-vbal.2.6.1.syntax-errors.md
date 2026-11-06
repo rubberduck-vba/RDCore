@@ -47,8 +47,14 @@ the expression of an assignment is not. **MS-VBAL** leaves the depth of an expre
 
 An expression past the limit is kept as text, and isn't analyzed. What is nested in more than 2,500 expressions is an error node of the text it is written
 as (`UnbuiltExpressionTriviaNode`), and the name of a member past the limit is kept with its member access: a name in that text is bound to nothing, and is
-no reference of what it names. The rest of the module is analyzed as it would be, and its text is kept as it is written: no tool that rewrites it loses
-any of the expression.
+no reference of what it names. Where a name in that text could refer to a symbol, the references found of the symbol may be incomplete, and say so; a
+rename of the symbol is refused, at that name, since it would leave the name there as it was. A variable used only in that text has no use that the
+analysis knows of, and can be reported as unused. A module that has an expression past the limit does not run: a run of it is refused with this error,
+before any of it runs. The rest of the module is analyzed as it would be, and its text is kept as it is written: a tool that writes the module back out,
+such as the indenter, writes the expression as it is.
+
+The bounds of a declared array (`Dim a(1 To …)`) are not held to the limit yet: an expression nested past it there is no error node, and is analyzed as it
+is written.
 
 > 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**

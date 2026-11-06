@@ -49,7 +49,10 @@ public sealed class ExpressionPastTheLimitTests
     private static readonly SourcePosition IndexedA = new(7, 4);
     private static readonly SourcePosition AssignedY = new(8, 4);
 
-    private static ModuleParseResult Parse() => new ModuleParser().Parse(new Uri("file:///c:/ws/Program.bas"), Source);
+    // the module is read once for every test of it: a parse of its 120 KB takes seconds, and no test changes what it is.
+    private static readonly Lazy<ModuleParseResult> Parsed = new(() => new ModuleParser().Parse(new Uri("file:///c:/ws/Program.bas"), Source));
+
+    private static ModuleParseResult Parse() => Parsed.Value;
 
     private static string Describe(ModuleParseResult result)
         => string.Join("; ", result.SyntaxErrors.Select(error => $"{error.ErrorId} {error.Location.Range.Start.Line}:{error.Location.Range.Start.Character}"));
@@ -180,6 +183,27 @@ public sealed class ExpressionPastTheLimitTests
         }
     }
 
+    // the text of an error node is the module's as it is written - a line continuation and a string that holds quotes too - and crosses the wire as it is.
+    [TestMethod]
+    public void TheTextPastTheLimit_RoundTripsThroughThePlatformsJson_AsItIsWritten_ALineContinuationAndAStringInIt()
+    {
+        const int levels = 3000;
+        var text = $"Public Sub Main()\r\n    x = {new string('(', levels)}\"a \"\"b\"\"\" & _\r\n        1{new string(')', levels)}\r\nEnd Sub\r\n";
+        var tree = new ModuleParser().Parse(TestUri.TestModuleUri(), text).SyntaxTree!;
+
+        var again = PlatformJson.Deserialize<SyntaxNode>(PlatformJson.Serialize<SyntaxNode>(tree));
+
+        // the parser reads the lines of a module as ending in a line feed (ModuleParser.NormalizeSource): so does the text it keeps.
+        var pruned = Expressions(again).Select(entry => entry.Expression).OfType<UnbuiltExpressionTriviaNode>().ToArray();
+        Assert.IsNotEmpty(pruned);
+        foreach (var node in pruned)
+        {
+            Assert.AreEqual(TextAt(node.SourceLocation.Range, text), node.Source.ReplaceLineEndings("\r\n"));
+        }
+
+        Assert.IsTrue(pruned.Any(node => node.Source.Contains("\"a \"\"b\"\"\" & _\n        1", StringComparison.Ordinal)), string.Join(" | ", pruned.Select(node => node.Source[..Math.Min(40, node.Source.Length)])));
+    }
+
     // what the parsing server hands the language server and the environment host crosses the wire as JSON: the error node crosses it with its text.
     [TestMethod]
     public void TheTree_RoundTripsThroughThePlatformsJson_WithTheTextPastTheLimit()
@@ -213,6 +237,26 @@ public sealed class ExpressionPastTheLimitTests
         Assert.IsTrue(model.Procedures.Any(procedure => !procedure.Expressions.IsEmpty), "the facts of the module's expressions");
     }
 
+    // what is kept as text is no code: a run of the module is refused before any of it runs, with the error the parser reported.
+    [TestMethod]
+    public async Task ARunOfTheModule_IsRefused_BeforeAnyOfItRuns()
+    {
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Sub Main()",
+            "    Dim x As Variant",
+            "    Debug.Print \"before\"",
+            $"    x = {new string('(', 3000)}1{new string(')', 3000)}",
+            "End Sub",
+            "");
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program);
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply);
+    }
+
     // the static pass recurses once for each level of an expression: what is left of the tree fits the stack of a large-stack thread, which 40,000 levels did not.
     [TestMethod]
     public void AHover_IsAnswered_ButNotOnANamePastTheLimit()
@@ -238,6 +282,70 @@ public sealed class ExpressionPastTheLimitTests
 
         CollectionAssert.AreEqual(new[] { DeclaredA.Line }, a, "its declaration: the name past the limit is not analyzed");
         CollectionAssert.AreEquivalent(new[] { 6, 8, 9 }, y, "its declaration, the assignment, and the argument");
+    }
+
+    // what is found of a name may be incomplete where it is written past the limit: the name there is not analyzed, and could be it.
+    [TestMethod]
+    public void TheReferencesOfANameUsedPastTheLimit_MayBeIncomplete_WhereItIsWritten()
+    {
+        var context = Workspace(Parse());
+
+        var (a, y) = LargeStackThread.Run(() => (SymbolNavigation.ReferencesAt(context, Program, DeclaredA)!, SymbolNavigation.ReferencesAt(context, Program, AssignedY)!));
+
+        Assert.AreEqual(IndexedA, Assert.ContainsSingle(a.Unresolved).Range.Start);
+        Assert.AreEqual("The references of 'a' may be incomplete: what 'a' refers to at Program 8:5 is not known.",
+            a.IncompleteMessage(culture: System.Globalization.CultureInfo.InvariantCulture));
+        Assert.IsEmpty(y.Unresolved);
+        Assert.IsNull(y.IncompleteMessage());
+    }
+
+    // a rename of a name used past the limit would miss the name there: it is refused, where it is written.
+    [TestMethod]
+    public void ARenameOfANameUsedPastTheLimit_IsRefused_WhereItIsWritten()
+    {
+        var context = Workspace(Parse());
+
+        var plan = LargeStackThread.Run(() => SymbolRename.Plan(context, SymbolRename.Prepare(context, Program, DeclaredA).Target!, "b"));
+
+        Assert.IsEmpty(plan.Edits);
+        Assert.AreEqual((RenameRefusalKind.Unresolved, IndexedA), (plan.Refusal?.Kind, plan.Refusal?.Position));
+    }
+
+    // a name is written past the limit where it is a token of the text: not where a longer name, a string, a date or a number holds it, nor where it is the
+    // key of a dictionary access, which is the text of a string.
+    [TestMethod]
+    [DataRow("ab", true)]
+    [DataRow("a", false)]
+    public void ANameWrittenPastTheLimit_IsATokenOfItsText(string renamed, bool refused)
+    {
+        const int levels = 3000;
+        var text = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Sub Main()",
+            "    Dim a As Long",
+            "    Dim ab As Long",
+            "    Dim c As Object",
+            "    Dim x As Variant",
+            $"    x = {new string('(', levels)}ab & \"a\" & c!a & #1/1/2000# & &HA{new string(')', levels)}",
+            "End Sub",
+            "");
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Program.bas"), text);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Program, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+        var context = new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(Program, parse.SyntaxTree!, text)]);
+        var declared = new SourcePosition(renamed == "a" ? 2 : 3, 8);
+
+        var plan = LargeStackThread.Run(() => SymbolRename.Plan(context, SymbolRename.Prepare(context, Program, declared).Target!, "z"));
+
+        Assert.AreEqual(VBCompileErrorId.ExpressionNestedTooDeeply, (VBCompileErrorId)Assert.ContainsSingle(parse.SyntaxErrors).ErrorId);
+        Assert.AreEqual(refused ? RenameRefusalKind.Unresolved : null, plan.Refusal?.Kind);
+        if (refused)
+        {
+            Assert.AreEqual(new SourcePosition(6, 8 + levels), plan.Refusal!.Position);
+        }
+        else
+        {
+            Assert.AreEqual(declared, Assert.ContainsSingle(plan.Edits).Range.Start);
+        }
     }
 
     [TestMethod]
