@@ -332,11 +332,14 @@ internal sealed class DefineSymbolsHandler(
 
     // the client's own module, which the project does not list - a shell's program, in a workspace of its own or in one whose project file could not be read -
     // is a standard module of the session, as the language server binds it (SymbolSyncService.SyncModuleAsync): its members are then a module's, and it runs.
-    // The project is not changed, and a module of any other name the project does not have is still not found.
+    // The project is not changed, and a module of any other name the session does not have is still not found. Nor is one named after the project or a library
+    // it references, which the language server refuses to run: a module is found before them (MS-VBAL §5.6.10), and would hide every name of theirs.
     private static void DefineClientModule(IRuntimeSession session, DefineSymbolsParams request)
     {
         if (!request.SessionModule || request.CodeOnly || request.WorkspaceRoot is not { } workspaceRoot || request.ModuleName.Length == 0
-            || session.Symbols.TryGetModule(request.ModuleName, out _))
+            || session.Symbols.TryGetModule(request.ModuleName, out _)
+            || string.Equals(request.ModuleName, session.Errors.ProjectName, StringComparison.OrdinalIgnoreCase)
+            || session.References.Any(reference => string.Equals(reference.Name, request.ModuleName, StringComparison.OrdinalIgnoreCase)))
         {
             return;
         }

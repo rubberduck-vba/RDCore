@@ -36,6 +36,7 @@ internal sealed class SessionExecuteHandler(
     ISymbolSyncService symbols,
     IOptions<SdkAppOptions> options,
     IWorkspaceDocumentService documents,
+    IReferencedLibraryService libraries,
     ILogger<SessionExecuteHandler> logger,
     IEditStatusMonitor? editStatus = null)
     : RDCoreRequestHandler<SessionExecuteRequest, ExecuteResult>
@@ -60,6 +61,13 @@ internal sealed class SessionExecuteHandler(
         if (documents.WorkspaceRoot.Length == 0)
         {
             return NotFound(DebuggerMessages.NoWorkspaceToRunIn);
+        }
+
+        // a module is found before a referenced project or library (MS-VBAL §5.6.10): one of the client's own named VBA, or after the project, would be what
+        // VBA.Len means, and the library's names would no longer be reachable by its name.
+        if (request.SessionModule && IsTaken(request.ModuleName))
+        {
+            return NotFound(string.Format(DebuggerMessages.SessionModuleNameIsTaken, request.ModuleName));
         }
 
         // the module URI comes back from the symbol sync, which derives it from the workspace's own
@@ -108,6 +116,12 @@ internal sealed class SessionExecuteHandler(
 
         return result;
     }
+
+    // the name of the project, and of every library it has - the standard library, the ones it references, and the ones they depend on.
+    private bool IsTaken(string moduleName)
+        => string.Equals(moduleName, libraries.ProjectName ?? RDCore.SDK.Workspace.RDCoreProject.DefaultName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(moduleName, RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName, StringComparison.OrdinalIgnoreCase)
+            || libraries.Libraries.Priorities.ContainsKey(moduleName);
 
     private static ExecuteResult NotFound(string reason)
         => new() { Outcome = ExecutionOutcome.NotFound, ErrorMessage = reason };

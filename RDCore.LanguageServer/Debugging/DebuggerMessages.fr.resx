@@ -18,6 +18,9 @@
   <data name="NoWorkspaceToRunIn" xml:space="preserve">
     <value>aucun dossier n'est ouvert : il n'y a pas d'espace de travail où exécuter</value>
   </data>
+  <data name="SessionModuleNameIsTaken" xml:space="preserve">
+    <value>un module propre au client ne peut pas s'appeler « {0} » : c'est le nom du projet, ou d'une bibliothèque qu'il référence</value>
+  </data>
   <data name="ExpressionIsOneLine" xml:space="preserve">
     <value>une expression tient sur une ligne</value>
   </data>

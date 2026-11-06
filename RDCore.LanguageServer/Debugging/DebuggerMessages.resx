@@ -18,6 +18,9 @@
   <data name="NoWorkspaceToRunIn" xml:space="preserve">
     <value>no folder is open: there is no workspace to run in</value>
   </data>
+  <data name="SessionModuleNameIsTaken" xml:space="preserve">
+    <value>a module of the client's own can't be named '{0}': it is the name of the project, or of a library it references</value>
+  </data>
   <data name="ExpressionIsOneLine" xml:space="preserve">
     <value>an expression is one line</value>
   </data>

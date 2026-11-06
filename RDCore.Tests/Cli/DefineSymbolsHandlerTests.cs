@@ -113,8 +113,55 @@ public sealed class DefineSymbolsHandlerTests
         if (expected)
         {
             Assert.IsInstanceOfType<RDCore.SDK.Model.Symbols.VBStandardModuleSymbol>(module);
+            Assert.IsTrue(provider.Session.Symbols.DeclaredIn(module!.Uri).Any(symbol => symbol.Name == "Main"), "Main is a procedure of the module that was defined");
             Assert.IsTrue(provider.Session.Symbols.TryGetModule("Mod1", out _), "the project's own module is still the session's");
         }
+    }
+
+    // a module the project does list is the project's, the client's own or not: nothing is defined beside it, and its members are its own.
+    [TestMethod]
+    [DataRow("src/Program.bas", DisplayName = "a standard module of the project")]
+    [DataRow("src/Program.cls", DisplayName = "a class module of the project")]
+    public async Task AModuleTheProjectLists_IsTheProjects_WhenTheClientSaysItIsItsOwn(string relativeUri)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = relativeUri }] }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var projects));
+
+        await handler.Handle(Request(Procedure("Main")) with { ModuleName = "Program", SessionModule = true }, CancellationToken.None);
+
+        Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var module));
+        Assert.AreSame(projects, module, "the project's module, and no other");
+        Assert.AreEqual(projects.GetType(), module.GetType());
+        Assert.IsTrue(provider.Session.Symbols.DeclaredIn(module.Uri).Any(symbol => symbol.Name == "Main"), "Main is a procedure of the project's module");
+    }
+
+    // a module is found before a referenced project or library (MS-VBAL §5.6.10): a module of the client's own named after one would hide every name of it.
+    [TestMethod]
+    [DataRow("VBA", DisplayName = "the standard library")]
+    [DataRow("Scripting", DisplayName = "a library the project references")]
+    [DataRow("Project1", DisplayName = "the project")]
+    public async Task AModuleOfTheClientsOwn_NamedAfterALibraryOrTheProject_IsNotDefined(string name)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject
+        {
+            Name = "Project1",
+            Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }],
+            References = [new RDCoreReference { Name = "Scripting" }],
+        }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+
+        await handler.Handle(Request(Procedure("Main")) with { ModuleName = name, SessionModule = true }, CancellationToken.None);
+
+        Assert.IsFalse(provider.Session.Symbols.TryGetModule(name, out _));
     }
 
     [TestMethod]

@@ -177,9 +177,14 @@ The interactive shell renders a run-time error from this result, as:
 - `Err.Source`;
 - the stack trace.
 
-The module a client runs is a module of the project. A client can also run a module of its own, which the project does not list, by saying so with `SessionModule`.
-The interactive shell does this for its program. When the project has no module of that name, the module is a standard module of the runtime session at the workspace root,
-as the code of an Immediate window is, and the project file is not changed. A module that is neither the project's nor marked as the client's own is not found.
+The module a client runs is a module of the runtime session. A client can also run a module of its own, which the project does not list, by saying so with
+`sessionModule` ([`SessionExecuteParams.SessionModule`](../api/RDCore.SDK.Platform.Protocol.SessionExecuteParams.html)).
+The interactive shell does this for its program. When the session has no module of that name, the module is defined as a standard module of the runtime session at
+the workspace root, as the code of an Immediate window is, and the project file is not changed. From then on the session has it: a later run finds it, marked or
+not, until the project is reloaded and the session composed again. A module the session doesn't have is not found unless the run is marked.
+
+A module of the client's own can't be named after the project or a library it references: a module is found before them (**MS-VBAL §5.6.10**), so it would hide
+every name of theirs (`VBA.Len` would no longer be the library's). Such a run is not found, and the result says why.
 
 A workspace whose project file can't be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
 that opens no folder has no workspace, and what it runs is not found.
