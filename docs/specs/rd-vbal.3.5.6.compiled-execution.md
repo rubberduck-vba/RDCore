@@ -20,7 +20,8 @@ operation with a `Variant` operand is worked out for the type of the value the `
 §5.6.9), so `V + 1` adds two `Integer`s while `V` holds an `Integer`, and two `Double`s once it holds a `Double`. A `Variant` assigned a scalar holds it as
 its own type (MS-VBAL §5.5.1.2.12). When the `Variant` holds anything else (`Empty`, `Null`, a `String`, an object, an array), or the operation would
 overflow its type, the interpreter runs that statement on its own and compiled code goes on after it. That is where the interpreter widens an `Integer`
-that overflows to a `Long`, and where a `Variant` that held an object lets go of it.
+that overflows to a `Long`, and where a `Variant` that held an object lets go of it. A `Variant` holding a `Single` or a `Double` assigned to a variable
+of an integer type is the interpreter's too, whole or not: it rounds the value (MS-VBAL §5.5.1.2.1).
 
 When a procedure is compiled, compiled code also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
 `Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
