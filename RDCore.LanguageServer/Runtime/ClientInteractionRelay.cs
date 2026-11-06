@@ -58,9 +58,11 @@ internal interface IClientInteractionRelay
     Task<InputBoxResult> InputBoxAsync(HostInputBoxParams request, CancellationToken token);
 }
 
-internal sealed class ClientInteractionRelay(ILogger<ClientInteractionRelay>? logger = null) : IClientInteractionRelay
+// while the client is asked, its diagnostics pulls are declined (OpenDialogs): what they are made of waits for the program, which waits for the client.
+internal sealed class ClientInteractionRelay(OpenDialogs dialogs, ILogger<ClientInteractionRelay>? logger = null) : IClientInteractionRelay
 {
     private readonly ILogger _logger = logger ?? NullLogger<ClientInteractionRelay>.Instance;
+    private readonly OpenDialogs _dialogs = dialogs;
     private IInteractionClient? _client;
 
     public void Attach(IInteractionClient client) => _client = client;
@@ -72,8 +74,8 @@ internal sealed class ClientInteractionRelay(ILogger<ClientInteractionRelay>? lo
             return MessageBoxResult.NotHandled;
         }
 
-        var answer = await client.MessageBoxAsync(
-            new SessionMessageBoxRequest { Prompt = request.Prompt, Title = request.Title, Style = request.Style, Output = request.Output }, token);
+        var answer = await _dialogs.WhileOpenAsync(() => client.MessageBoxAsync(
+            new SessionMessageBoxRequest { Prompt = request.Prompt, Title = request.Title, Style = request.Style, Output = request.Output }, token));
         if (!answer.Handled)
         {
             _logger.LogWarning("🙅 {Client} declined to answer the program's MsgBox ({Buttons}).", NameOf(client), VBMsgBoxButtons.NameOf((VBMsgBoxStyle)request.Style));
@@ -98,11 +100,11 @@ internal sealed class ClientInteractionRelay(ILogger<ClientInteractionRelay>? lo
             return InputBoxResult.NotHandled;
         }
 
-        var answer = await client.InputBoxAsync(
+        var answer = await _dialogs.WhileOpenAsync(() => client.InputBoxAsync(
             new SessionInputBoxRequest
             {
                 Prompt = request.Prompt, Title = request.Title, Default = request.Default, XPos = request.XPos, YPos = request.YPos, Output = request.Output,
-            }, token);
+            }, token));
         if (answer.Handled)
         {
             return answer;

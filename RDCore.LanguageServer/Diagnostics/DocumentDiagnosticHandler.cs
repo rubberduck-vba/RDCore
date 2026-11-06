@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Progress;
+using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
@@ -17,21 +18,24 @@ namespace RDCore.LanguageServer.Diagnostics;
 /// </summary>
 /// <remarks>
 /// What is found of a document is of the text the environment host has: a pull that comes as the document is edited waits for the host to have the edit,
-/// which it is told of at once (<see cref="IDocumentLifecycleService.WhenSyncedAsync"/>) - one analysis, of the text that is there.
+/// which it is told of at once (<see cref="IDocumentLifecycleService.WhenSyncedAsync"/>) - one analysis, of the text that is there. While a dialog of the
+/// program is open, the host has no other text to take, and the pull is declined (<see cref="OpenDialogs"/>).
 /// </remarks>
 internal sealed class DocumentDiagnosticHandler(
-    IDocumentDiagnosticsService diagnostics, IDocumentLifecycleService lifecycle, IWorkProgressReporter progress, IncomingDocumentChanges incoming) : DocumentDiagnosticHandlerBase
+    IDocumentDiagnosticsService diagnostics, IDocumentLifecycleService lifecycle, IWorkProgressReporter progress, IncomingDocumentChanges incoming,
+    OpenDialogs dialogs) : DocumentDiagnosticHandlerBase
 {
     public override async Task<RelatedDocumentDiagnosticReport> Handle(DocumentDiagnosticParams request, CancellationToken cancellationToken)
     {
         var documentUri = request.TextDocument.Uri.ToUri();
         using var work = progress.BeginFor(request, string.Format(ProgressMessages.Analyzing, Path.GetFileNameWithoutExtension(documentUri.AbsolutePath)));
         // a change to the document that arrives meanwhile ends the pull, answered ContentModified: the change, and the client's next request, don't wait for it.
-        var result = await incoming.WhileCurrentAsync(documentUri, cancellationToken, async token =>
+        // A dialog of the program that is open, or opens, ends it too, answered ServerCancelled: the program waits for the client.
+        var result = await incoming.WhileCurrentAsync(documentUri, cancellationToken, token => dialogs.UnlessADialogIsOpenAsync(token, async token =>
         {
             await lifecycle.WhenSyncedAsync(documentUri, token);
             return await diagnostics.GetAsync(documentUri, request.PreviousResultId, token, work);
-        });
+        }));
 
         if (result.Unchanged)
         {

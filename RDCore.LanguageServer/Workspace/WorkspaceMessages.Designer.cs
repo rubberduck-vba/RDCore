@@ -97,6 +97,15 @@ namespace RDCore.LanguageServer.Workspace {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The program waits for a dialog to be answered: its diagnostics are given once the dialog is closed..
+        /// </summary>
+        internal static string PullDeclinedWhileADialogIsOpen {
+            get {
+                return ResourceManager.GetString("PullDeclinedWhileADialogIsOpen", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to it was not loaded before the loading was stopped.
         /// </summary>
         internal static string SyncCancelled {
