@@ -305,10 +305,12 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger.</param>
+    /// <param name="engine">What runs the program; the interpreter when omitted.</param>
     public static Task InspectWithModulesAsync(
         IReadOnlyList<(string Name, string Source)> modules, string program,
-        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, bool debug = false)
-        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, bool debug = false,
+        VBExecutionEngine engine = VBExecutionEngine.Interpreter)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules, engine: engine);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
