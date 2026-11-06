@@ -154,8 +154,9 @@ public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImp
     /// </para>
     /// <para>
     /// What only the platform says of the project is kept: the settings files of the project file (<see cref="ProjectFile.Configuration"/>), the document
-    /// class a module is (<see cref="RDCoreModule.Super"/>), and the type library information of a reference
-    /// (<see cref="RDCoreReference.TypeLibInfoPath"/>) - of a module by its path, of a reference by its name. A client that keeps a <c>.vbp</c> and a
+    /// class a module is (<see cref="RDCoreModule.Super"/>), the type library information of a reference (<see cref="RDCoreReference.TypeLibInfoPath"/>),
+    /// and what a newer format says that this platform does not know, of the project and of each of its entries (<see cref="ProjectFile.ExtensionData"/>) -
+    /// of a module or another file by its path, of a reference by its name. A client that keeps a <c>.vbp</c> and a
     /// <c>.rdproj</c> in step imports the <c>.vbp</c> again after each change, and loses none of it. Its <see cref="ProjectFile.Version"/> is the format it
     /// was written in, until the platform writes it (<see cref="ProjectFile.WithSchemaVersion"/>).
     /// </para>
@@ -174,6 +175,10 @@ public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImp
             .DistinctBy(module => module.RelativeUri, StringComparer.OrdinalIgnoreCase).ToDictionary(module => module.RelativeUri, StringComparer.OrdinalIgnoreCase);
         var references = existing.ProjectInfo.References
             .DistinctBy(reference => reference.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(reference => reference.Name, StringComparer.OrdinalIgnoreCase);
+        var otherFiles = existing.ProjectInfo.OtherFiles
+            .DistinctBy(file => file.RelativeUri, StringComparer.OrdinalIgnoreCase).ToDictionary(file => file.RelativeUri, StringComparer.OrdinalIgnoreCase);
+
+        // what a newer format says of an entry is the platform's too, and is kept with it.
         return existing with
         {
             Uri = folder,
@@ -181,10 +186,12 @@ public sealed record class VbpImport(RDCoreProject Project, IReadOnlyList<VbpImp
             {
                 Name = Project.Name,
                 References = [.. Project.References.Select(reference => references.TryGetValue(reference.Name, out var kept)
-                    ? reference with { TypeLibInfoPath = kept.TypeLibInfoPath }
+                    ? reference with { TypeLibInfoPath = kept.TypeLibInfoPath, ExtensionData = kept.ExtensionData }
                     : reference)],
-                Modules = [.. Project.Modules.Select(module => modules.TryGetValue(module.RelativeUri, out var kept) ? module with { Super = kept.Super } : module)],
-                OtherFiles = Project.OtherFiles,
+                Modules = [.. Project.Modules.Select(module => modules.TryGetValue(module.RelativeUri, out var kept)
+                    ? module with { Super = kept.Super, ExtensionData = kept.ExtensionData }
+                    : module)],
+                OtherFiles = [.. Project.OtherFiles.Select(file => otherFiles.TryGetValue(file.RelativeUri, out var kept) ? file with { ExtensionData = kept.ExtensionData } : file)],
                 Folders = Project.Folders,
                 PrecompilerConstants = Project.PrecompilerConstants,
                 SourceProject = Project.SourceProject,

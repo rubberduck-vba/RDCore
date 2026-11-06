@@ -138,7 +138,7 @@ public sealed class ProtocolProjectFileTests
                 "Kind": "Library",
                 "References": [ { "Name": "Scripting", "Pinned": true } ],
                 "Modules": [ "src/Plain.bas", { "RelativeUri": "src/Tagged.bas", "Tags": [ "core" ] }, { "RelativeUri": "Sheet1.doccls", "Super": "ExcelWorksheet", "Sheet": 1 } ],
-                "OtherFiles": [ { "RelativeUri": "README.md", "Preview": true } ]
+                "OtherFiles": [ { "RelativeUri": "README.md", "Preview": true }, { "RelativeUri": "Book.xlsx", "Super": "ExcelWorkbook" } ]
               }
             }
             """;
@@ -153,7 +153,8 @@ public sealed class ProtocolProjectFileTests
         Assert.IsTrue(info["References"]![0]!["Pinned"]!.GetValue<bool>());
         Assert.AreEqual("""["src/Plain.bas",{"RelativeUri":"src/Tagged.bas","Tags":["core"]},{"RelativeUri":"Sheet1.doccls","Super":"ExcelWorksheet","Sheet":1}]""",
             info["Modules"]!.ToJsonString());
-        Assert.AreEqual("""[{"RelativeUri":"README.md","Preview":true}]""", info["OtherFiles"]!.ToJsonString());
+        Assert.AreEqual("""[{"RelativeUri":"README.md","Preview":true},{"RelativeUri":"Book.xlsx","Super":"ExcelWorkbook"}]""", info["OtherFiles"]!.ToJsonString(),
+            "a file that is no module has no document: what it says of one is kept as any member this model does not know");
     }
 
     // a file in an older format, or no format, is in this one once it is written: only a newer one keeps its stamp.

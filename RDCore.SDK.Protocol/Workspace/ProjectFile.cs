@@ -37,6 +37,10 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     /// lone number is a major: <c>2</c> is the format 2.0.
     /// </remarks>
     /// <param name="version">What a project file says (<see cref="Version"/>).</param>
+    /// <returns>
+    /// <see cref="ProjectFileSchemaMatch.Unstamped"/> when it says nothing, <see cref="ProjectFileSchemaMatch.Unparseable"/> when what it says is no version,
+    /// and otherwise how its major and minor compare with <see cref="SchemaVersion"/>'s.
+    /// </returns>
     public static ProjectFileSchemaMatch SchemaOf(string? version)
     {
         if (string.IsNullOrWhiteSpace(version))
@@ -573,7 +577,8 @@ public sealed class RDCoreFileJsonConverter : JsonConverter<RDCoreFile>
 {
     /// <inheritdoc/>
     public override RDCoreFile Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        => new() { RelativeUri = ProjectFileEntry.Read(ref reader, options, out _, out var extensionData), ExtensionData = extensionData };
+        // a file that is no module has no document: a Super it says is kept as it is, as any member this model does not know.
+        => new() { RelativeUri = ProjectFileEntry.Read(ref reader, options, readsSuper: false, out _, out var extensionData), ExtensionData = extensionData };
 
     /// <inheritdoc/>
     public override void Write(Utf8JsonWriter writer, RDCoreFile value, JsonSerializerOptions options)
@@ -600,7 +605,7 @@ public sealed class RDCoreModuleJsonConverter : JsonConverter<RDCoreModule>
     /// <inheritdoc/>
     public override RDCoreModule Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var relativeUri = ProjectFileEntry.Read(ref reader, options, out var super, out var extensionData);
+        var relativeUri = ProjectFileEntry.Read(ref reader, options, readsSuper: true, out var super, out var extensionData);
         return new() { RelativeUri = relativeUri, Super = super, ExtensionData = extensionData };
     }
 
@@ -653,7 +658,8 @@ public sealed class ProjectFileVersionJsonConverter : JsonConverter<string>
 // an entry of a project file's list of files: a path, or an object that names it (and, for a module, its document).
 internal static class ProjectFileEntry
 {
-    public static string Read(ref Utf8JsonReader reader, JsonSerializerOptions options, out DocClassType? super, out IReadOnlyDictionary<string, JsonElement>? extensionData)
+    public static string Read(
+        ref Utf8JsonReader reader, JsonSerializerOptions options, bool readsSuper, out DocClassType? super, out IReadOnlyDictionary<string, JsonElement>? extensionData)
     {
         super = null;
         extensionData = null;
@@ -677,7 +683,7 @@ internal static class ProjectFileEntry
             {
                 relativeUri = reader.GetString() ?? string.Empty;
             }
-            else if (string.Equals(name, nameof(RDCoreModule.Super), StringComparison.OrdinalIgnoreCase))
+            else if (readsSuper && string.Equals(name, nameof(RDCoreModule.Super), StringComparison.OrdinalIgnoreCase))
             {
                 super = JsonSerializer.Deserialize<DocClassType?>(ref reader, options);
             }
