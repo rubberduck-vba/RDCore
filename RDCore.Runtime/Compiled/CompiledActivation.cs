@@ -33,7 +33,7 @@ namespace RDCore.Runtime.Compiled;
 /// the rest of the activation from that instruction.
 /// </para>
 /// </remarks>
-public sealed class CompiledActivation : ILightActivation
+public sealed partial class CompiledActivation : ILightActivation
 {
     private readonly IRuntimeSession _session;
     private readonly InstructionList _list;
@@ -939,42 +939,6 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type (IR lowering S2.5e): the one the object holds it in, as the
-    /// interpreter resolves it, which compiled code reads and writes it in.
-    /// </summary>
-    /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
-    public object? FieldCellOf(int number)
-    {
-        // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.
-        var instance = _instance ?? (Frame.Target is { } target && _session.Symbols.TryGetInstance(target, out var on) ? on : null);
-        if (instance is null || _session.Storage is not SessionStorage storage)
-        {
-            return null;
-        }
-
-        // the cell the body found last of the field of the same object, while nothing was allocated, freed or rebound since (CompiledBody.Fields).
-        var known = _body.Fields;
-        if (known is null || !known.Object.Equals(instance.ObjectId) || known.Generation != storage.Generation)
-        {
-            known = new FieldCells(instance.ObjectId, storage.Generation, new object?[_cells.Length]);
-            _body.Fields = known;
-        }
-
-        if (known.Cells[number] is { } cached)
-        {
-            return cached;
-        }
-
-        var field = _body.SlotSymbols[_body.CellSlots[number]];
-        var found = instance.TryResolve(field, out var held) && held is ScalarCell cell && cell.Type.Equals(((ITypedSymbol)field).ResolvedType) ? cell : null;
-        known.Cells[number] = found;
-        return found;
-    }
-
-    /// <summary>The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.</summary>
-    public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
-
-    /// <summary>
     /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5c): what compiled code reads and
     /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
     /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
@@ -1440,12 +1404,21 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// <summary>The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.</summary>
     public int MeSlot { get; init; } = -1;
 
+    /// <summary>The fields compiled code reaches, by the number it knows each by (<see cref="ProcedureAnalysis.Fields"/>).</summary>
+    public IReadOnlyList<CompiledField> Fields { get; init; } = [];
+
     /// <summary>
     /// The cells of the fields of <c>Me</c> the body found last (IR lowering S2.5e3b): those of the object an activation of it was last on, for as long as
     /// what the session's storage binds is what it bound then - a field's cell is the one it was until anything is allocated, freed or rebound
     /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of. The object is known by its identity, not held.
     /// </summary>
-    internal FieldCells? Fields { get; set; }
+    internal FieldCells? ObjectFields { get; set; }
+
+    /// <summary>
+    /// The cells of the fields of the session the body found last (IR lowering S2.6c): those of the storage an activation of it last ran in, for as long as
+    /// what it binds is what it bound then, as <see cref="ObjectFields"/> are the object's.
+    /// </summary>
+    internal SessionFieldCells? SessionFields { get; set; }
 
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];

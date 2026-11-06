@@ -65,9 +65,11 @@ namespace RDCore.Runtime.Compiled;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
-/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (IR lowering S2.5e, <see cref="FieldSlots"/>), found where the
+/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (IR lowering S2.5e, <see cref="Fields"/>), found where the
 /// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
-/// an instruction: compiled code reads and writes it as it does a variable held in a cell.
+/// an instruction: compiled code reads and writes it as it does a variable held in a cell. So is a field of a standard module, of any, in the cell the
+/// session holds it in (IR lowering S2.6c). Which fields compiled code reaches is one rule (<c>ProcedureAnalysis.Fields.cs</c>), and what it holds each as
+/// is another (<c>ProcedureAnalysis.FieldKinds.cs</c>).
 /// </para>
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
@@ -79,7 +81,7 @@ namespace RDCore.Runtime.Compiled;
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
 /// </remarks>
-internal sealed class ProcedureAnalysis
+internal sealed partial class ProcedureAnalysis
 {
     private readonly IRuntimeSession _session;
     private readonly RuntimeExpressionEvaluator _evaluator;
@@ -192,18 +194,6 @@ internal sealed class ProcedureAnalysis
         return kinds;
     }
 
-    /// <summary>
-    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout (IR lowering S2.5e): each is held
-    /// in the cell the object holds it in (<see cref="CellSlots"/>), which compiled code reads and writes it in, as it does a parameter passed by reference.
-    /// </summary>
-    public IReadOnlySet<int> FieldSlots => _fieldSlots;
-
-    private readonly HashSet<int> _fieldSlots = [];
-    private readonly Dictionary<SemanticId, int> _slotOfField = [];
-
-    // what the slot of a field is numbered from: past every slot of any layout.
-    private const int FirstFieldSlot = 1 << 24;
-
     /// <summary>The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</summary>
     public ScalarKind? ResultKind { get; private set; }
 
@@ -233,7 +223,7 @@ internal sealed class ProcedureAnalysis
         // Me, and the fields found through it, are what a frame holds of a member of a class that nothing else makes it hold: such a member is entered
         // without one, and its activation holds Me (IR lowering S2.5e3b). Any other member is called with its frame.
         analysis.EntersWithoutFrame = analysis.MeSlot is not null && !analysis.NeedsFrame;
-        analysis.NeedsFrame |= analysis.MeSlot is not null || analysis._fieldSlots.Count > 0;
+        analysis.NeedsFrame |= analysis.MeSlot is not null || analysis.HasObjectFields;
         return analysis;
     }
 
@@ -837,8 +827,9 @@ internal sealed class ProcedureAnalysis
             return null;
         }
 
+        // a loop counts in a local of compiled code: one that counts with a field, held in a cell the interpreter and other procedures see, is stepped.
         var kind = _slots[slot];
-        if (kind is ScalarKind.Boolean)
+        if (kind is ScalarKind.Boolean || _fieldSlots.Contains(slot))
         {
             Refuse(IneligibilityKind.ForCounter, counter.Variable.Name, forStatement.SourceLocation);
             return null;
@@ -960,32 +951,11 @@ internal sealed class ProcedureAnalysis
 
     private BoundNode Bind(ExpressionNode expression) => _evaluator.BindInProcedure(_session, expression, _procedure);
 
-    // a variable of the activation, by its slot in the procedure's layout.
+    // a scalar variable of the activation, by its slot in the procedure's layout; or a scalar field it reaches (ProcedureAnalysis.Fields.cs).
     private int? SlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : FieldSlotOf(variable);
-
-    // an instance field of a scalar type of the class the procedure is a member of - a variable of the class module, declared in its instance scope: a
-    // field of Me (MS-VBAL §5.6.10), numbered the first time it is named.
-    private int? FieldSlotOf(BoundVariable variable)
-    {
-        if (variable is not { IsAutoInstantiated: false, Variable: VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Instance } field }
-            || field.ParentUri.AbsoluteUri != _procedure.ParentUri.AbsoluteUri || ScalarKinds.Of(field.ResolvedType) is not { } kind)
-        {
-            return null;
-        }
-
-        if (!_slotOfField.TryGetValue(field.SemanticId, out var slot))
-        {
-            slot = FirstFieldSlot + _slotOfField.Count;
-            _slotOfField[field.SemanticId] = slot;
-            _slots[slot] = kind;
-            _slotSymbols[slot] = field;
-            _ = _cellSlots.Add(slot);
-            _ = _fieldSlots.Add(slot);
-        }
-
-        return slot;
-    }
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index)
+            ? slot.Index
+            : FieldSlotOf(variable) is { } field && _slots.ContainsKey(field) ? field : null;
 
     // a Variant variable of the activation, by its slot (IR lowering S2.5c).
     private int? VariantSlotOf(BoundVariable variable)
