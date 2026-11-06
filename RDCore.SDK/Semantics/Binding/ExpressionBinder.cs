@@ -52,7 +52,15 @@ public sealed record class BoundExpression(SyntaxNodeId Node, StaticSemanticsEva
 public sealed class ExpressionBindings
 {
     private readonly Dictionary<SyntaxNodeId, BoundExpression> _bound = [];
-    private readonly Dictionary<SyntaxNodeId, BoundNode> _nodes = [];
+
+    // what each expression bound to, and its bound tree, by the expression itself: an expression made of another (the call of a member an assignment writes
+    // through, the access of a default member) has the Identity of the one it was made of, and is not that one.
+    private readonly Dictionary<ExpressionNode, BoundExpression> _results = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<ExpressionNode, BoundNode> _nodes = new(ReferenceEqualityComparer.Instance);
+
+    // whether each expression asked of is a constant expression: what is constant does not depend on where in the procedure it is written, and a call is
+    // asked of after its argument, which it is not asked of again.
+    private readonly Dictionary<ExpressionNode, bool> _constant = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// The layout of the activations of the procedure the expressions are written in, which binds its parameters and variables to their slots;
@@ -74,7 +82,11 @@ public sealed class ExpressionBindings
     /// The bound tree of an expression that was bound (<see cref="BoundNode"/>); <see langword="null"/> for one that was not.
     /// </summary>
     /// <param name="expression">The expression.</param>
-    public BoundNode? NodeOf(ExpressionNode expression) => _nodes.GetValueOrDefault(expression.Identity);
+    /// <remarks>
+    /// The tree is the one of this expression, and of no other that has the same <c>Identity</c>: an expression the runtime makes of another, to call what an
+    /// assignment writes through, has the identity of the one it was made of. What it binds to does not depend on which of them was bound last.
+    /// </remarks>
+    public BoundNode? NodeOf(ExpressionNode expression) => _nodes.GetValueOrDefault(expression);
 
     /// <summary>
     /// Records what an expression the static semantics evaluated binds to. An expression that is evaluated again has its binding replaced.
@@ -85,8 +97,10 @@ public sealed class ExpressionBindings
     internal void Record(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result)
     {
         var plan = PlanOf(expression);
-        _bound[expression.Identity] = new BoundExpression(expression.Identity, result, plan);
-        _nodes[expression.Identity] = NodeFor(context, expression, result, plan);
+        var bound = new BoundExpression(expression.Identity, result, plan);
+        _bound[expression.Identity] = bound;
+        _results[expression] = bound;
+        _nodes[expression] = NodeFor(context, expression, result, plan);
     }
 
     // the declared type of a call that is not the one its procedure declares: Abs, Int and Fix of a number are of its type (ArgumentTypedFunctions).
@@ -120,7 +134,7 @@ public sealed class ExpressionBindings
             VBBinaryOperatorExpressionNode binary => new BoundBinary(binary, plan, ChildNode(binary.Left), ChildNode(binary.Right)),
 
             VBUnaryOperatorExpressionNode unary => new BoundUnary(unary, plan, ChildNode(unary.Operand),
-                unary.Token is Tokens.NegationOp && ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, unary.Operand)),
+                unary.Token is Tokens.NegationOp && ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, unary.Operand, _constant)),
 
             // a call by the bare name of a procedure, resolved as the evaluation resolves it.
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index
@@ -129,7 +143,7 @@ public sealed class ExpressionBindings
                 => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
                 {
                     ResultType = ResultTypeOf(procedure, result),
-                    IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index),
+                    IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index, _constant),
                 },
 
             // MS-VBAL §5.6.12: a member of a project or a procedural module - `Constants.vbCrLf`, `Module1.Count` - is what the name means unqualified there,
@@ -145,7 +159,7 @@ public sealed class ExpressionBindings
                     ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
                     {
                         ResultType = ResultTypeOf(procedure, result),
-                        IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index),
+                        IsAConstantExpression = ConstantExpressionStaticSemantics.IsConstantExpression(context.Resolver, context.Scope.Uri, index, _constant),
                     }
                     : new BoundIndex(index, new BoundQualifiedName(access, member), ArgumentNodes(index)),
 
@@ -329,7 +343,7 @@ public sealed class ExpressionBindings
         _ => null,
     };
 
-    private VBType? DeclaredTypeOf(ExpressionNode operand) => this[operand.Identity]?.DeclaredType;
+    private VBType? DeclaredTypeOf(ExpressionNode operand) => _results.GetValueOrDefault(operand)?.DeclaredType;
 }
 
 /// <summary>
