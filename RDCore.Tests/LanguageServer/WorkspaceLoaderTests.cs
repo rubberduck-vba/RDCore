@@ -402,6 +402,12 @@ public sealed class WorkspaceLoaderTests
         var fs = UnreadableProject();
         var sut = WorkspaceService(fs);
         var asked = 0;
+        var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
+        var told = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        console.When(each => each.WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>()))
+            .Do(call => told.TrySetResult(call.ArgAt<string>(1)));
+        // the message is sent before initialize is answered, and the shell's handler runs whenever its scheduler gets to it: the handshake that follows
+        // initialize is answered once the shell has written it, so that the shell does not read to the end of its input and close the connection first.
         using var languageServer = new InProcessLanguageServer(async (server, request, token) =>
         {
             var ask = RDCore.LanguageServer.CoreLanguageServerApp.RegenerateQuestionOf(server, request);
@@ -421,11 +427,7 @@ public sealed class WorkspaceLoaderTests
                     Message = error.Message,
                 });
             }
-        });
-        var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
-        var told = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        console.When(each => each.WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>()))
-            .Do(call => told.TrySetResult(call.ArgAt<string>(1)));
+        }, answerHandshakeAfter: told.Task);
         // the Enter key chooses the last choice, which changes nothing.
         var keys = new Cli.Repl.ScriptedKeys(interactive).Press(Cli.Repl.ScriptedKeys.Key(ConsoleKey.Enter));
         var shell = new RDCore.CLI.RDCoreConsoleClientApp(
@@ -631,8 +633,10 @@ public sealed class WorkspaceLoaderTests
     }
 
     // what the shell starts as its language server, and connects to: an OmniSharp server on the pipe, in this process, which answers initialize as it is given
-    // to, and the platform handshake after it.
-    private sealed class InProcessLanguageServer(Func<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer, OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams, CancellationToken, Task> initialize)
+    // to, and the platform handshake after it - once answerHandshakeAfter has completed, when it is given: the shell goes no further than the handshake until then.
+    private sealed class InProcessLanguageServer(
+        Func<OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer, OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams, CancellationToken, Task> initialize,
+        Task? answerHandshakeAfter = null)
         : RDCore.SDK.Client.IRDCoreServerProcess, RDCore.SDK.Client.Connection.IChildConnectionFactory
     {
         private readonly TaskCompletionSource _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -665,9 +669,16 @@ public sealed class WorkspaceLoaderTests
                 .WithOutput(System.IO.Pipelines.PipeWriter.Create(pipe))
                 .WithSerializer(new RDCore.SDK.Server.Serialization.PullDiagnosticsLspSerializer())
                 .OnInitialize((server, request, token) => initialize(server, request, token))
-                .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>
-                    Task.FromResult<Newtonsoft.Json.Linq.JToken>(Newtonsoft.Json.Linq.JObject.FromObject(
-                        new { component = (int)RDCore.SDK.Client.CoreServerComponent.LanguageServer, provided = Array.Empty<string>() })))));
+                .OnJsonRequest(RDCore.SDK.Client.RDCorePlatformProtocol.PlatformInitialize, async (Newtonsoft.Json.Linq.JToken _, CancellationToken _) =>
+                {
+                    if (answerHandshakeAfter is not null)
+                    {
+                        await answerHandshakeAfter;
+                    }
+
+                    return (Newtonsoft.Json.Linq.JToken)Newtonsoft.Json.Linq.JObject.FromObject(
+                        new { component = (int)RDCore.SDK.Client.CoreServerComponent.LanguageServer, provided = Array.Empty<string>() });
+                })));
         }
 
         private T Hold<T>(T disposable) where T : IDisposable
