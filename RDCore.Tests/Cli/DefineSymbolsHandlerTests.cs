@@ -93,6 +93,30 @@ public sealed class DefineSymbolsHandlerTests
         Assert.AreEqual(0, result.Skipped.Count);
     }
 
+    // the client's own module (DefineSymbolsParams.SessionModule) is a standard module of the session when the project does not list it; a module the project
+    // does not list that is not the client's own is no module of the session, and its run is not found.
+    [TestMethod]
+    [DataRow(true, true, DisplayName = "the client's own module")]
+    [DataRow(false, false, DisplayName = "a module the client does not say is its own")]
+    public async Task AModuleTheProjectDoesNotList_IsAModuleOfTheSession_OnlyWhenItIsTheClientsOwn(bool sessionModule, bool expected)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+
+        await handler.Handle(Request(Procedure("Main")) with { ModuleName = "Program", SessionModule = sessionModule }, CancellationToken.None);
+
+        Assert.AreEqual(expected, provider.Session.Symbols.TryGetModule("Program", out var module));
+        if (expected)
+        {
+            Assert.IsInstanceOfType<RDCore.SDK.Model.Symbols.VBStandardModuleSymbol>(module);
+            Assert.IsTrue(provider.Session.Symbols.TryGetModule("Mod1", out _), "the project's own module is still the session's");
+        }
+    }
+
     [TestMethod]
     public async Task BeforeSessionComposed_IsANoOp()
     {

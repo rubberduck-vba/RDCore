@@ -262,6 +262,9 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
             throw new InvalidServerStateException();
         }
 
+        // the root is the workspace's before its project file is read: a project file that can't be read loads no project, and what the client runs is still run
+        // there, as in a folder with no modules.
+        documentService.Initialize(workspaceRoot);
         await projectFileService.LoadAsync(workspaceRoot);
         var version = projectFileService.Project.Version;
         // a project no platform wrote yet - synthesized for a folder, or a .rdproj written by hand - has no version, and any platform loads it.
@@ -271,7 +274,6 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
             throw new NotSupportedException($"This project was created with a version ({version}) greater than the currently running version ({serverVersion.ToString(3)}).");
         }
 
-        documentService.Initialize(workspaceRoot);
         // the root is a folder of the workspace whether or not the client lists it among its folders.
         string[] all = [workspaceRoot, .. folders];
         _projects.Initialize(workspaceRoot, folders, all.Where(HoldsAProject));

@@ -5,6 +5,7 @@ using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
@@ -34,6 +35,7 @@ internal sealed class SessionExecuteHandler(
     IParsingClientService parsing,
     ISymbolSyncService symbols,
     IOptions<SdkAppOptions> options,
+    IWorkspaceDocumentService documents,
     ILogger<SessionExecuteHandler> logger,
     IEditStatusMonitor? editStatus = null)
     : RDCoreRequestHandler<SessionExecuteRequest, ExecuteResult>
@@ -54,6 +56,12 @@ internal sealed class SessionExecuteHandler(
             return NotFound(DebuggerMessages.NoRuntimeEnvironment);
         }
 
+        // a client that opened no folder has no workspace, and the host no session: what it runs has nowhere to be addressed or run.
+        if (documents.WorkspaceRoot.Length == 0)
+        {
+            return NotFound(DebuggerMessages.NoWorkspaceToRunIn);
+        }
+
         // the module URI comes back from the symbol sync, which derives it from the workspace's own
         // root: the same declaration addressed two ways is the same declaration defined twice, and a
         // name that then resolves to neither.
@@ -71,7 +79,7 @@ internal sealed class SessionExecuteHandler(
 
         // the host resolves the entry point out of its own symbol table, so the module's symbols have
         // to be defined there before it is asked to run anything.
-        moduleUri = await symbols.SyncModuleAsync(request.ModuleName, parseResult, token);
+        moduleUri = await symbols.SyncModuleAsync(request.ModuleName, parseResult, token, request.SessionModule);
 
         await environment.WaitForReadyAsync(token);
         var result = await environment.SendRequestAsync<HostExecuteParams, ExecuteResult>(new HostExecuteParams

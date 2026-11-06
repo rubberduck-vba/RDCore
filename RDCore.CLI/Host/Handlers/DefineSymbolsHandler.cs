@@ -54,6 +54,7 @@ internal sealed class DefineSymbolsHandler(
 
     private DefineSymbolsResult Define(IRuntimeSession session, DefineSymbolsParams request)
     {
+        DefineClientModule(session, request);
         ApplyDirectives(session, request);
 
         var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -328,6 +329,21 @@ internal sealed class DefineSymbolsHandler(
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession, ModuleLoadFailures> LoadFailuresBySession = new();
+
+    // the client's own module, which the project does not list - a shell's program, in a workspace of its own or in one whose project file could not be read -
+    // is a standard module of the session, as the language server binds it (SymbolSyncService.SyncModuleAsync): its members are then a module's, and it runs.
+    // The project is not changed, and a module of any other name the project does not have is still not found.
+    private static void DefineClientModule(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (!request.SessionModule || request.CodeOnly || request.WorkspaceRoot is not { } workspaceRoot || request.ModuleName.Length == 0
+            || session.Symbols.TryGetModule(request.ModuleName, out _))
+        {
+            return;
+        }
+
+        var module = new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, request.ModuleName);
+        _ = session.Symbols.TryDefine(module, module.ScopeKind);
+    }
 
     // MS-VBAL 5.2.1: the module symbol is composed from the .rdproj without parsing anything, so its
     // Option directives are not known until the language server sends them here. They are what an

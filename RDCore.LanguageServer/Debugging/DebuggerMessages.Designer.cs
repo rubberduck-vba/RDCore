@@ -185,6 +185,15 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("NoRuntimeEnvironment", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to no folder is open: there is no workspace to run in.
+        /// </summary>
+        internal static string NoWorkspaceToRunIn {
+            get {
+                return ResourceManager.GetString("NoWorkspaceToRunIn", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to no statement begins on this line.
