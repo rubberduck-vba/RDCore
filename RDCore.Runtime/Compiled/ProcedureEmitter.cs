@@ -894,7 +894,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
-        // each object's cell, found again: a Set the interpreter ran binds the slot to another.
+        // each object's cell, found again as each Variant's is. A Set the interpreter ran stores the reference into the cell the slot holds, so this finds
+        // the same cell; it is read from the frame again rather than assumed kept.
         foreach (var (slot, cell) in _objects)
         {
             _il.Emit(OpCodes.Ldarg_0);

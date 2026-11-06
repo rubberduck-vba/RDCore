@@ -83,13 +83,15 @@ public sealed class CompiledFieldTests
                 "    AddUpTo = Total",
                 "End Function"));
 
-    // a field passed by reference is passed as its cell: what the callee assigns its parameter, it assigns the field.
+    // a field passed by reference is passed as its cell: what the callee assigns its parameter, it assigns the field, which the object holds after the
+    // call.
     [TestMethod]
     public async Task AFieldPassedByReference_IsAssignedByTheCallee()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.Doubled(4)",
+            "    Debug.Print C.Total",
             "End Sub",
             "Public Sub Twice(ByRef X As Long)",
             "    X = X * 2",
