@@ -208,13 +208,16 @@ public partial class ModuleParser(
             // after the parser that walks it runs out of stack.
             salvaged = PrunedOrNone(uri, salvaged, content, anchorOffset, errorListener);
 
+            // and so are the directives, which the directive pass read before the parse failed (#If, #ElseIf, #Const), each of them on its own.
+            var directives = precompilerTrivia.Select(directive => PrunedOrNone(uri, directive, content, anchorOffset, errorListener)).OfType<SyntaxNode>().ToImmutableArray();
+
             // the errors the slow parse found before it stopped are the module's, and so is that it stopped: what is after it was not read.
             var stopped = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
                 outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
             return new ModuleParseResult
             {
                 SyntaxTree = salvaged,
-                PrecompilerTrivia = precompilerTrivia,
+                PrecompilerTrivia = directives,
                 Trivia = read?.Trivia ?? declarations?.Trivia ?? [],
                 SyntaxErrors = errorListener.Errors.IsEmpty ? [stopped] : outOfStack ? errorListener.Errors.Add(stopped) : errorListener.Errors,
             };
@@ -740,7 +743,7 @@ public partial class ModuleParser(
 
     // a tree salvaged from a parse that failed, pruned as a module that was read is (PruneExpressionsNestedTooDeeply), or none if that fails too: no tree comes
     // back with an expression deeper than the limit.
-    private ModuleNode? PrunedOrNone(Uri uri, ModuleNode? salvaged, string content, SourcePosition anchorOffset, ErrorListener errors)
+    private TNode? PrunedOrNone<TNode>(Uri uri, TNode? salvaged, string content, SourcePosition anchorOffset, ErrorListener errors) where TNode : SyntaxNode
     {
         if (salvaged is null)
         {
