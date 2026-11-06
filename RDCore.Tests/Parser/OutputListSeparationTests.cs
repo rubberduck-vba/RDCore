@@ -258,15 +258,21 @@ public class OutputListSeparationTests
 
     // SLL, which the parse tries first, reads the context of a rule as the grammar's every context of it. With an output item allowed right after an
     // expression, the `(` after a name could begin an item as well as the name's argument list: telling them apart read to the end of a nested call, once
-    // for each call it is nested in. What a decision of lExpression reads ahead is now the same at any depth.
+    // for each call it is nested in. What a decision of lExpression reads ahead is now the same at any depth, and what every decision reads together is in
+    // proportion to the depth.
     [TestMethod]
     public void TheArgumentListOfANestedCall_IsToldFromAnOutputItem_WithoutReadingToItsEnd()
     {
         var shallow = LExpressionLookahead("Public Const X = " + NestedCalls(20) + "\r\n");
         var deep = LExpressionLookahead("Public Const X = " + NestedCalls(40) + "\r\n");
+        var shallowTotal = Lookahead("Public Const X = " + NestedCalls(20) + "\r\n");
+        var deepTotal = Lookahead("Public Const X = " + NestedCalls(40) + "\r\n");
 
+        Assert.IsGreaterThan(0, shallow);
         Assert.AreEqual(shallow, deep);
         Assert.IsLessThan(5, deep);
+        Assert.IsGreaterThan(0L, shallowTotal);
+        Assert.IsLessThanOrEqualTo(2 * shallowTotal, deepTotal, $"{shallowTotal} tokens read ahead at a depth of 20, {deepTotal} at 40");
     }
 
     // a call statement whose argument is parenthesized is told from an assignment to an index (`Foo (1) = 2`) at the end of the statement, which the
@@ -323,6 +329,8 @@ public class OutputListSeparationTests
     [DataRow("Call Foo({0})", "F(")]
     [DataRow("If {0} Then x = 1", "F(")]
     [DataRow("x = {0}", "(")]
+    [DataRow("Line ({0}, 0)-(1, 1)", "F(")]
+    [DataRow("Me.Line (0, {0}) - (1, 1)", "F(")]
     public void CallsNestedAsTheVBEWritesThem_AreReadAheadInProportionToTheirDepth(string statement, string call)
     {
         var shallow = Lookahead(InProcedure(string.Format(statement, NestedCalls(20, call))));
