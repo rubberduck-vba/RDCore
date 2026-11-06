@@ -23,6 +23,3 @@ all operators share.
 |5.6.9.6|[Like Operator](rd-vbal.5.6.9.6.like-operator.md)|[§5.6.9.6](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/792d4f80-72c1-49da-98a7-37d5783a8615)|
 |5.6.9.7|[Is Operator](rd-vbal.5.6.9.7.is-operator.md) (*reserved*)|[§5.6.9.7](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4730e541-8747-4259-ae76-128c7024b3b8)|
 |5.6.9.8|[Logical Operators](rd-vbal.5.6.9.8.logical-operators.md)|[§5.6.9.8](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2d70780d-6e99-47d6-9759-2b3a46b8e862)|
-
----
-> ⏮️ [**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md) | ⏭️ [**RD-VBAL §5.6.9.1** Operator Precedence and Associativity](rd-vbal.5.6.9.1.operator-precedence-and-associativity.md)

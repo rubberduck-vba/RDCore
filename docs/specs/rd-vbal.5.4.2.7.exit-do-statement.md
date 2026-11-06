@@ -41,6 +41,3 @@ lowering both ask. Lowering emits no instruction for the statement that is an er
   `ExitLoop` target ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
 - `ProcedureExecutor` uses the same `case` arm for `ExitLoop` and `Jump`
   ([**RD-VBAL §5.4.2.5** Exit For Statement](rd-vbal.5.4.2.5.exit-for-statement.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.6** Do Statement](rd-vbal.5.4.2.6.do-statement.md) | ⏭️ [**RD-VBAL §5.4.2.8** If Statement](rd-vbal.5.4.2.8.if-statement.md)

@@ -74,6 +74,3 @@ interpretation applies.
 > control state. `InstructionKind` and the pre-resolved offsets on `Instruction` let the interpreter's
 > fetch/decode loop decide whether to branch, without the statement semantics needing to know about the
 > program counter ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-
----
-> ⏮️ [**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md) | ⏭️ [**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)

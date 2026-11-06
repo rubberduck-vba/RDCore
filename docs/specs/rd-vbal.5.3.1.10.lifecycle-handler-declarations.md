@@ -39,6 +39,3 @@ A reference is held by the variable that stores it. It is released when the vari
 A variable declared `As New`, and the predeclared instance of a class module whose `VB_PredeclaredId` attribute is `True`, is never `Nothing` when it is referred to: the reference creates the object. This is also so after the variable is set to `Nothing`, so that `Is Nothing` of such a variable is never `True`, and a member call on it is never error 91.
 
 See [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md).
-
----
-> ⏮️ [**RD-VBAL §5.3.1.9** Implemented Name Declarations](rd-vbal.5.3.1.9.implemented-name-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)

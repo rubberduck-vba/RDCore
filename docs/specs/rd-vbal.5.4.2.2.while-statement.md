@@ -42,6 +42,3 @@ The loop needs no per-activation state.
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 - Lowering pushes no `Exit Do` context for a `While…Wend` loop
   ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md) | ⏭️ [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)

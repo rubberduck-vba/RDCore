@@ -162,6 +162,3 @@ bytes as they were written.
 
 > [!NOTE]
 > 🚧 Not implemented yet: the table of an interface holds no address a program can call through.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md) | ⏭️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)

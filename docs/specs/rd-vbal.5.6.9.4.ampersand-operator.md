@@ -26,6 +26,3 @@ the same concatenation.
 
 👉 An operand that is a number or a date is let-coerced to `String` in the regional settings of the session's
 environment ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)).
-
----
-> ⏮️ [**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md) | ⏭️ [**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md)

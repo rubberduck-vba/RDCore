@@ -160,6 +160,3 @@ MS-VBAL does not say what a loop is when its start, end or step raises an error 
   ([**RD-VBAL §5.4.2.10** Select Case Statement](rd-vbal.5.4.2.10.select-case-statement.md)).
 - The verbose message of `ForLoopNotInitialized`, when a `Next` closer runs without its opener, is the resx entry
   `VBForLoopNotInitialized_Verbose`, provided in both languages.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.2** While Statement](rd-vbal.5.4.2.2.while-statement.md) | ⏭️ [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)

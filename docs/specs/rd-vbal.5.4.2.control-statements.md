@@ -46,6 +46,3 @@ back-edge. See
 [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md),
 [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md) for the complete node and instruction catalogues.
-
----
-> ⏮️ [**RD-VBAL §5.4.1.2** Rem Statement](rd-vbal.5.4.1.2.rem-statement.md) | ⏭️ [**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)

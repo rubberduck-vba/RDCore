@@ -61,6 +61,3 @@ fault statement are held on the activation's
 |`RDCore.Runtime.Execution.ProcedureExecutor`|Dispatches `ResumeCurrentStatement`, `ResumeNext` and `ResumeLabel`.|
 |`ErrorHandlerState.ActiveError`, `ErrorHandlerState.FaultStatementOffset`|The active error, and the offset of the fault statement (**RDCore.SDK**).|
 |[VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.ResumeWithoutError`|Run-time error 20.|
-
----
-> ⏮️ [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md) | ⏭️ [**RD-VBAL §5.4.4.3** Error Statement](rd-vbal.5.4.4.3.error-statement.md)

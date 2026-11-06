@@ -28,6 +28,3 @@ is the default member of the class of `d`. A `Variant` holding the object is unw
 
 A `!member` expression with no owner, inside a `With` block, is a with-expression. See
 [**RD-VBAL §5.6.15** With Expressions](rd-vbal.5.6.15.with-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md) | ⏭️ [**RD-VBAL §5.6.15** With Expressions](rd-vbal.5.6.15.with-expressions.md)

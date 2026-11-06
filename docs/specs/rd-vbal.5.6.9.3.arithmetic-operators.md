@@ -156,6 +156,3 @@ gives no finite number:
 |A result past the range of a `Double` (`10 ^ 400`).|6 (Overflow)|
 
 A `Variant` operand doesn't change this: `Double` has nothing wider. `0 ^ 0` is `1`.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md) | ⏭️ [**RD-VBAL §5.6.9.4** & Operator](rd-vbal.5.6.9.4.ampersand-operator.md)

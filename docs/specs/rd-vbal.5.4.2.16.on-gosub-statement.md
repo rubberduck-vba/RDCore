@@ -65,6 +65,3 @@ had reached the end of the procedure body
   (steps 1 and 2), by calling `VBNumericLetCoercionTypeRuntimeSemantics` directly, bypassing the let-coercion
   provider.
 - The push in step 5 goes through `CallStackFrame.PushGoSubReturn`.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.15** Return Statement](rd-vbal.5.4.2.15.return-statement.md) | ⏭️ [**RD-VBAL §5.4.2.17** Exit Sub Statement](rd-vbal.5.4.2.17.exit-sub-statement.md)

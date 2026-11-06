@@ -126,6 +126,3 @@ lowering ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
 Any statement kind that lowering does not give a dedicated shape lowers as `Simple`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
-
----
-> ⏮️ [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md) | ⏭️ [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)
