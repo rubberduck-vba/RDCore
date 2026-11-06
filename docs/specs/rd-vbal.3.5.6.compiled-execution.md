@@ -22,6 +22,14 @@ its own type (MS-VBAL §5.5.1.2.12). When the `Variant` holds anything else (`Em
 overflow its type, the interpreter runs that statement on its own and compiled code goes on after it. That is where the interpreter widens an `Integer`
 that overflows to a `Long`, and where a `Variant` that held an object lets go of it.
 
+When a procedure is compiled, compiled code also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
+`Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
+operation on `Variant`s that hold the types they are guessed to hold is then compiled as an operation on those types, using the same operations as the
+interpreter (`PayloadOperations`). The `Next` of a `For` loop of a `Variant` counter, and a condition such as `S > 100`, are compiled the same way. Each
+time it runs, compiled code first checks the type the `Variant` holds. When it doesn't hold the guessed type, the operation is worked out as above, for
+the type it does hold. That is the case for an `Empty` `Variant` before its first assignment, a `Variant` that came to hold a `String` or `Null`, and a sum
+that has overflowed to a wider type. A wrong guess makes the operation slower, never its result different.
+
 Compiled code does these itself:
 
 |Kind|What compiled code does|
@@ -92,7 +100,8 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   stored (MS-VBAL §5.6.9.3). Compiled code computes the operation in `Double` when the result is exact; that is the value the 80-bit format would compute.
   Otherwise it computes in the 80-bit format.
 - `VariantOperations`: a `Variant` read and written where its frame keeps it, and an operation with a `Variant` operand, worked out for the types of the
-  values its operands hold. Each calls the interpreter's own code for it.
+  values its operands hold. Each calls the interpreter's own code for it. A `Variant` read as the type it is guessed to hold fails when it holds another,
+  and a `Variant` written as one fails when it holds an object.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
 cell, the function result into its variable, the state of each `For` loop whose `For` statement ran, and the selector of each `Select Case` whose `Select`
