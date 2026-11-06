@@ -1,5 +1,6 @@
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.LanguageServer.Server;
@@ -38,11 +39,12 @@ public sealed class WorkspaceLoaderTests
     private static ProjectFileService ProjectService(MockFileSystem fs)
         => new(NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs), () => SupportedLanguages.RDVBA);
 
-    private static WorkspaceService Service(MockFileSystem fs, IServerStateProvider state, WorkspaceDocumentService documents, DocumentStateProvider documentStates)
+    private static WorkspaceService Service(MockFileSystem fs, IServerStateProvider state, WorkspaceDocumentService documents, DocumentStateProvider documentStates,
+        Microsoft.Extensions.Logging.ILogger<WorkspaceService>? logger = null)
     {
         var projectFiles = ProjectService(fs);
         return new WorkspaceService(
-            new Version(99, 0, 0), state, NullLogger<WorkspaceService>.Instance,
+            state, logger ?? NullLogger<WorkspaceService>.Instance,
             fs.Path, fs.File, fs.Directory, projectFiles, documents, documentStates,
             () => ProtocolSupportedLanguage.VBA, new WorkspaceProjects(projectFiles), new ProjectFileLoader(fs));
     }
@@ -54,13 +56,13 @@ public sealed class WorkspaceLoaderTests
         return state;
     }
 
-    private static WorkspaceService WorkspaceService(MockFileSystem fs, IServerStateProvider? state = null)
+    private static WorkspaceService WorkspaceService(MockFileSystem fs, IServerStateProvider? state = null, Microsoft.Extensions.Logging.ILogger<WorkspaceService>? logger = null)
     {
         var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
         var documents = new WorkspaceDocumentService(
             documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
 
-        return Service(fs, state ?? InitializingState(), documents, documentStates);
+        return Service(fs, state ?? InitializingState(), documents, documentStates, logger);
     }
 
     [TestMethod]
@@ -122,20 +124,6 @@ public sealed class WorkspaceLoaderTests
     }
 
     [TestMethod]
-    public async Task WorkspaceService_LoadAsync_AProjectFileALaterPlatformWrote_IsRefused()
-    {
-        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
-        {
-            [ProjectFilePath] = new MockFileData("{ \"Version\": \"100.0.0\", \"ProjectInfo\": { \"Name\": \"Later\" } }"),
-        });
-        var sut = WorkspaceService(fs);
-
-        var error = await Assert.ThrowsExactlyAsync<NotSupportedException>(() => sut.LoadAsync(Root));
-
-        StringAssert.Contains(error.Message, "100.0.0");
-    }
-
-    [TestMethod]
     public async Task WorkspaceService_LoadAsync_LoadsModuleContent_AndMarksItLoaded()
     {
         var fs = FileSystemWith(("src/Mod1.bas", "Public Sub Foo()\r\nEnd Sub"));
@@ -180,27 +168,46 @@ public sealed class WorkspaceLoaderTests
         Assert.IsTrue(documents.TryGetDocument(new Uri(Path.Combine(Root, "res", "App.res")), out _));
     }
 
-    // a project file keeps the version that wrote it as it is read: a later version's is refused, not taken for the running platform's (copy constructor bug).
+    // a project file's version is the version of its format, and a project file loads whatever it says: the first builds stamped theirs 1.0.0, which a
+    // 0.1 platform refused as a later platform's (desk card version-010-refuses-100). What is not this platform's format is said in the log, and only there.
     [TestMethod]
-    [DataRow("100.0.0", true, DisplayName = "written by a later version")]
-    [DataRow("99.0.0", false, DisplayName = "written by this version")]
-    [DataRow("1.2.3", false, DisplayName = "written by an earlier version")]
-    public async Task WorkspaceService_LoadAsync_RefusesAProjectALaterVersionWrote(string written, bool refused)
+    [DataRow("\"1.0.0\"", null, DisplayName = "1.0.0, as the first builds stamped it: the format 1.0")]
+    [DataRow("\"1.0\"", null, DisplayName = "1.0, this platform's format")]
+    [DataRow("\"0.1.3\"", LogLevel.Information, DisplayName = "0.1.3, as the next builds stamped it: an older format")]
+    [DataRow("\"1.7\"", LogLevel.Warning, DisplayName = "1.7, a newer minor")]
+    [DataRow("\"100.0.0\"", LogLevel.Warning, DisplayName = "100.0.0, a newer major that reads all the same")]
+    [DataRow("2", LogLevel.Warning, DisplayName = "the number 2, a newer major")]
+    [DataRow("\"v1\"", LogLevel.Warning, DisplayName = "v1, no format's version")]
+    [DataRow("{ \"Major\": 1 }", LogLevel.Warning, DisplayName = "an object, no format's version")]
+    public async Task WorkspaceService_LoadAsync_LoadsAProjectFileWhateverFormatItSays_AndLogsOneThatIsNotThisOne(string version, LogLevel? logged)
     {
         var fs = new MockFileSystem(new Dictionary<string, MockFileData>
         {
-            [ProjectFilePath] = new MockFileData($$"""{ "Version": "{{written}}", "Configuration": [], "ProjectInfo": { "Name": "Later" } }"""),
+            [ProjectFilePath] = new MockFileData($$"""{ "Version": {{version}}, "Configuration": [], "ProjectInfo": { "Name": "Written", "Modules": [ "Module1.bas" ] } }"""),
+            [Path.Combine(Root, "Module1.bas")] = new MockFileData("Attribute VB_Name = \"Module1\"\r\n"),
         });
-        var sut = WorkspaceService(fs);
+        var logger = new CapturingLogger();
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+        var sut = Service(fs, InitializingState(), documents, documentStates, logger);
 
-        if (refused)
-        {
-            await Assert.ThrowsExactlyAsync<NotSupportedException>(() => sut.LoadAsync(Root));
-        }
-        else
-        {
-            await sut.LoadAsync(Root);
-        }
+        await sut.LoadAsync(Root);
+
+        Assert.ContainsSingle(documents.GetAllDocuments(), "the project's module is loaded");
+        var said = logger.Entries.Where(entry => entry.Message.Contains("format", StringComparison.Ordinal)).Select(entry => entry.Level).ToArray();
+        CollectionAssert.AreEqual(logged is { } level ? new[] { level } : Array.Empty<LogLevel>(), said);
+    }
+
+    private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<WorkspaceService>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
     }
 
     [TestMethod]

@@ -65,7 +65,7 @@ internal interface IWorkspaceService
     void RemoveReference(RDCoreReference reference);
 }
 
-internal class WorkspaceService(Version serverVersion, IServerStateProvider serverStateProvider,
+internal class WorkspaceService(IServerStateProvider serverStateProvider,
     ILogger<WorkspaceService> logger,
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile,
@@ -263,13 +263,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         }
 
         await projectFileService.LoadAsync(workspaceRoot);
-        var version = projectFileService.Project.Version;
-        // a project no platform wrote yet - synthesized for a folder, or a .rdproj written by hand - has no version, and any platform loads it.
-        if (!string.IsNullOrEmpty(version) && new Version(version) > serverVersion)
-        {
-            logger.LogWarning("This project was created with an ulterior version and will not be loaded; an exception will be thrown.");
-            throw new NotSupportedException($"This project was created with a version ({version}) greater than the currently running version ({serverVersion.ToString(3)}).");
-        }
+        LogSchemaOf(projectFileService.Project);
 
         documentService.Initialize(workspaceRoot);
         // the root is a folder of the workspace whether or not the client lists it among its folders.
@@ -279,6 +273,30 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
+    }
+
+    // a project file is loaded whatever format it says it is in: a format that is not this platform's is said in the log, and only there.
+    private void LogSchemaOf(ProjectFile project)
+    {
+        switch (ProjectFile.SchemaOf(project.Version))
+        {
+            case ProjectFileSchemaMatch.Older:
+                logger.LogInformation("📄 The project file is in the format {version}, older than this platform's {schema}: it is written in {schema} when it is next saved.",
+                    project.Version, ProjectFile.SchemaVersion, ProjectFile.SchemaVersion);
+                break;
+            case ProjectFileSchemaMatch.NewerMinor:
+                logger.LogWarning("⚠️ The project file is in the format {version}, newer than this platform's {schema}: what this platform doesn't know of it is kept as it is.",
+                    project.Version, ProjectFile.SchemaVersion);
+                break;
+            case ProjectFileSchemaMatch.NewerMajor:
+                logger.LogWarning("⚠️ The project file is in the format {version}, a major newer than this platform's {schema}: it was read as this platform reads its own, and may not say all it means to.",
+                    project.Version, ProjectFile.SchemaVersion);
+                break;
+            case ProjectFileSchemaMatch.Unparseable:
+                logger.LogWarning("⚠️ The project file says its format is '{version}', which is no format's version: it was read as this platform's {schema}.",
+                    project.Version, ProjectFile.SchemaVersion);
+                break;
+        }
     }
 
     private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));

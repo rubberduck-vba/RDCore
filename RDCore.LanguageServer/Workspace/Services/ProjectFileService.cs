@@ -77,8 +77,8 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
 
         if (_projectFile.IsDirty || !ioFile.Exists(path))
         {
-            // a project file is stamped with the version of the platform that writes it.
-            var written = Project.WithCurrentVersion();
+            // a project file is stamped with the version of the format it is written in.
+            var written = Project.WithSchemaVersion();
             await using (var stream = ioFile.Open(path, FileMode.Create))
             {
                 await JsonSerializer.SerializeAsync(stream, written, SerializerOptions);
