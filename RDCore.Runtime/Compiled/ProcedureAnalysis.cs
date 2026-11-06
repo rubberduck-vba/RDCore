@@ -79,7 +79,7 @@ namespace RDCore.Runtime.Compiled;
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
 /// </remarks>
-internal sealed class ProcedureAnalysis
+internal sealed partial class ProcedureAnalysis
 {
     private readonly IRuntimeSession _session;
     private readonly RuntimeExpressionEvaluator _evaluator;
@@ -319,7 +319,7 @@ internal sealed class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or ElementLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -552,6 +552,9 @@ internal sealed class ProcedureAnalysis
                     _ => RefusedCall(call.Callee, location),
                 };
 
+            case InstructionKind.Simple when ArrayStatementOf(instruction) is { } arrayStatement:
+                return arrayStatement;
+
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
                 return null;
@@ -642,6 +645,11 @@ internal sealed class ProcedureAnalysis
     // its type.
     private CompiledStep? AnalyzeLet(int offset, AssignmentStatementNode assignment)
     {
+        if (assignment.Target is IndexExpressionNode)
+        {
+            return AnalyzeElementLet(offset, assignment);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode)
         {
             Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
@@ -1152,6 +1160,13 @@ internal sealed class ProcedureAnalysis
                 return PlanOf(binary) is { } binaryPlan && Payload(binary.Left) is { } left && Payload(binary.Right) is { } right
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
+
+            // an element of an array, and its bounds (IR lowering S2.6b).
+            case BoundIndex index:
+                return Element(index);
+
+            case BoundArrayBound arrayBound:
+                return ArrayBound(arrayBound);
 
             default:
                 return Unsupported(node);

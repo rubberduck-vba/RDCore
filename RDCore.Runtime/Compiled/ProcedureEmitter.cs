@@ -21,7 +21,7 @@ namespace RDCore.Runtime.Compiled;
 /// The IL references nothing but the members of <c>RDCore.Runtime.Compiled</c> (the support boundary, A4).
 /// </para>
 /// </remarks>
-internal sealed class ProcedureEmitter
+internal sealed partial class ProcedureEmitter
 {
     private static readonly Type Payloads = typeof(PayloadOperations);
     private static readonly Type Activation = typeof(CompiledActivation);
@@ -163,6 +163,7 @@ internal sealed class ProcedureEmitter
             _objects[slot] = _il.DeclareLocal(typeof(object));
         }
 
+        DeclareArrays();
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
             if (_analysis.SpeculatedKinds.TryGetValue(next.Counter, out var counting) && !_variantLoops.ContainsKey(next.Opener))
@@ -291,6 +292,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ObjectCellOf))!);
             _il.Emit(OpCodes.Stloc, cell);
         }
+
+        EmitArrayEntry();
     }
 
     // the cell of a field of Me, found by the activation's object; none goes to orElse.
@@ -462,6 +465,10 @@ internal sealed class ProcedureEmitter
 
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
+                break;
+
+            case ElementLetStep or ArrayStatementStep:
+                EmitArrayStep(step);
                 break;
         }
     }
@@ -903,6 +910,8 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReloadObjectCell))!);
             _il.Emit(OpCodes.Brfalse, unread);
         }
+
+        EmitArrayReload(unread);
 
         // the function result variable too, which the spill before the call wrote.
         if (_result is { } result)
@@ -1666,7 +1675,7 @@ internal sealed class ProcedureEmitter
             }
 
             default:
-                throw new InvalidOperationException($"No IL for {node.GetType().Name}.");
+                return EmitArrayPayload(node, failure);
         }
     }
 

@@ -108,6 +108,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// <summary>The evaluator the expressions of the instructions are evaluated with.</summary>
     internal RuntimeExpressionEvaluator Expressions => conditions.Expressions;
 
+    /// <summary>The semantics a <c>Simple</c> instruction's statement is executed with: what compiled code runs a statement as a support call with.</summary>
+    internal IStatementRuntimeSemanticsProvider Statements => statements;
+
     // above zero while a breakpoint's condition is evaluated: a procedure the condition calls runs on this executor, and neither waits at a breakpoint nor ends a step.
     private int _conditionDepth;
 

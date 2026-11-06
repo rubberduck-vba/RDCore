@@ -554,9 +554,8 @@ public sealed partial class RuntimeExpressionEvaluator
     // of a Long, outside its dimension - is that evaluation's to raise, and so is an array that is not known, or one whose elements are kept as values.
     private ScalarCell? ElementCellOf(IRuntimeSession session, BoundIndex index)
     {
-        if (index.Callee is not BoundVariable variable
-            || BindingOf(session, variable).Handle is not ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeArrayValue> { Value.Array: { IsIndeterminate: false } array } }
-            || index.Arguments.Length != array.Rank || array.Rank > MaxPayloadRank)
+        if (index.Callee is not BoundVariable variable || PayloadArrayOf(BindingOf(session, variable).Handle) is not { } array
+            || index.Arguments.Length != array.Rank)
         {
             return null;
         }
@@ -578,6 +577,18 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // MS-VBAL §5.6.13 sets no limit on the rank of an array; MS-VBA's is 60. An element of more dimensions than this is read boxed.
     private const int MaxPayloadRank = 8;
+
+    /// <summary>
+    /// The array the cell of an array variable holds, known, whose elements are read and written on payloads (S1.6): what an element of it is found in
+    /// (<see cref="ElementCellOf"/>), and what compiled code finds one in too (IR lowering S2.6b).
+    /// </summary>
+    /// <returns><see langword="null"/> when the cell holds no array, one that is not known, or one of more dimensions than are read on payloads.</returns>
+    internal static VBArrayValue? PayloadArrayOf(IBindingHandle? handle)
+        => KnownArrayOf(handle) is { Rank: <= MaxPayloadRank } array ? array : null;
+
+    /// <summary>The array the cell of an array variable holds, when it is known: whose bounds <c>LBound</c> and <c>UBound</c> read.</summary>
+    internal static VBArrayValue? KnownArrayOf(IBindingHandle? handle)
+        => handle is ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeArrayValue> { Value.Array: { IsIndeterminate: false } array } } ? array : null;
 
     // MS-VBAL §5.6.9: a plan that depends on what a Variant operand holds is made again for the types of the payloads (S1.4) - the value types the
     // boxed evaluation makes it for (PlanExecutor); any other plan is final.
