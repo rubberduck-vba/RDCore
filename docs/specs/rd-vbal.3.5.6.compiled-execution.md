@@ -34,12 +34,17 @@ In a procedure of a class, compiled code reads and writes a field of `Me` of a s
 outside the class (`C.Total = 10`) see the same field. A field passed `ByRef` is passed as the field itself: what the callee assigns its parameter, it
 assigns the field. Each object has its own fields, and a member called on one reads and writes that object's.
 
+Compiled code reads the reference held by an object parameter or variable (declared `As Object`, or as a class or an interface) where its frame keeps it.
+It compares two such references with `Is`, or one with `Nothing`, and tests one with `TypeOf`, as the interpreter does (MS-VBAL §5.6.9.7, §5.6.7). A
+`Set` of the variable is the interpreter's, and compiled code reads the variable again after it. `TypeOf` of `Nothing` is also the interpreter's, which
+raises error 91. So is a variable declared `As New`, which the interpreter makes when it is read.
+
 Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
 |Expressions|Literals, constants, the procedure's parameters and variables, its `Variant`s, the scalar fields of `Me`, the function's own result variable, and parentheses.|
-|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one.|
+|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `Is` of the procedure's object variables and `Nothing`, and `TypeOf` of one of its object variables.|
 |Statements|`Let` of a variable, of a `Variant`, of a scalar field of `Me`, or of the function's result.|
 |Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module whose parameters are scalars (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
@@ -106,6 +111,8 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
 - `VariantOperations`: a `Variant` read and written where its frame keeps it, and an operation with a `Variant` operand, worked out for the types of the
   values its operands hold. Each calls the interpreter's own code for it. A `Variant` read as the type it is guessed to hold fails when it holds another,
   and a `Variant` written as one fails when it holds an object.
+- `ObjectOperations`: the reference an object variable holds, read where its frame keeps it, and `Is` of two of them or of one and `Nothing`. A
+  variable whose reference compiled code can't read fails.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
 cell, the function result into its variable, the state of each `For` loop whose `For` statement ran, and the selector of each `Select Case` whose `Select`
