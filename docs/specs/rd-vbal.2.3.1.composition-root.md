@@ -50,6 +50,3 @@ for procedure invocation.
 |2.3.1.1|[Execution Session](rd-vbal.2.3.1.1.execution-session.md)|
 |2.3.1.2|[Session Services](rd-vbal.2.3.1.2.session-services.md)|
 |2.3.1.3|[Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
-
----
-> ⏮️ [**RD-VBAL §2.3** Application Host](rd-vbal.2.3.application-host.md) | ⏭️ [**RD-VBAL §2.3.1.1** Execution Session](rd-vbal.2.3.1.1.execution-session.md)

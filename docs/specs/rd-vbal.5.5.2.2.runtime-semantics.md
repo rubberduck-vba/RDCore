@@ -37,6 +37,3 @@ This section corresponds to [**MS-VBAL §5.5.2.2.2** Set-coercion to and from no
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.5.2.1** Static semantics](rd-vbal.5.5.2.1.static-semantics.md) | ⏭️ [**RD-VBAL §5.6** Expressions](rd-vbal.5.6.expressions.md)

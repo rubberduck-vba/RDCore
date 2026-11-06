@@ -70,6 +70,3 @@ If the validation result is `NoFlags`, the host may:
 
 > [!TIP]
 > To facilitate building *platform extensions*, the `rdc.exe` host may be configured to allow unsigned extension builds using the `--unsafe-dev-mode` command-line flag.
-
----
-> ⏮️ [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md) | ⏭️ [**RD-VBAL §1.1.6** Capabilities Provider](rd-vbal.1.1.6.capabilities-provider.md)

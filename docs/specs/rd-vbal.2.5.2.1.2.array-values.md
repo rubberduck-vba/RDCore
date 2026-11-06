@@ -93,6 +93,3 @@ Storage keeps the array value itself:
 `VBRuntimeArrayValue` is a plain (non-`record`) wrapper. Boxing the array through a structurally-equatable type would make comparing two array-typed `VBTypedValue`s recurse back into the array's own equality, through the same boxed value.
 
 A UDT value carries its field store as an array value carries its element block, and a `Variant` uses the same boxing pattern for storage; see [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md) and [**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md).
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md) | ⏭️ [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md)

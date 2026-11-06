@@ -52,6 +52,3 @@ The open-file rule is the file-channel shim's, because the channels are what kno
 |---|---|
 |[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)`.TryRename`|Renames, and says why it could not (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.FileStatementRuntimeSemantics.ExecuteName`|Evaluates the operands and raises the error (**RDCore.Runtime**).|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.12** Get Statement](rd-vbal.5.4.5.12.get-statement.md) | ⏭️ [**RD-VBAL §5.5** Implicit coercion](rd-vbal.5.5.implicit-coercion.md)

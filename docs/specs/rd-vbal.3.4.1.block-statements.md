@@ -62,6 +62,3 @@ Each `Case` line's comma-separated conditions form their own node hierarchy unde
 |Single value|`Case 5`|[CaseValueRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseValueRangeClauseNode.html)|
 |Comparison|`Case Is > 5`|[CaseComparisonRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseComparisonRangeClauseNode.html)|
 |Inclusive range|`Case 1 To 10`|[CaseToRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseToRangeClauseNode.html)|
-
----
-> ⏮️ [**RD-VBAL §3.4.0** Statements](rd-vbal.3.4.0.statements.md) | ⏭️ [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)

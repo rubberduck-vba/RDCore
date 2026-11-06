@@ -13,6 +13,10 @@ public interface IConsoleKeys
     /// <summary>
     /// Reads the next key, without echoing it.
     /// </summary>
+    /// <remarks>
+    /// A key that is there when <paramref name="token"/> is cancelled is read, not left for whatever reads the keys next: the prompt stops reading its key to
+    /// have a question asked, and a key typed before then is the prompt's (<see cref="ConsolePromptEditor.Interjections"/>).
+    /// </remarks>
     /// <param name="token">Stops waiting for one.</param>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before a key was pressed.</exception>
     ConsoleKeyInfo ReadKey(CancellationToken token);

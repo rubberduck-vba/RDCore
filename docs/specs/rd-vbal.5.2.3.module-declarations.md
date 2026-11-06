@@ -279,6 +279,3 @@ statements, enumerations and user-defined types, all together. The 10,001st is [
 > MS-VBAL sets no limit. MS-VBA compiles a module of 10,800 such names, and not one of 11,000, whatever their kind or the length of their names, and reports
 > "Out of memory" (recorded in Excel). 10,000 is RD-VBA's cap, below that by the author's ruling, so that a module RD-VBA compiles is one MS-VBA compiles; the
 > message is MS-VBA's. How many lines a module has is not limited.
-
----
-> ⏮️ [**RD-VBAL §5.2.2** Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md) | ⏭️ [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md)

@@ -48,6 +48,3 @@ emptied replacement is written back through it, as an assignment to it is. A fix
 |---|---|
 |`RDCore.Runtime.Semantics.Statements.ArrayStatementRuntimeSemantics`|Erases each element; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
 |[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html), [VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|The two kinds of array the statement tells apart (**RDCore.SDK**).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md) | ⏭️ [**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)

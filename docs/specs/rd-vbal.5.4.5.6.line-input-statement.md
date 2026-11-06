@@ -25,6 +25,3 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 |---|---|
 |[IFileChannelInput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelInput.html)|The character input surface of a channel, shared with `Input #` ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).|
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the target: the same target resolution `Input #`, `Get` and the Let assignment statement use.|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.5** Unlock Statement](rd-vbal.5.4.5.5.unlock-statement.md) | ⏭️ [**RD-VBAL §5.4.5.7** Width Statement](rd-vbal.5.4.5.7.width-statement.md)

@@ -26,6 +26,20 @@ internal interface IWorkspaceService
     /// <param name="workspaceRoot">The first folder, the primary project's.</param>
     /// <param name="folders">The folders the client gave, the first included or not.</param>
     Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders);
+
+    /// <summary>
+    /// Loads the workspace as <see cref="LoadAsync(string, IReadOnlyList{string})"/> does, and offers the user to regenerate a project file that can't be read
+    /// (<see cref="ProjectFileRegeneration"/>): when they accept, the file is kept next to itself, and the project is made again from the source files of its
+    /// folder, and written.
+    /// </summary>
+    /// <param name="workspaceRoot">The first folder, the primary project's.</param>
+    /// <param name="folders">The folders the client gave, the first included or not.</param>
+    /// <param name="ask">
+    /// Asks the user to choose among the buttons, and answers the one they chose, or <see langword="null"/>; <see langword="null"/> when nobody is there to ask
+    /// (<see cref="RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a project file that can't be read is not loaded.
+    /// </param>
+    /// <param name="token">A token that cancels the question.</param>
+    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default);
     /// <summary>
     /// Asynchronously serializes the project file to disk.
     /// </summary>
@@ -65,7 +79,7 @@ internal interface IWorkspaceService
     void RemoveReference(RDCoreReference reference);
 }
 
-internal class WorkspaceService(Version serverVersion, IServerStateProvider serverStateProvider,
+internal class WorkspaceService(IServerStateProvider serverStateProvider,
     ILogger<WorkspaceService> logger,
     System.IO.Abstractions.IPath ioPath,
     System.IO.Abstractions.IFile ioFile,
@@ -254,7 +268,9 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
     public Task LoadAsync(string workspaceRoot) => LoadAsync(workspaceRoot, [workspaceRoot]);
 
-    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders)
+    public Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders) => LoadAsync(workspaceRoot, folders, ask: null);
+
+    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default)
     {
         if (serverStateProvider.State.Value != ServerStateValue.Initializing)
         {
@@ -262,14 +278,8 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
             throw new InvalidServerStateException();
         }
 
-        await projectFileService.LoadAsync(workspaceRoot);
-        var version = projectFileService.Project.Version;
-        // a project no platform wrote yet - synthesized for a folder, or a .rdproj written by hand - has no version, and any platform loads it.
-        if (!string.IsNullOrEmpty(version) && new Version(version) > serverVersion)
-        {
-            logger.LogWarning("This project was created with an ulterior version and will not be loaded; an exception will be thrown.");
-            throw new NotSupportedException($"This project was created with a version ({version}) greater than the currently running version ({serverVersion.ToString(3)}).");
-        }
+        await LoadProjectFileAsync(workspaceRoot, ask, token);
+        LogSchemaOf(projectFileService.Project);
 
         documentService.Initialize(workspaceRoot);
         // the root is a folder of the workspace whether or not the client lists it among its folders.
@@ -279,6 +289,99 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
+    }
+
+    // a project file that can't be read is regenerated from the source files of its folder, when the user says to; the file is kept next to it first.
+    private async Task LoadProjectFileAsync(string workspaceRoot, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token)
+    {
+        try
+        {
+            await projectFileService.LoadAsync(workspaceRoot);
+            return;
+        }
+        catch (InvalidDataException exception) when (ask is not null)
+        {
+            var path = ioPath.Combine(workspaceRoot, ProjectFile.FileName);
+            var backup = ProjectFileRegeneration.BackupPathOf(path, ioFile.Exists);
+            if (!await ProjectFileRegeneration.AskAsync(path, backup, exception, TextOf(path), ask, token))
+            {
+                logger.LogWarning("⚠️ The project file can't be read, and was not regenerated: the workspace will not be loaded.");
+                throw;
+            }
+
+            ioFile.Move(path, backup);
+            logger.LogWarning("⚠️ The project file can't be read: it is kept as '{backup}', and regenerated from the source files of its folder.", backup);
+            try
+            {
+                // the folder has no project file now: its project is the one its source files make, which is written.
+                await projectFileService.LoadAsync(workspaceRoot);
+                await projectFileService.SaveAsync();
+            }
+            catch (Exception regeneration)
+            {
+                // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start,
+                // without a word, and without what only the file said. The project its folder made is let go of, as for a project file the user would not have
+                // regenerated: a change to it would otherwise be written over the file that was put back.
+                projectFileService.Unload();
+                try
+                {
+                    if (ioFile.Exists(path))
+                    {
+                        ioFile.Delete(path);
+                    }
+
+                    ioFile.Move(backup, path);
+                    logger.LogError("❌ The project file could not be regenerated, and is back as it was: {reason}", regeneration.Message);
+                }
+                catch (Exception restore)
+                {
+                    logger.LogError("❌ The project file could not be regenerated ({reason}), nor put back: it is kept as '{backup}' ({restore}).",
+                        regeneration.Message, backup, restore.Message);
+                    // the user is the one to put it back: the load fails with where the file is, which the client is shown.
+                    throw new ProjectFileNotPutBackException(path, backup, regeneration, restore);
+                }
+
+                throw;
+            }
+        }
+    }
+
+    // the text of a project file that couldn't be read as a project, for the question to say where it stops being valid in characters; none when it can't be read
+    // at all, and the question then says it in the reader's bytes.
+    private string? TextOf(string path)
+    {
+        try
+        {
+            return ioFile.ReadAllText(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    // a project file is loaded whatever format it says it is in: a format that is not this platform's is said in the log, and only there.
+    private void LogSchemaOf(ProjectFile project)
+    {
+        switch (ProjectFile.SchemaOf(project.Version))
+        {
+            case ProjectFileSchemaMatch.Older:
+                logger.LogInformation("📄 The project file is in the format {version}, older than this platform's {schema}: it is written in {schema} when it is next saved.",
+                    project.Version, ProjectFile.SchemaVersion, ProjectFile.SchemaVersion);
+                break;
+            case ProjectFileSchemaMatch.NewerMinor:
+                logger.LogWarning("⚠️ The project file is in the format {version}, newer than this platform's {schema}: what this platform doesn't know of it is kept as it is.",
+                    project.Version, ProjectFile.SchemaVersion);
+                break;
+            case ProjectFileSchemaMatch.NewerMajor:
+                logger.LogWarning("⚠️ The project file is in the format {version}, a major newer than this platform's {schema}: it was read as this platform reads its own, and may not say all it means to.",
+                    project.Version, ProjectFile.SchemaVersion);
+                break;
+            case ProjectFileSchemaMatch.Unparseable:
+                logger.LogWarning("⚠️ The project file says its format is '{version}', which is no format's version: it was read as this platform's {schema}.",
+                    project.Version, ProjectFile.SchemaVersion);
+                break;
+        }
     }
 
     private bool HoldsAProject(string folder) => ioFile.Exists(ioPath.Combine(folder, ProjectFile.FileName));

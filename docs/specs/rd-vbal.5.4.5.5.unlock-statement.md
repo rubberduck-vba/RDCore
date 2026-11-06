@@ -28,6 +28,3 @@ each carry one expression. See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4
 Like every file statement, `Unlock` runs through the session's file-channel shim,
 [IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.5.4** Lock Statement](rd-vbal.5.4.5.4.lock-statement.md) | ⏭️ [**RD-VBAL §5.4.5.6** Line Input Statement](rd-vbal.5.4.5.6.line-input-statement.md)
