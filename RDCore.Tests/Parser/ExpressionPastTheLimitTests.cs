@@ -286,12 +286,14 @@ public sealed class ExpressionPastTheLimitTests
         Assert.IsTrue(model.Procedures.Any(procedure => !procedure.Expressions.IsEmpty), "the facts of the module's expressions");
     }
 
-    // what is kept as text is not analyzed (RD-VBAL 2.6.1): it is no expression a constant's value is required to be, and the error the parser reported is
-    // the module's only one.
+    // what is kept as text is not analyzed (RD-VBAL 2.6.1): it is no expression a constant's value or an array's bound is required to be, and the error the
+    // parser reported is the module's only one.
     [TestMethod]
     [DataRow("Const K = {0}", "", DisplayName = "a constant of the module")]
     [DataRow("", "Const K = {0}", DisplayName = "a constant of the procedure")]
     [DataRow("Const K = 1 + {0}", "", DisplayName = "an operand of a constant's value")]
+    [DataRow("", "Dim y(1 To {0}) As Long", DisplayName = "a bound of an array of the procedure")]
+    [DataRow("Private y({0} To 5, 2) As Long", "", DisplayName = "a bound of an array of the module")]
     public async Task AConstantPastTheLimit_IsExpressionNestedTooDeeply_Only(string declarations, string body)
     {
         var deep = $"{new string('(', 3000)}1{new string(')', 3000)}";
