@@ -176,6 +176,9 @@ public partial class ModuleParser(
             ReportTooManyLineContinuations(content, uri, anchorOffset, errorListener);
             ast = PruneExpressionsNestedTooDeeply(ast, content, anchorOffset, errorListener);
 
+            // a directive's expression (#If, #ElseIf, #Const) is of the directive pass's own tree, and has the same limit.
+            precompilerTrivia = [.. precompilerTrivia.Select(directive => PruneExpressionsNestedTooDeeply(directive, content, anchorOffset, errorListener))];
+
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
             return ModuleParseResult.Success(ast) with
@@ -218,13 +221,16 @@ public partial class ModuleParser(
             // after the parser that walks it runs out of stack.
             salvaged = PrunedOrNone(uri, salvaged, content, anchorOffset, errorListener);
 
+            // and so are the directives, which the directive pass read before the parse failed (#If, #ElseIf, #Const), each of them on its own.
+            var directives = precompilerTrivia.Select(directive => PrunedOrNone(uri, directive, content, anchorOffset, errorListener)).OfType<SyntaxNode>().ToImmutableArray();
+
             // the errors the slow parse found before it stopped are the module's, and so is that it stopped: what is after it was not read.
             var stopped = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
                 outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
             return new ModuleParseResult
             {
                 SyntaxTree = salvaged,
-                PrecompilerTrivia = precompilerTrivia,
+                PrecompilerTrivia = directives,
                 Trivia = read?.Trivia ?? declarations?.Trivia ?? [],
                 SyntaxErrors = errorListener.Errors.IsEmpty ? [stopped] : outOfStack ? errorListener.Errors.Add(stopped) : errorListener.Errors,
             };
@@ -714,10 +720,10 @@ public partial class ModuleParser(
     // implementation. RD-VBAL: a deeper expression is a syntax error, kept as text and not analyzed.
     internal const int MaxExpressionNesting = 2500;
 
-    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in, and prunes each: the module comes
-    // back with every expression nested that deep an error node of its source text (UnbuiltExpressionTriviaNode), so that no stage after the parser is handed an
-    // expression deeper than the limit. The tree is walked with a stack of its own, as deep as the expression may be.
-    private static ModuleNode PruneExpressionsNestedTooDeeply(ModuleNode module, string content, SourcePosition anchorOffset, ErrorListener errors)
+    // reports the first expression nested in more than MaxExpressionNesting others, once for the outermost expression it is in, and prunes each: the tree - the
+    // module, or a directive of its own parse - comes back with every expression nested that deep an error node of its source text (UnbuiltExpressionTriviaNode),
+    // so that no stage after the parser is handed an expression deeper than the limit. The tree is walked with a stack of its own, as deep as the expression may be.
+    private static TNode PruneExpressionsNestedTooDeeply<TNode>(TNode module, string content, SourcePosition anchorOffset, ErrorListener errors) where TNode : SyntaxNode
     {
         var pending = new Stack<(SyntaxNode Node, int Depth, int Nesting, ExpressionNode? Outermost)>();
         var path = new List<SyntaxNode>();
@@ -787,12 +793,12 @@ public partial class ModuleParser(
             }
         }
 
-        return pruned.Count == 0 ? module : (ModuleNode)SyntaxTreePruning.Replaced(module, pruned, holders);
+        return pruned.Count == 0 ? module : (TNode)SyntaxTreePruning.Replaced(module, pruned, holders);
     }
 
     // a tree salvaged from a parse that failed, pruned as a module that was read is (PruneExpressionsNestedTooDeeply), or none if that fails too: no tree comes
     // back with an expression deeper than the limit.
-    private ModuleNode? PrunedOrNone(Uri uri, ModuleNode? salvaged, string content, SourcePosition anchorOffset, ErrorListener errors)
+    private TNode? PrunedOrNone<TNode>(Uri uri, TNode? salvaged, string content, SourcePosition anchorOffset, ErrorListener errors) where TNode : SyntaxNode
     {
         if (salvaged is null)
         {

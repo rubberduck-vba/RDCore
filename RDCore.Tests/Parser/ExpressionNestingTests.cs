@@ -222,6 +222,26 @@ public sealed class ExpressionNestingTests
         Assert.AreEqual(2, result.SyntaxErrors.Count(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply), Describe(result));
     }
 
+    // a directive's expression is read by the directive pass, a parse of its own, and has the same limit: the 1 of `-…-1` is nested in as many negations as
+    // there are minus signs. A chain of negations is a fraction of a second for the directive pass to read this deep, where a chain of additions is seconds.
+    [TestMethod]
+    [DataRow("#If {0} Then\r\nx = 1\r\n#End If")]
+    [DataRow("#If False Then\r\n#ElseIf {0} Then\r\nx = 1\r\n#End If")]
+    [DataRow("#Const LIMIT = {0}")]
+    public void ADirectivesExpressionAtTheLimit_IsRead_AndOnePast_IsExpressionNestedTooDeeply_Once(string directive)
+    {
+        ModuleParseResult ParseWith(int negations)
+            => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub Main()\r\n{string.Format(directive, new string('-', negations) + "1")}\r\nEnd Sub\r\n");
+
+        var atTheLimit = ParseWith(ModuleParser.MaxExpressionNesting);
+        var pastIt = ParseWith(ModuleParser.MaxExpressionNesting + 1);
+
+        Assert.IsTrue(atTheLimit.IsSuccess, Describe(atTheLimit));
+        var error = Assert.ContainsSingle(pastIt.SyntaxErrors, Describe(pastIt));
+        Assert.AreEqual((VBCompileErrorId.ExpressionNestedTooDeeply, directive.StartsWith("#If False") ? 2 : 1), ((VBCompileErrorId)error.ErrorId, error.Location.Range.Start.Line));
+        Assert.IsTrue(pastIt.PrecompilerTrivia.SelectMany(node => node.Descendants()).Any(node => node is UnbuiltExpressionTriviaNode), "what is past the limit is an error node");
+    }
+
     // what MS-VBA runs, RD-VBA runs: on the test's own thread, which is no larger than a thread of the language server.
     [TestMethod]
     public async Task TwoThousandNestedParentheses_Run()

@@ -34,7 +34,7 @@ An argument list that ends with an omitted argument - `Total(1, )`, `Report 1,` 
 A logical line joins at most 25 physical lines: 24 line-continuations in a row, and the 25th is a syntax error (`VBC00001`), "Too many line continuations", at its underscore, once for the line. **MS-VBAL §3.2.1** leaves the length of a line to the implementation, and this is MS-VBA's limit (MS Learn, and recorded in Excel). Two logical lines of 20 line-continuations each are valid: the limit is of one line.
 
 An expression is nested in at most 2,500 others: one nested deeper is `ExpressionNestedTooDeeply` (`VBC00060`), at the expression that passes the limit,
-once for each expression of a statement; the callee and the arguments of a call statement are one expression. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
+once for each expression of a statement or of a directive (`#If`, `#ElseIf`, `#Const`, **MS-VBAL §3.4**); the callee and the arguments of a call statement are one expression. An expression is nested in another when it is its operand, its argument, or what its parentheses hold: the first
 term of a chain of 2,500 terms joined by `+` is nested in 2,499 additions, and `1` in 2,500 parentheses is nested in 2,500 expressions. It is also nested in
 the member access it is the owner of (`a.b`, `a!b`), in the index expression it is the callee of (`a(1)`), and in a `New`, `TypeOf … Is` or `AddressOf`
 expression: each of them holds what it is written around as deep as an operator holds its operand. So a fluent chain `b.Add(1).Add(2)…` costs two levels a
@@ -44,6 +44,11 @@ group its one argument, which is a level of its own, so what they hold is nested
 argument are nested in the call and in nothing more. `Debug.Print` takes an output list (**MS-VBAL §5.4.5.8.1**, the list of the `Print` statement of
 §5.4.5.8), not an argument list: an item of it, and the expression of its `Spc` or `Tab` clause, are nested in nothing the statement writes around them, as
 the expression of an assignment is not. **MS-VBAL** leaves the depth of an expression to the implementation.
+
+A directive's expression is nested as a statement's is, but for its parentheses: the directive pass keeps no node for an expression in parentheses (a
+`cc-expression` in parentheses is the expression it holds), so they are not counted, and `#If ((x)) Then` is as deep as `#If x Then`, however many
+there are. A directive's expression past the limit has no value, and neither has a `#Const` set to one, nor a constant set to an expression that names
+one: no branch of a `#If` that such a value decides is excluded, and the error is `VBC00060`, not one of conditional compilation.
 
 An expression past the limit is kept as text, and isn't analyzed. What is nested in more than 2,500 expressions is an error node of the text it is written
 as (`UnbuiltExpressionTriviaNode`), and the name of a member past the limit is kept with its member access: a name in that text is bound to nothing, and is
