@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>String</c> parameter or variable - not a fixed-length one - compiled (IR lowering S2.5d): held in the cell its frame holds it in, whose text compiled
+/// A <c>String</c> parameter or variable - not a fixed-length one - compiled: held in the cell its frame holds it in, whose text compiled
 /// code reads, joins (MS-VBAL §5.6.9.4, §5.6.5), compares under the module's comparison mode (MS-VBAL §5.6.9.5) and writes as it is assigned, as the
 /// interpreter's evaluation of Strings does. A String it reads no text of is the interpreter's. A program runs the same either way.
 /// </summary>

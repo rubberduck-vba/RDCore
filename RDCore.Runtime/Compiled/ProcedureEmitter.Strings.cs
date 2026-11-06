@@ -4,7 +4,7 @@ namespace RDCore.Runtime.Compiled;
 
 internal sealed partial class ProcedureEmitter
 {
-    // the String slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5d).
+    // the String slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _texts = [];
     private static readonly Type Strings = typeof(StringOperations);
 

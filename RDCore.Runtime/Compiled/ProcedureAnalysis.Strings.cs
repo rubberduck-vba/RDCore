@@ -14,8 +14,8 @@ namespace RDCore.Runtime.Compiled;
 internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
-    /// The slots of the <c>String</c> parameters and variables - not fixed-length ones, which pad or truncate what they are assigned - in order (IR lowering
-    /// S2.5d): each is held in the cell its frame holds it in, which compiled code reads the text it holds from and writes the text it is assigned to.
+    /// The slots of the <c>String</c> parameters and variables - not fixed-length ones, which pad or truncate what they are assigned - in order:
+    /// each is held in the cell its frame holds it in, which compiled code reads the text it holds from and writes the text it is assigned to.
     /// </summary>
     public IReadOnlyList<int> TextSlots => [.. _textSlots];
 

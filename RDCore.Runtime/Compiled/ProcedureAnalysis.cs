@@ -483,7 +483,7 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a String is held in the cell its frame holds it in, whose text compiled code reads and writes (IR lowering S2.5d).
+            // a String is held in the cell its frame holds it in, whose text compiled code reads and writes.
             if (parameter is not ParamArrayParameterSymbol && IsText(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
             {
                 HoldText(_layout.ParameterSlots[i], parameter);
@@ -699,7 +699,7 @@ internal sealed partial class ProcedureAnalysis
                 _variantAssignments.Add((variantSlot, variantValue));
                 return new VariantLetStep(offset, variantSlot, variantValue);
 
-            // a String is assigned the text as it is (IR lowering S2.5d), as TryAssignUnboxed assigns it.
+            // a String is assigned the text as it is, as TryAssignUnboxed assigns it.
             case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
                 return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
             default:
@@ -1134,7 +1134,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundTypeOf { Operand: BoundVariable tested } typeOf when ObjectSlotOf(tested) is { } typed:
                 return new TypeOfNode(typed, ClassNumberOf(typeOf.Class));
 
-            // MS-VBAL §5.6.9.5: two Strings compared (IR lowering S2.5d), as TryEvaluatePayload compares them (TryCompareText).
+            // MS-VBAL §5.6.9.5: two Strings compared, as TryEvaluatePayload compares them (TryCompareText).
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } compared:
                 return CompareText(compared);
 

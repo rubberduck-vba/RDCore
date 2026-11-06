@@ -215,7 +215,7 @@ internal sealed record class IsNode(int? Left, int? Right) : PayloadNode(ScalarK
 // TypeOf of an object variable of the activation, against the class the body knows by its number (CompiledActivation.TypeOf).
 internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(ScalarKind.Boolean);
 
-// an expression of Strings (IR lowering S2.5d), as RuntimeExpressionEvaluator.TryEvaluateText evaluates it: to the text it is, with no value made of it.
+// an expression of Strings, as RuntimeExpressionEvaluator.TryEvaluateText evaluates it: to the text it is, with no value made of it.
 internal abstract record class TextNode;
 
 // a String literal, or Strings joined that are all literals: the text the literal's runtime value holds.
@@ -242,7 +242,7 @@ internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Va
 // speculated subtype the step is done in when it holds it (VariantSpeculation).
 internal sealed record class VariantForNextStep(int Offset, int Opener, int Body, int Counter) : CompiledStep(Offset);
 
-// a Let of a String variable of the activation - not a fixed-length one (IR lowering S2.5d): the text written into its cell as it is (MS-VBAL §5.4.3.8).
+// a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).

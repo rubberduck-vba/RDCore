@@ -1049,7 +1049,7 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5d): what compiled code reads the text
+    /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads the text
     /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation -
     /// the cell the interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>).
     /// </summary>
