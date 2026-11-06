@@ -137,8 +137,9 @@ public sealed class CompiledVariantTests
             "    If B = False Then Flipped = V",
             "End Function"), "Flipped", recoveries: 0);
 
-    // a Variant let-assigned to a scalar variable is converted to its type as any payload is: exactly, or by the interpreter, which rounds, running that
-    // statement alone - compiled code goes on after it. L = V converts 6 exactly; L + V is 8.5, which the interpreter rounds: 1.
+    // a Variant let-assigned to a scalar variable is converted to its type as any payload is: an integral one by compiled code, a floating-point one to an
+    // integral type by the interpreter, which rounds, running that statement alone - compiled code goes on after it. L = V converts the Integer 6;
+    // L + V is the Double 8.5, which the interpreter converts: 1.
     [TestMethod]
     public async Task AVariantAssignedToALong_ThatIsNoInteger_IsRoundedByTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -491,8 +492,9 @@ public sealed class CompiledVariantTests
             "    Counted = Counted & TypeName(I)",
             "End Function"), "Counted");
 
-    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant that is no whole number to a Long, which rounds - and
-    // compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
+    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant holding a Double to a Long, which compiled code does
+    // not convert, whole or not - and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
+    // L = L + V is a Double at each of the 6 passes, the 7 of the fourth among them; and the last Let joins Strings, which is the interpreter's: 7.
     [TestMethod]
     public async Task AStatementTheInterpreterRunsInASpeculatedLoop_IsGoneOnFrom()
         => await AssertAlikeAsync(Program(
@@ -509,7 +511,7 @@ public sealed class CompiledVariantTests
             "        L = L + V",
             "    Next",
             "    Rounded = L & \" \" & V & \" \" & TypeName(V)",
-            "End Function"), "Rounded", recoveries: 6);
+            "End Function"), "Rounded", recoveries: 7);
 
     // a Variant counter stepped by a Double, in a loop whose body compiled code runs whole: each Next steps it as the loop decided at its For, from the
     // state it found then.
