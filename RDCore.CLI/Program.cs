@@ -246,7 +246,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     System.Console.Out,
                     () => System.Console.WindowWidth,
                     provider.GetRequiredService<ConsolePromptEditor>(),
-                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii))
+                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii,
+                    messages: provider.GetRequiredService<PromptAwareMessageWriter>()))
                 // the shell's messages, its log's included, through a writer the editor attaches itself to as it is made.
                 .AddSingleton<SpectreConsoleMessageWriter>()
                 .AddSingleton(provider => new PromptAwareMessageWriter(provider.GetRequiredService<SpectreConsoleMessageWriter>()))

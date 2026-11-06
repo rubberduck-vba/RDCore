@@ -87,7 +87,11 @@ internal sealed class PromptAwareMessageWriter(IConsoleMessageWriter inner) : IC
         }
     }
 
-    private void Write(Action write)
+    /// <summary>
+    /// Writes something at the console as a message is written: above the prompt's line, and once the question is answered while one is asked.
+    /// </summary>
+    /// <param name="write">Writes it.</param>
+    public void Write(Action write)
     {
         lock (_sync)
         {
