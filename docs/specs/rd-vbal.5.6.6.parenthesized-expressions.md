@@ -30,6 +30,3 @@ Neither operator deviates from MS-VBAL: the precedence operator is what it speci
 operator makes structural what it leaves implicit - what parentheses do to an argument, a classic trap. See
 [**RD-VBAL §3.3.1** Unary Operators](rd-vbal.3.3.1.unary-operators.md) and
 [**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md).
-
----
-> ⏮️ [**RD-VBAL §5.6.5** Literal Expressions](rd-vbal.5.6.5.literal-expressions.md) | ⏭️ [**RD-VBAL §5.6.7** TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md)

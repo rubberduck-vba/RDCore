@@ -98,6 +98,3 @@ An implicit declaration by an unqualified `ReDim` target is legal under `Option 
 > This section describes the implementation of [**MS-VBAL §5.2.1.4** Option Private Directive](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/41e5d997-61bf-4b9b-b62d-661a33578927).
 
 The `Option Private Module` directive determines the _accessibility_ of a module.
-
----
-> ⏮️ [**RD-VBAL §5.2** Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) | ⏭️ [**RD-VBAL §5.2.2** Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md)

@@ -9,6 +9,3 @@ The `KeyCodeConstants` module is represented in the SDK by the interface
 The constants are the specification's, with its values, each an `Integer` - not a `Long`, as the colour constants are - as in MS-VBA (recorded in Excel).
 A constant is reached by its own name, or qualified by the module or by the library (`KeyCodeConstants.vbKeyReturn`, `VBA.vbKeyReturn`); it is a constant
 expression (`Case vbKeyReturn`), and assigning to one is a compile error. The module is no type: `Dim k As KeyCodeConstants` is a compile error.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.8** Interaction](rd-vbal.6.1.2.8.interaction.md) | ⏭️ [**RD-VBAL §6.1.2.10** Math](rd-vbal.6.1.2.10.math.md)

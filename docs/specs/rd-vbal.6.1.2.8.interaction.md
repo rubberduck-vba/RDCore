@@ -66,6 +66,3 @@ number of the member they vary. `MacScript`, a hidden member of the module, reso
 |6.1.2.8.2.4|[SaveSetting](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/98261176-760c-4257-8476-49669bd36053)||
 |6.1.2.8.2.4.1|🧩 `SaveJsonSetting`|RD-VBA variant of `SaveSetting` over _workspace application settings_. See [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md).|
 |6.1.2.8.2.5|[SendKeys](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/df1a061c-0f22-4459-93f7-a8ada7148bb7)||
-
----
-> ⏮️ [**RD-VBAL §6.1.2.7** Information](rd-vbal.6.1.2.7.information.md) | ⏭️ [**RD-VBAL §6.1.2.9** KeyCodeConstants](rd-vbal.6.1.2.9.keycodeconstants.md)

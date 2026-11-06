@@ -58,6 +58,3 @@ converted back into an `Error` outcome by the caller's `ExecuteCall`.
 - `RDCore.Runtime.Execution.RuntimeCallableBindingFactory` is the `ICallableBindingFactory` implementation. A member
   that carries [SymbolProperties](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.ExternalTarget`
   is bound to the external dispatcher; any other member is bound to the procedure invoker.
-
----
-> ⏮️ [**RD-VBAL §5.4.2** Control Statements](rd-vbal.5.4.2.control-statements.md) | ⏭️ [**RD-VBAL §5.4.2.2** While Statement](rd-vbal.5.4.2.2.while-statement.md)

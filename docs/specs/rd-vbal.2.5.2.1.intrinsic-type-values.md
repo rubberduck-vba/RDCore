@@ -32,6 +32,3 @@ The static types are described in [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.
 |2.5.2.1.3|[User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md)|
 |2.5.2.1.4|[Object Values](rd-vbal.2.5.2.1.4.object-values.md)|
 |2.5.2.1.5|[Variant Values](rd-vbal.2.5.2.1.5.variant-values.md)|
-
----
-> ⏮️ [**RD-VBAL §2.5.2** VBTypedValue](rd-vbal.2.5.2.vbtypedvalue.md) | ⏭️ [**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md)

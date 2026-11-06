@@ -81,6 +81,3 @@ RD-VBAL groups the following descriptors under `VBReturningMemberDesc`:
 ## 2.4.3.3 VBParameterDesc
 
 `VBParameterDesc` is a descriptor that represents (describes) a [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html).
-
----
-> ⏮️ [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md) | ⏭️ [**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)

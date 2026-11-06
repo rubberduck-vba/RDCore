@@ -21,6 +21,3 @@ operator.
 |---|---|---|
 |5.5.1.1|[Static semantics](rd-vbal.5.5.1.1.static-semantics.md)|[§5.5.1.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4ef84713-33da-445b-942e-345982b3267d)|
 |5.5.1.2|[Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)|[§5.5.1.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3e5fb49f-eb20-4562-a6bd-4a26dc5fa733)|
-
----
-> ⏮️ [**RD-VBAL §5.5** Implicit coercion](rd-vbal.5.5.implicit-coercion.md) | ⏭️ [**RD-VBAL §5.5.1.1** Static semantics](rd-vbal.5.5.1.1.static-semantics.md)
