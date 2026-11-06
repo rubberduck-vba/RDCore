@@ -106,8 +106,8 @@ public interface IRuntimeEnvironmentProfile
     bool AllowAutomation { get; }
 
     /// <summary>
-    /// 🎯 What runs the code of a program: the interpreter, or IL compiled from it where every instruction can be. <see cref="VBExecutionEngine.Interpreter"/>
-    /// unless said otherwise.
+    /// 🎯 What runs the code of a program: the interpreter, or IL compiled from it where every instruction can be.
+    /// <see cref="Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine"/> unless said otherwise.
     /// </summary>
     VBExecutionEngine ExecutionEngine { get; }
 

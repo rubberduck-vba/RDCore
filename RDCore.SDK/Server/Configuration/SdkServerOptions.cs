@@ -211,6 +211,17 @@ public record class SdkAppOptions
 public record class SdkEnvironmentOptions
 {
     /// <summary>
+    /// The engine a program runs with when its configuration does not say (<see cref="ExecutionEngine"/>): the default of the setting, of a
+    /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one, and of the platform's <c>appsettings.json</c>, which says the same.
+    /// </summary>
+    /// <remarks>
+    /// 🚧 <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/> until the compiled engine runs every procedure it can and a program stopped
+    /// in compiled code can be edited and continued (IR lowering S2.7). Making <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Compiled"/> the
+    /// default is this constant and the <c>ExecutionEngine</c> of <c>RDCore.CLI/appsettings.json</c>, changed together.
+    /// </remarks>
+    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;
+
+    /// <summary>
     /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
     /// </summary>
     public bool Is64Bit { get; set; } = true;
@@ -283,10 +294,10 @@ public record class SdkEnvironmentOptions
     public SdkRegionalOptions Regional { get; set; } = new();
 
     /// <summary>
-    /// 🎯 What runs the code of a program: <c>Interpreter</c> (the default) or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the
-    /// interpreter elsewhere).
+    /// 🎯 What runs the code of a program: <c>Interpreter</c> or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the interpreter
+    /// elsewhere); <see cref="DefaultExecutionEngine"/> unless said otherwise.
     /// </summary>
-    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; }
+    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; } = DefaultExecutionEngine;
 
     /// <summary>
     /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, in which a <c>Stop</c> statement ends the

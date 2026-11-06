@@ -18,7 +18,7 @@ namespace RDCore.SDK.Runtime;
 /// <param name="SourceLanguage">The language the code is written in; RD-VBA unless said otherwise.</param>
 /// <param name="LegacyRegistrySettings">Whether the legacy settings members use the Windows Registry rather than the workspace application settings; <c>false</c> unless said otherwise.</param>
 /// <param name="RegionalSettings">The regional settings a number or a date is written by as a string, and a string read by as one; en-US (<see cref="Runtime.RegionalSettings.Default"/>) unless said otherwise.</param>
-/// <param name="ExecutionEngine">What runs the code of a program; the interpreter unless said otherwise.</param>
+/// <param name="ExecutionEngine">What runs the code of a program; <see cref="Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine"/> unless said otherwise.</param>
 /// <param name="Configuration">Whether a program is built to be debugged or to be run; a debug build unless said otherwise.</param>
 /// <param name="ReleaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; <c>false</c> unless said otherwise.</param>
 public sealed record class RuntimeEnvironmentProfile(
@@ -33,7 +33,7 @@ public sealed record class RuntimeEnvironmentProfile(
     bool AllowAutomation = true,
     bool LegacyRegistrySettings = false,
     RegionalSettings? RegionalSettings = null,
-    VBExecutionEngine ExecutionEngine = VBExecutionEngine.Interpreter,
+    VBExecutionEngine ExecutionEngine = Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
     VBBuildConfiguration Configuration = VBBuildConfiguration.Debug,
     bool ReleaseDropsDebugStatements = false) : IRuntimeEnvironmentProfile
 {
