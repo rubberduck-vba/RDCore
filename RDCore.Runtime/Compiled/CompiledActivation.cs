@@ -815,13 +815,16 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
     /// the procedure was edited while the program waited in the callee, and the activation goes on in its edited body (<see cref="CallStackFrame.HasPendingRebase"/>);
     /// or the session's symbols were defined again while the callee ran - an edit made while the program waited - and what compiled code calls, and how,
-    /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call.
+    /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call. So it does after a call, or
+    /// an instruction it ran alone, that let go of an object whose <c>Terminate</c> left an error unhandled (<see cref="ISessionErrorState.Untrappable"/>):
+    /// the program stops with it there, before the next instruction, as the interpreter stops it (<c>ProcedureExecutor.RunInstructions</c>).
     /// </summary>
     /// <remarks>
     /// An activation without a frame has no edit to go on in: the program waited in none, since what looks at the stack while it waits gives every activation
     /// its frame (<see cref="RuntimeCallStack.MaterializeLights"/>).
     /// </remarks>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _frame is { HasPendingRebase: true } || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
+    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true }
+        || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
