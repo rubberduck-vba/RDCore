@@ -6,6 +6,3 @@ This section corresponds to [**MS-VBAL §5.6.5** Literal Expressions](https://le
 > Reserved. This section has no content yet.
 
 See [**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md).
-
----
-> ⏮️ [**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md) | ⏭️ [**RD-VBAL §5.6.6** Parenthesized Expressions](rd-vbal.5.6.6.parenthesized-expressions.md)

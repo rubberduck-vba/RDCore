@@ -28,6 +28,3 @@ First-party and third-party extensions distributed through the **RDCore Platform
 - validating the signed build against the certified distribution channel build.
 
 Platform capabilities and their exchange between processes are described in [**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md).
-
----
-> ⏮️ [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md) | ⏭️ [**RD-VBAL §2.0** RD-VBA Computational Environment](rd-vbal.2.0.computational-environment.md)

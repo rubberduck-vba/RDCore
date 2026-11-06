@@ -149,6 +149,3 @@ A deferred `ByVal` parameter is _passed by value_. A deferred `ByRef` parameter 
 > A deferred parameter inferred as `Variant` (from array or heterogeneous arguments) may not be materializable.
 
 A deferred parameter inferred as `Variant` should issue _semantic flags_ as appropriate, to signal the case to any listening language-level extensions; see [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md).
-
----
-> ⏮️ [**RD-VBAL §2.4.3** Meta and Advanced Types](rd-vbal.2.4.3.meta-and-advanced-types.md) | ⏭️ [**RD-VBAL §2.5** Runtime Values](rd-vbal.2.5.runtime-values.md)

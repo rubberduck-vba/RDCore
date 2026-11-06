@@ -52,6 +52,3 @@ call's result. See
 A `Function` or `Property Get` that declares no parameters is not given the arguments written after it in parentheses:
 it is called without them, and they index what it returns. `Items(1)` of a function that returns a `Collection` is
 `Items().Item(1)`, as `h.Items(1)` is `h.Items.Item(1)` for a property. The empty list of `F()` is not an argument.
-
----
-> ⏮️ [**RD-VBAL §5.3.1.5** Parameter Lists](rd-vbal.5.3.1.5.parameter-lists.md) | ⏭️ [**RD-VBAL §5.3.1.7** Property Declarations](rd-vbal.5.3.1.7.property-declarations.md)

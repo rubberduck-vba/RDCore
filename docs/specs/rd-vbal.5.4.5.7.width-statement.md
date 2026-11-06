@@ -21,6 +21,3 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 |Name|Role|
 |---|---|
 |[IFileChannelOutput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html)|The character output surface of a channel. It carries the maximum line length `Width #` sets.|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.6** Line Input Statement](rd-vbal.5.4.5.6.line-input-statement.md) | ⏭️ [**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md)

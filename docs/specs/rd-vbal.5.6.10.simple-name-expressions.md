@@ -185,6 +185,3 @@ A plain array-typed variable read back as an expression (`SimpleNameExpressionNo
 |---|---|
 |`SimpleNameExpressionStaticSemantics`|Static semantics: the declared type of a simple name expression, and its compile-time errors.|
 |`RuntimeExpressionEvaluator.EvaluateSimpleName` (**RDCore.Runtime**)|Runtime semantics: a value read, an implicit call, or a read of the function result variable.|
-
----
-> ⏮️ [**RD-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md) | ⏭️ [**RD-VBAL §5.6.11** Instance Expressions](rd-vbal.5.6.11.instance-expressions.md)

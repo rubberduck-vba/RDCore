@@ -29,12 +29,13 @@ A module's [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html) car
 A class module's directives govern its code as a standard module's do: `Option Explicit` makes an undeclared name in
 the class a compile error, which keeps the class from loading; `Option Compare` is how its relational operators
 compare `String` values, whatever the mode of the module that calls it; and `Option Base` is the lower bound its
-arrays take when they state none. The name of a class binds only in the type binding context
-([**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md)), so the host finds the
-module a member belongs to by its name as a value and then as a type
-([SessionSymbolsModuleExtensions](../api/RDCore.SDK.Runtime.Abstract.Execution.SessionSymbolsModuleExtensions.html)`.TryResolveModule`),
-both when it gives the module's symbol its directives and when a new activation takes its frame's directives from
-it.
+arrays take when they state none. The host finds the module by its name among the session's modules
+([ISessionSymbols](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionSymbols.html)`.TryGetModule`), both when it
+gives the module's symbol its directives and when a new activation takes its frame's directives from the module its
+procedure is declared in. This is a lookup of the modules themselves, not a binding of the name: in code, the name of a
+class with a default instance is that instance, and a class module's name is no value at all
+([**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md)). The lookup ignores
+case, and a module of the project comes before a library's of the same name.
 
 
 ## 5.2.1.1 Option Compare Directive
@@ -98,6 +99,3 @@ An implicit declaration by an unqualified `ReDim` target is legal under `Option 
 > This section describes the implementation of [**MS-VBAL §5.2.1.4** Option Private Directive](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/41e5d997-61bf-4b9b-b62d-661a33578927).
 
 The `Option Private Module` directive determines the _accessibility_ of a module.
-
----
-> ⏮️ [**RD-VBAL §5.2** Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md) | ⏭️ [**RD-VBAL §5.2.2** Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md)

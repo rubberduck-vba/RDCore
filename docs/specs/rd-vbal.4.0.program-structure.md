@@ -103,6 +103,3 @@ The _lightweight VBIDE add-in_ that launches an environment host attached to a h
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §3.5.6** Compiled Execution](rd-vbal.3.5.6.compiled-execution.md) | ⏭️ [**RD-VBAL §4.1** VBIDE Synchronization](rd-vbal.4.1.vbide-synchronization.md)

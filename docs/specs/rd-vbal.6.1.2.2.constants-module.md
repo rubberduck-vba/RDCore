@@ -70,6 +70,3 @@ module of the project declares under the name `Constants` is the type
 
 A field that is not `static readonly`, or whose type is not a VBA value type, is refused when the library is read. A
 C# `const` is a primitive, whose VBA type would be a guess: a C# `long` is a VBA `LongLong`.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.1** ColorConstants Module](rd-vbal.6.1.2.1.colorconstants-module.md) | ⏭️ [**RD-VBAL §6.1.2.3** Conversion Module](rd-vbal.6.1.2.3.conversion-module.md)

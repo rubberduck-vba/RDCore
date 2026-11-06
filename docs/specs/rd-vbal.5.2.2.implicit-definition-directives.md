@@ -23,6 +23,3 @@ definitions for one data type:
 |`DefStr`|[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)|—|
 |`DefObj`|[VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html)|—|
 |`DefVar`|[VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html)|—|
-
----
-> ⏮️ [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md) | ⏭️ [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md)

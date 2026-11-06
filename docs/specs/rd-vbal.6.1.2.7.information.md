@@ -95,6 +95,3 @@ provides the line number `Erl` reports ([**RD-VBAL §3.5.1** InstructionList](rd
 
 The `Err` function, the `ErrObject` class, and the MS-VBAL shape they differ from are described in
 [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md).
-
----
-> ⏮️ [**RD-VBAL §6.1.2.6** Financial](rd-vbal.6.1.2.6.financial.md) | ⏭️ [**RD-VBAL §6.1.2.8** Interaction](rd-vbal.6.1.2.8.interaction.md)

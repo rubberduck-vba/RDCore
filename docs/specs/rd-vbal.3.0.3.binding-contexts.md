@@ -92,6 +92,3 @@ rule, and is not verified against a compiler.
 
 Whether a class named by `New` is _creatable_ is not a name-lookup concern. See
 [**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md) | ⏭️ [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)

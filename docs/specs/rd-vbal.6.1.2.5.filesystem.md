@@ -46,6 +46,3 @@ recorded in Excel; where **MS-VBA** does other than the specification says, RD-V
 |6.1.2.5.2.5|[MkDir](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/5c10bd46-1471-4785-9663-e20699c1207b)|Error `75` when a directory or a file of the name exists, `76` when the directory it would be in does not.|
 |6.1.2.5.2.6|[RmDir](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/da2d0043-0672-4783-ba76-ae823663d073)|Error `75` for one that holds a file or a directory, `76` for one that does not exist - a file, a pattern.|
 |6.1.2.5.2.7|[SetAttr](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/6ba633de-e14f-41f8-a301-32aad27e4bf7)|Exactly the attributes given: `vbReadOnly`, `vbHidden`, `vbSystem`, `vbArchive` - any other is error `5`. A file open for `Input` is given them - the specification says setting those of an open file is an error, which **MS-VBA** raises (`55`) for any other mode only. Error `53` for what does not exist, `52` for a pattern.|
-
----
-> ⏮️ [**RD-VBAL §6.1.2.4** DateTime Module](rd-vbal.6.1.2.4.datetime-module.md) | ⏭️ [**RD-VBAL §6.1.2.6** Financial](rd-vbal.6.1.2.6.financial.md)

@@ -216,6 +216,3 @@ An event name must be unique within the class module, reported as a duplicate de
 must not contain an underscore, which is what separates a handler's variable from its event:
 [VBC09325](../diagnostics/vbc09325.md). Both are reported by
 [ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html).
-
----
-> ⏮️ [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md) | ⏭️ [**RD-VBAL §5.3** Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md)

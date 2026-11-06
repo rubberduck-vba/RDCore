@@ -51,6 +51,3 @@ RDCore removes the need for the `vbObjectError` constant by internally represent
 The description of a compilation or run-time error shall be identical to the corresponding MS-VBA description.
 
 All RD-VBA trace messages can include an optional *verbose* message. The platform shall use this verbose message to further explain the reason behind any error being raised. The verbose message is independent of, or *supplemental to*, any other verbose content, including but not limited to execution *stack traces*.
-
----
-> ⏮️ [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md) | ⏭️ [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)

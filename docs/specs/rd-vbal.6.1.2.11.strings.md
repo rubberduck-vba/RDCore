@@ -717,6 +717,3 @@ the regional settings: `WeekdayName(1)` is `"lundi"` in fr-FR. The page's table 
 declaration does not: the declaration is what is declared, and MS-VBA's type library declares the same default, `0`
 (`VBE7.DLL`: `Optional FirstDayOfWeek As VbDayOfWeek = 0`). A `Weekday` other than `1` to `7`, then a `FirstDayOfWeek` that
 is no value of its enumeration, are error `5`.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.10** Math](rd-vbal.6.1.2.10.math.md) | ⏭️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md)

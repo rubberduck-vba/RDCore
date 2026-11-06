@@ -131,6 +131,3 @@ The `UserDefinedTypeNotDefined` wording can be confusing when it is raised for a
 `VBVoidType` is the data type returned by `Sub`, `Property Let`, and `Property Set` procedures; see [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md) and [**RD-VBAL §5.3.1.7** Property Declarations](rd-vbal.5.3.1.7.property-declarations.md).
 
 > The internal representation of `VBVoidType` is a managed `Int32` value (0), because the intent is to ultimately support `HRESULT` interoperability.
-
----
-> ⏮️ [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md) | ⏭️ [**RD-VBAL §2.4.3** Meta and Advanced Types](rd-vbal.2.4.3.meta-and-advanced-types.md)

@@ -24,6 +24,3 @@ execution context to its initial state
 ## Implementation
 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `Halt` instructions.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.21** With Statement](rd-vbal.5.4.2.21.with-statement.md) | ⏭️ [**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)

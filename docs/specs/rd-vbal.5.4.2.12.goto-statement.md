@@ -58,6 +58,3 @@ activation raises run-time error 92, "For loop not initialized"; see
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 - [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) resolves the
   target label into `Instruction.Target`.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md) | ⏭️ [**RD-VBAL §5.4.2.13** On...GoTo Statement](rd-vbal.5.4.2.13.on-goto-statement.md)

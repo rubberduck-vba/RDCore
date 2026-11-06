@@ -41,6 +41,3 @@ A condition is not coerced through an operator node, because a condition has no 
   offset that the construct's own `End`/`Else` chaining designates.
 - After every branch's body, lowering emits a synthesized, unconditional `Jump` to right past the whole construct,
   even for the last branch ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.7** Exit Do Statement](rd-vbal.5.4.2.7.exit-do-statement.md) | ⏭️ [**RD-VBAL §5.4.2.9** Single-line If Statement](rd-vbal.5.4.2.9.single-line-if-statement.md)

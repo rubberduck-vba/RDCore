@@ -131,6 +131,3 @@ The declaration pass keeps each array bound verbatim, as declared. The following
 
 - evaluating each bound to a `Long`;
 - resolving an omitted _lower bound_ against `Option Base` (see [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md)).
-
----
-> ⏮️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.md) | ⏭️ [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)

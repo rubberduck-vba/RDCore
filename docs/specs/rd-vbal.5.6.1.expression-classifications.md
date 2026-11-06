@@ -4,6 +4,3 @@ This section corresponds to [**MS-VBAL §5.6.1** Expression Classifications](htt
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6** Expressions](rd-vbal.5.6.expressions.md) | ⏭️ [**RD-VBAL §5.6.2** Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md)

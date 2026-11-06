@@ -12,6 +12,3 @@
 |---|---|
 |2.5.1|[Runtime Entities](rd-vbal.2.5.1.runtime-entities.md)|
 |2.5.2|[VBTypedValue](rd-vbal.2.5.2.vbtypedvalue.md)|
-
----
-> ⏮️ [**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md) | ⏭️ [**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md)

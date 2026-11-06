@@ -72,6 +72,3 @@ pointer width. `LongPtr` is a different type in each pointer width
 The pointer width belongs to the environment, and is passed to
 [StdLibSymbolProvider](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html)
 ([**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#601-symbol-injection)).
-
----
-> ⏮️ [**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md) | ⏭️ [**RD-VBAL §6.1.2.4** DateTime Module](rd-vbal.6.1.2.4.datetime-module.md)

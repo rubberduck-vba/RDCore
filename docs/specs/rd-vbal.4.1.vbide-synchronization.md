@@ -15,6 +15,3 @@ The VBIDE add-in is responsible for:
 
 Attaching an environment host to a host process is described in
 [**RD-VBAL §4.0** Program Structure and Organization](rd-vbal.4.0.program-structure.md).
-
----
-> ⏮️ [**RD-VBAL §4.0** Program Structure and Organization](rd-vbal.4.0.program-structure.md) | ⏭️ [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)

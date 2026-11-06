@@ -419,6 +419,8 @@
               href: rd-vbal.6.1.2.11.strings.md
             - name: "6.1.2.12 SystemColorConstants"
               href: rd-vbal.6.1.2.12.systemcolorconstants.md
+            - name: "6.1.2.13 Hidden Module"
+              href: rd-vbal.6.1.2.13.hidden-module.md
         - name: "6.1.3 Predefined Class Modules"
           href: rd-vbal.6.1.3.predefined-class-modules.md
           items:

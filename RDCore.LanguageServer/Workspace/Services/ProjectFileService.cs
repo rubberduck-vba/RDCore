@@ -16,6 +16,11 @@ internal interface IProjectFileService
     /// </summary>
     void Update(ProjectFile project);
 
+    /// <summary>
+    /// Lets go of the project: there is none until one is loaded again, as after a load that failed, and nothing changes it or writes it.
+    /// </summary>
+    void Unload();
+
     void AddReference(RDCoreReference reference);
     void RemoveReference(RDCoreReference reference);
 
@@ -67,6 +72,8 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
         _projectFile = project with { IsDirty = true };
     }
 
+    public void Unload() => _projectFile = default!;
+
     public async Task SaveAsync()
     {
         var path = ioPath.Combine(Project.Uri, ProjectFile.FileName);
@@ -77,8 +84,8 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
 
         if (_projectFile.IsDirty || !ioFile.Exists(path))
         {
-            // a project file is stamped with the version of the platform that writes it.
-            var written = Project.WithCurrentVersion();
+            // a project file is stamped with the version of the format it is written in.
+            var written = Project.WithSchemaVersion();
             await using (var stream = ioFile.Open(path, FileMode.Create))
             {
                 await JsonSerializer.SerializeAsync(stream, written, SerializerOptions);

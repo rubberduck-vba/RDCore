@@ -94,6 +94,80 @@ public sealed class ProtocolProjectFileTests
         await Assert.ThrowsAsync<JsonException>(() => ReadAsync("{ \"ProjectInfo\": { ]"));
     }
 
+    // a project file's version is the version of its format, major.minor; what follows them is not compared. The first builds stamped 1.0.0, the next 0.1.x.
+    [TestMethod]
+    [DataRow(null, ProjectFileSchemaMatch.Unstamped)]
+    [DataRow("", ProjectFileSchemaMatch.Unstamped)]
+    [DataRow("1.0", ProjectFileSchemaMatch.Same)]
+    [DataRow("1.0.0", ProjectFileSchemaMatch.Same, DisplayName = "1.0.0, as the first builds stamped it")]
+    [DataRow("1.0.0-rc3", ProjectFileSchemaMatch.Same)]
+    [DataRow("0.1.3", ProjectFileSchemaMatch.Older, DisplayName = "0.1.3, as the next builds stamped it")]
+    [DataRow("0.87.2-rc3", ProjectFileSchemaMatch.Older)]
+    [DataRow("1.2", ProjectFileSchemaMatch.NewerMinor)]
+    [DataRow("1.2.0+abc", ProjectFileSchemaMatch.NewerMinor)]
+    [DataRow("2.0", ProjectFileSchemaMatch.NewerMajor)]
+    [DataRow("2", ProjectFileSchemaMatch.NewerMajor, DisplayName = "a lone number is a major")]
+    [DataRow("v1.0", ProjectFileSchemaMatch.Unparseable)]
+    [DataRow("1.x", ProjectFileSchemaMatch.Unparseable)]
+    [DataRow("99999999999.0", ProjectFileSchemaMatch.Unparseable, DisplayName = "a major no int holds")]
+    public void AVersion_IsComparedWithThisPlatformsFormat_ByItsMajorAndMinor(string? version, ProjectFileSchemaMatch expected)
+        => Assert.AreEqual(expected, ProjectFile.SchemaOf(version));
+
+    // what a file says its version is is read whatever it is: it is never why a project file can't be read.
+    [TestMethod]
+    [DataRow("\"1.1\"", "1.1")]
+    [DataRow("2", "2")]
+    [DataRow("1.5", "1.5", DisplayName = "the number 1.5")]
+    [DataRow("true", "true")]
+    [DataRow("{ \"Major\": 2 }", "{ \"Major\": 2 }")]
+    [DataRow("null", "")]
+    public async Task AVersion_IsReadWhateverItIs(string written, string read)
+        => Assert.AreEqual(read, (await ReadAsync($$"""{ "Version": {{written}}, "ProjectInfo": { "Name": "P" } }""")).Version);
+
+    // a file a newer platform wrote opens in an older one, and keeps what the newer one added when the older one writes it: the members this model does not know,
+    // at every level, are written back as they were read, and so is the newer format's stamp.
+    [TestMethod]
+    public async Task AFileOfANewerMinor_KeepsWhatThisPlatformDoesNotKnow_AndItsStamp_WhenItIsWritten()
+    {
+        const string json = """
+            {
+              "Version": "1.1",
+              "Theme": { "Accent": "teal" },
+              "ProjectInfo": {
+                "Name": "Newer",
+                "Kind": "Library",
+                "References": [ { "Name": "Scripting", "Pinned": true } ],
+                "Modules": [ "src/Plain.bas", { "RelativeUri": "src/Tagged.bas", "Tags": [ "core" ] }, { "RelativeUri": "Sheet1.doccls", "Super": "ExcelWorksheet", "Sheet": 1 } ],
+                "OtherFiles": [ { "RelativeUri": "README.md", "Preview": true }, { "RelativeUri": "Book.xlsx", "Super": "ExcelWorkbook" } ]
+              }
+            }
+            """;
+
+        var project = await ReadAsync(json);
+        var written = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(project.WithSchemaVersion()))!;
+
+        Assert.AreEqual("1.1", written["Version"]!.GetValue<string>(), "the newer format's stamp is kept, since what it added is");
+        Assert.AreEqual("""{"Accent":"teal"}""", written["Theme"]!.ToJsonString());
+        var info = written["ProjectInfo"]!;
+        Assert.AreEqual("Library", info["Kind"]!.GetValue<string>());
+        Assert.IsTrue(info["References"]![0]!["Pinned"]!.GetValue<bool>());
+        Assert.AreEqual("""["src/Plain.bas",{"RelativeUri":"src/Tagged.bas","Tags":["core"]},{"RelativeUri":"Sheet1.doccls","Super":"ExcelWorksheet","Sheet":1}]""",
+            info["Modules"]!.ToJsonString());
+        Assert.AreEqual("""[{"RelativeUri":"README.md","Preview":true},{"RelativeUri":"Book.xlsx","Super":"ExcelWorkbook"}]""", info["OtherFiles"]!.ToJsonString(),
+            "a file that is no module has no document: what it says of one is kept as any member this model does not know");
+    }
+
+    // a file in an older format, or no format, is in this one once it is written: only a newer one keeps its stamp.
+    [TestMethod]
+    [DataRow("1.0.0", "1.0")]
+    [DataRow("0.1.3", "1.0")]
+    [DataRow("v1", "1.0")]
+    [DataRow("", "1.0")]
+    [DataRow("1.4", "1.4")]
+    [DataRow("3.0", "3.0")]
+    public void AWrittenFile_IsStampedWithThisPlatformsFormat_UnlessItIsInANewerOne(string version, string stamped)
+        => Assert.AreEqual(stamped, new ProjectFile().WithVersion(version).WithSchemaVersion().Version);
+
     [TestMethod]
     [DataRow(null, "Attribute VB_Name = \"Module1\"\r\n", ProjectModuleKind.Standard)]
     [DataRow(null, "VERSION 1.0 CLASS\r\nBEGIN\r\nEND\r\nAttribute VB_Name = \"Class1\"\r\n", ProjectModuleKind.Class)]

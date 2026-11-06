@@ -43,6 +43,3 @@ Precompiler constants are interpreted as `Integer` values. A precompiler constan
 - [PrecompilerConstantValue](../api/RDCore.SDK.Model.Values.PrecompilerConstantValue.html)
 
 Conditional compilation expressions are described in [**RD-VBAL §5.6.16** Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1** Intrinsic Type Values](rd-vbal.2.5.2.1.intrinsic-type-values.md) | ⏭️ [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)
