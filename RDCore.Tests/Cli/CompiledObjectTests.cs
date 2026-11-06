@@ -113,7 +113,8 @@ public sealed class CompiledObjectTests
             "End Function"), "Tested", recoveries: 6, classes: Things);
 
     // TypeOf tests an interface too (MS-VBAL §5.6.7): an object of a class that implements it is of it, one of a class that does not is not; and so is the
-    // object a variable declared as the interface refers to.
+    // object a variable declared as the interface refers to. The interpreter runs each Set: the one before the loop and the one of each of 4 passes, 5; every
+    // TypeOf is compiled.
     [TestMethod]
     public async Task TypeOf_TestsAnInterfaceTheClassImplements()
         => await AssertAlikeAsync(Program(
@@ -140,7 +141,8 @@ public sealed class CompiledObjectTests
             ]);
 
     // an object let go of runs its Class_Terminate where the interpreter lets go of it - at the Set that drops its last reference, and at the end of the
-    // procedure - and the Is compared after each sees what is left.
+    // procedure - and the Is compared after each sees what is left. The interpreter runs, at each of 4 passes, the Set of A, the Debug.Print and the Set of
+    // B; the assignment of A's field at the 2 passes A refers to an object; and the Set of B after the loop: 4 * 3 + 2 + 1 = 15. Every Is is compiled.
     [TestMethod]
     public async Task ClassTerminate_RunsWhereTheLastReferenceGoes_AroundIsComparedInCompiledCode()
         => await AssertAlikeAsync(Program(
