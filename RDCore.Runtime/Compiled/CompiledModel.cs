@@ -78,6 +78,11 @@ public enum IneligibilityKind
     /// variables, and hands its activation to the interpreter in them, which only the unboxed evaluation keeps.
     /// </summary>
     BoxedEvaluation,
+
+    /// <summary>
+    /// An object made with <c>New</c> (MS-VBAL §5.6.10.3): the interpreter makes it, and runs its <c>Class_Initialize</c>. Its detail is the class.
+    /// </summary>
+    New,
 }
 
 /// <summary>

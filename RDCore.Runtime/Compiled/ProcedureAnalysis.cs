@@ -309,7 +309,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or SetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -533,6 +533,9 @@ internal sealed partial class ProcedureAnalysis
         {
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment:
                 return AnalyzeLet(instruction.Offset, assignment);
+
+            case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.Set } set:
+                return AnalyzeSet(instruction.Offset, set);
 
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
                 return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments)) switch
@@ -1192,6 +1195,7 @@ internal sealed partial class ProcedureAnalysis
             BoundMember member => (IneligibilityKind.Member, member.Access.Member.IdentifierName),
             BoundIndex => (IneligibilityKind.Element, string.Empty),
             BoundLate or BoundError => (IneligibilityKind.LateBound, (node.Expression as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty),
+            BoundNew made => (IneligibilityKind.New, made.Class.Name),
             BoundLiteral literal => (IneligibilityKind.Literal, literal.Literal.StaticValue.TypeInfo.Name),
             BoundVariable variable => (IneligibilityKind.ForeignVariable, variable.Variable.Name),
             BoundBinary { Plan: { } plan } => (IneligibilityKind.Operator, plan.Operator),

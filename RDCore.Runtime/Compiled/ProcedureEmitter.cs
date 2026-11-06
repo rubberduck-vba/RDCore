@@ -21,7 +21,7 @@ namespace RDCore.Runtime.Compiled;
 /// The IL references nothing but the members of <c>RDCore.Runtime.Compiled</c> (the support boundary, A4).
 /// </para>
 /// </remarks>
-internal sealed class ProcedureEmitter
+internal sealed partial class ProcedureEmitter
 {
     private static readonly Type Payloads = typeof(PayloadOperations);
     private static readonly Type Activation = typeof(CompiledActivation);
@@ -415,6 +415,10 @@ internal sealed class ProcedureEmitter
 
             case SteppedStep stepped:
                 EmitStepped(stepped.Offset);
+                break;
+
+            case SetStep set:
+                EmitSet(set);
                 break;
 
             case SelectStep select:
