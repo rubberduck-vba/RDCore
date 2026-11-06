@@ -31,6 +31,10 @@ internal sealed class PromptAwareMessageWriter(IConsoleMessageWriter inner) : IC
     /// <summary>
     /// Asks a question at the console: the messages that come while it is asked are written once it is answered, in the order they came.
     /// </summary>
+    /// <remarks>
+    /// A message held that fails to be written is lost, and the messages after it are written: what <paramref name="ask"/> answered, or threw, is never replaced
+    /// by it.
+    /// </remarks>
     /// <typeparam name="T">What the question answers.</typeparam>
     /// <param name="ask">Asks it.</param>
     /// <returns>What <paramref name="ask"/> answered.</returns>
@@ -65,9 +69,21 @@ internal sealed class PromptAwareMessageWriter(IConsoleMessageWriter inner) : IC
 
                 foreach (var write in held)
                 {
-                    WriteNow(write);
+                    WriteHeld(write);
                 }
             }
+        }
+    }
+
+    // a held message that fails to be written is lost: what wrote it has returned, and what is thrown here would take the place of the question's answer.
+    private void WriteHeld(Action write)
+    {
+        try
+        {
+            WriteNow(write);
+        }
+        catch (Exception)
+        {
         }
     }
 
