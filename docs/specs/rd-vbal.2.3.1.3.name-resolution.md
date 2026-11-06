@@ -308,6 +308,14 @@ members are contributed by an `ISymbolProvider` and resolved through `ISymbolRes
 Reference priority is determined by the order in which project references appear in the `.rdproj` file of a
 _workspace folder_ ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)).
 
+A language may also have libraries that every project of it references without its `.rdproj` listing them
+(`SupportedLanguage.ImplicitReferences`). They come after the `VBA` library and before the references the `.rdproj`
+lists, which therefore rank above them, as the References dialog of the VB6 IDE orders them. A VB6 project has one:
+`VBRUN`, the Visual Basic runtime objects and procedures (the third type library of `MSVBVM60.DLL`), whose constants
+(`vbModal`, `vbKeyEscape`, `vbFormControlMenu`) and `PropertyBag` class are names of every VB6 project. RD-VBA and the
+BASIC have none. The `VB` library of VB6 (`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`, `Printer`,
+`Clipboard` and `Forms` objects) is not described yet, and a VB6 project does not have it.
+
 The **VBA** standard library always has the _lowest_ reference priority: it always appears first in the reference
 order. Any other project reference that defines an identically-named class type or public/global member always
 _shadows_ the `VBA` library definition.
