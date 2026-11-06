@@ -62,6 +62,11 @@ namespace RDCore.Runtime.Compiled;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
+/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (IR lowering S2.5e, <see cref="FieldSlots"/>), found where the
+/// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
+/// an instruction: compiled code reads and writes it as it does a variable held in a cell.
+/// </para>
+/// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
 /// compares it on payloads, as the interpreter does (<c>CaseMatchEvaluator.TryMatchUnboxed</c>).
 /// </para>
@@ -170,6 +175,18 @@ internal sealed class ProcedureAnalysis
 
         return kinds;
     }
+
+    /// <summary>
+    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout (IR lowering S2.5e): each is held
+    /// in the cell the object holds it in (<see cref="CellSlots"/>), which compiled code reads and writes it in, as it does a parameter passed by reference.
+    /// </summary>
+    public IReadOnlySet<int> FieldSlots => _fieldSlots;
+
+    private readonly HashSet<int> _fieldSlots = [];
+    private readonly Dictionary<SemanticId, int> _slotOfField = [];
+
+    // what the slot of a field is numbered from: past every slot of any layout.
+    private const int FirstFieldSlot = 1 << 24;
 
     /// <summary>The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</summary>
     public ScalarKind? ResultKind { get; private set; }
@@ -842,7 +859,30 @@ internal sealed class ProcedureAnalysis
 
     // a variable of the activation, by its slot in the procedure's layout.
     private int? SlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : null;
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : FieldSlotOf(variable);
+
+    // an instance field of a scalar type of the class the procedure is a member of: a field of Me (MS-VBAL §5.6.10), numbered the first time it is named.
+    private int? FieldSlotOf(BoundVariable variable)
+    {
+        if (variable is not { IsAutoInstantiated: false, Variable: VBInstanceFieldVariableMemberSymbol field }
+            || field.ParentUri.AbsoluteUri != _procedure.ParentUri.AbsoluteUri || ScalarKinds.Of(field.ResolvedType) is not { } kind)
+        {
+            return null;
+        }
+
+        if (!_slotOfField.TryGetValue(field.SemanticId, out var slot))
+        {
+            slot = FirstFieldSlot + _slotOfField.Count;
+            _slotOfField[field.SemanticId] = slot;
+            _slots[slot] = kind;
+            _slotSymbols[slot] = field;
+            _ = _cellSlots.Add(slot);
+            _ = _fieldSlots.Add(slot);
+            NeedsFrame = true;
+        }
+
+        return slot;
+    }
 
     // a Variant variable of the activation, by its slot (IR lowering S2.5c).
     private int? VariantSlotOf(BoundVariable variable)

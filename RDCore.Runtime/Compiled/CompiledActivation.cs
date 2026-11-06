@@ -715,6 +715,21 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type (IR lowering S2.5e): the one the object holds it in, as the
+    /// interpreter resolves it, which compiled code reads and writes it in.
+    /// </summary>
+    /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
+    public object? FieldCellOf(int number)
+    {
+        // the activation of a member of a class has its frame (ProcedureAnalysis.NeedsFrame), the current one, whose object is Me.
+        var field = _body.SlotSymbols[_body.CellSlots[number]];
+        return _session.Symbols.Resolver.GetValue(field) is ScalarCell cell && cell.Type.Equals(((ITypedSymbol)field).ResolvedType) ? cell : null;
+    }
+
+    /// <summary>The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.</summary>
+    public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
+
+    /// <summary>
     /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5c): what compiled code reads and
     /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
     /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.

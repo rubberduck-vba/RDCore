@@ -252,7 +252,12 @@ internal sealed class ProcedureEmitter
 
         foreach (var slot in _analysis.CellSlots)
         {
-            if (!_analysis.Parameters.Exists(parameter => parameter.Slot == slot))
+            // a field of Me is in the cell the object holds it in (IR lowering S2.5e): one held otherwise makes the activation the interpreter's from the start.
+            if (_analysis.FieldSlots.Contains(slot))
+            {
+                EmitFieldCell(slot, WalkBackAt(0), nameof(CompiledActivation.FieldCellOf));
+            }
+            else if (!_analysis.Parameters.Exists(parameter => parameter.Slot == slot))
             {
                 var kind = _analysis.Slots[slot];
                 EmitCellOf(slot, kind, _cells[slot], () => LoadZero(kind));
@@ -268,6 +273,17 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantCellOf))!);
             _il.Emit(OpCodes.Stloc, cell);
         }
+    }
+
+    // the cell of a field of Me, found by the activation's object; none goes to orElse.
+    private void EmitFieldCell(int slot, Label orElse, string find)
+    {
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, _cellNumbers[slot]);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(find)!);
+        _il.Emit(OpCodes.Stloc, _cells[slot]);
+        _il.Emit(OpCodes.Ldloc, _cells[slot]);
+        _il.Emit(OpCodes.Brfalse, orElse);
     }
 
     // the cell of a slot that is not a parameter passed by reference, holding what loadValue loads: the activation is the interpreter's from the start when
@@ -818,6 +834,12 @@ internal sealed class ProcedureEmitter
         {
             _il.Emit(OpCodes.Ldc_I4_0);
             _il.Emit(OpCodes.Stloc, loop.State);
+        }
+
+        // each field's cell, found again, as each Variant's is: an edit made while the program waited may have given the object others.
+        foreach (var slot in _analysis.FieldSlots)
+        {
+            EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
         }
 
         // each Variant's cell, found again: what the interpreter ran may have bound the slot to another.
