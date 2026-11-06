@@ -286,6 +286,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Memory" xml:space="preserve">
     <value>{0} BYTES RESERVED  {1} AVAILABLE  {2} ALLOCATED  {3} FREE</value>
   </data>
+  <data name="Repl_NobodyAnswers" xml:space="preserve">
+    <value>Nobody is at the shell's console to answer the question.</value>
+  </data>
   <data name="Repl_NoSession" xml:space="preserve">
     <value>NO RUNTIME SESSION</value>
   </data>

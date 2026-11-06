@@ -52,6 +52,3 @@ This section corresponds to [**MS-VBAL §5.6.9.8.6** Imp Operator](https://learn
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md) | ⏭️ [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)

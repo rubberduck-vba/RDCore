@@ -29,6 +29,3 @@ otherwise when the project defines `DEBUG = 0`.
 
 `ProcedureExecutor` dispatches [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)`.Break`, and in a release build
 `InstructionKind.Halt` ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.10** Select Case Statement](rd-vbal.5.4.2.10.select-case-statement.md) | ⏭️ [**RD-VBAL §5.4.2.12** GoTo Statement](rd-vbal.5.4.2.12.goto-statement.md)

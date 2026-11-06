@@ -35,6 +35,3 @@ written with the token `this`.
 procedure's own `Uri`. `RuntimeExpressionEvaluator.EvaluateSimpleName` uses the same `RuntimeEvaluationContext.Scope`
 to detect a self-reference to the executing procedure; see
 [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md) | ⏭️ [**RD-VBAL §5.6.12** Member Access Expressions](rd-vbal.5.6.12.member-access-expressions.md)

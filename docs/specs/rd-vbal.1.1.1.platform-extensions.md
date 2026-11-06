@@ -15,6 +15,3 @@ How the environment host discovers, validates and grants capabilities to an exte
 
 - [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md);
 - [**RD-VBAL §1.1.6** Capabilities Provider](rd-vbal.1.1.6.capabilities-provider.md).
-
----
-> ⏮️ [**RD-VBAL §1.1** Design and Extension Philosophy](rd-vbal.1.1.philosophy.md) | ⏭️ [**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)

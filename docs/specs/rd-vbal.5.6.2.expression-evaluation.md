@@ -29,6 +29,3 @@ the object. See [**RD-VBAL §2.4.2.2.2** Default Member](rd-vbal.2.4.2.non-intri
 
 When the default member also yields an object data type, the implicit invocation of a default member through
 let-coercion recurses as needed. See [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md).
-
----
-> ⏮️ [**RD-VBAL §5.6.1** Expression Classifications](rd-vbal.5.6.1.expression-classifications.md) | ⏭️ [**RD-VBAL §5.6.3** Member Resolution](rd-vbal.5.6.3.member-resolution.md)

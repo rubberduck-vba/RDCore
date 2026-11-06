@@ -4,6 +4,3 @@ This section corresponds to [**MS-VBAL §5.6.9.1** Operator Precedence and Assoc
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.9** Operator Expressions](rd-vbal.5.6.9.operator-expressions.md) | ⏭️ [**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)

@@ -26,6 +26,3 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 Like every file statement, `Close` and `Reset` run through the session's file-channel shim,
 [IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.5.1** Open Statement](rd-vbal.5.4.5.1.open-statement.md) | ⏭️ [**RD-VBAL §5.4.5.3** Seek Statement](rd-vbal.5.4.5.3.seek-statement.md)

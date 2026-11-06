@@ -52,6 +52,3 @@ Directives also include the `Implements` and `Attribute` statements:
 |---|---|---|
 |`Implements`|Specifies that the (class) module _implements_ an _interface class_.|[**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md)|
 |`Attribute`|Specifies flags and modifiers that alter the semantics of a module or member.|[**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)|
-
----
-> ⏮️ [**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md) | ⏭️ [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)

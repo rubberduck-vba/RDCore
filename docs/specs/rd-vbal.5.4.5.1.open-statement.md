@@ -36,6 +36,3 @@ This section corresponds to [**MS-VBAL §5.4.5.1.1** File Numbers](https://learn
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md) | ⏭️ [**RD-VBAL §5.4.5.2** Close and Reset Statements](rd-vbal.5.4.5.2.close-and-reset-statements.md)

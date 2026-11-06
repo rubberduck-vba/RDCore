@@ -263,6 +263,30 @@ public sealed class VbpProjectImporterTests
         CollectionAssert.AreEquivalent(new[] { "DEBUG", "TRACE" }, info.PrecompilerConstants.Keys.ToArray());
     }
 
+    // what a newer format says of the project's entries is the platform's too: an import keeps it with the entry, as it keeps the newer format's stamp.
+    [TestMethod]
+    public void AnImportOverAProjectFileOfANewerFormat_KeepsWhatItSaysOfEachEntry()
+    {
+        static Dictionary<string, System.Text.Json.JsonElement> Said(string json) => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(json)!;
+        var existing = new ProjectFile(@"C:\old", new RDCoreProject
+        {
+            Name = "Old",
+            References = [new RDCoreReference { Name = "Scripting", ExtensionData = Said("""{ "Pinned": true }""") }],
+            Modules = [new RDCoreModule { RelativeUri = "MODMAIN.BAS", ExtensionData = Said("""{ "Tags": [ "core" ] }""") }],
+            OtherFiles = [new RDCoreFile { RelativeUri = "readme.txt", ExtensionData = Said("""{ "Preview": true }""") }],
+        }) with
+        {
+            Version = "1.1",
+        };
+
+        var info = Import().Into(existing, @"C:\ws").ProjectInfo;
+
+        Assert.IsTrue(info.References.Single(reference => reference.Name == "Scripting").ExtensionData!["Pinned"].GetBoolean());
+        Assert.AreEqual("core", info.Modules.Single(module => module.RelativeUri == "modMain.bas").ExtensionData!["Tags"][0].GetString());
+        Assert.IsTrue(info.OtherFiles.Single(file => file.RelativeUri == "README.txt").ExtensionData!["Preview"].GetBoolean(), "kept by its path, in any case");
+        Assert.IsNull(info.OtherFiles.Single(file => file.RelativeUri == "Battleship.RES").ExtensionData);
+    }
+
     [TestMethod]
     public void AnImportIntoAFolderWithNoProjectFile_IsANewOne()
     {

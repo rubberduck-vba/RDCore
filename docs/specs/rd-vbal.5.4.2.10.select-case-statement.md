@@ -151,6 +151,3 @@ that departure is the expression's, not the clause's.
 - This relies on the node parameter of `OperatorRuntimeSemantics<TContext,TFlags>` being typed
   [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
   ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.9** Single-line If Statement](rd-vbal.5.4.2.9.single-line-if-statement.md) | ⏭️ [**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md)
