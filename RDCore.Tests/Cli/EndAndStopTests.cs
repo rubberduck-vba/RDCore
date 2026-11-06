@@ -26,6 +26,14 @@ public sealed class EndAndStopTests
         return Convert.ToInt64(session.Symbols.Resolver.GetValue(total!).Value.BoxedValue);
     }
 
+    // whether the program is past its first statement, which gave Total 3: in the cell the interpreter and compiled code both write it in.
+    private static bool GaveTotalThree(EnvironmentSessionProvider provider)
+    {
+        var symbols = provider.Session.Symbols;
+        return symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module) && symbols.TryResolveValue("Total", module!, out var total)
+            && Convert.ToInt64(symbols.Resolver.GetValue(total!).Value.BoxedValue) == 3;
+    }
+
     private static async Task<(ExecuteResult Result, long Total, ExecuteResult Again, long TotalAgain)> RunTwiceAsync(string program)
     {
         ExecuteResult? first = null, second = null;
@@ -434,7 +442,7 @@ public sealed class EndAndStopTests
         {
             result = outcome;
             return Task.CompletedTask;
-        }, cancelWhen: provider => provider.Session.CallStack.Current is RDCore.Runtime.Execution.Frames.CallStackFrame { Pc: > 0 });
+        }, cancelWhen: GaveTotalThree);
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result!.Outcome, result.ErrorMessage);
         Assert.IsGreaterThanOrEqualTo(3, result.ErrorLine, "it stopped in the loop, and says which line it was on");
