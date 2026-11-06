@@ -50,9 +50,9 @@ namespace RDCore.Runtime.Compiled;
 /// something are compiled code's is kept in the interpreter.
 /// </para>
 /// <para>
-/// So does a block whose state the frame holds (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it that uses its
-/// object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar and its <c>Case</c>s, and a <c>Case</c>
-/// compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
+/// The interpreter steps a block whose state the frame holds too (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it
+/// that uses its object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar, or that compiled code does not
+/// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
 /// </para>
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
@@ -193,8 +193,8 @@ internal sealed class ProcedureAnalysis
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
-    // have compiled code do something at each pass - a Let, a call, a condition, a Select Case and its comparisons, the loop's back edge with its condition
-    // or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another
+    // have compiled code do something at each pass - a Let, a call, a condition, a Case it compares and its Select Case, the loop's back edge with its
+    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another
     // loop does saves nothing of this one's passes. When it steps nothing in a loop, anything at all will do.
     private bool GainsAnything(InstructionList list)
     {
@@ -211,7 +211,10 @@ internal sealed class ProcedureAnalysis
             }
         }
 
-        static bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or SelectStep or CaseStep or LoopBackStep or ForNextStep;
+        // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
+        var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
+        bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep
+            || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
         {

@@ -462,6 +462,8 @@ public sealed class CompiledSteppingTests
         DisplayName = "a loop around one that does something compiled")]
     [DataRow("Do|    S = S & \"x\"|    Select Case T|        Case 1|    End Select|Loop Until Len(S) >= 10", true,
         DisplayName = "a loop whose Select Case compares compiled")]
+    [DataRow("Do|    Select Case True|        Case S = \"\"|            S = \"x\"|        Case Else|            S = S & \"x\"|    End Select|Loop Until Len(S) >= 10",
+        false, DisplayName = "a loop whose Select Case compares nothing compiled")]
     public async Task EachLoop_GainsForItself(string loops, bool compiles)
     {
         var compiled = await AssertAlikeAsync(Program([

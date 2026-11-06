@@ -40,13 +40,15 @@ has them.
 
 A `Select Case` of a scalar selector evaluates the selector once, and compares it with the values of each `Case` in order, as the interpreter does
 ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)): each value converted to the selector's type, except an integer compared with a `Single`
-selector, which is compared at its exact value. When a value can't be converted exactly, such as a fraction compared with a `Single` or a `Long` too large for
-an `Integer` selector, compiled code hands the activation to the interpreter at that `Case`, as it does when an operation declines (below). The interpreter
-runs a `Case` whose value is no scalar, such as a `String`, on its own, with the selector compiled code evaluated.
+selector, which is compared at its exact value. When a value can't be converted exactly, compiled code hands the activation to the interpreter at that
+`Case`, as it does when an operation declines (below). A `Long` too large for an `Integer` selector is one; so is every `Double` compared with a `Single`
+selector, `4#` included, since only a `Single` converts exactly to a `Double` and not the other way. The interpreter runs a `Case` whose value is no scalar,
+such as a `String`, on its own, with the selector compiled code evaluated. When compiled code declines the selector itself as it evaluates it (an operation
+that declines, such as `D \ 1` with `D` a `Double`), the interpreter runs the rest of the activation, from the `Select Case`.
 
 The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` and its `End With`, and each statement in
-the block that uses its object; a `For Each` and its `Next`; and a `Select Case` of a selector that is no scalar, such as a `String` or a `Variant`, and its
-`Case`s. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
+the block that uses its object; a `For Each` and its `Next`; and a `Select Case` and its `Case`s when the selector is no scalar, such as a `String` or a
+`Variant`, or is a scalar compiled code can't evaluate, such as `Len(S)` with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
 same place in either engine: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop,
 by its `Next`, an `Exit For`, a jump or a `Return`.
 

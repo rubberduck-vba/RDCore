@@ -148,6 +148,105 @@ public sealed class CompiledBlockTests
             "    Return",
             "End Function"), "Back", recoveries: 1, classes: Noisy);
 
+    // a GoTo out of the block is a jump of compiled code too: the label it lands on lets go of what the block held, before the call compiled code makes there.
+    [TestMethod]
+    public async Task AGoToOutOfAForEach_LetsGoOfWhatItRead_WhereItLands()
+        => await AssertAlikeAsync(WithHelpers(
+            "Public Sub Main()",
+            "    Debug.Print Jumped()",
+            "End Sub",
+            "Private Function Jumped() As Long",
+            "    Dim V As Variant, I As Long",
+            "    For Each V In Made()",
+            "        I = I + 1",
+            "        If I = 1 Then GoTo Out",
+            "    Next",
+            "Out:",
+            "    Report I",
+            "    Jumped = I",
+            "End Function"), "Jumped", recoveries: 2, classes: Noisy);
+
+    // an error in the loop goes to a handler outside it: the interpreter runs the instruction that fails, and what the block held is let go of before
+    // compiled code goes on in the handler.
+    [TestMethod]
+    public async Task AnErrorToAHandlerOutsideAForEach_LetsGoOfWhatItRead_BeforeTheHandler()
+        => await AssertAlikeAsync(WithHelpers(
+            "Public Sub Main()",
+            "    Debug.Print Caught()",
+            "End Sub",
+            "Private Function Caught() As Long",
+            "    Dim V As Variant, I As Long",
+            "    On Error GoTo Handler",
+            "    For Each V In Made()",
+            "        I = I + 1",
+            "        If I = 1 Then I = I \\ 0",
+            "    Next",
+            "    Exit Function",
+            "Handler:",
+            "    Report I",
+            "    Caught = I",
+            "End Function"), "Caught", recoveries: 2, classes: Noisy);
+
+    // an End in the loop ends the program there, in either engine, with what the block held.
+    [TestMethod]
+    public async Task AnEndInAForEach_EndsTheProgramThere()
+        => await AssertAlikeAsync(WithHelpers(
+            "Public Sub Main()",
+            "    Ended",
+            "    Debug.Print \"not reached\"",
+            "End Sub",
+            "Private Sub Ended()",
+            "    Dim V As Variant, I As Long",
+            "    For Each V In Made()",
+            "        I = I + 1",
+            "        Report I",
+            "        If I = 1 Then End",
+            "    Next",
+            "End Sub"), "Ended", recoveries: 1, classes: Noisy);
+
+    // the target of an inner With is evaluated against the outer one's object; each End With lets go of its own, the Collection's two objects with the outer.
+    [TestMethod]
+    public async Task AnInnerWith_IsEvaluatedAgainstTheOuter_AndEachEndWithLetsGoOfItsOwn()
+        => await AssertAlikeAsync(WithHelpers(
+            "Public Sub Main()",
+            "    Debug.Print Nested()",
+            "End Sub",
+            "Private Function Nested() As Long",
+            "    Dim I As Long",
+            "    With New Collection",
+            "        .Add New Noisy",
+            "        .Add New Noisy",
+            "        With .Item(2)",
+            "            .Id = 5",
+            "            For I = 1 To 2",
+            "                Nested = Nested + I",
+            "            Next",
+            "            Nested = Nested + .Id",
+            "        End With",
+            "        Report Nested",
+            "    End With",
+            "    Report Nested + 1",
+            "End Function"), "Nested", recoveries: 8, classes: Noisy);
+
+    // an Exit For out of a With inside the loop leaves the With without its End With: compiled code lets its object go where the interpreter does.
+    [TestMethod]
+    public async Task AnExitForOutOfAWith_LetsGoOfItsObject_WhereTheInterpreterDoes()
+        => await AssertAlikeAsync(WithHelpers(
+            "Public Sub Main()",
+            "    Debug.Print Quit()",
+            "End Sub",
+            "Private Function Quit() As Long",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        With New Noisy",
+            "            .Id = I",
+            "            Quit = Quit + I",
+            "            If I = 2 Then Exit For",
+            "        End With",
+            "    Next",
+            "    Report Quit",
+            "End Function"), "Quit", recoveries: 5, classes: Noisy);
+
     // a Select Case of a String selector, and its Cases, are the interpreter's; the loop around it is compiled code's.
     [TestMethod]
     public async Task ASelectOfAString_IsSteppedByTheInterpreter()
