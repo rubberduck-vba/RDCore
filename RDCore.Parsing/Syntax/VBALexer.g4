@@ -306,8 +306,8 @@ UNDERSCORE : '_';
 WS : [ \t];
 GUIDLITERAL : '{' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '}';
 IDENTIFIER :  ~[[\](){}\r\n\t.,'"|!@#$%^&*\-+:=; 0-9-/\\] ~[[\](){}\r\n\t.,'"|!@#$%^&*\-+:=; -]*;
-// a line continuation is the blank right before its underscore, and the blanks before that one are WS of their own: began with every blank before the
-// underscore, it was tried at each blank of a run and read the rest of the run, which a run of 64,000 blanks took the lexer 20 s to.
+// only the last blank before the underscore belongs to the continuation, and the blanks before it are WS of their own, so a run of blanks is read once: a
+// token that could start at any blank would re-read the rest of the run from each one.
 LINE_CONTINUATION : [ \t] UNDERSCORE [ \t]* '\r'? '\n' WS_NOT_FOLLOWED_BY_LINE_CONTINUATION*;
 // The following rule is needed in order to capture hex literals without format prefixes which start with a digit. Needed for VBForm resources.
 BARE_HEX_LITERAL : [0-9] [0-9a-fA-F]*; 

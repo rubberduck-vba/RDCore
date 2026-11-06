@@ -9,9 +9,9 @@ using RDCore.SDK.Model.Errors;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// A run of blanks is lexed once over: a line continuation is the blank right before its underscore, and the blanks before that one are <c>WS</c> of
-/// their own. Begun with every blank before the underscore, it was tried at each blank of a run and read the rest of the run: the directive pass, which
-/// reads a line that is no directive as blanks, took 20 s over a module with a directive and one line of 64,000 characters.
+/// Only the last blank before its underscore belongs to a line continuation, and the blanks before it are <c>WS</c> of their own, so a run of blanks is
+/// read once: a token that could start at any blank would re-read the rest of the run from each one. The directive pass reads a line that is no
+/// directive as blanks, so this is what reading a long line costs it.
 /// </summary>
 [TestClass]
 public class BlankRunLexingTests
@@ -39,8 +39,8 @@ public class BlankRunLexingTests
         public string GetText(Interval interval) => _input.GetText(interval);
     }
 
-    // the most looks the lexer takes at each blank of a run: it takes 4, trying a WS and a continuation at each. Tried at each blank to the end of the run, a
-    // continuation took as many looks as the run has blanks for each of them: 32 million for a run of 8,000.
+    // the most looks the lexer takes at each blank of a run: it takes 4, trying a WS and a continuation at each. A count that grows with the length of the
+    // run is a continuation tried to the end of the run at each blank.
     private const long LooksABlank = 8;
 
     private static (long Looks, IList<IToken> Tokens) Lex(string text)
@@ -101,7 +101,7 @@ public class BlankRunLexingTests
             "each continuation begins with the blank right before its underscore");
     }
 
-    // a member access or an index written over a line continuation with blanks before it reads as it did when the continuation began with all of them.
+    // a member access, an index or a keyword of two words, written over a line continuation with blanks before it, is read as it is on one line.
     [TestMethod]
     [DataRow("Set x = obj   _\r\n        .Item")]
     [DataRow("x = obj   _\r\n        (1)")]
@@ -114,7 +114,6 @@ public class BlankRunLexingTests
 
         Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
     }
-
     // a module with a directive is read by the directive pass, as blanks but for its directives: a line of 64,000 characters is 64,000 blanks there.
     [TestMethod]
     public void AModuleWithADirectiveAndALongLine_IsReadAsFastAsItsBlanksAreLexed()
