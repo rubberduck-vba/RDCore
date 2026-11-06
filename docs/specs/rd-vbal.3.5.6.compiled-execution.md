@@ -109,6 +109,9 @@ ran, into the frame. A loop that ended keeps the end and the step it last had, a
 statement can fail when it runs again. The interpreter then evaluates the instruction as it always does, so the error raised, its message and its location
 are the interpreter's. The rest of the activation runs in the interpreter.
 
+A `Variant` that holds what compiled code does not evaluate is the exception: the interpreter runs that one statement, whether it assigns, tests a
+condition or ends a loop, and compiled code goes on after it, as described above.
+
 Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
 activation under the debugger.
 
