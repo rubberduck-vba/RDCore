@@ -42,9 +42,16 @@ internal sealed partial class ProcedureAnalysis
         return true;
     }
 
-    // a record variable of the activation, by its slot.
+    // a record variable of the activation, by its slot; or a record field compiled code reaches (FieldSlotOf) - `this`, of Me's class - by the slot it numbers.
     private int? RecordSlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _recordSlots.Contains(slot.Index) ? slot.Index : null;
+    {
+        if (variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout))
+        {
+            return _recordSlots.Contains(slot.Index) ? slot.Index : null;
+        }
+
+        return FieldSlotOf(variable) is { } field && _recordSlots.Contains(field) ? field : null;
+    }
 
     // a field of a record of the activation - `r.X`, `r.Inner.X` - and the type it is declared as: a member access of a record, which is bound with no
     // member (BoundMember), the field found by its name in the record's type as the interpreter finds it in the record (EvaluateInstanceField). A field

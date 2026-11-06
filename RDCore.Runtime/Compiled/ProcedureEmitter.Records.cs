@@ -14,11 +14,12 @@ internal sealed partial class ProcedureEmitter
     // the record slots, each by the local its holder is held in (IR lowering S2.6a).
     private readonly Dictionary<int, LocalBuilder> _records = [];
 
+    // a record field's holder is its cell, which the field's own (EmitFieldCell) finds and finds again.
     private void DeclareRecords()
     {
         foreach (var slot in _analysis.RecordSlots)
         {
-            _records[slot] = _il.DeclareLocal(typeof(object));
+            _records[slot] = _cells.TryGetValue(slot, out var held) ? held : _il.DeclareLocal(typeof(object));
         }
     }
 
@@ -27,6 +28,11 @@ internal sealed partial class ProcedureEmitter
     {
         foreach (var (slot, holder) in _records)
         {
+            if (_analysis.FieldSlots.Contains(slot))
+            {
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.RecordCellOf))!);
@@ -39,6 +45,11 @@ internal sealed partial class ProcedureEmitter
     {
         foreach (var (slot, holder) in _records)
         {
+            if (_analysis.FieldSlots.Contains(slot))
+            {
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, holder);

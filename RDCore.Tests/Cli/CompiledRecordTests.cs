@@ -218,4 +218,102 @@ public sealed class CompiledRecordTests
             "    P.Small = 32767 + D",
             "    P.Y = 1.5",
             "End Sub"), "Fill", recoveries: 0, walkBacks: 1);
+
+    // a class whose state is one record of Me's - `Private this As TState` - read and written by its members.
+    private static (string Name, string Source)[] Grid(params string[] members)
+        => [("Grid", ModuleWorkspace.ClassModule("Grid", ["Option Explicit",
+            "Private Type TState", "    X As Long", "    Y As Double", "    V As Variant", "    Inner As TCount", "End Type",
+            "Private Type TCount", "    N As Integer", "End Type",
+            "Private this As TState",
+            "Private Saved As TState",
+            "Public Property Get X() As Long", "    X = this.X", "End Property",
+            "Public Property Let X(ByVal Value As Long)", "    this.X = Value", "End Property",
+            .. members]))];
+
+    // `this.X` is read and written where Me holds the record: each object its own, what a Property Let assigns it read by compiled code, and what compiled
+    // code writes read by a Property Get.
+    [TestMethod]
+    public async Task TheFieldsOfThis_AreEachObjectsOwn()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim A As New Grid, B As New Grid",
+            "    A.X = 10",
+            "    Debug.Print A.Walk(3); B.Walk(4); A.Walk(1); B.X; A.X",
+            "End Sub"), "Walk", recoveries: 0, classes: Grid(
+                "Public Function Walk(ByVal N As Long) As Double",
+                "    Dim I As Long",
+                "    For I = 1 To N",
+                "        this.X = this.X + I",
+                "        this.Y = this.Y + this.X / 4",
+                "        this.Inner.N = this.Inner.N + 1",
+                "    Next",
+                "    Walk = this.X * 1000 + this.Y + this.Inner.N / 100",
+                "End Function"));
+
+    // a Let of the whole record (MS-VBAL §5.4.3.8) is the interpreter's, and copies another record over Me's: what compiled code reads after it is the copy,
+    // and what it writes is in Me's record, not in the one copied.
+    [TestMethod]
+    public async Task ThisAssignedAWholeRecord_IsReadAndWrittenAfterwards()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim A As New Grid",
+            "    Debug.Print A.Walk(3);",
+            "    A.Reset 7",
+            "    Debug.Print A.Walk(2);",
+            "    A.Reset 1",
+            "    Debug.Print A.Walk(1); A.X",
+            "End Sub"), "Walk", recoveries: 0, classes: Grid(
+                "Public Sub Reset(ByVal N As Long)",
+                "    Saved.X = N",
+                "    this = Saved",
+                "    Saved.X = -1",
+                "End Sub",
+                "Public Function Walk(ByVal N As Long) As Double",
+                "    Dim I As Long",
+                "    For I = 1 To N",
+                "        this.X = this.X + I",
+                "        this.Y = this.Y + 0.5",
+                "    Next",
+                "    Walk = this.X + this.Y",
+                "End Function"));
+
+    // a Variant field of this holds what it is assigned of its own subtype, as a Variant field of a local record does; Empty holds no payload, so the first
+    // sum of an object is the interpreter's.
+    [TestMethod]
+    public async Task AVariantFieldOfThis_IsReadAndWrittenAsAVariantVariableIs()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim A As New Grid",
+            "    Debug.Print A.Summed(3); A.Summed(2)",
+            "End Sub"), "Summed", recoveries: 1, classes: Grid(
+                "Public Function Summed(ByVal N As Long) As Long",
+                "    Dim I As Long",
+                "    For I = 1 To N",
+                "        this.V = this.V + I",
+                "    Next",
+                "    Summed = this.V",
+                "End Function"));
+
+    // a record of a standard module is held in the session: what one procedure's compiled code writes in it, another's reads, and the interpreter too.
+    [TestMethod]
+    public async Task ARecordOfAModule_IsHeldInTheSession()
+        => await AssertAlikeAsync(Module(
+            "Private Kept As TPair",
+            "Public Sub Main()",
+            "    Fill 4",
+            "    Debug.Print Kept.Count; Kept.Inner.X; Read()",
+            "    Kept.Count = 100",
+            "    Fill 1",
+            "    Debug.Print Read()",
+            "End Sub",
+            "Private Sub Fill(ByVal N As Long)",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Kept.Count = Kept.Count + 1",
+            "        Kept.Inner.X = Kept.Inner.X + I",
+            "    Next",
+            "End Sub",
+            "Private Function Read() As Long",
+            "    Read = Kept.Count * 1000 + Kept.Inner.X",
+            "End Function"), "Fill", recoveries: 0);
 }

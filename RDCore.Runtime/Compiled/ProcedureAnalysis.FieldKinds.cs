@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -14,6 +15,14 @@ internal sealed partial class ProcedureAnalysis
         {
             _slots[slot] = kind;
             _ = _cellSlots.Add(slot);
+            return true;
+        }
+
+        // a record is held by its cell, its holder (IR lowering S2.6a, RecordSlots), which compiled code finds the record and its fields in each time.
+        if (field.ResolvedType is VBUserDefinedType)
+        {
+            _ = _cellSlots.Add(slot);
+            _ = _recordSlots.Add(slot);
             return true;
         }
 
