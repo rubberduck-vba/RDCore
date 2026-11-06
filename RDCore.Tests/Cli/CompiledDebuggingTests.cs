@@ -290,6 +290,74 @@ public sealed class CompiledDebuggingTests
         CollectionAssert.AreEqual(new[] { "caught 6" }, resumed.Output.Select(line => line.Trim()).ToArray());
     }
 
+    // Main waits at its Stop, then calls Outer, which sums a Variant speculated to hold a Long in a loop that compiles, and calls Inner, which stops the
+    // program at its third call.
+    private static readonly string VariantCalling = Program(
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(5)",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As String",
+        "    Dim i As Long, t As Long",
+        "    Dim S As Variant",
+        "    S = 0",
+        "    For i = 1 To n",
+        "        t = Inner(i)",
+        "        S = S + t",
+        "    Next",
+        "    Outer = S & \" \" & TypeName(S)",
+        "End Function",
+        "Private Function Inner(ByVal x As Long) As Long",
+        "    If x = 3 Then Stop",
+        "    Inner = x * 10",
+        "End Function");
+
+    // VariantCalling run by engine to the Stop in Inner, in the middle of Outer's loop; edited, when edited is given; and resumed to its end.
+    private static async Task<ExecuteResult> StoppedInASpeculatedLoopAsync(VBExecutionEngine engine, string? edited)
+    {
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectAsync([], VariantCalling, async (provider, first, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            try
+            {
+                var stopped = await Resume(provider);
+                Assert.AreEqual((ExecutionOutcome.Suspended, 15), (stopped.Outcome, stopped.ErrorLine), stopped.ErrorMessage);
+                Assert.AreEqual("Outer", provider.Execution.Stack().Frames[1].Procedure);
+                if (edited is not null)
+                {
+                    _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, edited));
+                }
+
+                resumed = await Resume(provider);
+            }
+            finally
+            {
+                _ = await Terminate(provider);
+            }
+        }, debug: true, engine: engine);
+
+        return resumed!;
+    }
+
+    // a stop in the middle of a loop that speculates what a Variant holds, and an edit there that makes it hold a Double from then on: the loop goes on with
+    // what the Variant holds, as the interpreter's does (IR lowering S2.5c).
+    [TestMethod]
+    [DataRow(null, "150 Long", DisplayName = "resumed")]
+    [DataRow("        S = S + t|        S = S + t + 0.5", "151.5 Double", DisplayName = "edited to add a Double")]
+    public async Task ASpeculatedLoop_StoppedInAndEdited_GoesOnAsTheInterpretersDoes(string? edit, string expected)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var edited = edit is null ? null : VariantCalling.Replace(edit.Split('|')[0], edit.Split('|')[1], StringComparison.Ordinal);
+
+        var interpreted = await StoppedInASpeculatedLoopAsync(VBExecutionEngine.Interpreter, edited);
+        var compiled = await StoppedInASpeculatedLoopAsync(VBExecutionEngine.Compiled, edited);
+
+        Assert.AreEqual((ExecutionOutcome.Completed, ExecutionOutcome.Completed), (interpreted.Outcome, compiled.Outcome), $"{interpreted.ErrorMessage} / {compiled.ErrorMessage}");
+        CollectionAssert.AreEqual(new[] { expected }, interpreted.Output.Select(line => line.Trim()).ToArray());
+        CollectionAssert.AreEqual(interpreted.Output.ToArray(), compiled.Output.ToArray());
+    }
+
     // Calling, with Inner stopping twice in the same call: at line 12, then at line 13.
     private static readonly string StoppingTwice = Calling.Replace("    If x = 3 Then Stop\r\n", "    If x = 3 Then Stop\r\n    If x = 3 Then Stop\r\n", StringComparison.Ordinal);
 

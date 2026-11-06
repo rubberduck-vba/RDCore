@@ -255,4 +255,227 @@ public sealed class CompiledVariantTests
 
         Assert.AreEqual("ForCounter I", string.Join("; ", run.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
+
+    private static readonly (string Name, string Source)[] Valued =
+        [("Valued", ModuleWorkspace.ClassModule("Valued", "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "    Value = 100", "End Property"))];
+
+    // the program run both ways, and the procedure named compiled: a Variant speculated to hold a subtype it does not hold is evaluated as any is - slower,
+    // never another result.
+    private static async Task AssertSpeculatedAsync(string program, string compiled, IReadOnlyList<(string Name, string Source)>? classes = null)
+    {
+        var results = await AssertAlikeAsync(program, classes);
+        Assert.IsTrue(results.TryGetValue(compiled, out var result), $"{compiled} was not called");
+        Assert.IsNotNull(result.Body, $"{compiled}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
+    }
+
+    // S is speculated to hold the Double it is assigned after its first loop: in that loop it is Empty, and then the Long that Empty + Long is.
+    [TestMethod]
+    public async Task AVariantThatIsEmpty_IsNotTheSubtypeItIsSpeculatedToHold()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print FromEmpty()",
+            "    Debug.Print NeverAssigned()",
+            "End Sub",
+            "Private Function FromEmpty() As String",
+            "    Dim I As Long",
+            "    Dim S As Variant",
+            "    For I = 1 To 4",
+            "        S = S + I",
+            "        FromEmpty = FromEmpty & TypeName(S) & \" \"",
+            "    Next",
+            "    S = 0#",
+            "    For I = 1 To 3",
+            "        S = S + I",
+            "    Next",
+            "    FromEmpty = FromEmpty & S & \" \" & TypeName(S)",
+            "End Function",
+            "Private Function NeverAssigned() As String",
+            "    Dim I As Integer",
+            "    Dim S As Variant",
+            "    For I = 1 To 3",
+            "        S = S + I",
+            "    Next",
+            "    NeverAssigned = S & \" \" & TypeName(S)",
+            "End Function"), "FromEmpty");
+
+    // a Variant speculated to hold a Long is assigned a String, Null, or an object partway through a loop: what it then holds is evaluated as any is.
+    [TestMethod]
+    public async Task AVariantWhoseSubtypeChangesInALoop_IsEvaluatedAsWhatItHolds()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Changing(1)",
+            "    Debug.Print Changing(2)",
+            "    Debug.Print Changing(3)",
+            "End Sub",
+            "Private Function Changing(ByVal Becomes As Long) As String",
+            "    Dim I As Long",
+            "    Dim S As Variant",
+            "    S = 0",
+            "    For I = 1 To 6",
+            "        If I = 3 Then",
+            "            If Becomes = 1 Then S = \"10\"",
+            "            If Becomes = 2 Then S = Null",
+            "            If Becomes = 3 Then Set S = New Valued",
+            "        End If",
+            "        S = S + I",
+            "        Changing = Changing & TypeName(S) & \" \"",
+            "    Next",
+            "    Changing = Changing & S",
+            "End Function"), "Changing", Valued);
+
+    // a sum that overflows the subtype it is done in is the interpreter's, which widens it (MS-VBAL §5.6.9.3; Single to Double, as MS-VBA does): a Variant
+    // speculated to hold the narrower subtype holds the wider from then on, and is evaluated as it is - a difference back in the narrower range is the wider.
+    [TestMethod]
+    public async Task AVariantSumThatOverflows_IsWidened_NeverWrapped()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Widened()",
+            "End Sub",
+            "Private Function Widened() As String",
+            "    Dim K As Long",
+            "    Dim B As Byte",
+            "    Dim V As Variant",
+            "    Dim W As Variant",
+            "    Dim X As Variant",
+            "    Dim Y As Variant",
+            "    B = 2",
+            "    V = 32760",
+            "    W = 2147483640",
+            "    X = B",
+            "    Y = CSng(1E+38)",
+            "    For K = 1 To 8",
+            "        V = V + 3",
+            "        W = W + 3",
+            "        X = X * B",
+            "        Y = Y * 2",
+            "    Next",
+            "    V = V - 100",
+            "    W = W - 2147483000",
+            "    X = X - B",
+            "    Widened = V & \" \" & TypeName(V) & \" \" & W & \" \" & TypeName(W) & \" \" & X & \" \" & TypeName(X) & \" \" & TypeName(Y)",
+            "End Function"), "Widened");
+
+    // S + Null is Null (MS-VBAL §5.6.9.3), and a Variant speculated to hold a Long that holds Null is no Long.
+    [TestMethod]
+    public async Task AVariantThatHoldsNull_PropagatesIt()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Propagated()",
+            "End Sub",
+            "Private Function Propagated() As String",
+            "    Dim I As Long",
+            "    Dim S As Variant",
+            "    Dim T As Variant",
+            "    S = 0",
+            "    For I = 1 To 5",
+            "        If I = 3 Then S = Null",
+            "        T = S + I",
+            "        Propagated = Propagated & TypeName(T) & \" \"",
+            "        If I = 3 Then S = I",
+            "    Next",
+            "    T = T + Null",
+            "    Propagated = Propagated & IsNull(T)",
+            "End Function"), "Propagated");
+
+    // + of two Strings concatenates them, and + of a String and a number adds the number the String is (MS-VBAL §5.6.9.3.1).
+    [TestMethod]
+    public async Task APlusOfStrings_ConcatenatesThem_AndOfAStringAndANumber_AddsThem()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Joined()",
+            "End Sub",
+            "Private Function Joined() As String",
+            "    Dim I As Long",
+            "    Dim S As Variant",
+            "    Dim N As Variant",
+            "    S = \"a\"",
+            "    N = 0",
+            "    For I = 1 To 4",
+            "        S = S + \"b\"",
+            "        N = N + I",
+            "        If I = 2 Then N = \"5\"",
+            "    Next",
+            "    Joined = S & \" \" & N & \" \" & TypeName(N)",
+            "End Function"), "Joined");
+
+    // a Currency is added and multiplied as one (a product that is no whole number of ten-thousandths, the interpreter's to round); a Date is no subtype
+    // compiled code speculates a Variant holds.
+    [TestMethod]
+    public async Task AVariantHoldingACurrencyOrADate_IsOperatedOnAsOne()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Typed()",
+            "End Sub",
+            "Private Function Typed() As String",
+            "    Dim I As Long",
+            "    Dim C As Currency",
+            "    Dim D As Date",
+            "    Dim V As Variant",
+            "    Dim W As Variant",
+            "    C = 1.25",
+            "    D = #1/1/2020#",
+            "    V = C",
+            "    W = 0",
+            "    For I = 1 To 4",
+            "        V = V + C",
+            "        V = V * C",
+            "        If I = 2 Then W = D",
+            "        W = W + I",
+            "    Next",
+            "    Typed = V & \" \" & TypeName(V) & \" \" & Format(W, \"yyyy-mm-dd\") & \" \" & TypeName(W)",
+            "End Function"), "Typed");
+
+    // a Variant counter counting down, by a step whose variable is assigned in the loop - which the loop does not see (MS-VBAL §5.4.2.3) - to bounds that
+    // are Strings, or assigned another subtype in its body.
+    [TestMethod]
+    public async Task AVariantCounter_IsSteppedAsTheLoopDecided()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Counted()",
+            "End Sub",
+            "Private Function Counted() As String",
+            "    Dim I As Variant",
+            "    Dim P As Variant",
+            "    Dim E As Variant",
+            "    For I = 10 To 1 Step -3",
+            "        Counted = Counted & I & \" \"",
+            "    Next",
+            "    P = -1",
+            "    For I = 3 To 1 Step P",
+            "        P = 1",
+            "        Counted = Counted & I & \" \"",
+            "    Next",
+            "    E = \"10\"",
+            "    For I = 7 To E",
+            "        Counted = Counted & I & \" \"",
+            "    Next",
+            "    For I = 1 To \"4\"",
+            "        Counted = Counted & TypeName(I) & \" \"",
+            "    Next",
+            "    For I = 1 To 5",
+            "        If I = 2 Then I = I + 0.5",
+            "        Counted = Counted & I & \" \"",
+            "    Next",
+            "    Counted = Counted & TypeName(I)",
+            "End Function"), "Counted");
+
+    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant that is no whole number to a Long, which rounds - and
+    // compiled code goes on after it, with what the Variant then holds.
+    [TestMethod]
+    public async Task AStatementTheInterpreterRunsInASpeculatedLoop_IsGoneOnFrom()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rounded()",
+            "End Sub",
+            "Private Function Rounded() As String",
+            "    Dim I As Long",
+            "    Dim L As Long",
+            "    Dim V As Variant",
+            "    V = 0",
+            "    For I = 1 To 6",
+            "        V = V + 0.75",
+            "        L = L + V",
+            "    Next",
+            "    Rounded = L & \" \" & V & \" \" & TypeName(V)",
+            "End Function"), "Rounded");
 }
