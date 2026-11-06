@@ -56,7 +56,7 @@ public sealed class CompiledStringTests
         "End Function");
 
     // vbNullString is a constant, which the interpreter assigns; compiled code then reads it as the zero-length string it compares equal to, joins it as one,
-    // and copies it as the null pointer it is.
+    // and copies it as the null pointer it is. S = vbNullString, and the two Ifs that call StrPtr of a String, are the interpreter's: 3.
     [TestMethod]
     public async Task VbNullString_IsReadAsTheZeroLengthString_AndCopiedAsItIs()
         => await AssertAlikeAsync(Program(
@@ -76,6 +76,7 @@ public sealed class CompiledStringTests
             "End Function"), "Nulls", recoveries: 3);
 
     // a String that ends with a lone byte is joined byte by byte, by the interpreter: compiled code reads no text of it, and hands it each statement that does.
+    // S = ChrB(65) and the two Lets that call LenB call a function of a String; T = S & "x" joins the lone byte; T = S & "!" is compiled: 4.
     [TestMethod]
     public async Task AStringEndingWithALoneByte_IsJoinedByTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -93,7 +94,8 @@ public sealed class CompiledStringTests
             "    Odd = Odd * 100 + LenB(T)",
             "End Function"), "Odd", recoveries: 4);
 
-    // a fixed-length String pads or truncates what it is assigned: it is the interpreter's, and so is each statement that reads it.
+    // a fixed-length String pads or truncates what it is assigned: it is the interpreter's, and so is each statement that reads it. F is assigned twice
+    // and read twice; T = "ab" and the If of T are compiled: 4.
     [TestMethod]
     public async Task AFixedLengthString_IsTheInterpretersToAssign()
         => await AssertAlikeAsync(Program(
