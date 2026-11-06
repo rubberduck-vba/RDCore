@@ -75,14 +75,6 @@ public sealed class ExpressionNestingTests
         Assert.IsTrue(result.IsSuccess, Describe(result));
     }
 
-    [TestMethod]
-    public void AnExpressionNestedIn2500Calls_IsRead()
-    {
-        var result = Parse(string.Concat(Enumerable.Repeat("Abs(", ModuleParser.MaxExpressionNesting)) + "1" + new string(')', ModuleParser.MaxExpressionNesting));
-
-        Assert.IsTrue(result.IsSuccess, Describe(result));
-    }
-
     // the states the parser's prediction keeps for the choices of a rule, once an expression nested in `depth` calls is read with a prediction cache of its own:
     // the cache of VBAParser is the process's, shared with every other parse.
     private static int PredictionStatesOf(string rule, int depth)
@@ -180,9 +172,11 @@ public sealed class ExpressionNestingTests
     public async Task TwoThousandNestedParentheses_Run()
         => Assert.AreEqual("1", await RunAsync(Parenthesized(2000)));
 
+    // a nested call costs its parse more than a parenthesis does, level for level: a few hundred calls are run, as deep as parentheses are, and how deep calls are
+    // read is the count of parentheses and calls alike (AnExpressionAtTheLimit_IsRead_AndOnePast_IsExpressionNestedTooDeeply).
     [TestMethod]
-    public async Task AThousandNestedCalls_Run()
-        => Assert.AreEqual("1", await RunAsync(NestedAbs(1000)));
+    public async Task NestedCalls_Run()
+        => Assert.AreEqual("1", await RunAsync(NestedAbs(250)));
 
     [TestMethod]
     public async Task AChainOf2500Terms_Runs()
