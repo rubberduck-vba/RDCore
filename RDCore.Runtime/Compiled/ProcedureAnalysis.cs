@@ -13,6 +13,8 @@ using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Binding;
 using RDCore.SDK.Semantics.Instructions;
@@ -122,6 +124,19 @@ internal sealed class ProcedureAnalysis
     public IReadOnlyList<int> VariantSlots => [.. _variantSlots];
 
     private readonly SortedSet<int> _variantSlots = [];
+
+    /// <summary>
+    /// The slots of the object parameters and variables, in order (IR lowering S2.5e2): each is held in the cell its frame holds it in, which compiled code
+    /// reads the reference it holds from - for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
+    /// </summary>
+    public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
+
+    private readonly SortedSet<int> _objectSlots = [];
+
+    /// <summary>The classes the procedure's <c>TypeOf</c> expressions test against, by the number compiled code knows each by.</summary>
+    public IReadOnlyList<VBClassModuleSymbol> Classes => _classes;
+
+    private readonly List<VBClassModuleSymbol> _classes = [];
 
     // the For statements of a Variant counter, which the interpreter runs, and the counter's slot; their Next is compiled code's (VariantForNextStep).
     private readonly Dictionary<int, int> _variantLoops = [];
@@ -424,6 +439,15 @@ internal sealed class ProcedureAnalysis
                 continue;
             }
 
+            // an object is held in the cell its frame holds it in, whose reference compiled code reads (IR lowering S2.5e2).
+            if (parameter is not ParamArrayParameterSymbol && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
+            {
+                NeedsFrame = true;
+                _ = _objectSlots.Add(_layout.ParameterSlots[i]);
+                _slotSymbols[_layout.ParameterSlots[i]] = parameter;
+                continue;
+            }
+
             // what is not a scalar the frame holds: a ParamArray, an object, a String, a Variant, an array, a record; and Me.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
             {
@@ -455,6 +479,11 @@ internal sealed class ProcedureAnalysis
                 case VBLocalVariableSymbol { IsStatic: false, ResolvedType: VBVariantType } variable when _layout.LocalSlots[i] >= 0:
                     NeedsFrame = true;
                     _ = _variantSlots.Add(_layout.LocalSlots[i]);
+                    _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false } variable when IsObjectType(variable.ResolvedType) && _layout.LocalSlots[i] >= 0:
+                    NeedsFrame = true;
+                    _ = _objectSlots.Add(_layout.LocalSlots[i]);
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
                     continue;
 
@@ -889,6 +918,45 @@ internal sealed class ProcedureAnalysis
     private int? VariantSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
+    // an object variable of the activation: one declared As New is made when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's.
+    private int? ObjectSlotOf(BoundVariable variable)
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index) ? slot.Index : null;
+
+    // a type whose values are object references: Object, a class or an interface.
+    private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;
+
+    // an operand of Is compiled code reads: an object variable of the activation, by its slot, or Nothing, which is no slot. Any other is the interpreter's.
+    private bool TryObjectOperand(BoundNode operand, out int? slot)
+    {
+        slot = null;
+        switch (operand)
+        {
+            case BoundVariable variable when ObjectSlotOf(variable) is { } held:
+                slot = held;
+                return true;
+            case BoundLiteral { Literal.StaticValue: VBObjectValue nothing } when nothing.IsNothing():
+                return true;
+            case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
+                return TryObjectOperand(enclosed, out slot);
+            default:
+                Unsupported(operand);
+                return false;
+        }
+    }
+
+    // the number the body knows a class TypeOf tests against by.
+    private int ClassNumberOf(VBClassModuleSymbol tested)
+    {
+        var number = _classes.FindIndex(known => known.Uri.AbsoluteUri == tested.Uri.AbsoluteUri);
+        if (number < 0)
+        {
+            number = _classes.Count;
+            _classes.Add(tested);
+        }
+
+        return number;
+    }
+
     // the condition of an If, an ElseIf, an inline If and a loop, and whether it is an Until (ProcedureExecutor.GetCondition).
     private static (ExpressionNode? Condition, bool Negate) ConditionOf(StatementNode? node) => node switch
     {
@@ -959,6 +1027,16 @@ internal sealed class ProcedureAnalysis
     {
         switch (node)
         {
+            // MS-VBAL §5.6.9.7: two object references compared as they are (IR lowering S2.5e2).
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
+                return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
+                    ? new IsNode(leftObject, rightObject)
+                    : null;
+
+            // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).
+            case BoundTypeOf { Operand: BoundVariable tested } typeOf when ObjectSlotOf(tested) is { } typed:
+                return new TypeOfNode(typed, ClassNumberOf(typeOf.Class));
+
             case BoundBinary or BoundUnary when IsExtended(node):
                 return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
 

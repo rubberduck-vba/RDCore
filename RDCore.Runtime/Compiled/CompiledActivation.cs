@@ -763,6 +763,59 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// The cell the frame holds the object parameter or variable in <paramref name="slot"/> in (IR lowering S2.5e2): what compiled code reads the reference
+    /// it holds from (<see cref="ObjectOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is
+    /// bound to its caller's variable's address is in the cell held at that address, as a <c>Variant</c>'s is (<see cref="VariantCellOf"/>).
+    /// </summary>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no cell of an object reference: compiled code reads nothing of it, and the interpreter runs each
+    /// statement that does.
+    /// </returns>
+    public object? ObjectCellOf(int slot)
+    {
+        var frame = Frame;
+        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is ValueBindingHandle handle ? handle : null;
+    }
+
+    /// <summary>
+    /// The cell of the object in <paramref name="slot"/> (<see cref="ObjectCellOf"/>), found again after the interpreter ran an instruction - a <c>Set</c>
+    /// binds the slot to another - or the program waited.
+    /// </summary>
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadObjectCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = ObjectCellOf(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// <c>TypeOf</c> of the object held in <paramref name="cell"/>, tested against the class the body knows by <paramref name="number"/> (MS-VBAL §5.6.7): as
+    /// the interpreter tests it (<c>RuntimeExpressionEvaluator.IsInstanceOf</c>).
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/> when it is the interpreter's: the cell holds no reference compiled code reads, or holds <c>Nothing</c>, of which <c>TypeOf</c>
+    /// raises error 91.
+    /// </returns>
+    public bool TypeOf(object? cell, int number, out bool isOf)
+    {
+        isOf = false;
+        if (!ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
+            || RuntimeExpressionEvaluator.IsInstanceOf(_session, instance, _body.Classes[number]) is not { } answered)
+        {
+            return false;
+        }
+
+        isOf = answered;
+        return true;
+    }
+
+    /// <summary>
     /// Steps the <c>For</c> loop whose statement is at <paramref name="opener"/>, of a <c>Variant</c> counter, as the interpreter steps it on payloads
     /// (<c>RuntimeExpressionEvaluator.TryStepForUnboxed</c>), with the state its statement, which the interpreter ran, gave the frame.
     /// </summary>
@@ -1129,6 +1182,9 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
+
+    /// <summary>The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).</summary>
+    public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -

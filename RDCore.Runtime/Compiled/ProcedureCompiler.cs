@@ -182,7 +182,8 @@ internal sealed class ProcedureCompiler
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
         RuntimeHelpers.PrepareMethod(body.MethodHandle);
         var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects };
+            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
+            Classes = analysis.Classes };
 
         // a call the body makes of itself is of the body just created.
         foreach (var direct in directs)
