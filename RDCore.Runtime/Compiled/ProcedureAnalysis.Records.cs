@@ -14,7 +14,9 @@ namespace RDCore.Runtime.Compiled;
 
 /// <remarks>
 /// A record parameter or variable (IR lowering S2.6a) is held in the cell its frame holds it in - its holder (<see cref="RecordSlots"/>) - and compiled code
-/// reads and writes its fields there (<see cref="RecordOperations"/>): a field of a scalar type, read as a payload of its kind and let-assigned one; a
+/// reads and writes its fields there (<see cref="RecordOperations"/>). A record that is a field compiled code reaches - <c>this</c> of a class's
+/// <c>Private this As TState</c>, a record of a standard module - is held by the cell Me or the session holds it in, found where the interpreter finds it
+/// (<see cref="Fields"/>), and its fields read and written there alike: a field of a scalar type, read as a payload of its kind and let-assigned one; a
 /// <c>Variant</c> field, read and let-assigned as a Variant variable is. A field of a record that is a record itself is a field too, through it. What is any
 /// other type - a <c>String</c>, an object, an array, an enumeration - the interpreter reads and writes, and runs each statement that does.
 /// </remarks>
