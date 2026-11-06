@@ -172,6 +172,24 @@ public sealed class CompiledVariantTests
             "    Next",
             "End Sub"), "Bumped", recoveries: 0);
 
+    // a Variant parameter passed a variable of another type by reference reads and writes it as its type (MS-VBAL §5.3.1.11): no Variant's cell, and the
+    // activation is the interpreter's from the start.
+    [TestMethod]
+    public async Task AVariantParameterPassedALong_IsTheInterpreters()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim X As Long",
+            "    X = 1",
+            "    Bumped X, 2",
+            "    Debug.Print X; TypeName(X)",
+            "End Sub",
+            "Private Sub Bumped(ByRef V As Variant, ByVal By As Variant)",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        V = V + By",
+            "    Next",
+            "End Sub"), "Bumped", recoveries: 0, walkBacks: 1);
+
     // a Variant counter that overflows the type it counts in is stepped by the interpreter, which widens it.
     [TestMethod]
     public async Task AVariantCounterThatOverflows_IsSteppedByTheInterpreter()

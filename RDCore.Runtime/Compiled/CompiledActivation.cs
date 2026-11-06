@@ -716,10 +716,15 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in (IR lowering S2.5c): what compiled code reads and
-    /// writes it in, for as long as the interpreter runs nothing of the activation.
+    /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
+    /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
     /// </summary>
-    /// <returns><see langword="null"/> when the frame holds it in no Variant's cell - at an address, in a cell of a caller that is no Variant's: the activation is then the interpreter's.</returns>
-    public object? VariantCellOf(int slot) => Frame.TryGetSlotCell(slot, out var cell) && cell is VariantCell variant ? variant : null;
+    /// <returns><see langword="null"/> when the frame holds it in no Variant's cell - a variable of another type, an element of an array: the activation is then the interpreter's.</returns>
+    public object? VariantCellOf(int slot)
+    {
+        var frame = Frame;
+        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryGetAddressedSlot(slot, out cell)) && cell is VariantCell variant ? variant : null;
+    }
 
     /// <summary>
     /// The cell of the <c>Variant</c> in <paramref name="slot"/> (<see cref="VariantCellOf"/>), found again after the interpreter ran an instruction or the
