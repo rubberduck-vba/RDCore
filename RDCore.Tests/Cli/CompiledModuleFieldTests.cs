@@ -89,20 +89,27 @@ public sealed class CompiledModuleFieldTests
                 "    Next",
                 "End Sub"));
 
-    // a field private to its module, of the module whose procedure names it.
+    // a field private to its module, of the module whose procedure names it: another module's field of the same name is that module's own.
     [TestMethod]
     public async Task APrivateFieldOfTheModule_IsKeptFromCallToCall()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Counted(3); Counted(4); Counted(0)",
-            "End Sub"), [("Counted", 0)], modules: Store(
+            "    Debug.Print Counted(3); Tens(2); Counted(4); Tens(1); Counted(0)",
+            "End Sub"), [("Counted", 0), ("Tens", 0)], modules: [.. Store(
                 "Public Function Counted(ByVal N As Long) As Long",
                 "    Dim I As Long",
                 "    For I = 1 To N",
                 "        mCount = mCount + 1",
                 "    Next",
                 "    Counted = mCount",
-                "End Function"));
+                "End Function"), ("Other", ModuleWorkspace.StandardModule("Other", ["Option Explicit", "Private mCount As Integer",
+                "Public Function Tens(ByVal N As Long) As Long",
+                "    Dim I As Long",
+                "    For I = 1 To N",
+                "        mCount = mCount + 10",
+                "    Next",
+                "    Tens = mCount",
+                "End Function"]))]);
 
     // a member of a class entered without a frame, on an object, reads the field the session holds, not one of its object's.
     [TestMethod]
