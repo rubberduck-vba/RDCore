@@ -28,6 +28,18 @@ public sealed class ReferencedLibrariesTests
     }
 
     [TestMethod]
+    public void ThePrecedenceOfALibrary_IsItsPositionInTheReferences_AndOneOnlyLoadedForAnotherComesAfterThemAll()
+    {
+        // the earlier reference has the higher reference precedence, the lower number (MS-VBAL §4.1); the standard library, before them all, has none.
+        var libraries = Load(new InMemoryLibrarySource(Widgets, Panels, Named("Other")), "VBA", "Panels", "Other");
+
+        Assert.AreEqual(1, libraries.Priorities["Panels"]);
+        Assert.AreEqual(2, libraries.Priorities["Other"]);
+        Assert.AreEqual(3, libraries.Priorities["Widgets"]);
+        Assert.IsFalse(libraries.Priorities.ContainsKey("VBA"));
+    }
+
+    [TestMethod]
     public void ALibraryIsFoundByItsName_WhateverTheCase_AndTheStandardLibraryIsNotAskedOfTheSource()
     {
         var source = new InMemoryLibrarySource(Widgets);

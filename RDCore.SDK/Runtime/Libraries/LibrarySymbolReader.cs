@@ -51,8 +51,8 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
     /// </summary>
     /// <param name="libraries">The libraries, each after those it depends on (<see cref="ReferencedLibraries.Libraries"/>).</param>
     /// <param name="priorities">
-    /// The precedence of each library (<see cref="ReferencedLibraries.Priorities"/>), which every symbol that is a name of the project carries
-    /// (<see cref="SymbolProperties.LibraryPriority"/>). The position of a library among the others when omitted.
+    /// The reference precedence of each library (<see cref="ReferencedLibraries.Priorities"/>), which every symbol that is a name of the project carries
+    /// (<see cref="SymbolProperties.LibraryPriority"/>). The position of a library among the others when omitted, from <c>1</c>: the first ranks highest.
     /// </param>
     public ImmutableArray<Symbol> Read(IReadOnlyList<LibraryDescription> libraries, IReadOnlyDictionary<string, int>? priorities = null)
     {

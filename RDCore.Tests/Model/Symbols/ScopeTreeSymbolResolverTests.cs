@@ -887,9 +887,9 @@ public sealed class ScopeTreeSymbolResolverTests
     [TestMethod]
     public void ResolveValue_ALibrarysModule_BeatsAnotherLibrarysMemberOfTheSameName()
         // MS-VBAL 5.6.10: a referenced project's procedural module (tier 5) comes before the members of a referenced project's
-        // modules (tier 6), whatever the priority of the libraries - Excel's Enum Constants does not hide VBA's module Constants,
-        // although Excel is referenced later. The project tier holds both the workspace's members and the libraries', so the
-        // libraries' modules rank between the two.
+        // modules (tier 6), whatever the reference precedence of the libraries - Excel's Enum Constants does not hide VBA's module
+        // Constants. The project tier holds both the workspace's members and the libraries', so the libraries' modules rank between
+        // the two.
     {
         var constants = LibraryModule("Constants", "VBA", priority: 0);
         var excel = LibraryModule("_Excel", "Excel", priority: 2);
@@ -916,6 +916,33 @@ public sealed class ScopeTreeSymbolResolverTests
 
         Assert.AreSame(variable, Resolver(strings, left, other, variable, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
         Assert.AreSame(left, Resolver(strings, left, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
+    }
+
+    // a public function Left of a module of a library: the standard library's, a library's of a reference precedence, or a library's that carries none.
+    private static VBFunctionMemberSymbol LibraryLeft(VBStandardModuleSymbol module, string library, int? priority)
+    {
+        var left = new VBFunctionMemberSymbol(Root, module.Uri, "Left", ScopeKind.Module, SymbolKindExt.Function, VBVariantType.TypeInfo, R, R, AccessModifier.Public)
+            .With(SymbolProperties.Library, library);
+        return (VBFunctionMemberSymbol)(priority is { } rank ? left.With(SymbolProperties.LibraryPriority, rank) : left);
+    }
+
+    [TestMethod]
+    public void ResolveValue_ALibrarysMemberThatCarriesNoPrecedence_LosesToTheStandardLibrarys_AndToAReferencedLibrarys()
+        // the standard library carries no precedence and comes before every reference (MS-VBAL §4.1); a symbol of another library that carries none is not
+        // taken for one of the standard library's, and comes after every library that has one.
+    {
+        var strings = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "Strings").With(SymbolProperties.Library, "VBA");
+        var left = LibraryLeft(strings, "VBA", priority: null);
+        var unranked = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "_Unranked").With(SymbolProperties.Library, "Unranked");
+        var unrankedLeft = LibraryLeft(unranked, "Unranked", priority: null);
+        var widgets = LibraryModule("_Widgets", "Widgets", priority: 1);
+        var widgetsLeft = LibraryLeft(widgets, "Widgets", priority: 1);
+        var caller = Module("Caller");
+        var run = Procedure(caller.Uri, "Run");
+
+        Assert.AreSame(left, Resolver(strings, left, unranked, unrankedLeft, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
+        Assert.AreSame(widgetsLeft, Resolver(unranked, unrankedLeft, widgets, widgetsLeft, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
+        Assert.AreSame(left, Resolver(strings, left, widgets, widgetsLeft, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
     }
 
     [TestMethod]
