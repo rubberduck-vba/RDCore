@@ -391,12 +391,13 @@ public sealed class WorkspaceLoaderTests
     // the shell's own language client - what it says in its initializationOptions, the handler it answers the question with, the connection it makes - started
     // on a workspace whose project file can't be read. A shell whose input is a script was asked whether to regenerate it anyway, and answered that nobody does:
     // with an error, which its language client (OmniSharp's) holds until the server has answered initialize, while the server waited for the answer to answer
-    // it. Neither moved again. It is not asked now; a shell at its console is, and answers, before initialize is answered.
+    // it. Neither moved again. It is not asked now; a shell at its console is, and answers, before initialize is answered. Either way the server tells it why the
+    // workspace was not loaded (window/showMessage, as the language server does), and the shell writes it as an error: it used to have no handler for it.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     [DataRow(false, DisplayName = "a shell whose input is a script is not asked")]
     [DataRow(true, DisplayName = "a shell at its console is asked, and answers")]
-    public async Task TheShell_StartedOnAProjectFileThatCantBeRead_HasInitializeAnswered(bool interactive)
+    public async Task TheShell_StartedOnAProjectFileThatCantBeRead_HasInitializeAnswered_AndIsToldWhy(bool interactive)
     {
         var fs = UnreadableProject();
         var sut = WorkspaceService(fs);
@@ -412,17 +413,26 @@ public sealed class WorkspaceLoaderTests
                     return ask(message, choices, askToken);
                 }, token);
             }
-            catch (InvalidDataException)
+            catch (InvalidDataException error)
             {
+                server.Window.ShowMessage(new OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageParams
+                {
+                    Type = OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error,
+                    Message = error.Message,
+                });
             }
         });
+        var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
+        var told = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        console.When(each => each.WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>()))
+            .Do(call => told.TrySetResult(call.ArgAt<string>(1)));
         // the Enter key chooses the last choice, which changes nothing.
         var keys = new Cli.Repl.ScriptedKeys(interactive).Press(Cli.Repl.ScriptedKeys.Key(ConsoleKey.Enter));
         var shell = new RDCore.CLI.RDCoreConsoleClientApp(
             Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions { Server = { MaxRestartAttempts = 0 } }),
             languageServer,
             new RDCore.CLI.App.Repl.ReplUserInteraction(keys, new StringWriter()),
-            Substitute.For<RDCore.CLI.App.Repl.IReplConsole>(),
+            console,
             new RDCore.SDK.Formatting.RubberduckIndenterSettingsReader(
                 new MockFileSystem(), Root, Substitute.For<RDCore.SDK.Formatting.ILegacyIndenterRegistry>(), isWindows: false),
             Substitute.For<RDCore.CLI.App.Configuration.IPlatformSettings>(),
@@ -440,6 +450,8 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual(interactive ? 1 : 0, asked);
         Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file is as it was: the shell chose to keep it, or was not asked");
         Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
+        // not a timing either: a message the shell never writes fails the test here.
+        StringAssert.Contains(await told.Task.WaitAsync(TimeSpan.FromSeconds(30)), ProjectFilePath);
     }
 
     // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without

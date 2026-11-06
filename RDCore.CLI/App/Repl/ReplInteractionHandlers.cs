@@ -1,5 +1,6 @@
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.External.Interaction;
+using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 
@@ -90,6 +91,34 @@ internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interact
             cancellationToken);
         return chosen is { } index ? actions[index] : null!;
     }
+}
+
+/// <summary>
+/// Handles <c>window/showMessage</c> (<strong>LSP 3.17</strong>): what the language server tells the shell's user, such as why the workspace could not be
+/// loaded, is written as one of the shell's messages, of the kind the message's type says.
+/// </summary>
+/// <remarks>
+/// The shell's messages are written above the line being edited, and wait while a question is asked (<see cref="Console.PromptAwareMessageWriter"/>). One
+/// that comes as the shell starts, while the server answers <c>initialize</c>, is written as it comes.
+/// </remarks>
+/// <param name="console">The shell's console.</param>
+internal sealed class ReplShowMessageHandler(IReplConsole console) : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageHandler
+{
+    /// <inheritdoc/>
+    public Task<MediatR.Unit> Handle(OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageParams request, CancellationToken cancellationToken)
+    {
+        console.WriteMessage(KindOf(request.Type), request.Message);
+        return MediatR.Unit.Task;
+    }
+
+    /// <summary>The kind of the shell's message a server's message is written as.</summary>
+    internal static MessageKind KindOf(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType type) => type switch
+    {
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error => MessageKind.Error,
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Warning => MessageKind.Warning,
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Log => MessageKind.Trace,
+        _ => MessageKind.Information,
+    };
 }
 
 /// <summary>Whether the shell runs unattended (<c>--unattended</c>): nobody is at its console to answer a question.</summary>

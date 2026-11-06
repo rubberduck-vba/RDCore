@@ -341,4 +341,21 @@ public sealed class ReplInteractionTests
         await command.ExecuteAsync(context, "AAA-FIRST", CancellationToken.None);
         themes.Received().SetTheme("aaa-first");
     }
+
+    // what the language server tells the shell's user (window/showMessage) is one of the shell's messages, of the kind its type says.
+    [TestMethod]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error, RDCore.SDK.ConsoleIO.Model.MessageKind.Error)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Warning, RDCore.SDK.ConsoleIO.Model.MessageKind.Warning)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Info, RDCore.SDK.ConsoleIO.Model.MessageKind.Information)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Log, RDCore.SDK.ConsoleIO.Model.MessageKind.Trace)]
+    public async Task WhatTheServerTellsTheUser_IsWrittenAsAMessageOfItsKind(
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType type, RDCore.SDK.ConsoleIO.Model.MessageKind kind)
+    {
+        var console = Substitute.For<IReplConsole>();
+
+        await new ReplShowMessageHandler(console).Handle(
+            new OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageParams { Type = type, Message = "The workspace could not be loaded." }, CancellationToken.None);
+
+        console.Received(1).WriteMessage(kind, "The workspace could not be loaded.", Arg.Any<string?>());
+    }
 }

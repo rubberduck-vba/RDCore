@@ -390,6 +390,7 @@ internal class RDCoreConsoleClientApp(
         => builder
             .WithHandler<ReplMessageBoxHandler>()
             .WithHandler<ReplShowMessageRequestHandler>()
+            .WithHandler<ReplShowMessageHandler>()
             .WithHandler<ReplInputBoxHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
             .WithHandler<RubberduckIndenterSettingsApplyHandler>();
