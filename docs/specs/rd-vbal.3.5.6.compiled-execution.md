@@ -50,7 +50,7 @@ scalar types runs without a frame, as a compiled procedure called directly does.
 `Class_Terminate` runs, exactly when the interpreter would do it. The activation gets the frame the interpreter would have made as soon as anything needs
 it: an error, a statement the interpreter runs, another object's `Class_Terminate`. Under a debugger, every member gets its frame when it is called.
 Compiled code remembers where it last found an object's fields. It looks for them again for another object, and whenever anything in memory has been
-allocated, freed or rebound since.
+allocated, freed or rebound since. What it remembers never keeps an object alive: once nothing else holds the object, it is gone.
 
 Compiled code does these itself:
 
