@@ -726,6 +726,9 @@ lExpression :
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
     | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
+    // in a list to print, blanks before the argument list (`Debug.Print F (2)`): the last alternative, of the lowest precedence, which VBABaseParser
+    // raises lExpression above anywhere else (OutputListIndexPrecedence). Keep it last.
+    | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
 ;
 
 //This is a hack to allow attaching identifier references for default members to the exclaramtion mark.

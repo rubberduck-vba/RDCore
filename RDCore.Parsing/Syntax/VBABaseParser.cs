@@ -203,6 +203,41 @@ public abstract class VBABaseParser : Parser
                 return false;
         }
     }
+
+    #endregion
+
+    #region Precedence of an l-expression
+    // In a list to print, blanks between an l-expression and `(` are no separator of two output items: the parentheses are its argument list, as MS-VBA reads
+    // them, and the VBE writes `Debug.Print F (2)` as `Debug.Print F(2)` (oracle\s70 A09). Anywhere else they are not read so: in a call statement, `F (2)` is
+    // F called with the argument (2).
+    // That reading is lExpression's last alternative, of this precedence, the lowest. Anywhere but in an output item, lExpression is entered above it, and the
+    // alternative is left out of each prediction before a token is read: a predicate of its own would be evaluated only once the prediction had read the
+    // statement to its end, and `Foo (Bar(1))` would be read to its end to tell a call statement from an index.
+    private const int OutputListIndexPrecedence = 1;
+
+    public override void EnterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence)
+        => base.EnterRecursionRule(localctx, state, ruleIndex,
+            ruleIndex == VBAParser.RULE_lExpression && !IsInOutputItem(localctx) ? Math.Max(precedence, OutputListIndexPrecedence + 1) : precedence);
+
+    // whether an l-expression is an output item, or an operand of one, and not in parentheses within it: only there do blanks separate two items. In an
+    // argument list or other parentheses, `F (2)` is what it is in any other expression, and prediction reads each argument list once, to its end.
+    private static bool IsInOutputItem(RuleContext? context)
+    {
+        for (; context is not null; context = context.Parent)
+        {
+            switch (context)
+            {
+                case VBAParser.OutputListContext:
+                    return true;
+                case VBAParser.ArgumentListContext:
+                case VBAParser.ParenthesizedExprContext:
+                case VBAParser.SpcClauseContext:
+                case VBAParser.TabClauseContext:
+                    return false;
+            }
+        }
+        return false;
+    }
     #endregion
 
     #region Grammar-level recovery helpers
