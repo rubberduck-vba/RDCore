@@ -23,4 +23,16 @@ public sealed record class RDCoreInitializationOptions
     /// send. A server reads the request's <c>locale</c> first; <see langword="null"/> says none.
     /// </summary>
     public string? Locale { get; init; }
+
+    /// <summary>
+    /// Whether nobody is there to answer what the server would ask the client's user: what the platform handshake's <see cref="Client.Unattended"/> says, for
+    /// what the server asks before the handshake.
+    /// </summary>
+    /// <remarks>
+    /// A server loads its workspace while it answers <c>initialize</c>, and the platform handshake (<c>rdcore/platform/initialize</c>) follows that answer: what
+    /// the server asks as it loads, such as whether to regenerate a project file it cannot read, it cannot wait for the handshake to know whether to ask. A
+    /// server asks nothing of a client that says <see langword="true"/>, and does without the answer, as the handshake's <see cref="Client.Unattended"/> has it
+    /// do with a program's dialogs. A client that does not say is asked.
+    /// </remarks>
+    public bool Unattended { get; init; }
 }

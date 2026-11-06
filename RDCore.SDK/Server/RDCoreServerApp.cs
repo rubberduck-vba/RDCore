@@ -514,6 +514,13 @@ public abstract class RDCoreServerApp(
     }
 
     /// <summary>
+    /// Whether the client of an <c>initialize</c> request says nobody is there to answer what the server would ask its user
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions.Unattended"/>).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    protected internal static bool ClientRunsUnattended(InitializeParams request) => ReadInitializationOptions(request.InitializationOptions)?.Unattended == true;
+
+    /// <summary>
     /// Reads the <c>initializationOptions</c> of an <c>initialize</c> request, which the protocol leaves a client free to put anything in.
     /// </summary>
     /// <param name="initializationOptions">What the request carried.</param>

@@ -26,6 +26,20 @@ internal interface IWorkspaceService
     /// <param name="workspaceRoot">The first folder, the primary project's.</param>
     /// <param name="folders">The folders the client gave, the first included or not.</param>
     Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders);
+
+    /// <summary>
+    /// Loads the workspace as <see cref="LoadAsync(string, IReadOnlyList{string})"/> does, and offers the user to regenerate a project file that can't be read
+    /// (<see cref="ProjectFileRegeneration"/>): when they accept, the file is kept next to itself, and the project is made again from the source files of its
+    /// folder, and written.
+    /// </summary>
+    /// <param name="workspaceRoot">The first folder, the primary project's.</param>
+    /// <param name="folders">The folders the client gave, the first included or not.</param>
+    /// <param name="ask">
+    /// Asks the user to choose among the buttons, and answers the one they chose, or <see langword="null"/>; <see langword="null"/> when nobody is there to ask
+    /// (<see cref="RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a project file that can't be read is not loaded.
+    /// </param>
+    /// <param name="token">A token that cancels the question.</param>
+    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default);
     /// <summary>
     /// Asynchronously serializes the project file to disk.
     /// </summary>
@@ -254,7 +268,9 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
 
     public Task LoadAsync(string workspaceRoot) => LoadAsync(workspaceRoot, [workspaceRoot]);
 
-    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders)
+    public Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders) => LoadAsync(workspaceRoot, folders, ask: null);
+
+    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default)
     {
         if (serverStateProvider.State.Value != ServerStateValue.Initializing)
         {
@@ -262,7 +278,7 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
             throw new InvalidServerStateException();
         }
 
-        await projectFileService.LoadAsync(workspaceRoot);
+        await LoadProjectFileAsync(workspaceRoot, ask, token);
         LogSchemaOf(projectFileService.Project);
 
         documentService.Initialize(workspaceRoot);
@@ -273,6 +289,33 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         await LoadWorkspaceFilesAsync();
 
         logger.LogInformation("✅ LoadAsync completed. Workspace was loaded successfully.");
+    }
+
+    // a project file that can't be read is regenerated from the source files of its folder, when the user says to; the file is kept next to it first.
+    private async Task LoadProjectFileAsync(string workspaceRoot, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token)
+    {
+        try
+        {
+            await projectFileService.LoadAsync(workspaceRoot);
+            return;
+        }
+        catch (InvalidDataException exception) when (ask is not null)
+        {
+            var path = ioPath.Combine(workspaceRoot, ProjectFile.FileName);
+            var backup = ProjectFileRegeneration.BackupPathOf(path, ioFile.Exists);
+            if (!await ProjectFileRegeneration.AskAsync(path, backup, exception.Message, ask, token))
+            {
+                logger.LogWarning("⚠️ The project file can't be read, and was not regenerated: the workspace will not be loaded.");
+                throw;
+            }
+
+            ioFile.Move(path, backup);
+            logger.LogWarning("⚠️ The project file can't be read: it is kept as '{backup}', and regenerated from the source files of its folder.", backup);
+        }
+
+        // the folder has no project file now: its project is the one its source files make, which is written.
+        await projectFileService.LoadAsync(workspaceRoot);
+        await projectFileService.SaveAsync();
     }
 
     // a project file is loaded whatever format it says it is in: a format that is not this platform's is said in the log, and only there.

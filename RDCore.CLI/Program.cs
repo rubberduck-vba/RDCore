@@ -377,6 +377,7 @@ internal class RDCoreConsoleClientApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
         => builder
             .WithHandler<ReplMessageBoxHandler>()
+            .WithHandler<ReplShowMessageRequestHandler>()
             .WithHandler<ReplInputBoxHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
             .WithHandler<RubberduckIndenterSettingsApplyHandler>();

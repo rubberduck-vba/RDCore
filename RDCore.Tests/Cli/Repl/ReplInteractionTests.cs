@@ -227,6 +227,47 @@ public sealed class ReplInteractionTests
         Assert.AreEqual(new InputBoxResult { Handled = true, Value = "hi" }, typed);
     }
 
+    // the language server asks the shell's user to choose (window/showMessageRequest), as it does whether to regenerate a project file it can't read: the
+    // button that changes nothing, which the server puts last, is the one Enter chooses at first, and a closed question is no answer.
+    [TestMethod]
+    [DataRow('r', "Regenerate", DisplayName = "a button's key chooses it")]
+    [DataRow('\r', "Not now", DisplayName = "Enter chooses the last button at first")]
+    [DataRow('\u001b', null, DisplayName = "Escape closes the question")]
+    public async Task TheShowMessageRequestHandler_AsksAtTheConsole_AndAnswersTheChosenAction(char pressed, string? chosen)
+    {
+        var key = pressed switch { '\r' => Key(ConsoleKey.Enter), '\u001b' => Key(ConsoleKey.Escape), _ => Char(pressed) };
+        var (interaction, output) = Shell(new ScriptedKeys().Press(key));
+
+        var answer = await new ReplShowMessageRequestHandler(interaction).Handle(new OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams
+        {
+            Message = "The project file can't be read. Regenerate it?",
+            Actions = new([new() { Title = "Regenerate" }, new() { Title = "Not now" }]),
+        }, CancellationToken.None);
+
+        Assert.AreEqual(chosen, answer?.Title);
+        StringAssert.Contains(output.ToString(), "Regenerate it?");
+    }
+
+    // a script piped to the shell answers a line at a time: a button's text or key, or an empty line for the one selected at first; a script that runs out
+    // chose nothing.
+    [TestMethod]
+    [DataRow("regenerate", 0)]
+    [DataRow("N", 1)]
+    [DataRow("", 1)]
+    [DataRow(null, null, DisplayName = "the script ran out")]
+    public void AChoice_IsAnsweredALineAtATime_ByAScript(string? line, int? chosen)
+    {
+        var keys = new ScriptedKeys(interactive: false);
+        if (line is not null)
+        {
+            keys.Lines("maybe", line);
+        }
+
+        var (interaction, _) = Shell(keys);
+
+        Assert.AreEqual(chosen, interaction.Choose("RDCore", "Regenerate it?", ["Regenerate", "Not now"], selected: 1));
+    }
+
     // ---- THEME LIST ----
 
     private static (ThemeReplCommand Command, IAppThemeService Themes, ReplCommandContext Context, StringWriter Output, string Current) Themes(ScriptedKeys keys)

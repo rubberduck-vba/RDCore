@@ -82,6 +82,49 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
         return chosen is { } index ? request.Choices[index] : request.EscapeResult!.Value;
     }
 
+    /// <summary>
+    /// Asks the user to choose one of <paramref name="choices"/>, as a dialog box at the console: what a server asks the shell's user
+    /// (<strong>LSP 3.17</strong> <c>window/showMessageRequest</c>).
+    /// </summary>
+    /// <param name="title">The box's title.</param>
+    /// <param name="prompt">The question.</param>
+    /// <param name="choices">The buttons, in order.</param>
+    /// <param name="selected">The button chosen at first, and by an empty line of a script.</param>
+    /// <param name="token">A token that cancels the question.</param>
+    /// <returns>The index of the chosen button; <see langword="null"/> when the user closed the box, or the script ran out.</returns>
+    public int? Choose(string title, string prompt, IReadOnlyList<string> choices, int selected, CancellationToken token = default)
+    {
+        var menu = new ConsoleMenu(choices, selected, canDismiss: true);
+        var buttons = menu.Render();
+        var box = new ConsoleDialogBox(title, GlyphOf(VBMsgBoxStyle.VBExclamation), prompt, ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true, ansi);
+        var (before, after) = box.Centring(buttons);
+
+        if (keys.IsInteractive)
+        {
+            return box.Show(output, ansi, () => menu.Run(keys, output, box.RowPrefix + before, token, after + box.RowSuffix));
+        }
+
+        box.Show(output, box.RowPrefix + before + buttons + after + box.RowSuffix);
+        // a line of a script names a button by its text or its key; anything else is asked again, until the script runs out.
+        while (keys.ReadLine(token)?.Trim() is { } line)
+        {
+            if (line.Length == 0)
+            {
+                return selected;
+            }
+
+            var index = Array.FindIndex(menu.Items.ToArray(), item =>
+                string.Equals(ConsoleMenu.TextOf(item), line, StringComparison.OrdinalIgnoreCase)
+                || line.Length == 1 && ConsoleMenu.KeyOf(item) == char.ToUpperInvariant(line[0]));
+            if (index >= 0)
+            {
+                return index;
+            }
+        }
+
+        return null;
+    }
+
     // a line of a script names a button by its text or its key; anything else is asked again, until the script runs out.
     private VBMsgBoxResult AnswerFromLine(MessageBoxRequest request, ConsoleMenu menu)
     {

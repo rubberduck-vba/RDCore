@@ -1,0 +1,75 @@
+using System.Globalization;
+using System.Resources;
+
+namespace RDCore.SDK.Workspace;
+
+/// <summary>
+/// The offer to regenerate a project file the platform cannot read (<strong>RD-VBAL §2.2.3</strong>): the file is kept next to itself, and the project is
+/// made again from the source files of its folder, as the platform makes up the project of a folder that has no project file
+/// (<see cref="IProjectFileLoader.LoadOrSynthesizeAsync"/>).
+/// </summary>
+/// <remarks>
+/// The offer is a question the user answers, never something done without asking: what only the project file says, such as the project's references, is lost.
+/// A server asks nothing of a client that runs unattended (<see cref="Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and then the project does not
+/// load.
+/// </remarks>
+public static class ProjectFileRegeneration
+{
+    private static readonly ResourceManager Messages = new("RDCore.SDK.Workspace.ProjectFileMessages", typeof(ProjectFileRegeneration).Assembly);
+
+    /// <summary>
+    /// Where a project file is kept before it is regenerated: next to it, as <c>.rdproj.bak</c>, or, when a file is there already, as the first of
+    /// <c>.rdproj.1.bak</c>, <c>.rdproj.2.bak</c>, and so on, that no file is at.
+    /// </summary>
+    /// <param name="projectFilePath">The project file.</param>
+    /// <param name="exists">Whether a file is at a path.</param>
+    public static string BackupPathOf(string projectFilePath, Func<string, bool> exists)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFilePath);
+        ArgumentNullException.ThrowIfNull(exists);
+
+        var backup = projectFilePath + ".bak";
+        for (var copy = 1; exists(backup); copy++)
+        {
+            backup = $"{projectFilePath}.{copy.ToString(CultureInfo.InvariantCulture)}.bak";
+        }
+
+        return backup;
+    }
+
+    /// <summary>
+    /// Asks the user whether to regenerate the project file.
+    /// </summary>
+    /// <param name="projectFilePath">The project file.</param>
+    /// <param name="backupPath">Where it is kept if it is regenerated (<see cref="BackupPathOf"/>).</param>
+    /// <param name="reason">Why it cannot be read, as its reader said.</param>
+    /// <param name="ask">Asks the user to choose among the buttons; <see langword="null"/> when they chose none.</param>
+    /// <param name="token">A token that cancels the question.</param>
+    /// <returns><see langword="true"/> when the user chose to regenerate it; <see langword="false"/> when they did not, or when the client could not ask.</returns>
+    public static async Task<bool> AskAsync(
+        string projectFilePath, string backupPath, string reason, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>> ask, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(ask);
+
+        var regenerate = Say("ProjectFile_Regenerate_Choice_Regenerate");
+        string? chosen;
+        try
+        {
+            // the choice that changes nothing is last, where a client that has a default puts it.
+            chosen = await ask(Say("ProjectFile_Regenerate_Offer", projectFilePath, reason, Path.GetFileName(backupPath)), [regenerate, Say("ProjectFile_Regenerate_Choice_NotNow")], token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // a client that answers the question with an error, or does not know it, chose nothing: nothing is regenerated.
+            return false;
+        }
+
+        return chosen == regenerate;
+    }
+
+    private static string Say(string key, params object[] arguments)
+    {
+        var culture = CultureInfo.CurrentUICulture;
+        return string.Format(culture, Messages.GetString(key, culture) ?? key, arguments);
+    }
+}

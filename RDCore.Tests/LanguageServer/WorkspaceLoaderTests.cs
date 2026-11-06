@@ -198,6 +198,81 @@ public sealed class WorkspaceLoaderTests
         CollectionAssert.AreEqual(logged is { } level ? new[] { level } : Array.Empty<LogLevel>(), said);
     }
 
+    private const string Unreadable = "{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\", \"Modules\": 5 } }";
+
+    private static MockFileSystem UnreadableProject(params string[] backups)
+    {
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [ProjectFilePath] = new MockFileData(Unreadable),
+            [Path.Combine(Root, "src", "Module1.bas")] = new MockFileData("Attribute VB_Name = \"Module1\"\r\n"),
+        });
+        foreach (var backup in backups)
+        {
+            fs.AddFile(Path.Combine(Root, backup), new MockFileData("an earlier backup"));
+        }
+
+        return fs;
+    }
+
+    // a project file that can't be read is regenerated when the user says to: it is kept next to itself first, and the project is the one the folder's
+    // source files make, written in this platform's format.
+    [TestMethod]
+    [DataRow(new string[0], ".rdproj.bak", DisplayName = "kept as .rdproj.bak")]
+    [DataRow(new[] { ".rdproj.bak" }, ".rdproj.1.bak", DisplayName = "kept as .rdproj.1.bak, when there is a .rdproj.bak")]
+    public async Task WorkspaceService_LoadAsync_AnUnreadableProjectFile_IsRegenerated_WhenTheUserAccepts(string[] backups, string keptAs)
+    {
+        var fs = UnreadableProject(backups);
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+        var sut = Service(fs, InitializingState(), documents, documentStates);
+        string? asked = null;
+
+        await sut.LoadAsync(Root, [Root], (message, choices, _) =>
+        {
+            asked = message;
+            return Task.FromResult<string?>(choices[0]);
+        });
+
+        StringAssert.Contains(asked, keptAs, "the question says where the file is kept");
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(Path.Combine(Root, keptAs)), "the file as it was is kept next to it");
+        foreach (var backup in backups)
+        {
+            Assert.AreEqual("an earlier backup", fs.File.ReadAllText(Path.Combine(Root, backup)), "an earlier backup is left alone");
+        }
+
+        var regenerated = await new ProjectFileLoader(fs).LoadAsync(Root);
+        Assert.AreEqual(ProjectFile.SchemaVersion, regenerated.Version);
+        CollectionAssert.AreEqual(new[] { "src/Module1.bas" }, regenerated.ProjectInfo.Modules.Select(module => module.RelativeUri.Replace('\\', '/')).ToArray());
+        Assert.ContainsSingle(documents.GetAllDocuments(), "the workspace is loaded from the regenerated project");
+    }
+
+    // nothing is regenerated unless the user says to: a project file the user would not have regenerated, or that nobody could be asked about, does not load,
+    // and is left as it is.
+    [TestMethod]
+    [DataRow(1, DisplayName = "the user chose not now")]
+    [DataRow(-1, DisplayName = "the user closed the question")]
+    [DataRow(-2, DisplayName = "the client answered with an error")]
+    [DataRow(-3, DisplayName = "nobody is there to ask: the client runs unattended")]
+    public async Task WorkspaceService_LoadAsync_AnUnreadableProjectFile_IsNotRegenerated_UnlessTheUserAccepts(int answer)
+    {
+        var fs = UnreadableProject();
+        var sut = WorkspaceService(fs);
+        Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask = answer switch
+        {
+            -3 => null,
+            -2 => (_, _, _) => Task.FromException<string?>(new InvalidOperationException("the client does not know window/showMessageRequest")),
+            -1 => (_, _, _) => Task.FromResult<string?>(null),
+            _ => (_, choices, _) => Task.FromResult<string?>(choices[answer]),
+        };
+
+        var error = await Assert.ThrowsExactlyAsync<InvalidDataException>(() => sut.LoadAsync(Root, [Root], ask));
+
+        StringAssert.Contains(error.Message, ProjectFile.FileName, "the load fails with the message that says which file, and why");
+        Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath));
+        Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
+    }
+
     private sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger<WorkspaceService>
     {
         public List<(LogLevel Level, string Message)> Entries { get; } = [];

@@ -333,10 +333,19 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     /// <summary>
     /// What this client says of itself in the <c>initializationOptions</c> of the <c>initialize</c> request: the language the workspace is
-    /// written in, which only the client knows, and which the server needs to know before it builds anything.
+    /// written in, which only the client knows, and which the server needs to know before it builds anything; and whether it runs unattended, as it says in
+    /// the platform handshake that follows (<see cref="RDCoreInitializationOptions.Unattended"/>).
     /// </summary>
     protected virtual RDCoreInitializationOptions CreateInitializationOptions()
-        => new() { Language = _options.Value.Workspace.Language, Locale = Server.ClientLocale.TagOf(Thread.CurrentThread.CurrentUICulture) };
+        => InitializationOptionsOf(_options.Value.Workspace.Language, Thread.CurrentThread.CurrentUICulture, GetExpectedCapabilities());
+
+    // what a client says in its initializationOptions, from what it is: whether it runs unattended is what it expects of the language server in the handshake.
+    internal static RDCoreInitializationOptions InitializationOptionsOf(string? language, System.Globalization.CultureInfo culture, CorePlatformClientCapabilities expected) => new()
+    {
+        Language = language,
+        Locale = Server.ClientLocale.TagOf(culture),
+        Unattended = expected.LanguageServer?.Unattended?.IsSupported == true,
+    };
 
     /// <summary>
     /// Applies the app-specific parts of the language client configuration. The transport (input/output)

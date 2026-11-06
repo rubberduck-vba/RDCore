@@ -242,7 +242,15 @@ internal sealed class CoreLanguageServerApp(
 
         try
         {
-            await workspace.LoadAsync(root, folders);
+            // a project file that can't be read is offered to be regenerated: asked with window/showMessageRequest, which LSP allows before initialize is
+            // answered, and never of a client that says nobody is there to answer (the platform handshake that says it too comes after).
+            await workspace.LoadAsync(root, folders, ClientRunsUnattended(request) ? null : async (message, choices, token) =>
+                (await server.Window.ShowMessageRequest(new ShowMessageRequestParams
+                {
+                    Type = MessageType.Warning,
+                    Message = message,
+                    Actions = new Container<MessageActionItem>(choices.Select(choice => new MessageActionItem { Title = choice })),
+                }, token))?.Title);
             LogIfEnabled(LogLevel.Information, "✅ Workspace loaded");
         }
         catch (Exception exception)

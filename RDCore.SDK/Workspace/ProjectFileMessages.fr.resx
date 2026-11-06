@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- What the offer to regenerate a project file the platform cannot read says to the user (ProjectFileRegeneration). -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ProjectFile_Regenerate_Offer" xml:space="preserve">
+    <value>Le fichier de projet '{0}' ne peut pas être lu : {1} Le régénérer à partir des fichiers source de son dossier ? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{2}'.</value>
+  </data>
+  <data name="ProjectFile_Regenerate_Choice_Regenerate" xml:space="preserve">
+    <value>Régénérer</value>
+  </data>
+  <data name="ProjectFile_Regenerate_Choice_NotNow" xml:space="preserve">
+    <value>Pas maintenant</value>
+  </data>
+</root>

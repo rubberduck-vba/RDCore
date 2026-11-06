@@ -46,6 +46,33 @@ internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IRepl
         }, cancellationToken);
 }
 
+/// <summary>
+/// Handles <c>window/showMessageRequest</c> (<strong>LSP 3.17</strong>): the language server asks the shell's user to choose, as it does whether to regenerate
+/// a project file it cannot read, and the shell asks at its console.
+/// </summary>
+/// <remarks>
+/// A shell that runs unattended is never asked: it says so as it starts (<see cref="SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>).
+/// </remarks>
+/// <param name="interaction">The shell's dialogs.</param>
+internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interaction) : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageRequestHandler
+{
+    /// <inheritdoc/>
+    public Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageActionItem> Handle(
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams request, CancellationToken cancellationToken)
+        => Task.Run(() =>
+        {
+            var actions = request.Actions?.ToArray() ?? [];
+            if (actions.Length == 0)
+            {
+                return null!;
+            }
+
+            // the last button is the one an empty line, or the Enter key at first, chooses: a server puts the one that changes nothing last.
+            var chosen = interaction.Choose("RDCore", request.Message, [.. actions.Select(action => action.Title)], actions.Length - 1, cancellationToken);
+            return chosen is { } index ? actions[index] : null!;
+        }, cancellationToken);
+}
+
 internal static class ReplInteraction
 {
     /// <summary>Writes the lines a program printed before it opened a dialog, as the shell writes what a program prints.</summary>
