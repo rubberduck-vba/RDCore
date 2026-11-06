@@ -717,6 +717,7 @@ public sealed class CompiledActivation : ILightActivation
         outcome = callee._entered is not { } member ? _invoker.PopCompiledActivation(outcome, light: callee._frame is null)
             : callee._me is { } me && callee._frame is null ? EndMember(callee, me, outcome)
             : _invoker.PopMemberActivation(callee._frame!, member, outcome);
+        callee.LetGoOfMe();
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure)
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
@@ -754,6 +755,9 @@ public sealed class CompiledActivation : ILightActivation
         return _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
     }
 
+    // an activation off the stack is the spare of its place (RuntimeCallStack.TakeSpare) until it is begun again: it keeps no object alive meanwhile.
+    private void LetGoOfMe() => (_instance, _me) = (null, null);
+
     /// <summary>
     /// Takes <paramref name="callee"/>, the activation of a call compiled code made through the callee's typed entry (<see cref="EnterDirectly"/>), off the
     /// stack when a CLR exception goes by it - a defect of the platform, which ends the program: the activations the callee made are off it already, each
@@ -769,6 +773,8 @@ public sealed class CompiledActivation : ILightActivation
         {
             _ = _session.CallStack.TryPop(out _);
         }
+
+        callee.LetGoOfMe();
     }
 
     private int Suspensions => (_halt as SessionHalt)?.Suspensions ?? 0;
@@ -948,9 +954,9 @@ public sealed class CompiledActivation : ILightActivation
 
         // the cell the body found last of the field of the same object, while nothing was allocated, freed or rebound since (CompiledBody.Fields).
         var known = _body.Fields;
-        if (known is null || !ReferenceEquals(known.Instance, instance) || known.Generation != storage.Generation)
+        if (known is null || !known.Object.Equals(instance.ObjectId) || known.Generation != storage.Generation)
         {
-            known = new FieldCells(instance, storage.Generation, new object?[_cells.Length]);
+            known = new FieldCells(instance.ObjectId, storage.Generation, new object?[_cells.Length]);
             _body.Fields = known;
         }
 
@@ -1437,7 +1443,7 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// <summary>
     /// The cells of the fields of <c>Me</c> the body found last (IR lowering S2.5e3b): those of the object an activation of it was last on, for as long as
     /// what the session's storage binds is what it bound then - a field's cell is the one it was until anything is allocated, freed or rebound
-    /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of.
+    /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of. The object is known by its identity, not held.
     /// </summary>
     internal FieldCells? Fields { get; set; }
 
