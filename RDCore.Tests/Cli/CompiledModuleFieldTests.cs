@@ -10,7 +10,7 @@ using static RDCore.Tests.Cli.CompiledDirectCallTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A field of a standard module of a scalar type, compiled (IR lowering S2.6c): held in the cell the session holds it in, found where the interpreter finds
+/// A field of a standard module of a scalar type, compiled: held in the cell the session holds it in, found where the interpreter finds
 /// it, whichever module names it and whatever activation is current, and read and written there by compiled code as a variable held in a cell is. What the
 /// interpreter or another procedure does of the field, it does in that cell too. A program runs the same either way.
 /// </summary>

@@ -325,8 +325,7 @@ public sealed class BenchCommandTests
         StringAssert.StartsWith(interpreted, "interpreted");
         StringAssert.Contains(interpreted, "Raise (line ");
 
-        // a member of an object is called by compiled code (IR lowering S2.5e3): the Set that gives the variable its object is the interpreter's, which makes
-        // it with New (IR lowering S2.6c).
+        // a member of an object is called by compiled code: the Set that gives the variable its object is the interpreter's, which makes it with New.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "compiled");
         StringAssert.Contains(objectCall, "an object made with New: Tally (line ");

@@ -6,7 +6,7 @@ using static RDCore.Tests.Cli.CompiledModuleFieldTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Static</c> variable of a scalar type, compiled (IR lowering S2.6c): held where the interpreter holds it - the session's, for a procedure of a
+/// A <c>Static</c> variable of a scalar type, compiled: held where the interpreter holds it - the session's, for a procedure of a
 /// standard module, and the object's, for a member of a class, each object its own (MS-VBA) - kept from call to call, and given its storage again by
 /// <c>End</c>, which compiled code finds again. A program runs the same either way.
 /// </summary>
@@ -57,7 +57,7 @@ public sealed class CompiledStaticTests
             "    Down = Seen",
             "End Function"), [("Up", 0), ("Down", 0)]);
 
-    // a Static of a member of a class is the object's: each object counts its own (MS-VBA, oracle\s19 N37).
+    // a Static of a member of a class is the object's: each object counts its own (MS-VBA).
     [TestMethod]
     public async Task AStaticOfAMemberOfAClass_IsEachObjectsOwn()
         => await AssertAlikeAsync(Program(

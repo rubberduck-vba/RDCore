@@ -9,7 +9,7 @@ using RDCore.SDK.Semantics.Binding;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a Set statement (IR lowering S2.6c).
+// what compiled code does of a Set statement.
 internal sealed partial class ProcedureAnalysis
 {
     // MS-VBAL §5.4.3.9, as ExecuteSetAssignment assigns: an object variable of the activation - neither Me nor a parameter passed by reference, whose cell is
@@ -66,10 +66,12 @@ internal sealed partial class ProcedureAnalysis
 
 /// <summary>
 /// A <c>Set</c> of <see cref="Target"/> - an object slot, or the function result variable (<see cref="Result"/>) - to the object held in the slot
-/// <see cref="Source"/>, or to <c>Nothing</c> when it has none (IR lowering S2.6c).
+/// <see cref="Source"/>, or to <c>Nothing</c> when it has none.
 /// </summary>
 internal sealed record class SetStep(int Offset, int Target, int? Source) : CompiledStep(Offset)
 {
-    /// <summary>The <see cref="Target"/> of a <c>Set</c> of the function result variable.</summary>
+    /// <summary>
+    /// The <see cref="Target"/> of a <c>Set</c> of the function result variable.
+    /// </summary>
     public const int Result = -1;
 }

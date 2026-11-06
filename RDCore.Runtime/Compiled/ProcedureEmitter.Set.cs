@@ -2,7 +2,7 @@ using System.Reflection.Emit;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a Set statement (IR lowering S2.6c).
+// what compiled code does of a Set statement.
 internal sealed partial class ProcedureEmitter
 {
     // CompiledActivation.TrySet of the cells the activation holds the objects in, or TrySetResult: a Set it declines is the interpreter's alone, and compiled

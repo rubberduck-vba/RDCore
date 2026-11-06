@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledModuleFieldTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Set</c> statement, compiled (IR lowering S2.6c): of an object variable of the activation, or the function result variable, to an object variable,
+/// A <c>Set</c> statement, compiled: of an object variable of the activation, or the function result variable, to an object variable,
 /// <c>Me</c> or <c>Nothing</c> - Set-coerced, stored and counted as the interpreter does it, so that each object's <c>Terminate</c> runs at the instruction
 /// that lets go of it last, which the interpreter runs alone. A program runs the same either way.
 /// </summary>
@@ -132,7 +132,7 @@ public sealed class CompiledSetTests
             "    Debug.Print \"not here\"",
             "End Sub"), [("Handled", 3), ("Unhandled", 1)], classes: Noisy);
 
-    // an error a Terminate leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA, oracle\s44): at the Set that
+    // an error a Terminate leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA): at the Set that
     // destroys the object, and nothing after it runs, compiled or not - which the field the next run prints shows. The interpreter runs the Set alone, then
     // goes on with the activation (a walk-back), and stops the program before the next instruction.
     [TestMethod]

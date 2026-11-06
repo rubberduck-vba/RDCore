@@ -5,19 +5,21 @@ using RDCore.SDK.Semantics.Binding;
 
 namespace RDCore.Runtime.Compiled;
 
-// which fields compiled code reaches, and where their cells are held (IR lowering S2.6c): the scope rule. What compiled code holds a field it reaches as
-// is ProcedureAnalysis.FieldKinds.cs's.
+// which fields compiled code reaches, and where their cells are held: the scope rule. What compiled code holds a field it reaches as is
+// ProcedureAnalysis.FieldKinds.cs's.
 internal sealed partial class ProcedureAnalysis
 {
     /// <summary>
-    /// The fields compiled code reaches, by the number it knows each by (IR lowering S2.5e, S2.6c): each a variable the activation does not hold, numbered
+    /// The fields compiled code reaches, by the number it knows each by: each a variable the activation does not hold, numbered
     /// by a slot past the slots of the procedure's layout, held in the cell the interpreter resolves it to, which compiled code reads and writes it in.
     /// </summary>
     public IReadOnlyList<CompiledField> Fields => _fields;
 
     private readonly List<CompiledField> _fields = [];
 
-    /// <summary>The slots of the <see cref="Fields"/>.</summary>
+    /// <summary>
+    /// The slots of the <see cref="Fields"/>.
+    /// </summary>
     public IReadOnlySet<int> FieldSlots => _fieldSlots;
 
     private readonly HashSet<int> _fieldSlots = [];

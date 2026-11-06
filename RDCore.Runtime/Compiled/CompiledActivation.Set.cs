@@ -8,7 +8,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a Set statement (IR lowering S2.6c).
+// what compiled code does of a Set statement.
 public sealed partial class CompiledActivation
 {
     /// <summary>

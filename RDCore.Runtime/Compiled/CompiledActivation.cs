@@ -1407,18 +1407,20 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// <summary>The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.</summary>
     public int MeSlot { get; init; } = -1;
 
-    /// <summary>The fields compiled code reaches, by the number it knows each by (<see cref="ProcedureAnalysis.Fields"/>).</summary>
+    /// <summary>
+    /// The fields compiled code reaches, by the number it knows each by (<see cref="ProcedureAnalysis.Fields"/>).
+    /// </summary>
     public IReadOnlyList<CompiledField> Fields { get; init; } = [];
 
     /// <summary>
-    /// The cells of the fields of <c>Me</c> the body found last (IR lowering S2.5e3b): those of the object an activation of it was last on, for as long as
+    /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, for as long as
     /// what the session's storage binds is what it bound then - a field's cell is the one it was until anything is allocated, freed or rebound
     /// (<c>SessionStorage.Generation</c>). Another object's are found again, whatever class it is of. The object is known by its identity, not held.
     /// </summary>
     internal FieldCells? ObjectFields { get; set; }
 
     /// <summary>
-    /// The cells of the fields of the session the body found last (IR lowering S2.6c): those of the storage an activation of it last ran in, for as long as
+    /// The cells of the fields of the session the body found last: those of the storage an activation of it last ran in, for as long as
     /// what it binds is what it bound then, as <see cref="ObjectFields"/> are the object's.
     /// </summary>
     internal SessionFieldCells? SessionFields { get; set; }

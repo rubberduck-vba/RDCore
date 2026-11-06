@@ -128,7 +128,7 @@ public sealed class CompiledMemberCallTests
             "    Bumped = N",
             "End Function"), "Bumped", recoveries: 1, direct: 5);
 
-    // two objects of one class: each call is made on the object its variable refers to, which compiled code Sets again in the loop (IR lowering S2.6c).
+    // two objects of one class: each call is made on the object its variable refers to, which compiled code Sets again in the loop.
     [TestMethod]
     public async Task EachCall_IsMadeOnTheObjectItsVariableRefersTo()
         => await AssertCalledAsync(Program(
