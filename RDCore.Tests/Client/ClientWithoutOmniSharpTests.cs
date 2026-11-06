@@ -122,6 +122,23 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
+    // a project file of a newer format loads all the same, in the language server and in the environment host the language server composes the session of: a
+    // module it lists is run under the constant it defines. Had the format been refused, the folder would have been a project of its source files, with no
+    // constant, and 0 printed.
+    [TestMethod]
+    public async Task AModuleOfAProjectFileOfANewerFormat_IsRun_UnderTheConstantsItDefines()
+    {
+        await using var platform = await Platform.StartAsync(others: 1, projectFile: AProjectFileOfANewerFormat);
+        var executed = await RunAsync(platform, "Other0", sessionModule: false,
+            source: "Public Sub Main()\r\n#If NEWER Then\r\n    Debug.Print 1 + 1\r\n#Else\r\n    Debug.Print 0\r\n#End If\r\nEnd Sub\r\n");
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "2" }, executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        await platform.ShutdownAsync(4);
+    }
+
     // a client that opens no folder has no workspace to run anything in: what it runs is not found, and is no internal error of the language server.
     [TestMethod]
     public async Task AClientThatOpensNoFolder_IsToldThereIsNoWorkspaceToRunIn()
@@ -151,9 +168,11 @@ public sealed class ClientWithoutOmniSharpTests
 
     private const string UnreadableProjectFile = "{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\" ";
     private const string AProjectOfOtherModules = "{ \"ProjectInfo\": { \"Name\": \"Other\", \"Modules\": [ { \"RelativeUri\": \"Other0.bas\" } ] } }";
+    private const string AProjectFileOfANewerFormat =
+        "{ \"Version\": \"100.0.0\", \"ProjectInfo\": { \"Name\": \"Newer\", \"Modules\": [ { \"RelativeUri\": \"Other0.bas\" } ], \"PrecompilerConstants\": { \"NEWER\": \"1\" } } }";
 
-    // the workspace is initialized and handshaken, and `Debug.Print 1 + 1` is run as Main of the module.
-    private static async Task<JsonObject> RunAsync(Platform platform, string moduleName, bool sessionModule)
+    // the workspace is initialized and handshaken, and `Debug.Print 1 + 1`, or the source given, is run as Main of the module.
+    private static async Task<JsonObject> RunAsync(Platform platform, string moduleName, bool sessionModule, string? source = null)
     {
         var rpc = platform.Rpc;
         var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams("{}"));
@@ -165,7 +184,7 @@ public sealed class ClientWithoutOmniSharpTests
 
         return await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
         {
-            ["source"] = "Public Sub Main()\r\n    Debug.Print 1 + 1\r\nEnd Sub\r\n",
+            ["source"] = source ?? "Public Sub Main()\r\n    Debug.Print 1 + 1\r\nEnd Sub\r\n",
             ["moduleName"] = moduleName,
             ["entryPoint"] = "Main",
             ["sessionModule"] = sessionModule,
