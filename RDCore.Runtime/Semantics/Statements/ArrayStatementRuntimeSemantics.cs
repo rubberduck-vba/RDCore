@@ -99,7 +99,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
             //   (cases-redim3 N01, cases-redim4 B01, B02, F03, F04; vb6.exe too, HexIDE's findings desk #9);
             // - a ReDim of a Variant parameter given a variable declared as an array is a Variant's, read from the parameter and not from the array it
             //   shares: one below raises 9 and the array keeps its bounds and elements, further below raises 7 and the array loses its dimensions, as it
-            //   can't be left Empty (oracle\s68 V03-V09, VV13-VV19; vb6.exe too). A parameter declared as an array is the array's (LA33-LA39).
+            //   can't be left Empty (oracle\s68 V03-V09, VV13-VV19). A parameter declared as an array is the array's (LA33-LA39).
             if (inverted && redim.IsPreserve && target.Declared is not VBArrayType && Unwrapped(target.Current) is not VBArrayValue)
             {
                 return Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
@@ -126,7 +126,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
         // an array RD-VBA can't hold a cell for each element of is out of memory: MS-VBA (64-bit) allocates the 2,147,483,648 bytes of
         // `ReDim b(2147483647) As Byte` and a billion Longs (recorded in Excel: oracle\s56 I07, I09, B09). A ReDim that is out of memory has let go of what
         // the variable held, as MS-VBA's does: a variable declared as an array loses its dimensions, and a Variant is left Empty (oracle\s68 V10, VV20,
-        // LA40, BV30, VW50, W60; vb6.exe too). A ReDim Preserve keeps it.
+        // LA40, BV30, VW50, W60; s68b T01, T03-T05, L03, L07). A ReDim Preserve keeps it (s68b P01-P05).
         if (VBArrayValue.LengthOf(bounds) > VBArrayValue.MaximumLength)
         {
             var outOfMemory = Failed(redim, VBRuntimeErrorId.OutOfMemory, $"{redim.Name}: more than {VBArrayValue.MaximumLength} elements");

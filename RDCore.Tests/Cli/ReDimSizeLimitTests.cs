@@ -24,6 +24,9 @@ public sealed class ReDimSizeLimitTests
                 "End Sub",
             ]) + "\r\n");
 
+    // MS-VBA can't allocate 65535³ Integers (oracle\s68b T01) and lets go of the array, as it does of 2147483648 Longs (s68 LA40, s68b T04, T05). It does
+    // allocate the Bytes and the billion Longs (s56 I07-I09, B09), the others are a few dozen megabytes, and it raises no error for every Long subscript of
+    // Variants (s68b T02): an error 7 that erases the array there is RD-VBA's choice, the same as for an array MS-VBA can't allocate.
     [TestMethod]
     [DataRow("Byte", "2147483647", DisplayName = "2,147,483,648 Bytes")]
     [DataRow("Byte", "2147483646", DisplayName = "2,147,483,647 Bytes")]
