@@ -44,6 +44,8 @@ Le programme courant est le corps d'une procédure implicite nommée `Main`, dan
 | `VARS`, `STACK` | Affiche les variables et la pile d'appels lors d'un arrêt. |
 | `CONFIG` | Affiche et modifie vos paramètres, avec complétion. Les changements de mise en forme s'appliquent aussitôt. |
 
+`Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un point d'arrêt ou `Ctrl+C`), le _shell_ affiche `INTERRUPTION À LA LIGNE` et le numéro de ligne, puis liste les deux lignes au-dessus et au-dessous de cette ligne, qui est mise en évidence. `CONFIG CLI.BreakListingLines` fixe combien de lignes sont listées de chaque côté; `0` n'en liste aucune.
+
 Lors d'un arrêt, vous pouvez taper des instructions comme dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
 
 > [!NOTE]

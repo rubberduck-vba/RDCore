@@ -105,6 +105,11 @@ la modification, ou quand le programme se termine.
 > RUN
   avant
   INTERRUPTION À LA LIGNE 20
+     5 Dim Total As Long
+    10 Debug.Print "avant"
+    20 Stop
+    30 Debug.Print "après"
+
   ✅ PRÊT.
 > 5 Dim Total As Integer
 > CONT
