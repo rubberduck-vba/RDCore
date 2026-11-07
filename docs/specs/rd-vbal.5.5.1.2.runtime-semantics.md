@@ -413,6 +413,3 @@ Code that does not unwrap a `VBVariantValue` sees the box instead of the value.
 The default member of a class type can be implicitly invoked through let-coercion, yielding the _data value_ of the
 object ([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md);
 [**RD-VBAL §5.6.2** Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md)).
-
----
-> ⏮️ [**RD-VBAL §5.5.1.1** Static semantics](rd-vbal.5.5.1.1.static-semantics.md) | ⏭️ [**RD-VBAL §5.5.2** Set-coercion](rd-vbal.5.5.2.set-coercion.md)

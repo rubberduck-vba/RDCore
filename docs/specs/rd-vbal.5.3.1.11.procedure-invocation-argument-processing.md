@@ -427,6 +427,3 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 `ProcedureExecutor` built from a `StatementRuntimeSemanticsProvider` built from the same
 `RuntimeExpressionEvaluator`: the evaluator must exist before its invoker can be built. See
 [**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md).
-
----
-> ⏮️ [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md) | ⏭️ [**RD-VBAL §5.4** Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)

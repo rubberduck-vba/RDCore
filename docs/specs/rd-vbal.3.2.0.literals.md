@@ -110,6 +110,3 @@ value can be written as a literal, for example as a `Select Case` selector
 ### 3.2.0.2.1 Instance Expressions
 
 See [**RD-VBAL §5.6.11** Instance Expressions](rd-vbal.5.6.11.instance-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) | ⏭️ [**RD-VBAL §3.3.0** Operator Expressions](rd-vbal.3.3.0.operators.md)

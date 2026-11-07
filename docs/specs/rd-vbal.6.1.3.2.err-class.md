@@ -135,6 +135,3 @@ itself it is suspended.
 [VBStackTrace](../api/RDCore.SDK.Model.Errors.VBStackTrace.html) type. The current error's stack trace is held on
 `ISessionErrorState.StackTrace`, and is built from
 [ICallStack](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStack.html)`.Frames`.
-
----
-> ⏮️ [**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md) | ⏭️ [**RD-VBAL §6.1.3.3** Global Class](rd-vbal.6.1.3.3.global-class.md)

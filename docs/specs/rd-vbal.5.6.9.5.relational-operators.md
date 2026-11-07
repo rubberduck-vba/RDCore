@@ -251,6 +251,3 @@ This section corresponds to [**MS-VBAL §5.6.9.5.6** >= Operator](https://learn.
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.4** & Operator](rd-vbal.5.6.9.4.ampersand-operator.md) | ⏭️ [**RD-VBAL §5.6.9.6** Like Operator](rd-vbal.5.6.9.6.like-operator.md)

@@ -150,6 +150,3 @@ whiteSpace : (WS | LINE_CONTINUATION)+;
 
 Whitespace around the parentheses and the commas is optional. The `LPAREN`, `RPAREN`, `COMMA`, `WS` and
 `LINE_CONTINUATION` tokens are defined in [§3.0.1.1.1](#30111-annotation-list).
-
----
-> ⏮️ [**RD-VBAL §3.0** Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.md) | ⏭️ [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md)

@@ -163,6 +163,3 @@ The pointer width belongs to the environment. The environment host passes
 [StdLibSymbolProvider](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html) the pointer width of its own
 runtime profile
 ([IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)).
-
----
-> ⏮️ [**RD-VBAL §5.6.16** Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md) | ⏭️ [**RD-VBAL §6.1** VBA Project](rd-vbal.6.1.vba-project.md)
