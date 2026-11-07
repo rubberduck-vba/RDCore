@@ -587,13 +587,14 @@ public sealed partial class CompiledActivation : ILightActivation
     /// frame says while the callee runs. The call is the invoker's (<see cref="Call"/>) when the callee is not called this way, or not now: the session runs
     /// no compiled code any more (its engine was changed); the session's symbols were defined again since this activation began, or the callee's body was
     /// loaded again, either of which the body it was compiled against may no longer be; the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
-    /// the session is being analyzed; or the call stack has no room for another frame.
+    /// the session is being analyzed; a break was asked for and is not answered, which the invoker's call has the interpreter answer before the callee's
+    /// first instruction; or the call stack has no room for another frame.
     /// </summary>
     /// <returns>The callee's activation, which its entry is called with; <see langword="null"/> when the call is to be made through the invoker.</returns>
     public CompiledActivation? EnterDirectly(int pc, int callee)
     {
         if (_body.Directs[callee] is not { Body: { } body } direct || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter
-            || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
             || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
             || !ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
         {
@@ -664,7 +665,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public CompiledActivation? EnterMemberDirectly(int pc, int callee)
     {
         if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
-            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
             || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
             || EntryOf(_body.Callees[callee], member) is not { } entry)
         {
@@ -868,13 +869,18 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether the activation is handed to the interpreter after the call it made returns: the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
     /// the procedure was edited while the program waited in the callee, and the activation goes on in its edited body (<see cref="CallStackFrame.HasPendingRebase"/>);
     /// or the session's symbols were defined again while the callee ran - an edit made while the program waited - and what compiled code calls, and how,
-    /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call.
+    /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call. So it does after a call, or
+    /// an instruction it ran alone, that let go of an object whose <c>Terminate</c> left an error unhandled (<see cref="ISessionErrorState.Untrappable"/>):
+    /// the program stops with it there, before the next instruction, as the interpreter stops it (<c>ProcedureExecutor.RunInstructions</c>). And so it does
+    /// after one during which a break was asked for, which is not answered: the interpreter breaks there, before the next instruction, where compiled code
+    /// would look only at the back edge of a loop.
     /// </summary>
     /// <remarks>
     /// An activation without a frame has no edit to go on in: the program waited in none, since what looks at the stack while it waits gives every activation
     /// its frame (<see cref="RuntimeCallStack.MaterializeLights"/>).
     /// </remarks>
-    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _frame is { HasPendingRebase: true } || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
+    public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true }
+        || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _executor.IsCancellationPending;
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
@@ -990,47 +996,6 @@ public sealed partial class CompiledActivation : ILightActivation
         value = read ? payload.Floating : 0;
         return read;
     }
-
-    /// <summary>
-    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type: the one the object holds it in, as the
-    /// interpreter resolves it, which compiled code reads and writes it in.
-    /// </summary>
-    /// <param name="number">The number the body knows the field's cell by.</param>
-    /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
-    public object? FieldCellOf(int number)
-    {
-        // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.
-        var instance = _instance ?? (Frame.Target is { } target && _session.Symbols.TryGetInstance(target, out var on) ? on : null);
-        if (instance is null)
-        {
-            return null;
-        }
-
-        // the cell the body found last of the field of the same object (CompiledBody.Fields).
-        var known = _body.Fields;
-        if (known is null || !known.Object.Equals(instance.ObjectId))
-        {
-            known = new FieldCells(instance.ObjectId, new object?[_cells.Length]);
-            _body.Fields = known;
-        }
-
-        if (known.Cells[number] is { } cached)
-        {
-            return cached;
-        }
-
-        var field = _body.SlotSymbols[_body.CellSlots[number]];
-        var found = instance.TryResolve(field, out var held) && held is ScalarCell cell && cell.Type.Equals(((ITypedSymbol)field).ResolvedType) ? cell : null;
-        known.Cells[number] = found;
-        return found;
-    }
-
-    /// <summary>
-    /// The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.
-    /// </summary>
-    /// <param name="number">The number the body knows the field's cell by.</param>
-    /// <returns><see langword="null"/> when the frame cannot be read, or the object holds the field in no cell of its type.</returns>
-    public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
 
     /// <summary>
     /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads and
@@ -1312,9 +1277,9 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     /// <remarks>
     /// The interpreter goes on with the activation when the program waited while the instruction ran - at its error, which a debugger asked to see - or the
-    /// interpreter is wanted, or the symbols were defined again; and when the activation goes on inside a <c>For</c> loop the frame holds no state of, which
-    /// compiled code would step with what it does not have. It runs the activation from <paramref name="pc"/> without stepping, when compiled code could not
-    /// write a variable into the frame.
+    /// interpreter is wanted, or the symbols were defined again, or a break was asked for and is not answered (<see cref="WantsInterpreterAfterCall"/>); and
+    /// when the activation goes on inside a <c>For</c> loop the frame holds no state of, which compiled code would step with what it does not have. It runs
+    /// the activation from <paramref name="pc"/> without stepping, when compiled code could not write a variable into the frame.
     /// </remarks>
     public int Recover(int pc)
     {
@@ -1580,11 +1545,23 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public int MeSlot { get; init; } = -1;
 
     /// <summary>
+    /// The fields compiled code reaches, by the number it knows each by (<see cref="ProcedureAnalysis.Fields"/>).
+    /// </summary>
+    public IReadOnlyList<CompiledField> Fields { get; init; } = [];
+
+    /// <summary>
     /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
     /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The cache keeps the object's
     /// identity and holds no reference to it.
     /// </summary>
-    internal FieldCells? Fields { get; set; }
+    internal FieldCells? ObjectFields { get; set; }
+
+    /// <summary>
+    /// The cells of the fields of the session the body found last: those of the storage an activation of it last ran in, for as long as
+    /// what it binds is what it bound then: a variable's cell is the one it was until anything is allocated, freed or rebound
+    /// (<c>SessionStorage.Generation</c>).
+    /// </summary>
+    internal SessionFieldCells? SessionFields { get; set; }
 
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];

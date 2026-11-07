@@ -430,8 +430,9 @@ public sealed class CompiledArrayTests
             "End Function"), "Mixed", recoveries: 6 + 1, classes: Noisy);
 
     // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
-    // to holds Nothing. Each Set is the interpreter's, and the object two elements held is let go of at the second Set of Nothing, which prints there: the
-    // 10 statements the interpreter runs are the Sets, the member and the prints, none of the loop.
+    // to holds Nothing. Each Set of an element is the interpreter's, and so is the Set of O to one; the Set of O to Nothing, which lets go of no last
+    // reference, is compiled. The object two elements held is let go of at the second Set of an element to Nothing, which prints there: the 9 statements the
+    // interpreter runs are those Sets, the member and the prints, none of the loop.
     [TestMethod]
     public async Task AnElementOfAnObjectArray_IsComparedInCompiledCode_AndLetGoOfWhereTheInterpreterSetsIt()
         => await AssertAlikeAsync(Program(
@@ -461,5 +462,5 @@ public sealed class CompiledArrayTests
             "    Held = Held + (A(1) Is Nothing) + (A(2) Is Nothing)",
             "    Set A(2) = Nothing",
             "    Debug.Print \"after\"",
-            "End Function"), "Held", recoveries: 10, classes: Noisy);
+            "End Function"), "Held", recoveries: 9, classes: Noisy);
 }

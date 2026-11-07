@@ -240,12 +240,14 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     // the body run compiled when the session runs compiled code and the procedure is compiled, and in the interpreter otherwise: an
-    // analysis, a debugger attached and an error a Class_Terminate left unhandled are the interpreter's. A procedure is not compiled when payloads are not
+    // analysis, a debugger attached, an error a Class_Terminate left unhandled and a break asked for that is not answered yet are the interpreter's, which
+    // breaks before the first instruction, where compiled code would look only at the back edge of a loop. A procedure is not compiled when payloads are not
     // used, and the compiler says so.
     private RuntimeExecutionOutcome Run(VBTypeMemberSymbol procedure, CallStackFrame frame, InstructionList body, RuntimeEvaluationContext context)
     {
         if (CompiledExecution.EngineFor(Session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
-            || Executor.Observation is not null || Session.Halt.WantsInterpreter || Session.Errors.Untrappable is not null || Bodies is not ProgramImage image)
+            || Executor.Observation is not null || Session.Halt.WantsInterpreter || Session.Errors.Untrappable is not null || Executor.IsCancellationPending
+            || Bodies is not ProgramImage image)
         {
             return Executor.Run(Session, frame, body, context);
         }

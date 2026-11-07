@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Execution.Memory;
@@ -62,6 +63,32 @@ internal sealed partial class SessionStorage
         }
 
         return TryHeaderOf(held, declared, out pointer);
+    }
+
+    public int PointerWidth => pointerSize;
+
+    public bool TryGetPointer(VBRuntimeObjectId instance, VBType? declared, out long pointer)
+    {
+        pointer = 0;
+        return instance.Equals(VBObjectValue.Nothing.Value) || TryHeaderOf(instance, declared, out pointer);
+    }
+
+    // an interface the session made for an object, at any address ObjPtr gave out for it: the object's, until it is destroyed (ReleaseHeadersOf).
+    public bool TryGetObject(long pointer, out VBRuntimeObjectId instance)
+    {
+        instance = VBObjectValue.Nothing.Value;
+        if (pointer == 0)
+        {
+            return true;
+        }
+
+        if (pointer is < int.MinValue or > int.MaxValue || !_headers.TryGetValue(new MemoryAddress(unchecked((int)pointer)), out var header))
+        {
+            return false;
+        }
+
+        instance = header.Object;
+        return true;
     }
 
     /// <summary>
@@ -289,7 +316,7 @@ internal sealed partial class SessionStorage
 
         return scalar is null
             ? null
-            : VBUserDefinedTypeImage.Decode(scalar, image.AsSpan(VariantDataOffset, Math.Max(1, VBUserDefinedTypeLayout.WidthOf(scalar, pointerSize))));
+            : VBUserDefinedTypeImage.Decode(scalar, image.AsSpan(VariantDataOffset, Math.Max(1, VBUserDefinedTypeLayout.WidthOf(scalar, pointerSize))), pointerSize);
     }
 
     // what is held at an address, as a variable's cell holds it: a variable, an element of an array, a field of a record.

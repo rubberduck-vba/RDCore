@@ -35,7 +35,8 @@ public sealed class CompiledObjectTests
             "    Next",
             "End Function"), "Counted", recoveries: 1, classes: Things);
 
-    // two references to one object are the same; Nothing is Nothing; a reference compared with the variable it was copied from, after either is Set again.
+    // two references to one object are the same; Nothing is Nothing; a reference compared with the variable it was copied from, after either is Set again -
+    // by compiled code, to the other, or by the interpreter, to a New one.
     [TestMethod]
     public async Task TwoObjectVariables_AreTheSame_WhenTheyReferToOneObject()
         => await AssertAlikeAsync(Program(
@@ -52,7 +53,7 @@ public sealed class CompiledObjectTests
             "        If I = 3 Then Set B = A",
             "        If I = 5 Then Set B = New Thing",
             "    Next",
-            "End Function"), "Compared", recoveries: 3, classes: Things);
+            "End Function"), "Compared", recoveries: 2, classes: Things);
 
     // Nothing on the left, in parentheses, under Not, and of an Object variable; Nothing Is Nothing.
     [TestMethod]
@@ -141,8 +142,9 @@ public sealed class CompiledObjectTests
             ]);
 
     // an object let go of runs its Class_Terminate where the interpreter lets go of it - at the Set that drops its last reference, and at the end of the
-    // procedure - and the Is compared after each sees what is left. The interpreter runs, at each of 4 passes, the Set of A, the Debug.Print and the Set of
-    // B; the assignment of A's field at the 2 passes A refers to an object; and the Set of B after the loop: 4 * 3 + 2 + 1 = 15. Every Is is compiled.
+    // procedure - and the Is compared after each sees what is left. The interpreter runs the Set of A to a New object and the assignment of its field at
+    // the 2 passes that make one, the Debug.Print at each of 4 passes, the Set of B that drops the last reference at the 2 others, and the Set of B after the
+    // loop: 2 * 2 + 4 + 2 + 1 = 11. Every Is is compiled, and so is every other Set.
     [TestMethod]
     public async Task ClassTerminate_RunsWhereTheLastReferenceGoes_AroundIsComparedInCompiledCode()
         => await AssertAlikeAsync(Program(
@@ -163,7 +165,7 @@ public sealed class CompiledObjectTests
             "    Next",
             "    Set B = New Noisy",
             "    If A Is B Then Watched = Watched * 2 + 1 Else Watched = Watched * 2",
-            "End Function"), "Watched", recoveries: 15, classes:
+            "End Function"), "Watched", recoveries: 11, classes:
             [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Option Explicit", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone\"; Id", "End Sub"))]);
 
     // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given.

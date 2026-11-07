@@ -108,10 +108,6 @@ internal sealed partial class ProcedureAnalysis
         return new ArrayBoundNode(array.Slot, bound.ArrayBound.Kind == ArrayBoundKind.Upper, dimension);
     }
 
-    // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), or an element of an
-    // array of Variants.
-    private bool IsVariant(BoundNode node) => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node);
-
     private bool IsVariantElement(BoundNode node) => node is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
 
     // an element of an array of Variants, read in the Variant's cell the array holds it in: Dynamic's BoundIndex.

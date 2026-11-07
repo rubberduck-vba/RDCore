@@ -289,18 +289,19 @@ internal static class ModuleWorkspace
     /// loop, in the procedure it loops in), which is asked of the session as the program runs. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
-    /// <param name="engine">What runs the program; the interpreter when omitted.</param>
+    /// <param name="engine">What runs the program, whatever engine the suite runs with (<c>RDCORE_ENGINE</c>); the suite's when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>; none when omitted.</param>
     /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
-        VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false,
+        VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null,
         Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
-            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, environment: environment);
+            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
@@ -309,13 +310,16 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger.</param>
+    /// <param name="engine">What runs the program, whatever engine the suite runs with (<c>RDCORE_ENGINE</c>); the suite's when omitted.</param>
     public static Task InspectWithModulesAsync(
         IReadOnlyList<(string Name, string Source)> modules, string program,
-        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, bool debug = false)
-        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, bool debug = false,
+        VBExecutionEngine? engine = null)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules, engine: engine);
 
     /// <summary>
-    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>, whatever engine
+    /// the suite runs with.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, VBExecutionEngine engine)
         => RunCoreAsync(classes, program, errorsOnly: false, engine: engine);
@@ -327,10 +331,13 @@ internal static class ModuleWorkspace
         bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
-        VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
+        VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine? engine = null,
         bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
         bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
     {
+        // the engine a test asks for is the one that runs its program, whichever the suite runs every other with: the program's runs, and what the test does
+        // with the session while it waits, are in this flow.
+        using var pinned = engine is { } asked ? RDCore.Runtime.Compiled.CompiledExecution.Running(asked) : null;
         var loadErrors = new List<string>();
 
         // the kind of a document module is what the project says, as the platform reads it: one it gives no Super is what its text says.
@@ -364,7 +371,8 @@ internal static class ModuleWorkspace
 
         var profile = new RuntimeEnvironmentProfile(
             Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
-            ExecutionEngine: engine, ReleaseDropsDebugStatements: releaseDropsDebugStatements);
+            ExecutionEngine: engine ?? RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
+            ReleaseDropsDebugStatements: releaseDropsDebugStatements);
         var sessionProvider = new EnvironmentSessionProvider(
             environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,

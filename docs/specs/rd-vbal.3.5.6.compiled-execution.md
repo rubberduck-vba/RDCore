@@ -13,7 +13,7 @@ A program does the same thing in either engine: what it prints, the errors it ra
 Any `Sub`, `Function` or `Property` procedure can be compiled, in a standard module or in a class. Compiled code holds the procedure's scalar parameters,
 passed `ByVal` or `ByRef`, its scalar variables, and the result of a function that returns a scalar. The scalars are `Byte`, `Integer`, `Long`, `LongLong`,
 `Boolean`, `Currency`, `Single`, `Double` and `Date`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`,
-an object, a `String`, a `Variant`, an array, a record, and a `Static` variable.
+an object, a `String`, a `Variant`, an array and a record.
 
 ### Variants
 
@@ -53,12 +53,30 @@ In a procedure of a class, compiled code reads and writes a field of `Me` of a s
 outside the class (`C.Total = 10`) see the same field. A field passed `ByRef` is passed as the field itself: what the callee assigns its parameter, it
 assigns the field. Each object has its own fields, and a member called on one reads and writes that object's.
 
+Compiled code also reads and writes, where the interpreter keeps it, a variable of a scalar type that outlives the activation (MS-VBAL §2.3): a field of a
+standard module, the procedure's own module or another, which the session keeps; and a `Static` variable of the procedure, which the session keeps in a
+standard module, and the object in a class, each object its own, as in MS-VBA. What another procedure, the interpreter, a debugger or `CopyMemory` writes
+there, compiled code reads, and the other way around, from one call and one run to the next. A procedure with a `Static` is always called with its frame:
+the call that first needs the `Static` gives it its storage, and so does the first call after `End`, which resets every `Static` of the program. A `For`
+whose counter is such a variable is the interpreter's.
+
 ### Objects
 
 Compiled code reads the reference held by an object parameter or variable (declared `As Object`, or as a class or an interface) where its frame keeps it.
-It compares two such references with `Is`, or one with `Nothing`, and tests one with `TypeOf`, as the interpreter does (MS-VBAL §5.6.9.7, §5.6.7). A
-`Set` of the variable is the interpreter's, and compiled code reads the variable again after it. `TypeOf` of `Nothing` is also the interpreter's, which
-raises error 91. So is a variable declared `As New`, which the interpreter makes when it is read.
+It reads the reference held by an object field of `Me` or of a standard module, or by an object `Static`, where the interpreter keeps it, as it does a
+scalar one. It compares two such references with `Is`, or one with `Nothing`, and tests one with `TypeOf`, as the interpreter does (MS-VBAL §5.6.9.7,
+§5.6.7). `TypeOf` of `Nothing` is the interpreter's, which raises error 91. So is a variable or field declared `As New`, which the interpreter makes when
+it is read.
+
+Compiled code does a `Set` of such a variable or field, or of the result of a function that returns an object, to another such variable or field, to `Me` or to `Nothing`
+(MS-VBAL §5.4.3.9). It Set-coerces the object to the declared type of what it is assigned to, stores it, and counts the reference as the interpreter does
+(MS-VBAL §5.3.1.10), so the object lives exactly as long as in the interpreter. The interpreter runs these `Set`s on its own, and compiled code reads the
+variable again after each:
+
+- one whose object does not Set-coerce, an object of another class: the interpreter raises the error there;
+- one that lets go of the last reference to an object: the interpreter runs its `Class_Terminate` there;
+- one of a `WithEvents` field: the interpreter detaches its handlers from the object it held and attaches them to the one it is given;
+- one of a parameter passed `ByRef`, or to anything else, such as `New`, a call or a member of an object.
 
 Compiled code also calls a member of such a variable declared as a class or an interface (`C.Add 1`, `N = C.Total()`). Each time, it finds the member the
 object's class has for it, as the interpreter does (MS-VBAL §5.3.1.9): the member itself, or, for a variable declared as an interface, the member the
@@ -102,16 +120,16 @@ Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar fields of `Me`, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
-|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or of an element of one of its arrays of objects.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me`, or of the function's result; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
-|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
+|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
+|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
 `Resume Next`, `Resume` a label and the `Error` statement (see Error handling, below); a statement that uses something that stays in the frame (a
-fixed-length `String`, an object, a field of `Me` that is not of a scalar type, a `Static`); a call of a member of anything other than one of the procedure's object variables (`Err.Number` is one); an element of an array that compiled code does not handle (see Arrays, above); and a `For` whose counter or bounds
+fixed-length `String`, an object other than as above, a field or a `Static` that is neither a scalar nor an object); a call of a member of anything other than one of the procedure's object variables and fields (`Err.Number` is one); an element of an array that compiled code does not handle (see Arrays, above); and a `For` whose counter or bounds
 compiled code does not do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
@@ -184,8 +202,10 @@ are the interpreter's. The rest of the activation runs in the interpreter.
 A `Variant` that holds what compiled code does not evaluate is the exception: the interpreter runs that one statement, whether it assigns, tests a
 condition or ends a loop, and compiled code goes on after it, as described above.
 
-Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
-activation under the debugger.
+Compiled code also hands the activation to the interpreter when the program is to stop or a debugger attaches: the interpreter then breaks, or runs the activation under the debugger.
+Compiled code checks for either at the back edge of each loop, after each call it makes, and after each instruction the interpreter runs for it. A break asked for
+while a call or such an instruction ran is answered before the next instruction, where the interpreter answers it. A procedure called while the program
+is to stop runs in the interpreter, which breaks before its first statement.
 
 ## Error handling
 

@@ -2007,6 +2007,24 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to LSet reads an object field from bytes that are not an object&apos;s address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied..
+        /// </summary>
+        public static string VBLSet_NoObjectAtAddress_Verbose {
+            get {
+                return ResourceManager.GetString("VBLSet_NoObjectAtAddress_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to LSet gives an object field the object of another class: a field declared as a class holds only an object of that class, or of a class that implements it, as Set would require. Nothing was copied..
+        /// </summary>
+        public static string VBLSet_ObjectOfAnotherClass_Verbose {
+            get {
+                return ResourceManager.GetString("VBLSet_ObjectOfAnotherClass_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to What TypeOf tests is Nothing: an object variable that was never set, or that was set to Nothing, has no object whose type could be tested. Test it with &apos;Is Nothing&apos; first..
         /// </summary>
         public static string VBTypeOf_ObjectVariableNotSet_Verbose {

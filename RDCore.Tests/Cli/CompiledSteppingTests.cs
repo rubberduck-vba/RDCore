@@ -126,7 +126,7 @@ public sealed class CompiledSteppingTests
         await AssertAlikeAsync(program, "Value", recoveries: 0, classes: box);
     }
 
-    // a Property Set: its object parameter is the frame's, and what it does with it the interpreter's.
+    // a Property Set: compiled code Sets the object field to its object parameter; a call of a member of a library's class is the interpreter's.
     [TestMethod]
     public async Task APropertySet_IsCompiled()
         => await AssertAlikeAsync(Program(
@@ -134,7 +134,7 @@ public sealed class CompiledSteppingTests
             "    Dim H As New Holder",
             "    Set H.Items = New Collection",
             "    Debug.Print H.Total",
-            "End Sub"), "Set Items", recoveries: 4, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
+            "End Sub"), "Set Items", recoveries: 3, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
                 "Private mItems As Collection",
                 "Private mTotal As Long",
@@ -151,9 +151,10 @@ public sealed class CompiledSteppingTests
                 "    Total = mItems.Count + mTotal",
                 "End Function"))]);
 
-    // a Static outlives the activation: the frame's, from one call to the next.
+    // a Static outlives the activation: held where the interpreter holds it, which compiled code reads and writes it in, from one call to the next
+    // (CompiledStaticTests).
     [TestMethod]
-    public async Task AStatic_IsTheInterpreters_FromOneCallToTheNext()
+    public async Task AStatic_IsKeptFromOneCallToTheNext()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Counted(); Counted()",
@@ -166,7 +167,7 @@ public sealed class CompiledSteppingTests
             "        T = T + I",
             "        Counted = Counted + Calls + T",
             "    Next",
-            "End Function"), "Counted", recoveries: 8);
+            "End Function"), "Counted", recoveries: 0);
 
     // a For whose end is not compiled code's: the interpreter opens the loop and steps it, and the body is compiled.
     [TestMethod]

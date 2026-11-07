@@ -273,6 +273,12 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member.</value>
   </data>
+  <data name="VBLSet_NoObjectAtAddress_Verbose" xml:space="preserve">
+    <value>LSet reads an object field from bytes that are not an object's address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied.</value>
+  </data>
+  <data name="VBLSet_ObjectOfAnotherClass_Verbose" xml:space="preserve">
+    <value>LSet gives an object field the object of another class: a field declared as a class holds only an object of that class, or of a class that implements it, as Set would require. Nothing was copied.</value>
+  </data>
   <data name="VBTypeOf_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>What TypeOf tests is Nothing: an object variable that was never set, or that was set to Nothing, has no object whose type could be tested. Test it with 'Is Nothing' first.</value>
   </data>
