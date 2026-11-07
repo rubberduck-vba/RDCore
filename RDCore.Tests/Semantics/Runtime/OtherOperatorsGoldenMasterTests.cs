@@ -152,33 +152,6 @@ public sealed class OtherOperatorsGoldenMasterTests : LetCoercionRuntimeSemantic
             text.Append($"{Tokens.LogicalNotOp} {GoldenMaster.Describe(operand)} => {outcome}{GoldenMaster.Describe(observer)}\n");
         }
 
-        // unary '+' is not in the grammar, and no expression of the source is one: its semantics are evaluated the way the provider evaluates an operator.
-        foreach (var operand in Values())
-        {
-            var observer = new RecordingAnalysisObserver();
-            var observation = new AnalysisObservation(observer);
-            var plus = new UnaryPlusOperatorRuntimeSemantics(LetCoercionAnalysisHarness.BuildProvider(observation), Formatter());
-            var expression = new VBUnaryOperatorExpressionNode(Tokens.AdditionOp, NodeId, TestLocations.TestLocation, [Operand()]);
-
-            var outcome = GoldenMaster.Outcome(() =>
-            {
-                var result = plus.Evaluate(binary, new UnaryArithmeticOperatorSemanticContext(), expression, operand);
-                OperatorFact? fact;
-                using (observation.Suspend())
-                {
-                    fact = plus.Observe(binary, Tokens.AdditionOp, expression, result, [operand]);
-                }
-
-                if (fact is not null)
-                {
-                    observation.OnOperation(fact);
-                }
-
-                return result;
-            });
-
-            text.Append($"{Tokens.AdditionOp} {GoldenMaster.Describe(operand)} => {outcome}{GoldenMaster.Describe(observer)}\n");
-        }
 
         foreach (var session in new[] { binary, textMode })
         {

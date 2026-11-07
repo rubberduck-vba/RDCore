@@ -61,6 +61,15 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     /// </summary>
     internal SourceLocation GetSourceLocation(Uri documentUri, IToken stop) => new(documentUri, RangeThrough(stop));
 
+    /// <summary>
+    /// The range of one token of the rule that holds no line terminator, anchored as <see cref="SourceRange"/> is.
+    /// </summary>
+    internal SourceRange RangeOf(IToken token)
+    {
+        var start = new SourcePosition(token.Line - 1, token.Column);
+        return new(start.AnchoredAt(_offset), (start with { Character = start.Character + (token.Text?.Length ?? 0) }).AnchoredAt(_offset));
+    }
+
     private SourceRange RangeThrough(IToken? stop)
     {
         var start = new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0);

@@ -677,12 +677,12 @@ public partial class ModuleParser(
     /// operator: the listener keeps the two as an unbuilt expression, and not the expression alone as if it were all the statement said.
     /// </summary>
     /// <remarks>
-    /// The operation has no right operand, and is a syntax error, reported as a zero-width range at the operator: before a <c>-</c>, <c>*</c>, <c>=</c>,
-    /// <c>Like</c>, <c>Is</c>, <c>Mod</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c> or <c>Imp</c>, after a <c>+</c>, <c>/</c>, <c>\</c>, <c>^</c>,
+    /// The operation has no right operand, and is a syntax error, reported as a zero-width range at the operator: before a <c>+</c>, <c>-</c>, <c>*</c>,
+    /// <c>=</c>, <c>Like</c>, <c>Is</c>, <c>Mod</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c> or <c>Imp</c>, after a <c>/</c>, <c>\</c>, <c>^</c>,
     /// <c>&amp;</c>, <c>&lt;&gt;</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&lt;=</c> or <c>&gt;=</c>. Where the operator can also begin something that follows an
-    /// expression (a unary <c>-</c>, a name such as <c>Mod</c>, the next item of a list to print), the parse ends the expression before it, and the operator
-    /// is a token no rule read; where it cannot, the parse reads the operation, and the listener keeps it unbuilt when it exits it. Valid code has no token
-    /// that no rule read.
+    /// expression (a unary <c>+</c> or <c>-</c>, a name such as <c>Mod</c>, the next item of a list to print), the parse ends the expression before it, and
+    /// the operator is a token no rule read; where it cannot, the parse reads the operation, and the listener keeps it unbuilt when it exits it. Valid code
+    /// has no token that no rule read.
     /// </remarks>
     private static void MarkDanglingOperators(IParseTree tree, CommonTokenStream tokens)
     {
