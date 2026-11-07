@@ -28,14 +28,14 @@ namespace RDCore.SDK.Model.Symbols;
 /// project, as the qualifier of a qualified type name, by <see cref="ResolveQualifier"/>), and a
 /// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
 /// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding
-/// context — as that instance, a variable of the class's type.
+/// context, as that instance: a variable of the class's type.
 /// <para>
-/// A name-resolution service only — the value-binding members throw, matching the intent of a
+/// A name-resolution service only: the value-binding members throw, matching the intent of a
 /// design-time resolver that holds no run-time bindings. Where the candidates of one tier of the project or
 /// global scope are of different projects, the workspace's own shadow every library's, the standard library
 /// shadows every referenced library, and a library shadows one the project references after it: the earlier
 /// reference has the higher reference precedence (<strong>MS-VBAL §4.1</strong>,
-/// <see cref="SymbolProperties.LibraryPriority"/>); candidates that still share the top rank are an ambiguous name, a result that carries
+/// <see cref="SymbolProperties.LibraryPriority"/>); candidates still tied after that, of the one project with the highest reference precedence, are an ambiguous name, a result that carries
 /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
 /// </para>
 /// </remarks>

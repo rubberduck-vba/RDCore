@@ -67,7 +67,8 @@ public sealed class ReferencedLibraries
     /// <remarks>
     /// A reference that occurs earlier in the list of a project's references has the higher reference precedence (<strong>MS-VBAL §4.1</strong>), and the
     /// references are in the order of the project file (<strong>RD-VBAL §2.3.1.2</strong>): the first library the project references is <c>1</c>, the next
-    /// <c>2</c>, and so on. A library that is loaded only because another depends on it comes after every library the project references, in the order it was
+    /// <c>2</c>, and so on, a reference to a provided library, or a second one to the same library, not counted, and a reference that fails to load keeping its
+    /// number. A library that is loaded only because another depends on it comes after every library the project references, in the order it was
     /// loaded. The standard library, which the platform provides and which comes before every reference, is not in it.
     /// </remarks>
     public ImmutableDictionary<string, int> Priorities { get; }
