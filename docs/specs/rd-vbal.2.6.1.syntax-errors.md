@@ -28,11 +28,10 @@ The language server goes on analyzing the module as it is written. Only the run 
 A run is refused for a syntax error in any module of the project, including a module the run does not use: no part of the project runs while one of its
 modules fails to load. The refusal lists the syntax errors of each such module under the module's name, before the errors of the module being run.
 
-> [!NOTE]
-> **RD-VBA differs from MS-VBA:** MS-VBA compiles only what a run needs (observed in Excel). With Compile On Demand on (the default), that is the
-> procedures the run reaches and the declarations section of every module, so an error in a procedure the run never reaches does not stop the run. With
-> Compile On Demand off, that is each whole module the run uses, so an error in a module the run does not use does not stop the run. RD-VBA refuses the
-> run in all of these cases.
+**RD-VBA differs from MS-VBA:** MS-VBA compiles only what a run needs (observed in Excel). With Compile On Demand on (the default), that is the
+procedures the run reaches and the declarations section of every module, so an error in a procedure the run never reaches does not stop the run. With
+Compile On Demand off, that is each whole module the run uses, so an error in a module the run does not use does not stop the run. RD-VBA refuses the
+run in all of these cases.
 
 ## Fallback and Dedicated Codes
 
@@ -73,10 +72,9 @@ analysis knows of, and can be reported as unused. A module that has an expressio
 before any of it runs. The rest of the module is analyzed as it would be, and its text is kept as it is written: a tool that writes the module back out,
 such as the indenter, writes the expression as it is.
 
-> [!NOTE]
-> **RD-VBA differs from MS-VBA:** MS-VBA runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested calls, and crashes the host past the
-> chain, with no error (observed in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth MS-VBA was seen to run, and reports a syntax
-> error where MS-VBA crashes: an expression nested in more than 2,500 others.
+**RD-VBA differs from MS-VBA:** MS-VBA runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested calls, and crashes the host past the
+chain, with no error (observed in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth MS-VBA was seen to run, and reports a syntax
+error where MS-VBA crashes: an expression nested in more than 2,500 others.
 
 Apart from the language's limit, the RD-VBA parse has one of its own: it reads a module whose rules nest at most **32,000** deep, and stops past it. The
 module is then a syntax error (`VBC00001`), "This module is nested too deeply to be read", at its start, and nothing of it is analyzed. A syntax error

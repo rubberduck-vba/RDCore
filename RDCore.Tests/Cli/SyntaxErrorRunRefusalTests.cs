@@ -3,8 +3,8 @@ using RDCore.SDK.Platform.Protocol;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A module with a syntax error does not run (<strong>RD-VBAL §2.6.1</strong>): a run of it is refused with its errors before any of it runs, whatever the error is
-/// - a statement the parser stopped in, a statement no rule reads, two output items written side by side (<c>VBC00061</c>), a line continued past the limit. The
+/// A module with a syntax error does not run (<strong>RD-VBAL §2.6.1</strong>): a run of it is refused with its errors before any of it runs, whatever the error is:
+/// a statement the parser stopped in, a statement no rule reads, two output items written side by side (<c>VBC00061</c>), a line continued past the limit. The
 /// statements around the error do not run without it.
 /// </summary>
 [TestClass]
