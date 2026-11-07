@@ -164,6 +164,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         DeclareTextCells();
+        DeclareArrays();
 
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
@@ -295,6 +296,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         EmitTextCells();
+        EmitArrayEntry();
     }
 
     // the cell of a field of Me, found by the activation's object; none goes to orElse.
@@ -470,6 +472,10 @@ internal sealed partial class ProcedureEmitter
 
             case TextLetStep textLet:
                 EmitTextLet(textLet);
+                break;
+
+            case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
+                EmitArrayStep(step);
                 break;
         }
     }
@@ -936,6 +942,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         EmitReloadTextCells(unread);
+        EmitArrayReload(unread);
 
         // the function result variable too, which the spill before the call wrote.
         if (_result is { } result)
@@ -1742,7 +1749,7 @@ internal sealed partial class ProcedureEmitter
             }
 
             default:
-                throw new InvalidOperationException($"No IL for {node.GetType().Name}.");
+                return EmitArrayPayload(node, failure);
         }
     }
 
@@ -1886,6 +1893,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
             }
+
+            default:
+                EmitArrayVariantInto(node, result, failure);
+                break;
         }
     }
 

@@ -327,7 +327,8 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or ElementLetStep or VariantElementLetStep or CallStep or BranchStep or CaseStep
+            or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -572,6 +573,9 @@ internal sealed partial class ProcedureAnalysis
                     _ => RefusedCall(call.Callee, location),
                 };
 
+            case InstructionKind.Simple when ArrayStatementOf(instruction) is { } arrayStatement:
+                return arrayStatement;
+
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
                 return null;
@@ -662,6 +666,11 @@ internal sealed partial class ProcedureAnalysis
     // its type.
     private CompiledStep? AnalyzeLet(int offset, AssignmentStatementNode assignment)
     {
+        if (assignment.Target is IndexExpressionNode)
+        {
+            return AnalyzeElementLet(offset, assignment);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode)
         {
             Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
@@ -1088,7 +1097,7 @@ internal sealed partial class ProcedureAnalysis
     private PayloadNode? Condition(ExpressionNode condition)
     {
         var node = Bind(condition);
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        if (IsVariant(node))
         {
             return Dynamic(node) is { } value ? new TruthNode(value) : null;
         }
@@ -1104,7 +1113,7 @@ internal sealed partial class ProcedureAnalysis
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
         // a Variant's payload, of its subtype, converted to the destination as any payload is.
-        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        if (IsVariant(node))
         {
             return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
         }
@@ -1139,6 +1148,13 @@ internal sealed partial class ProcedureAnalysis
     {
         switch (node)
         {
+            // an element of an array of objects compared, and tested.
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsObjectElement(elementCompared.Left) || IsObjectElement(elementCompared.Right):
+                return ElementIs(elementCompared);
+
+            case BoundTypeOf { Operand: BoundIndex element } elementTypeOf when IsObjectElement(element):
+                return ElementTypeOf(elementTypeOf, element);
+
             // MS-VBAL §5.6.9.7: two object references compared as they are.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
                 return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
@@ -1196,6 +1212,13 @@ internal sealed partial class ProcedureAnalysis
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
 
+            // an element of an array, and its bounds.
+            case BoundIndex index:
+                return Element(index);
+
+            case BoundArrayBound arrayBound:
+                return ArrayBound(arrayBound);
+
             default:
                 return Unsupported(node);
         }
@@ -1209,6 +1232,9 @@ internal sealed partial class ProcedureAnalysis
         {
             case BoundVariable variable when VariantSlotOf(variable) is { } slot:
                 return new VariantSlotNode(slot);
+
+            case BoundIndex index when IsVariantElement(index):
+                return VariantElement(index);
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Dynamic(enclosed);
