@@ -204,6 +204,26 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 5), "the statement after the Do is the procedure's");
     }
 
+    // a statement that is an error ends at its last token: the blanks before the comment after it are no part of it.
+    [TestMethod]
+    [DataRow("", "Mod = 1", "", DisplayName = "an operator keyword where a statement begins")]
+    [DataRow("For i = 1 To 2", "Mod = 1", "Next", DisplayName = "an operator keyword where a statement begins, in a For")]
+    [DataRow("If a Then", "Mod = 1", "End If", DisplayName = "an operator keyword where a statement begins, in an If")]
+    [DataRow("Do", "Mod = 1", "Loop", DisplayName = "an operator keyword where a statement begins, in a Do")]
+    [DataRow("", "Dim For As Long", "", DisplayName = "a declaration with no name")]
+    [DataRow("For i = 1 To 2", "Dim For As Long", "Next", DisplayName = "a declaration with no name, in a For")]
+    public void AStatementThatIsAnError_BeforeAComment_EndsAtItsLastToken(string opens, string statement, string closes)
+    {
+        var parse = Parse(opens.Length == 0 ? $"{statement}   ' c" : $"{opens}\r\n{statement}   ' c\r\n{closes}");
+
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var line = opens.Length == 0 ? 1 : 2;
+        var statements = opens.Length == 0 ? member.Children : BodyOf(member.Children.First());
+        var unbuilt = Assert.ContainsSingle(statements.OfType<UnbuiltStatementTriviaNode>());
+        Assert.AreEqual(statement, unbuilt.Source);
+        Assert.AreEqual(new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, statement.Length)), unbuilt.SourceLocation.Range);
+    }
+
     private static IEnumerable<SyntaxNode> BodyOf(SyntaxNode block) => block switch
     {
         ForStatementNode loop => loop.Body.Children,

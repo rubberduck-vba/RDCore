@@ -333,8 +333,9 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             ReportUnwantedToken(parser);
         }
 
+        // the statement ends at its last token: the blanks after it are the end of the statement's, which reads them before a comment (Mod = 1 ' c).
         parser.EnterRule(new VBAParser.MainBlockStmtContext(statement, readsTheMainStatement), readsTheMainStatement, VBAParser.RULE_mainBlockStmt);
-        while (!EndsAStatement(stream.La(1)))
+        while (!EndsAStatement(stream.La(1)) && !BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
         {
             parser.Consume();
         }
@@ -549,10 +550,10 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         // each context is invoked from the state that calls its rule, as the rule's own code invokes it: a full-context prediction goes back through it.
         ReadAStatementNoRuleReads(parser, block, ReadsAStatementOfTheBlock);
 
-        if (BeginsAnEndOfStatement(stream.La(1)))
+        if (BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
         {
             parser.EnterRule(new VBAParser.EndOfStatementContext(block, ReadsTheEndOfAStatementOfTheBlock), ReadsAnEndOfStatement, VBAParser.RULE_endOfStatement);
-            while (BeginsAnEndOfStatement(stream.La(1)))
+            while (BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
             {
                 parser.State = ReadsAnEndOfStatement;
                 parser.individualNonEOFEndOfStatement();
