@@ -13,6 +13,10 @@ namespace RDCore.Parsing.Syntax;
 /// it is one the parse expects, and reads the next line as the rest of the expression: <c>a = 1 +</c> then <c>b = 2</c> would parse as <c>a = (1 + b) = 2</c>,
 /// with no node for the next statement. This strategy ends the statement with the error at its own end, and reads the next one on its own. A parse with no
 /// syntax error never enters recovery, so this strategy does not change it.
+/// <para>
+/// The header of a <c>For</c> or a <c>For Each</c> that ends with a binary operator the parse leaves unread (<c>For i = 1 To 2 -</c>) is reported at the
+/// operator, which is a token no rule reads, and the loop goes on to its body and its <c>Next</c>.
+/// </para>
 /// </remarks>
 internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 {
@@ -21,7 +25,6 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 
     protected override IToken SingleTokenDeletion(Parser recognizer)
         => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) ? null! : base.SingleTokenDeletion(recognizer);
-
 
     // whether the error the parse recovers from is one it reported: no error is reported until a token is read after the one it recovered from.
     private bool _reported;
@@ -94,6 +97,53 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         }
 
         throw new InvalidOperationException($"No state of rule {rule} calls rule {called}.");
+    }
+
+    // a For's header that ends with a binary operator the parse leaves unread (For i = 1 To 2 -): the decision after its last expression looks past the
+    // operator to the end of the line, and fails, and the For would end there, with no body and no Next: the procedure's recovery would then skip to the
+    // next procedure. The operator is a token no rule reads, reported where it is, and the For goes on to its body.
+    public override void Sync(Parser recognizer)
+    {
+        if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } parser && !InErrorRecoveryMode(parser)
+            && DanglingOperatorAhead(parser) is { } through)
+        {
+            var stream = (ITokenStream)parser.InputStream;
+            var @operator = stream.Lt(through);
+            BeginErrorCondition(parser);
+            parser.NotifyErrorListeners(@operator,
+                $"extraneous input {GetTokenErrorDisplay(@operator)} expecting {GetExpectedTokens(parser).ToString(parser.Vocabulary)}", null);
+            for (var i = 0; i < through; i++)
+            {
+                parser.Consume();
+            }
+
+            EndErrorCondition(parser);
+        }
+
+        base.Sync(recognizer);
+    }
+
+    // how far ahead, past the blanks, a binary operator is that the parse does not expect here, when the end of the statement follows it; none otherwise.
+    private static int? DanglingOperatorAhead(Parser parser)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var at = PastTheBlanks(stream, 1);
+        if (!ModuleParser.BinaryOperators.Contains(stream.La(at)) || parser.GetExpectedTokens().Contains(stream.La(at)))
+        {
+            return null;
+        }
+
+        return EndsAStatement(stream.La(PastTheBlanks(stream, at + 1))) ? at : null;
+    }
+
+    private static int PastTheBlanks(ITokenStream stream, int at)
+    {
+        while (stream.La(at) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+        {
+            at++;
+        }
+
+        return at;
     }
 
     protected override void ConsumeUntil(Parser recognizer, IntervalSet set)
