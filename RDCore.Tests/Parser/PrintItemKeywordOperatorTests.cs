@@ -166,6 +166,8 @@ public sealed class PrintItemKeywordOperatorTests
     [DataRow("While a", "Mod = 1", "Wend", DisplayName = "in a While")]
     [DataRow("With a", "Mod = 1", "End With", DisplayName = "in a With")]
     [DataRow("If a Then", "Mod = 1", "End If", DisplayName = "in an If")]
+    [DataRow("For i = 1 To 2", "Dim For As Long", "Next", DisplayName = "a declaration with no name, in a For")]
+    [DataRow("Do", "Dim 1 As Long", "Loop", DisplayName = "a declaration with no name, in a Do")]
     public void AStatementNoRuleReads_InTheBodyOfABlock_IsAStatementOfIt(string opens, string statements, string closes)
     {
         var lines = statements.Split("\r\n").Length;

@@ -168,6 +168,19 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             return;
         }
 
+        // the rest of the line of a statement of a For, after an error inside it that the parse recovers from (Dim For As Long): the statement's, as Recover
+        // reads it in a block. The For would otherwise decide on it, and end there.
+        if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } recovering && InErrorRecoveryMode(recovering)
+            && BeginsAStatementOfTheFor(recovering.Interpreter.atn.states[recovering.State]) && recovering.Context.children?[^1] is VBAParser.BlockStmtContext
+            && TheLastErrorIsOnThisLine((ITokenStream)recovering.InputStream))
+        {
+            var stream = (ITokenStream)recovering.InputStream;
+            while (!EndsAStatement(stream.La(1)))
+            {
+                recovering.Consume();
+            }
+        }
+
         if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } loop && !InErrorRecoveryMode(loop))
         {
             if (DanglingOperatorAhead(loop) is { } through)
@@ -189,6 +202,25 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         }
 
         base.Sync(recognizer);
+    }
+
+    // whether the last error reported is on the line the parse is at: no end of a statement is between the token it is at and the next one.
+    private bool TheLastErrorIsOnThisLine(ITokenStream stream)
+    {
+        if (_lastReportedAt < 0 || _lastReportedAt > stream.Index)
+        {
+            return false;
+        }
+
+        for (var index = _lastReportedAt; index < stream.Index; index++)
+        {
+            if (EndsAStatement(stream.Get(index).Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // the states where a For decides whether a statement of it begins: before its first, and after each.
