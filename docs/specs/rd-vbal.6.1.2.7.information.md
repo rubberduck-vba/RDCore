@@ -76,7 +76,7 @@ In a program that numbers every line, the line-number label is the document line
 
 In MS-VBA, `Err.Clear` resets the error's number and the other properties of the error object, but `Erl` keeps
 reporting the line of the error it cleared. Every other way an error is cleared resets `Erl` to `0`: a `Resume`
-statement in any form, an `On Error` statement, and leaving the procedure.
+statement in any form, an `On Error` statement, and leaving the procedure from an error handler.
 
 What `Err.Clear` does to `Erl` is a second environment setting, `ErlAfterErrClear`, bound from `appsettings.json` like
 `ErlLineNumbering`. It applies to `Err.Clear` only.

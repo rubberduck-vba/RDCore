@@ -122,7 +122,7 @@ public sealed class RuntimeEnvironmentProfileTests
             SDK.Workspace.SupportedLanguages.BASIC, false, true, RegionalSettings.Default with { DecimalSymbol = "," }, VBExecutionEngine.Compiled,
             VBBuildConfiguration.Release, true, VBErlAfterErrClear.Kept);
         var baseline = new RuntimeEnvironmentProfile(true, 0, 1252, false);
-        var other =System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
+        var other = System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
         ((Forwarding)(object)other).Target = source;
 
         var copy = RuntimeEnvironmentProfile.Of(other);

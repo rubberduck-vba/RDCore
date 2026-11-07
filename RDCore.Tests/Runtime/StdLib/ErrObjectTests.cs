@@ -120,16 +120,18 @@ public sealed class ErrObjectTests
         Assert.AreEqual(expected, session.Errors.LineNumber);
     }
 
+    // only Err.Clear keeps it: a Resume, an On Error statement and leaving the procedure from an error handler reset it in MS-VBA too.
     [TestMethod]
     public void WhenTheEnvironmentKeepsTheLineNumber_AnOnErrorStatement_StillResetsIt()
-        // only Err.Clear keeps it: a Resume, an On Error statement and leaving the procedure reset it in MS-VBA too.
     {
         var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, ErlAfterErrClear: VBErlAfterErrClear.Kept);
+        Assert.AreEqual(3L, Run(environment, ["Foo"], "10 On Error Resume Next", "20 Error 11").Errors.LineNumber, "the line of the error, before On Error");
 
         var session = Run(environment, ["Foo"], "10 On Error Resume Next", "20 Error 11", "30 On Error GoTo 0");
 
         Assert.AreEqual(0L, session.Errors.LineNumber);
     }
+
     [TestMethod]
     public void AMemberThatYieldsNoValue_YieldsVoid_NotEmpty()
     {

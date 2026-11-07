@@ -5,8 +5,8 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// </summary>
 /// <remarks>
 /// An RD-VBA setting, as <see cref="VBErlLineNumbering"/> is (<strong>RD-VBAL §6.1.2.7.1.14</strong>). In MS-VBA, <c>Err.Clear</c> resets the error's number and the
-/// rest of the error object, but <c>Erl</c> goes on reporting the line of the error it cleared. A <c>Resume</c> statement, an <c>On Error</c> statement and leaving the procedure do reset it, in MS-VBA
-/// as in RD-VBA, whatever this says.
+/// rest of the error object, but <c>Erl</c> goes on reporting the line of the error it cleared. A <c>Resume</c> statement, an <c>On Error</c> statement and leaving the procedure
+/// from an error handler do reset it, in MS-VBA as in RD-VBA, whatever this says.
 /// </remarks>
 public enum VBErlAfterErrClear
 {
