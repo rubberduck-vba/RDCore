@@ -850,8 +850,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(new ErrorStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), number));
     }
 
+    // a statement no alternative reads - `a = 1-`, `If x = 1 - Then` - is tokens no rule read, and is kept as the text it is: the syntax error is reported
+    // where the parse stopped, and the statement does not vanish from the tree.
+    public override void ExitMainBlockStmt([NotNull] VBAParser.MainBlockStmtContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
     // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
     // expression`, and only their static/runtime coercion semantics differ, not their syntax.
+
     public override void ExitLetStmt([NotNull] VBAParser.LetStmtContext context)
         => BuildAssignmentStatement(context, context.LET() is not null ? AssignmentKind.ExplicitLet : AssignmentKind.ImplicitLet, context.lExpression(), context.expression());
 

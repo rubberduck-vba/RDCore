@@ -317,6 +317,22 @@ public sealed class FoldingRangeProjectorTests
         CollectionAssert.AreEqual(new List<(int, int)> { (2, 10), (5, 7) }, Blocks(ranges));
     }
 
+    // a statement no rule reads is kept in the block it is in, which folds around it as it would around any statement; the statement itself does not fold.
+    [TestMethod]
+    public void AStatementNoRuleReads_FoldsWithTheBlockItIsIn()
+    {
+        var ranges = Project(
+            "Attribute VB_Name = \"Mod1\"",
+            "Public Sub Alpha()",
+            "    If True Then",
+            "        a = 1-",
+            "    End If",
+            "End Sub");
+
+        AssertRange(ranges.Single(range => range.Kind is not null), 1, 5);
+        CollectionAssert.AreEqual(new List<(int, int)> { (2, 4) }, Blocks(ranges));
+    }
+
     [TestMethod]
     public void ASingleLineIf_DoesNotFold()
     {

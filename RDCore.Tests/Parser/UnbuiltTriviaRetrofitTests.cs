@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.Tests.Parser;
 
@@ -87,6 +88,70 @@ public sealed class UnbuiltTriviaRetrofitTests
 
         Assert.IsTrue(result.IsSuccess, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
         Assert.IsFalse(result.SyntaxTree!.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any());
+    }
+
+    // a statement no alternative reads - an operator with no space before it, or one with no right operand in the condition of a block - is kept as its text,
+    // where it is: the statement never vanishes from the member it is in.
+    [TestMethod]
+    [DataRow("a = 1+")]
+    [DataRow("a = 1-")]
+    [DataRow("a = 1*")]
+    [DataRow("a = 1/")]
+    [DataRow("a = 1\\")]
+    [DataRow("a = 1=")]
+    [DataRow("a = 1<>")]
+    [DataRow("a = 1<")]
+    [DataRow("a = 1>")]
+    [DataRow("a = 1<=")]
+    [DataRow("a = 1>=")]
+    [DataRow("a = 1Mod")]
+    [DataRow("If x = 1 - Then")]
+    public void AStatementNoRuleReads_IsKeptAsTheStatementItSays(string statement)
+    {
+        var result = Parse($"Sub S()\r\n{statement}\r\nEnd Sub");
+
+        Assert.IsFalse(result.IsSuccess);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var trivia = Assert.IsInstanceOfType<UnbuiltStatementTriviaNode>(Assert.ContainsSingle(member.Children.OfType<StatementNode>()));
+        Assert.AreEqual(statement, trivia.Source);
+        Assert.AreEqual(new SourcePosition(1, 0), trivia.SourceLocation.Range.Start);
+    }
+
+    // a statement a rule reads, even in part, is the node that rule builds, and only that one.
+    [TestMethod]
+    [DataRow("a = 1 +", typeof(AssignmentStatementNode), DisplayName = "an operator the parse reads")]
+    [DataRow("a = 1 -", typeof(AssignmentStatementNode), DisplayName = "an operator the parse leaves unread")]
+    [DataRow("Foo (1, 2)-(3, 4)", typeof(UnbuiltStatementTriviaNode), DisplayName = "the coordinates of a statement that is not Line")]
+    public void AStatementARuleReads_IsOneStatement(string statement, Type node)
+    {
+        var result = Parse($"Sub S()\r\n{statement}\r\nEnd Sub");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.IsInstanceOfType(Assert.ContainsSingle(member.Children.OfType<StatementNode>()), node);
+    }
+
+    // wherever the statement is: in the body of a block, or after a label.
+    [TestMethod]
+    public void AStatementNoRuleReads_InTheBodyOfABlock_IsKeptInThatBody()
+    {
+        var result = Parse("Sub S()\r\nIf c Then\r\na = 1-\r\nEnd If\r\nEnd Sub");
+
+        Assert.IsFalse(result.IsSuccess);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var block = Assert.ContainsSingle(member.Children.OfType<StatementNode>());
+        var trivia = Assert.IsInstanceOfType<UnbuiltStatementTriviaNode>(Assert.ContainsSingle(block.Descendants().OfType<UnbuiltStatementTriviaNode>()));
+        Assert.AreEqual("a = 1-", trivia.Source);
+    }
+
+    [TestMethod]
+    public void AStatementNoRuleReads_AfterALabel_IsKeptAfterTheLabel()
+    {
+        var result = Parse("Sub S()\r\nHere: a = 1-\r\nEnd Sub");
+
+        Assert.IsFalse(result.IsSuccess);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var trivia = Assert.ContainsSingle(member.Descendants().OfType<UnbuiltStatementTriviaNode>());
+        Assert.AreEqual("a = 1-", trivia.Source);
     }
 
     private static void AssertTheOperationIsKept(string statement, string kept)
