@@ -5,11 +5,12 @@
   "origin": {
     "guid": "{EA544A21-C82D-11D1-A3E4-00A0C90AEA82}",
     "version": "6.0",
-    "file": "MSVBVM60.DLL\\3",
+    "file": "msvbvm60.dll\\3",
     "exportedBy": "rdc export-library 0.1"
   },
   "dependsOn": [
     "MSDATASRC",
+    "StdFormat",
     "stdole"
   ],
   "enums": [
@@ -3855,6 +3856,24 @@
             {
               "name": "Value",
               "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DataFormat",
+          "kind": "propertyGet",
+          "type": "StdFormat.IDataFormatDisp",
+          "description": "Returns/sets the DataFormat object for this property"
+        },
+        {
+          "name": "DataFormat",
+          "kind": "propertySet",
+          "description": "Returns/sets the DataFormat object for this property",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "StdFormat.IDataFormatDisp",
               "isByVal": true
             }
           ]
