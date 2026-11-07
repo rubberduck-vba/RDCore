@@ -9,17 +9,22 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// An argument that is given an array: what a name written there must be declared as for a completion list to offer it.
 /// </summary>
 /// <remarks>
-/// Two arguments are given an array:
+/// <para>
+/// An argument is given an array in two cases:
+/// </para>
 /// <list type="bullet">
-/// <item>the first argument of <c>LBound</c> and <c>UBound</c>, special forms (<strong>MS-VBAL §3.3.5.2</strong>) whose operand is an array, or a
-/// <c>Variant</c> that may hold one when it runs: one declared as a scalar, an <c>Object</c>, a class or a user-defined type is "Expected array", and so is a
-/// project, a module or an <c>Enum</c>;</item>
-/// <item>an argument of a parameter declared as an array, which is passed by reference: the declared type of its argument is the parameter's exactly
-/// (<strong>MS-VBAL §5.3.1.11</strong>), an array of the same element type, fixed-size or resizable. A <c>Variant</c> is not.</item>
+/// <item><description>the first argument of <c>LBound</c> and <c>UBound</c>, special forms (<strong>MS-VBAL §3.3.5.2</strong>) whose operand is an array,
+/// or a <c>Variant</c> that may hold one when it runs: one declared as a scalar, an <c>Object</c>, a class or a user-defined type is "Expected array", and
+/// so is a project, a module or an <c>Enum</c>;</description></item>
+/// <item><description>an argument of a parameter declared as an array, which is passed by reference: the declared type of its argument is the parameter's
+/// exactly (<strong>MS-VBAL §5.3.1.11</strong>), an array of the same element type, fixed-size or resizable. A <c>Variant</c> is not accepted
+/// there.</description></item>
 /// </list>
+/// <para>
 /// A variable, a field (of a user-defined type too), a parameter, a <c>Function</c> and a <c>Property</c> are offered by their declared type: a
 /// <c>Function</c> or a <c>Property Get</c> by the type it returns (<c>UBound(Titles())</c>). A constant, an <c>Enum</c> member and a <c>Sub</c> never are, nor
 /// is a keyword or a name with no declared type.
+/// </para>
 /// </remarks>
 /// <param name="ItemType">
 /// The element type of the array the argument is given, for a parameter declared as an array; <see langword="null"/> when any array, or a <c>Variant</c>,
