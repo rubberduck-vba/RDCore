@@ -1280,8 +1280,8 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         return null;
     }
 
-    // whether a token is where a statement begins: first on its line, after a statement's separator, or after the number of its line (10 Next), and the end
-    // of the module wherever it is. A block's end written after an expression (b = 1 Loop) ends no block: the error is that statement's.
+    // whether a token is where a statement begins: first on its line, after a statement's separator, or after the number of its line (10 Loop, -10 Loop), and the
+    // end of the module wherever it is. A block's end written after an expression (b = 1 Loop) ends no block: the error is that statement's.
     private static bool BeginsAStatement(ITokenStream? stream, IToken token)
     {
         if (token.Type == TokenConstants.Eof || stream is null)

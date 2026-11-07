@@ -105,7 +105,7 @@ public sealed class SyntaxErrorRunRefusalTests
     [DataRow("b = 1 Wend", DisplayName = "a Wend after the end of an expression")]
     [DataRow("b = 1 Else", DisplayName = "an Else after the end of an expression")]
     [DataRow("b = 1 End", DisplayName = "an End after the end of an expression")]
-    [DataRow("b = -1 Next", DisplayName = "a Next after the end of an expression with a sign")]
+    [DataRow("b = -1 Loop", DisplayName = "a Loop after the end of an expression with a sign")]
     public async Task ALiveSyntaxErrorAfterABlockAnExcludedBranchDoesNotClose_RefusesTheRun_WithItsOwnError(string live)
     {
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
@@ -123,6 +123,7 @@ public sealed class SyntaxErrorRunRefusalTests
     [TestMethod]
     [DataRow("Loop", DisplayName = "first on its line")]
     [DataRow("10 Loop", DisplayName = "after the number of its line")]
+    [DataRow("-10 Loop", DisplayName = "after the number of its line, with a sign")]
     [DataRow("L1: Loop", DisplayName = "after a label")]
     [DataRow("b = 1: Loop", DisplayName = "after a separator")]
     public async Task TheEndOfABlockWhereAStatementBegins_AfterABlockAnExcludedBranchDoesNotClose_IsTheBlocks(string live)
