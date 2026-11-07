@@ -117,8 +117,8 @@ public sealed partial record class SignatureDescription(string Label, IReadOnlyL
     /// </remarks>
     /// <param name="called">What the name of the call binds to; <see langword="null"/> when it binds to nothing.</param>
     /// <param name="resolver">
-    /// The resolver names are bound by, which a class of the workspace is read from as the composition has it now (<see cref="CurrentTypes"/>);
-    /// <see langword="null"/> when there is none.
+    /// The resolver names are bound by, which a class of the workspace is read from as the composition has it now, and which resolves the class a member of a
+    /// library returns by its name (<see cref="CurrentTypes"/>); <see langword="null"/> when there is none.
     /// </param>
     public static SignatureDescription? OfCall(Symbol? called, ISymbolResolver? resolver)
     {
@@ -151,7 +151,7 @@ public sealed partial record class SignatureDescription(string Label, IReadOnlyL
             => resolver.ResolveType(SymbolUri.ModuleNameOf(symbol.ParentUri), ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol module
                 ? VBClassType.Of(module)
                 : null,
-        ITypedSymbol { ResolvedType: VBClassType declared } => declared,
+        ITypedSymbol { ResolvedType: var declared } => CurrentTypes.Of(resolver, declared) as VBClassType,
         _ => null,
     };
 
