@@ -43,9 +43,8 @@ public readonly record struct ExternalCallDecision(string? Reason)
 /// <em>every</em> external call, not only the dangerous ones.
 /// </para>
 /// <para>
-/// 🚧 An interceptor cannot yet <em>answer</em> a call. That is the same seam a mock needs, and is where the
-/// planned Unit Testing extension's <c>MsgBox</c>/<c>InputBox</c> substitution lands — TODO extend
-/// <see cref="ExternalCallDecision"/> with a result rather than adding a second mechanism beside this one.
+/// An interceptor allows or refuses a call (<see cref="ExternalCallDecision"/>). It cannot answer the call
+/// with a result of its own.
 /// </para>
 /// </remarks>
 public interface IExternalCallInterceptor
