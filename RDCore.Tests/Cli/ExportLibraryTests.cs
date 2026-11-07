@@ -1,5 +1,9 @@
-﻿using RDCore.CLI.Libraries;
+﻿using NSubstitute;
+using RDCore.CLI.App.Commands;
+using RDCore.CLI.Libraries;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Runtime.Libraries;
+using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Cli;
 
@@ -168,5 +172,61 @@ public sealed class ExportLibraryTests
 
         Assert.AreEqual(first, second, "nothing in a description depends on when it was made");
         Assert.AreEqual("Scripting", LibraryJson.Read(first).Name);
+    }
+
+    // the type library a library is linked with, which is the one it was built against: a machine can have several of a name.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ADependency_IsDescribedAsTheTypeLibraryTheLibraryIsLinkedWith()
+    {
+        var runtime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "MSVBVM60.DLL");
+
+        var description = Export(runtime + @"\3");
+
+        CollectionAssert.Contains(description.DependsOn.ToArray(), new LibraryIdentity("stdole", new Guid("00020430-0000-0000-C000-000000000046"), 2, 0));
+    }
+
+    private static readonly LibraryDescription OtherScripting = new()
+    {
+        Name = "Scripting",
+        Origin = new LibraryOrigin { Guid = "{0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3AFF}", Version = "1.0" },
+        Classes = [new ClassDescription { Name = "Other" }],
+    };
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow(false, @"c:\out\Scripting.json", DisplayName = "the folder has none of the name")]
+    [DataRow(true, @"c:\out\Scripting.scrrun.json", DisplayName = "the folder has another library of the name")]
+    public void ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName(bool another, string expected)
+    {
+        var files = new MockFileSystem();
+        files.AddDirectory(@"c:\out");
+        if (another)
+        {
+            files.AddFile(@"c:\out\Scripting.json", new MockFileData(LibraryJson.Write(OtherScripting)));
+        }
+
+        var exit = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files).ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Result;
+
+        Assert.AreEqual(0, exit);
+        Assert.AreEqual("{420B2830-E718-11CF-893D-00A0C9054228}", LibraryJson.Read(files.File.ReadAllText(expected)).Origin?.Guid);
+        if (another)
+        {
+            Assert.AreEqual(OtherScripting.Origin?.Guid, LibraryJson.Read(files.File.ReadAllText(@"c:\out\Scripting.json")).Origin?.Guid, "the other library is left as it is");
+        }
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ALibraryExportedAgain_IsWrittenOverItsOwnDescription()
+    {
+        var files = new MockFileSystem();
+        files.AddDirectory(@"c:\out");
+        var command = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files);
+
+        command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Wait();
+        command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Wait();
+
+        CollectionAssert.AreEqual(new[] { @"c:\out\Scripting.json" }, files.Directory.GetFiles(@"c:\out"));
     }
 }
