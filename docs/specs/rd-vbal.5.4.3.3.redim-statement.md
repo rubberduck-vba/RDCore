@@ -35,7 +35,7 @@ The last two rows are told apart by the text of the procedure, not by what runs,
 used anywhere before the first `ReDim` of it is a variable declared implicitly there; a name used only after it is the
 array the `ReDim` declared (recorded in Excel, `oracle\findings-labels` R01-R10).
 
-👉 **MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
+**MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
 variable a `Variant`, which a `ReDim` re-dimensions, and vb6.exe runs it so. RD-VBA does what the specification says,
 and warns that MS-VBA refuses it ([RDC11022](../diagnostics/rdc11022.md)). Under `Option Explicit` no use declares anything: the
 `ReDim` declares the array from where it is, and a use of the name before it is [VBC09302](../diagnostics/vbc09302.md) _Variable not defined_, in

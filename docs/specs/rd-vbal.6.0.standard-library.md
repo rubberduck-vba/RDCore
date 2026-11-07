@@ -54,7 +54,7 @@ The declared type of an argument survives external dispatch, because each intrin
 managed type: a `short` for `Integer` and an `int` for `Long`
 ([**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md)).
 
-👉 Because each intrinsic stores its exact managed type, `Len` returns "the number of bytes required to store a
+Because each intrinsic stores its exact managed type, `Len` returns "the number of bytes required to store a
 variable" ([**RD-VBAL §6.1.2.11.1.22** Len / LenB](rd-vbal.6.1.2.11.strings.md#61211122-len--lenb)).
 
 ### Late-Bound Calls
@@ -87,7 +87,7 @@ signature an implementation has to satisfy. Each of them is stated once, in that
 are its public `static readonly` fields, each declared as the value it is
 ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)).
 
-👉 Because the symbols are read off the SDK signatures, a symbol the _workspace_ resolves cannot describe a member the
+Because the symbols are read off the SDK signatures, a symbol the _workspace_ resolves cannot describe a member the
 runtime does not have.
 
 ### Return Types

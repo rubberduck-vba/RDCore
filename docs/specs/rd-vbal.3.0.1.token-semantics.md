@@ -75,7 +75,7 @@ comment body. The tokens of the annotation grammar are:
 |`WS`|One space or tab.|
 |`LINE_CONTINUATION`|One space or tab, an underscore, optional blanks, the line break, and the blanks that begin the next line. Blanks before that one are `WS` tokens of their own.|
 
-👉 In an annotation comment, anything that follows a `:` colon is a regular comment.
+In an annotation comment, anything that follows a `:` colon is a regular comment.
 
 ### 3.0.1.1.2 Annotation
 

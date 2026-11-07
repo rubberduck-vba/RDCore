@@ -26,7 +26,7 @@ Relational operators compare in the effective type, and yield a
 
 Run-time error 6 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.Overflow`.
 
-👉 The range checks of a `For` loop use the relational operators
+The range checks of a `For` loop use the relational operators
 `RDCore.Runtime.Semantics.Operators.Relational.BinaryGtRelationalOperatorRuntimeSemantics` and
 `BinaryLtRelationalOperatorRuntimeSemantics`, not a raw numeric comparison
 ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)).

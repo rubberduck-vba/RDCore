@@ -2,7 +2,7 @@
 <sup>_Ce document est disponible en [français](edit-and-continue.fr.html)_</sup>
 
 ---
-## ✏️ What it is
+## What it is
 
 Your program is stopped: at a breakpoint, at a `Stop` statement, or after a step. You read its variables, see what went wrong, and change the code right
 there. Then you go on: `CONT` in the REPL, **Continue** or a step in the debugger. The program picks up where it was, running your edited code, without
@@ -45,7 +45,7 @@ the edit back and go on, or run the program again.
 
 Variables keep their values across every edit that applies. That includes module-level variables, `Static` variables and the fields of your objects.
 
-## 🛑 When the program stops at an error
+## When the program stops at an error
 
 - **An error that nothing handles:** fix the line it stopped at and go on, and the line runs as you fixed it. Go on without fixing it,
   and the line runs again: the error comes back and the program stops there again, as in the VBA editor. `Err` still holds the error.
@@ -53,7 +53,7 @@ Variables keep their values across every edit that applies. That includes module
 - **An error your code handles** (`On Error GoTo`, with break on all errors): **Continue** gives it to your handler. Editing the line that
   raised it waits until you run again, because the handler is already on its way.
 
-## ⏸️ What waits until you run again
+## What waits until you run again
 
 Some edits can't be applied to a program that's already running, because the program holds something the edit would change underneath it. RD-VBA doesn't
 guess, and never applies half of an edit. When **Continue** or a step meets one of these, it is refused: the program keeps waiting, and the edit is named
@@ -77,7 +77,7 @@ with its reason. Take the edit back and go on, or run the program again to have 
 **Code that doesn't compile:** a typo, a renamed procedure that something still calls, a variable that isn't declared under `Option Explicit`. There's no
 program to go on with until it compiles again. Fix it, and **Continue** goes on.
 
-## 👀 Where you see it
+## Where you see it
 
 ### In the editor
 
@@ -138,7 +138,7 @@ With nothing in the way, or with no program waiting, it says so:
 - When an edit is in the way, **Continue** and the steps are refused: the program stays paused, and the debugger's output says which edits, and why.
 - The list of problems doesn't show RDC20001 for a program HexIDE is debugging. The debugger's output carries it there.
 
-## ⚖️ Compared with the VBA editor
+## Compared with the VBA editor
 
 Measured in Excel (64-bit) at a `Stop` in a procedure, across 44 kinds of edit, and, for the last row, at an error that nothing handles:
 

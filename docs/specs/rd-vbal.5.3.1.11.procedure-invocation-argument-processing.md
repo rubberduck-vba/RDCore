@@ -323,7 +323,7 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
 > A `ByRef` parameter declared as a class or `Object`, whose argument is a variable of a different declared
 > type, falls through to a `ByVal`-style copy.
 
-> 👉 UDT values **must** be passed by reference (`ByRef`). See
+> UDT values **must** be passed by reference (`ByRef`). See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
 
 ### Standard Library Calls
@@ -344,7 +344,7 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
   Missing it passes for an optional argument is filled in the same way. A required argument left out is error `5`, and
   the member is not called.
 
-> 👉 An external call carries runtime values rather than typed ones, so the declared type a member was called
+> An external call carries runtime values rather than typed ones, so the declared type a member was called
 > with is recovered when the call is dispatched. See [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)
 > and [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
 

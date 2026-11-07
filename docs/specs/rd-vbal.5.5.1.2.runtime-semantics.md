@@ -170,7 +170,7 @@ A number is a `Date` when it is strictly between -657435 and 2958466: a time of 
 (`VBDateType.IsValidSerial`). A number past either end, and a `Date` operation whose result is past it
 (`#12/31/9999# + 1`), is run-time error 6, _Overflow_ (MS-VBA, recorded in Excel).
 
-> 👉 A `Date` source let-coerced to a numeric or `Boolean` destination is handled by the numeric or `Boolean`
+> A `Date` source let-coerced to a numeric or `Boolean` destination is handled by the numeric or `Boolean`
 > strategy, which reports its `DateSerial` flag
 > ([**RD-VBAL §5.5.1.2.1** Let-coercion between numeric types](#55121-let-coercion-between-numeric-types),
 > [**RD-VBAL §5.5.1.2.2** Let-coercion to and from Boolean](#55122-let-coercion-to-and-from-boolean)).
@@ -261,10 +261,10 @@ What is read is what MS-VBA reads (recorded in Excel), which is more than §5.5.
 > `/`, `-` or `,` between its parts. Under regional settings whose Short Date is `dd.MM.yyyy`, `CStr` writes
 > `15.01.2020`, which does not read back as a date. How MS-VBA reads a day-first date is not recorded yet.
 
-👉 What the debugger displays is not a let-coercion: it writes a number and a date the way the VBA editor writes a
+What the debugger displays is not a let-coercion: it writes a number and a date the way the VBA editor writes a
 literal, whatever the culture.
 
-👉 The `DateTime` module reads the culture of the thread the interpreter runs on, whatever `Lcid` is, for
+The `DateTime` module reads the culture of the thread the interpreter runs on, whatever `Lcid` is, for
 `vbUseSystemDayOfWeek` and `vbUseSystem`: `Weekday`, `DatePart` and `DateDiff` take the first day of the week from it,
 and `DatePart` the first week of the year
 ([**RD-VBAL §6.1.2.4** DateTime Module](rd-vbal.6.1.2.4.datetime-module.md)).
@@ -297,7 +297,7 @@ or code page takes part:
 |`Byte()`|`String`|Every byte of the array, the elements in order: two bytes to a character, and a trailing byte when the array has an odd number of elements. A pair of bytes that is a lone surrogate is kept as one: `00 D8` is `U+D800`. An uninitialized array is a 0-length string.|
 |`String`|`Byte()`|Every byte of the string's data: an odd string gives an odd number of elements, and `U+D800` gives `00 D8`.|
 
-👉 RD-VBA's format can hold any number of bytes, so the "?" **MS-VBAL §5.5.1.2.6** substitutes for data that cannot
+RD-VBA's format can hold any number of bytes, so the "?" **MS-VBAL §5.5.1.2.6** substitutes for data that cannot
 be represented, and the trailing bytes it discards, never arise: every byte of the array is kept.
 
 
@@ -381,7 +381,7 @@ The `VBRuntimeVariantValue` box follows the same pattern a
 [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)
 ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
 
-> 👉 A `Variant` read back from a variable, array element, or field carries the exact value that was stored in it,
+> A `Variant` read back from a variable, array element, or field carries the exact value that was stored in it,
 > rather than a new, unrelated `Empty`.
 
 ### Unwrapping
