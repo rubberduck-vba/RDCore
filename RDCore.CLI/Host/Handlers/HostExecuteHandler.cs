@@ -71,24 +71,22 @@ internal sealed class HostExecuteHandler(
         // every procedure of the module, lowered and loaded into the session's code under the symbol it belongs to, so a
         // call from one to another - or from one module to another - resolves through the invoker like any other.
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, payload.ParseResult);
-        if (errors.Length > 0)
+        if (errors.Length == 0)
         {
-            return new ExecuteResult
-            {
-                Outcome = ExecutionOutcome.SyntaxError,
-                Diagnostics = [.. errors],
-            };
+            HeldDefinitions.Loaded(session, request.ModuleName);
         }
 
-        // a module that no longer compiled once what a program held was applied keeps the code it had: the run is refused rather than running that code, as
-        // MS-VBA refuses to run anything, a statement typed at a prompt too, while the project does not compile.
-        HeldDefinitions.Loaded(session, request.ModuleName);
-        if (HeldDefinitions.FailedToLoad(session, except: request.ModuleName) is { Count: > 0 } failed)
+        // a module that failed to load - a syntax error in it, or code that no longer compiled once what a program held was applied - has none of its code, or
+        // the code it had: the run is refused rather than running without it, as MS-VBA refuses to run anything, a statement typed at a prompt too, while the
+        // project does not compile. What is wrong with the other modules is said first: what is wrong with this one may follow from it (a member of one of
+        // them that is not found, its declarations not being read).
+        var failed = HeldDefinitions.FailedToLoad(session, except: request.ModuleName);
+        if (failed.Count > 0 || errors.Length > 0)
         {
             return new ExecuteResult
             {
                 Outcome = ExecutionOutcome.SyntaxError,
-                Diagnostics = failed,
+                Diagnostics = [.. failed, .. errors],
             };
         }
 

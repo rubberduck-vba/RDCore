@@ -1245,11 +1245,132 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             return;
         }
 
-        var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg);
+        var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg) with { StatementStart = StatementStartOf(recognizer, offendingSymbol) };
         _lastReportedAt = offendingSymbol;
         _reported.Add(error);
         _reportedAt.Add(location);
         _errors.Add(error);
+    }
+
+    // the words legalLabelIdentifier's predicate names no label with; before EndsABlock, which is made of them.
+    private static readonly IntervalSet NoLabelName = new(VBALexer.DOEVENTS, VBALexer.END, VBALexer.CLOSE, VBALexer.ELSE, VBALexer.LOOP, VBALexer.NEXT,
+        VBALexer.RANDOMIZE, VBALexer.REM, VBALexer.RESUME, VBALexer.RETURN, VBALexer.STOP, VBALexer.WEND);
+
+    // what ends a block in any rule (End If, Next, Loop, End Sub, ...), and the end of the module: where the parse fails at one, the error is the block's that
+    // is not closed. The ends of a statement are no block's.
+    private static readonly IntervalSet EndsABlock = BlockEnds();
+
+    private static IntervalSet BlockEnds()
+    {
+        var atn = VBAParser._ATN;
+        var block = atn.ruleToStartState[VBAParser.RULE_block];
+        var ends = new IntervalSet();
+        foreach (var state in atn.states)
+        {
+            for (var i = 0; i < state.NumberOfTransitions; i++)
+            {
+                if (state.Transition(i) is RuleTransition { target: var target, followState: var follow } && target == block)
+                {
+                    ends.AddAll(atn.NextTokens(follow));
+                }
+            }
+        }
+
+        ends.Add(TokenConstants.Eof);
+        foreach (var type in new[] { TokenConstants.Epsilon, VBALexer.WS, VBALexer.LINE_CONTINUATION, VBALexer.NEWLINE, VBALexer.COLON, VBALexer.SINGLEQUOTE, VBALexer.REM })
+        {
+            ends.Remove(type);
+        }
+
+        // a label can be written before the end of a block (L1: Loop): what begins one - a name, a number - ends no block, and the end after it does. The words
+        // no label is named (legalLabelIdentifier's predicate) are left: Loop, Next, Wend and Else end blocks.
+        var label = atn.NextTokens(atn.ruleToStartState[VBAParser.RULE_statementLabelDefinition]);
+        foreach (var type in label.ToList())
+        {
+            if (!NoLabelName.Contains(type))
+            {
+                ends.Remove(type);
+            }
+        }
+
+        return ends;
+    }
+
+    // where the statement whose block the parse failed to end begins, when it failed at what ends a block where a statement begins, or in a Select Case
+    // outside the blocks of its Cases: the innermost statement of a procedure, else the declaration of the module. A block that is not closed is reported
+    // where its end was expected, which is in the statement that begins it.
+    private SourcePosition? StatementStartOf(IRecognizer recognizer, IToken? offendingSymbol)
+    {
+        var parser = recognizer as Parser;
+        var at = parser?.Context;
+        if (offendingSymbol is null
+            || !(EndsABlock.Contains(offendingSymbol.Type) && BeginsAStatement(parser?.InputStream as ITokenStream, offendingSymbol))
+            && !InASelectOutsideItsCases(at))
+        {
+            return null;
+        }
+
+        for (var context = at; context is not null; context = context.Parent as ParserRuleContext)
+        {
+            if (context is VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext && context.Start is { } start)
+            {
+                return new SourcePosition(start.Line - 1, start.Column).AnchoredAt(anchorOffset);
+            }
+        }
+
+        return null;
+    }
+
+    // whether a token is where a statement begins: first on its line, after a statement's separator, or after the number of its line (10 Loop, -10 Loop), and the
+    // end of the module wherever it is. A block's end written after an expression (b = 1 Loop) ends no block: the error is that statement's.
+    private static bool BeginsAStatement(ITokenStream? stream, IToken token)
+    {
+        if (token.Type == TokenConstants.Eof || stream is null)
+        {
+            return true;
+        }
+
+        var before = TokenBefore(stream, token.TokenIndex);
+        if (before?.Type is VBALexer.HEXLITERAL or VBALexer.OCTLITERAL or VBALexer.FLOATLITERAL or VBALexer.INTEGERLITERAL)
+        {
+            var sign = TokenBefore(stream, before.TokenIndex);
+            var line = sign?.Type == VBALexer.MINUS ? TokenBefore(stream, sign.TokenIndex) : sign;
+            return line is null || line.Type == VBALexer.NEWLINE;
+        }
+
+        return before is null || before.Type is VBALexer.NEWLINE or VBALexer.COLON;
+    }
+
+    // the token before the one at an index, past the blanks; null at the start of the module.
+    private static IToken? TokenBefore(ITokenStream stream, int index)
+    {
+        for (var i = index - 1; i >= 0; i--)
+        {
+            if (stream.Get(i) is { Type: not (VBALexer.WS or VBALexer.LINE_CONTINUATION) } token)
+            {
+                return token;
+            }
+        }
+
+        return null;
+    }
+
+    // whether the parse is in a Select Case and in the block of none of its Cases: there it reads a Case or the End Select and no statement, so where it fails
+    // at any other token (Select Case a, then b = 1), the Select is not closed.
+    private static bool InASelectOutsideItsCases(ParserRuleContext? context)
+    {
+        for (; context is not null; context = context.Parent as ParserRuleContext)
+        {
+            switch (context)
+            {
+                case VBAParser.SelectCaseStmtContext:
+                    return true;
+                case VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext:
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     // the syntax errors the parse reported, in the order of their positions, and where they are.
@@ -1322,9 +1443,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         Report(new SourceLocation(_uri, new(start, end)), id, verbose);
     }
 
-    // whether the grammar refused something of the module. VBC00061 (OutputItemsNotSeparated) is not one: the grammar read the statement, and a segment
-    // that has it is stitched as a segment that read well is.
-    public bool HasGrammarErrors => _errors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError);
+    // whether the grammar refused something of the module. VBC00061 (OutputItemsNotSeparated) is one too: the RD-VBA grammar reads no item written right after
+    // another, and a module that has one does not run (RD-VBAL 2.6.1).
+    public bool HasGrammarErrors => _errors.Any(error => error.ErrorId is (int)VBCompileErrorId.SyntaxError or (int)VBCompileErrorId.OutputItemsNotSeparated);
 
     // the errors of a part of the module parsed on its own, already located in the module (a header alternative).
     public void AddRange(IEnumerable<VBSyntaxErrorInfo> errors) => _errors.AddRange(errors);

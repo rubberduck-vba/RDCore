@@ -71,12 +71,13 @@ public sealed class HostExecuteHandlerTests
     private static async Task<ExecuteResult> ExecuteAsync(
         (HostExecuteHandler Handler, EnvironmentSessionProvider Session, Uri WorkspaceRoot, Uri ModuleUri) composed,
         string source, string entryPoint = "Main", CancellationToken token = default,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, bool debug = false)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, bool debug = false, bool syntaxErrors = false)
     {
         var (handler, sessionProvider, workspaceRoot, moduleUri) = composed;
 
+        // a module with a syntax error is sent to the host as well, as session/execute sends it: the host refuses to run it.
         var parse = new ModuleParser().Parse(new Uri(Path.Combine(Root, $"{ModuleName}.bas")), source);
-        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+        Assert.IsTrue(syntaxErrors || parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
         // the same resolver the language server composes, so the test sees what the platform sees -
         // including the standard library and the environment's own globals.
@@ -341,6 +342,28 @@ public sealed class HostExecuteHandlerTests
 
         var assigned = await ExecuteAsync(composed, Immediate("A = 42"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
         Assert.AreEqual(ExecutionOutcome.Completed, assigned.Outcome, assigned.ErrorMessage);
+
+        var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, printed.Outcome, printed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { " 42 " }, printed.Output.ToArray());
+    }
+
+    // a line with a syntax error at the shell's prompt is sent to the host, which defines the module from what the parser made of it and refuses to run it:
+    // the variables the lines before it made keep their values for the line after it.
+    [TestMethod]
+    [DataRow("Debug.Print 1 +", DisplayName = "an operator with no operand")]
+    [DataRow("A = = 1", DisplayName = "an operator where an expression is, in an assignment of the variable")]
+    [DataRow("A = (1", DisplayName = "a parenthesis not closed, in an assignment of the variable")]
+    public async Task AtModuleScope_ALineWithASyntaxError_IsRefused_AndTheVariablesKeepTheirValues(string typo)
+    {
+        var composed = Compose(Prelude);
+        var assigned = await ExecuteAsync(composed, Immediate("A = 42"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+        Assert.AreEqual(ExecutionOutcome.Completed, assigned.Outcome, assigned.ErrorMessage);
+
+        var refused = await ExecuteAsync(composed, Immediate(typo), "Immediate", implicitScope: ImplicitDeclarationScope.Module, syntaxErrors: true);
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, refused.Outcome, refused.ErrorMessage);
+        Assert.IsEmpty(refused.Output);
 
         var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
 
