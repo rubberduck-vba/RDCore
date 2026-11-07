@@ -192,13 +192,17 @@ public sealed class BenchCommandTests
     }
 
     [TestMethod]
-    public async Task AModuleThatDoesNotParse_IsAProblem_AndTheOthersRunAllTheSame()
+    // nothing of the project runs while a module of it does not load: a case of another module is refused with the problem, and not run.
+    public async Task AModuleThatDoesNotParse_IsAProblem_AndTheCasesOfTheOthersAreRefused()
     {
         var fileSystem = Files(("Broken.bas", Module("Broken", "Public Sub BenchBroken(", "End Sub")), ("Cases.bas", Cases), ("Tally.cls", Tally));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
 
         StringAssert.StartsWith(report.Problems.Single(), "Broken:");
-        Assert.AreEqual("Cases.BenchCount", report.Cases.Single().Name);
+        var refused = report.Cases.Single();
+        Assert.AreEqual("Cases.BenchCount", refused.Name);
+        Assert.IsEmpty(refused.Runs);
+        StringAssert.Contains(refused.Error, "Broken:");
     }
 
     [TestMethod]
