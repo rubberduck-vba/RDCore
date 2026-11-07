@@ -112,15 +112,13 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |Member|Type (default)|Description|
 |---|---|---|
 |`Name`|`string`|The _identifier name_ (token) used in workspace source code to reference this library.|
-|`Guid`|`string`|A _Globally Unique Identifier_ optionally identifying the referenced library in a _host-defined application registry_.|
+|`Guid`|`string`|The identifier of the type library the reference is to, optional. When it is given, the library is the description made from that type library; when it is empty, the library of `Name`.|
 |`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists. An import of a `.vbp` resolves the path VB6 writes relative to the `.vbp`'s folder (`..\..\Windows\System32\FM20.DLL`), so that it names the same file wherever the project is moved.|
-|`Major`|number (`0`)|The _major_ version number of the referenced library, if available.|
-|`Minor`|number (`0`)|The _minor_ version number of the referenced library, if available.|
+|`Major`|number (`0`)|The _major_ version number of the referenced type library. With a `Guid`, a description of another major version is not the library.|
+|`Minor`|number (`0`)|The _minor_ version number of the referenced type library. With a `Guid`, the least minor version a description may have.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
 
-> [!NOTE]
-> A supplied `Guid` necessarily refers to a COM registered library. Resolving such a library implies platform-specific _Windows Registry_ lookups.
-> The _environment host_ may use _implementation-dependent_ alternative means to provide _symbols_ and _semantics_ for such references.
+A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 
 An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 

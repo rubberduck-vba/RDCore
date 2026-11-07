@@ -319,15 +319,17 @@ From the highest reference precedence to the lowest, the projects a name can be 
    ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA` is left out, and so is a second reference to a library listed earlier.
 5. The libraries that are loaded only because another library depends on them, in the order they are loaded.
 
-A VB6 project has one implicit reference: `VBRUN`, the Visual Basic runtime objects and procedures (the third type
-library of `MSVBVM60.DLL`), whose constants (`vbFixedSingle`, `vbTwips`, `vbHourglass`, `vbChecked`, `vbShiftMask`,
-`vbLeftButton`) and `PropertyBag` class are names of every VB6 project. It comes right after the `VBA` library, as the
-References dialog of the VB6 IDE orders them, so a name both libraries declare is the `VBA` library's: `vbCancel` is
-the `VbMsgBoxResult` member `2`, where `VBRUN`'s `DragConstants` member is `0`. RD-VBA and RDCore BASIC have none.
+A VB6 project has two implicit references, in this order:
 
-> [!NOTE]
-> **Not implemented.** The `VB` library of VB6 (`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`,
-> `Printer`, `Clipboard` and `Forms` objects) is not described yet, and a VB6 project does not have it.
+- `VBRUN`, the Visual Basic runtime objects and procedures (the third type library of `MSVBVM60.DLL`), whose constants
+  (`vbFixedSingle`, `vbTwips`, `vbHourglass`, `vbChecked`, `vbShiftMask`, `vbLeftButton`) and `PropertyBag` class are
+  names of every VB6 project.
+- `VB`, the Visual Basic objects and procedures (`VB6.OLB`): `Form`, its controls, and the `App`, `Screen`, `Printer`,
+  `Clipboard` and `Forms` objects.
+
+They come right after the `VBA` library, as the References dialog of the VB6 IDE orders them, so a name the `VBA`
+library and `VBRUN` both declare is the `VBA` library's: `vbCancel` is the `VbMsgBoxResult` member `2`, where
+`VBRUN`'s `DragConstants` member is `0`. RD-VBA and RDCore BASIC have none.
 
 The `VBA` library therefore comes before every library a project lists. A library that declares a name the `VBA`
 library also declares, such as a class `Collection`, a function `Left` or a constant `vbCancel`, does not shadow it:

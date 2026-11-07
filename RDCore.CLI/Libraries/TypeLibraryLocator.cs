@@ -18,8 +18,8 @@ internal sealed record LoadedTypeLibrary(ITypeLib Library, string Name, string? 
 /// </summary>
 /// <remarks>
 /// Only <see cref="Load"/> by name needs the registry's list of every library, and a library is found by the name it gives itself and by the description the
-/// registry holds for it ("Microsoft Scripting Runtime" is <c>Scripting</c>). Nothing else about a library identifies it to the platform: the identifier and
-/// version a machine gives it are a fact of the machine.
+/// registry holds for it ("Microsoft Scripting Runtime" is <c>Scripting</c>). The identifier and version of a type library are part of its description
+/// (<see cref="RDCore.SDK.Runtime.Libraries.LibraryOrigin"/>): a reference that gives them finds the description made from that type library, among the ones of its name.
 /// </remarks>
 internal static class TypeLibraryLocator
 {
@@ -146,8 +146,8 @@ internal static class TypeLibraryLocator
                 .Where(loaded => string.Equals(loaded.Name, name, StringComparison.OrdinalIgnoreCase))];
         }
 
-        // several libraries of a machine can be of one name - the versions of ADO are registered apart - and the name is all that identifies a library to the
-        // platform: the one that is described is the latest, however the machine happens to list them.
+        // several libraries of a machine can be of one name - the versions of ADO are registered apart - and a name alone asks for none of them in particular:
+        // the one that is described is the latest, however the machine happens to list them.
         return named.OrderByDescending(loaded => VersionOf(loaded.Library)).FirstOrDefault();
     }
 
