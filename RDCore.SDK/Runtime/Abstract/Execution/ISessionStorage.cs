@@ -25,7 +25,7 @@ public interface ISessionStorage
     /// Reserves <paramref name="size"/> bytes through the underlying <see cref="ISessionMemoryAllocator"/>
     /// and binds <paramref name="handle"/> at the resulting address. A non-positive <paramref name="size"/>
     /// (<c>Nothing</c>, <c>Null</c>, <c>Empty</c>, an uninitialized array, a UDT with no resolvable
-    /// fields) never reaches the allocator at all — it gets an address of its own that can never collide
+    /// fields) never reaches the allocator at all: it gets an address of its own that can never collide
     /// with an allocated one, since nothing about it needs real memory.
     /// </summary>
     /// <returns><c>false</c> if the underlying memory space is exhausted.</returns>
@@ -71,7 +71,7 @@ public interface ISessionStorage
     bool TryWriteBytes(MemoryAddress address, ReadOnlySpan<byte> bytes);
 
     /// <summary>
-    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation —
+    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation:
     /// a raw byte buffer, or the byte image of a bound value.
     /// </summary>
     /// <remarks>

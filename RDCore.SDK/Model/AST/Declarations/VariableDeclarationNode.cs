@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.AST.Declarations;
 
 /// <summary>
-/// An AST node representing a variable declaration — a procedure-local <c>Dim</c>/<c>Static</c>
+/// An AST node representing a variable declaration: a procedure-local <c>Dim</c>/<c>Static</c>
 /// (child of a member node) or a module-level field (child of the module node). An
 /// <see cref="ArrayBoundsNode"/> child, when present, carries the <c>(&#8230;)</c> array-dimension clause.
 /// </summary>

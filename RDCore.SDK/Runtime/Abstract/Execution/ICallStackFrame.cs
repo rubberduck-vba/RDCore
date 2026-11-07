@@ -11,7 +11,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 
 /// <summary>
 /// Represents a single <em>call stack</em> frame: the activation record of one procedure call,
-/// owning the storage for every locally-scoped <see cref="Symbol"/> it declares — its parameters and
+/// owning the storage for every locally-scoped <see cref="Symbol"/> it declares: its parameters and
 /// its <c>Dim</c>/procedure-local declarations alike (<strong>RD-VBAL §2.3.1.2</strong>, the local
 /// <em>stack frame</em> heap tier). A <c>Static</c> local is the one exception: it lives in the
 /// module-level statics heap instead, so it keeps its value between calls.
@@ -30,7 +30,7 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// The <see cref="ModuleDirectives"/> of the module declaring the procedure: what the code of this activation is executed
-    /// under — its comparison mode, chiefly (<strong>MS-VBAL §5.2.1.1</strong>).
+    /// under, chiefly its comparison mode (<strong>MS-VBAL §5.2.1.1</strong>).
     /// </summary>
     /// <remarks>
     /// 👉 A <see cref="StaticSymbol"/> identifies a procedure by its name and type alone; it does not say which module it is in.
@@ -53,7 +53,7 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// The current value of this activation's <em>function result variable</em>
-    /// (<strong>MS-VBAL §5.3.1</strong>) — <see langword="null"/> for an activation of a <c>Sub</c>, a
+    /// (<strong>MS-VBAL §5.3.1</strong>): <see langword="null"/> for an activation of a <c>Sub</c>, a
     /// <c>Property Let</c>, or a <c>Property Set</c>, none of which have one. A bare reference to a
     /// <c>Function</c>/<c>Property Get</c>'s own name, from within its own body, reads and writes this
     /// rather than the general symbol table (<strong>RD-VBAL §3.5.4</strong>). Read-only here: only
@@ -63,11 +63,11 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for
-    /// <paramref name="value"/>, its initial value — the caller's argument for a parameter, the
+    /// <paramref name="value"/>, its initial value: the caller's argument for a parameter, the
     /// declared type's default value for a fresh <c>Dim</c>. MS-VBAL draws no distinction between a
     /// parameter and a <c>Dim</c> local for name-resolution purposes, so both are declared this way.
     /// </summary>
-    /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame — a compile-time <c>DuplicateDeclaration</c> that should never reach runtime.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame: a compile-time <c>DuplicateDeclaration</c> that should never reach runtime.</exception>
     void Push(Symbol symbol, VBTypedValue value);
 
     /// <summary>
@@ -79,7 +79,7 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// Gets the <see cref="MemoryAddress"/> currently reserved for the specified locally-scoped
-    /// <see cref="Symbol"/> on this frame, if any — a <c>ByRef</c> parameter (<see cref="Push"/>ed by
+    /// <see cref="Symbol"/> on this frame, if any: a <c>ByRef</c> parameter (<see cref="Push"/>ed by
     /// aliasing an existing address rather than allocating one of its own) resolves to the SAME address
     /// its argument does, exactly like an ordinary declared local.
     /// </summary>
@@ -123,7 +123,7 @@ public interface ICallStackFrame : IStackFrame
     /// <summary>
     /// Gets the hidden value a block-opening instruction (a <c>With</c>'s target, a <c>Select Case</c>'s
     /// selector) stashed on this activation, keyed by that instruction's own offset
-    /// (<strong>RD-VBAL §3.5.4</strong>) — however control reached the instruction reading it, a
+    /// (<strong>RD-VBAL §3.5.4</strong>): however control reached the instruction reading it, a
     /// <c>GoTo</c> included, since the stash lives on the activation rather than on any call stack a
     /// structured walk would otherwise need to unwind.
     /// </summary>
@@ -134,11 +134,11 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// Gets the <see cref="ForLoopState"/> a <c>For</c> loop's own opener stashed on this activation,
-    /// keyed by that instruction's own offset — mirrors <see cref="TryGetBlockState"/>, but a <c>For</c>
+    /// keyed by that instruction's own offset: mirrors <see cref="TryGetBlockState"/>, but a <c>For</c>
     /// loop's per-activation hidden state is more than the single value that mechanism holds.
     /// </summary>
     /// <param name="openerOffset">The offset of the <c>ForOpener</c> instruction that stashed the state.</param>
-    /// <param name="state">The stashed state, if one exists for <paramref name="openerOffset"/> — its
+    /// <param name="state">The stashed state, if one exists for <paramref name="openerOffset"/>: its
     /// absence when a <c>ForNext</c> instruction looks it up is <strong>MS-VBAL §5.4.2.3</strong> error
     /// 92, "For loop not initialized" (a <c>GoTo</c> landed directly on the closer this activation).</param>
     /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
@@ -146,11 +146,11 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// Gets the <see cref="ForEachState"/> a <c>For Each</c> loop's own opener stashed on this
-    /// activation, keyed by that instruction's own offset — mirrors <see cref="TryGetForLoopState"/> for
+    /// activation, keyed by that instruction's own offset: mirrors <see cref="TryGetForLoopState"/> for
     /// the different per-activation shape a <c>For Each</c> loop's own enumeration cursor needs.
     /// </summary>
     /// <param name="openerOffset">The offset of the <c>ForEachOpener</c> instruction that stashed the state.</param>
-    /// <param name="state">The stashed state, if one exists for <paramref name="openerOffset"/> — its
+    /// <param name="state">The stashed state, if one exists for <paramref name="openerOffset"/>: its
     /// absence when a <c>ForEachNext</c> instruction looks it up is <strong>MS-VBAL §5.4.2.4</strong>
     /// error 92, "For loop not initialized" (a <c>GoTo</c> landed directly on the closer this activation).</param>
     /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
@@ -158,7 +158,7 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// The current depth of this activation's own GoSub Resumption List
-    /// (<strong>MS-VBAL §5.4.2.14</strong>) — how many <c>GoSub</c>/<c>On…GoSub</c> calls are still
+    /// (<strong>MS-VBAL §5.4.2.14</strong>): how many <c>GoSub</c>/<c>On…GoSub</c> calls are still
     /// awaiting their <c>Return</c>. Read-only here: only the interpreter's executor (RDCore.Runtime)
     /// pushes and pops it, through the concrete frame type it constructs. A <c>Return</c>
     /// (<strong>MS-VBAL §5.4.2.15</strong>) when this is zero is error 3, "Return without GoSub".
@@ -166,7 +166,7 @@ public interface ICallStackFrame : IStackFrame
     int GoSubDepth { get; }
 
     /// <summary>
-    /// This activation's current <see cref="ErrorHandlerState"/> (<strong>MS-VBAL §5.4.4</strong>) — a
+    /// This activation's current <see cref="ErrorHandlerState"/> (<strong>MS-VBAL §5.4.4</strong>): a
     /// single mutable value, like <see cref="Pc"/>, not per-offset hidden state like
     /// <see cref="TryGetBlockState"/>/<see cref="TryGetForLoopState"/>/<see cref="TryGetForEachState"/>:
     /// an <c>On Error</c> statement changes the activation's policy going forward, it isn't scoped to one

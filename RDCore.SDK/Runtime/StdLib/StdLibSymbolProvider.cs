@@ -12,11 +12,11 @@ namespace RDCore.SDK.Runtime.StdLib;
 
 /// <summary>
 /// The symbols of the standard library and of the objects the language environment provides
-/// globally — everything a name in VBA source can resolve to without the workspace declaring it.
+/// globally: everything a name in VBA source can resolve to without the workspace declaring it.
 /// </summary>
 /// <remarks>
 /// Without these, every standard-library name is unbound, and an unbound name in a module with no
-/// <c>Option Explicit</c> is a declaration (<strong>MS-VBAL §5.6.10</strong>) — so <c>Debug.Print x</c>
+/// <c>Option Explicit</c> is a declaration (<strong>MS-VBAL §5.6.10</strong>), so <c>Debug.Print x</c>
 /// would quietly declare a local called <c>Debug</c>. Resolution is what stops that, which is why this
 /// exists before anything here is callable.
 /// <para>
@@ -38,7 +38,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// </summary>
     /// <remarks>
     /// A leading underscore is not a legal VBA identifier, so no source can name this module and no
-    /// workspace module can collide with it — which is the whole reason for the spelling. It is a
+    /// workspace module can collide with it, which is the whole reason for the spelling. It is a
     /// standard module, so its members are promoted to the project scope and resolve unqualified, the
     /// way a standard library's members do.
     /// <para>
@@ -84,7 +84,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// The name of the project the standard library is.
     /// </summary>
     /// <remarks>
-    /// It is what a project-qualified reference to the library names — <c>VBA.Strings.LenB</c>, <c>VBA.LenB</c>
+    /// It is what a project-qualified reference to the library names: <c>VBA.Strings.LenB</c>, <c>VBA.LenB</c>
     /// (<strong>MS-VBAL §5.6.12</strong>). It is the same in every dialect: VB6 loads the very same <c>VBA</c> library, and what
     /// it calls <c>VB</c> is the runtime library of its ActiveX controls, which is not this one. Where a dialect has more or fewer
     /// members than another, the members are what say so, not the name of the library.
@@ -117,7 +117,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// and hang off the global scope rather than off a module.
     /// </param>
     /// <param name="is64Bit">
-    /// The pointer width of the environment these symbols are for — <c>LongPtr</c> is a different type
+    /// The pointer width of the environment these symbols are for: <c>LongPtr</c> is a different type
     /// in each, so <c>Conversion.CLngPtr</c>'s return type depends on it. Defaults to <c>true</c>,
     /// matching <c>SdkEnvironmentOptions.Is64Bit</c>'s own default.
     /// </param>
@@ -205,7 +205,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
 
     /// <remarks>
     /// <c>Debug.Print</c>'s output list is a grammar construct of its own
-    /// (<strong>MS-VBAL §5.4.5.8.1</strong>), not an argument list — <c>Spc</c>, <c>Tab</c> and the
+    /// (<strong>MS-VBAL §5.4.5.8.1</strong>), not an argument list: <c>Spc</c>, <c>Tab</c> and the
     /// <c>;</c>/<c>,</c> separators are not expressions that could be passed to a parameter. The
     /// <c>ParamArray</c> is what makes the member resolvable and arity-correct for a caller; the
     /// statement's own semantics read the output list off the syntax instead.

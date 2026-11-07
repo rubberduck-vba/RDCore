@@ -19,7 +19,7 @@ public record class VBUnaryOperatorExpressionNode(string Token, SyntaxNodeId Ide
 {
     /// <summary>
     /// Deserialization path: <c>Operand</c> is what the JSON actually carries now (see
-    /// <c>SyntaxNodeJson</c>) — <c>Children</c> is redundant with it and gets omitted on write, so it
+    /// <c>SyntaxNodeJson</c>): <c>Children</c> is redundant with it and gets omitted on write, so it
     /// can't be relied on to arrive from the wire.
     /// </summary>
     [JsonConstructor]
@@ -27,7 +27,7 @@ public record class VBUnaryOperatorExpressionNode(string Token, SyntaxNodeId Ide
         : this(Token, Identity, Location, (ImmutableArray<SyntaxNode>)[Operand]) { }
 
     /// <summary>
-    /// The operand — <c>Children[0]</c>.
+    /// The operand: <c>Children[0]</c>.
     /// </summary>
     public ExpressionNode Operand => (ExpressionNode)Children[0];
 }

@@ -8,7 +8,7 @@ namespace RDCore.SDK.ConsoleIO;
 /// </summary>
 /// <remarks>
 /// Setting <see cref="Console.BackgroundColor"/> and clearing is not enough on its own. Every
-/// renderer that emits SGR sequences — Spectre.Console among them — ends a styled span with a reset
+/// renderer that emits SGR sequences (Spectre.Console among them) ends a styled span with a reset
 /// (<c>ESC[0m</c>), which returns the cell colours to the <em>terminal's</em> defaults, not to
 /// whatever <see cref="Console.BackgroundColor"/> currently holds; .NET will not re-emit an attribute
 /// it believes is already set, so from the first styled write onwards the frame is silently gone, and
@@ -25,7 +25,7 @@ namespace RDCore.SDK.ConsoleIO;
 public interface IConsoleShellFrame
 {
     /// <summary>
-    /// Whether the console accepts ANSI escape sequences — <c>false</c> when output is redirected or
+    /// Whether the console accepts ANSI escape sequences: <c>false</c> when output is redirected or
     /// the terminal could not be switched into virtual-terminal mode. The frame degrades to the
     /// legacy 16-colour console attributes when this is <c>false</c>.
     /// </summary>
@@ -70,7 +70,7 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
     /// <summary>Erase-in-line: fills from the cursor to the end of the line with the current background.</summary>
     private const string EraseToEndOfLine = "\u001b[K";
 
-    /// <summary>Reset every SGR attribute — back to the frame's own colours, once <see cref="Apply"/> has run.</summary>
+    /// <summary>Reset every SGR attribute: back to the frame's own colours, once <see cref="Apply"/> has run.</summary>
     private const string ResetAttributes = "\u001b[0m";
 
     private bool _applied;
@@ -171,8 +171,8 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
     }
 
     /// <summary>
-    /// Whether the console can be written to with escape sequences: not redirected, and — on Windows,
-    /// where it is opt-in per console handle — actually switched into virtual-terminal mode.
+    /// Whether the console can be written to with escape sequences: not redirected, and (on Windows,
+    /// where it is opt-in per console handle) actually switched into virtual-terminal mode.
     /// </summary>
     private static bool TryEnableVirtualTerminal()
     {

@@ -6,7 +6,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
-/// Builds a <see cref="ScopeTree"/> from a flat set of composed symbols. Placement is structural —
+/// Builds a <see cref="ScopeTree"/> from a flat set of composed symbols. Placement is structural:
 /// a symbol's concrete type, its <see cref="Symbol.ParentUri"/>, and its access modifier decide its
 /// scope:
 /// <list type="bullet">
@@ -14,13 +14,13 @@ namespace RDCore.SDK.Model.Symbols;
 ///   anything the tree cannot otherwise place → the <see cref="ScopeTree.Global"/> scope;</item>
 /// <item>a standard module's non-<c>Private</c> members → the project scope, where sibling modules
 ///   see them;</item>
-/// <item>every module's members — fields, constants, procedures, properties, enums, user-defined
+/// <item>every module's members: fields, constants, procedures, properties, enums, user-defined
 ///   types, events, <c>Declare</c>s → that module's own scope;</item>
 /// <item>a procedure's parameters and its procedure-local <c>Dim</c> / <c>Static</c> / <c>Const</c>
 ///   (and the dynamic array a bare <c>ReDim</c> introduces) → that procedure's scope.</item>
 /// </list>
 /// An enum constant is placed in the scope that declares its <c>Enum</c>, since that is where
-/// <strong>MS-VBAL §5.2.3.4</strong> makes it accessible — it parents to the enum, not to a scope, so
+/// <strong>MS-VBAL §5.2.3.4</strong> makes it accessible: it parents to the enum, not to a scope, so
 /// its placement is resolved through the enum. A user-defined type's fields are reached through member
 /// access rather than lexical scoping, and are not placed at all. Ordering referenced libraries by
 /// their <c>.rdproj</c> priority within the global scope is later work.
@@ -28,7 +28,7 @@ namespace RDCore.SDK.Model.Symbols;
 public static class ScopeTreeBuilder
 {
     /// <summary>
-    /// Builds the scope tree for <paramref name="symbols"/>. Any subset is valid input — a symbol
+    /// Builds the scope tree for <paramref name="symbols"/>. Any subset is valid input: a symbol
     /// whose enclosing scope is not in the set is placed in the <see cref="ScopeTree.Global"/> scope.
     /// </summary>
     public static ScopeTree Build(IEnumerable<Symbol> symbols)

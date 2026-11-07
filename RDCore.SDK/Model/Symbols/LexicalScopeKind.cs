@@ -21,12 +21,12 @@ public enum LexicalScopeKind
     Project,
 
     /// <summary>
-    /// One module body — the members that module declares.
+    /// One module body: the members that module declares.
     /// </summary>
     Module,
 
     /// <summary>
-    /// One procedure, property, function, or event body — its parameters and its procedure-local
+    /// One procedure, property, function, or event body: its parameters and its procedure-local
     /// <c>Dim</c> / <c>Static</c> / <c>Const</c> declarations.
     /// </summary>
     Procedure,

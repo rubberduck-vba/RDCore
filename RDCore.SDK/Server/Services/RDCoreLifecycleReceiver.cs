@@ -15,14 +15,14 @@ namespace RDCore.SDK.Server.Services;
 /// <a href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize">Server lifecycle § Initialize Request</a>
 /// carves out an explicit exception: until <c>Initialize</c> completes, the server must reject any
 /// other request with a <c>ServerNotInitialized</c> (<c>-32002</c>) error and silently drop any other
-/// notification — <strong>except</strong> <c>Exit</c>, which lets a client that changes its mind before
+/// notification: <strong>except</strong> <c>Exit</c>, which lets a client that changes its mind before
 /// ever initializing still terminate the server. <c>OmniSharp</c>'s own receiver does not implement
 /// that exception: it drops a pre-<c>Initialize</c> <c>Exit</c> like any other notification, so
 /// <see cref="Handlers.Lifecycle.ExitHandler"/> never runs, <see cref="States.IServerStateProvider.OnExit"/>
 /// never fires, and the host's own wait on the process token
 /// (<c>RDCoreServerApp.RunAsync</c>'s <c>serverExit.WaitAsync(...)</c>) hangs instead of exiting.
 /// 👉 Registered ahead of <c>OmniSharp</c>'s own <c>IReceiver</c> via <c>LanguageServerOptions.Services</c>
-/// (see <c>ConfigureCoreSdkHandlers</c>) — the internal registration uses DryIoc's <c>Keep</c> semantics,
+/// (see <c>ConfigureCoreSdkHandlers</c>): the internal registration uses DryIoc's <c>Keep</c> semantics,
 /// so whichever <see cref="IReceiver"/> is registered first wins.
 /// <para>
 /// Once the server is initialized, a request marked <see cref="HandledOnArrivalAttribute"/> is kept, and handled as it arrives (<see cref="ArrivalRequests"/>):

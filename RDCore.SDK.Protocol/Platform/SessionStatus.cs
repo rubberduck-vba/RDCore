@@ -5,7 +5,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// platform's runtime session.
 /// </summary>
 /// <remarks>
-/// A client never addresses the environment host directly — it does not know one exists. This is a
+/// A client never addresses the environment host directly: it does not know one exists. This is a
 /// request of the <em>language server</em>, which services it from whichever component actually owns
 /// the session (today, the environment host, over <c>rdcore/host/session/status</c>).
 /// </remarks>
@@ -21,13 +21,13 @@ public record class SessionStatusParams
 
 /// <summary>
 /// The state of the platform's runtime session. The same result answers both hops of the status
-/// request — the language server passes the host's answer through unchanged.
+/// request: the language server passes the host's answer through unchanged.
 /// </summary>
 public record class SessionStatusResult
 {
     /// <summary>
     /// Whether a runtime session exists at all. Everything else is meaningless when this is
-    /// <c>false</c> — the session is composed during platform bring-up, so a client asking early
+    /// <c>false</c>: the session is composed during platform bring-up, so a client asking early
     /// (or with no environment host in the platform) sees it unset.
     /// </summary>
     public bool IsComposed { get; init; }
@@ -63,7 +63,7 @@ public record class SessionMemoryStatus
     /// <summary>The total address space the session's segments reserve.</summary>
     public int ReservedBytes { get; init; }
 
-    /// <summary>Reserved bytes not currently handed out — <c>reserved - allocated</c>.</summary>
+    /// <summary>Reserved bytes not currently handed out: <c>reserved - allocated</c>.</summary>
     public int AvailableBytes { get; init; }
 
     /// <summary>Bytes currently handed out to live allocations.</summary>

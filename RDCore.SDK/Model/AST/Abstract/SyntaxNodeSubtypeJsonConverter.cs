@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// <c>[JsonPolymorphic]</c>/<c>[JsonDerivedType]</c> is declared once, on <see cref="SyntaxNode"/>.
 /// <see cref="System.Text.Json"/> resolves polymorphism from the property's own <em>declared</em>
 /// type, and does not apply an ancestor's attributes to a narrower abstract type that carries none of
-/// its own — so a property like <c>IfBlockStatementNode.ConditionExpression : ExpressionNode</c>
+/// its own, so a property like <c>IfBlockStatementNode.ConditionExpression : ExpressionNode</c>
 /// would otherwise throw <c>NotSupportedException</c> ("Deserialization of interface or abstract
 /// types is not supported") the moment it round-trips through JSON, since <see cref="ExpressionNode"/>
 /// itself carries no polymorphism attributes. Delegating through <see cref="SyntaxNode"/> reuses the

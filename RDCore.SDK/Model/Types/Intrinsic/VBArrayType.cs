@@ -34,7 +34,7 @@ public abstract record class VBArrayType(VBType ItemType) :
 
     /// <summary>
     /// Recovers the <see cref="VBArrayValue"/> boxed into <paramref name="handle"/> as a
-    /// <see cref="VBRuntimeArrayValue"/> — an array's real storage (its element cells) lives on the
+    /// <see cref="VBRuntimeArrayValue"/>: an array's real storage (its element cells) lives on the
     /// array object itself, not in anything a handle could reconstruct piecemeal, so this unboxes the
     /// original instance rather than building a new one.
     /// </summary>

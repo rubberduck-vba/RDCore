@@ -18,7 +18,7 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
     /// <param name="location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>
     /// <param name="children">The left and right operands, in that order.</param>
     /// <exception cref="ArgumentException">
-    /// <paramref name="children"/> is not exactly two <see cref="ExpressionNode"/> operands — the
+    /// <paramref name="children"/> is not exactly two <see cref="ExpressionNode"/> operands: the
     /// grammar guarantees a binary operator has two, so this signals a parse-listener desync.
     /// </exception>
     public VBBinaryOperatorExpressionNode(string token, SyntaxNodeId identity, SourceLocation location, ImmutableArray<SyntaxNode> children)
@@ -34,7 +34,7 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
 
     /// <summary>
     /// Deserialization path: <c>Left</c>/<c>Right</c> are what the JSON actually carries now (see
-    /// <c>SyntaxNodeJson</c>) — <c>Children</c> is redundant with them and gets omitted on write, so it
+    /// <c>SyntaxNodeJson</c>): <c>Children</c> is redundant with them and gets omitted on write, so it
     /// can't be relied on to arrive from the wire.
     /// </summary>
     [JsonConstructor]
@@ -44,12 +44,12 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
     public string Token { get; }
 
     /// <summary>
-    /// The left-hand side operand — <c>Children[0]</c>.
+    /// The left-hand side operand: <c>Children[0]</c>.
     /// </summary>
     public ExpressionNode Left => (ExpressionNode)Children[0];
 
     /// <summary>
-    /// The right-hand side operand — <c>Children[1]</c>.
+    /// The right-hand side operand: <c>Children[1]</c>.
     /// </summary>
     public ExpressionNode Right => (ExpressionNode)Children[1];
 

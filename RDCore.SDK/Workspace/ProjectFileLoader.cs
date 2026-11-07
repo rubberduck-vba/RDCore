@@ -5,8 +5,8 @@ namespace RDCore.SDK.Workspace;
 
 /// <summary>
 /// Loads a workspace's <c>.rdproj</c> <see cref="ProjectFile"/> from disk, read-only. Every platform
-/// component that needs the project structure — the language server's workspace services and the
-/// environment host's session composition — resolves the project through this service so there is a
+/// component that needs the project structure (the language server's workspace services and the
+/// environment host's session composition) resolves the project through this service so there is a
 /// single deserialization path.
 /// </summary>
 public interface IProjectFileLoader

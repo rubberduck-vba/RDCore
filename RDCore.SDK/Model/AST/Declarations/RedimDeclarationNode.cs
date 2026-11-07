@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 namespace RDCore.SDK.Model.AST.Declarations;
 
 /// <summary>
-/// A single target of a body-level <c>ReDim</c> statement (MS-VBAL &#167;5.4.3.3) — one node per
+/// A single target of a body-level <c>ReDim</c> statement (MS-VBAL &#167;5.4.3.3): one node per
 /// comma-separated declaration, child of the enclosing member node.
 /// </summary>
 /// <remarks>
@@ -24,8 +24,8 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// </para>
 /// <para>
 /// 👉 It is a <see cref="StatementNode"/> as well as a declaration, and both halves are real: MS-VBAL
-/// files it under §5.4.3 <em>statements</em> because it <em>executes</em> where it appears — its bounds
-/// are evaluated then, and the array is resized then — while the name it may introduce is a declaration
+/// files it under §5.4.3 <em>statements</em> because it <em>executes</em> where it appears (its bounds
+/// are evaluated then, and the array is resized then), while the name it may introduce is a declaration
 /// the symbol pass picks up from the same node. Being a statement is also what gets it lowered into the
 /// instruction list at all.
 /// </para>

@@ -17,10 +17,10 @@ public static class IVBInferableTypeExtensions
     /// </summary>
     /// <remarks>
     /// A lone candidate resolves to itself. Two or more resolve to <c>Variant</c> when every candidate
-    /// is a plain value type (numeric, <c>String</c>, <c>Boolean</c>, …) — never when one of them is
+    /// is a plain value type (numeric, <c>String</c>, <c>Boolean</c>, …), never when one of them is
     /// <c>Object</c> or a class-ish type (<see cref="IVBMemberOwnerType"/>): those don't blend into a
     /// <c>Variant</c> guess, and what they <em>do</em> resolve to isn't decided yet (the algorithm's
-    /// own doc trails into "TODO continue this" at exactly this point) — such a set currently resolves
+    /// own doc trails into "TODO continue this" at exactly this point), so such a set currently resolves
     /// to <c>null</c>, same as no candidates at all.
     /// </remarks>
     public static VBType? Resolve(this IVBInferableType inferable) => inferable.CandidateTypes.Count switch
@@ -35,10 +35,10 @@ public static class IVBInferableTypeExtensions
     /// found candidate goes through before joining the set.
     /// </summary>
     /// <remarks>
-    /// An integral candidate (<see cref="IIntegralNumericType"/> — <c>Byte</c>/<c>Integer</c>/
+    /// An integral candidate (<see cref="IIntegralNumericType"/>: <c>Byte</c>/<c>Integer</c>/
     /// <c>Long</c>/<c>LongLong</c>) widens to <see cref="VBLongType"/>; a floating-point candidate
     /// (<see cref="IFloatingPointNumericType"/>) widens to <see cref="VBDoubleType"/>; a fixed-point
-    /// candidate (<see cref="IFixedPointNumericType"/>) widens to <see cref="VBCurrencyType"/> — so
+    /// candidate (<see cref="IFixedPointNumericType"/>) widens to <see cref="VBCurrencyType"/>, so
     /// differently-sized numeric candidates bucket together instead of manufacturing spurious
     /// conflicts. A candidate that is itself inferable contributes its own candidate set (already
     /// widened) rather than joining as one opaque entry.

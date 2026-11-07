@@ -23,7 +23,7 @@ public interface IRuntimeSemantics<TContext, TFlags>
     /// <remarks>
     /// ⚠️ <strong>Does not throw</strong> any run-time errors; instead it packages the error metadata in the result.
     /// </remarks>
-    /// <param name="session">The current execution session — its <c>Symbols.Resolver</c> is the read
+    /// <param name="session">The current execution session: its <c>Symbols.Resolver</c> is the read
     /// face over the current execution context; <c>Objects</c>/<c>CallStack</c> are here for the
     /// runtime semantics that need to instantiate an object or push/pop an activation.</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
@@ -38,7 +38,7 @@ public interface IRuntimeSemantics<TContext, TFlags>
     /// <summary>
     /// Analyzes the specified <c>SyntaxNode</c> in the specified execution context, using the specified inputs.
     /// </summary>
-    /// <param name="session">The current execution session — its <c>Symbols.Resolver</c> is the read
+    /// <param name="session">The current execution session: its <c>Symbols.Resolver</c> is the read
     /// face over the current execution context.</param>
     /// <param name="builder">A <em>semantic flags builder</em> specifically for the operation defined by the <c>node</c> under scrutiny.</param>
     /// <param name="node">The bound node to analyze.</param>

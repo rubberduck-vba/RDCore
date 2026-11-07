@@ -41,7 +41,7 @@ public record class VBVariantValue : VBTypedValue, IVBTypedValue<VBVariantValue,
 
     /// <summary>
     /// Creates a Variant wrapping <paramref name="typedValue"/> and bound to <paramref name="handle"/>
-    /// directly — used when unboxing one already read back from storage.
+    /// directly: used when unboxing one already read back from storage.
     /// </summary>
     public VBVariantValue(IBindingHandle handle, VBTypedValue typedValue) : this(typedValue)
     {

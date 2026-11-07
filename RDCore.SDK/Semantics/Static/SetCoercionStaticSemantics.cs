@@ -12,11 +12,11 @@ namespace RDCore.SDK.Semantics.Static;
 /// </summary>
 /// <remarks>
 /// Considerably thinner than <see cref="LetCoercionStaticSemantics"/>'s table: Set-coercion only ever
-/// moves object references around, so the static table is just two rows — is the destination even
+/// moves object references around, so the static table is just two rows: is the destination even
 /// object-ish (a specific class, <c>Object</c>, or <c>Variant</c>), and if so, is the source too? MS-VBAL
 /// 5.5.2.1 deliberately stops there: whether a source class actually implements or derives from the
 /// destination's declared class is a <em>runtime</em>-semantics question (5.5.2.2.1, runtime error 13
-/// on mismatch), not a static one — <see cref="VBClassType.Supertypes"/> has no role to play here.
+/// on mismatch), not a static one. <see cref="VBClassType.Supertypes"/> has no role to play here.
 /// </remarks>
 public record class SetCoercionStaticSemantics : StaticSemantics
 {
@@ -40,9 +40,9 @@ public record class SetCoercionStaticSemantics : StaticSemantics
 
     /// <returns>
     /// <c>true</c> if a Set-coercion operation is <strong>invalid</strong> between the specified source
-    /// and destination data types — i.e. either side isn't a specific class, <c>Object</c>, or
+    /// and destination data types: either side isn't a specific class, <c>Object</c>, or
     /// <c>Variant</c>. <see cref="VBUnknownType"/> on either side (not yet resolved/modeled) can't be
-    /// shown to violate this, so it's deferred rather than flagged — same convention as every other
+    /// shown to violate this, so it's deferred rather than flagged: same convention as every other
     /// rule this evaluator dispatches to.
     /// </returns>
     private static bool IsSetCoercionInvalid(VBType source, VBType destination)

@@ -4,7 +4,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// What an <see cref="IExternalCallInterceptor"/> decided about a call.
 /// </summary>
 /// <param name="Reason">
-/// Why the call was refused, in words a person reading a diagnostic needs — <see langword="null"/> when it
+/// Why the call was refused, in words a person reading a diagnostic needs: <see langword="null"/> when it
 /// was not refused.
 /// </param>
 public readonly record struct ExternalCallDecision(string? Reason)
@@ -18,7 +18,7 @@ public readonly record struct ExternalCallDecision(string? Reason)
     /// Refuse the call.
     /// </summary>
     /// <param name="reason">
-    /// Why — it reaches the workspace as the verbose half of a <c>Permission denied</c> run-time error, so
+    /// Why: it reaches the workspace as the verbose half of a <c>Permission denied</c> run-time error, so
     /// it should say what was refused and on what grounds.
     /// </param>
     public static ExternalCallDecision Block(string reason) => new(reason);
@@ -36,7 +36,7 @@ public readonly record struct ExternalCallDecision(string? Reason)
 /// 🎯 The reason this exists: a VBA environment that can call into native libraries is a way to run
 /// arbitrary code, and the historical answer to that has been for administrators to disable the whole
 /// language because nothing could see what a macro actually did. This is the seam that makes the calls
-/// visible — every one of them, with its arguments, before it runs — and refusable one at a time.
+/// visible (every one of them, with its arguments, before it runs), and refusable one at a time.
 /// <para>
 /// Interceptors are ordered and every one of them sees the call; the first to refuse it stops it. An
 /// interceptor is expected to be cheap and to have no opinion about most calls: it runs in front of
@@ -44,7 +44,7 @@ public readonly record struct ExternalCallDecision(string? Reason)
 /// </para>
 /// <para>
 /// 🚧 An interceptor cannot yet <em>answer</em> a call. That is the same seam a mock needs, and is where the
-/// planned Unit Testing extension's <c>MsgBox</c>/<c>InputBox</c> substitution lands — TODO extend
+/// planned Unit Testing extension's <c>MsgBox</c>/<c>InputBox</c> substitution lands: TODO extend
 /// <see cref="ExternalCallDecision"/> with a result rather than adding a second mechanism beside this one.
 /// </para>
 /// </remarks>
@@ -80,7 +80,7 @@ public interface IExternalCallProvider
     bool CanDispatch(ExternalCallRequest request);
 
     /// <summary>
-    /// Runs it, and returns what it yielded — an error in the result rather than thrown, as everywhere else
+    /// Runs it, and returns what it yielded: an error in the result rather than thrown, as everywhere else
     /// in the semantics layer.
     /// </summary>
     /// <param name="request">The call to run. <see cref="CanDispatch"/> has already accepted it.</param>

@@ -18,7 +18,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="ResolvedType">The resolved type of the symbol, if available. <c>VBUnknownType</c> otherwise.</param>
 /// <param name="IsOptional"><c>true</c> if the parameter has an <c>Optional</c> token.</param>
 /// <param name="DefaultValue">
-/// The parameter's own <c>&lt;default-value&gt;</c> clause (<strong>MS-VBAL §5.3.1.5</strong>) — a
+/// The parameter's own <c>&lt;default-value&gt;</c> clause (<strong>MS-VBAL §5.3.1.5</strong>): a
 /// constant expression, exactly as a <c>Const</c> declaration's own is, and reduced to a value the same
 /// way and in the same place. <c>null</c> when <see cref="IsOptional"/> is <c>true</c> but no default
 /// was specified: an unmapped call-site argument then falls back to <see cref="ResolvedType"/>'s own
