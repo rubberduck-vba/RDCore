@@ -25,7 +25,7 @@ public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMember
 
     /// <remarks>
     /// A UDT's field cells live on the value itself, so the value is handed back out of its own binding rather
-    /// than rebuilt from it: the same way <see cref="VBArrayType.CreateValue"/> hands back its element cells.
+    /// than rebuilt from it — the same way <see cref="VBArrayType.CreateValue"/> hands back its element cells.
     /// Rebuilding would silently return a UDT with default fields however much had been assigned to it.
     /// </remarks>
     public override VBTypedValue CreateValue(Values.Bindings.IBindingHandle handle)
@@ -65,7 +65,7 @@ public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMember
     /// to guard against. Compares <c>Uri.AbsoluteUri</c> as an ordinal string rather than using
     /// <see cref="Uri"/>'s own <c>Equals</c>/<c>GetHashCode</c>: those deliberately ignore
     /// <c>Uri.Fragment</c>, and a symbol's discriminating name/location is encoded entirely in the
-    /// fragment here: two distinct UDTs sharing a workspace root would otherwise compare equal.
+    /// fragment here — two distinct UDTs sharing a workspace root would otherwise compare equal.
     /// </remarks>
     public virtual bool Equals(VBUserDefinedType? other)
         => other is VBUserDefinedType udt && string.Equals(udt.Symbol.Uri.AbsoluteUri, Symbol.Uri.AbsoluteUri, StringComparison.Ordinal);

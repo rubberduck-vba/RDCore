@@ -15,7 +15,9 @@ namespace RDCore.SDK.ConsoleIO;
 /// <param name="B">The blue channel.</param>
 public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
 {
-    /// <summary>Black: the value <see cref="TryParse"/> yields for an unparseable token.</summary>
+    /// <summary>
+    /// Black: the value <see cref="TryParse"/> yields for an unparseable token.
+    /// </summary>
     public static ConsoleRgbColor Black { get; } = new(0, 0, 0);
 
     /// <summary>

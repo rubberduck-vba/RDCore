@@ -31,8 +31,8 @@ public sealed record class VBVariantType(VBType SubType) : VBIntrinsicType<objec
 
     /// <summary>
     /// Recovers the wrapped <see cref="VBTypedValue"/> boxed into <paramref name="handle"/> as a
-    /// <see cref="RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue"/> (the same pattern
-    /// <see cref="VBArrayType.CreateValue"/> uses for an array), so a Variant read back from storage
+    /// <see cref="RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue"/> — the same pattern
+    /// <see cref="VBArrayType.CreateValue"/> uses for an array — so a Variant read back from storage
     /// carries the very value that was actually stored, never a fresh, unrelated <c>Empty</c>.
     /// </summary>
     public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle)

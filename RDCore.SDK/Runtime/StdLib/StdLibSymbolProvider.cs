@@ -205,7 +205,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
 
     /// <remarks>
     /// <c>Debug.Print</c>'s output list is a grammar construct of its own
-    /// (<strong>MS-VBAL §5.4.5.8.1</strong>), not an argument list: <c>Spc</c>, <c>Tab</c> and the
+    /// (<strong>MS-VBAL §5.4.5.8.1</strong>), not an argument list — <c>Spc</c>, <c>Tab</c> and the
     /// <c>;</c>/<c>,</c> separators are not expressions that could be passed to a parameter. The
     /// <c>ParamArray</c> is what makes the member resolvable and arity-correct for a caller; the
     /// statement's own semantics read the output list off the syntax instead.

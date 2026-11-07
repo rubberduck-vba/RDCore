@@ -37,7 +37,7 @@ public record class CaseElseClauseStatementNode(SyntaxNodeId Identity, SourceLoc
     : StatementNode(Identity, SourceLocation, []);
 
 /// <summary>
-/// A <c>Case</c> range clause: one of the comma-separated conditions on a <c>Case</c> line
+/// A <c>Case</c> range clause — one of the comma-separated conditions on a <c>Case</c> line
 /// (MS-VBAL 5.4.2.10), each independently a single value, a comparison, or a <c>To</c> range.
 /// </summary>
 [JsonConverter(typeof(SyntaxNodeSubtypeJsonConverter<CaseRangeClauseNode>))]

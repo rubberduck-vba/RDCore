@@ -12,13 +12,13 @@ namespace RDCore.SDK.Model.Types;
 public static class VBVarTypeExtensions
 {
     /// <summary>
-    /// Gets the <see cref="VBVarType"/> tag for a value of this declared type: the same tag
+    /// Gets the <see cref="VBVarType"/> tag for a value of this declared type — the same tag
     /// <c>VarType()</c> would report for it. An array's own tag is <see cref="VBVarType.VBArray"/>
     /// combined with its element type's own tag, recursively (MS-VBAL 6.1.1.16's own "8192 + VarType of
     /// element's type"). A <see cref="VBClassType"/> defers to its own class module's
     /// <see cref="VBClassModuleSymbol.AutomationKind"/> (<see cref="VarType(VBClassModuleSymbol)"/>); a
-    /// generic <see cref="VBObjectType"/> (a live object reference whose concrete class isn't known
-    /// here, only ever resolvable by looking up the actual instance) defaults to
+    /// generic <see cref="VBObjectType"/> — a live object reference whose concrete class isn't known
+    /// here, only ever resolvable by looking up the actual instance — defaults to
     /// <see cref="VBVarType.VBObject"/> (Automation-capable), the only sound default absent that lookup.
     /// </summary>
     public static VBVarType VarType(this VBType type) => type switch
@@ -56,8 +56,8 @@ public static class VBVarTypeExtensions
     /// <summary>
     /// Gets the <see cref="VBVarType"/> tag for a live instance of this class:
     /// <see cref="VBVarType.VBObject"/> (<c>VT_DISPATCH</c>) when
-    /// <see cref="VBClassModuleSymbol.AutomationKind"/> is <see cref="VBAutomationKind.Dispatch"/> (every
-    /// RD-VBA class module today) <see cref="VBVarType.VBDataObject"/> (<c>VT_UNKNOWN</c>) otherwise.
+    /// <see cref="VBClassModuleSymbol.AutomationKind"/> is <see cref="VBAutomationKind.Dispatch"/> — every
+    /// RD-VBA class module today — <see cref="VBVarType.VBDataObject"/> (<c>VT_UNKNOWN</c>) otherwise.
     /// </summary>
     public static VBVarType VarType(this VBClassModuleSymbol classModule) => classModule.AutomationKind switch
     {

@@ -18,15 +18,15 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     : VBType(typeof(object), Symbol.Name, IsHidden), IVBMemberOwnerType
 {
     /// <summary>
-    /// Builds the class's own default interface: its <c>Public</c>, implicitly-public, and
+    /// Builds the class's own default interface — its <c>Public</c>, implicitly-public, and
     /// <c>Friend</c> members, the surface visible to a member-access expression typed against this
     /// class, whether the reference is <c>Me</c> or any other variable declared as this class.
     /// <c>Friend</c> counts as visible here because RDCore only ever composes one project's modules
-    /// at a time (no referenced-project/library symbol provider exists yet): anything resolving
+    /// at a time (no referenced-project/library symbol provider exists yet) — anything resolving
     /// against a given composition is, by construction, same-project code, and MS-VBAL's <c>Friend</c>
     /// accessibility is visible project-wide, not just module-wide. <c>Private</c> members are reached,
-    /// from inside the class's own code, only through ordinary lexical name resolution (never through
-    /// member access), so they alone are excluded from <see cref="Members"/> here.
+    /// from inside the class's own code, only through ordinary lexical name resolution — never through
+    /// member access — so they alone are excluded from <see cref="Members"/> here.
     /// </summary>
     /// <remarks>
     /// <c>WorkspaceSymbolResolver.Compose</c> populates <see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/> with it, and the run time asks it of

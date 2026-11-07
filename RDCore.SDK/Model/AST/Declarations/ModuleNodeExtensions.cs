@@ -138,8 +138,8 @@ public static class ModuleNodeExtensions
 
     /// <summary>
     /// Whether a class module is instantiable via <c>New</c>, per its <c>Attribute VB_Creatable</c>
-    /// directive. Defaults to <c>true</c> (VBE's own default for a class module that declares no
-    /// such attribute), so this is meaningful to call on any module, not just class modules.
+    /// directive. Defaults to <c>true</c> — VBE's own default for a class module that declares no
+    /// such attribute — so this is meaningful to call on any module, not just class modules.
     /// </summary>
     public static bool IsCreatable(this ModuleNode module)
     {
@@ -157,7 +157,7 @@ public static class ModuleNodeExtensions
     /// <summary>
     /// Whether a class module has a predeclared default instance, per its
     /// <c>Attribute VB_PredeclaredId</c> directive (<strong>MS-VBAL §5.2.4.1.2</strong>). Defaults to
-    /// <c>false</c>: VBE's own default for a class module that declares no such attribute.
+    /// <c>false</c> — VBE's own default for a class module that declares no such attribute.
     /// </summary>
     public static bool IsPredeclared(this ModuleNode module)
     {
@@ -198,8 +198,8 @@ public static class ModuleNodeExtensions
     /// </summary>
     /// <remarks>
     /// Unlike a module-level attribute (<c>VB_Name</c>, <c>VB_Creatable</c>, ...), a member-qualified
-    /// attribute statement is written lexically inside the member's own body (the parser attaches it
-    /// as a child of that member's own <see cref="MemberDeclarationNode"/>, not the module's), so this
+    /// attribute statement is written lexically inside the member's own body — the parser attaches it
+    /// as a child of that member's own <see cref="MemberDeclarationNode"/>, not the module's — so this
     /// searches the named member's <c>Children</c>, not <see cref="ModuleNode.Children"/> directly.
     /// </remarks>
     public static int? GetMemberUserMemId(this ModuleNode module, string memberName)
@@ -258,7 +258,7 @@ public static class ModuleNodeExtensions
 
     /// <summary>
     /// The interface names named by this module's own <c>Implements</c> directives
-    /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written: unresolved, in source order. A
+    /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written — unresolved, in source order. A
     /// project-qualified name (<c>Implements Project.IFoo</c>) yields just <c>IFoo</c>: RDCore only
     /// ever composes one project's modules at a time, so the qualifier can only ever mean this same
     /// project. A half-typed <c>Implements</c> with no name at all is skipped.

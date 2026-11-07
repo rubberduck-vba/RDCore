@@ -70,7 +70,9 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
     /// <summary>Erase-in-line: fills from the cursor to the end of the line with the current background.</summary>
     private const string EraseToEndOfLine = "\u001b[K";
 
-    /// <summary>Reset every SGR attribute: back to the frame's own colours, once <see cref="Apply"/> has run.</summary>
+    /// <summary>
+    /// Reset every SGR attribute: back to the frame's own colours, once <see cref="Apply"/> has run.
+    /// </summary>
     private const string ResetAttributes = "\u001b[0m";
 
     private bool _applied;

@@ -63,11 +63,11 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for
-    /// <paramref name="value"/>, its initial value: the caller's argument for a parameter, the
+    /// <paramref name="value"/>, its initial value — the caller's argument for a parameter, the
     /// declared type's default value for a fresh <c>Dim</c>. MS-VBAL draws no distinction between a
     /// parameter and a <c>Dim</c> local for name-resolution purposes, so both are declared this way.
     /// </summary>
-    /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame: a compile-time <c>DuplicateDeclaration</c> that should never reach runtime.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame — a compile-time <c>DuplicateDeclaration</c> that should never reach runtime.</exception>
     void Push(Symbol symbol, VBTypedValue value);
 
     /// <summary>
@@ -79,7 +79,7 @@ public interface ICallStackFrame : IStackFrame
 
     /// <summary>
     /// Gets the <see cref="MemoryAddress"/> currently reserved for the specified locally-scoped
-    /// <see cref="Symbol"/> on this frame, if any: a <c>ByRef</c> parameter (<see cref="Push"/>ed by
+    /// <see cref="Symbol"/> on this frame, if any — a <c>ByRef</c> parameter (<see cref="Push"/>ed by
     /// aliasing an existing address rather than allocating one of its own) resolves to the SAME address
     /// its argument does, exactly like an ordinary declared local.
     /// </summary>

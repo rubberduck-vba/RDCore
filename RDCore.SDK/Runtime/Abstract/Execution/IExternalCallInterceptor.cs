@@ -36,7 +36,7 @@ public readonly record struct ExternalCallDecision(string? Reason)
 /// 🎯 The reason this exists: a VBA environment that can call into native libraries is a way to run
 /// arbitrary code, and the historical answer to that has been for administrators to disable the whole
 /// language because nothing could see what a macro actually did. This is the seam that makes the calls
-/// visible (every one of them, with its arguments, before it runs), and refusable one at a time.
+/// visible — every one of them, with its arguments, before it runs — and refusable one at a time.
 /// <para>
 /// Interceptors are ordered and every one of them sees the call; the first to refuse it stops it. An
 /// interceptor is expected to be cheap and to have no opinion about most calls: it runs in front of
@@ -44,7 +44,7 @@ public readonly record struct ExternalCallDecision(string? Reason)
 /// </para>
 /// <para>
 /// 🚧 An interceptor cannot yet <em>answer</em> a call. That is the same seam a mock needs, and is where the
-/// planned Unit Testing extension's <c>MsgBox</c>/<c>InputBox</c> substitution lands: TODO extend
+/// planned Unit Testing extension's <c>MsgBox</c>/<c>InputBox</c> substitution lands — TODO extend
 /// <see cref="ExternalCallDecision"/> with a result rather than adding a second mechanism beside this one.
 /// </para>
 /// </remarks>

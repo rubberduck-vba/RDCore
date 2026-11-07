@@ -412,7 +412,7 @@ public abstract class AppHost<TApp>() : IDisposable
     }
 
     /// <summary>
-    /// The minimum log level a component starts with: <see cref="SdkServerOptions.TraceLevel"/> from configuration,
+    /// The minimum log level a component starts with — <see cref="SdkServerOptions.TraceLevel"/> from configuration,
     /// or <see cref="LogLevel.Information"/> when it is unset or invalid. It is a live setting (<see cref="LiveLogLevel"/>): a provider added in a
     /// <see cref="ConfigureExternalLogging"/> override is added with <see cref="LogLevel.Trace"/> - the bare <c>AddFile(path)</c> pins the file at
     /// <see cref="LogLevel.Information"/> and hides JSON-RPC protocol tracing - and the base implementation's filter decides.

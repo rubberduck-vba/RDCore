@@ -130,7 +130,7 @@ public interface IRuntimeSession
     /// (<see cref="ISessionSymbols.DestroyInstance"/>) and forgets it (<see cref="ISessionObjects.TryRemoveObject"/>).
     /// </summary>
     /// <remarks>
-    /// This is the only correct way to drop a reference: calling <see cref="ISessionObjects.RemoveRef"/>
+    /// This is the only correct way to drop a reference — calling <see cref="ISessionObjects.RemoveRef"/>
     /// directly leaves the instance's field storage allocated forever once the count reaches zero,
     /// since nothing else would go on to call <see cref="ISessionSymbols.DestroyInstance"/> for it.
     /// </remarks>
@@ -179,7 +179,7 @@ public interface ISessionSymbols
 {
     /// <summary>
     /// Defines <paramref name="symbol"/> in the given <paramref name="scope"/>. A program-lifetime
-    /// declaration (a standard module's or the global scope's field or variable) is allocated
+    /// declaration — a standard module's or the global scope's field or variable — is allocated
     /// storage immediately, reachable afterwards through <see cref="Resolver"/>'s <c>GetValue</c>.
     /// </summary>
     /// <returns><c>true</c> if the symbol was added; <c>false</c> if it was already defined in that scope.</returns>
@@ -361,14 +361,14 @@ public interface ISessionSymbols
 
     /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
-    /// context (<see cref="ISymbolResolver.ResolveValue"/>): the context of a simple name expression.
+    /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>
     /// <returns><c>true</c> if the name bound to exactly one symbol.</returns>
     bool TryResolveValue(string name, Symbol scope, out Symbol? symbol);
 
     /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the type binding
-    /// context (<see cref="ISymbolResolver.ResolveType"/>): the context of an <c>As</c> clause or the
+    /// context (<see cref="ISymbolResolver.ResolveType"/>) — the context of an <c>As</c> clause or the
     /// operand of <c>New</c>.
     /// </summary>
     /// <returns><c>true</c> if the name bound to exactly one symbol.</returns>
@@ -376,7 +376,7 @@ public interface ISessionSymbols
 
     /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> as a conditional
-    /// compilation constant (<see cref="ISymbolResolver.ResolveConditionalConstant"/>): the context of a
+    /// compilation constant (<see cref="ISymbolResolver.ResolveConditionalConstant"/>) — the context of a
     /// <c>#If</c> directive's expression, and the only one such a constant is accessible to
     /// (<strong>MS-VBAL §3.4.1</strong>).
     /// </summary>
@@ -424,7 +424,7 @@ public interface ISessionSymbols
     int ExtendLiveInstances();
 
     /// <summary>
-    /// Gets the <see cref="IObjectInstance"/> registered for <paramref name="objectId"/>, if any,
+    /// Gets the <see cref="IObjectInstance"/> registered for <paramref name="objectId"/>, if any —
     /// e.g. to resolve a member-access expression's target once <paramref name="objectId"/> is known
     /// from evaluating the object reference it was accessed through.
     /// </summary>

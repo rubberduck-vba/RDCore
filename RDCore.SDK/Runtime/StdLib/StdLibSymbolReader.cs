@@ -86,9 +86,9 @@ public sealed class StdLibSymbolReader
     /// Reads every standard-library declaration an assembly exports.
     /// </summary>
     /// <param name="assembly">
-    /// The assembly to scan. Nothing declares which modules a workspace gets: every VBA project has
-    /// the standard library whether or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>),
-    /// so the set is whatever carries the markers.
+    /// The assembly to scan. Nothing declares which modules a workspace gets — every VBA project has
+    /// the standard library whether or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>)
+    /// — so the set is whatever carries the markers.
     /// </param>
     /// <summary>
     /// The key that says which declaration a standard-library symbol was read off, carried on the symbol as

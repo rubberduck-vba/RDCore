@@ -376,7 +376,7 @@ public static class SyntaxNodeJson
 
     /// <summary>
     /// The node-bearing properties of <paramref name="concreteType"/> other than the generic
-    /// <c>Children</c>/<c>Inputs</c> spine itself, excluding any already marked <c>[JsonIgnore]</c>:
+    /// <c>Children</c>/<c>Inputs</c> spine itself, excluding any already marked <c>[JsonIgnore]</c> —
     /// an ignored property (e.g. <c>VBBinaryOperatorExpressionNode.Left</c>/<c>Right</c>, computed views
     /// that intentionally rely on <c>Children</c> remaining the JSON source of truth) is invisible on
     /// the wire, so it can never justify dropping the one property that actually carries the data.

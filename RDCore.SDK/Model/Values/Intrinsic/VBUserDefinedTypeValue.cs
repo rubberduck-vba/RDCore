@@ -205,7 +205,7 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
 
     /// <summary>
     /// Reserves storage sized for this UDT through <paramref name="storage"/>, and returns a copy of
-    /// this value bound to the resulting address: a UDT's identity <em>is</em> its address, so the
+    /// this value bound to the resulting address — a UDT's identity <em>is</em> its address, so the
     /// allocated copy self-reports the very address it was allocated at.
     /// </summary>
     /// <returns><c>false</c> if the underlying memory space is exhausted.</returns>

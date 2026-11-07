@@ -32,7 +32,7 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     /// The lookup is positional. A bare name, and the last part of a qualified one, is bound by
     /// <see cref="ISymbolResolver.ResolveType"/>; the qualifier is a namespace, bound by
     /// <see cref="ISymbolResolver.ResolveQualifier"/>, where neither a user-defined type nor an Enum type is a
-    /// candidate: neither can contain a type. A <c>Type</c> of the enclosing module that shares the project's
+    /// candidate — neither can contain a type. A <c>Type</c> of the enclosing module that shares the project's
     /// name therefore does not stand in for the project in <c>Project.ClassName</c>, though it is still what the bare
     /// name <c>Project</c> means. When the qualifier is the enclosing project, <paramref name="name"/> is looked up
     /// from the project's own scope, not from <paramref name="handle"/>, so nothing declared in the enclosing module

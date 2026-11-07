@@ -40,9 +40,9 @@ public record class SetCoercionStaticSemantics : StaticSemantics
 
     /// <returns>
     /// <c>true</c> if a Set-coercion operation is <strong>invalid</strong> between the specified source
-    /// and destination data types: either side isn't a specific class, <c>Object</c>, or
+    /// and destination data types — i.e. either side isn't a specific class, <c>Object</c>, or
     /// <c>Variant</c>. <see cref="VBUnknownType"/> on either side (not yet resolved/modeled) can't be
-    /// shown to violate this, so it's deferred rather than flagged: same convention as every other
+    /// shown to violate this, so it's deferred rather than flagged — same convention as every other
     /// rule this evaluator dispatches to.
     /// </returns>
     private static bool IsSetCoercionInvalid(VBType source, VBType destination)

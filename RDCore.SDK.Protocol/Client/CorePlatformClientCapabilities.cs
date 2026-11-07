@@ -221,7 +221,7 @@ public record class ParseTokens(bool IsSupported = false) : CorePlatformClientCa
 public record class DefineSymbols(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
-/// Advertises that the declaring component answers <c>rdcore/session/status</c>: the state of the
+/// Advertises that the declaring component answers <c>rdcore/session/status</c> — the state of the
 /// runtime session, including how much of its memory is reserved, allocated and free.
 /// </summary>
 /// <remarks>
@@ -234,13 +234,13 @@ public record class SessionStatus(bool IsSupported = false) : CorePlatformClient
 
 /// <summary>
 /// Advertises that the declaring component runs a procedure of a supplied module and reports what it
-/// printed: <c>rdcore/session/execute</c> to a client, <c>rdcore/host/execute</c> between the
+/// printed — <c>rdcore/session/execute</c> to a client, <c>rdcore/host/execute</c> between the
 /// language server and the component that owns the runtime session.
 /// </summary>
 public record class SessionExecute(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
-/// Advertises that the declaring component takes a module out of the runtime session: <c>rdcore/session/discard</c> to a client,
+/// Advertises that the declaring component takes a module out of the runtime session — <c>rdcore/session/discard</c> to a client,
 /// <c>rdcore/host/discard</c> between the language server and the component that owns the runtime session.
 /// </summary>
 /// <remarks>
@@ -265,7 +265,7 @@ public record class ProjectReload(bool IsSupported = false) : CorePlatformClient
 public record class ProgramDebugging(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
-/// Advertises that the declaring component analyzes a supplied module and reports diagnostics:
+/// Advertises that the declaring component analyzes a supplied module and reports diagnostics —
 /// <c>rdcore/session/analyze</c>, the editor-less counterpart to LSP's own diagnostics pull.
 /// </summary>
 public record class SessionAnalyze(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
@@ -290,7 +290,7 @@ public record class SessionSemanticTokens(bool IsSupported = false) : CorePlatfo
 
 /// <summary>
 /// Advertises that the declaring component reads and writes single bytes of a live runtime session's
-/// memory: <c>PEEK</c> and <c>POKE</c>, unchecked.
+/// memory — <c>PEEK</c> and <c>POKE</c>, unchecked.
 /// </summary>
 public record class SessionMemoryAccess(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
@@ -333,12 +333,12 @@ public record class RubberduckIndenterSettings(bool IsSupported = false) : CoreP
 public record class SemanticAnalysis(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
-/// Advertises that the declaring extension answers <c>rdcore/diagnostics/document</c>: it is a
+/// Advertises that the declaring extension answers <c>rdcore/diagnostics/document</c> — it is a
 /// diagnostics provider the language server fans <c>textDocument/diagnostic</c> pulls out to.
 /// </summary>
 /// <remarks>
 /// Declared via <c>[assembly: ProvidesCorePlatformClientCapability&lt;DiagnoseDocument&gt;]</c>;
-/// <c>rdc.exe describe-ext</c> records it in the extension's manifest (<c>ExtensionInfo</c>), which is where the language server reads it: nothing is negotiated over
+/// <c>rdc.exe describe-ext</c> records it in the extension's manifest (<c>ExtensionInfo</c>), which is where the language server reads it — nothing is negotiated over
 /// <c>rdcore/platform/initialize</c> for this capability.
 /// </remarks>
 public record class DiagnoseDocument(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);

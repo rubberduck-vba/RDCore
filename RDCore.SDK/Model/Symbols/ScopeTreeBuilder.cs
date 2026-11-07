@@ -28,7 +28,7 @@ namespace RDCore.SDK.Model.Symbols;
 public static class ScopeTreeBuilder
 {
     /// <summary>
-    /// Builds the scope tree for <paramref name="symbols"/>. Any subset is valid input: a symbol
+    /// Builds the scope tree for <paramref name="symbols"/>. Any subset is valid input — a symbol
     /// whose enclosing scope is not in the set is placed in the <see cref="ScopeTree.Global"/> scope.
     /// </summary>
     public static ScopeTree Build(IEnumerable<Symbol> symbols)

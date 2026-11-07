@@ -34,7 +34,7 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
 
     /// <summary>
     /// Deserialization path: <c>Left</c>/<c>Right</c> are what the JSON actually carries now (see
-    /// <c>SyntaxNodeJson</c>): <c>Children</c> is redundant with them and gets omitted on write, so it
+    /// <c>SyntaxNodeJson</c>) — <c>Children</c> is redundant with them and gets omitted on write, so it
     /// can't be relied on to arrive from the wire.
     /// </summary>
     [JsonConstructor]

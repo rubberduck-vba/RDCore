@@ -61,7 +61,7 @@ public sealed class InstructionList
 
     /// <summary>
     /// Looks up the offset a source <see cref="StatementNode"/> lowered to, by its stable
-    /// <see cref="SyntaxNodeId"/>: the fault-statement identity a breakpoint or a runtime error
+    /// <see cref="SyntaxNodeId"/> — the fault-statement identity a breakpoint or a runtime error
     /// anchors to.
     /// </summary>
     /// <returns><c>false</c> when <paramref name="nodeId"/> is not a statement of this body.</returns>

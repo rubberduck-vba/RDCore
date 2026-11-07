@@ -77,7 +77,7 @@ public sealed class LexicalScope
 
     /// <summary>
     /// The symbols this scope declares directly under <paramref name="name"/>, matched
-    /// case-insensitively (<strong>MS-VBAL §3.3.5</strong>: identifiers are not case-sensitive).
+    /// case-insensitively (<strong>MS-VBAL §3.3.5</strong> — identifiers are not case-sensitive).
     /// Empty when the name is not declared here; more than one element means the name is ambiguous
     /// within this scope.
     /// </summary>

@@ -63,7 +63,9 @@ public record class SessionMemoryStatus
     /// <summary>The total address space the session's segments reserve.</summary>
     public int ReservedBytes { get; init; }
 
-    /// <summary>Reserved bytes not currently handed out: <c>reserved - allocated</c>.</summary>
+    /// <summary>
+    /// Reserved bytes not currently handed out: <c>reserved - allocated</c>.
+    /// </summary>
     public int AvailableBytes { get; init; }
 
     /// <summary>Bytes currently handed out to live allocations.</summary>
