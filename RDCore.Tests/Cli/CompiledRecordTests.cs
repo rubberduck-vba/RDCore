@@ -320,18 +320,23 @@ public sealed class CompiledRecordTests
 
     // the program run both ways alike, with the procedure named compiled and recovering and walking back as many times as given (none named: whatever is
     // compiled), then what it printed: what MS-VBA prints.
-    private static async Task AssertPrintsAsync(string program, string? compiled, long recoveries, long walkBacks, params string[] printed)
+    private static Task AssertPrintsAsync(string program, string? compiled, long recoveries, long walkBacks, params string[] printed)
+        => AssertPrintsAsync([], program, compiled, recoveries, walkBacks, printed);
+
+    // the same, in a workspace of the classes given.
+    private static async Task AssertPrintsAsync(IReadOnlyList<(string Name, string Source)> classes, string program, string? compiled, long recoveries,
+        long walkBacks, params string[] printed)
     {
         if (compiled is null)
         {
-            _ = await AssertAlikeAsync(program);
+            _ = await AssertAlikeAsync(program, classes);
         }
         else
         {
-            _ = await AssertAlikeAsync(program, compiled, recoveries, walkBacks);
+            _ = await AssertAlikeAsync(program, compiled, recoveries, walkBacks, classes);
         }
 
-        CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync([], program, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine.Interpreter));
+        CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync(classes, program, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine.Interpreter));
     }
 
     // a field given by reference is the field (MS-VBAL §5.3.1.11): a Let of the field through its record is what the parameter reads after, and what the
@@ -436,4 +441,43 @@ public sealed class CompiledRecordTests
             "    Debug.Print N",
             "    N = N + 100",
             "End Sub"), null, 0, 0, "7", "107  7");
+
+    // a record let where it is lets go of the object its field held as the Let is made, when nothing else holds it, and holds the one the other record's
+    // field holds until the record's own variable ends: of a record variable, of an element of an array of records, and of a record field.
+    [TestMethod]
+    [DataRow("Dim Q As THolder", "Q", "ByRef Q As THolder", "Q", "")]
+    [DataRow("Dim Q(1 To 1) As THolder", "Q(1)", "Q() As THolder", "Q()", "")]
+    [DataRow("Dim Q As TOuter", "Q.Inner", "ByRef Q As TOuter", "Q", "")]
+    public async Task AnObjectInARecordLetWhereItIs_TerminatesWhenTheLetLetsGoOfIt(string declared, string record, string parameter, string given, string _)
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type THolder",
+            "    Item As Noisy",
+            "    Count As Long",
+            "End Type",
+            "Private Type TOuter",
+            "    Inner As THolder",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            $"    {declared}",
+            "    Dim O As THolder",
+            $"    Set {record}.Item = New Noisy",
+            $"    {record}.Item.Name = \"a\"",
+            $"    {record}.Count = 1",
+            "    Set O.Item = New Noisy",
+            "    O.Item.Name = \"b\"",
+            $"    Inner {given}, O, {record}.Count",
+            $"    Debug.Print \"after\"; {record}.Count",
+            "    Set O.Item = Nothing",
+            "    Debug.Print \"cleared\"",
+            "End Sub",
+            $"Private Sub Inner({parameter}, ByRef O As THolder, ByRef N As Long)",
+            "    Debug.Print \"let\"",
+            $"    {record} = O",
+            "    Debug.Print \"done\"; N",
+            "    N = N + 100",
+            "End Sub"), null, 0, 0, "let", "gone a", "done 0", "after 100", "cleared", "gone b", "ended");
 }
