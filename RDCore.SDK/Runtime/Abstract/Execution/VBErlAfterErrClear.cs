@@ -19,7 +19,7 @@ public enum VBErlAfterErrClear
     Reset = 0,
 
     /// <summary>
-    /// <c>Err.Clear</c> leaves <c>Erl</c> as it is, bug for bug with MS-VBA.
+    /// <c>Err.Clear</c> leaves <c>Erl</c> as it is, as MS-VBA does.
     /// </summary>
     /// <remarks>
     /// Choose it when a workspace's own code depends on MS-VBA's behaviour, such as a handler that clears the error before

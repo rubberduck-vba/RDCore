@@ -156,8 +156,9 @@ public interface ISessionErrorState
     /// <c>On Error</c> statement.
     /// </remarks>
     /// <param name="keepLineNumber">
-    /// Whether <see cref="LineNumber"/> is left as it is: <c>Err.Clear</c>'s, when the environment says it keeps <c>Erl</c>
-    /// (<see cref="VBErlAfterErrClear.Kept"/>, <strong>RD-VBAL §6.1.2.7.1.14</strong>). Every other way to clear the error resets it.
+    /// <c>true</c> to leave <see cref="LineNumber"/> as it is, as <c>Err.Clear</c> does when the environment keeps <c>Erl</c>
+    /// (<see cref="VBErlAfterErrClear.Kept"/>, <strong>RD-VBAL §6.1.2.7.1.14</strong>). <c>false</c>, the default, resets it, as every other way to clear
+    /// the error does.
     /// </param>
     /// <returns><c>true</c> if there was an error to clear.</returns>
     bool Clear(bool keepLineNumber = false);

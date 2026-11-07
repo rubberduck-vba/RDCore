@@ -82,8 +82,8 @@ public interface IRuntimeEnvironmentProfile
     VBErlLineNumbering ErlLineNumbering { get; }
 
     /// <summary>
-    /// What <c>Err.Clear</c> does to the line <c>Erl</c> reports. <c>Reset</c> unless a workspace asks for MS-VBA's own
-    /// behaviour.
+    /// What <c>Err.Clear</c> does to the line <c>Erl</c> reports: <see cref="VBErlAfterErrClear.Reset"/> unless a workspace asks for
+    /// MS-VBA's behaviour.
     /// </summary>
     VBErlAfterErrClear ErlAfterErrClear { get; }
 
