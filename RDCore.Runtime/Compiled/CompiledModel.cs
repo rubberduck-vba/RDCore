@@ -235,8 +235,8 @@ internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNo
 // Kind is not read.
 internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(default(ScalarKind));
 
-// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the cell its frame holds it in,
-// which the parameter is a second name for. Only an argument of a call; its Kind is not read.
+// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
+// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // an instruction of the body, compiled: each is at the offset of the instruction it is.

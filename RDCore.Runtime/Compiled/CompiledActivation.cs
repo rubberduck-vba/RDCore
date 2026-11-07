@@ -357,12 +357,32 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter given Strings: the text they
-    /// are (<see langword="null"/> for <c>vbNullString</c>), a <c>String</c> as the interpreter passes one by value. The cell of a <c>String</c> variable
-    /// given by reference is given with <see cref="SetReference"/>.
+    /// are (<see langword="null"/> for <c>vbNullString</c>), a <c>String</c> as the interpreter passes one by value. A <c>String</c> variable given by
+    /// reference is given with <see cref="SetTextReference"/>.
     /// </summary>
     /// <param name="index">The argument's position in the callee's parameter list.</param>
     /// <param name="text">The text given; <see langword="null"/> for <c>vbNullString</c>.</param>
     public void SetText(int index, string? text) => SetReference(index, new VBRuntimeValue<string>(text!));
+
+    /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter passed by reference given
+    /// a <c>String</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The variable has one address
+    /// from then on, whichever name it is read by, so <c>VarPtr</c> of the parameter is <c>VarPtr</c> of the variable; its cell is bound at the address,
+    /// and compiled code goes on reading and writing that cell.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list.</param>
+    /// <param name="slot">The slot of the variable given.</param>
+    /// <returns><see langword="false"/> when the variable cannot be given an address: the interpreter then makes the call.</returns>
+    public bool SetTextReference(int index, int slot)
+    {
+        if (!Frame.TryGetAddress(_body.SlotSymbols[slot], out var address))
+        {
+            return false;
+        }
+
+        SetReference(index, new VBRuntimeReference(address));
+        return true;
+    }
 
     /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
@@ -373,7 +393,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
     /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
-    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>), and the value of anything else, of which the callee
+    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>; the address of a <c>String</c> variable,
+    /// <see cref="SetTextReference"/>), and the value of anything else, of which the callee
     /// makes a cell of its own: the instruction at <paramref name="pc"/> is the one that makes
     /// the call, which the frame says while the callee runs.
     /// </summary>
@@ -527,7 +548,7 @@ public sealed class CompiledActivation : ILightActivation
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
     // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
-    // the object a member is called on. A String is given the text (SetText), or the cell of the String variable given (SetReference).
+    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference).
     private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
         var arguments = new IRuntimeValue[first + called.Parameters.Count];
@@ -535,7 +556,7 @@ public sealed class CompiledActivation : ILightActivation
         {
             if (called.Parameters[i] is not { } kind)
             {
-                arguments[first + i] = _references[i] is IRuntimeValue text ? text : new CellReference(Unsafe.As<IBindingHandle>(_references[i]!));
+                arguments[first + i] = (IRuntimeValue)_references[i]!;
                 continue;
             }
 

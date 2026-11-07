@@ -749,11 +749,19 @@ internal sealed partial class ProcedureEmitter
                 continue;
             }
 
-            // a String: the cell of the variable given, or the text given.
-            if (call.Arguments[i] is TextArgumentNode or TextReferenceNode)
+            // a String: the address of the variable given, or the text given.
+            if (call.Arguments[i] is TextReferenceNode reference)
+            {
+                _il.Emit(OpCodes.Ldc_I4, reference.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetTextReference))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                continue;
+            }
+
+            if (call.Arguments[i] is TextArgumentNode)
             {
                 _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
-                _il.Emit(OpCodes.Call, Activation.GetMethod(call.Arguments[i] is TextReferenceNode ? nameof(CompiledActivation.SetReference) : nameof(CompiledActivation.SetText))!);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetText))!);
                 continue;
             }
 

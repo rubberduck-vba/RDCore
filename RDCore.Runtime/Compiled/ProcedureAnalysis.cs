@@ -712,11 +712,12 @@ internal sealed partial class ProcedureAnalysis
     public List<CompiledCallee> Callees { get; } = [];
 
     // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
-    // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what it returns is let go
-    // of as a temporary of the statement, which compiled code holds none of. A parameter passed by reference is given the cell of a variable of the
-    // activation of its kind, which is held in one from then on, or a cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made
-    // with RuntimeProcedureInvoker.InvokeScalars, as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with
-    // the cells as the interpreter passes them (CellReference) when any is passed by reference.
+    // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar
+    // kind when it is not - what it returns is let go of as a temporary of the statement, which compiled code holds none of. A parameter passed by
+    // reference is given the cell of a variable of the activation of its kind, which is held in one from then on, the address of a String variable, or a
+    // cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made with RuntimeProcedureInvoker.InvokeScalars, as
+    // RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with the arguments as the interpreter passes them
+    // (CellReference, VBRuntimeReference) when any is passed by reference.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
