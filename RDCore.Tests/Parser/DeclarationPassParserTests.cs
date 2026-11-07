@@ -890,6 +890,21 @@ End Sub
         Assert.AreEqual(expectedIsStringInput, mid.IsStringInput);
     }
 
+    // MS-VBAL §3.3: the `(` of a Mid statement takes the blanks before it, as any token does. With them, it is the Mid statement still, and no assignment
+    // to what a call of a function Mid returns.
+    [TestMethod]
+    [DataRow("Mid (x, 1, 3) = \"foo\"")]
+    [DataRow("Mid$ (x, 1) = \"foo\"")]
+    [DataRow("MidB\t(x, 1, 3) = \"foo\"")]
+    public void MidStatement_WithBlanksBeforeItsParentheses_IsAMidStatement(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)member.Children.OfType<MidStatementNode>().Single().Target).IdentifierName);
+    }
+
     [TestMethod]
     public void GoToStatement_CapturesLabelExpression()
     {
@@ -2270,10 +2285,8 @@ End Sub
     }
 
     [TestMethod]
-    // this grammar's outputItem never actually pairs a value with its trailing separator in one node
-    // (outputClause and charPosition each surface as their own item, confirmed empirically here, not
-    // assumed) - a value item's own Separator is always null; the separator that visually follows it
-    // is the *next* item, with a null Value.
+    // the grammar reads a value (outputItem) and a separator (outputPosition) as items of their own, and so does the tree: a value item's own Separator is
+    // always null, and the separator that follows it is the *next* item, with a null Value.
     public void PrintStatement_CapturesFileNumberAndItemsWithSeparators()
     {
         var result = ParseInProcedure("""Print #1, "a"; "b", "c" """.TrimEnd());
@@ -2532,6 +2545,23 @@ End Sub
     }
 
     [TestMethod]
+    // a line continuation before or after the dot of `obj.Print` leaves it the Print of an object, however many blanks are written before the underscore: those
+    // before the continuation's own blank are whitespace tokens of their own.
+    [DataRow("obj. _\r\n    Print x = 0", DisplayName = "a blank, then the underscore after the dot")]
+    [DataRow("obj.   _\r\n    Print x = 0", DisplayName = "blanks, then the underscore after the dot")]
+    [DataRow("obj.\t\t_\r\n    Print x = 0", DisplayName = "tabs, then the underscore after the dot")]
+    [DataRow("obj   _\r\n    .Print x = 0", DisplayName = "blanks, then the underscore before the dot")]
+    public void AnObjectPrintOfAComparison_ContinuedAtItsDot_IsACallStatement(string statement)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = (ObjectPrintExpressionNode)member.Children.OfType<CallStatementNode>().Single().Callee;
+
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
     // whitespace after `Print` begins the output list, a line continuation as much as a space: what is on the next line is the first operand of an expression of
     // the list - and not the arguments of an index of `obj.Print`, a member of it or a dictionary access on it.
     [DataRow("(1) = 5")]
@@ -2578,19 +2608,19 @@ End Sub
     }
 
     [TestMethod]
-    // a Tab or Spc clause before the `=` is still in an output list, so the statement is no Let. MS-VBAL reserves neither name (3.3.5.2), so each of these is
-    // also an output list with an equality in it (`Tab(2) = 5`, the clause `Tab` and then `(2) = 5`); which one it is, is left to the parser's full LL pass.
+    // a Tab or Spc clause before the `=` is still in an output list, so the statement is no Let; and what follows the clause is no item of the list. MS-VBAL
+    // would read `Tab(2) = 5` as the clause `Tab` right before the item `(2) = 5`; RD-VBA requires a separator between two clauses (RD-VBAL 5.4.5.8), and MS-VBA
+    // refuses each of these, kept as typed, with "Compile error: Syntax error" (Excel, oracle\s70 A14-A17).
     [DataRow("Debug.Print Tab(2) = 5")]
     [DataRow("Debug.Print Spc(2) = 5")]
     [DataRow("Debug.Print Tab = 5")]
     [DataRow("Debug.Print x; Tab(2) = 5")]
-    public void AnObjectPrintWithATabOrSpcClauseBeforeAnEqualSign_IsNoLet(string statement)
+    public void AnObjectPrintWithATabOrSpcClauseBeforeAnEqualSign_IsASyntaxError_AndNoLet(string statement)
     {
-        var result = ParseInProcedure(statement);
-        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var result = ParseWithoutExpectation(statement);
 
-        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
-        Assert.ContainsSingle(member.Children.OfType<DebugPrintStatementNode>());
+        Assert.IsFalse(result.IsSuccess, statement);
+        Assert.IsEmpty(result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<AssignmentStatementNode>(), statement);
     }
 
     [TestMethod]

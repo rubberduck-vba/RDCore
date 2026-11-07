@@ -47,7 +47,7 @@ Step 3 takes precedence over step 4, in the order **MS-VBAL §5.4.2.13** lists t
 
 |Condition|Run-time error|
 |---|---|
-|*n* is negative, or greater than 255 (step 4).|5 — Invalid procedure call or argument|
+|*n* is negative, or greater than 255 (step 4).|5 (Invalid procedure call or argument)|
 
 A label with no statement after it, including the end-label of the lexically enclosing procedure declaration,
 resolves to the offset right past the last instruction. A branch to it completes the activation as if execution
@@ -64,6 +64,3 @@ had reached the end of the procedure body
 - `JumpTableEvaluator` Let-coerces the selector by calling `VBNumericLetCoercionTypeRuntimeSemantics` directly,
   bypassing the let-coercion provider. `ConditionEvaluator` likewise bypasses the provider to force a condition to
   `Boolean` ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.12** GoTo Statement](rd-vbal.5.4.2.12.goto-statement.md) | ⏭️ [**RD-VBAL §5.4.2.14** GoSub Statement](rd-vbal.5.4.2.14.gosub-statement.md)

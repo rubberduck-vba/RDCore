@@ -1,6 +1,6 @@
 # 2.0.2 Client/Server Capabilities
 
-🧩 RDCore operates on a **capability-driven host model**. The capabilities of platform extensions are negotiated with the RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
+RDCore operates on a **capability-driven host model**. The capabilities of platform extensions are negotiated with the RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
 
 The RDCore platform is a set of cooperating processes:
 
@@ -75,6 +75,29 @@ reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the
 the English ones. Only the language of the user interface is the client's: how numbers and dates are written and read does not depend on it. A `locale`
 the platform does not know is logged and ignored; a client that sends none is answered in the language the server's process starts in.
 
+## 2.0.2.1.3 What the server asks before it answers initialize
+
+The language server loads its workspace while it answers `initialize`, and what it finds there can need the user's answer: a project file it cannot read is
+offered to be regenerated ([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). LSP allows a server to ask with `window/showMessageRequest` before it
+answers `initialize`, and the server waits for the answer, so a client that cannot answer then would wait forever for the answer to `initialize`.
+
+The `rdc` shell is such a client: OmniSharp's language client (0.19.9) sends nothing before it is initialized except its `initialize` request, its
+`initialized` notification, and responses that carry a result; every other message waits until it is initialized. Error responses are held as well,
+including the answer of a handler that fails, of a client whose user cannot be asked, and of a client that has no handler for the request.
+
+So before it answers `initialize`, the server asks only a client whose `initializationOptions` say both of these:
+
+- `answersDuringInitialize` is `true` ([`AnswersDuringInitialize`](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)): the client
+  answers with a choice or with none, and never with an error;
+- the client is not `unattended`.
+
+```json
+{ "language": "basic", "answersDuringInitialize": true }
+```
+
+A client that does not say so is not asked: the server does without the answer, as it does when a user closes the question, and says why the project did
+not open (`window/showMessage`). The `rdc` shell says so when someone is typing at it, and not when its input is a script or it runs `--unattended`.
+
 ## 2.0.2.2 Platform components
 
 |`CoreServerComponent`|Process|Role|
@@ -126,7 +149,7 @@ Capability providers for extensions distributed through the RDCore Platform Clou
 
 The project scope is an ancestor of a module's own scope and of nothing else (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 
-👉 In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
+In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
 
 ### `rdcore/diagnostics/document`
 
@@ -202,7 +225,7 @@ A request that is made of what a document was would make a keystroke wait for it
   - A change to another document changes nothing for it.
 - **A request the client cancels ends at once,** answered `RequestCancelled` (-32800), whatever the work under it is still doing.
 
-👉 In HexIDE, a completion sent right after a keystroke, while the diagnostics and the semantic tokens of a 2,100-line module are being found, waits for neither.
+In HexIDE, a completion sent right after a keystroke, while the diagnostics and the semantic tokens of a 2,100-line module are being found, waits for neither.
 
 ### `workspace/diagnostic`
 
@@ -243,7 +266,7 @@ Each is a request, which the client answers; a client that sent none of a capabi
 
 The client is asked once for a burst of changes (each keystroke of a name is one), when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
 
-👉 OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
+OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
 
 ### Requests that fail
 
@@ -772,11 +795,12 @@ no other way for the language server to write a setting of a client, and the cli
 
 The language server sends the requests only to a client that expects the capability:
 
-- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer.
+- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer:
+  - a user who closes the question has answered it;
+  - a client with nobody there to answer answers the request with an error instead, as the `rdc` shell does when its input is a script or it has ended, and the server asks again at the next start;
+  - a client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked at all that start, and is asked at a start where it does not expect it;
+  - when the user chooses _Import_ and the client cannot apply the settings, the server asks again at the next start.
 - **On request.** The command `rdcore.importIndenterSettings` ([`workspace/executeCommand`](#workspaceexecutecommand)) runs the two requests against the client that sent it, and answers `{ "source", "found", "applied", "message" }`. A client that does not expect the capability is refused with a message. That nothing was found is an answer, not a refusal.
 
 The interactive shell expects the capability. It reads Rubberduck on Windows, and answers `None` elsewhere. `CONFIG IMPORT RUBBERDUCK` in the shell, and `rdc config import rubberduck` in command mode, do the same
 without the language server: they read, map and set the settings for the user.
-
----
-> ⏮️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md) | ⏭️ [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)

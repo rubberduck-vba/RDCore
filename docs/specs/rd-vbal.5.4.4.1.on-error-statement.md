@@ -25,7 +25,7 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) 
 
 |Condition|Compile error|
 |---|---|
-|`On Error GoTo` names a handler label that is not defined, e.g. `On Error GoTo Handler` with no `Handler:`.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
+|`On Error GoTo` names a handler label that is not defined, e.g. `On Error GoTo Handler` with no `Handler:`.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
 
 `On Error GoTo 0` and `On Error GoTo -1` do not refer to a label. The `0` of `On Error GoTo 0` and the `-1` of
 `On Error GoTo -1` are never looked up as labels: `VBC09309` is not raised for them, whether or not the procedure
@@ -119,6 +119,3 @@ scoped to one block.
 |`ErrorHandlingMode`|`Disabled`, `ResumeNext`, `GoTo` (**RDCore.SDK**).|
 |[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ErrorHandler`|Reads the activation's `ErrorHandlerState`; read-only on the SDK interface, and written only by the executor through `CallStackFrame.ErrorHandler`. See [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md).|
 |[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html)|Lowers `On Error GoTo 0` as `OnErrorDisable`, `On Error GoTo -1` as `OnErrorReset`, and `On Error GoTo <label>` as `OnErrorGoTo` (**RDCore.SDK**).|
-
----
-> ⏮️ [**RD-VBAL §5.4.4** Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md) | ⏭️ [**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)

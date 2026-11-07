@@ -29,6 +29,3 @@ The uniqueness of the _workspace folder_ names under a given _workspace_ is mand
 
 > [!WARNING]
 > RD-VBA **identifier names are semantically case-insensitive**. Folder names "`project1`" and "`Project1`" are **considered identical**, regardless of whether the underlying file system distinguishes them.
-
----
-> ⏮️ [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structure.md) | ⏭️ [**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md)

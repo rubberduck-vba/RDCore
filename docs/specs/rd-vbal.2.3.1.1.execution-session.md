@@ -21,6 +21,3 @@ In `Break` mode, instructions can be manually stepped over or into, or rewound
 
 The services an execution session is rooted at are described in
 [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md).
-
----
-> ⏮️ [**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md) | ⏭️ [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)

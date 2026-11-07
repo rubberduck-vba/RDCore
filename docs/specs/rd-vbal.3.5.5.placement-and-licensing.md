@@ -93,6 +93,3 @@ function result values, and the call-depth guard. It is in RDCore.Runtime (GPLv3
 The `IProcedureInvoker` / `RuntimeProcedureInvoker` split matches the SDK-contract / Runtime-implementation split
 that every other execution-engine piece follows. See
 [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md).
-
----
-> ⏮️ [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md) | ⏭️ [**RD-VBAL §3.5.6** Compiled Execution](rd-vbal.3.5.6.compiled-execution.md)

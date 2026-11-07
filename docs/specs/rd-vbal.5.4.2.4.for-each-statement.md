@@ -8,7 +8,7 @@
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
 |[ForEachStatementNode](../api/RDCore.SDK.Model.AST.Statements.ForEachStatementNode.html)|`ForEachOpener`|The `For Each` opener. Its `End` is the offset right past the `Next` closer.|
-|— (synthesized)|`ForEachNext`|The `Next` closer; `Node` is `null`. Its `Target` is the body's first instruction; its `Matching` is the offset of its `ForEachOpener`.|
+|None (synthesized)|`ForEachNext`|The `Next` closer; `Node` is `null`. Its `Target` is the body's first instruction; its `Matching` is the offset of its `ForEachOpener`.|
 
 The resolved targets have the same shape as a `For` loop's
 ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md);
@@ -97,11 +97,11 @@ the host finds the enumeration member and the default member of a workspace clas
 
 |Condition|Run-time error|
 |---|---|
-|The collection is an array that was never initialized (`VBArrayValue.IsInitialized` is false).|92 — For loop not initialized|
-|`ForEachNext` finds no stored `ForEachState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 — For loop not initialized|
-|The collection is `Nothing`.|91 — Object variable or With block variable not set|
-|The collection is a live object with no `VB_UserMemId = -4` member, or the enumerator it returns has no `MoveNext` and `Current`.|438 — Object doesn't support this property or method|
-|The collection is anything else (a scalar).|13 — Type mismatch|
+|The collection is an array that was never initialized (`VBArrayValue.IsInitialized` is false).|92 (For loop not initialized)|
+|`ForEachNext` finds no stored `ForEachState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 (For loop not initialized)|
+|The collection is `Nothing`.|91 (Object variable or With block variable not set)|
+|The collection is a live object with no `VB_UserMemId = -4` member, or the enumerator it returns has no `MoveNext` and `Current`.|438 (Object doesn't support this property or method)|
+|The collection is anything else (a scalar).|13 (Type mismatch)|
 
 MS-VBAL does not separately call out an array that was never initialized. MS-VBA raises error 92 for it, because
 the collection itself was never set up; a declared array with zero elements is the "no elements" case instead.
@@ -145,6 +145,3 @@ subscript arithmetic. The index a `ForEachState` holds is this flat index.
   [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html) that `SymbolAddressTable`
   boxed for the variable, and returns the same instance with its cells intact
   ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md) | ⏭️ [**RD-VBAL §5.4.2.5** Exit For Statement](rd-vbal.5.4.2.5.exit-for-statement.md)

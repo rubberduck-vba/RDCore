@@ -9,7 +9,7 @@
 |---|---|---|---|
 |A bare name|[SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)|Default binding context|[ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.ResolveValue`|
 
-🎯 In **RDCore**, name lookups are an explicit evaluation step involving specific AST nodes such as
+In **RDCore**, name lookups are an explicit evaluation step involving specific AST nodes such as
 `SimpleNameExpressionNode`. A simple name expression calls `ISymbolResolver.ResolveValue`, which binds under the
 _default binding context_. See [**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md).
 
@@ -54,7 +54,7 @@ The name of a class that is not predeclared, used in an expression, is an undefi
 is [`VBC09335`](../diagnostics/vbc09335.md) _Type-declaration character does not match declared data type_, as it is in MS-VBA. A function of the library
 that has a form with the character in its name (`Left$`) is that form.
 
-🎯 A reserved function of the library takes any type character, which **MS-VBA** ignores (recorded in Excel): `Len$("abc")` is `3`, a `Long`, and `CVar$(5)`,
+A reserved function of the library takes any type character, which **MS-VBA** ignores (recorded in Excel): `Len$("abc")` is `3`, a `Long`, and `CVar$(5)`,
 `Abs%(-3)` and `CInt$(2.6)` are the functions without it. RD-VBA does as MS-VBA does, and [`RDC11019`](../diagnostics/rdc11019.md) warns where the character
 is not the function's type. Any other function of the library refuses a character that does not match: `Asc$("A")`, `Sqr$(4)` are `VBC09335`.
 
@@ -185,6 +185,3 @@ A plain array-typed variable read back as an expression (`SimpleNameExpressionNo
 |---|---|
 |`SimpleNameExpressionStaticSemantics`|Static semantics: the declared type of a simple name expression, and its compile-time errors.|
 |`RuntimeExpressionEvaluator.EvaluateSimpleName` (**RDCore.Runtime**)|Runtime semantics: a value read, an implicit call, or a read of the function result variable.|
-
----
-> ⏮️ [**RD-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md) | ⏭️ [**RD-VBAL §5.6.11** Instance Expressions](rd-vbal.5.6.11.instance-expressions.md)

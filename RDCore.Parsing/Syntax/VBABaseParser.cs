@@ -71,12 +71,13 @@ public abstract class VBABaseParser : Parser
 
     // Whether the statement that begins with the next token is the Print of an object with an output list (`Debug.Print x = 0`): an output list is no part of an
     // l-expression, so that is never the target of a Let. Only the tokens before the first `=` outside parentheses and brackets can be the target. Outside them,
-    // the lExpression rule has whitespace in two places only: a line continuation (mandatoryLineContinuation, and the whitespace whitespaceIndexExpr allows after
-    // one), and the whitespace that begins the output list of objectPrintExpr. So whitespace after the `.Print` of an object, a line continuation included, begins
-    // an output list - which is how objectPrintExpr reads `obj.Print _` with `(1)` on the next line - unless what follows it is the `=` of the Let or the end of the
-    // statement. A `.Print` with nothing before it is the member of a With block's object (withMemberAccessExpr), which has no output list: with `(1) = 5` after a
-    // line continuation, it is the Let it reads as. The scan stops at a colon, a comment or the end of the line, so in a single-line If it can go on past an Else,
-    // which does no harm: the `=` of a Let comes before it.
+    // the lExpression rule has whitespace in three places: a line continuation (mandatoryLineContinuation, and the whitespace whitespaceIndexExpr allows after
+    // one), the blanks before an argument list (whitespaceIndexExpr), and the whitespace that begins the output list of objectPrintExpr. After the `.Print` of an
+    // object, objectPrintExpr is the earlier alternative, so whitespace there, a line continuation included, begins an output list - which is how
+    // objectPrintExpr reads `obj.Print _` with `(1)` on the next line, and `obj.Print (1) = 2` as the Print of a comparison - unless what follows it is the `=` of
+    // the Let or the end of the statement. A `.Print` with nothing before it is the member of a With block's object (withMemberAccessExpr), which has no output
+    // list: with `(1) = 5` after a line continuation, it is the Let it reads as. The scan stops at a colon, a comment or the end of the line, so in a single-line
+    // If it can go on past an Else, which does no harm: the `=` of a Let comes before it.
     // Should lExpression have whitespace anywhere else outside parentheses, this has to know of it.
     protected bool IsObjectPrintWithOutputList()
     {
@@ -109,9 +110,15 @@ public abstract class VBABaseParser : Parser
     // `i` is the index of the token after a dot.
     private bool IsPrintWithOutputList(int i)
     {
-        if (TokenTypeAt(i) == VBALexer.LINE_CONTINUATION)
+        // a line continuation is the blank right before its underscore: the blanks written before that one are whitespace tokens ahead of it.
+        var continuation = i;
+        while (TokenTypeAt(continuation) == VBALexer.WS)
         {
-            i++;
+            continuation++;
+        }
+        if (TokenTypeAt(continuation) == VBALexer.LINE_CONTINUATION)
+        {
+            i = continuation + 1;
             while (TokenTypeAt(i) == VBALexer.WS)
             {
                 i++;
@@ -182,6 +189,48 @@ public abstract class VBABaseParser : Parser
 
         return TokenTypeAtRelativePosition(offset) == VBALexer.COLON;
     }
+
+    // MS-VBAL §5.4.5.8.1: at the start of an output clause, `Tab` is a tab clause and `Spc` followed by `(` a spc clause, never an expression that calls a name
+    // Spc or Tab. The VBE writes `Spc(1)(2)` as `Spc(1); (2)` (oracle\s69 O04). Without this, the argument list of a name read `Spc(1)(2)` as one
+    // expression, an index of `Spc(1)`, when what follows the clause was no output item it could be.
+    protected bool IsSpcOrTabClauseAhead()
+    {
+        switch (TokenTypeAtRelativePosition(1))
+        {
+            case VBALexer.TAB:
+                return true;
+            case VBALexer.SPC:
+                var offset = 2;
+                while (TokenTypeAtRelativePosition(offset) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+                {
+                    offset++;
+                }
+                return TokenTypeAtRelativePosition(offset) == VBALexer.LPAREN;
+            default:
+                return false;
+        }
+    }
+
+    #endregion
+
+    #region Precedence of an l-expression
+    // MS-VBAL §3.3: a token takes the white space before it, so blanks between an l-expression and `(` leave the parentheses its argument list, and
+    // `x = F (2)` calls F with 2, as MS-VBA reads it. In a list to print, the blanks are no separator of two output items: `Debug.Print F (2)` calls F too.
+    // They are read otherwise right after the callee of a call statement, where `F (2)` is F called with the argument (2), and after the object of a Line
+    // statement, where `Line (0, 0) - (1, 1)` begins with its first point.
+    // That reading is lExpression's last alternative, of this precedence, the lowest. As such a callee, lExpression is entered above it, and the alternative
+    // is left out of each of its predictions before a token is read: a predicate of its own would be evaluated only once the prediction had read the
+    // statement to its end, and `Foo (Bar(1))` would be read to its end to tell a call statement from an index.
+    private const int BlankArgumentListPrecedence = 1;
+
+    public override void EnterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence)
+        => base.EnterRecursionRule(localctx, state, ruleIndex,
+            ruleIndex == VBAParser.RULE_lExpression && IsCallee(localctx) ? Math.Max(precedence, BlankArgumentListPrecedence + 1) : precedence);
+
+    // whether an l-expression is what a call statement without Call calls, or the object and the word of a Line statement: with Call, `Call F (2)` calls F
+    // with 2.
+    private static bool IsCallee(RuleContext context)
+        => context.Parent is VBAParser.CallStmtContext call && call.CALL() is null || context.Parent is VBAParser.LineSpecialFormContext;
     #endregion
 
     #region Grammar-level recovery helpers

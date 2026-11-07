@@ -34,6 +34,3 @@ property. Two diagnostics report a property declaration that does not:
   See [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md).
 - [VBVoidType](../api/RDCore.SDK.Model.Types.Complex.VBVoidType.html) is the data type returned by
   `Property Let` and `Property Set` procedures.
-
----
-> ⏮️ [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.8** Event Handler Declarations](rd-vbal.5.3.1.8.event-handler-declarations.md)

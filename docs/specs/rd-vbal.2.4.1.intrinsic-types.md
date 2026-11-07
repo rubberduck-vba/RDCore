@@ -83,7 +83,7 @@ included. Two strings that differ only in a trailing byte are different values.
 |Its bytes, a trailing byte included|`LenB`; let-coercion to `String` from a `String` (a copy) and to and from `Byte()`; `&`, and `+` between two `String`s; the relational operators; the `MidB` statement, and the `Mid` statement, which keeps a trailing byte it does not replace; a standard-library member's `String` argument.|
 |Its whole characters|`Len`; `Print`, `Print #`, `Write #` and `Put`; the numeric, `Boolean` and `Date` conversions; `LSet`, `RSet` and a fixed-length `String`; `Like`; a `Declare`d procedure's `String` argument, and the `String` and `String * n` fields of a record passed to one; a `String` passed to an automation server.|
 
-👉 The debugger shows a `String`'s characters: a trailing byte is not displayed.
+The debugger shows a `String`'s characters: a trailing byte is not displayed.
 
 ## 2.4.1.3 VBArrayType
 
@@ -131,6 +131,3 @@ The declaration pass keeps each array bound verbatim, as declared. The following
 
 - evaluating each bound to a `Long`;
 - resolving an omitted _lower bound_ against `Option Base` (see [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md)).
-
----
-> ⏮️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.md) | ⏭️ [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)

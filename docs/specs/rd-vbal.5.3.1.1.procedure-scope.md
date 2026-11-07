@@ -4,6 +4,3 @@ This section corresponds to [**MS-VBAL §5.3.1.1** Procedure Scope](https://lear
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.3.1** Procedure Declarations](rd-vbal.5.3.1.procedure-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.2** Static Procedures](rd-vbal.5.3.1.2.static-procedures.md)
