@@ -638,8 +638,77 @@ public partial class ModuleParser(
         var tree = parser.startRule();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
+        if (parser.NumberOfSyntaxErrors > 0)
+        {
+            MarkDanglingOperators(tree, tokens);
+        }
         ParseTreeWalker.Default.Walk(listener, tree);
         return listener;
+    }
+
+    private static readonly HashSet<int> BinaryOperators =
+    [
+        VBAParser.PLUS, VBAParser.MINUS, VBAParser.MULT, VBAParser.DIV, VBAParser.INTDIV, VBAParser.MOD, VBAParser.POW, VBAParser.AMPERSAND,
+        VBAParser.EQ, VBAParser.NEQ, VBAParser.LT, VBAParser.GT, VBAParser.LEQ, VBAParser.GEQ, VBAParser.LIKE, VBAParser.IS,
+        VBAParser.AND, VBAParser.OR, VBAParser.XOR, VBAParser.EQV, VBAParser.IMP,
+    ];
+
+    // what ends a statement: a line, a colon, a comment, the end of the module.
+    private static readonly HashSet<int> EndsOfStatement = [VBAParser.NEWLINE, VBAParser.COLON, VBAParser.SINGLEQUOTE, VBAParser.REM, TokenConstants.Eof];
+
+    /// <summary>
+    /// Marks each expression that a binary operator the parse could not read is written right after, at the end of its statement (<c>a = 1 -</c>), with that
+    /// operator: the listener keeps the two as an unbuilt expression, and not the expression alone as if it were all the statement said.
+    /// </summary>
+    /// <remarks>
+    /// The operation has no right operand, and the grammar's error is reported at its operator. Where the operator can also begin something that follows an
+    /// expression (a unary <c>-</c>, a name such as <c>Mod</c>, the next item of a list to print), the parse ends the expression before it, and the operator
+    /// is a token no rule read; where it cannot, the parse reads the operation, and the listener keeps it unbuilt when it exits it. Valid code has no token
+    /// that no rule read.
+    /// </remarks>
+    private static void MarkDanglingOperators(IParseTree tree, CommonTokenStream tokens)
+    {
+        // each token no rule read, and the outermost expression that ends at each token: an expression is met before the ones it holds.
+        var unread = new List<IToken>();
+        var expressions = new Dictionary<int, VBAParser.ExpressionContext>();
+        var pending = new Stack<IParseTree>([tree]);
+        while (pending.TryPop(out var node))
+        {
+            switch (node)
+            {
+                case IErrorNode error:
+                    unread.Add(error.Symbol);
+                    break;
+                case VBAParser.ExpressionContext { Stop: { } stop } expression:
+                    expressions.TryAdd(stop.TokenIndex, expression);
+                    break;
+            }
+
+            for (var i = node.ChildCount - 1; i >= 0; i--)
+            {
+                pending.Push(node.GetChild(i));
+            }
+        }
+
+        foreach (var token in unread.Where(token => BinaryOperators.Contains(token.Type)))
+        {
+            if (EndsOfStatement.Contains(tokens.Get(SignificantIndex(tokens, token.TokenIndex, +1)).Type)
+                && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
+            {
+                operand.DanglingOperator = (token, tokens.GetText(operand.Start, token));
+            }
+        }
+    }
+
+    // the index of the token before or after the one at index that is no blank: a whitespace or a line continuation.
+    private static int SignificantIndex(CommonTokenStream tokens, int index, int step)
+    {
+        do
+        {
+            index += step;
+        }
+        while (index > 0 && index < tokens.Size - 1 && tokens.Get(index).Type is VBAParser.WS or VBAParser.LINE_CONTINUATION);
+        return index;
     }
 
     // the tokens an output clause can begin with, but the whitespace a parenthesized expression may begin with.

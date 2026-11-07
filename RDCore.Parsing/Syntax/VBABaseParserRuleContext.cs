@@ -39,31 +39,42 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     // first line alone. Adding it to every line pushed every line after the first that many columns to
     // the right - with an anchor of L5C4, a member ending at the start of the fragment's second line
     // reported 7:4 instead of 7:0.
-    public SourceRange SourceRange
+    public SourceRange SourceRange => RangeThrough(Stop);
+
+    /// <summary>
+    /// The binary operator written right after this expression, at the end of its statement, of which the parse read no operation, and the text of the
+    /// expression through it: the operation, its right operand missing, is kept as an unbuilt expression of that text.
+    /// </summary>
+    internal (IToken Operator, string Text)? DanglingOperator { get; set; }
+
+    /// <summary>
+    /// The location of the rule's text through <paramref name="stop"/>, a token after its own last one.
+    /// </summary>
+    internal SourceLocation GetSourceLocation(Uri documentUri, IToken stop) => new(documentUri, RangeThrough(stop));
+
+    private SourceRange RangeThrough(IToken? stop)
     {
-        get
-        {
-            var start = new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0);
-            return new(start.AnchoredAt(_offset), EndOf(start).AnchoredAt(_offset));
-        }
+        var start = new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0);
+        return new(start.AnchoredAt(_offset), EndOf(start, stop).AnchoredAt(_offset));
     }
 
     // ANTLR's own type for the token that is the end of the input.
     private const int EndOfFileTokenType = -1;
 
-    // The range ends where the last token of the rule does - after it - which is the position of the next character: an LSP range is end-exclusive, and a rule of
-    // one token (`Stop`) would otherwise be a range of nothing. A rule that matched no token, or whose last token ANTLR made up to recover from an error, ends where it begins.
-    private SourcePosition EndOf(SourcePosition start)
+    // The range ends where its last token (`stop`, the rule's own unless a later one is asked for) does - after it - which is the position of the next character:
+    // an LSP range is end-exclusive, and a rule of one token would otherwise be a range of nothing. A rule that matched no token, or whose last token ANTLR made up
+    // to recover from an error, ends where it begins.
+    private SourcePosition EndOf(SourcePosition start, IToken? stop)
     {
-        if (Start is null || Stop is null || Stop.TokenIndex < Start.TokenIndex || Stop.Type == EndOfFileTokenType)
+        if (Start is null || stop is null || stop.TokenIndex < Start.TokenIndex || stop.Type == EndOfFileTokenType)
         {
             // the end of the file is a position and no characters.
-            return Stop is { Type: EndOfFileTokenType } eof ? new SourcePosition(eof.Line - 1, eof.Column) : start;
+            return stop is { Type: EndOfFileTokenType } eof ? new SourcePosition(eof.Line - 1, eof.Column) : start;
         }
 
-        var line = Stop.Line - 1;
-        var column = Stop.Column;
-        if (Stop.StopIndex < Stop.StartIndex || Stop.Text is not { Length: > 0 } text)
+        var line = stop.Line - 1;
+        var column = stop.Column;
+        if (stop.StopIndex < stop.StartIndex || stop.Text is not { Length: > 0 } text)
         {
             return new SourcePosition(line, column);
         }

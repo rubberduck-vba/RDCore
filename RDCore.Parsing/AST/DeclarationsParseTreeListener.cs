@@ -57,6 +57,17 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
         => RuntimeHelpers.EnsureSufficientExecutionStack();
 
+    // an expression a binary operator the parse could not read is written right after, at the end of its statement (ModuleParser.MarkDanglingOperators): the
+    // operation, its right operand missing, is kept unbuilt with the expression in it, and not the expression alone, as if it were all the statement said.
+    public override void ExitEveryRule([NotNull] ParserRuleContext context)
+    {
+        if (context is VBAParser.ExpressionContext { DanglingOperator: var (@operator, text) } expression && IsDeclarationPassExpression)
+        {
+            CurrentBuilder.AddChild(new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), expression.GetSourceLocation(_rootUri, @operator), text,
+                CurrentBuilder.PopLastChildren(1)));
+        }
+    }
+
     public ModuleNode BuildModuleNode()
     {
         // ANTLR error recovery can leave scopes open (an Enter with no matching Exit); unwind to the

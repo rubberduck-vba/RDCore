@@ -27,20 +27,79 @@ public sealed class UnbuiltTriviaRetrofitTests
     private static ModuleParseResult Parse(string source)
         => new ModuleParser().Parse(Uri, source);
 
+    // a binary operator at the end of its statement, with no right operand, is a syntax error, and the operation is kept unbuilt with its left operand and the
+    // operator: never the left operand alone, which the assignment would take as if `a = 1` were all the statement said. The parse reads some operations
+    // (`1 +`) and leaves the operator of others unread, where it could also begin something that follows an expression (`1 -`, `1 Mod`): either way, the
+    // statement keeps all it said.
     [TestMethod]
-    public void TruncatedBinaryOperator_WrapsTheSurvivingOperandInTrivia()
+    [DataRow("+")]
+    [DataRow("-")]
+    [DataRow("*")]
+    [DataRow("/")]
+    [DataRow("\\")]
+    [DataRow("Mod")]
+    [DataRow("^")]
+    [DataRow("&")]
+    [DataRow("=")]
+    [DataRow("<>")]
+    [DataRow("<")]
+    [DataRow(">")]
+    [DataRow("<=")]
+    [DataRow(">=")]
+    [DataRow("Like")]
+    [DataRow("Is")]
+    [DataRow("And")]
+    [DataRow("Or")]
+    [DataRow("Xor")]
+    [DataRow("Eqv")]
+    [DataRow("Imp")]
+    public void TruncatedBinaryOperator_WrapsTheSurvivingOperandInTrivia(string @operator)
+        => AssertTheOperationIsKept($"a = 1 {@operator}", $"1 {@operator}");
+
+    // whatever ends the statement after the operator, and wherever the expression is.
+    [TestMethod]
+    [DataRow("a = 1 - ' a comment", "1 -", DisplayName = "a comment after it")]
+    [DataRow("a = 1 Mod: b = 2", "1 Mod", DisplayName = "a colon after it")]
+    [DataRow("a = 1 _\r\n    -", "1 _\r\n    -", DisplayName = "a line continuation before it")]
+    [DataRow("a = 1 - _\r\n", "1 -", DisplayName = "a line continuation after it")]
+    [DataRow("a = (1 + 2) And", "(1 + 2) And", DisplayName = "after a parenthesized operation")]
+    public void TruncatedBinaryOperator_WrapsTheSurvivingOperandInTrivia_WhereverItIs(string statement, string kept)
+        => AssertTheOperationIsKept(statement, kept);
+
+    [TestMethod]
+    public void TruncatedBinaryOperator_InTheArgumentOfACall_WrapsTheArgumentInTrivia()
     {
-        // pre-retrofit, this left a bare LiteralExpressionNode(1) sitting where the assignment's own
-        // capture would silently adopt it as if `a = 1` were the complete, correct statement.
-        var result = Parse("Sub S()\r\na = 1 +\r\nEnd Sub");
+        var result = Parse("Sub S()\r\nFoo 1 -\r\nEnd Sub");
+
+        Assert.IsFalse(result.IsSuccess);
+        var call = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<CallStatementNode>().Single();
+        var trivia = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(call.Children.Last());
+        Assert.AreEqual("1 -", trivia.Source);
+    }
+
+    // an operator keyword that is the name of a member, or an item of a list to print, is no operator, and leaves the code it is in as it is.
+    [TestMethod]
+    [DataRow("a = x.And")]
+    [DataRow("Debug.Print x; Mod")]
+    public void AnOperatorKeyword_ThatIsAName_IsNoTruncatedOperation(string statement)
+    {
+        var result = Parse($"Sub S()\r\n{statement}\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        Assert.IsFalse(result.SyntaxTree!.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any());
+    }
+
+    private static void AssertTheOperationIsKept(string statement, string kept)
+    {
+        var result = Parse($"Sub S()\r\n{statement}\r\nEnd Sub");
 
         Assert.IsFalse(result.IsSuccess);
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().First();
         var trivia = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(assignment.Value);
-        StringAssert.Contains(trivia.Source, "1");
-        var survivingOperand = Assert.IsInstanceOfType<LiteralExpressionNode>(trivia.Inputs.Single());
-        Assert.AreEqual((short)1, ((RDCore.SDK.Model.Values.Intrinsic.VBIntegerValue)survivingOperand.StaticValue).Value);
+        Assert.AreEqual(kept.ReplaceLineEndings("\n"), trivia.Source.ReplaceLineEndings("\n"));
+        var survivingOperand = Assert.ContainsSingle(trivia.Inputs);
+        Assert.IsTrue(survivingOperand is LiteralExpressionNode or VBUnaryOperatorExpressionNode, survivingOperand.GetType().Name);
     }
 
     [TestMethod]

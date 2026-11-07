@@ -50,3 +50,7 @@ An Unbuilt trivia node carries:
 
 The Unbuilt trivia fallback keeps the AST a faithful, lossless representation of the source, even where a proper
 semantic node does not exist. The fallback applies to any construct without a dedicated node type.
+
+It applies to code with a syntax error too. A binary operator at the end of its statement, with no right operand
+(`a = 1 -`, `Foo 1 Mod`), is the syntax error at the operator. The operation is an Unbuilt expression of its text,
+`1 -`, with its left operand under it. It is never the left operand alone, as if `a = 1` were all the statement said.
