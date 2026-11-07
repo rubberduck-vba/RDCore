@@ -267,7 +267,9 @@ internal static class ObjectReferences
     public static void Release(IRuntimeSession session, IBindingHandle holder, Held kept = default)
         => Release(session, HeldIn(session, holder), kept);
 
-    // the cell a write lands in: a ByRef parameter's binding is the address of the variable it was given, which holds what is written through it.
+    // the cell a write lands in: a ByRef parameter's binding is the address of the variable it was given, which holds what is written through it. A record's
+    // field given by reference (RecordFieldBinding) is no cell that holds: a write through it is counted in the field it writes, by the binding itself, and
+    // counting the binding too would keep what it writes alive once the field lets go of it.
     private static IBindingHandle? CellOf(IRuntimeSession session, IBindingHandle holder)
     {
         var cell = holder;
@@ -282,7 +284,7 @@ internal static class ObjectReferences
             cell = bound;
         }
 
-        return cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue) ? cell : null;
+        return cell is not RecordFieldBinding && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue) ? cell : null;
     }
 
     // what is stored in a cell: an object's reference, or a box - a Variant, an array, a record - with what it holds in it.

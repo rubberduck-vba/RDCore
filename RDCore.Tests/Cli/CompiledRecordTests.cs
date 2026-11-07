@@ -669,6 +669,34 @@ public sealed class CompiledRecordTests
             "    Debug.Print X.Name; Q.O(1).Name; X Is Q.O(1)",
             "End Sub"), null, 0, 0, "gone q", "ooTrue", "after", "gone o", "ended");
 
+    // an object set to a Variant field given by reference is the field's: it is let go of when the field is cleared, set to Nothing, or ends with its record.
+    [TestMethod]
+    public async Task AnObjectSetToAVariantFieldGivenByReference_IsLetGoOfWithTheField()
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type TVar",
+            "    V As Variant",
+            "    N As Long",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim A As TVar",
+            "    Hold A.V, \"a\"",
+            "    A.V = Empty",
+            "    Debug.Print \"cleared\"",
+            "    Hold A.V, \"b\"",
+            "    Set A.V = Nothing",
+            "    Debug.Print \"nothing\"",
+            "    Hold A.V, \"c\"",
+            "    Debug.Print \"left\"",
+            "End Sub",
+            "Private Sub Hold(ByRef V As Variant, ByVal Name As String)",
+            "    Set V = New Noisy",
+            "    V.Name = Name",
+            "End Sub"), null, 0, 0, "gone a", "cleared", "gone b", "nothing", "left", "gone c", "ended");
+
     // a field given by reference is the field when its record is written by LSet, by Get, or let a record whose fixed-size array field holds the element
     // given: each writes the record where it is.
     [TestMethod]
