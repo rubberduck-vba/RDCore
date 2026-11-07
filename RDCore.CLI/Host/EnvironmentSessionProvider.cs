@@ -205,7 +205,7 @@ public sealed class EnvironmentSessionProvider(
 
         _world = ComposeWorld(project, workspaceRoot);
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, libraries, modules], Output, libraries: source);
+        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], Output, libraries: source);
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
         Image = new ProgramImage();
@@ -252,9 +252,11 @@ public sealed class EnvironmentSessionProvider(
         };
     }
 
-    // the .rdproj declares references in precedence order, the earliest highest (RD-VBAL §2.3.1.2, MS-VBAL §4.1); the list index is the rank. The standard
-    // library, which every project has and no .rdproj lists, is the first of them.
-    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references)
+    // the .rdproj declares references in precedence order, the earliest highest (RD-VBAL §2.3.1.3, MS-VBAL §4.1); the list index is the rank. The standard
+    // library, which every project has and no .rdproj lists, is the first of them, and the language's implicit references come next, as LibrarySymbolProvider.Load
+    // ranks them.
+    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references, SupportedLanguage language)
         => [new ReferencePriorityInfo(StdLibSymbolProvider.LibraryName, 0),
-            .. references.Where(reference => !reference.IsStandardLibrary).Select((reference, rank) => new ReferencePriorityInfo(reference.Name, rank + 1))];
+            .. language.ImplicitReferences.Concat(references.Where(reference => !reference.IsStandardLibrary).Select(reference => reference.Name))
+                .Select((name, rank) => new ReferencePriorityInfo(name, rank + 1))];
 }

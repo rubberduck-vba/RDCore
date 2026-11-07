@@ -221,7 +221,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>Type libraries are read from the registry and files of a Windows machine: this command only runs on Windows.</value>
   </data>
   <data name="ExportLibrary_NotFound" xml:space="preserve">
-    <value>This machine has no type library '{0}'. A library is given as a file, as a library a file holds after its first by the number of its resource (MSVBVM60.DLL\3), as the identifier the machine gave it, or by its name.</value>
+    <value>This machine has no type library '{0}'. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library's resource, as a .vbp references it (MSVBVM60.DLL\3).</value>
   </data>
   <data name="ExportLibrary_Written" xml:space="preserve">
     <value>Library '{0}' described: {1}</value>
