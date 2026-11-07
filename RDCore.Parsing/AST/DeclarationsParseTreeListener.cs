@@ -336,13 +336,72 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         if (context.identifier() is null)
         {
             VBABaseParserRuleContext unread = isFirst && parent is not null ? parent : context;
-            OnExitParent(_ => new UnbuiltStatementTriviaNode(GetCurrentNodeId(), unread.GetSourceLocation(_rootUri), unread.GetText(), []));
+            var (written, text) = ThroughTheRestOfTheStatement(unread);
+            OnExitParent(_ => new UnbuiltStatementTriviaNode(GetCurrentNodeId(), written, text, []));
             return;
         }
 
         var bounds = CaptureDimBounds(context.arrayDim());
         var location = DeclaratorLocation(context, parent, isFirst);
         OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic, location, bounds));
+    }
+
+    // A rule the parse stopped in, with the tokens after it that the recovery read as the rest of its statement (`As Long` after `Dim For`): they are the
+    // statement's, to its end, wherever in the tree the recovery put them. A declarator's are its own up to the comma before the next one.
+    private (SourceLocation Location, string Text) ThroughTheRestOfTheStatement(VBABaseParserRuleContext rule)
+    {
+        ITerminalNode? last = null;
+        var declarator = rule is VBAParser.VariableSubStmtContext;
+        for (IParseTree child = rule; child.Parent is ParserRuleContext ancestor; child = ancestor)
+        {
+            var index = ancestor.children.IndexOf(child);
+            foreach (var sibling in ancestor.children.Skip(index + 1))
+            {
+                foreach (var terminal in TerminalsOf(sibling))
+                {
+                    if (terminal.Symbol.Type is VBALexer.NEWLINE or VBALexer.COLON or VBALexer.SINGLEQUOTE or VBALexer.REM or TokenConstants.Eof
+                        || declarator && terminal.Symbol.Type == VBALexer.COMMA)
+                    {
+                        return Through(rule, last);
+                    }
+
+                    if (terminal.Symbol.Type is not (VBALexer.WS or VBALexer.LINE_CONTINUATION))
+                    {
+                        last = terminal;
+                    }
+                }
+            }
+
+            // the end of the statement is the sibling of the statement itself, in its block or its module's declarations.
+            if (child is VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext)
+            {
+                break;
+            }
+        }
+
+        return Through(rule, last);
+    }
+
+    private (SourceLocation Location, string Text) Through(VBABaseParserRuleContext rule, ITerminalNode? last)
+        => last is null || rule.Start is null
+            ? (rule.GetSourceLocation(_rootUri), rule.GetText())
+            : (rule.GetSourceLocation(_rootUri, last.Symbol), rule.Start.InputStream.GetText(Interval.Of(rule.Start.StartIndex, last.Symbol.StopIndex)));
+
+    private static IEnumerable<ITerminalNode> TerminalsOf(IParseTree node)
+    {
+        if (node is ITerminalNode terminal)
+        {
+            yield return terminal;
+            yield break;
+        }
+
+        for (var i = 0; i < node.ChildCount; i++)
+        {
+            foreach (var descendant in TerminalsOf(node.GetChild(i)))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     // Where a declarator is written. The keywords of a statement (`Dim`, `Static`, `Private Const`) are in front of the first of its declarators and belong to no other,

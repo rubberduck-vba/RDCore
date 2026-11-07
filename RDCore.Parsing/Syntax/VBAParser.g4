@@ -352,18 +352,16 @@ universalLetterRange : {EqualsString(TextOf(TokenAtRelativePosition(1)),"A") && 
 letterRange : singleLetter MINUS singleLetter;
 
 
+// a Do with no condition and a Do with its condition after Loop are one alternative: as two, they would be told apart only past the body, after Loop, and a
+// syntax error in the body would leave the parse no alternative to read the Do with.
 doLoopStmt :
-    DO endOfStatement 
+    DO endOfStatement
     block
-    statementLabelDefinition? whiteSpace? LOOP
+    statementLabelDefinition? whiteSpace? LOOP (whiteSpace (WHILE | UNTIL) whiteSpace expression)?
     |
     DO whiteSpace (WHILE | UNTIL) whiteSpace expression endOfStatement
     block
     statementLabelDefinition? whiteSpace? LOOP
-    | 
-    DO endOfStatement
-    block
-    statementLabelDefinition? whiteSpace? LOOP whiteSpace (WHILE | UNTIL) whiteSpace expression
 ;
 
 enumerationStmt: 

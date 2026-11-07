@@ -88,7 +88,8 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         return true;
     }
 
-    // the first token of what the end of a statement ends: the rule read before it, in the rule that reads both.
+    // the first token of what the end of a statement ends: the rule read before it, in the rule that reads both. The label before a statement is not part of
+    // it, and its colon ends no statement (L1: Dim For As Long).
     private static int StartOfTheStatementBefore(VBAParser.EndOfStatementContext end)
     {
         if (end.Parent is not ParserRuleContext parent)
@@ -97,7 +98,13 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         }
 
         var at = parent.children?.IndexOf(end) ?? -1;
-        return at > 0 && parent.children![at - 1] is ParserRuleContext { Start.TokenIndex: >= 0 } before ? before.Start.TokenIndex : parent.Start?.TokenIndex ?? -1;
+        var before = at > 0 ? parent.children![at - 1] as ParserRuleContext : null;
+        if (before is VBAParser.BlockStmtContext { } labelled && labelled.statementLabelDefinition() is { Stop: { } label })
+        {
+            return labelled.mainBlockStmt() is { Start.TokenIndex: >= 0 } statement ? statement.Start.TokenIndex : label.TokenIndex + 1;
+        }
+
+        return before is { Start.TokenIndex: >= 0 } ? before.Start.TokenIndex : parent.Start?.TokenIndex ?? -1;
     }
 
     // what a statement's end begins with, but the end of the module: a line end, a colon, a comment.
@@ -141,17 +148,254 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 
     // where a statement of a block begins with a token no statement begins with, and that ends no block (Mod = 1), the block would end there, and what
     // follows the block would be expected at that token: the end of the procedure, after which the rest of the procedure would be skipped. The statement is
-    // read as one no rule reads (a = 1-), to its end, and the block goes on after it.
+    // read as one no rule reads (a = 1-), to its end, and the block goes on after it. So is each such statement that follows it: the block decides on the
+    // next statement without calling this again.
     public override void Sync(Parser recognizer)
     {
         if (recognizer is VBAParser { Context: VBAParser.BlockContext block } parser && !InErrorRecoveryMode(parser)
             && BeginsAStatementOfTheBlock(parser.Interpreter.atn.states[parser.State]) && BeginsNoStatement(parser))
         {
-            ReadAStatementNoRuleReads(parser, block);
+            do
+            {
+                ReadAStatementNoRuleReads(parser, block);
+            }
+            while (!InErrorRecoveryMode(parser) && BeginsNoStatement(parser));
+
             return;
         }
 
+        // a For's statements are no block: the loop decides on the end of a statement and the statement after it together, and decides on neither when that
+        // statement begins with a token no statement begins with. Each such statement is read after its end, as the For reads a statement of it.
+        if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } loop && !InErrorRecoveryMode(loop)
+            && BeginsAStatementOfTheFor(loop.Interpreter.atn.states[loop.State]))
+        {
+            var decision = loop.State;
+            while (BeginsNoStatementAfterTheEnd(loop))
+            {
+                ReadAStatementNoRuleReadsOfTheFor(loop, (ParserRuleContext)loop.Context);
+                loop.State = decision;
+            }
+        }
+
         base.Sync(recognizer);
+    }
+
+    // the states where a For decides whether a statement of it begins: before its first, and after each.
+    private static bool BeginsAStatementOfTheFor(ATNState state)
+        => state.ruleIndex is VBAParser.RULE_forNextStmt or VBAParser.RULE_forEachStmt && state is StarLoopEntryState or StarLoopbackState;
+
+    // whether the end of a statement is next, and the token after it begins no statement, ends no block, begins no procedure and goes on with no For.
+    private static bool BeginsNoStatementAfterTheEnd(Parser parser)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var at = PastTheBlanks(stream, 1);
+        if (!BeginsAnEndOfStatement(stream.La(at)))
+        {
+            return false;
+        }
+
+        while (BeginsAnEndOfStatement(stream.La(at)))
+        {
+            // a comment is the rest of its line.
+            if (stream.La(at) is VBALexer.SINGLEQUOTE or VBALexer.REM)
+            {
+                while (stream.La(at) is not (VBALexer.NEWLINE or TokenConstants.Eof))
+                {
+                    at++;
+                }
+            }
+
+            at = PastTheBlanks(stream, at + 1);
+        }
+
+        var next = stream.La(PastALabel(stream, at));
+        return next != TokenConstants.Eof && !BeginsOrEndsAStatementOrABlock.Contains(next) && !GoesOnWithAFor.Contains(next);
+    }
+
+    // what a For reads after the end of a statement of it: a statement, the label before its Next, its Next.
+    private static readonly IntervalSet GoesOnWithAFor = TokensAfterAnEndOfStatementOfAFor();
+
+    private static IntervalSet TokensAfterAnEndOfStatementOfAFor()
+    {
+        var atn = VBAParser._ATN;
+        var end = atn.ruleToStartState[VBAParser.RULE_endOfStatement];
+        var tokens = new IntervalSet();
+        foreach (var state in atn.states)
+        {
+            if (state.ruleIndex is not (VBAParser.RULE_forNextStmt or VBAParser.RULE_forEachStmt))
+            {
+                continue;
+            }
+
+            for (var i = 0; i < state.NumberOfTransitions; i++)
+            {
+                if (state.Transition(i) is RuleTransition transition && transition.target == end)
+                {
+                    tokens.AddAll(atn.NextTokens(transition.followState));
+                }
+            }
+        }
+
+        return tokens;
+    }
+
+    // the end of the statement before is read, then the statement, a mainBlockStmt of the tokens no rule reads, as a statement of the For, reported at its first
+    // token; the end of the statement after it is the For's to read.
+    private void ReadAStatementNoRuleReadsOfTheFor(VBAParser parser, ParserRuleContext loop)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var (readsTheEnd, readsTheStatement) = loop is VBAParser.ForNextStmtContext
+            ? (ForNextReadsTheEndOfAStatement, ForNextReadsAStatement)
+            : (ForEachReadsTheEndOfAStatement, ForEachReadsAStatement);
+
+        parser.EnterRule(new VBAParser.EndOfStatementContext(loop, readsTheEnd), readsTheEnd, VBAParser.RULE_endOfStatement);
+        while (BeginsAnEndOfStatement(stream.La(PastTheBlanks(stream, 1))))
+        {
+            parser.State = ReadsAnEndOfStatement;
+            parser.individualNonEOFEndOfStatement();
+        }
+
+        parser.ExitRule();
+
+        parser.State = readsTheStatement;
+        ReadAStatementNoRuleReads(parser, loop, readsTheStatement);
+    }
+
+    // a blockStmt of the rule, its label read as the rule reads one, and a mainBlockStmt of the tokens no rule reads: reported at its first token, and the
+    // tokens up to its end are read as the error's, until the end of the statement ends it.
+    private void ReadAStatementNoRuleReads(VBAParser parser, ParserRuleContext rule, int readsTheStatement)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var labelled = PastALabel(stream, 1) > 1;
+        if (!labelled)
+        {
+            ReportUnwantedToken(parser);
+        }
+
+        var statement = new VBAParser.BlockStmtContext(rule, readsTheStatement);
+        parser.EnterRule(statement, readsTheStatement, VBAParser.RULE_blockStmt);
+        var readsTheMainStatement = ReadsTheStatement;
+        if (labelled)
+        {
+            parser.State = ReadsTheLabel;
+            parser.statementLabelDefinition();
+            if (stream.La(1) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+            {
+                parser.State = ReadsTheBlanksAfterTheLabel;
+                parser.whiteSpace();
+            }
+
+            readsTheMainStatement = ReadsTheStatementAfterTheLabel;
+            parser.State = readsTheMainStatement;
+            ReportUnwantedToken(parser);
+        }
+
+        parser.EnterRule(new VBAParser.MainBlockStmtContext(statement, readsTheMainStatement), readsTheMainStatement, VBAParser.RULE_mainBlockStmt);
+        while (!EndsAStatement(stream.La(1)))
+        {
+            parser.Consume();
+        }
+
+        parser.ExitRule();
+        parser.ExitRule();
+    }
+
+    // the states of blockStmt whose transitions are the rules that read a label, the blanks after it, and the statement after them.
+    private static readonly int ReadsTheLabel = StateOfTheRuleTransition(VBAParser.RULE_blockStmt, VBAParser.RULE_statementLabelDefinition);
+    private static readonly int ReadsTheBlanksAfterTheLabel = StateOfTheRuleTransition(VBAParser.RULE_blockStmt, VBAParser.RULE_whiteSpace);
+    private static readonly int ReadsTheStatementAfterTheLabel
+        = StateOfTheRuleTransitionAfter(VBAParser.RULE_blockStmt, VBAParser.RULE_statementLabelDefinition, VBAParser.RULE_mainBlockStmt);
+
+    // the states of a For whose transitions are the rules that read a statement of it and the end of the statement before it.
+    private static readonly int ForNextReadsAStatement = StateOfTheRuleTransition(VBAParser.RULE_forNextStmt, VBAParser.RULE_blockStmt);
+    private static readonly int ForEachReadsAStatement = StateOfTheRuleTransition(VBAParser.RULE_forEachStmt, VBAParser.RULE_blockStmt);
+    private static readonly int ForNextReadsTheEndOfAStatement
+        = StateOfTheRuleTransitionBefore(VBAParser.RULE_forNextStmt, VBAParser.RULE_endOfStatement, VBAParser.RULE_blockStmt);
+    private static readonly int ForEachReadsTheEndOfAStatement
+        = StateOfTheRuleTransitionBefore(VBAParser.RULE_forEachStmt, VBAParser.RULE_endOfStatement, VBAParser.RULE_blockStmt);
+
+    // the state of the rule whose transition is the rule called, when the rule called next is the other.
+    private static int StateOfTheRuleTransitionBefore(int rule, int called, int next)
+    {
+        var then = VBAParser._ATN.ruleToStartState[next];
+        foreach (var call in RuleTransitions(rule, called))
+        {
+            if (CallingState(call.Transition.followState, then) >= 0)
+            {
+                return call.State;
+            }
+        }
+
+        throw new InvalidOperationException($"No state of rule {rule} calls rule {called}, then rule {next}.");
+    }
+
+    // the state of the rule whose transition is the rule called, when the rule called before it is the other.
+    private static int StateOfTheRuleTransitionAfter(int rule, int before, int called)
+    {
+        var start = VBAParser._ATN.ruleToStartState[called];
+        foreach (var call in RuleTransitions(rule, before))
+        {
+            if (CallingState(call.Transition.followState, start) is >= 0 and var state)
+            {
+                return state;
+            }
+        }
+
+        throw new InvalidOperationException($"No state of rule {rule} calls rule {called} after rule {before}.");
+    }
+
+    private static IEnumerable<(int State, RuleTransition Transition)> RuleTransitions(int rule, int called)
+    {
+        var atn = VBAParser._ATN;
+        var start = atn.ruleToStartState[called];
+        foreach (var state in atn.states)
+        {
+            if (state.ruleIndex != rule)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < state.NumberOfTransitions; i++)
+            {
+                if (state.Transition(i) is RuleTransition transition && transition.target == start)
+                {
+                    yield return (state.stateNumber, transition);
+                }
+            }
+        }
+    }
+
+    // the state whose transition calls the rule, past the epsilon transitions from the state; -1 when there is none.
+    private static int CallingState(ATNState state, ATNState start, HashSet<int>? seen = null)
+    {
+        seen ??= [];
+        if (!seen.Add(state.stateNumber))
+        {
+            return -1;
+        }
+
+        for (var i = 0; i < state.NumberOfTransitions; i++)
+        {
+            switch (state.Transition(i))
+            {
+                case RuleTransition call when call.target == start:
+                    return state.stateNumber;
+                case EpsilonTransition epsilon when CallingState(epsilon.target, start, seen) is >= 0 and var calling:
+                    return calling;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int PastTheBlanks(ITokenStream stream, int at)
+    {
+        while (stream.La(at) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+        {
+            at++;
+        }
+
+        return at;
     }
 
     // the states where the block decides whether a statement of it begins: before its first, and after each.
@@ -163,8 +407,65 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     // End Sub) is recovered from where it is, as before.
     private static bool BeginsNoStatement(Parser parser)
     {
-        var next = ((ITokenStream)parser.InputStream).La(1);
-        return !EndsAStatement(next) && !BeginsOrEndsAStatementOrABlock.Contains(next) && !parser.GetExpectedTokens().Contains(next);
+        var stream = (ITokenStream)parser.InputStream;
+        var at = PastALabel(stream, 1);
+        var next = stream.La(at);
+        return !EndsAStatement(next) && !BeginsOrEndsAStatementOrABlock.Contains(next) && (at > 1 || !parser.GetExpectedTokens().Contains(next));
+    }
+
+    // where the statement at the token begins, past the label at the start of its line, its blanks included (L1: Mod = 1, 20 Mod = 2); at the token when it
+    // begins with none.
+    private static int PastALabel(ITokenStream stream, int at)
+    {
+        if (!IsAtLineStart(stream, at))
+        {
+            return at;
+        }
+
+        var number = stream.La(at) == VBALexer.MINUS ? at + 1 : at;
+        if (stream.La(number) is VBALexer.HEXLITERAL or VBALexer.OCTLITERAL or VBALexer.FLOATLITERAL or VBALexer.INTEGERLITERAL)
+        {
+            var after = PastTheBlanks(stream, number + 1);
+            if (stream.La(after) == VBALexer.COLON)
+            {
+                return PastTheBlanks(stream, after + 1);
+            }
+
+            // a line number, then blanks, a name and its colon.
+            return after > number + 1 ? PastANameAndItsColon(stream, after) : after;
+        }
+
+        return PastANameAndItsColon(stream, at);
+    }
+
+    // past a name, its colon and the blanks after it, when they are next; at the token otherwise.
+    private static int PastANameAndItsColon(ITokenStream stream, int at)
+    {
+        if (!BeginsALabel.Contains(stream.La(at)) || NoLabelName.Contains(stream.La(at)))
+        {
+            return at;
+        }
+
+        var colon = PastTheBlanks(stream, at + 1);
+        return stream.La(colon) == VBALexer.COLON ? PastTheBlanks(stream, colon + 1) : at;
+    }
+
+    // what a label's name begins with, and the words that are no label's name: what the predicate of legalLabelIdentifier refuses.
+    private static readonly IntervalSet BeginsALabel = VBAParser._ATN.NextTokens(VBAParser._ATN.ruleToStartState[VBAParser.RULE_legalLabelIdentifier]);
+    private static readonly IntervalSet NoLabelName = new(VBALexer.DOEVENTS, VBALexer.END, VBALexer.CLOSE, VBALexer.ELSE, VBALexer.LOOP, VBALexer.NEXT,
+        VBALexer.RANDOMIZE, VBALexer.REM, VBALexer.RESUME, VBALexer.RETURN, VBALexer.STOP, VBALexer.WEND);
+
+    // whether the token is the first of its line, but for the blanks before it: where a label is, as statementLabelDefinition has it.
+    private static bool IsAtLineStart(ITokenStream stream, int at)
+    {
+        // the token before it, as an index of the stream: the next token's is the stream's.
+        var before = stream.Index + at - 2;
+        while (before >= 0 && stream.Get(before).Type == VBALexer.WS)
+        {
+            before--;
+        }
+
+        return before >= 0 && stream.Get(before).Type is VBALexer.NEWLINE or VBALexer.LINE_CONTINUATION;
     }
 
     // what a statement of a block begins with, what follows a block in any rule, and what begins a procedure (VBABaseParser.RecoverToProcedureBoundary).
@@ -202,19 +503,8 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         var decision = parser.State;
         var stream = (ITokenStream)parser.InputStream;
 
-        // reported at its first token, and the tokens up to its end are read as the error's, until the end of the statement ends it.
         // each context is invoked from the state that calls its rule, as the rule's own code invokes it: a full-context prediction goes back through it.
-        ReportUnwantedToken(parser);
-        var statement = new VBAParser.BlockStmtContext(block, ReadsAStatementOfTheBlock);
-        parser.EnterRule(statement, ReadsAStatementOfTheBlock, VBAParser.RULE_blockStmt);
-        parser.EnterRule(new VBAParser.MainBlockStmtContext(statement, ReadsTheStatement), ReadsTheStatement, VBAParser.RULE_mainBlockStmt);
-        while (!EndsAStatement(stream.La(1)))
-        {
-            parser.Consume();
-        }
-
-        parser.ExitRule();
-        parser.ExitRule();
+        ReadAStatementNoRuleReads(parser, block, ReadsAStatementOfTheBlock);
 
         if (BeginsAnEndOfStatement(stream.La(1)))
         {
@@ -235,7 +525,8 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     // transition is the rule that reads the statement itself.
     private static readonly int ReadsAStatementOfTheBlock = StateOfTheRuleTransition(VBAParser.RULE_block, VBAParser.RULE_blockStmt);
     private static readonly int ReadsTheEndOfAStatementOfTheBlock = StateOfTheRuleTransition(VBAParser.RULE_block, VBAParser.RULE_endOfStatement);
-    private static readonly int ReadsTheStatement = StateOfTheRuleTransition(VBAParser.RULE_blockStmt, VBAParser.RULE_mainBlockStmt);
+    private static readonly int ReadsTheStatement = RuleTransitions(VBAParser.RULE_blockStmt, VBAParser.RULE_mainBlockStmt).Select(call => call.State)
+        .First(state => state != StateOfTheRuleTransitionAfter(VBAParser.RULE_blockStmt, VBAParser.RULE_statementLabelDefinition, VBAParser.RULE_mainBlockStmt));
 
     // the state of endOfStatement whose transition is the rule that reads one end of a statement.
     private static readonly int ReadsAnEndOfStatement = StateOfTheRuleTransition(VBAParser.RULE_endOfStatement, VBAParser.RULE_individualNonEOFEndOfStatement);

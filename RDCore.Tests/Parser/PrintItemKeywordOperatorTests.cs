@@ -103,27 +103,129 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.IsTrue(statements.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 2), "the next statement is read on its own");
     }
 
-    // two statements of one line, each with its error: each is reported.
+    // two statements of one line, each with its error: each is reported, each is kept as the statement no rule reads that it is, and the procedure ends where
+    // it does.
     [TestMethod]
     public void TwoStatementsOfALine_EachWithAnOperatorKeyword_AreTwoSyntaxErrors()
     {
         var parse = Parse("Mod = 1: And = 2");
 
         Assert.HasCount(2, parse.SyntaxErrors, Said(parse));
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        CollectionAssert.AreEqual(new[] { "Mod = 1", "And = 2" }, member.Children.OfType<UnbuiltStatementTriviaNode>().Select(node => node.Source).ToArray());
+        Assert.AreEqual(2, member.SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
     }
 
-    // Static is the declaration of a variable, and a block keyword after it is no block: Static For As Long is a syntax error, and no "For without Next".
+    // statements no rule reads, one after the other: each is kept, each is its own error, and the statement after them is read on its own.
     [TestMethod]
-    [DataRow("Static For As Long")]
-    [DataRow("Static Do As Long")]
-    [DataRow("Static With As Long")]
-    [DataRow("Static Select As Long")]
-    public void AStaticDeclarationOfABlockKeyword_IsASyntaxError_AndNoBlockError(string statement)
+    [DataRow("Mod = 1\r\nAnd = 2", 2, DisplayName = "two operator keywords where statements begin")]
+    [DataRow("Mod = 1\r\n= 2", 2, DisplayName = "an operator keyword, then an operator, where statements begin")]
+    [DataRow("= 1\r\n) = 2", 2, DisplayName = "an operator, then a parenthesis, where statements begin")]
+    [DataRow("Mod = 1\r\n\r\nAnd = 2", 2, DisplayName = "two operator keywords, a blank line between them")]
+    [DataRow("Mod = 1\r\n' c\r\nAnd = 2", 2, DisplayName = "two operator keywords, a comment line between them")]
+    [DataRow("Mod = 1: And = 2", 2, DisplayName = "two operator keywords on one line")]
+    [DataRow("Mod = 1\r\nAnd = 2\r\nOr = 3", 3, DisplayName = "three operator keywords where statements begin")]
+    public void StatementsNoRuleReads_OneAfterTheOther_AreEachKept_AndTheNextIsReadOnItsOwn(string statements, int count)
+    {
+        var parse = Parse($"{statements}\r\nb = 3");
+        var lines = statements.Split("\r\n").Length;
+
+        Assert.HasCount(count, parse.SyntaxErrors, Said(parse));
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        Assert.HasCount(count, member.Children.OfType<UnbuiltStatementTriviaNode>());
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == lines + 1), "the next statement is read on its own");
+        Assert.AreEqual(lines + 2, member.SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+    }
+
+    // a label before the statement is no part of it: its colon ends no statement, and the error inside the statement stays in it.
+    [TestMethod]
+    [DataRow("L1: Dim For As Long", DisplayName = "a label, then a declaration with no name")]
+    [DataRow("20: Dim For As Long", DisplayName = "a line number and its colon, then a declaration with no name")]
+    [DataRow("L1: Mod = 1", DisplayName = "a label, then an operator keyword where a statement begins")]
+    [DataRow("20 Mod = 2", DisplayName = "a line number, then an operator keyword where a statement begins")]
+    [DataRow("10 L1: Mod = 2", DisplayName = "a line number and a label, then an operator keyword where a statement begins")]
+    public void AnErrorInsideAStatementAfterALabel_KeepsTheStatement_AndTheNextIsReadOnItsOwn(string statement)
+    {
+        var parse = Parse($"{statement}\r\nb = 3");
+
+        Assert.AreEqual(1, Assert.ContainsSingle(parse.SyntaxErrors, Said(parse)).Location.Range.Start.Line);
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 2), "the next statement is read on its own");
+        Assert.AreEqual(3, member.SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+    }
+
+    // a statement no rule reads in the body of a loop or a block is a statement of that body: the loop or the block ends at its own end, and the statement
+    // after it is the procedure's.
+    [TestMethod]
+    [DataRow("For i = 1 To 2", "Mod = 1\r\nAnd = 2", "Next", DisplayName = "in a For")]
+    [DataRow("For i = 1 To 2", "L1: Mod = 1\r\n20 And = 2", "Next", DisplayName = "after labels, in a For")]
+    [DataRow("For Each x In xs", "Mod = 1\r\n' c\r\nAnd = 2", "Next x", DisplayName = "in a For Each, a comment line between them")]
+    [DataRow("Do", "Mod = 1\r\nAnd = 2", "Loop", DisplayName = "in a Do")]
+    [DataRow("Do", "Mod = 1", "Loop While a", DisplayName = "in a Do with its condition after Loop")]
+    [DataRow("Do While a", "Mod = 1", "Loop", DisplayName = "in a Do While")]
+    [DataRow("While a", "Mod = 1", "Wend", DisplayName = "in a While")]
+    [DataRow("With a", "Mod = 1", "End With", DisplayName = "in a With")]
+    [DataRow("If a Then", "Mod = 1", "End If", DisplayName = "in an If")]
+    public void AStatementNoRuleReads_InTheBodyOfABlock_IsAStatementOfIt(string opens, string statements, string closes)
+    {
+        var lines = statements.Split("\r\n").Length;
+        var count = statements.Split("\r\n").Count(line => !line.StartsWith('\''));
+        var parse = Parse($"{opens}\r\n{statements}\r\nb = 3\r\n{closes}\r\nc = 4");
+
+        Assert.HasCount(count, parse.SyntaxErrors, Said(parse));
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var block = member.Children.First();
+        Assert.AreEqual(lines + 3, block.SourceLocation.Range.End.Line, $"the block ends at its {closes}");
+        var body = BodyOf(block);
+        Assert.HasCount(count, body.OfType<UnbuiltStatementTriviaNode>());
+        Assert.IsTrue(body.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == lines + 2), "the statement after them is the body's");
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == lines + 4), "the statement after the block is the procedure's");
+        Assert.AreEqual(lines + 5, member.SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+    }
+
+    // the two forms of a Do whose condition is not before its body are told apart after Loop: an error in the body leaves either one a Do.
+    [TestMethod]
+    [DataRow("Loop", DisplayName = "a Do with no condition")]
+    [DataRow("Loop Until a", DisplayName = "a Do with its condition after Loop")]
+    public void ASyntaxErrorInTheBodyOfADo_KeepsTheDo(string closes)
+    {
+        var parse = Parse($"Do\r\na = = 1\r\nb = 3\r\n{closes}\r\nc = 4");
+
+        Assert.AreEqual(2, Assert.ContainsSingle(parse.SyntaxErrors, Said(parse)).Location.Range.Start.Line);
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var block = member.Children.First();
+        Assert.AreEqual(4, block.SourceLocation.Range.End.Line, $"the Do ends at its {closes}");
+        Assert.IsTrue(BodyOf(block).OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 3), "the statement after the error is the body's");
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 5), "the statement after the Do is the procedure's");
+    }
+
+    private static IEnumerable<SyntaxNode> BodyOf(SyntaxNode block) => block switch
+    {
+        ForStatementNode loop => loop.Body.Children,
+        ForEachStatementNode loop => loop.Body.Children,
+        DoLoopStatementNode loop => loop.Body.Children,
+        DoLoopWhileStatementNode loop => loop.Body.Children,
+        DoLoopUntilStatementNode loop => loop.Body.Children,
+        DoWhileLoopStatementNode loop => loop.Body.Children,
+        WhileWendStatementNode loop => loop.Body.Children,
+        WithStatementNode with => with.Body.Children,
+        IfBlockStatementNode @if => @if.Body.Children,
+        _ => throw new AssertFailedException($"{block.GetType().Name} is no block of the test."),
+    };
+
+    // a declaration with no name is kept as the whole statement it is written as: the recovery reads what is after the error as the rest of it.
+    [TestMethod]
+    [DataRow("Dim For As Long")]
+    [DataRow("Dim 1 As Long")]
+    [DataRow("Dim Mod As Long")]
+    public void ADeclarationWithNoName_IsKept_AsTheWholeStatement(string statement)
     {
         var parse = Parse(statement);
 
-        var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
-        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId, Said(parse));
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var unbuilt = Assert.ContainsSingle(member.Children.OfType<UnbuiltStatementTriviaNode>());
+        Assert.AreEqual(statement, unbuilt.Source);
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), unbuilt.SourceLocation.Range);
     }
 
     // a parameter's name is a name, as a variable's is (MS-VBAL 5.3.1.5): a reserved identifier there is a syntax error.
@@ -151,6 +253,20 @@ public sealed class PrintItemKeywordOperatorTests
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"{header}\r\nEnd Sub\r\n");
 
         Assert.IsEmpty(parse.SyntaxErrors, Said(parse));
+    }
+
+    // Static is the declaration of a variable, and a block keyword after it is no block: Static For As Long is a syntax error, and no "For without Next".
+    [TestMethod]
+    [DataRow("Static For As Long")]
+    [DataRow("Static Do As Long")]
+    [DataRow("Static With As Long")]
+    [DataRow("Static Select As Long")]
+    public void AStaticDeclarationOfABlockKeyword_IsASyntaxError_AndNoBlockError(string statement)
+    {
+        var parse = Parse(statement);
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId, Said(parse));
     }
 
     private static string Said(ModuleParseResult parse)
