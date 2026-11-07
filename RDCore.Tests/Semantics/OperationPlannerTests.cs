@@ -159,11 +159,16 @@ public sealed class OperationPlannerTests
             Assert.IsNotNull(OperationPlanner.ForValues(token, VBLongType.TypeInfo, VBLongType.TypeInfo).EffectiveType, token);
         }
 
-        foreach (var token in new[] { Tokens.NegationOp, Tokens.AdditionOp, Tokens.LogicalNotOp })
+        foreach (var token in new[] { Tokens.NegationOp, Tokens.LogicalNotOp })
         {
             Assert.IsNotNull(OperationPlanner.ForValue(token, VBLongType.TypeInfo).EffectiveType, token);
         }
     }
+
+    // a unary + is no operator (RD-VBAL §5.6.9.3), and no operation of one operand is planned for it.
+    [TestMethod]
+    public void AUnaryPlus_IsNotPlanned()
+        => Assert.ThrowsExactly<NotSupportedException>(() => OperationPlanner.ForValue(Tokens.AdditionOp, VBLongType.TypeInfo));
 
     [TestMethod]
     public void AConversion_HasNoPlan_AndIsAMistakeToAskFor()
@@ -263,17 +268,6 @@ public sealed class OperationPlannerTests
         Assert.AreEqual(VBLongType.TypeInfo, OperationPlanner.ForValue(Tokens.LogicalNotOp, VBDateType.TypeInfo).EffectiveType);
         Assert.AreEqual(VBNullType.TypeInfo, OperationPlanner.ForValue(Tokens.LogicalNotOp, VBNullType.TypeInfo).EffectiveType);
         Assert.IsTrue(OperationPlanner.ForValue(Tokens.LogicalNotOp, VBErrorType.TypeInfo).IsTypeMismatch);
-    }
-
-    [TestMethod]
-    public void UnaryPlus_HasTheTableOfTheNegation()
-    {
-        foreach (var operand in new VBType[] { VBByteType.TypeInfo, VBBooleanType.TypeInfo, VBStringType.TypeInfo, VBDateType.TypeInfo, VBNullType.TypeInfo, VBErrorType.TypeInfo })
-        {
-            Assert.AreEqual(
-                OperationPlanner.ForValue(Tokens.NegationOp, operand).EffectiveType,
-                OperationPlanner.ForValue(Tokens.AdditionOp, operand).EffectiveType, operand.Name);
-        }
     }
 
     [TestMethod]
