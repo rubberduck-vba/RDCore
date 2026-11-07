@@ -84,6 +84,7 @@ public sealed class CompiledActivation : ILightActivation
     private void Begin()
     {
         Array.Clear(_cells);
+        (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
         (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
         _untilPoll = PollInterval;
@@ -105,7 +106,10 @@ public sealed class CompiledActivation : ILightActivation
 
     CallStackFrame ILightActivation.MakeFrame()
     {
-        var frame = _invoker.CreateCompiledFrame(_procedure!, _list);
+        // a member of a class entered on an object (EnterMemberDirectly): its frame holds Me in the cell the activation held it in, which lets go of it.
+        var frame = _entered is { } member && _me is { } me
+            ? _invoker.CreateMemberFrame(member, _list, _instance!.ObjectId, me)
+            : _invoker.CreateCompiledFrame(_procedure!, _list);
         (frame.Pc, frame.RunsCompiled) = (_pc, true);
         if (_hasResult)
         {
@@ -352,6 +356,38 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter given Strings: the text they
+    /// are (<see langword="null"/> for <c>vbNullString</c>), a <c>String</c> as the interpreter passes one by value. A <c>String</c> variable given by
+    /// reference is given with <see cref="SetTextReference"/>.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list.</param>
+    /// <param name="text">The text given; <see langword="null"/> for <c>vbNullString</c>.</param>
+    public void SetText(int index, string? text) => SetReference(index, new VBRuntimeValue<string>(text!));
+
+    /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter passed by reference given
+    /// a <c>String</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The variable has one address
+    /// from then on, whichever name it is read by, so <c>VarPtr</c> of the parameter is <c>VarPtr</c> of the variable; its cell is bound at the address,
+    /// and compiled code goes on reading and writing that cell.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list.</param>
+    /// <param name="slot">The slot of the variable given.</param>
+    /// <returns><see langword="false"/> when the variable cannot be given an address: the interpreter then makes the call.</returns>
+    public bool SetTextReference(int index, int slot)
+    {
+        // a run that fails accesses at random fails this one too, so the recovery is taken. The interpreter makes the call: the arguments given for it
+        // so far are let go of, as a call made lets go of them (ForgetReferences).
+        if (FailsAccessAtRandom() || !Frame.TryGetAddress(_body.SlotSymbols[slot], out var address))
+        {
+            Array.Clear(_references);
+            return false;
+        }
+
+        SetReference(index, new VBRuntimeReference(address));
+        return true;
+    }
+
+    /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
     /// in its callee.
     /// </summary>
@@ -360,7 +396,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
     /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
-    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>), and the value of anything else, of which the callee
+    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>; the address of a <c>String</c> variable,
+    /// <see cref="SetTextReference"/>), and the value of anything else, of which the callee
     /// makes a cell of its own: the instruction at <paramref name="pc"/> is the one that makes
     /// the call, which the frame says while the callee runs.
     /// </summary>
@@ -379,7 +416,106 @@ public sealed class CompiledActivation : ILightActivation
         }
 
         _suspensionsBeforeCall = Suspensions;
-        var result = called.TakesReferences ? invoker.Invoke(called.Procedure, _session.Symbols.Resolver, ArgumentsOf(called)) : invoker.InvokeScalars(called.Procedure, PayloadsOf(called));
+        var result = called.TakesReferences ? invoker.Invoke(called.Procedure, _session.Symbols.Resolver, ArgumentsOf(called, 0)) : invoker.InvokeScalars(called.Procedure, PayloadsOf(called));
+        return Returned(called, result, out integral, out floating);
+    }
+
+    // the member a call of a member of an object invokes, and the object it invokes it on: found before the call (CanCallMember), and
+    // let go of as it is made (CallMember).
+    private VBTypeMemberSymbol? _member;
+    private IRuntimeValue? _receiver;
+    private IObjectInstance? _memberInstance;
+
+    /// <summary>
+    /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
+    /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
+    /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called: its parameters after <c>Me</c> of the same
+    /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
+    /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
+    /// member: the interpreter makes the call.
+    /// </summary>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <param name="cell">The cell of the object variable the member is called on.</param>
+    public bool CanCallMember(int callee, object? cell)
+    {
+        (_member, _receiver, _memberInstance) = (null, null, null);
+        var called = _body.Callees[callee];
+        if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
+            || !_session.Symbols.TryGetInstance(instance, out var target)
+            || _executor.Expressions.MemberOf(called.Site!, target.ClassModule) is not { } member || !Takes(called, member))
+        {
+            return false;
+        }
+
+        (_member, _receiver, _memberInstance) = (member, Unsafe.As<ValueBindingHandle>(cell!).Value, target);
+        return true;
+    }
+
+    // whether a member is called as the member a call was bound to: itself, or one whose parameters after Me, and what it returns, are of the same kinds. The
+    // last one found to be is remembered, as an object of one class nearly always is what a call is made on.
+    private static bool Takes(CompiledCallee called, VBTypeMemberSymbol member)
+    {
+        if (ReferenceEquals(member, called.Procedure) || ReferenceEquals(member, called.Implementation))
+        {
+            return true;
+        }
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(member);
+        var returned = ScalarKinds.Of((member as VBFunctionMemberSymbol)?.ResolvedType);
+        if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
+            || parameters.Length - 1 != called.Parameters.Count
+            || (called.Result is { } read ? returned != read : member is VBFunctionMemberSymbol && returned is null))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < called.Parameters.Count; i++)
+        {
+            var parameter = parameters[i + 1];
+            if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
+                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i])
+            {
+                return false;
+            }
+        }
+
+        called.Implementation = member;
+        return true;
+    }
+
+    /// <summary>
+    /// Calls the member <see cref="CanCallMember"/> found, on the object it found, with the arguments given (<see cref="SetArgument"/>,
+    /// <see cref="SetReference"/>), as the interpreter calls a member of an object: through its binding, the object given as <c>Me</c>. The instruction at
+    /// <paramref name="pc"/> is the one that makes the call, which the frame says while the member runs.
+    /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <param name="integral">What the member returned, when it is of an integral kind.</param>
+    /// <param name="floating">What the member returned, when it is of a floating-point kind.</param>
+    /// <returns>Whether the call returned, as <see cref="Call"/> says.</returns>
+    public bool CallMember(int pc, int callee, out long integral, out double floating)
+    {
+        SetPc(pc);
+        _failed = null;
+        _body.CountIndirectCall();
+        var called = _body.Callees[callee];
+        var (member, receiver) = (_member!, _receiver!);
+        (_member, _receiver, _memberInstance) = (null, null, null);
+
+        _suspensionsBeforeCall = Suspensions;
+        var arguments = ArgumentsOf(called, 1);
+        arguments[0] = receiver;
+        var expressions = _executor.Expressions;
+        var result = expressions.Bindings is { } bindings
+            ? bindings.ForMember(member).Call(_session.Symbols.Resolver, arguments)
+            : expressions.ProcedureInvoker is { } invoker ? invoker.Invoke(member, _session.Symbols.Resolver, arguments) : RuntimeSemanticsEvaluationResult.InternalError();
+        return Returned(called, result, out integral, out floating);
+    }
+
+    // what a call returned: a payload of the callee's kind, or why it did not return.
+    private bool Returned(CompiledCallee called, RuntimeSemanticsEvaluationResult result, out long integral, out double floating)
+    {
+        (integral, floating) = (0, 0);
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
@@ -407,22 +543,29 @@ public sealed class CompiledActivation : ILightActivation
         var arguments = new ScalarPayload[called.Parameters.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating);
+            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]!.Value), _arguments[i].Integral, _arguments[i].Floating);
         }
 
         return arguments;
     }
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
-    // of which the callee makes a cell of its own when the parameter is passed by reference.
-    private IRuntimeValue[] ArgumentsOf(CompiledCallee called)
+    // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
+    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference).
+    private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
-        var arguments = new IRuntimeValue[called.Parameters.Count];
-        for (var i = 0; i < arguments.Length; i++)
+        var arguments = new IRuntimeValue[first + called.Parameters.Count];
+        for (var i = 0; i < called.Parameters.Count; i++)
         {
-            arguments[i] = i < _references.Length && _references[i] is { } cell
+            if (called.Parameters[i] is not { } kind)
+            {
+                arguments[first + i] = (IRuntimeValue)_references[i]!;
+                continue;
+            }
+
+            arguments[first + i] = i < _references.Length && _references[i] is { } cell
                 ? new CellReference(Unsafe.As<ScalarCell>(cell))
-                : new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating).Box();
+                : new ScalarPayload(ScalarKinds.TypeOf(kind), _arguments[i].Integral, _arguments[i].Floating).Box();
         }
 
         ForgetReferences(called);
@@ -500,10 +643,123 @@ public sealed class CompiledActivation : ILightActivation
         return activation;
     }
 
+    // the member of a class the activation is of, entered directly on an object (EnterMemberDirectly): its end lets go of Me and of what its locals hold.
+    private VBTypeMemberSymbol? _entered;
+
+    // the typed entry of the member EnterMemberDirectly entered last, which compiled code calls next.
+    private nint _memberEntry;
+
+    /// <summary>
+    /// The activation of the member <see cref="CanCallMember"/> found, which compiled code is about to call through its typed entry (<see cref="MemberEntry"/>)
+    /// with the arguments as it holds them, on the object it found, the object its <c>Me</c>: on the stack without a frame, as
+    /// <see cref="EnterDirectly"/> makes one, when the frame would hold nothing compiled code does not but <c>Me</c> (<see cref="CompiledBody.EntersWithoutFrame"/>)
+    /// and no debugger is to see it (the activation holds <c>Me</c>, and its frame, once something is to see it, is the one the invoker would have made); with
+    /// its frame otherwise (<c>RuntimeProcedureInvoker.PushMemberActivation</c>). The instruction at <paramref name="pc"/> is the one that makes the call,
+    /// which the frame says while the member runs. The call is made through its binding (<see cref="CallMember"/>) when it is not made this way, or not now, for the reasons
+    /// <see cref="EnterDirectly"/> gives; or when the member is not compiled, or is not the workspace's to run.
+    /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
+    public CompiledActivation? EnterMemberDirectly(int pc, int callee)
+    {
+        if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
+            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
+            || EntryOf(_body.Callees[callee], member) is not { } entry)
+        {
+            return null;
+        }
+
+        SetPc(pc);
+        _failed = null;
+        CompiledActivation activation;
+        if (entry.Body.EntersWithoutFrame && _halt.Gate is null && _stack is not null && UnboxedEvaluation.IsEnabled)
+        {
+            // a member whose frame would hold nothing compiled code does not but Me is on the stack without one, as a procedure called directly is: in the
+            // activation that last left its place of the stack, begun again, when that was an activation of the same member. Me is held as the invoker
+            // holds it, by a cell of the activation's own, for as long as the activation is: two activations of the member on the stack - a recursion, a
+            // call on another object - each hold their own.
+            if (_stack.TakeSpare() is CompiledActivation spare && ReferenceEquals(spare._procedure, member) && ReferenceEquals(spare._list, entry.List)
+                && ReferenceEquals(spare._body, entry.Body) && ReferenceEquals(spare._invoker, _invoker))
+            {
+                spare._frame = null;
+                spare.Begin();
+                activation = spare;
+            }
+            else
+            {
+                activation = new CompiledActivation(_session, entry.List, _executor, entry.Context, entry.Body, _invoker, member);
+                entry.Body.CountActivationMade();
+            }
+
+            if (!_stack.TryPushLight(activation))
+            {
+                return null;
+            }
+
+            (activation._entered, activation._instance, activation._me) = (member, _memberInstance, new ValueBindingHandle(receiver));
+            ObjectReferences.Rebind(_session, activation._me, ObjectReferences.Held.None);
+        }
+        else if (_invoker.PushMemberActivation(member, entry.List, receiver) is { } frame)
+        {
+            activation = new CompiledActivation(_session, frame, entry.List, _executor, entry.Context, entry.Body, _invoker) { _entered = member };
+        }
+        else
+        {
+            return null;
+        }
+
+        (_member, _receiver, _memberInstance, _memberEntry) = (null, null, null, entry.Entry);
+        _body.CountDirectCall();
+        _suspensionsBeforeCall = Suspensions;
+        return activation;
+    }
+
+    // the object an activation of a member of a class entered without a frame is on (EnterMemberDirectly), and the cell it holds Me in: the frame it is given
+    // later holds Me in that cell (MakeFrame), and the activation lets go of it as the frame would have, when it returns (ReturnedDirectly).
+    private IObjectInstance? _instance;
+    private ValueBindingHandle? _me;
+
+    /// <summary>
+    /// The typed entry of the member <see cref="EnterMemberDirectly"/> entered, which compiled code calls with its activation and its arguments.
+    /// </summary>
+    public nint MemberEntry => _memberEntry;
+
+    // the compiled member a call enters directly: the one it entered last, while its body is the one the invoker runs; else the member compiled now, when it
+    // is the workspace's to run - its binding is this invoker's.
+    private MemberEntry? EntryOf(CompiledCallee called, VBTypeMemberSymbol member)
+    {
+        if (called.Entered is { } entered && ReferenceEquals(entered.Member, member) && ReferenceEquals(_invoker.BodyOf(member), entered.List))
+        {
+            return entered;
+        }
+
+        var expressions = _executor.Expressions;
+        var invoker = expressions.Bindings is { } bindings
+            ? bindings.ForMember(member) is CallableBindingHandle { Receiver: null } handle ? handle.Invoker : null
+            : expressions.ProcedureInvoker;
+        if (!ReferenceEquals(invoker, _invoker) || _invoker.BodyOf(member) is not { } list
+            || _invoker.CompiledBodyOf(member, list) is not { Entry: { } method } body)
+        {
+            return null;
+        }
+
+        entered = new MemberEntry(member, list, body, method.MethodHandle.GetFunctionPointer(), new RuntimeEvaluationContext(member.Uri));
+        called.Entered = entered;
+        return entered;
+    }
+
     /// <summary>
     /// Ends the activation <paramref name="callee"/> of the call numbered <paramref name="call"/> of the body, which compiled code made through the callee's
-    /// typed entry (<see cref="EnterDirectly"/>), and which returned <paramref name="outcome"/>: the frame off the stack, as the invoker takes it off.
+    /// typed entry (<see cref="EnterDirectly"/>, <see cref="EnterMemberDirectly"/>), and which returned <paramref name="outcome"/>: the frame off the stack,
+    /// as the invoker takes it off.
     /// </summary>
+    /// <param name="call">The number of the call among the body's callees.</param>
+    /// <param name="callee">The activation the call entered.</param>
+    /// <param name="outcome">How the callee's code ended.</param>
+    /// <param name="integral">What the callee returned, when it is of an integral kind.</param>
+    /// <param name="floating">What the callee returned, when it is of a floating-point kind.</param>
     /// <returns>
     /// Whether the call returned: what it returned is then a payload of its kind, when what it returns is read. When not, the interpreter is given the call
     /// (<see cref="AfterFailedCall"/>), with the error the callee raised, or with the program stopped in it.
@@ -511,7 +767,10 @@ public sealed class CompiledActivation : ILightActivation
     public bool ReturnedDirectly(int call, CompiledActivation callee, RuntimeExecutionOutcome outcome, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        outcome = _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+        outcome = callee._entered is not { } member ? _invoker.PopCompiledActivation(outcome, light: callee._frame is null)
+            : callee._me is { } me && callee._frame is null ? EndMember(callee, me, outcome)
+            : _invoker.PopMemberActivation(callee._frame!, member, outcome);
+        callee.LetGoOfMe();
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.ExitProcedure)
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
@@ -536,6 +795,22 @@ public sealed class CompiledActivation : ILightActivation
         return true;
     }
 
+    // the end of an activation of a member entered without a frame, which still has none (EnterMemberDirectly): Me let go of as the invoker lets go of it
+    // (RuntimeProcedureInvoker.PopMemberActivation) - unless the program was ended in it - while the activation is still on the stack. A Class_Terminate that
+    // runs then gives it its frame, as any call does; it is then taken off the stack with that frame, which holds Me in the same cell, let go of already.
+    private RuntimeExecutionOutcome EndMember(CompiledActivation callee, ValueBindingHandle me, RuntimeExecutionOutcome outcome)
+    {
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        {
+            ObjectReferences.Release(_session, me);
+        }
+
+        return _invoker.PopCompiledActivation(outcome, light: callee._frame is null);
+    }
+
+    // an activation off the stack is the spare of its place (RuntimeCallStack.TakeSpare) until it is begun again: it keeps no object alive meanwhile.
+    private void LetGoOfMe() => (_instance, _me) = (null, null);
+
     /// <summary>
     /// Takes <paramref name="callee"/>, the activation of a call compiled code made through the callee's typed entry (<see cref="EnterDirectly"/>), off the
     /// stack when a CLR exception goes by it - a defect of the platform, which ends the program: the activations the callee made are off it already, each
@@ -551,6 +826,8 @@ public sealed class CompiledActivation : ILightActivation
         {
             _ = _session.CallStack.TryPop(out _);
         }
+
+        callee.LetGoOfMe();
     }
 
     private int Suspensions => (_halt as SessionHalt)?.Suspensions ?? 0;
@@ -712,6 +989,246 @@ public sealed class CompiledActivation : ILightActivation
         var read = !FailsAccessAtRandom() && TryReadResult(out payload);
         value = read ? payload.Floating : 0;
         return read;
+    }
+
+    /// <summary>
+    /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type: the one the object holds it in, as the
+    /// interpreter resolves it, which compiled code reads and writes it in.
+    /// </summary>
+    /// <param name="number">The number the body knows the field's cell by.</param>
+    /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
+    public object? FieldCellOf(int number)
+    {
+        // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.
+        var instance = _instance ?? (Frame.Target is { } target && _session.Symbols.TryGetInstance(target, out var on) ? on : null);
+        if (instance is null)
+        {
+            return null;
+        }
+
+        // the cell the body found last of the field of the same object (CompiledBody.Fields).
+        var known = _body.Fields;
+        if (known is null || !known.Object.Equals(instance.ObjectId))
+        {
+            known = new FieldCells(instance.ObjectId, new object?[_cells.Length]);
+            _body.Fields = known;
+        }
+
+        if (known.Cells[number] is { } cached)
+        {
+            return cached;
+        }
+
+        var field = _body.SlotSymbols[_body.CellSlots[number]];
+        var found = instance.TryResolve(field, out var held) && held is ScalarCell cell && cell.Type.Equals(((ITypedSymbol)field).ResolvedType) ? cell : null;
+        known.Cells[number] = found;
+        return found;
+    }
+
+    /// <summary>
+    /// The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.
+    /// </summary>
+    /// <param name="number">The number the body knows the field's cell by.</param>
+    /// <returns><see langword="null"/> when the frame cannot be read, or the object holds the field in no cell of its type.</returns>
+    public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
+
+    /// <summary>
+    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads and
+    /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
+    /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed a <c>String</c> by value, a variable of another type
+    /// passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
+    /// runs each statement that does.
+    /// </returns>
+    public object? VariantCellOf(int slot)
+    {
+        var frame = Frame;
+        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is VariantCell variant ? variant : null;
+    }
+
+    /// <summary>
+    /// The cell of the <c>Variant</c> in <paramref name="slot"/> (<see cref="VariantCellOf"/>), found again after the interpreter ran an instruction or the
+    /// program waited.
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <param name="cell">The cell found, as <see cref="VariantCellOf"/> finds it.</param>
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadVariantCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = VariantCellOf(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// The cell the frame holds the object parameter or variable in <paramref name="slot"/> in: what compiled code reads the reference
+    /// it holds from (<see cref="ObjectOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is
+    /// bound to its caller's variable's address is in the cell held at that address, as a <c>Variant</c>'s is (<see cref="VariantCellOf"/>).
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no cell of an object reference: compiled code reads nothing of it, and the interpreter runs each
+    /// statement that does.
+    /// </returns>
+    public object? ObjectCellOf(int slot)
+    {
+        // Me, of a member entered without a frame: the cell the activation holds it in, which its frame is given when it has one (EnterMemberDirectly).
+        if (_frame is null && _me is { } me && slot == _body.MeSlot)
+        {
+            return me;
+        }
+
+        var frame = Frame;
+        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is ValueBindingHandle handle ? handle : null;
+    }
+
+    /// <summary>
+    /// The cell of the object in <paramref name="slot"/> (<see cref="ObjectCellOf"/>), found again after the interpreter ran an instruction or the program
+    /// waited. A <c>Set</c> stores the reference into the cell the slot holds, which this finds again.
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <param name="cell">The cell found, as <see cref="ObjectCellOf"/> finds it.</param>
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadObjectCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = ObjectCellOf(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads the text
+    /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation:
+    /// the cell the interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>).
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no cell of its own: a parameter passed by reference bound to a variable of another type, which
+    /// compiled code reads and writes nothing of, and the interpreter runs each statement that does.
+    /// </returns>
+    public object? StringCellOf(int slot)
+    {
+        var frame = Frame;
+        return frame.Procedure is { } procedure
+            && frame.TryReadSlot(new SDK.Semantics.Binding.FrameSlot(SDK.Semantics.Binding.FrameLayout.For(procedure), slot), _body.SlotSymbols[slot], out var cell, out var referenced)
+            && referenced is null && cell is ValueBindingHandle handle
+                ? handle
+                : null;
+    }
+
+    /// <summary>
+    /// The cell of the <c>String</c> in <paramref name="slot"/> (<see cref="StringCellOf"/>), found again after the interpreter ran an instruction or the
+    /// program waited.
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <param name="cell">The cell found, as <see cref="StringCellOf"/> finds it.</param>
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadStringCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = StringCellOf(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// Two texts compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as the interpreter compares them
+    /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one.
+    /// </summary>
+    /// <param name="comparison">The comparison operator.</param>
+    /// <param name="left">The left text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="right">The right text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The comparison's result.</returns>
+    public bool CompareText(ComparisonOperator comparison, string? left, string? right)
+    {
+        var order = SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session).Compare(left.AsSpan(), right.AsSpan());
+        return comparison switch
+        {
+            ComparisonOperator.Equal => order == 0,
+            ComparisonOperator.NotEqual => order != 0,
+            ComparisonOperator.Less => order < 0,
+            ComparisonOperator.LessOrEqual => order <= 0,
+            ComparisonOperator.Greater => order > 0,
+            _ => order >= 0,
+        };
+    }
+
+    /// <summary>
+    /// <c>TypeOf</c> of the object held in <paramref name="cell"/>, tested against the class the body knows by <paramref name="number"/> (MS-VBAL §5.6.7): as
+    /// the interpreter tests it (<c>RuntimeExpressionEvaluator.IsInstanceOf</c>).
+    /// </summary>
+    /// <param name="cell">The cell of the object variable tested.</param>
+    /// <param name="number">The number the body knows the class by.</param>
+    /// <param name="isOf">Whether the object is of the class.</param>
+    /// <returns>
+    /// <see langword="false"/> when it is the interpreter's: the cell holds no reference compiled code reads, or holds <c>Nothing</c>, of which <c>TypeOf</c>
+    /// raises error 91.
+    /// </returns>
+    public bool TypeOf(object? cell, int number, out bool isOf)
+    {
+        isOf = false;
+        if (!ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
+            || RuntimeExpressionEvaluator.IsInstanceOf(_session, instance, _body.Classes[number]) is not { } answered)
+        {
+            return false;
+        }
+
+        isOf = answered;
+        return true;
+    }
+
+    /// <summary>
+    /// Steps the <c>For</c> loop whose statement is at <paramref name="opener"/>, of a <c>Variant</c> counter, as the interpreter steps it on payloads
+    /// (<c>RuntimeExpressionEvaluator.TryStepForUnboxed</c>), with the state its statement, which the interpreter ran, gave the frame.
+    /// </summary>
+    /// <param name="opener">The offset of the loop's <c>For</c> statement.</param>
+    /// <returns>1 when the counter is past the end and the loop ends; 0 when the body runs again; -1 when the step is the interpreter's.</returns>
+    public int StepVariantFor(int opener)
+        => Frame.TryGetForLoopState(opener, out var state) && _executor.Expressions.TryStepForUnboxed(_session, state, _context, out var past) ? (past ? 1 : 0) : -1;
+
+    /// <summary>
+    /// The step and the end of the loop of a Variant counter held in <paramref name="cell"/> whose <c>For</c> statement is at <paramref name="opener"/>,
+    /// in the subtype <paramref name="kind"/> compiled code speculates the counter holds, and whether it counts down: what each Next that finds the counter
+    /// holding a value of that subtype steps it with, as the interpreter does (<c>RuntimeExpressionEvaluator.TryVariantForBounds</c>).
+    /// </summary>
+    /// <param name="opener">The offset of the loop's <c>For</c> statement.</param>
+    /// <param name="cell">The cell of the counter.</param>
+    /// <param name="kind">The subtype compiled code speculates the counter holds.</param>
+    /// <param name="stepIntegral">The step, when <paramref name="kind"/> is integral.</param>
+    /// <param name="stepFloating">The step, when <paramref name="kind"/> is floating-point.</param>
+    /// <param name="endIntegral">The end, when <paramref name="kind"/> is integral.</param>
+    /// <param name="endFloating">The end, when <paramref name="kind"/> is floating-point.</param>
+    /// <param name="countsDown">Whether the step is negative, so the loop counts down.</param>
+    /// <returns>1 when each Next is stepped in that subtype; -1 when each is stepped as any is (<see cref="StepVariantFor"/>).</returns>
+    public int VariantForBounds(int opener, object? cell, ScalarKind kind, out long stepIntegral, out double stepFloating, out long endIntegral,
+        out double endFloating, out bool countsDown)
+    {
+        (stepIntegral, stepFloating, endIntegral, endFloating, countsDown) = (0, 0, 0, 0, false);
+        if (cell is not VariantCell variant || !Frame.TryGetForLoopState(opener, out var state)
+            || !_executor.Expressions.TryVariantForBounds(_session, state, _context, variant, ScalarKinds.TypeOf(kind), out var step, out var end))
+        {
+            return -1;
+        }
+
+        (stepIntegral, stepFloating, endIntegral, endFloating, countsDown) = (step.Integral, step.Floating, end.Integral, end.Floating, state.CountsDown);
+        return 1;
     }
 
     /// <summary>Writes the variable in <paramref name="slot"/>, of an integral kind, into its cell.</summary>
@@ -1051,8 +1568,31 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// </summary>
     public bool NeedsFrame { get; init; }
 
+    /// <summary>
+    /// Whether the body is of a member of a class that a call compiled code makes of it on an object enters without a frame
+    /// (<see cref="ProcedureAnalysis.EntersWithoutFrame"/>).
+    /// </summary>
+    public bool EntersWithoutFrame { get; init; }
+
+    /// <summary>
+    /// The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.
+    /// </summary>
+    public int MeSlot { get; init; } = -1;
+
+    /// <summary>
+    /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
+    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The cache keeps the object's
+    /// identity and holds no reference to it.
+    /// </summary>
+    internal FieldCells? Fields { get; set; }
+
     /// <summary>The <c>Select Case</c> statements of a scalar selector, by the number compiled code knows each by.</summary>
     public IReadOnlyList<CompiledSelect> Selects { get; init; } = [];
+
+    /// <summary>
+    /// The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).
+    /// </summary>
+    public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -

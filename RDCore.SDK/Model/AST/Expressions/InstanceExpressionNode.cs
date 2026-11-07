@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
-/// <strong>MS-VBAL 5.6.11</strong> <c>instance-expression</c> — the <c>Me</c> keyword, a self-reference
+/// <strong>MS-VBAL 5.6.11</strong> <c>instance-expression</c>: the <c>Me</c> keyword, a self-reference
 /// to the current object instance. Its own grammar alternative, distinct from
 /// <see cref="SimpleNameExpressionNode"/>, because <c>Me</c> is a reserved keyword and never resolves
 /// like a named symbol lookup.

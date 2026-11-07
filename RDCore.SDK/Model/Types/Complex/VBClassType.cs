@@ -88,7 +88,7 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     /// Every class always includes <see cref="VBObjectType"/>; <c>Implements</c> directives
     /// (<strong>MS-VBAL §5.2.4.2</strong>, via <see cref="VBClassModuleSymbol.ImplementedInterfaces"/>)
     /// each contribute one more, recursively (an interface's own <c>Implements</c> directives are
-    /// included too — see <see cref="FromClassModule(VBClassModuleSymbol)"/>). Left at the default
+    /// included too: see <see cref="FromClassModule(VBClassModuleSymbol)"/>). Left at the default
     /// <c>[VBObjectType.TypeInfo]</c> for a <see cref="VBClassType"/> built any other way than through
     /// <see cref="FromClassModule(VBClassModuleSymbol)"/>.
     /// </remarks>

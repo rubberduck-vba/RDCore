@@ -323,7 +323,7 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
 > A `ByRef` parameter declared as a class or `Object`, whose argument is a variable of a different declared
 > type, falls through to a `ByVal`-style copy.
 
-> 👉 UDT values **must** be passed by reference (`ByRef`). See
+> UDT values **must** be passed by reference (`ByRef`). See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
 
 ### Standard Library Calls
@@ -344,7 +344,7 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
   Missing it passes for an optional argument is filled in the same way. A required argument left out is error `5`, and
   the member is not called.
 
-> 👉 An external call carries runtime values rather than typed ones, so the declared type a member was called
+> An external call carries runtime values rather than typed ones, so the declared type a member was called
 > with is recovered when the call is dispatched. See [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)
 > and [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
 
@@ -398,10 +398,10 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 
 |Condition|Run-time error|
 |---|---|
-|A `MissingArgumentNode` (an argument omitted with a comma) is mapped to a non-`Optional` parameter. Checked during argument mapping.|448 — Named argument not found|
-|After argument mapping, a non-`Optional` parameter other than a `ParamArray` has no argument mapped to it.|449 — Argument not optional|
-|An extra positional argument goes beyond the parameter count, and there is no trailing `ParamArray` parameter.|450 — Wrong number of arguments or invalid property assignment|
-|Pushing the callee's frame exceeds the call-depth limit (`RuntimeCallStack.OnBeforeTryPush`).|28 — Out of stack space|
+|A `MissingArgumentNode` (an argument omitted with a comma) is mapped to a non-`Optional` parameter. Checked during argument mapping.|448 (Named argument not found)|
+|After argument mapping, a non-`Optional` parameter other than a `ParamArray` has no argument mapped to it.|449 (Argument not optional)|
+|An extra positional argument goes beyond the parameter count, and there is no trailing `ParamArray` parameter.|450 (Wrong number of arguments or invalid property assignment)|
+|Pushing the callee's frame exceeds the call-depth limit (`RuntimeCallStack.OnBeforeTryPush`).|28 (Out of stack space)|
 
 ## Implementation
 
@@ -427,6 +427,3 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 `ProcedureExecutor` built from a `StatementRuntimeSemanticsProvider` built from the same
 `RuntimeExpressionEvaluator`: the evaluator must exist before its invoker can be built. See
 [**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md).
-
----
-> ⏮️ [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md) | ⏭️ [**RD-VBAL §5.4** Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)

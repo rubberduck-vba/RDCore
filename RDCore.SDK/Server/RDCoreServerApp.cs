@@ -578,7 +578,7 @@ public abstract class RDCoreServerApp(
     /// The request wins: it is LSP's own way for a client to say which process owns this server, and
     /// only a client that spawned the server itself could have passed <c>-p</c>. Nothing read the
     /// request at all, so a client that sent a <c>processId</c> was told in the log that it had sent
-    /// none — and nothing watched it, leaving the whole platform running after the client that owned it
+    /// none, and nothing watched it, leaving the whole platform running after the client that owned it
     /// was gone. A <c>null</c> <c>processId</c> is LSP's "the parent is not a process I can name".
     /// </remarks>
     internal static int ClientProcessId(long? requested, int configured, out bool outOfRange)

@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="LabelExpression">
 /// Whatever expression followed <c>Resume</c>, or <c>null</c> for a bare <c>Resume</c>. MS-VBAL
 /// §5.4.4.2 carves out the line-number-label <c>0</c> the same way it does for <c>On Error GoTo 0</c>
-/// (see <see cref="OnErrorGoToStatementNode"/>) — a sentinel, not a label to resolve. A future consumer
+/// (see <see cref="OnErrorGoToStatementNode"/>): a sentinel, not a label to resolve. A future consumer
 /// resolving this against the module's labels must special-case it before treating it as a real label
 /// reference.
 /// </param>

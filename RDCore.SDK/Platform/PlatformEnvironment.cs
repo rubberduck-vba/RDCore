@@ -8,7 +8,7 @@ namespace RDCore.SDK.Platform;
 /// <remarks>
 /// The platform root is the directory that holds <c>rdcore.json</c> and one subfolder per component
 /// (<c>RDCore.CLI/</c>, <c>RDCore.LanguageServer/</c>, …). A component's own base directory is
-/// <c>&lt;Root&gt;/&lt;Component&gt;/</c>, so the root is that directory's parent — independent of the
+/// <c>&lt;Root&gt;/&lt;Component&gt;/</c>, so the root is that directory's parent: independent of the
 /// working directory a process happens to be started with.
 /// </remarks>
 public interface IPlatformEnvironment

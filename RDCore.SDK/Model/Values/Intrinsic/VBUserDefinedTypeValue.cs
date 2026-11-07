@@ -13,13 +13,13 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 
 /// <summary>
 /// Represents a value of a <see cref="VBUserDefinedType"/>. Like <see cref="VBObjectValue"/> the
-/// value is a <see cref="MemoryAddress"/> — a UDT has location identity and is never passed by value.
+/// value is a <see cref="MemoryAddress"/>: a UDT has location identity and is never passed by value.
 /// </summary>
 /// <remarks>
 /// 👉 The field store is a flat block of cells in <em>declaration order</em>, exactly as
 /// <see cref="VBArrayValue"/> holds its elements and for the same reason: a UDT's real content is its
 /// fields, and a scalar <c>IRuntimeValue</c> has nowhere to hold them. Declaration order is not an
-/// implementation detail — it is the order <strong>MS-VBAL §5.4.5.11</strong> writes a record in, and the
+/// implementation detail: it is the order <strong>MS-VBAL §5.4.5.11</strong> writes a record in, and the
 /// order <see cref="VBUserDefinedTypeLayout"/> assigns offsets in.
 /// </remarks>
 public record class VBUserDefinedTypeValue : VBTypedValue,
@@ -96,7 +96,7 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     /// <summary>
-    /// This type's fields, in declaration order — the same symbols <see cref="VBUserDefinedType.Fields"/>
+    /// This type's fields, in declaration order: the same symbols <see cref="VBUserDefinedType.Fields"/>
     /// reports, held here so that a value can name its own fields without resolving its type again.
     /// </summary>
     public ImmutableArray<VBUserDefinedTypeFieldSymbol> Fields { get; init; }
@@ -104,7 +104,7 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     public MemoryAddress Value => ((VBRuntimeReference)RuntimeValue).Value;
 
     /// <summary>
-    /// The in-memory size of this UDT, MS-VBA's own padding included — what <c>LenB</c> reports
+    /// The in-memory size of this UDT, MS-VBA's own padding included: what <c>LenB</c> reports
     /// (<strong>MS-VBAL §6.1.2.11</strong>).
     /// </summary>
     /// <remarks>
@@ -166,7 +166,7 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     public VBTypedValue? StoredFieldAt(int index) => index < 0 || index >= _fields.Length ? null : _fields[index];
 
     /// <summary>
-    /// Replaces the value of the field named <paramref name="name"/>. Mutates the cell in place — field
+    /// Replaces the value of the field named <paramref name="name"/>. Mutates the cell in place: field
     /// storage is mutable, the way array element storage is.
     /// </summary>
     /// <param name="name">The field name, compared case-insensitively.</param>
@@ -195,7 +195,7 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// The binding of the field named <paramref name="name"/>, or <c>null</c> when there is no such field.
     /// </summary>
     /// <remarks>
-    /// What a <c>ByRef</c> argument of a UDT field needs, and what an assignment to one writes through —
+    /// What a <c>ByRef</c> argument of a UDT field needs, and what an assignment to one writes through:
     /// neither of which constructs a value, so neither goes through the indexer.
     /// </remarks>
     /// <param name="name">The field name, compared case-insensitively.</param>

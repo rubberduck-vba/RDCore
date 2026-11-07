@@ -41,9 +41,23 @@ public sealed class LibrarySymbolProvider : ISymbolProvider
     /// Loads the libraries a project references.
     /// </summary>
     /// <param name="source">Where the descriptions are.</param>
-    /// <param name="references">The references of the project.</param>
-    public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<RDCoreReference> references)
-        => ReferencedLibraries.Load(source, references.Select(reference => reference.Name), [StdLibSymbolProvider.LibraryName]);
+    /// <param name="references">
+    /// The references of the project. A reference that gives the identifier of a type library (<see cref="RDCoreReference.Guid"/>) is to the description made from
+    /// it, of its <see cref="RDCoreReference.Major"/> version and of exactly its <see cref="RDCoreReference.Minor"/> one, or else the highest above it
+    /// (<see cref="LibraryIdentity"/>); one that gives none is to the library of its name.
+    /// </param>
+    /// <param name="language">
+    /// The language the project is written in, whose implicit references (<see cref="SupportedLanguage.ImplicitReferences"/>) come before the ones the project lists;
+    /// RD-VBA, which has none, when it is not given.
+    /// </param>
+    public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<RDCoreReference> references, SupportedLanguage? language = null)
+        => ReferencedLibraries.Load(
+            source,
+            [
+                .. (language?.ImplicitReferences ?? []).Select(name => new LibraryIdentity(name)),
+                .. references.Select(reference => new LibraryIdentity(reference.Name, reference.Guid, reference.Major, reference.Minor)),
+            ],
+            [StdLibSymbolProvider.LibraryName]);
 
     /// <summary>
     /// Reads the symbols of a library whether or not the project references it, and of the libraries it depends on: what tooling knows of the class of an object

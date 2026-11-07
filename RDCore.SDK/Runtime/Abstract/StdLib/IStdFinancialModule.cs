@@ -11,11 +11,11 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// <para>
 /// Two conventions run through the module. For the annuity functions, "cash paid out (such as deposits to
 /// savings) is represented by negative numbers; cash received (such as dividend checks) is represented by
-/// positive numbers" — and the cash flows of <see cref="IRR"/>, <see cref="MIRR"/> and <see cref="NPV"/> are
+/// positive numbers", and the cash flows of <see cref="IRR"/>, <see cref="MIRR"/> and <see cref="NPV"/> are
 /// signed the same way. And an optional argument is declared <c>Variant</c> with no default value, the
-/// specification stating the value an omitted one stands for in its own description instead — <c>0</c> for a
+/// specification stating the value an omitted one stands for in its own description instead (<c>0</c> for a
 /// present value and for <c>Due</c>, <c>0.1</c> for a <c>Guess</c>, <c>2</c> for a <c>Factor</c>, and <c>0</c>
-/// for a future value, which only <see cref="PV"/>'s description leaves unsaid — which is a default a C#
+/// for a future value, which only <see cref="PV"/>'s description leaves unsaid), which is a default a C#
 /// signature cannot state either, so an implementation supplies it.
 /// </para>
 /// </remarks>
@@ -31,7 +31,7 @@ public interface IStdFinancialModule
     /// <param name="salvage">The value of the asset at the end of its useful life.</param>
     /// <param name="life">The length of the asset's useful life.</param>
     /// <param name="period">The period to depreciate the asset for, in the same unit as <paramref name="life"/>.</param>
-    /// <param name="factor">The rate the balance declines at. <c>2</c> — the double-declining method — when unspecified.</param>
+    /// <param name="factor">The rate the balance declines at. <c>2</c> (the double-declining method), when unspecified.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBDoubleValue> DDB(
         VBDoubleValue cost, VBDoubleValue salvage, VBDoubleValue life, VBDoubleValue period,
@@ -43,7 +43,7 @@ public interface IStdFinancialModule
     /// <remarks>
     /// 👉 The specification's own declaration omits <c>Optional</c> from <paramref name="pV"/> and
     /// <paramref name="due"/>, where its description of each says what an omitted one means, as the Office
-    /// reference does — and every other annuity function declares its <c>Due</c> optional. They are optional here.
+    /// reference does, and every other annuity function declares its <c>Due</c> optional. They are optional here.
     /// </remarks>
     /// <param name="rate">The interest rate per period.</param>
     /// <param name="nPer">The total number of payment periods, in the same unit as <paramref name="rate"/>.</param>

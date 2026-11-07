@@ -21,7 +21,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <see cref="AccessModifier.Implicit"/> if none is specified.</param>
 /// <param name="Value">
 /// The declaration's own constant expression, or <c>null</c> when there is none. A constant has no
-/// storage to read a value from — it is substituted at each of its use sites — so this expression
+/// storage to read a value from (it is substituted at each of its use sites), so this expression
 /// <em>is</em> the symbol's value. A standard-library module's constant is declared in C#, as the value
 /// it is, and its expression is a literal over that value.
 /// </param>

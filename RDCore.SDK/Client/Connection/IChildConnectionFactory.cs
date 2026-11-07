@@ -5,7 +5,7 @@ using RDCore.SDK.Server;
 namespace RDCore.SDK.Client.Connection;
 
 /// <summary>
-/// Creates a fresh <see cref="ChildConnection"/> — with its own process and transport — per call.
+/// Creates a fresh <see cref="ChildConnection"/> (with its own process and transport) per call.
 /// </summary>
 public interface IChildConnectionFactory
 {
