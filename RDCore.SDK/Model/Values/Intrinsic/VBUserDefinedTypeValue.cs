@@ -265,8 +265,8 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     /// <summary>
-    /// Gives the field at <paramref name="index"/> in declaration order the default value of its declared type, as the field of a new record has it: in
-    /// place, where <see cref="TryLetFieldAt"/> writes in place.
+    /// Resets the field at <paramref name="index"/> in declaration order to the default value of its declared type, as a new record holds it. The field
+    /// is written in place wherever <see cref="TryLetFieldAt"/> writes in place.
     /// </summary>
     /// <remarks>
     /// A field declared as a record has each of its own fields reset, and a fixed-size array field each of its elements

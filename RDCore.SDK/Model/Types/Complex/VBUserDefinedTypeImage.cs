@@ -230,11 +230,11 @@ public static class VBUserDefinedTypeImage
     /// <remarks>
     /// <para>
     /// Only the bytes both types have are copied, as a copy between records of different sizes must be: a destination field that does not fit entirely
-    /// inside the source's image is left at its declared type's default (<see cref="VBUserDefinedTypeValue.TryResetFieldAt"/>) rather than being filled
-    /// with half a value.
+    /// inside the source's image is left at its declared type's default (<see cref="VBUserDefinedTypeValue.TryResetFieldAt"/>), so that no field
+    /// holds half a value.
     /// </para>
     /// <para>
-    /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies what a pointer points at, never the pointer: a String, an
+    /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies the data a field points at: a String, an
     /// array, a record or a <c>Variant</c> field of the source at the same offset is copied into cells of the destination's own
     /// (<see cref="DataValues.Copy"/>), and an object field there gives the destination's object field the object, in a cell of its own, as <c>Set</c>
     /// would. Counting that reference is the caller's. An object field read as the bytes of another type is the address of the object, what <c>ObjPtr</c>

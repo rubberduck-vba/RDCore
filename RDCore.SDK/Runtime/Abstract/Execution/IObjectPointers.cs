@@ -19,7 +19,7 @@ public interface IObjectPointers
     int PointerWidth { get; }
 
     /// <summary>
-    /// The address of the interface of <paramref name="instance"/> that <paramref name="declared"/> says: what <c>ObjPtr</c> returns of a variable of that
+    /// The address of the interface of <paramref name="instance"/> that <paramref name="declared"/> selects: what <c>ObjPtr</c> returns of a variable of that
     /// type that holds it, and <c>0</c> for <c>Nothing</c>.
     /// </summary>
     /// <param name="instance">The object.</param>
@@ -29,7 +29,7 @@ public interface IObjectPointers
     bool TryGetPointer(VBRuntimeObjectId instance, VBType? declared, out long pointer);
 
     /// <summary>
-    /// The object an interface at <paramref name="pointer"/> is an interface of, as <c>ObjPtr</c> gave the address out: <c>Nothing</c> for <c>0</c>.
+    /// The object whose interface is at <paramref name="pointer"/>, an address <c>ObjPtr</c> returned: <c>Nothing</c> for <c>0</c>.
     /// </summary>
     /// <param name="pointer">The address.</param>
     /// <param name="instance">The object.</param>
