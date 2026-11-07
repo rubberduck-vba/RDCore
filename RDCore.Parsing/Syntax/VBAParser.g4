@@ -684,9 +684,9 @@ expression :
     | TYPEOF whiteSpace expression                                                                  # typeofexpr // To make the grammar SLL, the type-of-is-expression is actually the child of an IS relational op.
     | HASH expression                                                                               # markedFileNumberExpr // Added to support special forms such as Input(file1, #file1)
     | NEW whiteSpace expression                                                                     # newExpr
+    | PLUS whiteSpace? expression                                                                   # unaryPlusOp // no operator, and the module's trivia: it binds tightest, so the tree is the one of the code the VBE keeps without it
     | expression whiteSpace? POW whiteSpace? expression                                             # powOp
     | MINUS whiteSpace? expression                                                                  # unaryMinusOp
-    | PLUS whiteSpace? expression                                                                   # unaryPlusOp // no operator: the tree keeps it on its operand, which is what the VBE keeps of it
     | expression whiteSpace? (MULT | DIV) whiteSpace? expression                                    # multOp
     | expression whiteSpace? INTDIV whiteSpace? expression                                          # intDivOp
     | expression whiteSpace? MOD whiteSpace? expression                                             # modOp

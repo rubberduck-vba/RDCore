@@ -44,6 +44,10 @@ public sealed class UnaryPlusTests
     [DataRow("x = Abs(+1) ;; P x", "1 Integer|", DisplayName = "an argument")]
     [DataRow("P +1", "1 Integer|", DisplayName = "the argument of a call statement")]
     [DataRow("Const C = +1 ;; P C", "1 Integer|", DisplayName = "the value of a constant")]
+    [DataRow("x = 2 ^ +3 ^ 2 ;; P x", "64 Double|", DisplayName = "an operand of a chain of ^, which groups as the chain without it")]
+    [DataRow("x = 2 ^ 3 ^ 2 ;; P x", "64 Double|", DisplayName = "the chain of ^ without it")]
+    [DataRow("x = -+3 ^ 2 ;; P x", "-9 Double|", DisplayName = "under a negation of a ^, as -3 ^ 2")]
+    [DataRow("x = -3 ^ 2 ;; P x", "-9 Double|", DisplayName = "the negation of a ^ without it")]
     public void AUnaryPlus_LeavesANumberAsItIs(string body, string printed)
         => Assert.AreEqual(printed, Run(body));
 
@@ -69,6 +73,11 @@ public sealed class UnaryPlusTests
     [TestMethod]
     public void AUnaryPlus_BeforeAnObject_IsTheObjectASetAssigns()
         => Assert.AreEqual("True Boolean|", Run("Dim c As Collection ;; Set c = New Collection ;; Dim o As Object ;; Set o = +c ;; P o Is c"));
+
+    // a + before TypeOf is before the TypeOf…Is expression: what the expression tests is unchanged.
+    [TestMethod]
+    public void AUnaryPlus_BeforeTypeOf_LeavesTheTypeOfIsExpression()
+        => Assert.AreEqual("True Boolean|", Run("Dim c As Collection ;; Set c = New Collection ;; x = +TypeOf c Is Collection ;; P x"));
 
     // a Tab clause, a space, then a + is two items: the + begins the second, and is erased. The file holds 1 printed at the second column.
     [TestMethod]

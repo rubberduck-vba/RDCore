@@ -42,6 +42,8 @@ public sealed class UnaryPlusParseTests
     [DataRow("Const C = +1", 1, DisplayName = "the value of a constant")]
     [DataRow("If +x Then Beep", 1, DisplayName = "a condition")]
     [DataRow("Print #1, +1", 1, DisplayName = "an item of a Print")]
+    [DataRow("x = 2 ^ +3 ^ 2", 1, DisplayName = "an operand of a chain of ^")]
+    [DataRow("x = +TypeOf o Is Collection", 1, DisplayName = "before TypeOf")]
     public void AUnaryPlus_IsNoNode_AndIsTheModulesTrivia(string statement, int signs)
     {
         var result = Parse(statement);

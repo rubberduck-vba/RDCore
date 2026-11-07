@@ -2050,8 +2050,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
         // `TypeOf <expr> Is <type>` (MS-VBAL §5.6.9.4) arrives here as an ordinary IS relationalOp
         // whose left operand is grammatically a typeofexpr (see that Exit override's own remarks) —
-        // recognized from the parse-tree shape itself, not from anything on the builder stack.
-        if (context.IS() is not null && context.expression(0) is VBAParser.TypeofexprContext)
+        // recognized from the parse-tree shape itself, not from anything on the builder stack. A unary + before the TypeOf builds no node, and the left
+        // operand is the TypeOf it is written before (`+TypeOf o Is Collection`).
+        if (context.IS() is not null && WithoutUnaryPlus(context.expression(0)) is VBAParser.TypeofexprContext)
         {
             AddIfBuilt(BuildTypeOfIs(context));
             return;
@@ -2067,6 +2068,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : context.LIKE() is not null ? Tokens.CompareLikeOp
             : context.GetText();
         AddIfBuilt(BuildBinary(token, context));
+    }
+
+    // the expression a unary + is written before, however many there are: the + is no operator, and the expression is what a rule reads.
+    private static VBAParser.ExpressionContext WithoutUnaryPlus(VBAParser.ExpressionContext expression)
+    {
+        while (expression is VBAParser.UnaryPlusOpContext plus)
+        {
+            expression = plus.expression();
+        }
+        return expression;
     }
 
     // ExitTypeofexpr always wraps its operand in an UnbuiltExpressionTriviaNode with exactly one input
