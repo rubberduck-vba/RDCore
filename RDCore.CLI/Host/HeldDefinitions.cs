@@ -148,7 +148,7 @@ internal static class HeldDefinitions
         => session.Symbols.HeldDefinitions.Count > 0 && ReceivedBySession.TryGetValue(session, out var received) && received.Contains(module);
 
     /// <summary>
-    /// What is wrong with the code of each module that failed to load - at a request, or once it was made again (<see cref="Release"/>) - and that no request
+    /// What is wrong with the code of each module that failed to load (at a request, or once it was made again by <see cref="Release"/>) and that no request
     /// has loaded since: a run is refused with it, rather than running the code the module had, or none of it.
     /// </summary>
     /// <param name="session">The session.</param>
