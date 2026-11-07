@@ -226,6 +226,3 @@ on the pages below.
 |Wiring `RuntimeExpressionEvaluator.ProcedureInvoker`|[**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md)|
 |Zero-size storage|[**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)|
 |Array and `Variant` values round-tripping through storage|[**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md), [**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md)|
-
----
-> ⏮️ [**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md) | ⏭️ [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)

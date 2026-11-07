@@ -18,6 +18,3 @@ The `WorkspaceFile` model describes the content of the workspace:
 
 > [!TIP]
 > This model is intended to natively support VB6 _project groups_ (`.vbg`).
-
----
-> ⏮️ [**RD-VBAL §2.2.1** Conventions](rd-vbal.2.2.1.conventions.md) | ⏭️ [**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)

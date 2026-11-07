@@ -30,6 +30,3 @@ flattens the statement tree; it never flattens the expression trees held in each
 |3.5.3|[Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)|
 |3.5.4|[Execution](rd-vbal.3.5.4.execution.md)|
 |3.5.5|[Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)|
-
----
-> ⏮️ [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md) | ⏭️ [**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)

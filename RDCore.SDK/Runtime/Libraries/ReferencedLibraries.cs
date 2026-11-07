@@ -61,17 +61,16 @@ public sealed class ReferencedLibraries
     public static ReferencedLibraries None { get; } = new([], [], ImmutableDictionary<string, int>.Empty.WithComparers(StringComparer.OrdinalIgnoreCase));
 
     /// <summary>
-    /// The precedence of each library that was loaded, by its name: of two libraries that declare a name, the one with the higher number is the one the name means
-    /// (<see cref="Model.Symbols.Abstract.SymbolProperties.LibraryPriority"/>).
+    /// The reference precedence of each library that was loaded, by its name: of two libraries that declare a name, the one with the lower number is the one the
+    /// name means (<see cref="Model.Symbols.Abstract.SymbolProperties.LibraryPriority"/>).
     /// </summary>
     /// <remarks>
-    /// A library the project references comes after the ones it references before, as the references of a project are in the order of their precedence
-    /// (<strong>RD-VBAL §2.3.1.2</strong>); a library that is loaded only because another depends on it comes before all of them, in the order it was loaded.
-    /// The standard library, which the platform provides and which is lowest of all, has none.
+    /// A reference that occurs earlier in the list of a project's references has the higher reference precedence (<strong>MS-VBAL §4.1</strong>), and the
+    /// references are in the order of the project file (<strong>RD-VBAL §2.3.1.2</strong>): the first library the project references is <c>1</c>, the next
+    /// <c>2</c>, and so on. A library that is loaded only because another depends on it comes after every library the project references, in the order it was
+    /// loaded. The standard library, which the platform provides and which comes before every reference, is not in it.
     /// </remarks>
     public ImmutableDictionary<string, int> Priorities { get; }
-
-    private const int ExplicitPriorityBase = 1000;
 
     /// <summary>
     /// The libraries that were loaded, each after the libraries it depends on.
@@ -100,18 +99,20 @@ public sealed class ReferencedLibraries
             loader.Load(reference, []);
         }
 
+        var loaded = loader.Loaded.Select(library => library.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var priorities = ImmutableDictionary.CreateBuilder<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (var i = 0; i < loader.Loaded.Count; i++)
-        {
-            priorities[loader.Loaded[i].Name] = i + 1;
-        }
-
         for (var i = 0; i < referenced.Length; i++)
         {
-            if (priorities.ContainsKey(referenced[i]))
+            if (loaded.Contains(referenced[i]))
             {
-                priorities[referenced[i]] = ExplicitPriorityBase + i;
+                priorities[referenced[i]] = i + 1;
             }
+        }
+
+        var dependencies = loader.Loaded.Where(library => !priorities.ContainsKey(library.Name)).ToArray();
+        for (var i = 0; i < dependencies.Length; i++)
+        {
+            priorities[dependencies[i].Name] = referenced.Length + 1 + i;
         }
 
         return new ReferencedLibraries([.. loader.Loaded], [.. loader.Problems], priorities.ToImmutable());

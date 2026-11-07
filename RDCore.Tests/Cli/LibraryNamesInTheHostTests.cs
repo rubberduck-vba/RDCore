@@ -70,10 +70,10 @@ public sealed class LibraryNamesInTheHostTests
     }
 
     [TestMethod]
-    public async Task ABareName_IsTheClassOfTheLibraryReferencedLast()
+    public async Task ABareName_IsTheClassOfTheLibraryReferencedFirst()
     {
-        CollectionAssert.AreEqual(new[] { "South.Application" }, await CreatedBy(["North", "South"], "Dim a As New Application", "a.Ping"));
-        CollectionAssert.AreEqual(new[] { "North.Application" }, await CreatedBy(["South", "North"], "Dim a As New Application", "a.Ping"));
+        CollectionAssert.AreEqual(new[] { "North.Application" }, await CreatedBy(["North", "South"], "Dim a As New Application", "a.Ping"));
+        CollectionAssert.AreEqual(new[] { "South.Application" }, await CreatedBy(["South", "North"], "Dim a As New Application", "a.Ping"));
     }
 
     [TestMethod]

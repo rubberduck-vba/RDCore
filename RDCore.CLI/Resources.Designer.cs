@@ -1283,6 +1283,15 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Nobody is at the shell&apos;s console to answer the question..
+        /// </summary>
+        public static string Repl_NobodyAnswers {
+            get {
+                return ResourceManager.GetString("Repl_NobodyAnswers", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to NO RUNTIME SESSION.
         /// </summary>
         public static string Repl_NoSession {

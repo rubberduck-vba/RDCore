@@ -22,6 +22,3 @@ the same type here: a handler whose parameter is declared `Long` handles an even
 ## Runtime Semantics
 
 A handler is invoked by `RaiseEvent` ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)) on the object that holds the event's source in the `WithEvents` variable, with that object as its target: its `Me` is the object that owns the variable, not the source.
-
----
-> ⏮️ [**RD-VBAL §5.3.1.7** Property Declarations](rd-vbal.5.3.1.7.property-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.9** Implemented Name Declarations](rd-vbal.5.3.1.9.implemented-name-declarations.md)

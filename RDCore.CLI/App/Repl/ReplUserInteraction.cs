@@ -82,6 +82,36 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
         return chosen is { } index ? request.Choices[index] : request.EscapeResult!.Value;
     }
 
+    /// <summary>
+    /// Asks the user to choose one of <paramref name="choices"/>, as a dialog box at the console: what a server asks the shell's user
+    /// (<strong>LSP 3.17</strong> <c>window/showMessageRequest</c>).
+    /// </summary>
+    /// <param name="title">The box's title.</param>
+    /// <param name="prompt">The question.</param>
+    /// <param name="choices">The buttons, in order.</param>
+    /// <param name="selected">The button chosen at first.</param>
+    /// <param name="token">A token that cancels the question.</param>
+    /// <param name="at">Where the keys are read, when they are not the shell's own: the prompt's, which hand over the key it was waiting for.</param>
+    /// <returns>The index of the chosen button; <see langword="null"/> when the user closed the box, or nobody is at the console.</returns>
+    /// <remarks>
+    /// A shell whose input is a script is not asked: the server's question comes when the server asks it, not where the script is, and a line of the script is
+    /// never taken for its answer.
+    /// </remarks>
+    public int? Choose(string title, string prompt, IReadOnlyList<string> choices, int selected, CancellationToken token = default, IConsoleKeys? at = null)
+    {
+        var read = at ?? keys;
+        if (!read.IsInteractive)
+        {
+            return null;
+        }
+
+        var menu = new ConsoleMenu(choices, selected, canDismiss: true);
+        var buttons = menu.Render();
+        var box = new ConsoleDialogBox(title, GlyphOf(VBMsgBoxStyle.VBExclamation), prompt, ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true, ansi);
+        var (before, after) = box.Centring(buttons);
+        return box.Show(output, ansi, () => menu.Run(read, output, box.RowPrefix + before, token, after + box.RowSuffix));
+    }
+
     // a line of a script names a button by its text or its key; anything else is asked again, until the script runs out.
     private VBMsgBoxResult AnswerFromLine(MessageBoxRequest request, ConsoleMenu menu)
     {

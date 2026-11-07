@@ -4,6 +4,3 @@ This section corresponds to [**MS-VBAL §5.6.3** Member Resolution](https://lear
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.2** Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md) | ⏭️ [**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md)

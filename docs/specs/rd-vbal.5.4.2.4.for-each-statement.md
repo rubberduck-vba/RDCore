@@ -145,6 +145,3 @@ subscript arithmetic. The index a `ForEachState` holds is this flat index.
   [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html) that `SymbolAddressTable`
   boxed for the variable, and returns the same instance with its cells intact
   ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md) | ⏭️ [**RD-VBAL §5.4.2.5** Exit For Statement](rd-vbal.5.4.2.5.exit-for-statement.md)

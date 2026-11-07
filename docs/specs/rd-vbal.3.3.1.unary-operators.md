@@ -11,6 +11,3 @@ Parentheses written in source are one of two unary operators ([**RD-VBAL §5.6.6
 See [**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md) for the unary `-`
 operator, and [**RD-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md) for the `Not`
 operator.
-
----
-> ⏮️ [**RD-VBAL §3.3.0** Operator Expressions](rd-vbal.3.3.0.operators.md) | ⏭️ [**RD-VBAL §3.3.2** Arithmetic Operators](rd-vbal.3.3.2.arithmetic-operators.md)
