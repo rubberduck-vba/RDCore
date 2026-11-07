@@ -6,9 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 $(Authors)</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore SDK</AssemblyTitle>
+    <Description>The RDCore language model and the plumbing every process and extension of the platform shares.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
