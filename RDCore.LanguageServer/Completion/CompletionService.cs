@@ -332,7 +332,7 @@ internal sealed class CompletionService(
             ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, logical.After)
             : [];
 
-        // an argument an array is given to - of LBound, of UBound, of a parameter declared as an array - is offered the names it can be given, and no other.
+        // an argument an array is given to (of LBound, of UBound, of a parameter declared as an array) is offered the names it can be given, and no other.
         var written = context.Kind == CompletionSiteKind.Member
             ? before[^Math.Min(before.Length, context.Qualifier.Length + 1 + context.Prefix.Length)..]
             : context.Prefix;
@@ -355,8 +355,12 @@ internal sealed class CompletionService(
         // the name a qualifier is assigned to in the line that stands for the one typed is no name of the module.
         IReadOnlyList<CompletionCandidate> others = namesOnly
             ? []
-            : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase) && arrays?.Accepts(candidate) != false)];
-        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others);
+            : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))];
+
+        // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
+        IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
+        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
+            arrays is null ? others : []);
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",

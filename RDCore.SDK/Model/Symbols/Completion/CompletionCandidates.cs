@@ -120,7 +120,7 @@ public static class CompletionCandidates
     ];
 
     // ranks: what the procedure declares before what its module does, before what the project does, before what the libraries and the language have.
-    private const int ProcedureRank = 0;
+    internal const int ProcedureRank = 0;
     private const int ModuleRank = 1;
     private const int ProjectRank = 2;
     private const int GlobalRank = 3;

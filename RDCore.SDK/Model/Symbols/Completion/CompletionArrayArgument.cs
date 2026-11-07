@@ -2,11 +2,14 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Static;
 
 namespace RDCore.SDK.Model.Symbols.Completion;
 
 /// <summary>
-/// An argument that is given an array: what a name written there must be declared as for a completion list to offer it.
+/// An argument that is given an array: what a name written there must be declared as for a completion list to offer it, and where it ranks.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,14 +19,22 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// <item><description>the first argument of <c>LBound</c> and <c>UBound</c>, special forms (<strong>MS-VBAL §3.3.5.2</strong>) whose operand is an array,
 /// or a <c>Variant</c> that may hold one when it runs: one declared as a scalar, an <c>Object</c>, a class or a user-defined type is "Expected array", and
 /// so is a project, a module or an <c>Enum</c>;</description></item>
-/// <item><description>an argument of a parameter declared as an array, which is passed by reference: the declared type of its argument is the parameter's
-/// exactly (<strong>MS-VBAL §5.3.1.11</strong>), an array of the same element type, fixed-size or resizable. A <c>Variant</c> is not accepted
-/// there.</description></item>
+/// <item><description>an argument of a parameter declared as an array, which is passed by reference, named or not: the declared type of its argument must
+/// match the parameter's (<strong>MS-VBAL §5.3.1.11</strong>), so a <c>Variant</c> is not accepted there. The element types match as the compiler matches
+/// them: a <c>String * 3</c> is no <c>String</c>, and an array of any <c>Enum</c> is given to a parameter declared as an array of an <c>Enum</c>. A
+/// fixed-size array is accepted as a resizable one is, as MS-VBA and RDCore's compiler accept it, though by the specification's letter it is of another
+/// declared type.</description></item>
 /// </list>
 /// <para>
 /// A variable, a field (of a user-defined type too), a parameter, a <c>Function</c> and a <c>Property</c> are offered by their declared type: a
 /// <c>Function</c> or a <c>Property Get</c> by the type it returns (<c>UBound(Titles())</c>). A constant, an <c>Enum</c> member and a <c>Sub</c> never are, nor
 /// is a keyword or a name with no declared type.
+/// </para>
+/// <para>
+/// What is offered ranks in four tiers (<see cref="GroupsOf"/>): the arrays the procedure declares, its own array parameters included; then the other
+/// arrays, of its module, of the project, and the members that return one; then the <c>Variant</c>s, for <c>LBound</c> and <c>UBound</c>; then the records
+/// and the objects that a member, or a member of a member, leads to an array the argument can be given (<c>UBound(o.Inner.Slots)</c>). One of these is
+/// offered to be written before its member, and a record or an object that leads to no such array is not offered.
 /// </para>
 /// </remarks>
 /// <param name="ItemType">
@@ -32,18 +43,26 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// </param>
 public sealed record class CompletionArrayArgument(VBType? ItemType = null)
 {
+    // how deep the members of a record or an object are looked into for an array: o.Inner.Slots is two members deep.
+    private const int MaxMemberDepth = 3;
+
+    private const int LocalArrays = 0;
+    private const int OtherArrays = 1;
+    private const int Variants = 2;
+    private const int LeadsToAnArray = 3;
+
     /// <summary>
-    /// The argument at the cursor, when it is given an array and nothing of it is written but <paramref name="written"/>; <see langword="null"/> for any other
-    /// argument, or when more is written of it.
+    /// The argument at the cursor, when it is given an array and nothing of its value is written but <paramref name="written"/>; <see langword="null"/> for any
+    /// other argument, or when more is written of it.
     /// </summary>
     /// <param name="site">The call being written.</param>
     /// <param name="parameter">The parameter the argument is given to, when what is called is a procedure; <see langword="null"/> otherwise.</param>
-    /// <param name="written">What is written of the argument up to the cursor: the word typed, or a qualifier, its <c>.</c> and the word typed after it.</param>
+    /// <param name="written">What is written of the argument's value up to the cursor: the word typed, or a qualifier, its <c>.</c> and the word typed after it.</param>
     public static CompletionArrayArgument? Of(SignatureSite site, SignatureParameter? parameter, string written)
     {
         ArgumentNullException.ThrowIfNull(site);
         ArgumentNullException.ThrowIfNull(written);
-        if (site.ArgumentName is not null || !site.IsWhereAnArgumentStarts(written))
+        if (!site.IsWhereAnArgumentsValueStarts(written))
         {
             return null;
         }
@@ -53,27 +72,91 @@ public sealed record class CompletionArrayArgument(VBType? ItemType = null)
             return new CompletionArrayArgument(array.ItemType);
         }
 
-        var isArrayBound = !site.IsMemberAccess && site.IsParenthesized && site.ArgumentIndex == 0
+        var isArrayBound = site.ArgumentName is null && !site.IsMemberAccess && site.IsParenthesized && site.ArgumentIndex == 0
             && (string.Equals(site.Name, Tokens.LBound, StringComparison.OrdinalIgnoreCase) || string.Equals(site.Name, Tokens.UBound, StringComparison.OrdinalIgnoreCase));
         return isArrayBound ? new CompletionArrayArgument() : null;
     }
 
     /// <summary>
-    /// Whether <paramref name="candidate"/> can be given to the argument: a name whose declared type is an array of <see cref="ItemType"/>, or any array or a
-    /// <c>Variant</c> when <see cref="ItemType"/> is <see langword="null"/>.
+    /// The candidates that can be given to the argument, or lead to what can be, in the tiers they rank in, each by name: the local arrays, the other arrays,
+    /// the <c>Variant</c>s, and the records and objects that lead to an array. A candidate that is none of them is left out.
     /// </summary>
-    /// <param name="candidate">A name a completion list would offer.</param>
-    public bool Accepts(CompletionCandidate candidate)
+    /// <param name="candidates">The names a completion list would offer.</param>
+    /// <param name="resolver">
+    /// The resolver names are bound by, which a class or a user-defined type of the workspace is read from as the composition has it now
+    /// (<see cref="CurrentTypes"/>); <see langword="null"/> when there is none.
+    /// </param>
+    /// <returns>The four tiers, in the order they rank, for <see cref="CompletionCandidates.ListOf"/>.</returns>
+    public IReadOnlyList<CompletionGroup> GroupsOf(IEnumerable<CompletionCandidate> candidates, ISymbolResolver? resolver)
     {
-        ArgumentNullException.ThrowIfNull(candidate);
-        if (candidate.Symbol is not ITypedSymbol typed
-            || candidate.Symbol.Kind is not (SymbolKindExt.Variable or SymbolKindExt.Field or SymbolKindExt.Function or SymbolKindExt.Property))
+        ArgumentNullException.ThrowIfNull(candidates);
+        var tiers = new[] { new List<CompletionCandidate>(), [], [], [] };
+        var leads = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in candidates)
+        {
+            if (TierOf(candidate, resolver, leads) is { } tier)
+            {
+                tiers[tier].Add(candidate);
+            }
+        }
+
+        return [.. tiers.Select(tier => new CompletionGroup([.. tier.OrderBy(candidate => candidate.Label.ToLowerInvariant(), StringComparer.Ordinal)]))];
+    }
+
+    private int? TierOf(CompletionCandidate candidate, ISymbolResolver? resolver, Dictionary<string, bool> leads)
+    {
+        if (!IsOffered(candidate, out var type))
+        {
+            return null;
+        }
+
+        return type switch
+        {
+            VBArrayType array when IsGiven(array) => candidate.Rank == CompletionCandidates.ProcedureRank && candidate.Symbol!.Kind == SymbolKindExt.Variable
+                ? LocalArrays
+                : OtherArrays,
+            VBVariantType when ItemType is null => Variants,
+            _ when LeadsToAGivenArray(type, resolver, leads, MaxMemberDepth) => LeadsToAnArray,
+            _ => null,
+        };
+    }
+
+    // a name that is offered by its declared type: a variable, a field, a parameter, a function or a property.
+    private static bool IsOffered(CompletionCandidate candidate, out VBType type)
+    {
+        type = candidate.Symbol is ITypedSymbol typed ? typed.ResolvedType : VBUnknownType.TypeInfo;
+        return candidate.Symbol is ITypedSymbol
+            && candidate.Symbol.Kind is SymbolKindExt.Variable or SymbolKindExt.Field or SymbolKindExt.Function or SymbolKindExt.Property;
+    }
+
+    private bool IsGiven(VBArrayType array) => ItemType is null || ArgumentListStaticSemantics.SameElementType(ItemType, array.ItemType);
+
+    // whether a member of a record or an object, or a member of one of its members, is an array the argument can be given. What is found of a type is
+    // kept for the depth it was looked into at, and a type being looked into leads to nothing more through itself.
+    private bool LeadsToAGivenArray(VBType type, ISymbolResolver? resolver, Dictionary<string, bool> leads, int depth)
+    {
+        VBType? current = type switch
+        {
+            VBClassType declared => CurrentTypes.Of(resolver, declared),
+            VBUserDefinedType declared => CurrentTypes.Of(resolver, declared),
+            _ => null,
+        };
+
+        if (current is null || depth == 0)
         {
             return false;
         }
 
-        return ItemType is null
-            ? typed.ResolvedType is VBArrayType or VBVariantType
-            : typed.ResolvedType is VBArrayType array && string.Equals(array.ItemType.Name, ItemType.Name, StringComparison.OrdinalIgnoreCase);
+        var key = $"{depth}:{current.Name}";
+        if (leads.TryGetValue(key, out var known))
+        {
+            return known;
+        }
+
+        leads[key] = false;
+        var found = CompletionCandidates.MembersOf(current).Any(member => IsOffered(member, out var memberType)
+            && (memberType is VBArrayType array && IsGiven(array) || LeadsToAGivenArray(memberType, resolver, leads, depth - 1)));
+        leads[key] = found;
+        return found;
     }
 }

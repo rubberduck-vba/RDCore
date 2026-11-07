@@ -469,8 +469,16 @@ public sealed class CompletionServiceTests
             LeftSide
             RightSide
         End Enum
+        Public Enum Hand
+            OneHand
+        End Enum
         Public Weights() As Long
         Public Prices() As Double
+        Public FixedTexts(1 To 2) As String * 3
+        Public Sides() As Side
+        Public Hands() As Hand
+        Public SpanMod() As Long
+        Public AbsMod() As Long
         Public Function Titles() As String()
         End Function
         Public Function Counts() As Long()
@@ -479,22 +487,55 @@ public sealed class CompletionServiceTests
         End Function
         Public Function Size() As Long
         End Function
+        Public Function SpanFn() As Long()
+        End Function
+        Public Function SpanVar() As Variant
+        End Function
         Public Sub Tidy()
         End Sub
         Public Sub Weigh(ByRef Amounts() As Long, Optional ByVal Scale As Long)
         End Sub
+        Public Sub TakeTexts(ByRef Texts() As String)
+        End Sub
+        Public Sub TakeSides(ByRef Choices() As Side)
+        End Sub
         """;
 
-    private async Task<string[]> ArrayArgumentAsync(string line)
+    // an object that leads to an array through a member of a member.
+    private const string Bin = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Bin"
+        Public Property Get Slots() As Long()
+        End Property
+        """;
+
+    private const string Crate = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Crate"
+        Public Property Get Inner() As Bin
+        End Property
+        """;
+
+    private async Task<List<CompletionItem>> ArrayArgumentItemsAsync(string line, string declarations)
     {
-        WorkspaceHas(new WorkspaceDocument("Shelves.bas", Root, Shelves));
-        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim r As Rack\r\n    Dim Bytes() As Byte\r\n    Dim Total2 As Long\r\n    {line}\r\nEnd Sub\r\n");
-        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items.Select(item => item.Label)];
+        WorkspaceHas(new WorkspaceDocument("Shelves.bas", Root, Shelves), new WorkspaceDocument("Bin.cls", Root, Bin), new WorkspaceDocument("Crate.cls", Root, Crate));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\n{declarations}\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items];
     }
 
-    // what is not an array, nor a Variant that may hold one, is "Expected array" there: a scalar, an object, a user-defined type, a constant, an Enum and its
-    // members, a Sub, a module, a keyword.
-    private static readonly string[] NoArray = ["Total", "Total2", "Holder", "Limit", "Side", "LeftSide", "Size", "Tidy", "Weigh", "r", "Shelves", "Main", "Not", "New", "True"];
+    private async Task<string[]> ArrayArgumentAsync(string line)
+        => [.. (await ArrayArgumentItemsAsync(line,
+            "Public Sub Main()\r\n    Dim r As Rack\r\n    Dim o As New Crate\r\n    Dim Bytes() As Byte\r\n    Dim Total2 As Long")).Select(item => item.Label)];
+
+    // what is not an array, nor a Variant that may hold one, nor leads to an array, is "Expected array" there: a scalar, an object, a constant, an Enum and
+    // its members, a Sub, a module, a keyword.
+    private static readonly string[] NoArray = ["Total", "Total2", "Holder", "Limit", "Side", "LeftSide", "Size", "Tidy", "Weigh", "Shelves", "Main", "Not", "New", "True"];
 
     [TestMethod]
     [DataRow("x = UBound(|", DisplayName = "UBound")]
@@ -536,6 +577,74 @@ public sealed class CompletionServiceTests
     [TestMethod]
     public async Task TheArgumentAfterTheArray_IsOfferedTheUsualList()
         => CollectionAssert.IsSubsetOf(new[] { "Total", "Limit", "Scale:=" }, await ArrayArgumentAsync("Weigh Weights, |"));
+
+    [TestMethod]
+    public async Task ANamedArgumentDeclaredAsAnArray_IsOfferedTheArraysOfItsElementType()
+    {
+        var labels = await ArrayArgumentAsync("Weigh Amounts:=|");
+
+        CollectionAssert.IsSubsetOf(new[] { "Weights", "Counts" }, labels, string.Join(", ", labels.Take(20)));
+        Assert.IsFalse(labels.Intersect(new[] { "Prices", "Total", "Anything" }).Any(), string.Join(", ", labels.Take(20)));
+    }
+
+    // the element types are the compiler's (ArgumentListStaticSemantics): a String * N is no String, and an array of any Enum is given to an Enum's.
+    [TestMethod]
+    [DataRow("TakeTexts |", "Books,Titles", "FixedTexts", DisplayName = "a fixed-length String is another type")]
+    [DataRow("TakeSides |", "Sides,Hands", "Weights", DisplayName = "an array of another Enum")]
+    public async Task TheArraysOfferedToAParameter_AreTheOnesItsArgumentCanBe(string line, string offered, string refused)
+    {
+        var labels = await ArrayArgumentAsync(line);
+
+        CollectionAssert.IsSubsetOf(offered.Split(','), labels, string.Join(", ", labels.Take(20)));
+        Assert.IsFalse(labels.Intersect(refused.Split(',')).Any(), string.Join(", ", labels.Take(20)));
+    }
+
+    // the local arrays, the procedure's own included, then the other arrays, then the Variants: in each, the names the word starts, then the ones whose
+    // humps it matches, by name. The best of the first that has any is selected.
+    [TestMethod]
+    [DataRow("x = UBound(|", "AbsLoc,Own,SpanLocal,AbsMod", DisplayName = "nothing typed")]
+    [DataRow("x = UBound(Ab|", "AbsLoc,AbsMod,Abs", DisplayName = "Ab")]
+    [DataRow("x = UBound(Sp|", "SpanLocal,SpanFn,SpanMod,Space,SpanVar,Split,SpVar", DisplayName = "Sp")]
+    [DataRow("x = UBound(W|", "Weights,Weekday", DisplayName = "W")]
+    [DataRow("x = UBound(O|", "Own,Oct", DisplayName = "the procedure's own array")]
+    public async Task TheArraysOfferedToUBound_RankLocalOnesFirst_ThenTheOthers_ThenTheVariants(string line, string order)
+    {
+        var items = await ArrayArgumentItemsAsync(line,
+            "Public Sub Main(ByRef Own() As Long)\r\n    Dim SpanLocal() As Long\r\n    Dim AbsLoc() As Long\r\n    Dim SpVar As Variant");
+        var expected = order.Split(',');
+
+        CollectionAssert.AreEqual(expected, items.Select(item => item.Label).Where(expected.Contains).ToArray(), Show(items));
+        Assert.AreEqual(expected[0], items.Single(item => item.Preselect).Label, Show(items));
+    }
+
+    // a record or an object is offered where an array is, after the arrays and the Variants, when a member of it, or of a member of it, is an array the
+    // argument can be: what is written after it is its member.
+    [TestMethod]
+    public async Task WhatLeadsToAnArray_IsOfferedAfterTheArraysAndTheVariants()
+    {
+        var labels = await ArrayArgumentAsync("x = UBound(|");
+
+        CollectionAssert.IsSubsetOf(new[] { "r", "o" }, labels, string.Join(", ", labels));
+        Assert.IsTrue(Array.IndexOf(labels, "r") > Array.IndexOf(labels, "Anything") && Array.IndexOf(labels, "o") > Array.IndexOf(labels, "Year"),
+            string.Join(", ", labels));
+    }
+
+    [TestMethod]
+    [DataRow("x = UBound(o.|", "Inner", DisplayName = "a member that leads to one")]
+    [DataRow("x = UBound(o.Inner.|", "Slots", DisplayName = "the array")]
+    public async Task TheMembersOfferedToUBound_AreTheOnesThatLeadToAnArray(string line, string member)
+        => CollectionAssert.AreEqual(new[] { member }, await ArrayArgumentAsync(line));
+
+    [TestMethod]
+    [DataRow("Weigh |", true, DisplayName = "an array of its element type")]
+    [DataRow("TakeTexts |", false, DisplayName = "no array of its element type")]
+    public async Task WhatLeadsToAnArrayOfAParametersElementType_IsOfferedToIt(string line, bool offered)
+    {
+        var labels = await ArrayArgumentAsync(line);
+
+        Assert.AreEqual(offered, labels.Contains("r") && labels.Contains("o"), string.Join(", ", labels));
+        Assert.IsTrue(offered || !labels.Contains("r") && !labels.Contains("o"), string.Join(", ", labels));
+    }
 
     // a positional argument written after the cursor maps to its parameter, and would follow a named one: no name is written where one comes after
     // (MS-VBAL §5.6.13.1).
