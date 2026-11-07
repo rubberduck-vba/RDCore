@@ -86,6 +86,32 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.AreEqual(1, Assert.ContainsSingle(parse.SyntaxErrors, Said(parse)).Location.Range.Start.Line);
     }
 
+    // an error inside a statement stays in it: the statement is kept where it is, and the next one is read on its own.
+    [TestMethod]
+    [DataRow("Mod = 1", DisplayName = "an operator keyword where a statement begins")]
+    [DataRow("Dim Mod As Long", DisplayName = "an operator keyword as the name of a variable")]
+    [DataRow("Dim For As Long", DisplayName = "a statement keyword as the name of a variable")]
+    [DataRow("Dim 1 As Long", DisplayName = "a number as the name of a variable")]
+    public void AnErrorInsideAStatement_KeepsTheStatement_AndTheNextIsReadOnItsOwn(string statement)
+    {
+        var parse = Parse($"{statement}\r\nb = 2");
+
+        Assert.AreEqual(1, Assert.ContainsSingle(parse.SyntaxErrors, Said(parse)).Location.Range.Start.Line);
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var statements = member.Children.OfType<StatementNode>().ToArray();
+        Assert.IsTrue(statements.Any(node => node.SourceLocation.Range.Start.Line == 1), "the statement with the error is kept");
+        Assert.IsTrue(statements.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 2), "the next statement is read on its own");
+    }
+
+    // two statements of one line, each with its error: each is reported.
+    [TestMethod]
+    public void TwoStatementsOfALine_EachWithAnOperatorKeyword_AreTwoSyntaxErrors()
+    {
+        var parse = Parse("Mod = 1: And = 2");
+
+        Assert.HasCount(2, parse.SyntaxErrors, Said(parse));
+    }
+
     private static string Said(ModuleParseResult parse)
         => string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}"));
 }

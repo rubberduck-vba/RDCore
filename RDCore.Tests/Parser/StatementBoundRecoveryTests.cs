@@ -99,6 +99,29 @@ public sealed class StatementBoundRecoveryTests
         Assert.HasCount(2, parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
     }
 
+    // a token that ends a block where the parse expects a statement is no statement of its own: the block a statement is missing from, or whose end is
+    // missing, ends at it, the procedure ends at its End Sub, and the next procedure is read on its own.
+    [TestMethod]
+    [DataRow("Public Sub M()\r\nIf a Then\r\nFor i = 1 To 2\r\nEnd If\r\nEnd Sub", DisplayName = "an End If after a For with no Next")]
+    [DataRow("Public Sub M()\r\nNext\r\nEnd Sub", DisplayName = "a Next with no For")]
+    [DataRow("Public Sub M()\r\nWith x\r\nLoop\r\nEnd With\r\nEnd Sub", DisplayName = "a Loop with no Do, in a With")]
+    [DataRow("Public Sub M()\r\nDo While x\r\nb = 2\r\nEnd Sub", DisplayName = "a Do with no Loop")]
+    [DataRow("Public Sub M()\r\nIf Not x Then\r\nb = 2\r\nEnd Sub", DisplayName = "an If with no End If")]
+    [DataRow("Public Sub M()\r\nWith New Collection\r\nb = 2\r\nEnd Sub", DisplayName = "a With with no End With")]
+    public void ATokenThatEndsABlock_IsNoStatement_AndTheNextProcedureIsReadOnItsOwn(string procedure)
+    {
+        var source = $"{procedure}\r\nSub N()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        Assert.IsNotEmpty(parse.SyntaxErrors);
+        var lines = source.Split("\r\n").ToList();
+        var next = lines.IndexOf("Sub N()");
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.IsGreaterThanOrEqualTo(next - 1, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+        Assert.IsLessThanOrEqualTo(0, members[0].SourceLocation.Range.End.CompareTo(new SourcePosition(next, 0)), "the procedure ends before the next one");
+        Assert.IsTrue(members.Any(member => member.SourceLocation.Range.Start.Line == next), "the next procedure is read on its own");
+    }
+
     // the operation is the last item the statement prints, unbuilt, its left operand in it: an item the parse read before it is the item it is, and a name
     // there is the reference it is.
     [TestMethod]

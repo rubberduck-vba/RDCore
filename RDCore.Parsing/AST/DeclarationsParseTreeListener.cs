@@ -329,8 +329,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
         // the bounds of a fixed-size array are constant expressions (MS-VBAL §5.2.3.1.3), which only the listener can walk
         // into nodes. Captured before the declaration's own builder is popped, over a subtree this Exit has already passed.
-        var bounds = CaptureDimBounds(context.arrayDim());
         var isFirst = (context.Parent as VBAParser.VariableListStmtContext)?.variableSubStmt(0) == context;
+
+        // a declarator the parse found no name in (Dim For As Long) declares nothing, and is kept as the text it is, as a statement no rule reads is: the
+        // statement, for its first declarator.
+        if (context.identifier() is null)
+        {
+            VBABaseParserRuleContext unread = isFirst && parent is not null ? parent : context;
+            OnExitParent(_ => new UnbuiltStatementTriviaNode(GetCurrentNodeId(), unread.GetSourceLocation(_rootUri), unread.GetText(), []));
+            return;
+        }
+
+        var bounds = CaptureDimBounds(context.arrayDim());
         var location = DeclaratorLocation(context, parent, isFirst);
         OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic, location, bounds));
     }
