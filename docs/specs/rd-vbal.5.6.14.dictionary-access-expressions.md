@@ -22,9 +22,9 @@ is the default member of the class of `d`. A `Variant` holding the object is unw
 
 |Condition|Run-time error|
 |---|---|
-|The owner is not an object.|424 — Object required|
-|The owner is `Nothing`.|91 — Object variable or With block variable not set|
-|The object has no default member to bind the call to.|438 — Object doesn't support this property or method|
+|The owner is not an object.|424 (Object required)|
+|The owner is `Nothing`.|91 (Object variable or With block variable not set)|
+|The object has no default member to bind the call to.|438 (Object doesn't support this property or method)|
 
 A `!member` expression with no owner, inside a `With` block, is a with-expression. See
 [**RD-VBAL §5.6.15** With Expressions](rd-vbal.5.6.15.with-expressions.md).

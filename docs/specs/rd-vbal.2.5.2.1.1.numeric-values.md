@@ -19,7 +19,7 @@ A numeric data value can be one of the following:
 
 Each intrinsic type stores its own exact managed type: a `short` for `Integer` and an `int` for `Long`, not one integer type for both.
 
-> 👉 Because each intrinsic type stores its own managed type, the declared type is preserved across the dispatch of an external call. See [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
+> Because each intrinsic type stores its own managed type, the declared type is preserved across the dispatch of an external call. See [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
 
 ## Static Values
 

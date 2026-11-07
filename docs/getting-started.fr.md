@@ -5,7 +5,7 @@
 > **La plateforme est en pré-alpha.** Attendez-vous à des aspérités, et à des changements d'une version à l'autre.
 
 ---
-## 📦 Installer la plateforme
+## Installer la plateforme
 
 Il vous faut le [_runtime_ .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). Vous l'avez probablement déjà : `dotnet --list-runtimes` affiche `Microsoft.NETCore.App 10.x` si c'est le cas.
 
@@ -21,7 +21,7 @@ C'est tout : il n'y a pas d'installateur, et rien à inscrire.
 > Les préversions ne sont pas encore signées : SmartScreen peut afficher un avertissement, et le _Smart App Control_ de Windows 11 peut les bloquer.
 
 ---
-## 💻 Le _shell_ RD-VBA
+## Le _shell_ RD-VBA
 
 Ouvrez le dossier `RDCore.CLI` et lancez **`rdc.exe`**. Si tout va bien, vous verrez l'écran d'accueil de la plateforme :
 
@@ -50,7 +50,7 @@ Lors d'un arrêt, vous pouvez taper des instructions comme dans le volet _exécu
 > Le _shell_ est une démo et une façon d'essayer la plateforme, pas un IDE. Il ne prend pas en charge un projet de plus d'une portée de procédure, ni les numéros de ligne à la BASIC dans vos propres modules.
 
 ---
-## 📥 Apporter un projet VBA
+## Apporter un projet VBA
 
 RDCore travaille avec les fichiers sources de votre projet, exportés de l'éditeur VBA. Rubberduck (_legacy_) exporte un projet entier en un clic; le VBIDE exporte un module à la fois, à moins de l'automatiser avec la bibliothèque _VBIDE Extensibility_.
 
@@ -65,14 +65,15 @@ Cette commande écrit un fichier `.rdproj` dans ce dossier, qui nomme chaque fic
 Ouvrez ensuite le _shell_ sur cet espace de travail avec `rdc --workspace <chemin>`.
 
 ---
-## 🧩 Utiliser RDCore à partir d'un IDE
+## Utiliser RDCore à partir d'un IDE
 
 Le _shell_ est amusant, mais le vrai travail se fait dans le serveur de langage derrière lui, et un serveur de langage a besoin d'un éditeur. Nous recommandons **HexIDE** : contrairement à la plupart des éditeurs, il a été conçu pour les développeurs VB, et vous vous y sentirez chez vous.
 
-> **🚧 L'intégration à HexIDE est en cours.** Cette section expliquera comment la configurer lorsqu'elle sera prête.
+> [!NOTE]
+> La prise en charge de RDCore dans HexIDE est en cours de développement.
 
 ---
-## 🔎 Bon à savoir
+## Bon à savoir
 
 - **RDCore s'exécute en 64 bits**, alors ce qu'il charge doit l'être aussi :
   - les _UserForms_ requièrent Office 64 bits (Microsoft Forms 2.0 en 64 bits);

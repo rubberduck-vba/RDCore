@@ -77,7 +77,7 @@ statements, among others, to their statement runtime semantics:
 |`Mid`, `Mid$`, `MidB`, `MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|[**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)|
 |`Call`, bare call|[CallStatementNode](../api/RDCore.SDK.Model.AST.Statements.CallStatementNode.html)|[**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)|
 |`Debug.Assert`|[DebugAssertStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugAssertStatementNode.html)|[**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)|
-|`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|—|
+|`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|None|
 |`Open`|[OpenStatementNode](../api/RDCore.SDK.Model.AST.Statements.OpenStatementNode.html)|[**RD-VBAL §5.4.5.1** Open Statement](rd-vbal.5.4.5.1.open-statement.md)|
 |`Close`, `Reset`|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|[**RD-VBAL §5.4.5.2** Close and Reset Statements](rd-vbal.5.4.5.2.close-and-reset-statements.md)|
 |`Seek`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.3** Seek Statement](rd-vbal.5.4.5.3.seek-statement.md)|
@@ -121,13 +121,13 @@ The executor keeps the following state on each activation. Each item is read thr
 
 |State|Holds|Keyed by|Read (`ICallStackFrame`)|Written (`CallStackFrame`)|Used by|
 |---|---|---|---|---|---|
-|Program counter|The offset of the instruction to fetch.|— (one value per activation)|`Pc`|`Pc`|Every instruction.|
+|Program counter|The offset of the instruction to fetch.|None (one value per activation)|`Pc`|`Pc`|Every instruction.|
 |Block state|A single value: the `Select` selector, or the `With` target.|The opener's offset.|`TryGetBlockState`|`SetBlockState`|`Select`, `With`, `Case` headers, with-expressions.|
 |`For` loop state|A [ForLoopState](../api/RDCore.SDK.Runtime.Shared.ForLoopState.html): counter symbol, counter expression, end and step.|The `ForOpener`'s offset.|`TryGetForLoopState`|`SetForLoopState`|`ForOpener`, `ForNext`|
 |`For Each` state|A [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), an enumeration cursor: control symbol/expression, the array, and a flat index.|The `ForEachOpener`'s offset.|`TryGetForEachState`|`SetForEachState`|`ForEachOpener`, `ForEachNext`|
-|GoSub Resumption List|A LIFO stack of return offsets.|— (a plain stack)|`GoSubDepth` (a count)|`PushGoSubReturn`, `TryPopGoSubReturn`|`GoSub`, `GoSubTable`, `Return`|
-|Error handler|An [ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html): the error-handling mode, the handler target, the active error, and the fault-statement offset.|— (one value per activation)|`ErrorHandler`|`ErrorHandler`|`On Error`, `Resume`, error interception.|
-|Function result|The function result variable, a single slot.|— (one value per activation)|`ReturnValue`|`ReturnValue`|[**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md)|
+|GoSub Resumption List|A LIFO stack of return offsets.|None (a plain stack)|`GoSubDepth` (a count)|`PushGoSubReturn`, `TryPopGoSubReturn`|`GoSub`, `GoSubTable`, `Return`|
+|Error handler|An [ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html): the error-handling mode, the handler target, the active error, and the fault-statement offset.|None (one value per activation)|`ErrorHandler`|`ErrorHandler`|`On Error`, `Resume`, error interception.|
+|Function result|The function result variable, a single slot.|None (one value per activation)|`ReturnValue`|`ReturnValue`|[**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md)|
 
 ### Block state
 

@@ -11,6 +11,18 @@
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 
+**MS-VBAL §3.3** makes the blanks before a token part of it, so blanks between an expression and its argument list leave it its argument list:
+`x = F (2)` calls `F` with `2`, and `F (1) = 2` assigns to `F(1)`. So it is in a list to print, where the blanks separate no output items: MS-VBA
+reads `Debug.Print F (2)` as a call of `F` (recorded in Excel). See [**RD-VBAL §5.4.5.8.1** Output Lists](rd-vbal.5.4.5.8.print-statement.md#54581-output-lists).
+
+Right after what a call statement without `Call` calls, they are read otherwise: `F (2)` is `F` called with the parenthesized argument `(2)`
+([**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)). They are read the same way after the object of a `Line` statement, which is no expression
+of its own: `Line (0, 0) - (1, 1)` begins with its first point.
+
+> [!NOTE]
+> **Not implemented.** A call statement whose callee goes on past an argument list written after blanks (`Foo (1).Bar`, `Foo (1) (2)`) is a syntax
+> error in RD-VBA.
+
 ## Runtime Semantics
 
 `RuntimeExpressionEvaluator.EvaluateIndex` evaluates an index expression.
@@ -75,10 +87,10 @@ dimension"; MS-VBA coerces it as any value is coerced to a `Long`
 
 |Condition|Run-time error|
 |---|---|
-|A subscript past the range of a `Long`.|6 — Overflow|
-|A subscript of text that is no number.|13 — Type mismatch|
-|A `Null` subscript.|94 — Invalid use of Null|
-|A subscript outside its dimension, or a number of subscripts other than the array's rank.|9 — Subscript out of range|
+|A subscript past the range of a `Long`.|6 (Overflow)|
+|A subscript of text that is no number.|13 (Type mismatch)|
+|A `Null` subscript.|94 (Invalid use of Null)|
+|A subscript outside its dimension, or a number of subscripts other than the array's rank.|9 (Subscript out of range)|
 
 ### Empty Argument List
 
