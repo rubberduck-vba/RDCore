@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A <c>Set</c> statement, compiled: of an object variable of the activation, or the function result variable, to an object variable,
-/// <c>Me</c> or <c>Nothing</c> - Set-coerced, stored and counted as the interpreter does it, so that each object's <c>Terminate</c> runs at the instruction
+/// <c>Me</c> or <c>Nothing</c>, Set-coerced, stored and counted as the interpreter does it, so that each object's <c>Terminate</c> runs at the instruction
 /// that lets go of it last, which the interpreter runs alone. A program runs the same either way.
 /// </summary>
 [TestClass]

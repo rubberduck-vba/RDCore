@@ -67,7 +67,7 @@ internal sealed partial class ProcedureAnalysis
 }
 
 /// <summary>
-/// A <c>Set</c> of <see cref="Target"/> - an object slot, or the function result variable (<see cref="Result"/>) - to the object held in the slot
+/// A <c>Set</c> of <see cref="Target"/> (an object slot, or the function result variable, <see cref="Result"/>) to the object held in the slot
 /// <see cref="Source"/>, or to <c>Nothing</c> when it has none.
 /// </summary>
 internal sealed record class SetStep(int Offset, int Target, int? Source) : CompiledStep(Offset)

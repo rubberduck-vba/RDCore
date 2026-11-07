@@ -36,7 +36,7 @@ assigns the field. Each object has its own fields, and a member called on one re
 
 Compiled code also reads and writes, where the interpreter keeps it, a variable of a scalar type that outlives the activation (MS-VBAL §2.3): a field of a
 standard module, the procedure's own module or another, which the session keeps; and a `Static` variable of the procedure, which the session keeps in a
-standard module, and the object in a class, each object its own (MS-VBA). What another procedure, the interpreter, a debugger or `CopyMemory` writes
+standard module, and the object in a class, each object its own, as in MS-VBA. What another procedure, the interpreter, a debugger or `CopyMemory` writes
 there, compiled code reads, and the other way around, from one call and one run to the next. A procedure with a `Static` is always called with its frame:
 the call that first needs the `Static` gives it its storage, and so does the first call after `End`, which resets every `Static` of the program. A `For`
 whose counter is such a variable is the interpreter's.
@@ -52,7 +52,7 @@ Compiled code does a `Set` of such a variable or field, or of the result of a fu
 (MS-VBAL §5.3.1.10), so the object lives exactly as long as in the interpreter. The interpreter runs these `Set`s on its own, and compiled code reads the
 variable again after each:
 
-- one whose object doesn't Set-coerce, an object of another class: the interpreter raises the error there;
+- one whose object does not Set-coerce, an object of another class: the interpreter raises the error there;
 - one that lets go of the last reference to an object: the interpreter runs its `Class_Terminate` there;
 - one of a `WithEvents` field: the interpreter detaches its handlers from the object it held and attaches them to the one it is given;
 - one of a parameter passed `ByRef`, or to anything else, such as `New`, a call or a member of an object.
@@ -152,7 +152,7 @@ statement can fail when it runs again. The interpreter then evaluates the instru
 are the interpreter's. The rest of the activation runs in the interpreter.
 
 Compiled code does the same when the program is to stop or a debugger attaches: the interpreter then breaks, or runs the activation under the debugger.
-Compiled code looks at the back edge of each loop, after each call it makes, and after each instruction the interpreter runs for it. A break asked for
+Compiled code checks for either at the back edge of each loop, after each call it makes, and after each instruction the interpreter runs for it. A break asked for
 while a call or such an instruction ran is answered before the next instruction, where the interpreter answers it. A procedure called while the program
 is to stop runs in the interpreter, which breaks before its first statement.
 
