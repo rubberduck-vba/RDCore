@@ -14,7 +14,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// <remarks>
 /// The default value of a <c>VBObjectValue</c> is <see cref="VBNothingValue"/>. Unlike
 /// <see cref="VBUserDefinedTypeValue"/>/<see cref="VBArrayValue"/>, identity here is a
-/// <see cref="VBRuntimeObjectId"/> minted by <c>ISessionObjects.CreateObject</c> — a live object's
+/// <see cref="VBRuntimeObjectId"/> minted by <c>ISessionObjects.CreateObject</c>: a live object's
 /// instance fields are addressed by their own, per-instance table, not by one flat
 /// <see cref="MemoryAddress"/> block, so there is no single address to reference here.
 /// </remarks>

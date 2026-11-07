@@ -10,7 +10,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 
 /// <summary>
 /// The root of an execution session. A single session holds the statically-defined symbols and,
-/// depending on the host mode, serves as the run-time or break (debug) session — it is independent
+/// depending on the host mode, serves as the run-time or break (debug) session: it is independent
 /// of the host's current mode.
 /// </summary>
 /// <remarks>
@@ -19,7 +19,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 public interface IRuntimeSession
 {
     /// <summary>
-    /// The host environment this session runs in — bitness (<c>Environment.Is64Bit</c> drives
+    /// The host environment this session runs in: bitness (<c>Environment.Is64Bit</c> drives
     /// <c>LongPtr</c> width and <c>#If Win64</c> / <c>#If VBA7</c>), locale, code page, …
     /// </summary>
     IRuntimeEnvironmentProfile Environment { get; }
@@ -34,19 +34,19 @@ public interface IRuntimeSession
     SDK.Runtime.Libraries.ILibrarySource? Libraries => null;
 
     /// <summary>
-    /// The session's memory allocator — tracks allocation size and fragmentation, MSVBVM-style.
+    /// The session's memory allocator: tracks allocation size and fragmentation, MSVBVM-style.
     /// </summary>
     ISessionMemoryAllocator Memory { get; }
 
     /// <summary>
-    /// Where this session's <c>Print</c> output goes (<strong>MS-VBAL §5.4.5.8</strong>) — the
+    /// Where this session's <c>Print</c> output goes (<strong>MS-VBAL §5.4.5.8</strong>): the
     /// <c>Immediate</c> window's analogue. <see cref="NullRuntimeOutput"/> when the session was
     /// composed without one, so a <c>Debug.Print</c> is a no-op rather than an error.
     /// </summary>
     IRuntimeOutput Output { get; }
 
     /// <summary>
-    /// The session's value storage — what is bound at each address its allocator handed out.
+    /// The session's value storage: what is bound at each address its allocator handed out.
     /// </summary>
     /// <remarks>
     /// Reachable from the session because direct, byte-level access to a session's memory is a
@@ -66,7 +66,7 @@ public interface IRuntimeSession
     ISessionObjects Objects { get; }
 
     /// <summary>
-    /// The session's error state — what the <c>Err</c> object reports
+    /// The session's error state: what the <c>Err</c> object reports
     /// (<strong>MS-VBAL §6.1.3.2</strong>), and what outlives the activation that raised it.
     /// </summary>
     ISessionErrorState Errors { get; }
@@ -91,7 +91,7 @@ public interface IRuntimeSession
     ISessionRandomNumberGenerator RandomNumbers { get; }
 
     /// <summary>
-    /// The session's call stack — pushing and popping an <see cref="ICallStackFrame"/> per procedure
+    /// The session's call stack: pushing and popping an <see cref="ICallStackFrame"/> per procedure
     /// activation is what makes a procedure's locals and parameters visible through
     /// <see cref="ISessionSymbols"/>'s <see cref="ISessionSymbols.Resolver"/> (<strong>RD-VBAL
     /// §2.3.1.2</strong>'s local <em>stack frame</em> heap tier).
@@ -117,7 +117,7 @@ public interface IRuntimeSession
     /// <summary>
     /// The workspace's references in declaration order (<strong>RD-VBAL §2.3.1.2</strong>): index
     /// <c>0</c> appears first and is the lowest precedence (the <c>VBA</c> standard library), so a
-    /// later entry shadows it on a global-scope name collision. This is the precedence order only —
+    /// later entry shadows it on a global-scope name collision. This is the precedence order only:
     /// a reference's members are resolved through <c>ISymbolResolver</c>, not from here. Preserved
     /// exactly as the language server provides it; empty when the session was composed without a
     /// project (e.g. a bare REPL).
@@ -139,7 +139,7 @@ public interface IRuntimeSession
 
     /// <summary>
     /// What raises the lifecycle events of the session's objects, or <see langword="null"/> while nothing can run
-    /// user code against the session yet — a session whose symbols are only being defined. Set by whatever composes
+    /// user code against the session yet: a session whose symbols are only being defined. Set by whatever composes
     /// the execution pipeline, which is what the handlers run through.
     /// </summary>
     /// <remarks>
@@ -192,7 +192,7 @@ public interface ISessionSymbols
     /// <remarks>
     /// What makes a definition replaceable, which a live session needs: a module the user edits is
     /// defined again, and the second definition is the one that is true. Undefining a symbol whose
-    /// storage held a value discards that value — it is a redefinition, not a rename.
+    /// storage held a value discards that value: it is a redefinition, not a rename.
     /// </remarks>
     /// <param name="symbol">The symbol to remove.</param>
     /// <param name="scope">The scope it was defined in.</param>
@@ -211,7 +211,7 @@ public interface ISessionSymbols
     /// instead would hand back its type's default every time anything else in the module changed.
     /// <para>
     /// The value is kept only when the declared type is identical. A variable redeclared as another type is not
-    /// the same variable, and its storage — sized for the old type — is freed and allocated again, as it would
+    /// the same variable, and its storage (sized for the old type) is freed and allocated again, as it would
     /// be by <see cref="TryUndefine"/> followed by <see cref="TryDefine"/>. A symbol that holds no storage is
     /// simply replaced.
     /// </para>
@@ -384,7 +384,7 @@ public interface ISessionSymbols
     bool TryResolveConditionalConstant(string name, Symbol scope, out Symbol? symbol);
 
     /// <summary>
-    /// The read face over this table — resolves a name visible from a scope by walking the scope tree
+    /// The read face over this table: resolves a name visible from a scope by walking the scope tree
     /// the currently-defined symbols form (tracks later <see cref="TryDefine"/> calls), and reads the
     /// live run-time binding a defined symbol was allocated, if any.
     /// </summary>
@@ -405,7 +405,7 @@ public interface ISessionSymbols
     /// Creates a new <see cref="IObjectInstance"/> for a freshly-created object of
     /// <paramref name="classModule"/>, allocating storage for every instance field the class declares
     /// (<strong>RD-VBAL §2.3.1.2</strong>'s instance heap tier) and registering it for later lookup by
-    /// <paramref name="objectId"/>. This only allocates the instance's field storage — the object's
+    /// <paramref name="objectId"/>. This only allocates the instance's field storage: the object's
     /// reference-counted lifetime is tracked separately, by <see cref="IRuntimeSession.Objects"/>.
     /// </summary>
     /// <param name="objectId">The object's identity, minted by <see cref="ISessionObjects.CreateObject"/>.</param>

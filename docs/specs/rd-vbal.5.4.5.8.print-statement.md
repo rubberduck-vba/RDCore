@@ -9,7 +9,7 @@
 |---|---|---|---|
 |`Print #`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The file-number form. `Token`: `Print`.|
 |`Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The bare form, with no file number (`FileNumber` is `null`): `Print "x"`. See below.|
-|`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|—|The object-qualified form.|
+|`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|None|The object-qualified form.|
 |`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
 
 `Debug` is written only as this statement and `Debug.Assert`: any other use of the name is a syntax error, as it is in
@@ -83,12 +83,27 @@ whose default member takes an argument (a `Collection`) error 450.
 |[PrintTabClauseNode](../api/RDCore.SDK.Model.AST.Expressions.PrintTabClauseNode.html)|A `Tab` clause.|
 
 > [!TIP]
-> In a parsed output list, a value and its trailing separator are always two separate, alternating
-> `PrintOutputItemNode`s: one value-only, one separator-only. MS-VBAL's `outputItem` grammar rule admits combining
-> a value and its separator into one output item, but the generated parser never takes that alternative. A
-> consumer of `Items` should walk the alternating list rather than assume `(value, separator)` pairs.
+> In a parsed output list, a value and the `;` or `,` after it are always two separate `PrintOutputItemNode`s: one
+> value-only, one separator-only. The grammar reads them so: an output item and a separator are two rules of their own.
+> A consumer of `Items` should walk the list as it is rather than assume `(value, separator)` pairs: two separators can
+> follow each other (`1;;2`), and two values with a space between them have none (`1 2`).
+
+> [!NOTE]
+> **RD-VBAL diverges from MS-VBAL** in what may stand between two output items.
+>
+> **MS-VBAL §5.4.5.8.1** reads `output-list = *output-item`, so an output item may follow another with nothing between
+> them: `Debug.Print 1(2)` is the two items `1` and `(2)`. The VBE does not keep such a line as it is written: it lists
+> it again with a `;` between the items (`Debug.Print 1; (2)`), in every form of the statement, `Write #` included.
+>
+> RD-VBA requires a space, a `;` or a `,` between two output items, and reports two items written side by side as
+> [`VBC00061`](../diagnostics/vbc00061.md), at the second one, once for each statement. A name right before
+> parentheses is not two items: in `Debug.Print F(2)`, `F` is called with the argument `2`, as in MS-VBA.
+>
+> Nor is a name, spaces, then parentheses. **MS-VBAL §3.3** makes the spaces before a token part of it, so
+> `Debug.Print F (2)` reads both as the index expression `F(2)` and as the two items `F` and `(2)`. MS-VBA reads the
+> index expression, and the VBE writes the line `Debug.Print F(2)`. RD-VBA reads it as MS-VBA does, in an output item,
+> an operand of one (`Debug.Print x + F (2)`) and the arguments of a call within one (`Debug.Print F (G (1))`), as in any
+> expression ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)). A value that is no name stays
+> two items: `Debug.Print 1 (2)` prints 1, then 2.
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
-
----
-> ⏮️ [**RD-VBAL §5.4.5.7** Width Statement](rd-vbal.5.4.5.7.width-statement.md) | ⏭️ [**RD-VBAL §5.4.5.9** Write Statement](rd-vbal.5.4.5.9.write-statement.md)

@@ -15,7 +15,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <see cref="DefineSymbolsParams"/>. The inverse of the language server's descriptor projection;
 /// one trivial method per <see cref="SymbolDescriptorKind"/>, mirroring the language server's
 /// <c>SymbolBuilder</c>. Declared types are bound through a caller-supplied resolver so the same
-/// call path binds real types once the environment host composes a project/library resolver — a
+/// call path binds real types once the environment host composes a project/library resolver: a
 /// name the resolver returns <c>null</c> for stays <see cref="VBUnknownType"/>.
 /// </summary>
 public static class SymbolDescriptorReader

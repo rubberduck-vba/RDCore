@@ -102,8 +102,8 @@ public interface IStdInformationModule
     /// 👉 Not a member MS-VBAL lists under this module: <strong>§6.1.3.2</strong> describes the error
     /// object as the default instance of a global class module named <c>Err</c>, while MS-VBA exposes it
     /// as this zero-argument function of <c>Information</c>, returning an instance of a class named
-    /// <c>ErrObject</c>. The two are the same thing seen from source — a bare <c>Err</c> yields the error
-    /// object either way, because a standard module's members are promoted to the project scope — and
+    /// <c>ErrObject</c>. The two are the same thing seen from source (a bare <c>Err</c> yields the error
+    /// object either way, because a standard module's members are promoted to the project scope), and
     /// this is the arrangement that also makes <c>ErrObject</c> nameable in an <c>As</c> clause.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -111,7 +111,7 @@ public interface IStdInformationModule
     RuntimeSemanticsEvaluationResult<VBObjectValue> Err();
 
     /// <summary>
-    /// Gets the <em>line number</em> the most recent run-time error was raised at — the nearest
+    /// Gets the <em>line number</em> the most recent run-time error was raised at: the nearest
     /// line-number label at or before the faulting statement, or <c>0</c> when none precedes it.
     /// </summary>
     /// <remarks>

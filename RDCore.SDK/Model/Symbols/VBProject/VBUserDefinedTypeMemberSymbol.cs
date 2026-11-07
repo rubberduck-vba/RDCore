@@ -19,7 +19,7 @@ public sealed record class VBUserDefinedTypeMemberSymbol(Uri WorkspaceRoot, Uri 
     : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.UserDefinedType, VBUnknownType.TypeInfo, Range, SelectionRange, AccessModifier)
 {
     /// <summary>
-    /// This type's fields, in declaration order — the same <see cref="VBUserDefinedTypeFieldSymbol"/>s
+    /// This type's fields, in declaration order: the same <see cref="VBUserDefinedTypeFieldSymbol"/>s
     /// also yielded parented to this symbol's <see cref="Symbol.Uri"/>. Carried here so a resolver can
     /// hand back a fully-formed <c>VBUserDefinedType</c> without a second lookup.
     /// </summary>

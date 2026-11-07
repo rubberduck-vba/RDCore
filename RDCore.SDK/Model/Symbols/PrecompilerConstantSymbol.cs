@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Values.Abstract;
 namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
-/// A project-level conditional-compilation constant (<strong>MS-VBAL §3.4.1</strong>) — supplied by
+/// A project-level conditional-compilation constant (<strong>MS-VBAL §3.4.1</strong>): supplied by
 /// the <c>.rdproj</c> or a <c>--define</c> argument, and shadowed by a module's own <c>#Const</c>.
 /// </summary>
 /// <remarks>

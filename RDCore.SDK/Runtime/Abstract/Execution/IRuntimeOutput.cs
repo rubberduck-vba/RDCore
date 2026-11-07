@@ -3,7 +3,7 @@ using System.Text;
 namespace RDCore.SDK.Runtime.Abstract.Execution;
 
 /// <summary>
-/// Where a session's <c>Print</c> output goes — the <c>Immediate</c> window's analogue.
+/// Where a session's <c>Print</c> output goes: the <c>Immediate</c> window's analogue.
 /// </summary>
 /// <remarks>
 /// <strong>MS-VBAL §5.4.5.8</strong>'s output rules are written in terms of a <em>current line
@@ -15,7 +15,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 public interface IRuntimeOutput
 {
     /// <summary>
-    /// The current line position, one-based — <c>1</c> at the start of a line, exactly as
+    /// The current line position, one-based: <c>1</c> at the start of a line, exactly as
     /// <strong>MS-VBAL §5.4.5</strong> counts it.
     /// </summary>
     int LinePosition { get; }
@@ -37,7 +37,7 @@ public interface IRuntimeOutput
 /// </summary>
 /// <remarks>
 /// What a session composed without an output channel gets, so that a <c>Print</c> statement in one
-/// is a no-op rather than a crash — the same way a VBA host with no <c>Immediate</c> window still
+/// is a no-op rather than a crash: the same way a VBA host with no <c>Immediate</c> window still
 /// runs <c>Debug.Print</c>.
 /// </remarks>
 public sealed class NullRuntimeOutput : IRuntimeOutput
@@ -125,13 +125,13 @@ public sealed class RuntimeOutputBuffer(Action<string>? completed = null) : IRun
 /// A session is composed once and lives for as long as the host does, but the thing that wants its
 /// output changes: each "run this and tell me what it printed" request wants that run's output and
 /// nobody else's. Routing lets the session keep one output channel for its whole life while each run
-/// points it at its own buffer — without a session having to be re-composed, or its
+/// points it at its own buffer, without a session having to be re-composed, or its
 /// <see cref="IRuntimeSession.Output"/> being mutable for everyone.
 /// </remarks>
 public sealed class RuntimeOutputRouter : IRuntimeOutput
 {
     /// <summary>
-    /// Where output currently goes. <see cref="NullRuntimeOutput"/> — discarded — until something
+    /// Where output currently goes. <see cref="NullRuntimeOutput"/> (discarded) until something
     /// claims it.
     /// </summary>
     public IRuntimeOutput Target { get; set; } = NullRuntimeOutput.Instance;

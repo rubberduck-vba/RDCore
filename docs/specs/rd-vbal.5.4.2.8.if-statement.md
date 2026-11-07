@@ -9,8 +9,8 @@
 |---|---|---|
 |[IfBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.IfBlockStatementNode.html)|`ConditionalBranch`|The `If` header.|
 |[ElseIfBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseIfBlockStatementNode.html)|`ConditionalBranch`|An `ElseIf` header.|
-|[ElseBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseBlockStatementNode.html)|—|The `Else` branch needs no condition. The last header's `Else` offset names the first instruction of its body.|
-|— (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
+|[ElseBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseBlockStatementNode.html)|None|The `Else` branch needs no condition. The last header's `Else` offset names the first instruction of its body.|
+|None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
 
 See [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md).
@@ -41,6 +41,3 @@ A condition is not coerced through an operator node, because a condition has no 
   offset that the construct's own `End`/`Else` chaining designates.
 - After every branch's body, lowering emits a synthesized, unconditional `Jump` to right past the whole construct,
   even for the last branch ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.7** Exit Do Statement](rd-vbal.5.4.2.7.exit-do-statement.md) | ⏭️ [**RD-VBAL §5.4.2.9** Single-line If Statement](rd-vbal.5.4.2.9.single-line-if-statement.md)

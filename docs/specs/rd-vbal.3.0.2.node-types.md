@@ -50,6 +50,3 @@ An Unbuilt trivia node carries:
 
 The Unbuilt trivia fallback keeps the AST a faithful, lossless representation of the source, even where a proper
 semantic node does not exist. The fallback applies to any construct without a dedicated node type.
-
----
-> ⏮️ [**RD-VBAL §3.0.1** Token Semantics](rd-vbal.3.0.1.token-semantics.md) | ⏭️ [**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md)

@@ -59,6 +59,3 @@ Diagnostic results are staleness-gated:
 ## Start-up
 
 On start-up the language server pulls diagnostics for every loaded document once. This exercises the fan-out without an editor attached.
-
----
-> ⏮️ [**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md) | ⏭️ [**RD-VBAL §3.0** Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.md)

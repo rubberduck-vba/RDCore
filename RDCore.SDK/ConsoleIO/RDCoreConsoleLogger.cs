@@ -37,7 +37,7 @@ public interface IRDCoreLogger : ILogger
 /// Add it to a host's logging pipeline to route <see cref="ILogger{TCategoryName}"/> output to the
 /// console renderer.
 /// </summary>
-/// <param name="options">Server options — supplies the trace-level floor and the verbose flag.</param>
+/// <param name="options">Server options: supplies the trace-level floor and the verbose flag.</param>
 /// <param name="writer">The renderer messages are written to.</param>
 public sealed class RDCoreConsoleLoggerProvider(IOptions<SdkServerOptions> options, IConsoleMessageWriter writer) : ILoggerProvider
 {
@@ -54,7 +54,7 @@ public sealed class RDCoreConsoleLoggerProvider(IOptions<SdkServerOptions> optio
 /// Renders <see cref="ILogger"/> calls as structured console messages through an
 /// <see cref="IConsoleMessageWriter"/>.
 /// </summary>
-/// <param name="options">Server options — supplies the trace-level floor and the verbose flag.</param>
+/// <param name="options">Server options: supplies the trace-level floor and the verbose flag.</param>
 /// <param name="writer">The renderer messages are written to.</param>
 public class RDCoreConsoleLogger(IOptions<SdkServerOptions> options, IConsoleMessageWriter writer) : IRDCoreLogger
 {

@@ -76,7 +76,7 @@ public sealed class CompiledBlockTests
             "    Report Held",
             "End Function"), "Held", recoveries: 3, classes: Noisy);
 
-    // the element a For Each assigns V each pass is in V's cell, which compiled code reads (IR lowering S2.5c): the statements of the body are its own.
+    // the element a For Each assigns V each pass is in V's cell, which compiled code reads: the statements of the body are its own.
     [TestMethod]
     public async Task AForEach_IsSteppedByTheInterpreter_AroundACompiledBody()
         => await AssertAlikeAsync(Program(

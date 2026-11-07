@@ -111,8 +111,7 @@ EACH : E A C H;
 ELSE : E L S E;
 ELSEIF : E L S E I F;
 EMPTY : E M P T Y;
-// Apparently END_ENUM doesn't allow line continuations (in the VB editor)
-END_ENUM : E N D WS+ E N U M;
+END_ENUM : E N D (WS | LINE_CONTINUATION)+ E N U M;
 END_FUNCTION : E N D (WS | LINE_CONTINUATION)+ F U N C T I O N;
 // We allow "EndIf" without the whitespace as well for the preprocessor.
 END_IF : E N D (WS | LINE_CONTINUATION)* I F;
@@ -306,7 +305,9 @@ UNDERSCORE : '_';
 WS : [ \t];
 GUIDLITERAL : '{' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '-' [0-9A-F]+ '}';
 IDENTIFIER :  ~[[\](){}\r\n\t.,'"|!@#$%^&*\-+:=; 0-9-/\\] ~[[\](){}\r\n\t.,'"|!@#$%^&*\-+:=; -]*;
-LINE_CONTINUATION : [ \t]+ UNDERSCORE [ \t]* '\r'? '\n' WS_NOT_FOLLOWED_BY_LINE_CONTINUATION*;
+// only the last blank before the underscore belongs to the continuation, and the blanks before it are WS of their own, so a run of blanks is read once: a
+// token that could start at any blank would re-read the rest of the run from each one.
+LINE_CONTINUATION : [ \t] UNDERSCORE [ \t]* '\r'? '\n' WS_NOT_FOLLOWED_BY_LINE_CONTINUATION*;
 // The following rule is needed in order to capture hex literals without format prefixes which start with a digit. Needed for VBForm resources.
 BARE_HEX_LITERAL : [0-9] [0-9a-fA-F]*; 
 fragment WS_NOT_FOLLOWED_BY_LINE_CONTINUATION : [ \t] {!IsChar(CharAtRelativePosition(1),'_') || !IsChar(CharAtRelativePosition(2),'\r','\n','\t',' ')}?;

@@ -58,7 +58,7 @@ analysis knows of, and can be reported as unused. A module that has an expressio
 before any of it runs. The rest of the module is analyzed as it would be, and its text is kept as it is written: a tool that writes the module back out,
 such as the indenter, writes the expression as it is.
 
-> 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
+> **RD-VBA differs from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**
 > was seen to run, and reports a syntax error where **MS-VBA** crashes: an expression nested in more than 2,500 others.
 
@@ -166,6 +166,7 @@ The host evaluates the directives with the session's constants (`PrecompilerLive
 |[`VBC00058`](../diagnostics/vbc00058.md)|An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf|a `#ElseIf` belongs to no block, or comes after its `#Else`|
 |[`VBC00059`](../diagnostics/vbc00059.md)|You must terminate the #If block with an #EndIf|a `#If` block is not ended|
 |[`VBC00060`](../diagnostics/vbc00060.md)|Expression nested too deeply|an expression is nested in more than 2,500 others|
+|[`VBC00061`](../diagnostics/vbc00061.md)|Output items not separated|an output item is written right after another, with nothing between them ([**RD-VBAL §5.4.5.8.1**](rd-vbal.5.4.5.8.print-statement.md#54581-output-lists))|
 
 ## Directives That Are Wrong
 
@@ -194,6 +195,3 @@ A directive line that is not well formed is the syntax error `VBC00001`, with **
 
 **MS-VBA** reports the first error of a module, and finds the errors of the blocks' structure (`VBC00056`–`VBC00059`) before those of the lines; RD-VBA
 reports every one of them. **MS-VBA** puts the caret of `VBC00059` on the module's last line, and RD-VBA reports it at the `#If` that is not ended.
-
----
-> ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)

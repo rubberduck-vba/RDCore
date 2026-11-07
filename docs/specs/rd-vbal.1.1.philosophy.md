@@ -29,6 +29,3 @@ Sections [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extens
 |1.1.4|[Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md)|
 |1.1.5|[Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)|
 |1.1.6|[Capabilities Provider](rd-vbal.1.1.6.capabilities-provider.md)|
-
----
-> ⏮️ [**RD-VBAL §1.0** Introduction](rd-vbal.1.0.introduction.md) | ⏭️ [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)

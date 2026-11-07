@@ -165,6 +165,30 @@ public sealed class GraphicsStatementTests
         Assert.AreEqual(Tokens.Line, line.Token);
     }
 
+    // blanks before a parenthesis begin an argument list in an expression, and the object and the word of a Line are one: they still begin its first point.
+    [TestMethod]
+    [DataRow("Line (0, 0) - (1, 1)")]
+    [DataRow("Line (0, 0) -(1, 1)")]
+    [DataRow("Line (0, 0) -Step(1, 1)")]
+    [DataRow("Line\t(0, 0) - (1, 1)")]
+    [DataRow("Me.Line (0, 0) - (1, 1)")]
+    [DataRow("Me.Line (0, 0) -(1, 1)")]
+    [DataRow("Form1.Line (0, 0) - (1, 1), 3, BF")]
+    [DataRow("With Form1\r\n.Line (0, 0) - (1, 1)\r\nEnd With")]
+    [DataRow("If x Then .Line (0, 0) - (1, 1)")]
+    [DataRow("If x Then Line (0, 0) - (1, 1)")]
+    public void ALineWithBlanksBeforeItsPoints_HasBothPoints(string body)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{body}\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var line = Assert.ContainsSingle(parse.SyntaxTree!.Descendants().OfType<GraphicsMethodStatementNode>());
+        Assert.AreEqual(Tokens.Line, line.Token);
+        Assert.AreEqual(0, Number(line.From!.X));
+        Assert.AreEqual(1, Number(line.To!.Y));
+        Assert.IsEmpty(parse.SyntaxTree.Descendants().OfType<UnbuiltStatementTriviaNode>());
+    }
+
     // ---- inside a With block ----
 
     [TestMethod]

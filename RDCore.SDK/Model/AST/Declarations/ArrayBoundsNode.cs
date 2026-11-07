@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// <remarks>
 /// The declaration pass keeps each bound as verbatim expression text and does <strong>not</strong>
 /// evaluate it: a bound is a <c>&lt;constant-expression&gt;</c> that may reference module or local
-/// <c>Const</c>s, and an omitted lower bound resolves against <c>Option Base</c> — both are a later
+/// <c>Const</c>s, and an omitted lower bound resolves against <c>Option Base</c>: both are a later
 /// semantic pass's concern.
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
@@ -22,7 +22,7 @@ public record class ArrayBoundsNode(SyntaxNodeId Identity, SourceLocation Locati
     : SyntaxNode(Identity, Location, [])
 {
     /// <summary>
-    /// <c>true</c> when the clause declares a dynamic array — an empty <c>()</c> with no bounds,
+    /// <c>true</c> when the clause declares a dynamic array: an empty <c>()</c> with no bounds,
     /// which must be given dimensions by a <c>ReDim</c> statement before use.
     /// </summary>
     public bool IsResizable => Bounds.IsDefaultOrEmpty;
@@ -34,7 +34,7 @@ public record class ArrayBoundsNode(SyntaxNodeId Identity, SourceLocation Locati
 }
 
 /// <summary>
-/// The bounds of a single array dimension within an <see cref="ArrayBoundsNode"/> — one MS-VBAL
+/// The bounds of a single array dimension within an <see cref="ArrayBoundsNode"/>: one MS-VBAL
 /// <em>dim-spec</em> (<c>[&lt;lower-bound&gt; To] &lt;upper-bound&gt;</c>).
 /// </summary>
 /// <param name="LowerBound">
