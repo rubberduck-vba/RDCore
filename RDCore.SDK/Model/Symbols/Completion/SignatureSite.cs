@@ -72,10 +72,20 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
 
     /// <summary>
     /// The names of the named arguments written after the one the cursor is in, up to the end of the argument list: its closing parenthesis, or the end of the
-    /// call statement (a <c>:</c> that separates statements, a comment, the end of the line).
+    /// call statement (a <c>:</c> that separates statements, a comment, the end of the logical line, <see cref="LogicalLine"/>).
     /// </summary>
-    /// <param name="after">The text of the line from the cursor on.</param>
-    public IReadOnlyList<string> NamesAfter(string after)
+    /// <param name="after">The text of the logical line from the cursor on.</param>
+    public IReadOnlyList<string> NamesAfter(string after) => [.. ArgumentsAfter(after).Select(NameOf).OfType<string>()];
+
+    /// <summary>
+    /// Whether a positional argument is written after the one the cursor is in, an omitted one counted (<c>Foo 1, |, , 2</c>): it is mapped to the parameter at
+    /// its position, and no named argument comes before it (<strong>MS-VBAL §5.6.13.1</strong>).
+    /// </summary>
+    /// <param name="after">The text of the logical line from the cursor on.</param>
+    public bool IsFollowedByAPositionalArgument(string after) => ArgumentsAfter(after).Any(argument => NameOf(argument) is null);
+
+    // the arguments written after the one the cursor is in, up to the end of the argument list.
+    private List<string> ArgumentsAfter(string after)
     {
         ArgumentNullException.ThrowIfNull(after);
         var end = after.Length;
@@ -110,7 +120,7 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
         }
 
         // the first part is the rest of the argument the cursor is in.
-        return [.. TopLevelPartsOf(after[..end]).Skip(1).Select(NameOf).OfType<string>()];
+        return [.. TopLevelPartsOf(after[..end]).Skip(1)];
     }
 
     // the arguments before the one the cursor is in.
@@ -186,8 +196,6 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
 
         var open = new List<ArgumentList>();
         var statementStart = 0;
-        var commas = 0;
-        var argumentStart = -1;
         var inString = false;
         for (var index = 0; index < text.Length; index++)
         {
@@ -215,12 +223,8 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
                     open[^1].Commas++;
                     open[^1].ArgumentStart = index + 1;
                     break;
-                case ',':
-                    commas++;
-                    argumentStart = index + 1;
-                    break;
                 case ':' when open.Count == 0 && (index + 1 >= text.Length || text[index + 1] != '='):
-                    (statementStart, commas, argumentStart) = (index + 1, 0, -1);
+                    statementStart = index + 1;
                     break;
             }
         }
@@ -247,8 +251,9 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
             return null;
         }
 
-        var arguments = argumentStart < 0 ? call.Groups["arguments"].Value : text[argumentStart..];
-        return new SignatureSite(call.Groups["callee"].Value, commas, NameOf(arguments)) { ArgumentsBefore = call.Groups["arguments"].Value };
+        // the arguments are counted from the call's name, not from the start of the line: `If a Then Send "x", 1 Else Send |` is at Send's first.
+        var arguments = TopLevelPartsOf(call.Groups["arguments"].Value);
+        return new SignatureSite(call.Groups["callee"].Value, arguments.Count - 1, NameOf(arguments[^1])) { ArgumentsBefore = call.Groups["arguments"].Value };
     }
 
     /// <summary>
