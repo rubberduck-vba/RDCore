@@ -392,6 +392,92 @@ public sealed class CompletionServiceTests
         CollectionAssert.AreEqual(new[] { "Copies:=" }, NamesIn(items), Show(items));
     }
 
+    // ---- an argument an array is given to: LBound, UBound (MS-VBAL §3.3.5.2), and a parameter declared as an array (MS-VBAL §5.3.1.11) ----
+
+    private const string Shelves = """
+        Attribute VB_Name = "Shelves"
+        Public Type Rack
+            Slots() As Long
+            Label As String
+        End Type
+        Public Books() As String
+        Public Fixed(1 To 3) As Long
+        Public Anything As Variant
+        Public Total As Long
+        Public Holder As Collection
+        Public Const Limit As Long = 3
+        Public Enum Side
+            LeftSide
+            RightSide
+        End Enum
+        Public Weights() As Long
+        Public Prices() As Double
+        Public Function Titles() As String()
+        End Function
+        Public Function Counts() As Long()
+        End Function
+        Public Function Loose() As Variant
+        End Function
+        Public Function Size() As Long
+        End Function
+        Public Sub Tidy()
+        End Sub
+        Public Sub Weigh(ByRef Amounts() As Long, Optional ByVal Scale As Long)
+        End Sub
+        """;
+
+    private async Task<string[]> ArrayArgumentAsync(string line)
+    {
+        WorkspaceHas(new WorkspaceDocument("Shelves.bas", Root, Shelves));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim r As Rack\r\n    Dim Bytes() As Byte\r\n    Dim Total2 As Long\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items.Select(item => item.Label)];
+    }
+
+    // what is not an array, nor a Variant that may hold one, is "Expected array" there: a scalar, an object, a user-defined type, a constant, an Enum and its
+    // members, a Sub, a module, a keyword.
+    private static readonly string[] NoArray = ["Total", "Total2", "Holder", "Limit", "Side", "LeftSide", "Size", "Tidy", "Weigh", "r", "Shelves", "Main", "Not", "New", "True"];
+
+    [TestMethod]
+    [DataRow("x = UBound(|", DisplayName = "UBound")]
+    [DataRow("x = LBound(|", DisplayName = "LBound")]
+    [DataRow("x = UBound( |", DisplayName = "after a space")]
+    [DataRow("If LBound(| Then", DisplayName = "in an expression")]
+    public async Task TheFirstArgumentOfLBoundOrUBound_IsOfferedTheArraysAndTheVariantsInScope_AndNothingElse(string line)
+    {
+        var labels = await ArrayArgumentAsync(line);
+
+        CollectionAssert.IsSubsetOf(new[] { "Books", "Fixed", "Anything", "Weights", "Prices", "Titles", "Counts", "Loose", "Bytes" }, labels, string.Join(", ", labels.Take(20)));
+        Assert.IsFalse(labels.Intersect(NoArray).Any(), string.Join(", ", labels.Intersect(NoArray)));
+    }
+
+    [TestMethod]
+    public async Task TheArraysOfferedToUBound_AreNarrowedByTheWordTyped()
+        => CollectionAssert.AreEqual(new[] { "Bytes", "Books" }, await ArrayArgumentAsync("x = UBound(B|"));
+
+    [TestMethod]
+    public async Task TheSecondArgumentOfUBound_IsOfferedTheUsualList()
+        => CollectionAssert.IsSubsetOf(new[] { "Total", "Total2", "Limit", "Size" }, await ArrayArgumentAsync("x = UBound(Books, |"));
+
+    [TestMethod]
+    public async Task TheMembersOfferedToUBound_AreTheArrayFieldsOfAUserDefinedType()
+        => CollectionAssert.AreEqual(new[] { "Slots" }, await ArrayArgumentAsync("x = UBound(r.|"));
+
+    // a parameter declared as an array is ByRef, and an argument passed ByRef is of its parameter's declared type exactly (MS-VBAL §5.3.1.11): an array of
+    // the same element type, not a Variant.
+    [TestMethod]
+    public async Task AParameterDeclaredAsAnArray_IsOfferedTheArraysOfItsElementType_AndNothingElse()
+    {
+        var labels = await ArrayArgumentAsync("Weigh |");
+
+        CollectionAssert.IsSubsetOf(new[] { "Weights", "Counts", "Fixed" }, labels, string.Join(", ", labels.Take(20)));
+        var others = new[] { "Prices", "Books", "Bytes", "Titles", "Anything", "Loose" }.Concat(NoArray).ToArray();
+        Assert.IsFalse(labels.Intersect(others).Any(), string.Join(", ", labels.Intersect(others)));
+    }
+
+    [TestMethod]
+    public async Task TheArgumentAfterTheArray_IsOfferedTheUsualList()
+        => CollectionAssert.IsSubsetOf(new[] { "Total", "Limit", "Scale:=" }, await ArrayArgumentAsync("Weigh Weights, |"));
+
     [TestMethod]
     public async Task TheMembersOfAVariable_AreTheMembersOfItsDeclaredType_ThoughTheLineDoesNotParse()
     {
