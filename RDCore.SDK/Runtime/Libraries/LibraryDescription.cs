@@ -68,10 +68,14 @@ public sealed record class LibraryDescription
 /// </summary>
 public sealed record class LibraryOrigin
 {
-    /// <summary>The identifier of the type library, when it has one.</summary>
+    /// <summary>
+    /// The identifier of the type library, when it has one.
+    /// </summary>
     public string? Guid { get; init; }
 
-    /// <summary>The version of the type library the description was made from, as <c>major.minor</c>.</summary>
+    /// <summary>
+    /// The version of the type library the description was made from, as <c>major.minor</c>.
+    /// </summary>
     public string? Version { get; init; }
 
     /// <summary>The file the library was read from.</summary>
