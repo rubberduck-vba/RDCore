@@ -211,13 +211,12 @@ public record class SdkAppOptions
 public record class SdkEnvironmentOptions
 {
     /// <summary>
-    /// The engine a program runs with when its configuration does not say (<see cref="ExecutionEngine"/>): the default of the setting, of a
-    /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one, and of the platform's <c>appsettings.json</c>, which says the same.
+    /// The engine a program runs with when its configuration names none: the default of <see cref="ExecutionEngine"/>, and of a
+    /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one.
     /// </summary>
     /// <remarks>
-    /// 🚧 <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/> until the compiled engine runs every procedure it can and a program stopped
-    /// in compiled code can be edited and continued. Making <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Compiled"/> the
-    /// default is this constant and the <c>ExecutionEngine</c> of <c>RDCore.CLI/appsettings.json</c>, changed together.
+    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/>. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c>
+    /// holds the same value, and a test holds the two to it: a change of the default changes both.
     /// </remarks>
     public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;
 
