@@ -99,6 +99,16 @@ public sealed class ConsolePromptEditorTests
     public async Task TypingWhatANameDoesNotHaveInIt_ClosesTheList_AndIsTyped()
         => Assert.AreEqual("c.Co(", await EnterAsync(new ScriptedKeys().Type("c.Co(").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter))));
 
+    // the list asked for as the word starts is narrowed as the language server narrows the list of a longer word: by its start, then by the humps of a name.
+    [TestMethod]
+    public async Task TheListIsNarrowed_ToTheNamesTheWordStarts_ThenToTheOnesItMatchesTheHumpsOf()
+    {
+        var source = new Source { Names = [Item("Compute"), Item("MultiPlayer"), Item("Mpeg")] };
+        var keys = new ScriptedKeys().Type("x = MP").Press(Key(ConsoleKey.DownArrow), Key(ConsoleKey.Tab), Key(ConsoleKey.Enter));
+
+        Assert.AreEqual("x = MultiPlayer", await EnterAsync(keys, source), "Mpeg first, MultiPlayer next; Compute only has the letters");
+    }
+
     [TestMethod]
     public async Task AWordThatStarts_AsksForTheNames_OnlyOnce()
     {

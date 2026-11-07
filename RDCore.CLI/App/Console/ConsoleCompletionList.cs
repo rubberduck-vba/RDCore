@@ -1,4 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.SDK.Model.Symbols.Completion;
 
 namespace RDCore.CLI.App.Console;
 
@@ -7,9 +8,10 @@ namespace RDCore.CLI.App.Console;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The list is the whole list the language server answered with for a word (<see cref="CompletionList.IsIncomplete"/> is not), and it is narrowed here as the word
-/// is typed: the items whose label starts with what is typed come first, then the ones that only have it in them, each in the order the server ranked them in
-/// (<see cref="CompletionItem.SortText"/>). Case is not what tells a name from another in VBA (<strong>MS-VBAL §3.3.5.1</strong>), and it is not here either.
+/// The list is the one the language server answered with as the word started. It is incomplete (<see cref="CompletionList.IsIncomplete"/>), and holds every
+/// item a longer word matches: it is narrowed here as the word is typed, by the language server's own rule (<see cref="CompletionCandidates.MatchOf"/>), rather
+/// than asked for again. The items whose label starts with what is typed come first, then the ones whose humps it matches, each in the order the server ranked
+/// them in (<see cref="CompletionItem.SortText"/>).
 /// </para>
 /// <para>
 /// The selection is the first item when the list is narrowed - or the item whose label is what is typed, when there is one - and moves with the arrow keys and
@@ -73,11 +75,11 @@ public sealed class ConsoleCompletionList
     /// <param name="typed">The part of the word that is typed.</param>
     public void Filter(string typed)
     {
+        var matches = _all.Select(item => (Item: item, Match: CompletionCandidates.MatchOf(item.Label, typed))).ToList();
         _shown =
         [
-            .. _all.Where(item => item.Label.StartsWith(typed, StringComparison.OrdinalIgnoreCase)),
-            .. _all.Where(item => typed.Length > 0 && !item.Label.StartsWith(typed, StringComparison.OrdinalIgnoreCase)
-                && item.Label.Contains(typed, StringComparison.OrdinalIgnoreCase)),
+            .. matches.Where(pair => pair.Match == CompletionMatch.Prefix).Select(pair => pair.Item),
+            .. matches.Where(pair => pair.Match == CompletionMatch.Humps).Select(pair => pair.Item),
         ];
 
         LongestLabel = _shown.Count == 0 ? 0 : _shown.Max(item => item.Label.Length);
