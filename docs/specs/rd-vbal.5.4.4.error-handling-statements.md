@@ -55,6 +55,3 @@ VBA source reads and calls the error object at run time (`Err.Number`, `Err.Rais
 error state, which is what `Err` reports ([**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md)).
 
 The `Err` class is described in [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md).
-
----
-> ⏮️ [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md) | ⏭️ [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)

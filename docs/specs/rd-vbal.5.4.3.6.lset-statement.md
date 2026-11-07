@@ -20,7 +20,7 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 A program written against MS-VBA that uses `LSet` over a record holding a variable-length `String` member relies
 on what MS-VBA does with it (see [UDT form](#udt-form)). The statement says so with a semantic flag, and not with an error: it is not wrong.
 
-[FixedAssignmentRuntimeSemantics](../api/RDCore.Runtime.Semantics.Statements.FixedAssignmentRuntimeSemantics.html)`.Analyze` sets the
+`FixedAssignmentRuntimeSemantics``.Analyze` sets the
 [FixedAssignmentSemanticFlags](../api/RDCore.SDK.Semantics.Flags.FixedAssignmentSemanticFlags.html) of the statement, the way an operator's `Analyze` sets its own:
 
 |Flag|Set when|
@@ -100,6 +100,3 @@ The layout and the field store of a UDT value are described in
 |[VBUserDefinedTypeImage](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeImage.html)|The byte copy of `LSet`'s UDT form (**RDCore.SDK**).|
 |`VBUserDefinedTypeLayout`|The layout a record is laid out through, and read back through (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches an `AssignmentStatementNode` whose `Kind` is `LSet` or `RSet`; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md) | ⏭️ [**RD-VBAL §5.4.3.7** RSet Statement](rd-vbal.5.4.3.7.rset-statement.md)

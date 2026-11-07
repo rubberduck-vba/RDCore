@@ -36,17 +36,17 @@ this section.
 |6.1.2.7.1.11|[RGB](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2a99cfd6-54fd-4e91-abd5-2aab8ee4b7c4)||
 |6.1.2.7.1.12|[TypeName](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/713495ae-6a54-46f4-ad76-a7e7697803af)||
 |6.1.2.7.1.13|[VarType](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2deec703-c2ef-4bf1-a246-1d51c60895da)|Declared to return a `VbVarType` value. See [**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md).|
-|6.1.2.7.1.14|🧩 `Erl`|RD-VBA addition. See [§6.1.2.7.1.14](#6127114-erl).|
-|6.1.2.7.1.15|🧩 `Err`|RD-VBA addition. See [§6.1.2.7.1.15](#6127115-err).|
+|6.1.2.7.1.14|`Erl`|RD-VBA addition. See [§6.1.2.7.1.14](#6127114-erl).|
+|6.1.2.7.1.15|`Err`|RD-VBA addition. See [§6.1.2.7.1.15](#6127115-err).|
 
 ### 6.1.2.7.1.14 Erl
 
-🧩 `Information.Erl` is an RD-VBA addition to MS-VBAL. `Erl` returns the line number at which the most recent
+`Information.Erl` is an RD-VBA addition to MS-VBAL. `Erl` returns the line number at which the most recent
 run-time error was raised.
 
 MS-VBAL does not document `Erl`. MS-VBA exposes `Erl` from the `Information` module as a hidden member.
 
-🎯 `Erl` is a deliberate RD-VBA departure from MS-VBA, in two respects: what it counts, and its width.
+`Erl` is a deliberate RD-VBA departure from MS-VBA, in two respects: what it counts, and its width.
 
 #### What Erl counts
 
@@ -76,7 +76,7 @@ In a program that numbers every line, the line-number label is the document line
 MS-VBA's `Erl` has `ushort` resolution. It wraps around on any line number that does not fit, so for a program
 numbered past line 65535 it reports a line that does not exist.
 
-🎯 For this reason, RD-VBA's `Erl` returns a `Long`, in which every legal line number is representable.
+For this reason, RD-VBA's `Erl` returns a `Long`, in which every legal line number is representable.
 
 #### Implementation
 
@@ -90,11 +90,8 @@ provides the line number `Erl` reports ([**RD-VBAL §3.5.1** InstructionList](rd
 
 ### 6.1.2.7.1.15 Err
 
-🧩 `Err` is not a member MS-VBAL lists under this module. RD-VBA implements the MS-VBA shape of `Err`: a zero-argument
+`Err` is not a member MS-VBAL lists under this module. RD-VBA implements the MS-VBA shape of `Err`: a zero-argument
 `Function` of the `Information` module, returning an instance of the class `ErrObject`.
 
 The `Err` function, the `ErrObject` class, and the MS-VBAL shape they differ from are described in
 [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md).
-
----
-> ⏮️ [**RD-VBAL §6.1.2.6** Financial](rd-vbal.6.1.2.6.financial.md) | ⏭️ [**RD-VBAL §6.1.2.8** Interaction](rd-vbal.6.1.2.8.interaction.md)

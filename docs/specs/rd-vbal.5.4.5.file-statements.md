@@ -99,6 +99,3 @@ or qualified by its project, its module or the library `Enum` that declares it),
 |`FileStatementAccess`|**MS-VBAL §5.4.5.1**'s statement/mode/access table, held in one place.|
 |`LetAssignmentEvaluator.TryResolveTarget`|The target resolution `Input #`, `Line Input #` and `Get` use: the same target resolution the Let assignment statement uses.|
 |`RecordDataFormat`|The `Put`/`Get` record format ([**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md)).|
-
----
-> ⏮️ [**RD-VBAL §5.4.4.3** Error Statement](rd-vbal.5.4.4.3.error-statement.md) | ⏭️ [**RD-VBAL §5.4.5.1** Open Statement](rd-vbal.5.4.5.1.open-statement.md)

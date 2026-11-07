@@ -3,15 +3,15 @@
 > [!NOTE]
 > This specification may be incomplete at this time.
 
-🎯 Every problem the **RDCore** platform finds in a workspace surfaces to the editor as an **LSP diagnostic**. Such problems include syntax errors, static or runtime compilation errors, and analyzer findings.
+Every problem the **RDCore** platform finds in a workspace surfaces to the editor as an **LSP diagnostic**. Such problems include syntax errors, static or runtime compilation errors, and analyzer findings.
 
-🎯 Every RDCore LSP diagnostic carries:
+Every RDCore LSP diagnostic carries:
 
 - a stable **code**;
 - a **help URL** for that code;
 - for an error diagnostic, structured **detail**.
 
-🧩 **RDCore.Diagnostics** is the core platform extension responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP orchestration layer. See [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
+**RDCore.Diagnostics** is the core platform extension responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP orchestration layer. See [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
 
 Diagnostics reach the editor through an LSP pull pipeline that asks diagnostics providers; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 
@@ -73,6 +73,3 @@ The prose of a code's page may evolve as the ideal set of codes is narrowed down
 |Hint, suggestion|Can be as opinionated as needed.|
 
 The choice of a warning severity should take into account that a host environment can be configured to "treat warnings as errors". If a diagnostic is not worth breaking a build over, it is not a warning. See [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md).
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md) | ⏭️ [**RD-VBAL §2.6.1** Syntax Errors](rd-vbal.2.6.1.syntax-errors.md)

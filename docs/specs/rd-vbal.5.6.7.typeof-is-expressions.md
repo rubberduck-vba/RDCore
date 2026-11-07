@@ -40,6 +40,3 @@ What MS-VBA refuses there, RD-VBA refuses the same way (recorded in Excel):
 |A value that is no object: a `Variant` holding a number, a record|any|`False`|
 
 Error 91 for `Nothing` is MS-VBAL §5.6.7's, and MS-VBA's (recorded in Excel): test `o Is Nothing` first.
-
----
-> ⏮️ [**RD-VBAL §5.6.6** Parenthesized Expressions](rd-vbal.5.6.6.parenthesized-expressions.md) | ⏭️ [**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md)

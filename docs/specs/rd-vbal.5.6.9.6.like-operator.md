@@ -120,6 +120,3 @@ Where MS-VBAL is silent or leaves a choice to the implementation, RD-VBA does wh
 - `?` and `*` match a line feed.
 - Text mode ignores case by the regional settings, only where the case maps both ways, and ignores no accent. It expands `æ`, `œ`, `ß` and
   `þ`. MS-VBAL leaves text collation to the regional settings.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md) | ⏭️ [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)

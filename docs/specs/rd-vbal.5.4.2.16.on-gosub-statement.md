@@ -50,7 +50,7 @@ The push in step 5 is the same push a bare `GoSub` performs
 
 |Condition|Run-time error|
 |---|---|
-|*n* is negative, or greater than 255 (step 4).|5 — Invalid procedure call or argument|
+|*n* is negative, or greater than 255 (step 4).|5 (Invalid procedure call or argument)|
 
 A label with no statement after it, including the end-label of the lexically enclosing procedure declaration,
 resolves to the offset right past the last instruction. A branch to it completes the activation as if execution
@@ -65,6 +65,3 @@ had reached the end of the procedure body
   (steps 1 and 2), by calling `VBNumericLetCoercionTypeRuntimeSemantics` directly, bypassing the let-coercion
   provider.
 - The push in step 5 goes through `CallStackFrame.PushGoSubReturn`.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.15** Return Statement](rd-vbal.5.4.2.15.return-statement.md) | ⏭️ [**RD-VBAL §5.4.2.17** Exit Sub Statement](rd-vbal.5.4.2.17.exit-sub-statement.md)

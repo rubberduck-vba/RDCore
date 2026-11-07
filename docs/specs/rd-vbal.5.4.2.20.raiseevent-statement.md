@@ -58,6 +58,3 @@ A `ByRef` parameter whose argument is not a variable (`RaiseEvent Bump(5)`) has 
 cannot see what a handler did to it. The handlers can: it is given a location of its own for the duration of the statement,
 so that what one handler leaves in the parameter is what the next starts with. The location is freed when the statement
 ends, and the next `RaiseEvent` starts from its argument again.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.19** Exit Property Statement](rd-vbal.5.4.2.19.exit-property-statement.md) | ⏭️ [**RD-VBAL §5.4.2.21** With Statement](rd-vbal.5.4.2.21.with-statement.md)
