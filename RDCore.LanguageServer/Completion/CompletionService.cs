@@ -149,7 +149,7 @@ internal sealed class CompletionService(
         var line = isProgram ? position.Line + BasicProgramText.HeaderLines : position.Line;
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
-        return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position.Character, token,
+        return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position, token,
             IsArgumentTrigger(triggerCharacter));
     }
 
@@ -157,7 +157,7 @@ internal sealed class CompletionService(
     {
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var kind = ModuleKinds.Of((RDCoreModule?)null, source);
-        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token, IsArgumentTrigger(triggerCharacter));
+        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position, token, IsArgumentTrigger(triggerCharacter));
     }
 
     public async Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token)
@@ -269,9 +269,12 @@ internal sealed class CompletionService(
     private static bool IsArgumentTrigger(string? triggerCharacter)
         => triggerCharacter is not null && ICompletionService.ArgumentTriggerCharacters.Contains(triggerCharacter);
 
+    // line is the line of the module's source; requested is the position as the client asked, in its own document, which the edits of the items are written
+    // in (a program's lines are further down in its module).
     private async Task<CompletionList> CompleteAsync(
-        Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token, bool argumentTrigger = false)
+        Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false)
     {
+        var character = requested.Character;
         var lines = source.Split('\n');
         if (line < 0 || line >= lines.Length)
         {
@@ -360,7 +363,7 @@ internal sealed class CompletionService(
         // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
         IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
         var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
-            arrays is null ? others : [], new Position(line, character));
+            arrays is null ? others : [], requested);
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",

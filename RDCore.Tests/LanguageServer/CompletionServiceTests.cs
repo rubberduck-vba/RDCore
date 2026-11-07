@@ -879,6 +879,22 @@ public sealed class CompletionServiceTests
         CollectionAssert.IsSubsetOf(new[] { "Cells", "Row" }, labels, string.Join(", ", labels));
     }
 
+    // a library member's type that the library does not qualify is no class the library declares: not the workspace's Widget, whose members are not listed.
+    [TestMethod]
+    public async Task TheMembersOfWhatALibraryMemberReturns_AreNotThoseOfAWorkspaceClassOfTheSameName()
+    {
+        var orphan = new LibraryDescription
+        {
+            Name = "Orphan",
+            Classes = [new ClassDescription { Name = "Holder", Members = [new MemberDescription { Name = "Thing", Kind = MemberKind.PropertyGet, Type = "Widget" }] }],
+        };
+
+        var labels = await LabelsAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim h As Orphan.Holder\r\n    x = h.Thing.|\r\nEnd Sub\r\n",
+            new InMemoryLibrarySource(Lab, orphan), "Orphan");
+
+        CollectionAssert.DoesNotContain(labels, "Grow", string.Join(", ", labels));
+    }
+
     [TestMethod]
     public async Task MeCalled_IsACallOfItsClasssDefaultMember()
     {
@@ -1144,6 +1160,19 @@ public sealed class CompletionServiceTests
         var list = await Sut("basic").CompleteDocumentAsync(program.Id.Uri.ToUri(), new Position(1, 6), CancellationToken.None);
 
         CollectionAssert.AreEquivalent(new[] { "Name", "Grow", "Parts" }, list.Items.Select(item => item.Label).ToArray());
+    }
+
+    // what an item replaces is where the client's document has it, not where the module the program is the body of has it.
+    [TestMethod]
+    public async Task WhatAnItemOfAProgramReplaces_IsInTheProgramsOwnLines()
+    {
+        var program = new WorkspaceDocument("hello.rdc", Root, "100 Send \"a\", Co\r\n110 Send \"a\", Copies:=2\r\n");
+        WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), program);
+
+        var list = await Sut("basic").CompleteDocumentAsync(program.Id.Uri.ToUri(), new Position(1, 16), CancellationToken.None);
+        var item = list.Items.Single(item => item.Label == "Copies:=");
+
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), item.TextEdit?.TextEdit?.Range, Show(list.Items));
     }
 
     [TestMethod]

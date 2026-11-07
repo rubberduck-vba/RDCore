@@ -593,8 +593,8 @@ public static class ExpressionStaticSemanticsEvaluator
             return NoOperand(binaryOperator.Right, rightResult);
         }
 
-        // an operand whose type is not known - a member of a library's class that names a class not read yet, a member an extensible class has without declaring
-        // it - is not an operand the operator is wrong for: it is late-bound, and the operator is applied to what it turns out to be.
+        // an operand whose type is not known - a member of a library's class whose type names a class no library declares, a member an extensible class has
+        // without declaring it - is not an operand the operator is wrong for: it is late-bound, and the operator is applied to what it turns out to be.
         if (leftResult.Result is VBUnknownType || rightResult.Result is VBUnknownType)
         {
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);

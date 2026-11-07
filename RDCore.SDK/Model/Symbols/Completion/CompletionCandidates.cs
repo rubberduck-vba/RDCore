@@ -371,8 +371,10 @@ public static class CompletionCandidates
     /// </param>
     /// <param name="candidates">The other candidates; a label of <paramref name="first"/> is not offered again.</param>
     /// <param name="cursor">
-    /// Where the cursor is: the item of a candidate that also replaces text after the cursor (<see cref="CompletionCandidate.ReplacedAfter"/>) carries a
-    /// <c>textEdit</c> over the word typed and that text. <see langword="null"/> when no position is known; every item then replaces the word typed only.
+    /// Where the cursor is in the client's document, as the completion request gives it (not where the line is in a module the document is part of, as a
+    /// program is the body of one): the item of a candidate that also replaces text after the cursor (<see cref="CompletionCandidate.ReplacedAfter"/>)
+    /// carries a <c>textEdit</c> over the word typed and that text, in the client's document. <see langword="null"/> when no position is known; every item
+    /// then replaces the word typed only.
     /// </param>
     public static CompletionList ListOf(string word, IReadOnlyList<CompletionGroup> first, IReadOnlyList<CompletionCandidate> candidates, Position? cursor = null)
     {
