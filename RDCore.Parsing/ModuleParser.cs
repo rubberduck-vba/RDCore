@@ -615,10 +615,10 @@ public partial class ModuleParser(
         }
     }
 
-    // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
+    // LL with recovery and the error listener, on a fresh listener: what produces the located errors. The recovery is ANTLR's, bound to the statement the error is in.
     private TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
-        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
+        => ParseOnce(content, PredictionMode.Ll, new StatementBoundErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
 
     // errorListener hears the grammar's errors, and none when it is null; findings is where what the parse finds of the tokens around its rules is reported.
     private TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, ErrorListener findings,
@@ -1187,6 +1187,13 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             && recognizer is Parser { InputStream: ITokenStream tokens })
         {
             msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
+        }
+
+        // one error where the parse stopped: a rule that fails at a token, and the rule it is in that fails at the same token, are one syntax error, said as the
+        // parse first said it.
+        if (_errors.Any(existing => existing.ErrorId == (int)VBCompileErrorId.SyntaxError && existing.Location.Equals(location)))
+        {
+            return;
         }
 
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
