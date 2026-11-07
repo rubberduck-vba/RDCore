@@ -345,6 +345,8 @@ public sealed class CompiledDebuggingTests
     [TestMethod]
     [DataRow(null, "150 Long", DisplayName = "resumed")]
     [DataRow("        S = S + t|        S = S + t + 0.5", "151.5 Double", DisplayName = "edited to add a Double")]
+    [DataRow("    Dim i As Long, t As Long|    Dim W As Variant\r\n    Dim i As Long, t As Long", "150 Long", DisplayName = "a Variant declared above the others")]
+    [DataRow("    Dim S As Variant|    Dim W As Variant, S As Variant\r\n    W = 1", "150 Long", DisplayName = "a Variant declared before the summed one")]
     public async Task ASpeculatedLoop_StoppedInAndEdited_GoesOnAsTheInterpretersDoes(string? edit, string expected)
     {
         CompiledExecutionTests.RequirePayloads();
