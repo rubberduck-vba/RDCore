@@ -124,6 +124,19 @@ point, the one place every run-time error passes through ([**RD-VBAL §3.5.4** E
 Only the activation the error was raised in carries a location. A caller's activation record does not say where in
 itself it is suspended.
 
+Each activation also lists the `GoSub` statements it had not `Return`ed from when the error was raised, innermost
+first: its GoSub Resumption List at that moment ([**RD-VBAL §5.4.2.14** GoSub Statement](rd-vbal.5.4.2.14.gosub-statement.md)).
+An activation in no `GoSub` lists none.
+
+The value is a `String` with one line per activation, innermost first, separated by `vbCrLf`. A line names the
+procedure, then the line and column of the faulting statement for the innermost activation, then a `from` and the
+line and column of each `GoSub`:
+
+```text
+  at Inner (12:5) from (8:5)
+  at Outer
+```
+
 |Condition|`StackTrace`|
 |---|---|
 |No error is current.|Empty.|
@@ -132,6 +145,7 @@ itself it is suspended.
 #### Implementation
 
 `ErrObject.StackTrace` is implemented through the
-[VBStackTrace](../api/RDCore.SDK.Model.Errors.VBStackTrace.html) type. The current error's stack trace is held on
+[VBStackTrace](../api/RDCore.SDK.Model.Errors.VBStackTrace.html) type, one
+[VBStackTraceFrame](../api/RDCore.SDK.Model.Errors.VBStackTraceFrame.html) per activation. The current error's stack trace is held on
 `ISessionErrorState.StackTrace`, and is built from
 [ICallStack](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStack.html)`.Frames`.
