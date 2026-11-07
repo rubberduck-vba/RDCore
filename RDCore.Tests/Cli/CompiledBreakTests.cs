@@ -14,8 +14,8 @@ using static RDCore.Tests.Cli.CompiledDirectCallTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A break asked for while the program runs, answered where the interpreter answers it - before the instruction after the one during which it was asked
-/// for, or before the first, when it was asked for before the program started - whichever procedures are compiled: each frame's program counter at
+/// A break asked for while the program runs, answered where the interpreter answers it (before the instruction after the one during which it was asked
+/// for, or before the first, when it was asked for before the program started), whichever procedures are compiled: each frame's program counter at
 /// the instruction it waits before, or at the call it is making.
 /// </summary>
 [TestClass]
@@ -24,7 +24,7 @@ public sealed class CompiledBreakTests
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
     /// <summary>
-    /// A program run again by the pipeline of a session that has run it to load it, under a gate: each line it prints is said to said, as it prints it.
+    /// A program run again by the pipeline of a session that has run it to load it, under a gate: each line it prints is given to <c>said</c>, as it prints it.
     /// </summary>
     private sealed class Run : IDisposable
     {

@@ -12,13 +12,13 @@ namespace RDCore.Runtime.Compiled;
 public sealed partial class CompiledActivation
 {
     /// <summary>
-    /// <c>Set</c> of the object variable in <paramref name="slot"/>, held in <paramref name="target"/>, to the object held in <paramref name="source"/> - or to
+    /// <c>Set</c> of the object variable in <paramref name="slot"/>, held in <paramref name="target"/>, to the object held in <paramref name="source"/>, or to
     /// <c>Nothing</c> (MS-VBAL §5.4.3.9): as <c>ExecuteSetAssignment</c> assigns it, the value Set-coerced to the variable's declared type, stored, then
     /// counted, and what the variable held before let go of (<c>ObjectReferences.Rebind</c>).
     /// </summary>
     /// <returns>
-    /// <see langword="false"/> when the interpreter runs the statement: a cell compiled code does not read, a value that does not Set-coerce - the
-    /// interpreter raises its error - or an object the variable held that letting go of would destroy, whose <c>Terminate</c> is the interpreter's to run
+    /// <see langword="false"/> when the interpreter runs the statement: a cell compiled code does not read, a value that does not Set-coerce (the
+    /// interpreter raises its error), or an object the variable held that letting go of would destroy, whose <c>Terminate</c> is the interpreter's to run
     /// (MS-VBAL §5.3.1.10).
     /// </returns>
     public bool TrySet(int offset, int slot, object? target, object? source, bool nothing)

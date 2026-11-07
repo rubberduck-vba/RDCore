@@ -338,7 +338,7 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 
 /// <summary>
 /// The cells of the fields of an object a body found (<see cref="CompiledBody.ObjectFields"/>), by the number compiled code knows each
-/// field by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
+/// field by: each found as it is first asked for, and looked for again while it is none, as the object holds the field in no cell of its type. The object is known
 /// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does.
 /// </summary>
 /// <param name="Object">The object's identity.</param>
@@ -367,12 +367,12 @@ internal enum FieldScope
 {
     /// <summary>
     /// On the object the activation is a call on, <c>Me</c>: a variable of its class module, of object extent (MS-VBAL §2.3), or a <c>Static</c> variable of
-    /// a member of the class, which each object holds its own of (MS-VBA).
+    /// a member of the class, which each object holds its own of, as in MS-VBA.
     /// </summary>
     Object,
 
     /// <summary>
-    /// In the session, which no activation and no object holds: a variable of a standard module, or a <c>Static</c> variable of a procedure of one - both
+    /// In the session, which no activation and no object holds: a variable of a standard module, or a <c>Static</c> variable of a procedure of one, both
     /// of module extent (MS-VBAL §2.3).
     /// </summary>
     Session,

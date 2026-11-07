@@ -6,8 +6,8 @@ using static RDCore.Tests.Cli.CompiledModuleFieldTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Static</c> variable of a scalar type, compiled: held where the interpreter holds it - the session's, for a procedure of a
-/// standard module, and the object's, for a member of a class, each object its own (MS-VBA) - kept from call to call, and given its storage again by
+/// A <c>Static</c> variable of a scalar type, compiled: held where the interpreter holds it (the session's, for a procedure of a
+/// standard module, and the object's, for a member of a class, each object its own, as in MS-VBA), kept from call to call, and given its storage again by
 /// <c>End</c>, which compiled code finds again. A program runs the same either way.
 /// </summary>
 [TestClass]

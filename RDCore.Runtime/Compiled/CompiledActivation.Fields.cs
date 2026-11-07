@@ -9,7 +9,7 @@ public sealed partial class CompiledActivation
 {
     /// <summary>
     /// The cell of the field numbered <paramref name="number"/>: the one the interpreter resolves the variable to, which compiled
-    /// code reads and writes it in - the object's, for a variable of <c>Me</c>'s class or a <c>Static</c> variable of a member of it, and the session's, for
+    /// code reads and writes it in: the object's, for a variable of <c>Me</c>'s class or a <c>Static</c> variable of a member of it, and the session's, for
     /// a variable of a standard module or a <c>Static</c> variable of a procedure of one.
     /// </summary>
     /// <returns><see langword="null"/> when it is held in no cell compiled code takes for its kind: the activation is then the interpreter's.</returns>
