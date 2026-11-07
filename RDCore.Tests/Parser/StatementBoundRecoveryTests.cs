@@ -97,6 +97,36 @@ public sealed class StatementBoundRecoveryTests
         Assert.IsFalse(Descendants(print).OfType<VBBinaryOperatorExpressionNode>().Any(), "no operation is built");
     }
 
+    // the items before the operation are the items the statement is written with, as they are without the operator: its separators, a comma as a semicolon,
+    // and its Spc and Tab clauses.
+    [TestMethod]
+    [DataRow("Debug.Print 1, 2", "-", DisplayName = "Debug.Print, a comma")]
+    [DataRow("Debug.Print 1, 2", "+", DisplayName = "Debug.Print, a comma, and an operator the parse reads")]
+    [DataRow("Debug.Print 1,, 2", "-", DisplayName = "Debug.Print, two commas")]
+    [DataRow("Debug.Print 1, 2; 3", "-", DisplayName = "Debug.Print, a comma and a semicolon")]
+    [DataRow("Debug.Print 1, Spc(2), 3", "-", DisplayName = "Debug.Print, a Spc clause between commas")]
+    [DataRow("Debug.Print 1; Tab(4); 3", "-", DisplayName = "Debug.Print, a Tab clause between semicolons")]
+    [DataRow("Debug.Print 1, Tab, 3", "-", DisplayName = "Debug.Print, a Tab clause with no column")]
+    [DataRow("Debug.Print Spc(1), 2", "-", DisplayName = "Debug.Print, a Spc clause first")]
+    [DataRow("Print #1, 1, Spc(2), 3", "-", DisplayName = "Print, a Spc clause between commas")]
+    public void ADanglingOperatorAfterAnItemToPrint_KeepsTheItemsBeforeIt(string statement, string op)
+    {
+        static string[] ItemsOf(string text)
+        {
+            var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{text}\r\nEnd Sub\r\n");
+            var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+            return Assert.ContainsSingle(member.Children.OfType<StatementNode>()).Children.OfType<PrintOutputItemNode>()
+                .Select(item => item.Separator ?? item.Value?.GetType().Name ?? "(none)")
+                .ToArray();
+        }
+
+        var written = ItemsOf(statement);
+        var dangling = ItemsOf($"{statement} {op}");
+
+        Assert.AreEqual(string.Join(" ", written[..^1]), string.Join(" ", dangling[..^1]), "the items before the operation");
+        Assert.AreEqual(nameof(UnbuiltExpressionTriviaNode), dangling[^1], "the operation is the last item, unbuilt");
+    }
+
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.
     [TestMethod]
     public void TheStatementAfterADanglingOperatorAndAColon_IsReadOnItsOwn()
