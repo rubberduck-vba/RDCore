@@ -112,6 +112,20 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.HasCount(2, parse.SyntaxErrors, Said(parse));
     }
 
+    // Static is the declaration of a variable, and a block keyword after it is no block: Static For As Long is a syntax error, and no "For without Next".
+    [TestMethod]
+    [DataRow("Static For As Long")]
+    [DataRow("Static Do As Long")]
+    [DataRow("Static With As Long")]
+    [DataRow("Static Select As Long")]
+    public void AStaticDeclarationOfABlockKeyword_IsASyntaxError_AndNoBlockError(string statement)
+    {
+        var parse = Parse(statement);
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId, Said(parse));
+    }
+
     // a parameter's name is a name, as a variable's is (MS-VBAL 5.3.1.5): a reserved identifier there is a syntax error.
     [TestMethod]
     [DataRow("Public Sub S(ByVal Mod As Long)", DisplayName = "an operator keyword, ByVal")]
