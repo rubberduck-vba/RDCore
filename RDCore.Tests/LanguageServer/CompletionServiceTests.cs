@@ -499,6 +499,18 @@ public sealed class CompletionServiceTests
         Assert.AreEqual(0, NamesIn(items).Length, $"Text is required: {Show(items)}");
     }
 
+    // the Then clause of a single-line If ends at its Else (MS-VBAL §5.4.2.9): what the Else clause writes is no argument of the call in the Then clause.
+    [TestMethod]
+    [DataRow("If True Then Send \"a\", | Else Send 1, 2", new[] { "Heading:=", "Copies:=", "Source:=" }, DisplayName = "a positional argument after the Else")]
+    [DataRow("If True Then Send \"a\", | Else Send 1, Copies:=2", new[] { "Heading:=", "Copies:=", "Source:=" }, DisplayName = "a named argument after the Else")]
+    [DataRow("If True Then Send \"a\", |, Copies:=2 Else Send 1, Heading:=2", new[] { "Heading:=", "Source:=" }, DisplayName = "a named argument before the Else")]
+    public async Task WhatTheElseClauseOfASingleLineIfWrites_IsNoArgumentOfTheCallBeforeIt(string line, string[] expected)
+    {
+        var items = await NamedAsync(line);
+
+        CollectionAssert.AreEqual(expected, NamesIn(items), Show(items));
+    }
+
     // what is typed of a name with its `:=` already written after it is completed with the name alone.
     [TestMethod]
     public async Task ANameWhoseTokenIsWrittenAlready_IsInsertedWithoutIt()
@@ -506,6 +518,32 @@ public sealed class CompletionServiceTests
         var item = (await NamedAsync("Send \"a\", Cop|:=2")).Single(item => item.Label == "Copies:=");
 
         Assert.AreEqual("Copies", item.InsertText);
+    }
+
+    // the cursor in the middle of a name: the whole name is replaced, what is after the cursor of it too, so that no part of it is written twice.
+    [TestMethod]
+    [DataRow("Send \"a\", Co|pies:=2", "Copies", DisplayName = "its token written already")]
+    [DataRow("Send \"a\", Co|pies", "Copies:=", DisplayName = "its token not written")]
+    public async Task ANameTheCursorIsInTheMiddleOf_IsReplacedWhole(string line, string text)
+    {
+        var item = (await NamedAsync(line)).Single(item => item.Label == "Copies:=");
+
+        Assert.IsNotNull(item.TextEdit, "an edit of the whole word");
+        var edit = item.TextEdit.TextEdit!;
+        Assert.AreEqual(text, edit.NewText);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(7, 14, 7, 20), edit.Range);
+    }
+
+    // a name the word typed is, in any case, is what the user means to write: it is selected, and the names of the arguments still rank first.
+    [TestMethod]
+    [DataRow("Dim heading As String\r\n    Send \"a\", heading|", "heading", DisplayName = "a variable named as a parameter")]
+    [DataRow("Dim Title As String\r\n    MsgBox \"x\", , Title|", "Title", DisplayName = "MsgBox's Title")]
+    public async Task ANameTheWordTypedIs_IsSelectedBeforeTheNamesOfTheArguments(string line, string expected)
+    {
+        var items = await NamedAsync(line);
+
+        Assert.AreEqual(expected, items.Single(item => item.Preselect).Label, Show(items));
+        StringAssert.EndsWith(items[0].Label, ":=", Show(items));
     }
 
     // the specification's InStr and InStrB name their parameters Arg1, Arg2 and Arg3 (MS-VBAL §6.1.2.11.1.14), which MS-VBA does not take as names.
@@ -564,6 +602,60 @@ public sealed class CompletionServiceTests
     [DataRow("x = p.Items(1, |", DisplayName = "a member that returns one")]
     public async Task ACallOfAnObject_IsOfferedItsDefaultMembersNames(string line)
         => CollectionAssert.AreEqual(new[] { "B:=" }, NamesIn(await NamedAsync(line)));
+
+    // a library whose class returns itself from a member: the member is read before the class is, and names it.
+    private static readonly LibraryDescription Grid = new()
+    {
+        Name = "XL",
+        Classes =
+        [
+            new ClassDescription
+            {
+                Name = "Range",
+                Members =
+                [
+                    new MemberDescription
+                    {
+                        Name = "_Default", Kind = MemberKind.PropertyGet, DispId = 0,
+                        Parameters = [new ParameterDescription { Name = "RowIndex", IsOptional = true }, new ParameterDescription { Name = "ColumnIndex", IsOptional = true }],
+                    },
+                    new MemberDescription { Name = "Cells", Kind = MemberKind.PropertyGet, Type = "Range" },
+                    new MemberDescription { Name = "Row", Kind = MemberKind.PropertyGet, Type = "Long" },
+                ],
+            },
+        ],
+    };
+
+    private const string GridMain = "Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim r As XL.Range\r\n    {0}\r\nEnd Sub\r\n";
+
+    // what a member of a library returns is a class of the library as much as what a variable is declared as: its default member is called, and its members
+    // are listed.
+    [TestMethod]
+    [DataRow("x = r(1, |", DisplayName = "a variable")]
+    [DataRow("x = r.Cells(1, |", DisplayName = "a member that returns one")]
+    [DataRow("x = r.Cells.Cells(1, |", DisplayName = "a member of what a member returns")]
+    public async Task ACallOfWhatALibraryMemberReturns_IsACallOfItsDefaultMember(string line)
+    {
+        var (source, position) = At(string.Format(GridMain, line));
+        var service = Sut(source: new InMemoryLibrarySource(Lab, Grid), references: "XL");
+        var help = await service.SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
+        var names = NamesIn((await service.CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items);
+
+        Assert.IsNotNull(help, "a signature");
+        StringAssert.Contains(help.Signatures.Single().Label, "_Default(");
+        Assert.AreEqual(1, help.ActiveParameter);
+        CollectionAssert.AreEqual(new[] { "ColumnIndex:=" }, names);
+    }
+
+    [TestMethod]
+    [DataRow("x = r.Cells.|", DisplayName = "what a member returns")]
+    [DataRow("x = r.Cells.Cells.|", DisplayName = "what a member of it returns")]
+    public async Task TheMembersOfWhatALibraryMemberReturns_AreItsClasss(string line)
+    {
+        var labels = await LabelsAsync(string.Format(GridMain, line), new InMemoryLibrarySource(Lab, Grid), "XL");
+
+        CollectionAssert.IsSubsetOf(new[] { "Cells", "Row" }, labels, string.Join(", ", labels));
+    }
 
     [TestMethod]
     public async Task MeCalled_IsACallOfItsClasssDefaultMember()

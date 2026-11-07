@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using WorkspaceSymbol = RDCore.SDK.Model.Symbols.Abstract.WorkspaceSymbol;
 
 namespace RDCore.SDK.Model.Symbols.Completion;
@@ -29,6 +30,12 @@ public sealed record class CompletionCandidate(string Label, CompletionItemKind 
     /// (<c>Send "a", Cop|:=2</c>); <see langword="null"/> for the label.
     /// </summary>
     public string? InsertText { get; init; }
+
+    /// <summary>
+    /// How many characters after the cursor the candidate replaces, with the word typed before it: the rest of the name the cursor is in the middle of, for a
+    /// named argument (<c>Send "a", Co|pies:=2</c>), so that no part of the name is written twice; 0 for a candidate written at the cursor.
+    /// </summary>
+    public int ReplacedAfter { get; init; }
 
     /// <summary>
     /// The candidate as an item of an LSP completion list (<strong>LSP 3.17</strong> §Completion Request).
@@ -328,11 +335,12 @@ public static class CompletionCandidates
         }
 
         var isNamed = rest.TrimStart(" \t").StartsWith(":=", StringComparison.Ordinal);
+        var restOfWord = after.Length - rest.Length;
         var given = namedBefore.Concat(site.NamesAfter(after)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return [.. signature.Parameters
             .Where((parameter, index) => index >= site.PositionalBefore && !parameter.IsParamArray && !given.Contains(parameter.Name))
             .Select(parameter => new CompletionCandidate($"{parameter.Name}:=", CompletionItemKind.Variable,
-                parameter.TextIn(signature), parameter.Documentation) { InsertText = isNamed ? parameter.Name : null })];
+                parameter.TextIn(signature), parameter.Documentation) { InsertText = isNamed ? parameter.Name : null, ReplacedAfter = restOfWord })];
     }
 
     /// <summary>
@@ -348,6 +356,10 @@ public static class CompletionCandidates
     /// and its group is not selected then (<see cref="CompletionGroup.IsSelectedWhenNothingIsTyped"/>): the first item that can be is marked instead.
     /// </para>
     /// <para>
+    /// A label that is the word typed, in any case, is what the word is meant to be, and its item is the one marked, wherever it ranks: <c>Send "a", heading</c>
+    /// selects a variable <c>heading</c>, and the named argument <c>Heading:=</c> still ranks first.
+    /// </para>
+    /// <para>
     /// The list is incomplete (<c>isIncomplete</c>): it is the list of this word, and a client asks again as the word grows. Every label a longer word
     /// matches is in it, so a client that narrows it by <see cref="MatchOf"/> itself narrows it to the same list.
     /// </para>
@@ -358,7 +370,11 @@ public static class CompletionCandidates
     /// then the named arguments (<see cref="NamedArguments"/>).
     /// </param>
     /// <param name="candidates">The other candidates; a label of <paramref name="first"/> is not offered again.</param>
-    public static CompletionList ListOf(string word, IReadOnlyList<CompletionGroup> first, IReadOnlyList<CompletionCandidate> candidates)
+    /// <param name="cursor">
+    /// Where the cursor is, which a candidate that replaces more than the word typed (<see cref="CompletionCandidate.ReplacedAfter"/>) says the text it
+    /// replaces from (a <c>textEdit</c>); <see langword="null"/> when no position is known, and every item replaces the word typed.
+    /// </param>
+    public static CompletionList ListOf(string word, IReadOnlyList<CompletionGroup> first, IReadOnlyList<CompletionCandidate> candidates, Position? cursor = null)
     {
         ArgumentNullException.ThrowIfNull(word);
         ArgumentNullException.ThrowIfNull(first);
@@ -373,7 +389,8 @@ public static class CompletionCandidates
                 if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
                 {
                     // a `!` sorts before the digit every other item's sort text starts with.
-                    items.Add((candidate.ToCompletionItem(match) with { SortText = $"!{rank}{CompletionCandidate.TierOf(match)}{index:D3}" }, isSelectable));
+                    items.Add((Placed(candidate.ToCompletionItem(match), candidate, word, cursor) with { SortText = $"!{rank}{CompletionCandidate.TierOf(match)}{index:D3}" },
+                        isSelectable));
                 }
             }
         }
@@ -382,12 +399,17 @@ public static class CompletionCandidates
         {
             if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
             {
-                items.Add((candidate.ToCompletionItem(match), true));
+                items.Add((Placed(candidate.ToCompletionItem(match), candidate, word, cursor), true));
             }
         }
 
         items.Sort((left, right) => string.CompareOrdinal(left.Item.SortText, right.Item.SortText));
-        var selected = items.FindIndex(item => item.IsSelectable);
+        var selected = word.Length > 0 ? items.FindIndex(item => string.Equals(item.Item.Label, word, StringComparison.OrdinalIgnoreCase)) : -1;
+        if (selected < 0)
+        {
+            selected = items.FindIndex(item => item.IsSelectable);
+        }
+
         if (selected >= 0)
         {
             items[selected] = (items[selected].Item with { Preselect = true }, true);
@@ -395,6 +417,20 @@ public static class CompletionCandidates
 
         return new CompletionList(items.Select(item => item.Item), isIncomplete: true);
     }
+
+    // an item that replaces more than the word typed says what it replaces, from the start of the word to the end of what it replaces after the cursor: a
+    // client replaces the word typed otherwise, and keeps the rest.
+    private static CompletionItem Placed(CompletionItem item, CompletionCandidate candidate, string word, Position? cursor)
+        => candidate.ReplacedAfter > 0 && cursor is { } at && at.Character >= word.Length
+            ? item with
+            {
+                TextEdit = new TextEdit
+                {
+                    Range = new LspRange(at.Line, at.Character - word.Length, at.Line, at.Character + candidate.ReplacedAfter),
+                    NewText = candidate.InsertText ?? candidate.Label,
+                },
+            }
+            : item;
 
     /// <summary>
     /// Where a name written at <paramref name="position"/> of a module is looked up from: the procedure the position is in, or the module itself when it is in
