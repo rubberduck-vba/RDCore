@@ -32,7 +32,7 @@ namespace RDCore.Runtime.Compiled;
 /// the rest of the activation from that instruction.
 /// </para>
 /// </remarks>
-public sealed class CompiledActivation : ILightActivation
+public sealed partial class CompiledActivation : ILightActivation
 {
     private readonly IRuntimeSession _session;
     private readonly InstructionList _list;

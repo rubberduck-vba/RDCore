@@ -23,8 +23,11 @@ public sealed record class VBResizableByteArrayValue : VBResizableArrayValue
     /// Creates a new resizable array containing <c>VBByteValue</c> elements.
     /// </summary>
     /// <param name="dimensions">The lower and upper bound of each dimension.</param>
-    public VBResizableByteArrayValue((int lBound, int uBound)[] dimensions)
-        : base(dimensions, VBByteType.TypeInfo) { }
+    /// <param name="elementCell">Makes the cell each element is stored in, when the runtime stores <c>Byte</c> elements in cells of its own
+    /// (<see cref="Runtime.Abstract.Execution.IVariableDefaults.ElementCellOf"/>); <see langword="null"/> to keep each element in a cell that holds its
+    /// default value.</param>
+    public VBResizableByteArrayValue((int lBound, int uBound)[] dimensions, Func<IBindingHandle>? elementCell = null)
+        : base(dimensions, VBByteType.TypeInfo, elementCell: elementCell) { }
 
     /// <summary>Creates a resizable Byte() array bound to <paramref name="handle"/> (currently inert).</summary>
     public VBResizableByteArrayValue(IBindingHandle handle, (int lBound, int uBound)[] dimensions)
