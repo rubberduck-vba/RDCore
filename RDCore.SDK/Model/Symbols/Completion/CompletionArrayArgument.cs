@@ -30,7 +30,7 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// <item><description>a <c>String * 3</c> does not match a <c>String</c>: a fixed-length <c>String</c> is a declared type of its own, as the specification
 /// has it;</description></item>
 /// <item><description>an array of any <c>Enum</c> matches a parameter declared as an array of an <c>Enum</c>, and an array of <c>Long</c> does not, nor
-/// the reverse, though by the specification's letter the declared type of an <c>Enum</c> declaration is <c>Long</c> (<strong>MS-VBAL §2.2</strong>,
+/// the reverse, though by the specification's letter a declaration that uses an <c>Enum</c> has the declared type <c>Long</c> (<strong>MS-VBAL §2.2</strong>,
 /// <strong>§5.2.3.4</strong>);</description></item>
 /// <item><description>a fixed-size array is accepted as a resizable one is, though by the specification's letter it is of another declared
 /// type.</description></item>
