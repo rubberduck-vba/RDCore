@@ -44,7 +44,9 @@ public sealed class ErrObjectTests
     /// <summary>Runs a procedure body in a frame named <paramref name="frameNames"/>' last entry.</summary>
     private static IRuntimeSession Run(string[] frameNames, params string[] body) => Run(null, frameNames, body);
 
-    /// <summary>Runs a procedure body in a frame named <paramref name="frameNames"/>' last entry, in <paramref name="environment"/>.</summary>
+    /// <summary>
+    /// Runs a procedure body in a frame named <paramref name="frameNames"/>' last entry, in <paramref name="environment"/>.
+    /// </summary>
     private static IRuntimeSession Run(IRuntimeEnvironmentProfile? environment, string[] frameNames, params string[] body)
     {
         var session = Session(environment);
