@@ -88,7 +88,7 @@ public class SupportedLanguage
     /// The standard library (<c>VBA</c>) is every language's, and is none of them. A VB6 project also has the Visual Basic runtime objects and procedures
     /// (<c>VBRUN</c>, the third type library of <c>MSVBVM60.DLL</c>): the constants of its forms and controls (<c>vbFixedSingle</c>, <c>vbTwips</c>,
     /// <c>vbHourglass</c>, <c>vbChecked</c>) and its <c>PropertyBag</c>, which a <c>.vbp</c> never lists and the VB6 IDE does not let a project remove. A name
-    /// both libraries declare is the standard library's: <c>vbCancel</c> is <c>2</c>, not <c>VBRUN</c>'s <c>0</c>.
+    /// both libraries declare is the standard library's: <c>vbCancel</c> is <c>2</c>, where <c>VBRUN</c>'s is <c>0</c>.
     /// </remarks>
     public IReadOnlyList<string> ImplicitReferences { get; init; } = [];
 
