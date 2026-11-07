@@ -9,10 +9,10 @@ namespace RDCore.Parsing.Syntax;
 /// and stops at one where it skips tokens to resynchronize.
 /// </summary>
 /// <remarks>
-/// After <c>a = 1 +</c>, the parse expects an operand, and finds the line end. ANTLR's recovery deletes it as an extraneous token when the token after it is one
-/// the parse expects, and reads the next line as the rest of the expression: <c>a = 1 +</c> then <c>b = 2</c> was <c>a = (1 + b) = 2</c>, and the next
-/// statement was lost to the tree. Here the statement with the error ends at its own end, and the next one is read on its own. A parse with no syntax error
-/// never recovers, and is the parse it was.
+/// After <c>a = 1 +</c>, the parse expects an operand, and finds the line end. ANTLR's default recovery deletes it as an extraneous token when the token after
+/// it is one the parse expects, and reads the next line as the rest of the expression: <c>a = 1 +</c> then <c>b = 2</c> would parse as <c>a = (1 + b) = 2</c>,
+/// with no node for the next statement. This strategy ends the statement with the error at its own end, and reads the next one on its own. A parse with no
+/// syntax error never enters recovery, so this strategy does not change it.
 /// </remarks>
 internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 {
