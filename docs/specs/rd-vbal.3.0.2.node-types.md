@@ -59,3 +59,8 @@ It also applies to code with a syntax error:
   statement keeps its operator. The statement ends at its own line end or colon, and the next statement is read on its own.
 - A statement that no grammar rule reads (`a = 1-`, with no space before the operator, or `If x = 1 - Then`) is kept as
   an Unbuilt statement of its text, at its place in the procedure.
+- So is a statement that begins with a word no statement begins with (`Mod = 1`: an operator keyword is not a name, **MS-VBAL §3.3.5.2**), and a
+  declaration with no name where its name is written (`Dim For As Long`, `Dim 1 As Long`). The syntax error is at that word, and the next statement
+  is read on its own.
+- A statement has one syntax error: the first one the parser finds in it. Where the parser fails again further on in the same statement, that is
+  the rest of the statement it could not read, and not another error. Two statements on one line (`a = 1 -: b = = 2`) have one error each.
