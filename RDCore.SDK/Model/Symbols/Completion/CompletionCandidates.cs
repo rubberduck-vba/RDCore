@@ -371,8 +371,8 @@ public static class CompletionCandidates
     /// </param>
     /// <param name="candidates">The other candidates; a label of <paramref name="first"/> is not offered again.</param>
     /// <param name="cursor">
-    /// Where the cursor is, which a candidate that replaces more than the word typed (<see cref="CompletionCandidate.ReplacedAfter"/>) says the text it
-    /// replaces from (a <c>textEdit</c>); <see langword="null"/> when no position is known, and every item replaces the word typed.
+    /// Where the cursor is: the item of a candidate that also replaces text after the cursor (<see cref="CompletionCandidate.ReplacedAfter"/>) carries a
+    /// <c>textEdit</c> over the word typed and that text. <see langword="null"/> when no position is known; every item then replaces the word typed only.
     /// </param>
     public static CompletionList ListOf(string word, IReadOnlyList<CompletionGroup> first, IReadOnlyList<CompletionCandidate> candidates, Position? cursor = null)
     {

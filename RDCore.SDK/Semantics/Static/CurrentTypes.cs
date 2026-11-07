@@ -65,8 +65,8 @@ public static class CurrentTypes
     /// <remarks>
     /// A library is read a class at a time, and a member that returns a class of its library that is not read yet is declared as the name of that class,
     /// qualified by the library: <c>Cells</c> of a <c>Range</c> returns a <c>Range</c>, the class being read. The name is resolved where the member is used,
-    /// as an <c>As</c> clause's is (<see cref="DeclaredTypes.Resolve"/>), from the global scope: a name the library qualifies is the library's whatever
-    /// the module that uses the member calls by it.
+    /// as an <c>As</c> clause's is (<see cref="DeclaredTypes.Resolve"/>), from the global scope: a name qualified by the library binds to the library's
+    /// class, whatever the module that uses the member declares by that name.
     /// </remarks>
     /// <param name="resolver">The resolver names are bound by, as the composition has it now; <see langword="null"/> when there is none.</param>
     /// <param name="declared">The type a declaration was bound to.</param>

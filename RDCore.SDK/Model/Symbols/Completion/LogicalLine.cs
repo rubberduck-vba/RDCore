@@ -13,9 +13,9 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// statement written on several physical lines reads as written on one.
 /// </para>
 /// <para>
-/// The whitespace before the <c>_</c> is narrower than <strong>MS-VBAL §3.2.2</strong> has it: its <c>WSC</c> is also the <c>U+0019</c> character, the
-/// ideographic space <c>U+3000</c> and the other spaces of Unicode class <c>Zs</c>, which the parser's lexer does not take before a line continuation.
-/// Physical lines the parser reads as two logical lines are two here too.
+/// The parser's lexer takes less whitespace before the <c>_</c> than <strong>MS-VBAL §3.2.2</strong> allows: the specification's <c>WSC</c> also
+/// includes the <c>U+0019</c> character, the ideographic space <c>U+3000</c> and the other spaces of Unicode class <c>Zs</c>, which the lexer does not take
+/// before a line continuation. Physical lines the parser reads as two logical lines are two here too.
 /// </para>
 /// <para>
 /// What a completion list and a signature help read of the call being written (<see cref="CompletionSite"/>, <see cref="SignatureSite"/>) is read off the
