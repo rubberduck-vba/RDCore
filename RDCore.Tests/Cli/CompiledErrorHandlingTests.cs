@@ -57,14 +57,19 @@ public sealed class CompiledErrorHandlingTests
         return result;
     }
 
-    // the program run both ways, whatever compiled code does of it: what was compiled.
+    // the program run both ways, whatever compiled code does of it, and printing what MS-VBA prints when that is given: what was compiled.
     internal static async Task<IReadOnlyDictionary<string, CompilationResult>> AssertAlikeAsync(string program,
-        IReadOnlyList<(string Name, string Source)>? classes = null)
+        IReadOnlyList<(string Name, string Source)>? classes = null, string? expected = null)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
         var run = await RunAsync(program, VBExecutionEngine.Compiled, classes);
         Assert.AreEqual(interpreted.Observed, run.Observed);
+        if (expected is not null)
+        {
+            StringAssert.Contains(run.Observed, expected);
+        }
+
         return run.Compiled;
     }
 

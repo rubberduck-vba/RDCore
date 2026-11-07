@@ -318,7 +318,60 @@ public sealed class CompiledArrayTests
             "        R(I) = I * 11",
             "    Next",
             "    Made = R",
-            "End Function"), "Copied", recoveries: 4);
+            "End Function"), "Copied", recoveries: 4, expected: "30789");
+
+    // an array of records an assignment copies whole: each element is Let-assigned, a copy of the record with its nested record and its array field, so a
+    // write to a field of either array is not one to the other's.
+    [TestMethod]
+    public async Task AnArrayOfRecordsCopiedByAnAssignment_SharesNoFieldWithTheArrayItWasCopiedFrom()
+        => await AssertAlikeAsync(Program(
+            "Private Type Pair",
+            "    X As Long",
+            "    S As String",
+            "End Type",
+            "Private Type Holder",
+            "    Inner As Pair",
+            "    N(1 To 2) As Long",
+            "End Type",
+            "Public Sub Main()",
+            "    Debug.Print Copied()",
+            "End Sub",
+            "Private Function Copied() As String",
+            "    Dim A(1 To 2) As Holder",
+            "    Dim B() As Holder",
+            "    A(1).Inner.X = 1",
+            "    A(1).Inner.S = \"a\"",
+            "    A(1).N(1) = 3",
+            "    B = A",
+            "    B(1).Inner.X = 2",
+            "    B(1).Inner.S = \"b\"",
+            "    B(1).N(1) = 4",
+            "    A(2).Inner.X = 9",
+            "    Copied = A(1).Inner.X & A(1).Inner.S & A(1).N(1) & \"|\" & B(1).Inner.X & B(1).Inner.S & B(1).N(1) & \"|\" & B(2).Inner.X",
+            "End Function"), expected: "1a3|2b4|0");
+
+    // an array of Variants an assignment copies whole, one of them holding an array: that element is Let-assigned a copy of the array it holds, so a write
+    // to an element of either held array is not one to the other's. The numbers assigned are compiled code's; the 7 statements the interpreter runs are the Strings
+    // assigned and joined, Array, the copy and the writes to an element of an element.
+    [TestMethod]
+    public async Task AnArrayOfVariantsCopiedByAnAssignment_SharesNoArrayAnElementHolds()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Copied()",
+            "End Sub",
+            "Private Function Copied() As String",
+            "    Dim V(0 To 2) As Variant",
+            "    Dim W() As Variant",
+            "    V(0) = 1",
+            "    V(1) = Array(10, 20)",
+            "    V(2) = \"s\"",
+            "    W = V",
+            "    W(0) = 5",
+            "    W(1)(0) = 99",
+            "    W(2) = \"t\"",
+            "    V(1)(1) = 77",
+            "    Copied = V(0) & \",\" & V(1)(0) & \",\" & V(1)(1) & \",\" & V(2) & \"|\" & W(0) & \",\" & W(1)(0) & \",\" & W(1)(1) & \",\" & W(2)",
+            "End Function"), "Copied", recoveries: 7, expected: "1,10,77,s|5,99,20,t");
 
     // a Variant assigned to an element of an array of a scalar type, holding a String: compiled code declines it, as it does a Variant's Let to a variable,
     // and the interpreter runs the Let (let-coercing "5"); with no handler, the procedure goes on in compiled code after it, each time round. A Variant
