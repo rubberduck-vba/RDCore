@@ -205,10 +205,13 @@ public sealed class SyntaxErrorRunRefusalTests
         var (program, _) = ProgramAndOther("", "");
         var bad = Module("Zed", "Public Sub Bad()", "    Debug.Print 1 +", "End Sub");
 
-        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Zed", bad), ("Alpha", bad.Replace("\"Zed\"", "\"Alpha\""))]);
+        // six modules, so that an order that is not the names' is all but certain to show.
+        string[] loaded = ["Zed", "Mike", "Alpha", "Kilo", "Bravo", "Yankee"];
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [.. loaded.Select(name => (name, bad.Replace("\"Zed\"", $"\"{name}\"")))]);
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
-        CollectionAssert.AreEqual(new[] { "Alpha", "Zed" }, result.Diagnostics!.Select(error => error[..error.IndexOf(':')]).ToArray(),
+        CollectionAssert.AreEqual(loaded.Order(StringComparer.OrdinalIgnoreCase).ToArray(), result.Diagnostics!.Select(error => error[..error.IndexOf(':')]).ToArray(),
             string.Join("; ", result.Diagnostics!));
     }
 
