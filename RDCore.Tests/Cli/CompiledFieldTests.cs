@@ -119,7 +119,7 @@ public sealed class CompiledFieldTests
                 "    Next",
                 "End Sub"));
 
-    // an Integer field that overflows is let-assigned nothing (MS-VBAL §5.4.3.1.1): the interpreter runs the assignment alone, and raises the error to the
+    // an Integer field that overflows is let-assigned nothing (MS-VBAL §5.4.3.8): the interpreter runs the assignment alone, and raises the error to the
     // handler; the field holds what it held before.
     [TestMethod]
     public async Task AFieldThatOverflows_IsRaisedByTheInterpreter_ToTheHandler()
