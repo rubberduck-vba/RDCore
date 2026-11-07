@@ -34,7 +34,7 @@ public delegate Task<SignatureHelp?> ConsoleSignatureSource(string line, int cur
 /// entered before; <kbd>Esc</kbd> clears the line; <kbd>Enter</kbd> enters it.
 /// </para>
 /// <para>
-/// The list opens on its own after a <c>.</c> or a <c>!</c>, and when a word starts to be typed; <kbd>Ctrl</kbd>+<kbd>Space</kbd> or <kbd>Ctrl</kbd>+<kbd>J</kbd>
+/// The list opens on its own after a <c>.</c>, and when a word starts to be typed, except the name after a <c>!</c>; <kbd>Ctrl</kbd>+<kbd>Space</kbd> or <kbd>Ctrl</kbd>+<kbd>J</kbd>
 /// opens it where the cursor is (the VBE's <em>Complete Word</em> and <em>List Members</em>). Asking for it never holds up what is typed: the keys go on being read
 /// while the list is on its way, and the list that comes is narrowed to the word as it is by then. While it is open, <kbd>Up</kbd>, <kbd>Down</kbd>,
 /// <kbd>PgUp</kbd> and <kbd>PgDn</kbd> move its selection, <kbd>Tab</kbd> puts the selected name in place of the word, and so does <kbd>Enter</kbd> - which enters
@@ -594,7 +594,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 }
 
                 // a word starts with a letter, or with a digit - the line number an argument can be - and the list is asked for once, as it starts.
-                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == character.Length || !IsNameCharacter(_text[_cursor - character.Length - 1]));
+                // The name after a bang is a dictionary access's, which nothing declares: no list is asked for it.
+                var startsWord = char.IsLetterOrDigit(typed)
+                    && (_cursor == character.Length || _text[_cursor - character.Length - 1] is var before && !IsNameCharacter(before) && before != '!');
 
                 // an argument list opens, an argument starts, or one closes: what the call takes is asked for again.
                 if (typed is '(' or ',' or ' ' or ')')
@@ -808,6 +810,13 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             if (_asked is not null && !IsWordAt(_askedAnchor))
             {
                 Close();
+            }
+
+            // a list of the word's first character on its way is no list of the empty word either: the cursor back at the word's start, it is asked for.
+            if (_asked is not null && _askedOfFirstCharacter && _cursor == _askedAnchor)
+            {
+                Ask(_askedAnchor);
+                return;
             }
 
             if (_list is null)
