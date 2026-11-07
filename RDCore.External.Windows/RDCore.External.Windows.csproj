@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
     <AssemblyTitle>RDCore External for Windows</AssemblyTitle>
-    <Description>The Windows implementation of RDCore External: COM automation, and what native calls need of the operating system.</Description>
+    <Description>The Windows implementation of RDCore External: COM automation, native libraries, user dialogs, forms, the desktop and settings saved in the registry.</Description>
   </PropertyGroup>
 
   <ItemGroup>

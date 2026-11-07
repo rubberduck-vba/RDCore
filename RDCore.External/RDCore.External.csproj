@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
     <AssemblyTitle>RDCore External</AssemblyTitle>
-    <Description>The platform-independent abstractions the RD-VBA runtime reaches the outside world through: COM automation and native calls.</Description>
+    <Description>The platform-independent abstractions through which the RD-VBA runtime reaches outside the platform: COM automation, native libraries, user dialogs, forms, the desktop and saved settings.</Description>
   </PropertyGroup>
 
   <ItemGroup>
