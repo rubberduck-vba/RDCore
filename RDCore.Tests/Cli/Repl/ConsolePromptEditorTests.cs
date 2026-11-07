@@ -23,10 +23,27 @@ public sealed class ConsolePromptEditorTests
 
         public IReadOnlyList<CompletionItem> Names { get; init; } = [];
 
+        // the names the word before the cursor matches, as the language server narrows them.
+        public bool Narrows { get; init; }
+
         public Task<IReadOnlyList<CompletionItem>> CompleteAsync(string line, int cursor, CancellationToken token)
         {
             Asked.Add((line, cursor));
-            return Task.FromResult(line[..cursor].EndsWith('.') ? Members : Names);
+            if (line[..cursor].EndsWith('.'))
+            {
+                return Task.FromResult<IReadOnlyList<CompletionItem>>(Members);
+            }
+
+            var start = cursor;
+            while (start > 0 && (char.IsLetterOrDigit(line[start - 1]) || line[start - 1] == '_'))
+            {
+                start--;
+            }
+
+            var word = line[start..cursor];
+            return Task.FromResult<IReadOnlyList<CompletionItem>>(Narrows
+                ? [.. Names.Where(name => RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.MatchOf(name.Label, word) != RDCore.SDK.Model.Symbols.Completion.CompletionMatch.None)]
+                : Names);
         }
     }
 
@@ -107,6 +124,28 @@ public sealed class ConsolePromptEditorTests
         var keys = new ScriptedKeys().Type("x = MP").Press(Key(ConsoleKey.DownArrow), Key(ConsoleKey.Tab), Key(ConsoleKey.Enter));
 
         Assert.AreEqual("x = MultiPlayer", await EnterAsync(keys, source), "Mpeg first, MultiPlayer next; Compute only has the letters");
+    }
+
+    // what follows a `!` is the name of a dictionary access, which nothing declares: typing the bang asks for no list, as a dot asks for the members.
+    [TestMethod]
+    public async Task ABang_AsksForNoList()
+    {
+        var source = new Source();
+        Assert.AreEqual("c!Key", await EnterAsync(new ScriptedKeys().Type("c!Key").Press(Key(ConsoleKey.Enter)), source));
+
+        CollectionAssert.DoesNotContain(source.Asked, ("c!", 2));
+    }
+
+    // a list asked for in the middle of a word is the list of its first letter: it holds what the word matches once it is shorter.
+    [TestMethod]
+    public async Task AListAskedForInTheMiddleOfAWord_StillHoldsWhatTheWordMatches_OnceItIsShorter()
+    {
+        var source = new Source { Names = [Item("Mulch"), Item("MultiPlayer")], Narrows = true };
+        var keys = new ScriptedKeys().Type("x = MuP")
+            .Press(Key(ConsoleKey.Escape), Key(ConsoleKey.Spacebar, control: true), Key(ConsoleKey.Backspace), Key(ConsoleKey.Tab), Key(ConsoleKey.Enter));
+
+        Assert.AreEqual("x = Mulch", await EnterAsync(keys, source), "the list of Mu: Mulch, then MultiPlayer");
+        Assert.IsTrue(source.Asked.All(asked => asked.Cursor <= 5), string.Join(", ", source.Asked));
     }
 
     [TestMethod]

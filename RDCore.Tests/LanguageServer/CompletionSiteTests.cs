@@ -55,6 +55,20 @@ public sealed class CompletionSiteTests
     public void NothingIsOffered_InALiteral_OrAComment(string line)
         => Assert.AreEqual(CompletionSiteKind.None, CompletionSite.Read(line).Kind);
 
+    // what follows a `!` is the name of a dictionary access (MS-VBAL §5.6.14), which no declaration has; and after a `!` that is a Single's type suffix,
+    // no name is written.
+    [TestMethod]
+    [DataRow("x = rs!", DisplayName = "the bang")]
+    [DataRow("x = rs!Fi", DisplayName = "a name after the bang")]
+    [DataRow("x = rs.Fields!Na", DisplayName = "after a member")]
+    [DataRow("Debug.Print x!", DisplayName = "a type suffix")]
+    public void NothingIsOffered_AfterABang(string line)
+        => Assert.AreEqual(CompletionSiteKind.None, CompletionSite.Read(line).Kind);
+
+    [TestMethod]
+    public void ANameAfterAVariableWithATypeSuffix_IsANameLikeAnyOther()
+        => Assert.AreEqual(new CompletionSite(CompletionSiteKind.Name, "Le", Statement: "x! ="), Trimmed(CompletionSite.Read("x! = Le")));
+
     [TestMethod]
     public void AStringThatIsClosed_IsNotWhereTheCursorIs()
         => Assert.AreEqual(new CompletionSite(CompletionSiteKind.Name, "Le", Statement: "x = \"it's\" &"), Trimmed(CompletionSite.Read("x = \"it's\" & Le")));

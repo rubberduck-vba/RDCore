@@ -178,12 +178,20 @@ public sealed class CompletionServiceTests
             Light
             Dark
         End Enum
+        Public Enum Hue
+            DeepRed
+            Pale
+        End Enum
         Public Sub Paint(ByVal Colour As Shade)
         End Sub
         Public Sub Brush(ByVal Width As Long, Optional ByVal Colour As Shade = Light)
         End Sub
         Public Sub Stroke(ByVal Width As Long)
         End Sub
+        Public Sub Tint(ByVal Colour As Hue)
+        End Sub
+        Public Function Drum() As Long
+        End Function
         """;
 
     private async Task<CompletionList> ListAsync(string line, string? triggerCharacter = null)
@@ -242,8 +250,20 @@ public sealed class CompletionServiceTests
         CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len");
     }
 
-    // the sort text of a constant ranked first: its match, then a `!` before any rank, and the first group.
-    private static bool IsConstantFirst(CompletionItem item) => item.SortText is [_, '!', '0', ..];
+    // the constants of the Enum are a tier before every other name: the word's best match among them is selected, though it only matches a constant's humps
+    // and starts another name.
+    [TestMethod]
+    public async Task AConstantWhoseHumpsTheWordMatches_RanksAndIsSelected_BeforeANameTheWordStarts()
+    {
+        var items = (await ListAsync("Tint DR|")).Items.ToList();
+
+        Assert.AreEqual("DeepRed", items[0].Label, string.Join(", ", items.Take(5).Select(item => item.Label + "/" + item.SortText)));
+        Assert.IsTrue(items[0].Preselect);
+        CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Drum");
+    }
+
+    // the sort text of a constant ranked first: a `!` before any other item's, and the first group.
+    private static bool IsConstantFirst(CompletionItem item) => item.SortText is ['!', '0', ..];
 
     // a ( , or space a client asks on lists an Enum argument's constants where a value of it starts, and nothing anywhere else: not a whole list at each comma,
     // nor after an operand.
@@ -586,6 +606,34 @@ public sealed class CompletionServiceTests
         Assert.IsTrue(items[0].Preselect, items[0].Label);
         Assert.AreEqual(1, items.Count(item => item.Preselect));
     }
+
+    // ---- a dictionary access (MS-VBAL §5.6.14): the name after a `!` is no declaration's, and nothing true can be offered for it ----
+
+    private async Task<string[]> BangAsync(string line, string? triggerCharacter = null)
+    {
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim rs As New Collection\r\n    Dim total!\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items.Select(item => item.Label)];
+    }
+
+    [TestMethod]
+    [DataRow("x = rs!|", null, DisplayName = "after the bang")]
+    [DataRow("x = rs!|", "!", DisplayName = "asked for by the bang")]
+    [DataRow("x = rs!Co|", null, DisplayName = "a name after the bang")]
+    [DataRow("Debug.Print total!|", null, DisplayName = "after a type suffix")]
+    public async Task AfterABang_NothingIsOffered(string line, string? triggerCharacter)
+    {
+        var labels = await BangAsync(line, triggerCharacter);
+
+        Assert.AreEqual(0, labels.Length, string.Join(", ", labels.Take(8)));
+    }
+
+    [TestMethod]
+    public async Task AfterADot_TheMembersAreOffered()
+        => CollectionAssert.IsSubsetOf(new[] { "Add", "Count", "Item" }, await BangAsync("x = rs.|"));
+
+    [TestMethod]
+    public async Task AVariableDeclaredWithATypeSuffix_IsOfferedLikeAnyOther()
+        => CollectionAssert.Contains(await BangAsync("x = to|"), "total");
 
     [TestMethod]
     public async Task NothingIsOffered_InAComment()

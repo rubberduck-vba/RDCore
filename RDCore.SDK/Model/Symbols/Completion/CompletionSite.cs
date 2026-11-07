@@ -49,6 +49,12 @@ public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix
     /// <summary>
     /// Reads what is being written at the end of <paramref name="text"/>.
     /// </summary>
+    /// <remarks>
+    /// A name written after a <c>!</c> is the name of a dictionary access (<strong>MS-VBAL §5.6.14</strong>): a string the object's default member is given
+    /// when the code runs, which no declaration names. Nothing is completed there (<see cref="CompletionSiteKind.None"/>), and nothing is completed right after
+    /// a <c>!</c> that is the type suffix of a <c>Single</c> (<c>x!</c>) either, since no name follows one. A <c>!</c> written in the expression a member is
+    /// accessed on is part of that expression (<c>Sheets![My Sheet].Ra</c>).
+    /// </remarks>
     /// <param name="text">The text of the line, up to the cursor.</param>
     public static CompletionSite Read(string text)
     {
@@ -70,7 +76,12 @@ public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix
             return new(CompletionSiteKind.None);
         }
 
-        if (start > 0 && text[start - 1] is '.' or '!')
+        if (start > 0 && text[start - 1] == '!')
+        {
+            return new(CompletionSiteKind.None);
+        }
+
+        if (start > 0 && text[start - 1] == '.')
         {
             var qualifier = QualifierBefore(text, start - 1);
             if (qualifier is null)
