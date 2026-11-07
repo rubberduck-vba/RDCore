@@ -311,7 +311,12 @@ public sealed class LetAssignmentEvaluator(
         var before = ObjectReferences.HeldIn(session, cell);
         if (cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
-            cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+            // a record let to an element that holds one is written where the element's record is: a field given by reference is the field.
+            if (!SymbolAddressTable.TryLetRecordInPlace(cell, source))
+            {
+                cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+            }
+
             ObjectReferences.Rebind(session, cell, before);
             return cell;
         }

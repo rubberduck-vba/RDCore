@@ -15,8 +15,8 @@ namespace RDCore.Runtime.Compiled;
 /// <remarks>
 /// <para>
 /// Compiled code holds the cell its frame holds the record in - its <em>holder</em> - and nothing below it: each access finds the record the holder holds
-/// now, then the field. What the interpreter does of the record in between - a Let of the whole record, which holds a copy of another
-/// (<see cref="VBUserDefinedTypeValue.DataCopy"/>), a Let of one of its fields, written in the field's cell - compiled code then sees.
+/// now, then the field. What the interpreter does of the record in between - a Let of the whole record, which writes a copy of another into it
+/// (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>), a Let of one of its fields, written in the field's cell - compiled code then sees.
 /// </para>
 /// <para>
 /// What it doesn't read or write - a holder that holds no record, a field that holds no payload of its type, a <c>Variant</c> field over an object - is the

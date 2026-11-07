@@ -197,9 +197,11 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// parameter reads what the field holds after the assignment, and the field holds what the parameter is assigned after it.
     /// </summary>
     /// <remarks>
-    /// A field that holds an object, a <c>Variant</c>, an array or a record is given <paramref name="value"/> instead (<see cref="TrySetFieldAt"/>): a
-    /// <c>Variant</c> field given by reference is bound to the record and the field's position, not to the field's cell, and what holds an object is
-    /// told by its cell. <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to.
+    /// A field declared as a record is let <paramref name="value"/> where it is in its turn (<see cref="TryLetFrom"/>). A field that holds an object,
+    /// a <c>Variant</c> or an array is given <paramref name="value"/> instead (<see cref="TrySetFieldAt"/>): a <c>Variant</c> field given by reference
+    /// is bound to the record and the field's position, not to the field's cell, and what holds an object is told by its cell.
+    /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a
+    /// record or an array in it becomes the field's own.
     /// </remarks>
     /// <param name="index">The field's position in declaration order.</param>
     /// <param name="value">The value to assign, of the field's declared type.</param>
@@ -211,13 +213,42 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
             return false;
         }
 
-        if (_fields[index] is { Handle: IKnowledgeBinding cell } held && IsWrittenInItsCell(held, value))
+        switch (_fields[index])
         {
-            cell.Store(value.RuntimeValue, isKnown: !value.IsIndeterminate);
-            return true;
+            case { Handle: IKnowledgeBinding cell } held when IsWrittenInItsCell(held, value):
+                cell.Store(value.RuntimeValue, isKnown: !value.IsIndeterminate);
+                return true;
+            case VBUserDefinedTypeValue nested when value is VBUserDefinedTypeValue { IsIndeterminate: false } record && nested.TryLetFrom(record):
+                return true;
+            default:
+                _fields[index] = value;
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="source"/> to this record where it is (MS-VBAL §5.4.3.8): each field is let the same field of
+    /// <paramref name="source"/> (<see cref="TryLetFieldAt"/>), so a <c>ByRef</c> parameter given a field of this record reads what the field holds
+    /// after the assignment (MS-VBAL §5.3.1.11).
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="source"/> is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else: what it holds
+    /// that is not written in a cell of this record, an array or a <c>Variant</c>, becomes this record's own.
+    /// </remarks>
+    /// <param name="source">The record assigned, of this record's type.</param>
+    /// <returns><c>false</c> when <paramref name="source"/> is of another type: nothing was written.</returns>
+    public bool TryLetFrom(VBUserDefinedTypeValue source)
+    {
+        if (!Equals(TypeInfo, source.TypeInfo) || source._fields.Length != _fields.Length)
+        {
+            return false;
         }
 
-        _fields[index] = value;
+        for (var index = 0; index < _fields.Length; index++)
+        {
+            _ = TryLetFieldAt(index, source._fields[index]);
+        }
+
         return true;
     }
 

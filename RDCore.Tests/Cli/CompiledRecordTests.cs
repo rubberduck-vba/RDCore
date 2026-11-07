@@ -396,4 +396,44 @@ public sealed class CompiledRecordTests
             "    Debug.Print N",
             "    N = N & \"!\"",
             "End Sub"), null, 0, 0, "ab", "ab!");
+
+    // the same, of a Let of the whole record: the record is written where it is, so its field given by reference holds what the other record's field held,
+    // and the field holds what the parameter is assigned after it. The Let of a record is the interpreter's in either engine.
+    [TestMethod]
+    public async Task AFieldGivenByReference_IsTheField_WhenItsWholeRecordIsLet()
+        => await AssertPrintsAsync(Module(
+            "Public Sub Main()",
+            "    Dim Q As TPoint",
+            "    Dim O As TPoint",
+            "    Q.X = 1",
+            "    O.X = 7",
+            "    O.V = \"v\"",
+            "    Inner Q, O, Q.X",
+            "    Debug.Print Q.X; Q.V; O.X",
+            "End Sub",
+            "Private Sub Inner(ByRef Q As TPoint, ByRef O As TPoint, ByRef N As Long)",
+            "    Q = O",
+            "    Debug.Print N",
+            "    N = N + 100",
+            "End Sub"), null, 0, 0, "7", "107 v 7");
+
+    // the same, of a field of a record field let a record, and of a field of an element of an array of records let one.
+    [TestMethod]
+    [DataRow("Q.Inner = O", "Q.Inner.X", "Private Q As TPair")]
+    [DataRow("Q(1) = O", "Q(1).X", "Private Q(1 To 2) As TPoint")]
+    public async Task AFieldGivenByReference_IsTheField_WhenARecordHoldingItIsLet(string let, string field, string declared)
+        => await AssertPrintsAsync(Module(
+            declared,
+            "Public Sub Main()",
+            "    Dim O As TPoint",
+            $"    {field} = 1",
+            "    O.X = 7",
+            $"    Inner {field}, O",
+            $"    Debug.Print {field}; O.X",
+            "End Sub",
+            "Private Sub Inner(ByRef N As Long, ByRef O As TPoint)",
+            $"    {let}",
+            "    Debug.Print N",
+            "    N = N + 100",
+            "End Sub"), null, 0, 0, "7", "107  7");
 }
