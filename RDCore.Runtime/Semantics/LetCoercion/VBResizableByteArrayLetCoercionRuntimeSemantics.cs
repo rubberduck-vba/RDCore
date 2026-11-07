@@ -55,24 +55,27 @@ public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
 
     // MS-VBAL 5.5.1.2.6: "The result is a copy of the source Byte array" - bounds and rank are
     // preserved exactly (a whole-array Let-assignment implicitly ReDims the destination to the
-    // source's own bounds, it does not renumber to 0-based).
+    // source's own bounds, it does not renumber to 0-based). Its elements are in the cells a declared
+    // Byte array has (ElementCells), as the String's bytes are.
     private static VBResizableByteArrayValue CopyOf(VBArrayValue source)
     {
-        var copy = new VBResizableByteArrayValue([.. source.Dimensions.Select(d => (d.LowerBound, d.UpperBound))]);
+        var cells = ElementCells.Of(VBByteType.TypeInfo);
+        var copy = new VBResizableByteArrayValue([.. source.Dimensions.Select(d => (d.LowerBound, d.UpperBound))], cells);
         foreach (var subscripts in VBByteArrayCoercionHelpers.EnumerateSubscripts(source.Dimensions))
         {
             var value = ((VBByteValue)source[subscripts]!).Value;
-            copy.TrySetElement(new ValueBindingHandle(new VBRuntimeValue<byte>(value)), subscripts);
+            ElementCells.Store(copy, cells, new VBRuntimeValue<byte>(value), isKnown: true, subscripts);
         }
         return copy;
     }
 
     private static VBResizableByteArrayValue FromBytes(byte[] bytes)
     {
-        var result = new VBResizableByteArrayValue([(0, bytes.Length - 1)]);
+        var cells = ElementCells.Of(VBByteType.TypeInfo);
+        var result = new VBResizableByteArrayValue([(0, bytes.Length - 1)], cells);
         for (var i = 0; i < bytes.Length; i++)
         {
-            result.TrySetElement(new ValueBindingHandle(new VBRuntimeValue<byte>(bytes[i])), i);
+            ElementCells.Store(result, cells, new VBRuntimeValue<byte>(bytes[i]), isKnown: true, i);
         }
         return result;
     }

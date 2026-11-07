@@ -84,27 +84,36 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
 
     private static bool HoldsObjects(VBType elementType) => elementType is VBObjectType or VBClassType;
 
+    // MS-VBAL 5.5.1.2.7: "Elements with a value type of a class or Nothing are Set-assigned to the destination array
+    // element and all other elements are Let-assigned." Either way the destination element is a cell of its own
+    // holding the source element's value - a reference, for a class or Nothing - so writing one array never writes the
+    // other. (A let-coercion has no session, so the reference counts of Set-assigned objects are not adjusted here.)
+    // The cells are those a declared array of the element type has (ElementCells), so the copy is read and written as
+    // the array it is assigned to would be. An element with no readable binding - a Variant, UDT or Object cell that
+    // was never assigned - stays as the copy made it: its type's default value.
     private static VBResizableArrayValue CopyOf(VBArrayValue source, VBType itemType)
     {
         (int, int)[] dimensions = [.. source.Dimensions.Select(d => (d.LowerBound, d.UpperBound))];
+        var cells = ElementCells.Of(itemType);
         var copy = itemType is VBByteType
-            ? new VBResizableByteArrayValue(dimensions)
-            : new VBResizableArrayValue(dimensions, itemType);
+            ? new VBResizableByteArrayValue(dimensions, cells)
+            : new VBResizableArrayValue(dimensions, itemType, elementCell: cells);
 
         foreach (var subscripts in VBByteArrayCoercionHelpers.EnumerateSubscripts(source.Dimensions))
         {
-            copy.TrySetElement(CopyOfElement(source.GetElementHandle(subscripts)!), subscripts);
+            var element = source.GetElementHandle(subscripts)!;
+            if (!element.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
+            {
+                if (cells is null)
+                {
+                    copy.TrySetElement(InvalidBindingHandle.Default, subscripts);
+                }
+
+                continue;
+            }
+
+            ElementCells.Store(copy, cells, element.Value, element is not IKnowledgeBinding { IsKnown: false }, subscripts);
         }
         return copy;
     }
-
-    // MS-VBAL 5.5.1.2.7: "Elements with a value type of a class or Nothing are Set-assigned to the destination array
-    // element and all other elements are Let-assigned." Either way the destination element is a binding of its own
-    // holding the source element's value - a reference, for a class or Nothing - so writing one array never writes the
-    // other. (A let-coercion has no session, so the reference counts of Set-assigned objects are not adjusted here.)
-    // An element with no readable binding - a Variant, UDT or Object cell that was never assigned - stays inert.
-    private static IBindingHandle CopyOfElement(IBindingHandle element)
-        => element.BindingCapabilities.HasFlag(BindingCapabilities.GetValue)
-            ? BindingKnowledge.NewCell(element.Value, element is not IKnowledgeBinding { IsKnown: false })
-            : InvalidBindingHandle.Default;
 }
