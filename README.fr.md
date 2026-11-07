@@ -55,6 +55,9 @@ _declaration_, _type definition_ et _implementation_, _references_ et _highlight
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html)
+- [RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK) : le modèle du langage et l'infrastructure commune sur lesquels reposent tous les composants et extensions de RDCore
+- [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE) : le module d'extension qui intègre RDCore à HexIDE
+- [HexIDE](https://github.com/hexide-io/HexIDE) : l'IDE conçu pour les développeurs VB, que RDCore.HexIDE étend
 
 
 > [!NOTE]

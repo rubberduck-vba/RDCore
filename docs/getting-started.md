@@ -67,10 +67,10 @@ Then open the shell on it with `rdc --workspace <path>`.
 ---
 ## Using RDCore from an IDE
 
-The shell is fun, but the real work happens in the language server behind it, and a language server needs an editor. We recommend **HexIDE**: unlike most editors, it was made for VB developers, so you'll feel right at home.
+The shell is fun, but the real work happens in the language server behind it, and a language server needs an editor. We recommend **[HexIDE](https://github.com/hexide-io/HexIDE)**: unlike most editors, it was made for VB developers, so you'll feel right at home.
 
 > [!NOTE]
-> HexIDE support for RDCore is under development.
+> HexIDE support for RDCore is under development, in the [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE) add-in.
 
 ---
 ## Good to know

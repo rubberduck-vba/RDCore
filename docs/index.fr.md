@@ -25,7 +25,8 @@ Legacy VBA aujourd'hui :
 - **rend extensible** le langage même
 
 
-**Référentiel et état du projet** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)
+**Référentiel et état du projet** (GitHub) : [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)  
+**Module d'extension pour HexIDE** (GitHub) : [rubberduck-vba/RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE), qui intègre RDCore à [HexIDE](https://github.com/hexide-io/HexIDE)
 
 
 ### Objectifs
