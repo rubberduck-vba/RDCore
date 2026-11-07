@@ -751,12 +751,13 @@ public sealed class LetAssignmentEvaluator(
 
         var index = udt.Fields.IndexOf(declared);
         var before = ObjectReferences.HeldInField(udt, index);
-        if (!udt.TrySetFieldAt(index, coerced))
+        // a scalar field is written in its cell, which a ByRef parameter given the field is bound to (MS-VBAL §5.3.1.11).
+        if (!udt.TryLetFieldAt(index, coerced))
         {
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        // the field holds what it was given in a cell of its own now, which is what holds the objects in it.
+        // a field that can hold an object holds what it was given in a cell of its own now, which is what holds the objects in it.
         ObjectReferences.RebindField(session, udt, index, before);
         return RuntimeExecutionOutcome.Next;
     }

@@ -192,6 +192,41 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     /// <summary>
+    /// Let-assigns <paramref name="value"/> to the field at <paramref name="index"/> in declaration order (MS-VBAL §5.4.3.8): a field of a scalar type is
+    /// written in its own cell, which a <c>ByRef</c> parameter given the field is bound to (<see cref="GetFieldHandle"/>, MS-VBAL §5.3.1.11), so the
+    /// parameter reads what the field holds after the assignment, and the field holds what the parameter is assigned after it.
+    /// </summary>
+    /// <remarks>
+    /// A field that holds an object, a <c>Variant</c>, an array or a record is given <paramref name="value"/> instead (<see cref="TrySetFieldAt"/>): a
+    /// <c>Variant</c> field given by reference is bound to the record and the field's position, not to the field's cell, and what holds an object is
+    /// told by its cell. <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to.
+    /// </remarks>
+    /// <param name="index">The field's position in declaration order.</param>
+    /// <param name="value">The value to assign, of the field's declared type.</param>
+    /// <returns><c>false</c> when there is no field there.</returns>
+    public bool TryLetFieldAt(int index, VBTypedValue value)
+    {
+        if (index < 0 || index >= _fields.Length)
+        {
+            return false;
+        }
+
+        if (_fields[index] is { Handle: IKnowledgeBinding cell } held && IsWrittenInItsCell(held, value))
+        {
+            cell.Store(value.RuntimeValue, isKnown: !value.IsIndeterminate);
+            return true;
+        }
+
+        _fields[index] = value;
+        return true;
+    }
+
+    // a field of a scalar type is written where it is; one of another kind is replaced, as a value of another type would have to be.
+    private static bool IsWrittenInItsCell(VBTypedValue held, VBTypedValue value)
+        => held is not (VBObjectValue or VBVariantValue or VBArrayValue or VBUserDefinedTypeValue) && held.GetType() == value.GetType()
+            && Equals(held.TypeInfo, value.TypeInfo);
+
+    /// <summary>
     /// The binding of the field named <paramref name="name"/>, or <c>null</c> when there is no such field.
     /// </summary>
     /// <remarks>
@@ -208,6 +243,8 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// this value bound to the resulting address — a UDT's identity <em>is</em> its address, so the
     /// allocated copy self-reports the very address it was allocated at.
     /// </summary>
+    /// <param name="storage">The session storage the record is given an address in.</param>
+    /// <param name="allocated">The copy of this record bound to its address; <c>null</c> when none was reserved.</param>
     /// <returns><c>false</c> if the underlying memory space is exhausted.</returns>
     public bool TryAllocateIn(ISessionStorage storage, [NotNullWhen(true)] out VBUserDefinedTypeValue? allocated)
     {

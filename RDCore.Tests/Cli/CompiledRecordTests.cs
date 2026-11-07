@@ -317,4 +317,83 @@ public sealed class CompiledRecordTests
             "Private Function Read() As Long",
             "    Read = Kept.Count * 1000 + Kept.Inner.X",
             "End Function"), "Fill", recoveries: 0);
+
+    // the program run both ways alike, with the procedure named compiled and recovering and walking back as many times as given (none named: whatever is
+    // compiled), then what it printed: what MS-VBA prints.
+    private static async Task AssertPrintsAsync(string program, string? compiled, long recoveries, long walkBacks, params string[] printed)
+    {
+        if (compiled is null)
+        {
+            _ = await AssertAlikeAsync(program);
+        }
+        else
+        {
+            _ = await AssertAlikeAsync(program, compiled, recoveries, walkBacks);
+        }
+
+        CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync([], program, RDCore.SDK.Runtime.Abstract.Execution.VBExecutionEngine.Interpreter));
+    }
+
+    // a field given by reference is the field (MS-VBAL §5.3.1.11): a Let of the field through its record is what the parameter reads after, and what the
+    // parameter is assigned, the record's field holds. A field of a scalar type is written in its cell, compiled or not; a Variant field given by reference
+    // is bound to the record and the field's position.
+    [TestMethod]
+    [DataRow("X", "Long", 0, 1)]
+    [DataRow("Y", "Double", 0, 1)]
+    [DataRow("Small", "Integer", 0, 1)]
+    [DataRow("V", "Variant", 2, 0)]
+    public async Task AFieldGivenByReference_IsTheField_WhenItIsLetThroughItsRecord(string field, string type, long recoveries, long walkBacks)
+        => await AssertPrintsAsync(Module(
+            "Public Sub Main()",
+            "    Dim Q As TPoint",
+            $"    Q.{field} = 1",
+            "    Debug.Print Aliased(Q)",
+            "End Sub",
+            "Private Function Aliased(ByRef Q As TPoint) As Long",
+            $"    Inner Q, Q.{field}",
+            $"    Aliased = Q.{field}",
+            "End Function",
+            $"Private Sub Inner(ByRef Q As TPoint, ByRef N As {type})",
+            $"    Q.{field} = Q.{field} + 3",
+            "    Debug.Print N",
+            "    N = N + 100",
+            "End Sub"), "Inner", recoveries, walkBacks, "4", "104");
+
+    // the same, of a record of the module that another procedure lets the field of: Touch's Let is compiled code's.
+    [TestMethod]
+    public async Task AFieldOfAModuleRecordGivenByReference_IsTheField_WhenAnotherProcedureLetsIt()
+        => await AssertPrintsAsync(Module(
+            "Private M As TPoint",
+            "Public Sub Main()",
+            "    M.X = 1",
+            "    Inner M.X",
+            "    Debug.Print M.X",
+            "End Sub",
+            "Private Sub Inner(ByRef N As Long)",
+            "    Touch",
+            "    Debug.Print N",
+            "    N = N + 100",
+            "End Sub",
+            "Private Sub Touch()",
+            "    M.X = M.X + 3",
+            "End Sub"), "Touch", 0, 0, "4", "104");
+
+    // the same, of a String field, which the interpreter lets in either engine.
+    [TestMethod]
+    public async Task AStringFieldGivenByReference_IsTheField_WhenItIsLetThroughItsRecord()
+        => await AssertPrintsAsync(Module(
+            "Private Type TText",
+            "    S As String",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim Q As TText",
+            "    Q.S = \"a\"",
+            "    Inner Q, Q.S",
+            "    Debug.Print Q.S",
+            "End Sub",
+            "Private Sub Inner(ByRef Q As TText, ByRef N As String)",
+            "    Q.S = Q.S & \"b\"",
+            "    Debug.Print N",
+            "    N = N & \"!\"",
+            "End Sub"), null, 0, 0, "ab", "ab!");
 }
