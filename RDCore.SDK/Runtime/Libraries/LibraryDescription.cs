@@ -7,9 +7,10 @@ namespace RDCore.SDK.Runtime.Libraries;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A library is known by its <see cref="Name"/> and by nothing else: a project references <c>Scripting</c>, and the name is all that finds it, as if the
-/// library were VBA code. Where the library came from - a type library of the machine it was described on, with the identity and version that machine's
-/// registry gives it - is <see cref="Origin"/>, which says where a description was made and is not what finds it.
+/// A library is known by its <see cref="Name"/>: a project references <c>Scripting</c>, and source code qualifies its types with that name, as if the library
+/// were VBA code. <see cref="Origin"/> is the type library it was described from, with the identifier and version that the registry of that machine
+/// gives it. When libraries of one name are several (<c>DAO</c>), a reference or a dependency that gives an identifier and a version
+/// finds the description whose origin they are (<see cref="LibraryIdentity"/>); one that gives a name alone finds the library of the name.
 /// </para>
 /// <para>
 /// The description is a file because what a library declares is needed where the library is not: a workspace is analyzed on a machine that does not have
@@ -24,9 +25,9 @@ namespace RDCore.SDK.Runtime.Libraries;
 public sealed record class LibraryDescription
 {
     /// <summary>
-    /// The version of the format of the file, which a reader that does not know it refuses rather than misreads.
+    /// The version of the format of the file, which a reader that does not know it refuses rather than misreads (<see cref="LibraryJson.CurrentFormatVersion"/>).
     /// </summary>
-    public int FormatVersion { get; init; } = 1;
+    public int FormatVersion { get; init; } = LibraryJson.CurrentFormatVersion;
 
     /// <summary>
     /// The name of the library: what a project references it by, and what qualifies the types it declares (<c>Excel.Worksheet</c>).
@@ -44,10 +45,11 @@ public sealed record class LibraryDescription
     public LibraryOrigin? Origin { get; init; }
 
     /// <summary>
-    /// The names of the libraries whose types this one's members are declared as. They are loaded with it, whether or not a project references them: a project
-    /// that references Excel can use what Excel returns.
+    /// The libraries whose types this one's members are declared as, each by its name and, when the description says, the identifier and version of the type
+    /// library it was built against. They are loaded with it, whether or not a project references them: a project that references Excel can use what Excel
+    /// returns. A dependency whose name a project references is the library the project references (<strong>RD-VBAL §2.3.1.2</strong>).
     /// </summary>
-    public ImmutableArray<string> DependsOn { get; init; } = [];
+    public ImmutableArray<LibraryIdentity> DependsOn { get; init; } = [];
 
     /// <summary>
     /// The enumerations the library declares.
@@ -61,14 +63,19 @@ public sealed record class LibraryDescription
 }
 
 /// <summary>
-/// Where a library description was made. Informational: it is not what finds the library, and nothing resolves a name by it.
+/// Where a library description was made: the type library it describes, which a reference that gives an identifier and a version finds it by
+/// (<see cref="LibraryIdentity.Of"/>). Source code resolves no name by it.
 /// </summary>
 public sealed record class LibraryOrigin
 {
-    /// <summary>The identifier the machine gave the library, when it gave one.</summary>
+    /// <summary>
+    /// The identifier of the type library, when it has one.
+    /// </summary>
     public string? Guid { get; init; }
 
-    /// <summary>The version of the library the description was made from.</summary>
+    /// <summary>
+    /// The version of the type library the description was made from, as <c>major.minor</c>.
+    /// </summary>
     public string? Version { get; init; }
 
     /// <summary>The file the library was read from.</summary>

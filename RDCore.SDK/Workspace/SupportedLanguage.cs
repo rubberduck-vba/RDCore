@@ -87,8 +87,9 @@ public class SupportedLanguage
     /// <remarks>
     /// The standard library (<c>VBA</c>) is every language's, and is none of them. A VB6 project also has the Visual Basic runtime objects and procedures
     /// (<c>VBRUN</c>, the third type library of <c>MSVBVM60.DLL</c>): the constants of its forms and controls (<c>vbFixedSingle</c>, <c>vbTwips</c>,
-    /// <c>vbHourglass</c>, <c>vbChecked</c>) and its <c>PropertyBag</c>, which a <c>.vbp</c> never lists and the VB6 IDE does not let a project remove. A name
-    /// both libraries declare is the standard library's: <c>vbCancel</c> is <c>2</c>, where <c>VBRUN</c>'s is <c>0</c>.
+    /// <c>vbHourglass</c>, <c>vbChecked</c>) and its <c>PropertyBag</c>; and the Visual Basic objects and procedures (<c>VB</c>, <c>VB6.OLB</c>): its forms,
+    /// controls and <c>App</c>, <c>Screen</c> and <c>Printer</c>. A <c>.vbp</c> lists neither, and the VB6 IDE does not let a project remove them. A name
+    /// both the standard library and <c>VBRUN</c> declare is the standard library's: <c>vbCancel</c> is <c>2</c>, where <c>VBRUN</c>'s is <c>0</c>.
     /// </remarks>
     public IReadOnlyList<string> ImplicitReferences { get; init; } = [];
 
@@ -123,7 +124,7 @@ public static class SupportedLanguages
     /// </summary>
     public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm")
     {
-        ImplicitReferences = ["VBRUN"],
+        ImplicitReferences = ["VBRUN", "VB"],
     };
 
     /// <summary>

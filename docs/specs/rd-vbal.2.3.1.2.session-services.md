@@ -41,7 +41,7 @@ For object values and their lifetime, see
 ([**RD-VBAL §2.2.3.2** RDCoreReference](rd-vbal.2.2.3.projectfile.md)), after the standard library (`VBA`, rank `0`): every project has it, and
 no `.rdproj` lists it ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)). The
 libraries every project of its language has come after the standard library and before the listed references, in the
-order the language gives them: `VBRUN` for a VB6 project, and none for RD-VBA.
+order the language gives them: `VBRUN` and `VB` for a VB6 project, and none for RD-VBA.
 
 Each [ReferencePriorityInfo](../api/RDCore.SDK.Model.Symbols.ReferencePriorityInfo.html) entry carries only:
 
@@ -68,6 +68,28 @@ library's ([Reference precedence](rd-vbal.2.3.1.3.name-resolution.md#reference-p
 never share a reference precedence. Only symbols of one tier that do, such as the members of two procedural modules of the
 workspace that both declare the name, are reported as **VBC09301** _Ambiguous name_ (see
 [Duplicate and ambiguous names](rd-vbal.2.3.1.3.name-resolution.md#duplicate-and-ambiguous-names)).
+
+### The library a reference is
+
+The libraries a project loads are the library descriptions in the `Symbols` folder of the platform
+(`ReferencedLibraries.Load`). Each states the identifier and version of the type library it was made from (`origin`),
+and the libraries it depends on (`dependsOn`), each by its name and the identifier and version of the type library it
+was built against.
+
+|A reference or a dependency that gives|Is the library|
+|---|---|
+|A name only|`Symbols/<Name>.json`.|
+|An identifier and a version|The description made from a type library of that identifier and major version: the one of exactly the minor version given, and otherwise the one of the highest minor version above it, as `LoadRegTypeLib` chooses a registered type library. A description of another major version is never the library. With no such description, it cannot be resolved: the library of the name is not used in its place.|
+
+`Symbols/<Name>.<qualifier>.json` describes another type library of the name, such as `DAO.dao2535.json` beside
+`DAO.json`. The name of a library ends at the first `.` of its file's name; the qualifier only keeps the files apart.
+
+A project has one library of a name, and its own reference decides which. A second reference to the name that means
+another library is a problem, and is not loaded; the first is. A dependency whose name the project
+references is the library of that reference, whatever type library the library that depends on it was built against: in
+a VB6 project that references DAO 3.6, the `Recordset` of the `Data` control is DAO 3.6's. A dependency of a name the
+project does not reference is the type library it was built against: without a DAO reference, the `Data` control's
+`Recordset` is of the DAO 2.5/3.51 compatibility library.
 
 ## ISymbolProvider
 

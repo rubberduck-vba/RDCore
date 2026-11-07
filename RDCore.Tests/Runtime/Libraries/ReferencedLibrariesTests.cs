@@ -14,7 +14,7 @@ public sealed class ReferencedLibrariesTests
 {
     private static readonly string[] Standard = ["VBA"];
 
-    private static ReferencedLibraries Load(ILibrarySource source, params string[] references) => ReferencedLibraries.Load(source, references, Standard);
+    private static ReferencedLibraries Load(ILibrarySource source, params LibraryIdentity[] references) => ReferencedLibraries.Load(source, references, Standard);
 
     private static string[] Names(ReferencedLibraries libraries) => [.. libraries.Libraries.Select(library => library.Name)];
 

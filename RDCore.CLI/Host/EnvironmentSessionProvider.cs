@@ -198,7 +198,7 @@ public sealed class EnvironmentSessionProvider(
         foreach (var problem in referenced.Problems)
         {
             logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
-                problem.Name, problem.Kind, problem.Related.IsEmpty ? string.Empty : ": " + string.Join(" → ", problem.Related));
+                problem.Name, problem.Kind, problem.Related.IsEmpty ? string.Empty : ": " + string.Join(problem.Kind == LibraryProblemKind.Cyclic ? " → " : ", ", problem.Related));
         }
 
         var libraries = new LibrarySymbolProvider(workspaceRoot, referenced, environment.Is64Bit);

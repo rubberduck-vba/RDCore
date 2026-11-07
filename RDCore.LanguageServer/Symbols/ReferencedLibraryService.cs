@@ -63,7 +63,8 @@ internal sealed class ReferencedLibraryService(
         get
         {
             var references = project.Project?.ProjectInfo?.References ?? [];
-            var key = string.Join('\n', references.Select(reference => reference.Name));
+            // a reference is the library its identity finds: the same name of another type library or version is another library.
+            var key = string.Join('\n', references.Select(reference => $"{reference.Name}|{reference.Guid}|{reference.Major}|{reference.Minor}"));
 
             lock (_loading)
             {
@@ -73,7 +74,7 @@ internal sealed class ReferencedLibraryService(
                     foreach (var problem in libraries.Problems)
                     {
                         logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
-                            problem.Name, problem.Kind, problem.Related.IsEmpty ? string.Empty : ": " + string.Join(" → ", problem.Related));
+                            problem.Name, problem.Kind, problem.Related.IsEmpty ? string.Empty : ": " + string.Join(problem.Kind == LibraryProblemKind.Cyclic ? " → " : ", ", problem.Related));
                     }
 
                     _loaded = loaded = (key, libraries);
