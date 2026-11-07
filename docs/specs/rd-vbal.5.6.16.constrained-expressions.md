@@ -118,5 +118,5 @@ This section corresponds to [**MS-VBAL §5.6.16.8** AddressOf Expressions](https
   lasts as long as the session; what is at it reads as zeros, and a `POKE` there is refused.
 
 > [!NOTE]
-> 🚧 Not implemented yet (*Ptr plan phase B): native code given the address - the callback of `EnumWindows`, say - has nothing it can call that runs the
+> **Not implemented.** Native code given the address (the callback of `EnumWindows`, say) has nothing it can call that runs the
 > procedure. In **MS-VBA** the procedure runs inside the native call, and an error raised in it is the error of the `Declare` call.

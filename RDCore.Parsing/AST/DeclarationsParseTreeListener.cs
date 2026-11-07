@@ -1071,26 +1071,24 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             [], [], lineOption: null);
     }
 
-    // `Line` is not a keyword, so the grammar reads the object and the word together as one expression: `Line`, `Form1.Line` or - inside a With block - `.Line`.
+    // `Line` is not a keyword, so the grammar reads the object and the word together as one l-expression: `Line`, `Form1.Line` or - inside a With block - `.Line`.
     public override void ExitLineSpecialForm([NotNull] VBAParser.LineSpecialFormContext context)
     {
-        var callee = context.expression(0);
+        var callee = context.lExpression();
 
-        // the rule takes any expression before the coordinates, and only the word Line makes it this statement; anything else stays the text it was.
+        // the rule takes any l-expression before the coordinates, and only the word Line makes it this statement; anything else stays the text it was.
         if (!callee.GetText().EndsWith(Tokens.Line, StringComparison.OrdinalIgnoreCase))
         {
             CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
             return;
         }
 
-        (VBABaseParserRuleContext? target, bool isWithRelative) = callee is VBAParser.LExprContext lExpr
-            ? lExpr.lExpression() switch
-            {
-                VBAParser.MemberAccessExprContext access => (access.lExpression(), false),
-                VBAParser.WithMemberAccessExprContext => (null, true),
-                _ => (null, false),
-            }
-            : (null, false);
+        (VBABaseParserRuleContext? target, bool isWithRelative) = callee switch
+        {
+            VBAParser.MemberAccessExprContext access => (access.lExpression(), false),
+            VBAParser.WithMemberAccessExprContext => (null, true),
+            _ => (null, false),
+        };
 
         var tuples = context.tuple();
         var steps = context.STEP();
@@ -1103,7 +1101,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             hasStart ? tuples[0] : null, callee.Stop.TokenIndex, steps,
             tuples.LastOrDefault(), minus, steps,
             // only the first comma has a color after it: the second one is followed by the B or BF.
-            context.COMMA().Take(1).ToArray(), context.expression().Skip(1).ToArray(), context.lineSpecialFormOption()?.GetText());
+            context.COMMA().Take(1).ToArray(), context.expression() is { } color ? [color] : [], context.lineSpecialFormOption()?.GetText());
     }
 
     // What stands before the dot is the object, if anything does; a dot with nothing before it is the object of the enclosing With block. The rest of the

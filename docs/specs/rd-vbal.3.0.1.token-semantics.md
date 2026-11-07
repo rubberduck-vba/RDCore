@@ -72,8 +72,8 @@ comment body. The tokens of the annotation grammar are:
 |`LPAREN`|A literal `(` token.|
 |`RPAREN`|A literal `)` token.|
 |`COMMA`|A literal `,` token.|
-|`WS`|A literal ` ` (space) whitespace token.|
-|`LINE_CONTINUATION`|A whitespace (space) followed by a literal `_` underscore token.|
+|`WS`|One space or tab.|
+|`LINE_CONTINUATION`|One space or tab, an underscore, optional blanks, the line break, and the blanks that begin the next line. Blanks before that one are `WS` tokens of their own.|
 
 👉 In an annotation comment, anything that follows a `:` colon is a regular comment.
 
