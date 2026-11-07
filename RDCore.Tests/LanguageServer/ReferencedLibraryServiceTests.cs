@@ -49,4 +49,23 @@ public sealed class ReferencedLibraryServiceTests
     [TestMethod]
     public void AVBAWorkspace_WhoseProjectListsNoReference_HasNoLibrary()
         => Assert.IsEmpty(ServiceFor(SupportedLanguages.RDVBA).Libraries.Libraries);
+
+    // the same name, of another type library: the project references another library, and the one it referenced before is not kept.
+    [TestMethod]
+    public void AReferenceToAnotherTypeLibraryOfTheSameName_IsAnotherLibrary()
+    {
+        var project = Substitute.For<IProjectFileService>();
+        RDCoreReference Dao(string guid, int major, int minor) => new() { Name = "DAO", Guid = new Guid(guid), Major = major, Minor = minor };
+        project.Project.Returns(
+            new ProjectFile(Path.GetTempPath(), new RDCoreProject { Name = "Project1", References = [Dao("00025E01-0000-0000-C000-000000000046", 5, 0)] }),
+            new ProjectFile(Path.GetTempPath(), new RDCoreProject { Name = "Project1", References = [Dao("00025E04-0000-0000-C000-000000000046", 3, 5)] }));
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { Language = SupportedLanguages.RDVBA.Id } });
+        var service = new ReferencedLibraryService(project, new DirectoryLibrarySource(new FileSystem(), Symbols), options, NullLogger<ReferencedLibraryService>.Instance);
+
+        var before = service.Libraries.Libraries.Single().Origin?.Version;
+        var after = service.Libraries.Libraries.Single().Origin?.Version;
+
+        Assert.AreEqual("5.0", before);
+        Assert.AreEqual("3.5", after);
+    }
 }

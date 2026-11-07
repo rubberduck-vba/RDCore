@@ -163,4 +163,21 @@ public sealed class VisualBasicRuntimeLibraryTests
         Assert.AreEqual("5.0", loaded[0].Origin?.Version);
         CollectionAssert.DoesNotContain(RecordsetMembers(libraries), "ListFields");
     }
+
+    // a library is loaded with what it depends on or not at all, and the project's reference is the DAO that VB depends on: one that cannot be found
+    // takes VB with it.
+    [TestMethod]
+    public void AReferenceToADaoTheSourceDoesNotHave_IsADaoVisualBasicCannotBeLoadedWith()
+    {
+        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        var dao = new RDCoreReference { Name = "DAO", Guid = new Guid("00025E01-0000-0000-C000-000000000046"), Major = 6, Minor = 0 };
+
+        var libraries = LibrarySymbolProvider.Load(source, [dao], SupportedLanguages.VB6);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "DAO NotFound", "VB DependencyFailed" },
+            libraries.Problems.Select(problem => $"{problem.Name} {problem.Kind}").ToArray());
+        Assert.IsFalse(libraries.Priorities.ContainsKey("VB"));
+        Assert.IsTrue(libraries.Priorities.ContainsKey("VBRUN"));
+    }
 }

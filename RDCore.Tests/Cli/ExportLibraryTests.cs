@@ -193,27 +193,38 @@ public sealed class ExportLibraryTests
         Classes = [new ClassDescription { Name = "Other" }],
     };
 
+    // the files of the folder before the export, each "<file>=<what it describes>": "other" is another type library of the name, "own" the one exported.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    [DataRow(false, @"c:\out\Scripting.json", DisplayName = "the folder has none of the name")]
-    [DataRow(true, @"c:\out\Scripting.scrrun.json", DisplayName = "the folder has another library of the name")]
-    public void ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName(bool another, string expected)
+    [DataRow("", @"c:\out\Scripting.json", DisplayName = "the folder has none of the name")]
+    [DataRow("Scripting.json=other", @"c:\out\Scripting.scrrun.json", DisplayName = "the folder has another library of the name")]
+    [DataRow("Scripting.json=other;Scripting.scrrun.json=other", @"c:\out\Scripting.scrrun.v1_0.json", DisplayName = "and another of its file's name")]
+    [DataRow("Scripting.json=other;Scripting.scrrun.json=own", @"c:\out\Scripting.scrrun.json", DisplayName = "and its own, which is written again")]
+    public void ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName_AndNeverOverAnother(string before, string expected)
     {
         var files = new MockFileSystem();
         files.AddDirectory(@"c:\out");
-        if (another)
+        var others = new List<string>();
+        foreach (var (file, what) in before.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(entry => entry.Split('=')).Select(parts => (parts[0], parts[1])))
         {
-            files.AddFile(@"c:\out\Scripting.json", new MockFileData(LibraryJson.Write(OtherScripting)));
+            var path = Path.Combine(@"c:\out", file);
+            files.AddFile(path, new MockFileData(LibraryJson.Write(what == "own" ? Export() : OtherScripting)));
+            if (what == "other")
+            {
+                others.Add(path);
+            }
         }
 
         var exit = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files).ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Result;
 
         Assert.AreEqual(0, exit);
         Assert.AreEqual("{420B2830-E718-11CF-893D-00A0C9054228}", LibraryJson.Read(files.File.ReadAllText(expected)).Origin?.Guid);
-        if (another)
+        foreach (var other in others)
         {
-            Assert.AreEqual(OtherScripting.Origin?.Guid, LibraryJson.Read(files.File.ReadAllText(@"c:\out\Scripting.json")).Origin?.Guid, "the other library is left as it is");
+            Assert.AreEqual(OtherScripting.Origin?.Guid, LibraryJson.Read(files.File.ReadAllText(other)).Origin?.Guid, $"{other} is left as it is");
         }
+
+        Assert.HasCount(others.Count + 1, files.Directory.GetFiles(@"c:\out"), "one file of the library exported");
     }
 
     [TestMethod]

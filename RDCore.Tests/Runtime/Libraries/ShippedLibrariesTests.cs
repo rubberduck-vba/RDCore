@@ -70,6 +70,26 @@ public sealed class ShippedLibrariesTests
         Assert.IsFalse(source.TryGetByGuid(Guid.NewGuid(), out _));
     }
 
+    // every file, the qualified ones (DAO.dao350.json) too, is the description a reference of its type library's identity and version finds, and loads.
+    [TestMethod]
+    public void EveryDescriptionThatShips_IsFoundByTheIdentityOfItsTypeLibrary_AndLoads()
+    {
+        ILibrarySource source = Source;
+        var files = Directory.GetFiles(Symbols, "*" + DirectoryLibrarySource.Extension);
+        CollectionAssert.Contains(files.Select(Path.GetFileName).ToArray(), "DAO.dao350.json");
+
+        foreach (var file in files)
+        {
+            var identity = LibraryIdentity.Of(LibraryJson.Read(File.ReadAllText(file)));
+            Assert.IsNotNull(identity.Guid, $"{Path.GetFileName(file)} states the type library it was made from");
+
+            Assert.IsTrue(source.TryGet(identity, out var found), identity.ToString());
+            Assert.AreEqual(identity, LibraryIdentity.Of(found), Path.GetFileName(file));
+            var libraries = ReferencedLibraries.Load(source, [identity], ["VBA"]);
+            Assert.IsEmpty(libraries.Problems, $"{identity}: {string.Join("; ", libraries.Problems.Select(problem => $"{problem.Name}: {problem.Kind} {string.Join(", ", problem.Related)}"))}");
+        }
+    }
+
     [TestMethod]
     public void TheLibrariesThatShip_AreLoadedTogether_EachWithEveryLibraryItDependsOn_AndNoneDependsOnItself()
     {

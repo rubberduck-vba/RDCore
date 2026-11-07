@@ -56,18 +56,66 @@ public sealed class LibraryIdentityTests
         Assert.AreEqual(expected, description.Origin?.Version);
     }
 
-    // COM's rule, as LoadRegTypeLib has it: the same major, and a minor that is at least the one asked for, the highest such.
+    // LoadRegTypeLib's rule: of the same major, exactly the minor asked for, or else the highest minor above it; another major is none.
     [TestMethod]
-    public void AMinorVersion_IsTheLeastOneAccepted_AndAnotherMajorIsNotOne()
+    [DataRow(1, 2, "1.2", DisplayName = "the version asked for, though a higher minor is there")]
+    [DataRow(1, 3, "1.5", DisplayName = "no such minor: the highest above it")]
+    [DataRow(1, 0, "1.5", DisplayName = "a minor below every one: the highest")]
+    [DataRow(1, 6, null, DisplayName = "a minor above every one: none")]
+    [DataRow(3, 0, null, DisplayName = "another major: none")]
+    public void TheVersionAskedFor_IsChosen_OrElseTheHighestMinorAboveIt_OfTheSameMajor(int major, int minor, string? expected)
     {
-        var older = Of("Widgets", Dao, "1.2");
-        var newer = Of("Widgets", Dao, "1.5");
-        var next = Of("Widgets", Dao, "2.0");
+        LibraryDescription[] candidates = [Of("Widgets", Dao, "1.5"), Of("Widgets", Dao, "1.2"), Of("Widgets", Dao, "2.0")];
 
-        Assert.AreSame(newer, new LibraryIdentity("Widgets", Dao, 1, 3).Choose([older, newer, next]));
-        Assert.AreSame(newer, new LibraryIdentity("Widgets", Dao, 1, 0).Choose([older, newer, next]));
-        Assert.IsNull(new LibraryIdentity("Widgets", Dao, 1, 6).Choose([older, newer, next]));
-        Assert.IsNull(new LibraryIdentity("Widgets", Dao, 3, 0).Choose([older, newer, next]));
+        var chosen = new LibraryIdentity("Widgets", Dao, major, minor).Choose(candidates);
+
+        Assert.AreEqual(expected, chosen?.Origin?.Version);
+    }
+
+    [TestMethod]
+    public void AReferenceWithAMinorVersionAndNoMajor_IsNotValid_AndIsAProblem()
+    {
+        var libraries = Load(Machine(), new LibraryIdentity("DAO", Dao, Minor: 0));
+
+        Assert.IsEmpty(libraries.Libraries);
+        Assert.AreEqual(LibraryProblemKind.InvalidIdentity, libraries.Problems.Single().Kind);
+    }
+
+    // a name is one library of a project: the first reference is loaded, and the second, which means another library, is a problem.
+    [TestMethod]
+    public void TwoReferencesOfOneName_ThatMeanTwoLibraries_AreAProblem_AndTheFirstIsLoaded()
+    {
+        var libraries = Load(Machine(), "DAO", new LibraryIdentity("DAO", Dao, 5, 0));
+
+        Assert.AreSame(AceDao, libraries.Libraries.Single());
+        var problem = libraries.Problems.Single();
+        Assert.AreEqual(LibraryProblemKind.DuplicateName, problem.Kind);
+        CollectionAssert.AreEqual(new[] { "DAO", "DAO {00025E01-0000-0000-C000-000000000046} 5.0" }, problem.Related.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "by name twice")]
+    [DataRow(true, DisplayName = "by the same identity twice")]
+    public void TwoReferencesOfOneName_ThatMeanOneLibrary_AreOne(bool identified)
+    {
+        LibraryIdentity dao = identified ? new LibraryIdentity("DAO", Dao, 5, 0) : "DAO";
+
+        var libraries = Load(Machine(), dao, dao with { Name = "dao" });
+
+        Assert.IsEmpty(libraries.Problems);
+        Assert.HasCount(1, libraries.Libraries);
+    }
+
+    // a name is one reference of a project, whatever its case: two references that are equal have one hash, as a set of them needs.
+    [TestMethod]
+    public void TwoReferencesOfOneName_AreEqual_AndHaveOneHash_WhateverTheirIdentityAndCase()
+    {
+        var first = new RDCore.SDK.Workspace.RDCoreReference { Name = "DAO", Guid = Dao, Major = 5, Minor = 0 };
+        var second = new RDCore.SDK.Workspace.RDCoreReference { Name = "dao", Guid = DaoCompat, Major = 3, Minor = 5 };
+
+        Assert.AreEqual(first, second);
+        Assert.AreEqual(first.GetHashCode(), second.GetHashCode());
+        Assert.HasCount(1, new HashSet<RDCore.SDK.Workspace.RDCoreReference> { first, second });
     }
 
     [TestMethod]
@@ -122,17 +170,19 @@ public sealed class LibraryIdentityTests
         CollectionAssert.AreEqual(new[] { Dao36, Vb }, libraries.Libraries.ToArray());
     }
 
+    private static readonly string Folder = Path.Combine(Path.GetTempPath(), "platform", "Symbols");
+
     [TestMethod]
     public void AFolder_HasTheLibraryOfAName_AndOtherTypeLibrariesOfIt_EachInAFileOfItsOwn()
     {
         var files = new MockFileSystem(new Dictionary<string, MockFileData>
         {
-            [@"c:\symbols\DAO.json"] = new(LibraryJson.Write(AceDao)),
-            [@"c:\symbols\DAO.dao2535.json"] = new(LibraryJson.Write(Compat)),
-            [@"c:\symbols\DAO.dao360.json"] = new(LibraryJson.Write(Dao36)),
-            [@"c:\symbols\VB.json"] = new(LibraryJson.Write(Vb)),
+            [Path.Combine(Folder, "DAO.json")] = new(LibraryJson.Write(AceDao)),
+            [Path.Combine(Folder, "DAO.dao2535.json")] = new(LibraryJson.Write(Compat)),
+            [Path.Combine(Folder, "DAO.dao360.json")] = new(LibraryJson.Write(Dao36)),
+            [Path.Combine(Folder, "VB.json")] = new(LibraryJson.Write(Vb)),
         });
-        ILibrarySource source = new DirectoryLibrarySource(files, @"c:\symbols");
+        ILibrarySource source = new DirectoryLibrarySource(files, Folder);
 
         CollectionAssert.AreEquivalent(new[] { "DAO", "VB" }, source.Names.ToArray());
         Assert.IsTrue(source.TryGet("DAO", out var byName));
@@ -147,8 +197,8 @@ public sealed class LibraryIdentityTests
     [TestMethod]
     public void AFileOfAName_ThatDescribesAnotherLibrary_IsRefused()
     {
-        var files = new MockFileSystem(new Dictionary<string, MockFileData> { [@"c:\symbols\DAO.dao2535.json"] = new(LibraryJson.Write(Vb)) });
-        ILibrarySource source = new DirectoryLibrarySource(files, @"c:\symbols");
+        var files = new MockFileSystem(new Dictionary<string, MockFileData> { [Path.Combine(Folder, "DAO.dao2535.json")] = new(LibraryJson.Write(Vb)) });
+        ILibrarySource source = new DirectoryLibrarySource(files, Folder);
 
         var exception = Assert.Throws<InvalidDataException>(() => source.TryGet(new LibraryIdentity("DAO", DaoCompat, 3, 5), out _));
 

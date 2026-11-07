@@ -451,11 +451,14 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
     public Dictionary<string, JsonElement>? ExtensionData { get; init; }
 
     /// <inheritdoc/>
-    public override int GetHashCode() => HashCode.Combine(Name, Guid, Major, Minor);
+    public override int GetHashCode() => StringComparer.OrdinalIgnoreCase.GetHashCode(Name);
 
-    /// <summary>Whether <paramref name="other"/> references the library or project of the same name.</summary>
+    /// <summary>
+    /// Whether <paramref name="other"/> references the library or project of the same name, whatever the case of it: a name is one reference of a project, as
+    /// VBA names are not case sensitive.
+    /// </summary>
     /// <param name="other">The reference to compare with.</param>
-    public bool Equals(RDCoreReference? other) => other?.Name is string name && Name.Equals(name);
+    public bool Equals(RDCoreReference? other) => other?.Name is string name && string.Equals(Name, name, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

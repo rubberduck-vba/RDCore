@@ -20,6 +20,17 @@ public enum LibraryProblemKind
 
     /// <summary>A library it depends on could not be loaded, so neither can it.</summary>
     DependencyFailed = 3,
+
+    /// <summary>
+    /// The project references the name a second time, as another library: a name is one library of a project, so the second reference is not loaded, and the
+    /// first is.
+    /// </summary>
+    DuplicateName = 4,
+
+    /// <summary>
+    /// The reference gives the identifier of a type library and a minor version, and no major version: it says no version (<see cref="LibraryIdentity.IsValid"/>).
+    /// </summary>
+    InvalidIdentity = 5,
 }
 
 /// <summary>
@@ -31,7 +42,9 @@ public enum LibraryProblemKind
 /// What else the problem is about: for <see cref="LibraryProblemKind.Cyclic"/>, the libraries on the cycle in the order they depend on one another, ending with
 /// the one the path started from; for <see cref="LibraryProblemKind.DependencyFailed"/>, the library that failed; for <see cref="LibraryProblemKind.Unreadable"/>,
 /// the reason it cannot be read; for <see cref="LibraryProblemKind.NotFound"/>, the identity that was asked for (<see cref="LibraryIdentity"/>), when it gives
-/// an identifier, followed by the name of the library the source has of that identifier, when it is another name.
+/// an identifier, followed by the name of the library the source has of that identifier, when it is another name; for
+/// <see cref="LibraryProblemKind.DuplicateName"/>, the reference that is loaded and the one that is not; for <see cref="LibraryProblemKind.InvalidIdentity"/>,
+/// the identity.
 /// </param>
 public sealed record class LibraryProblem(string Name, LibraryProblemKind Kind, ImmutableArray<string> Related);
 
@@ -96,16 +109,30 @@ public sealed class ReferencedLibraries
     /// </remarks>
     /// <param name="source">Where the descriptions are.</param>
     /// <param name="references">
-    /// The libraries the project references, in the order of its references; a second reference to a name is left out. The standard library (<c>VBA</c>) is the
-    /// platform's own, and is not asked of the source.
+    /// The libraries the project references, in the order of its references. A second reference to a name is left out: it is a problem
+    /// (<see cref="LibraryProblemKind.DuplicateName"/>) when it means another library than the first (<see cref="LibraryIdentity.MeansTheSameAs"/>). The standard
+    /// library (<c>VBA</c>) is the platform's own, and is not asked of the source.
     /// </param>
     /// <param name="provided">The names of the libraries the platform provides itself.</param>
     public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<LibraryIdentity> references, IReadOnlyCollection<string> provided)
     {
-        var referenced = references.Where(reference => !provided.Contains(reference.Name, StringComparer.OrdinalIgnoreCase))
-            .DistinctBy(reference => reference.Name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var loader = new Loader(source, provided, referenced.ToDictionary(reference => reference.Name, StringComparer.OrdinalIgnoreCase));
+        var first = new Dictionary<string, LibraryIdentity>(StringComparer.OrdinalIgnoreCase);
+        var ordered = new List<LibraryIdentity>();
+        var duplicates = new List<LibraryProblem>();
+        foreach (var reference in references.Where(reference => !provided.Contains(reference.Name, StringComparer.OrdinalIgnoreCase)))
+        {
+            if (first.TryAdd(reference.Name, reference))
+            {
+                ordered.Add(reference);
+            }
+            else if (!first[reference.Name].MeansTheSameAs(reference))
+            {
+                duplicates.Add(new LibraryProblem(reference.Name, LibraryProblemKind.DuplicateName, [first[reference.Name].ToString(), reference.ToString()]));
+            }
+        }
+
+        var referenced = ordered.ToArray();
+        var loader = new Loader(source, provided, first);
         foreach (var reference in referenced)
         {
             loader.Load(reference, []);
@@ -127,7 +154,7 @@ public sealed class ReferencedLibraries
             priorities[dependencies[i].Name] = referenced.Length + 1 + i;
         }
 
-        return new ReferencedLibraries([.. loader.Loaded], [.. loader.Problems], priorities.ToImmutable());
+        return new ReferencedLibraries([.. loader.Loaded], [.. duplicates, .. loader.Problems], priorities.ToImmutable());
     }
 
     // `claimed` is the identity of each name the project references: what a dependency of that name loads.
@@ -162,6 +189,11 @@ public sealed class ReferencedLibraries
             {
                 RejectCycle(name, path);
                 return false;
+            }
+
+            if (!identity.IsValid)
+            {
+                return Fail(new LibraryProblem(name, LibraryProblemKind.InvalidIdentity, [$"{identity} minor {identity.Minor}"]));
             }
 
             LibraryDescription? description;

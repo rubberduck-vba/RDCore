@@ -13,9 +13,10 @@ namespace RDCore.SDK.Runtime.Libraries;
 /// (<strong>RD-VBAL §2.3.1.2</strong>).
 /// </para>
 /// <para>
-/// A version matches as a type library's does in COM: the same identifier and the same major version, and the highest minor version that is at least the one
-/// asked for (<see cref="Accepts"/>). An identity that gives no major version takes any version of the identifier, and one that gives no minor version any
-/// minor version of its major.
+/// A version matches as <c>LoadRegTypeLib</c> matches a registered type library's: of the same identifier and major version, the description of exactly the
+/// minor version asked for, or else the one of the highest minor version above it; one of another major version never matches (<see cref="Choose"/>). An
+/// identity that gives no major version takes the highest version of the identifier, and one that gives no minor version the highest minor version of its
+/// major. One that gives a minor version and no major version is not valid (<see cref="IsValid"/>), and means no description.
 /// </para>
 /// </remarks>
 /// <param name="Name">The name of the library.</param>
@@ -64,13 +65,19 @@ public sealed record class LibraryIdentity(string Name, Guid? Guid = null, int? 
     public string? Version => Major is { } major ? string.Create(CultureInfo.InvariantCulture, $"{major}.{Minor ?? 0}") : null;
 
     /// <summary>
+    /// Whether the identity says which version it means: one that gives an identifier and a minor version gives a major version too. The version of an identity
+    /// that gives no identifier is not read.
+    /// </summary>
+    public bool IsValid => Guid is null || Minor is null || Major is not null;
+
+    /// <summary>
     /// Whether a description is one this identity can mean: of the same name, and, when the identity gives one, of the same identifier and major version, and
-    /// a minor version at least the one it asks for.
+    /// a minor version at least the one it asks for. An identity that is not valid (<see cref="IsValid"/>) accepts none.
     /// </summary>
     /// <param name="description">The description.</param>
     public bool Accepts(LibraryDescription description)
     {
-        if (!string.Equals(description.Name, Name, StringComparison.OrdinalIgnoreCase))
+        if (!IsValid || !string.Equals(description.Name, Name, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -87,15 +94,26 @@ public sealed record class LibraryIdentity(string Name, Guid? Guid = null, int? 
     }
 
     /// <summary>
-    /// Of the descriptions this identity accepts (<see cref="Accepts"/>), the one it means: the highest version.
+    /// Of the descriptions this identity accepts (<see cref="Accepts"/>), the one it means: the one of exactly the version it asks for, and otherwise the one of
+    /// the highest version.
     /// </summary>
     /// <param name="candidates">The descriptions of the name.</param>
     /// <returns>The description, or <see langword="null"/> when it accepts none of them.</returns>
     public LibraryDescription? Choose(IEnumerable<LibraryDescription> candidates)
-        => candidates.Where(Accepts)
-            .OrderByDescending(candidate => Of(candidate).Major ?? -1)
-            .ThenByDescending(candidate => Of(candidate).Minor ?? -1)
-            .FirstOrDefault();
+    {
+        var accepted = candidates.Where(Accepts).ToArray();
+        return accepted.FirstOrDefault(candidate => Major is not null && Minor is not null && Of(candidate) is var made && made.Major == Major && made.Minor == Minor)
+            ?? accepted.OrderByDescending(candidate => Of(candidate).Major ?? -1).ThenByDescending(candidate => Of(candidate).Minor ?? -1).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Whether another identity of the same name means the same description as this one, whatever the source has: both name the library of the name, or both
+    /// give the same identifier and version.
+    /// </summary>
+    /// <param name="other">The other identity.</param>
+    public bool MeansTheSameAs(LibraryIdentity other)
+        => string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase)
+            && (Guid is null && other.Guid is null || Guid == other.Guid && Major == other.Major && Minor == other.Minor);
 
     /// <summary>
     /// The identity as a problem or a message states it: the name, then the identifier and version when it gives them.

@@ -43,8 +43,8 @@ public sealed class LibrarySymbolProvider : ISymbolProvider
     /// <param name="source">Where the descriptions are.</param>
     /// <param name="references">
     /// The references of the project. A reference that gives the identifier of a type library (<see cref="RDCoreReference.Guid"/>) is to the description made from
-    /// it, of its <see cref="RDCoreReference.Major"/> version and at least its <see cref="RDCoreReference.Minor"/> one (<see cref="LibraryIdentity"/>); one that
-    /// gives none is to the library of its name.
+    /// it, of its <see cref="RDCoreReference.Major"/> version and of exactly its <see cref="RDCoreReference.Minor"/> one, or else the highest above it
+    /// (<see cref="LibraryIdentity"/>); one that gives none is to the library of its name.
     /// </param>
     /// <param name="language">
     /// The language the project is written in, whose implicit references (<see cref="SupportedLanguage.ImplicitReferences"/>) come before the ones the project lists;

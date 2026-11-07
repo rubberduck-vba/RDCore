@@ -114,8 +114,8 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |`Name`|`string`|The _identifier name_ (token) used in workspace source code to reference this library.|
 |`Guid`|`string`|The identifier of the type library the reference is to, optional. When it is given, the library is the description made from that type library; when it is empty, the library of `Name`.|
 |`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists. An import of a `.vbp` resolves the path VB6 writes relative to the `.vbp`'s folder (`..\..\Windows\System32\FM20.DLL`), so that it names the same file wherever the project is moved.|
-|`Major`|number (`0`)|The _major_ version number of the referenced type library. With a `Guid`, the description must have this major version.|
-|`Minor`|number (`0`)|The _minor_ version number of the referenced type library. With a `Guid`, the least minor version a description may have.|
+|`Major`|number, optional|The _major_ version number of the referenced type library. With a `Guid`, the description must have this major version; absent, any version of the identifier is the library, the highest first.|
+|`Minor`|number, optional|The _minor_ version number of the referenced type library. With a `Guid`, the description of exactly this minor version is the library, and otherwise the one of the highest minor version above it. With a `Guid` and no `Major`, the reference is not valid, and is not resolved.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
 
 A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
