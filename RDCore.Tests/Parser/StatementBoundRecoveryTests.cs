@@ -97,4 +97,14 @@ public sealed class StatementBoundRecoveryTests
         CollectionAssert.AreEqual(new[] { "a = 1 -", "b = 2" },
             members[0].Children.OfType<AssignmentStatementNode>().Select(node => TextOf(source, node.SourceLocation.Range)).ToArray());
     }
+
+    // the errors of the directives are not the parse's: a later one stays when the parse reports an error before it.
+    [TestMethod]
+    public void AnErrorOfADirective_AfterADanglingOperator_IsKept()
+    {
+        var source = "Public Sub Main()\r\na = 1 +\r\n#If x = #13/45/2000# Then\r\n#End If\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        CollectionAssert.AreEquivalent(new[] { 1, 2 }, parse.SyntaxErrors.Select(error => error.Location.Range.Start.Line).ToArray());
+    }
 }

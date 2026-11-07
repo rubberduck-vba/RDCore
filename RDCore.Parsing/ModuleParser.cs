@@ -1191,15 +1191,37 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
         // one error where the parse stopped: a rule that fails at a token, and the rule it is in that fails at the same token, are one syntax error, said as the
         // parse first said it.
-        if (_errors.Any(existing => existing.ErrorId == (int)VBCompileErrorId.SyntaxError && existing.Location.Equals(location)))
+        if (_reportedAt.Contains(location))
         {
             return;
         }
 
         // an error before one the parse reported is in tokens it reads again: the decision that failed looked past them, to the end of the statement
-        // (Debug.Print 1 -, at the line end), and the statement fails before that, at the error the parse reports now, which is the one error.
-        _errors.RemoveAll(existing => existing.ErrorId == (int)VBCompileErrorId.SyntaxError && existing.Location.Range.Start.CompareTo(position) > 0);
-        _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
+        // (Debug.Print 1 -, at the line end), and the statement fails before that, at the error the parse reports now, which is the one error. The parse's
+        // errors are in the order of their positions, so the ones past this one are the last it reported; the errors of the directives, and of the parts of
+        // the module parsed on their own, are not the parse's.
+        while (_reported.Count > 0 && _reported[^1].Location.Range.Start.CompareTo(position) > 0)
+        {
+            ForgetTheLastReported();
+        }
+
+        var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg);
+        _reported.Add(error);
+        _reportedAt.Add(location);
+        _errors.Add(error);
+    }
+
+    // the syntax errors the parse reported, in the order of their positions, and where they are.
+    private readonly List<VBSyntaxErrorInfo> _reported = [];
+    private readonly HashSet<SourceLocation> _reportedAt = [];
+
+    // the last error the parse reported is no longer one. It is near the end of the module's errors, which are searched from there.
+    private void ForgetTheLastReported()
+    {
+        var error = _reported[^1];
+        _reported.RemoveAt(_reported.Count - 1);
+        _reportedAt.Remove(error.Location);
+        _errors.RemoveAt(_errors.FindLastIndex(existing => ReferenceEquals(existing, error)));
     }
 
     // a token's text as ANTLR quotes it in an error (DefaultErrorStrategy.EscapeWSAndQuote, which is not public): its line breaks and tabs escaped.
@@ -1219,6 +1241,8 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
         var first = blockErrors.Min(error => error.Location.Range.Start);
         _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.CompareTo(first) >= 0);
+        _reported.RemoveAll(error => error.Location.Range.Start.CompareTo(first) >= 0);
+        _reportedAt.RemoveWhere(location => location.Range.Start.CompareTo(first) >= 0);
         _errors.AddRange(blockErrors);
     }
 
@@ -1228,6 +1252,8 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         var start = new SourcePosition(token.Line - 1, token.Column).AnchoredAt(anchorOffset);
         var end = new SourcePosition(token.Line - 1, token.Column + token.Text.Length).AnchoredAt(anchorOffset);
         _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.Equals(start));
+        _reported.RemoveAll(error => error.Location.Range.Start.Equals(start));
+        _reportedAt.RemoveWhere(location => location.Range.Start.Equals(start));
         Report(new SourceLocation(_uri, new(start, end)), id, verbose);
     }
 
