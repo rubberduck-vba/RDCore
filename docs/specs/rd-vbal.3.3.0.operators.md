@@ -11,7 +11,7 @@ _operand_ inputs. The semantics of operator expressions are described in
 |Three|**Ternary operator**|Undefined in **RD-VBA**.|
 
 > [!NOTE]
-> 🧩 **RD-VBA** does not define any _ternary operators_. Ternary operators should never be introduced in the
+> **RD-VBA** does not define any _ternary operators_. Ternary operators should never be introduced in the
 > _language core_.
 
 ## Operator Node Hierarchy

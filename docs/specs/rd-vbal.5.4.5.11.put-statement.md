@@ -50,7 +50,7 @@ UDT field declaration order is the order `Put` writes a record in
 
 `Put` and `Get` move the serialized size of a UDT: its fields concatenated, with no padding.
 
-> 👉 Memory widths of UDT fields are not file widths. See
+> Memory widths of UDT fields are not file widths. See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md) for the in-memory side.
 
 |UDT field|In a record|
