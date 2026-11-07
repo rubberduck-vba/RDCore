@@ -178,12 +178,20 @@ public sealed class CompletionServiceTests
             Light
             Dark
         End Enum
+        Public Enum Hue
+            DeepRed
+            Pale
+        End Enum
         Public Sub Paint(ByVal Colour As Shade)
         End Sub
         Public Sub Brush(ByVal Width As Long, Optional ByVal Colour As Shade = Light)
         End Sub
         Public Sub Stroke(ByVal Width As Long)
         End Sub
+        Public Sub Tint(ByVal Colour As Hue)
+        End Sub
+        Public Function Drum() As Long
+        End Function
         """;
 
     private async Task<CompletionList> ListAsync(string line, string? triggerCharacter = null)
@@ -242,8 +250,20 @@ public sealed class CompletionServiceTests
         CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len");
     }
 
-    // the sort text of a constant ranked first: its match, then a `!` before any rank, and the first group.
-    private static bool IsConstantFirst(CompletionItem item) => item.SortText is [_, '!', '0', ..];
+    // the constants of the Enum are a tier before every other name: the word's best match among them is selected, though it only matches a constant's humps
+    // and starts another name.
+    [TestMethod]
+    public async Task AConstantWhoseHumpsTheWordMatches_RanksAndIsSelected_BeforeANameTheWordStarts()
+    {
+        var items = (await ListAsync("Tint DR|")).Items.ToList();
+
+        Assert.AreEqual("DeepRed", items[0].Label, string.Join(", ", items.Take(5).Select(item => item.Label + "/" + item.SortText)));
+        Assert.IsTrue(items[0].Preselect);
+        CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Drum");
+    }
+
+    // the sort text of a constant ranked first: a `!` before any other item's, and the first group.
+    private static bool IsConstantFirst(CompletionItem item) => item.SortText is ['!', '0', ..];
 
     // a ( , or space a client asks on lists an Enum argument's constants where a value of it starts, and nothing anywhere else: not a whole list at each comma,
     // nor after an operand.
@@ -293,11 +313,50 @@ public sealed class CompletionServiceTests
         End Sub
         """;
 
+    // a class whose default member takes arguments, and one whose default member takes none and returns the first (MS-VBAL §5.6.13).
+    private const string Picker = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Picker"
+        Public Function Pick(Optional ByVal A As Long, Optional ByVal B As Long) As Long
+        Attribute Pick.VB_UserMemId = 0
+        End Function
+        Public Property Get Items() As Picker
+        End Property
+        """;
+
+    private const string Holder = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Holder"
+        Public Property Get Inner() As Picker
+        Attribute Inner.VB_UserMemId = 0
+        End Property
+        """;
+
+    private const string NamedMain = "Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim s As New Spooler\r\n    Dim p As New Picker\r\n    Dim h As New Holder\r\n"
+        + "    Dim c As New Collection\r\n    Dim arr(3) As Long\r\n    {0}\r\nEnd Sub\r\n";
+
+    private void WorkspaceHasThePrinter()
+        => WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), new WorkspaceDocument("Spooler.cls", Root, Spooler),
+            new WorkspaceDocument("Picker.cls", Root, Picker), new WorkspaceDocument("Holder.cls", Root, Holder));
+
     private async Task<List<CompletionItem>> NamedAsync(string line, string? triggerCharacter = null)
     {
-        WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), new WorkspaceDocument("Spooler.cls", Root, Spooler));
-        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim s As New Spooler\r\n    {line}\r\nEnd Sub\r\n");
+        WorkspaceHasThePrinter();
+        var (source, position) = At(string.Format(NamedMain, line));
         return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items];
+    }
+
+    private async Task<SignatureHelp?> CallSignatureAsync(string line)
+    {
+        WorkspaceHasThePrinter();
+        var (source, position) = At(string.Format(NamedMain, line));
+        return await Sut().SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
     }
 
     private static string[] NamesIn(IEnumerable<CompletionItem> items) => [.. items.Select(item => item.Label).Where(label => label.EndsWith(":=", StringComparison.Ordinal))];
@@ -477,6 +536,144 @@ public sealed class CompletionServiceTests
     [TestMethod]
     public async Task TheArgumentAfterTheArray_IsOfferedTheUsualList()
         => CollectionAssert.IsSubsetOf(new[] { "Total", "Limit", "Scale:=" }, await ArrayArgumentAsync("Weigh Weights, |"));
+
+    // a positional argument written after the cursor maps to its parameter, and would follow a named one: no name is written where one comes after
+    // (MS-VBAL §5.6.13.1).
+    [TestMethod]
+    [DataRow("Send \"a\", |, 2", DisplayName = "a positional argument after the cursor")]
+    [DataRow("Send \"a\", |, , Upper", DisplayName = "an omitted one, then a positional one")]
+    [DataRow("Call Send(\"a\", |, 2)", DisplayName = "in parentheses")]
+    public async Task WhereAPositionalArgumentFollows_NoNameIsOffered(string line)
+    {
+        var items = await NamedAsync(line);
+
+        Assert.AreEqual(0, NamesIn(items).Length, Show(items));
+    }
+
+    // a statement is a logical line: its physical lines are joined where a line continuation ends one (MS-VBAL §3.2.2).
+    [TestMethod]
+    public async Task ANameNamedOnTheNextPhysicalLine_IsNotOfferedByName()
+    {
+        var items = await NamedAsync("Send \"a\", |, _\r\n        Copies:=2");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Source:=" }, NamesIn(items), Show(items));
+    }
+
+    [TestMethod]
+    public async Task AnArgumentThatStartsOnTheNextPhysicalLine_IsOfferedTheNames()
+    {
+        var items = await NamedAsync("Send \"a\", _\r\n        |");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Copies:=", "Source:=" }, NamesIn(items), Show(items));
+    }
+
+    [TestMethod]
+    public async Task TheSignatureOfACallContinuedOnTheNextPhysicalLine_IsTheCalls()
+    {
+        var help = await CallSignatureAsync("Send \"a\", _\r\n        |");
+
+        Assert.IsNotNull(help, "a signature");
+        StringAssert.StartsWith(help.Signatures.Single().Label, "Sub Send(");
+        Assert.AreEqual(1, help.ActiveParameter);
+    }
+
+    [TestMethod]
+    public async Task TheArgumentsOfACallInAnElseClause_AreCountedFromTheCall()
+    {
+        var items = await NamedAsync("If True Then Send \"x\", 1 Else Send |");
+
+        Assert.AreEqual(0, NamesIn(items).Length, $"Text is required: {Show(items)}");
+    }
+
+    // what is typed of a name with its `:=` already written after it is completed with the name alone.
+    [TestMethod]
+    public async Task ANameWhoseTokenIsWrittenAlready_IsInsertedWithoutIt()
+    {
+        var item = (await NamedAsync("Send \"a\", Cop|:=2")).Single(item => item.Label == "Copies:=");
+
+        Assert.AreEqual("Copies", item.InsertText);
+    }
+
+    // the specification's InStr and InStrB name their parameters Arg1, Arg2 and Arg3 (MS-VBAL §6.1.2.11.1.14), which MS-VBA does not take as names.
+    [TestMethod]
+    [DataRow("x = InStr(|")]
+    [DataRow("x = InStrB(1, |")]
+    public async Task TheStandardLibrarysPlaceholderNames_AreNotOffered(string line)
+    {
+        var items = await NamedAsync(line);
+
+        Assert.AreEqual(0, NamesIn(items).Length, Show(items));
+    }
+
+    // a name is selected where the word typed matches it; where nothing is typed, a value is as likely as a name.
+    [TestMethod]
+    public async Task WhereNothingIsTyped_NoNameIsSelected()
+    {
+        var items = await NamedAsync("x = Count(\"a\", |");
+
+        Assert.AreEqual(1, items.Count(item => item.Preselect), Show(items));
+        Assert.IsFalse(items.Single(item => item.Preselect).Label.EndsWith(":=", StringComparison.Ordinal), Show(items));
+    }
+
+    [TestMethod]
+    public async Task WhereTheWordTypedMatchesAName_ItIsSelected()
+    {
+        var items = await NamedAsync("x = Count(\"a\", Co|");
+
+        Assert.AreEqual("Copies:=", items.Single(item => item.Preselect).Label, Show(items));
+    }
+
+    // ---- a call of a default member (MS-VBAL §5.6.13): the signature, and the names, are the default member's ----
+
+    [TestMethod]
+    [DataRow("x = p(1, |", "Function Pick(", 1, DisplayName = "a variable of a class")]
+    [DataRow("x = p.Items(|", "Function Pick(", 0, DisplayName = "a member that returns one")]
+    [DataRow("x = h(|", "Function Pick(", 0, DisplayName = "a chain of two default members")]
+    [DataRow("x = c(|", "Item(", 0, DisplayName = "a Collection")]
+    public async Task ACallOfAnObject_IsACallOfItsDefaultMember(string line, string label, int active)
+    {
+        var help = await CallSignatureAsync(line);
+
+        Assert.IsNotNull(help, "a signature");
+        StringAssert.Contains(help.Signatures.Single().Label, label);
+        Assert.AreEqual(active, help.ActiveParameter);
+    }
+
+    [TestMethod]
+    [DataRow("x = arr(|", DisplayName = "an array")]
+    [DataRow("x = s(|", DisplayName = "an object whose class has no default member")]
+    public async Task AnIndexOfWhatHasNoDefaultMember_HasNoSignature(string line)
+        => Assert.IsNull(await CallSignatureAsync(line));
+
+    [TestMethod]
+    [DataRow("x = p(1, |", DisplayName = "a variable of a class")]
+    [DataRow("x = p.Items(1, |", DisplayName = "a member that returns one")]
+    public async Task ACallOfAnObject_IsOfferedItsDefaultMembersNames(string line)
+        => CollectionAssert.AreEqual(new[] { "B:=" }, NamesIn(await NamedAsync(line)));
+
+    [TestMethod]
+    public async Task MeCalled_IsACallOfItsClasssDefaultMember()
+    {
+        var (source, position) = At("""
+            VERSION 1.0 CLASS
+            BEGIN
+              MultiUse = -1  'True
+            END
+            Attribute VB_Name = "Main"
+            Public Function Pick(Optional ByVal A As Long, Optional ByVal B As Long) As Long
+            Attribute Pick.VB_UserMemId = 0
+            End Function
+            Public Sub Run()
+                x = Me(1, |
+            End Sub
+            """);
+        var service = Sut();
+        var help = await service.SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
+        var names = NamesIn((await service.CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items);
+
+        StringAssert.StartsWith(help?.Signatures.Single().Label, "Function Pick(");
+        CollectionAssert.AreEqual(new[] { "B:=" }, names);
+    }
 
     [TestMethod]
     public async Task TheMembersOfAVariable_AreTheMembersOfItsDeclaredType_ThoughTheLineDoesNotParse()
@@ -672,6 +869,34 @@ public sealed class CompletionServiceTests
         Assert.IsTrue(items[0].Preselect, items[0].Label);
         Assert.AreEqual(1, items.Count(item => item.Preselect));
     }
+
+    // ---- a dictionary access (MS-VBAL §5.6.14): the name after a `!` is no declaration's, and nothing true can be offered for it ----
+
+    private async Task<string[]> BangAsync(string line, string? triggerCharacter = null)
+    {
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim rs As New Collection\r\n    Dim total!\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items.Select(item => item.Label)];
+    }
+
+    [TestMethod]
+    [DataRow("x = rs!|", null, DisplayName = "after the bang")]
+    [DataRow("x = rs!|", "!", DisplayName = "asked for by the bang")]
+    [DataRow("x = rs!Co|", null, DisplayName = "a name after the bang")]
+    [DataRow("Debug.Print total!|", null, DisplayName = "after a type suffix")]
+    public async Task AfterABang_NothingIsOffered(string line, string? triggerCharacter)
+    {
+        var labels = await BangAsync(line, triggerCharacter);
+
+        Assert.AreEqual(0, labels.Length, string.Join(", ", labels.Take(8)));
+    }
+
+    [TestMethod]
+    public async Task AfterADot_TheMembersAreOffered()
+        => CollectionAssert.IsSubsetOf(new[] { "Add", "Count", "Item" }, await BangAsync("x = rs.|"));
+
+    [TestMethod]
+    public async Task AVariableDeclaredWithATypeSuffix_IsOfferedLikeAnyOther()
+        => CollectionAssert.Contains(await BangAsync("x = to|"), "total");
 
     [TestMethod]
     public async Task NothingIsOffered_InAComment()

@@ -278,8 +278,9 @@ internal sealed class CompletionService(
             return Empty;
         }
 
-        var text = lines[line].TrimEnd('\r');
-        var before = text[..Math.Clamp(character, 0, text.Length)];
+        // a statement is read off its logical line: its physical lines are joined where a line continuation ends one.
+        var logical = LogicalLine.At(lines, line, character);
+        var before = logical.Before;
         var context = CompletionSite.Read(before);
         if (context.Kind == CompletionSiteKind.None)
         {
@@ -304,7 +305,7 @@ internal sealed class CompletionService(
         // the line is taken out, and only what the list needs of it goes back in: what a member is accessed on - the one being completed, or the one whose
         // member is called.
         var qualifier = context.Kind == CompletionSiteKind.Member ? context.Qualifier : argument is { IsMemberAccess: true } ? argument.Qualifier : string.Empty;
-        if (await ComposeAsync(address, moduleName, kind, lines, line, qualifier, token) is not { } composed)
+        if (await ComposeAsync(address, moduleName, kind, lines, logical, line, qualifier, token) is not { } composed)
         {
             return Empty;
         }
@@ -322,14 +323,13 @@ internal sealed class CompletionService(
 
         // a member call's procedure is found in the composition with its qualifier put back in the line, which a member completed in its argument takes instead.
         var signature = call is not null && (argument is not null || !call.IsMemberAccess)
-            && ProcedureAt(call, composition, workspaceRoot, moduleUri, origin, module, line) is { } procedure
-                ? SignatureDescription.Of(procedure)
-                : null;
+            ? SignatureDescription.OfCall(ProcedureAt(call, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver)
+            : null;
 
         // after a named argument, every argument is named (MS-VBAL 5.6.13.1): nothing but the names of the parameters left is written where one starts.
         var namesOnly = argument is { NamesBefore.Count: > 0 } && argument.ArgumentName is null && argument.IsWhereAnArgumentStarts(context.Prefix);
         IReadOnlyList<CompletionCandidate> names = signature is not null && argument is not null
-            ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, text[before.Length..])
+            ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, logical.After)
             : [];
 
         // an argument an array is given to - of LBound, of UBound, of a parameter declared as an array - is offered the names it can be given, and no other.
@@ -356,7 +356,7 @@ internal sealed class CompletionService(
         IReadOnlyList<CompletionCandidate> others = namesOnly
             ? []
             : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase) && arrays?.Accepts(candidate) != false)];
-        var list = CompletionCandidates.ListOf(context.Prefix, [constants, names], others);
+        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others);
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
@@ -398,18 +398,16 @@ internal sealed class CompletionService(
             return null;
         }
 
-        var text = lines[line].TrimEnd('\r');
-        if (SignatureSite.Read(text[..Math.Clamp(character, 0, text.Length)]) is not { } site
-            || await ComposeAsync(address, moduleName, kind, lines, line, site.IsMemberAccess ? site.Qualifier : string.Empty, token) is not { } composed)
+        var logical = LogicalLine.At(lines, line, character);
+        if (SignatureSite.Read(logical.Before) is not { } site
+            || await ComposeAsync(address, moduleName, kind, lines, logical, line, site.IsMemberAccess ? site.Qualifier : string.Empty, token) is not { } composed)
         {
             return null;
         }
 
         var (composition, module, workspaceRoot, moduleUri) = composed;
         var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character));
-        var procedure = ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line);
-
-        if (procedure is null || SignatureDescription.Of(procedure) is not { } signature)
+        if (SignatureDescription.OfCall(ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver) is not { } signature)
         {
             return null;
         }
@@ -432,12 +430,18 @@ internal sealed class CompletionService(
                 .FirstOrDefault(candidate => string.Equals(candidate.Label, site.Name, StringComparison.OrdinalIgnoreCase))?.Symbol
             : composition.Resolver.ResolveValue(site.Name, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol;
 
-    // the module with its line taken out - and, for a member access, put back as an assignment of what the member is accessed on - parsed and composed with the
-    // workspace; nothing when the module cannot be parsed even so.
+    // the module with the logical line taken out - and, for a member access, put back as an assignment of what the member is accessed on, in the physical line
+    // of the position - parsed and composed with the workspace; nothing when the module cannot be parsed even so. The lines keep their count, so a position
+    // in the module is where it was.
     private async Task<(WorkspaceComposition Composition, ModuleNode Module, Uri WorkspaceRoot, Uri ModuleUri)?> ComposeAsync(
-        Uri address, string moduleName, ModuleType kind, string[] lines, int line, string qualifier, CancellationToken token)
+        Uri address, string moduleName, ModuleType kind, string[] lines, LogicalLine logical, int line, string qualifier, CancellationToken token)
     {
-        lines[line] = (qualifier.Length > 0 ? $"{Probe} = {qualifier}" : string.Empty) + (lines[line].EndsWith('\r') ? "\r" : string.Empty);
+        for (var index = logical.FirstLine; index <= logical.LastLine; index++)
+        {
+            var terminator = lines[index].EndsWith('\r') ? "\r" : string.Empty;
+            lines[index] = (index == line && qualifier.Length > 0 ? $"{Probe} = {qualifier}" : string.Empty) + terminator;
+        }
+
         var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', lines), token);
         if (parse.SyntaxTree is not { } syntaxTree)
         {
@@ -584,6 +588,12 @@ internal sealed class CompletionService(
             if (type is null)
             {
                 return [];
+            }
+
+            // a class of the workspace is read as the composition has it now: what its members return is bound by then (CurrentTypes).
+            if (type is VBClassType declared)
+            {
+                type = CurrentTypes.Of(site.Composition.Resolver, declared);
             }
 
             // a form's control is its class and the extender it is wrapped in: Left, SetFocus, Visible (FormControlExtender)
