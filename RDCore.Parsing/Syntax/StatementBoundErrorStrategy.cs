@@ -17,7 +17,7 @@ namespace RDCore.Parsing.Syntax;
 internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 {
     // what ends a statement, as recovery sees it: the end of a statement, a comment's included, or the end of the module.
-    private static bool EndsAStatement(int type) => BeginsAnEndOfStatement(type) || type == TokenConstants.Eof;
+    internal static bool EndsAStatement(int type) => BeginsAnEndOfStatement(type) || type == TokenConstants.Eof;
 
     protected override IToken SingleTokenDeletion(Parser recognizer)
         => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) ? null! : base.SingleTokenDeletion(recognizer);

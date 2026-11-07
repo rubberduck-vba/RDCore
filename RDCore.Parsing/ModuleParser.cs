@@ -1205,7 +1205,15 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             ForgetTheLastReported();
         }
 
+        // a statement has one syntax error, the first the parse reports in it: what the parse fails at after it, with no end of a statement between them
+        // (`Mod = 1`: the operator is taken out, and the rule the statement is in fails at `=`), is the rest of the statement it could not read.
+        if (InTheStatementOfTheLastReported(recognizer, offendingSymbol))
+        {
+            return;
+        }
+
         var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg);
+        _lastReportedAt = offendingSymbol;
         _reported.Add(error);
         _reportedAt.Add(location);
         _errors.Add(error);
@@ -1214,6 +1222,30 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
     // the syntax errors the parse reported, in the order of their positions, and where they are.
     private readonly List<VBSyntaxErrorInfo> _reported = [];
     private readonly HashSet<SourceLocation> _reportedAt = [];
+
+    // the token the parse failed at for the last error it reported.
+    private IToken? _lastReportedAt;
+
+    // whether the parse fails at a token of the statement it last reported an error in: one after the token of that error, with no end of a statement from
+    // that token on - an error at the end of a statement is the last of its statement.
+    private bool InTheStatementOfTheLastReported(IRecognizer recognizer, IToken? offendingSymbol)
+    {
+        if (_lastReportedAt is not { TokenIndex: >= 0 } last || offendingSymbol is not { TokenIndex: >= 0 } offending || offending.TokenIndex <= last.TokenIndex
+            || recognizer is not Parser { InputStream: ITokenStream tokens } || _reported.Count == 0)
+        {
+            return false;
+        }
+
+        for (var index = last.TokenIndex; index < offending.TokenIndex; index++)
+        {
+            if (StatementBoundErrorStrategy.EndsAStatement(tokens.Get(index).Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     // the last error the parse reported is no longer one. It is near the end of the module's errors, which are searched from there.
     private void ForgetTheLastReported()

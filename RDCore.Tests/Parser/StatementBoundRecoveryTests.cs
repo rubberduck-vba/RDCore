@@ -70,6 +70,31 @@ public sealed class StatementBoundRecoveryTests
         Assert.AreEqual(new SourceRange(new SourcePosition(1, statement.Length - 1), new SourcePosition(1, statement.Length - 1)), error.Location.Range);
     }
 
+    // a statement the parse fails in, and fails in again after - the rule the statement is in fails at what its recovery left of it - is one syntax error,
+    // the first.
+    [TestMethod]
+    [DataRow("Dim For As Long", 4, DisplayName = "a statement keyword as the name of a variable")]
+    [DataRow("Dim Sub As Long", 4, DisplayName = "a procedure keyword as the name of a variable")]
+    [DataRow("Dim 1 As Long", 4, DisplayName = "a number as the name of a variable")]
+    public void AStatementTheParseFailsInTwice_IsOneSyntaxError_TheFirst(string statement, int column)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n");
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
+        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start);
+    }
+
+    // the errors of two statements are two, the statements on one line too.
+    [TestMethod]
+    [DataRow("a = 1 -: b = = 2", DisplayName = "on one line")]
+    [DataRow("a = 1 -\r\nb = = 2", DisplayName = "on two lines")]
+    public void TheErrorsOfTwoStatements_AreBothReported(string statements)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statements}\r\nEnd Sub\r\n");
+
+        Assert.HasCount(2, parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
+    }
+
     // the operation is the last item the statement prints, unbuilt, its left operand in it: an item the parse read before it is the item it is, and a name
     // there is the reference it is.
     [TestMethod]
