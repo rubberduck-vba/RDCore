@@ -520,6 +520,155 @@ public sealed class CompiledRecordTests
             "    Debug.Print C.Inn.S; C.Inn.N; D.Inn.S; D.Inn.N",
             "End Sub"]), null, 0, 0, "a 1 b 2", "c 3 d 5");
 
+    private static (string Name, string Source)[] Box()
+        => [("Box", ModuleWorkspace.ClassModule("Box", ["Option Explicit", "Public Name As String"]))];
+
+    // a field LSet leaves at its declared type's default, of a class, Object or Variant type, holds the default in a cell of its own: an object Set to it
+    // after is the field's, and a variable of the type declared after holds the default. The default value of a type is one value every variable shares.
+    [TestMethod]
+    public async Task AFieldLSetLeavesAtItsDefault_HoldsItInACellOfItsOwn()
+        => await AssertPrintsAsync(Box(), Program(
+            "Private Type TSmall",
+            "    N As Long",
+            "End Type",
+            "Private Type TBig",
+            "    N As Long",
+            "    O As Object",
+            "    V As Variant",
+            "    C As Box",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As TSmall, B As TBig",
+            "    LSet B = A",
+            "    Set B.O = New Box",
+            "    B.O.Name = \"b\"",
+            "    Set B.C = New Box",
+            "    B.C.Name = \"c\"",
+            "    Debug.Print B.O.Name; B.C.Name; B.O Is B.C",
+            "    Dim Z As Box, W As Object, E As Variant",
+            "    Debug.Print Z Is Nothing; W Is Nothing; IsEmpty(E)",
+            "End Sub"), null, 0, 0, "bcFalse", "TrueTrueTrue");
+
+    // a field of a class type is an object reference as a field of type Object is, with no bytes of its own: LSet gives the other record's field the object
+    // the field holds, as it gives it one of type Object.
+    [TestMethod]
+    [DataRow("Box")]
+    [DataRow("Object")]
+    public async Task AnObjectFieldCopiedByLSet_HoldsTheObject_OfAClassTypeAsOfTypeObject(string type)
+        => await AssertPrintsAsync(Box(), Program(
+            "Private Type THold",
+            $"    O As {type}",
+            "    N As Long",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As THold, B As THold",
+            "    Set A.O = New Box",
+            "    A.O.Name = \"a\"",
+            "    A.N = 3",
+            "    LSet B = A",
+            "    Debug.Print B.O Is Nothing; B.O.Name; B.N",
+            "End Sub"), null, 0, 0, "Falsea 3");
+
+    // an object Set to a field LSet left at its default is held by the field, and let go of when the record is: in either engine.
+    [TestMethod]
+    public async Task AnObjectSetToAFieldLSetLeftAtItsDefault_TerminatesWithTheRecord()
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type TSmall",
+            "    N As Long",
+            "End Type",
+            "Private Type TBig",
+            "    N As Long",
+            "    O As Object",
+            "    V As Variant",
+            "    C As Noisy",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim S As TSmall, B As TBig",
+            "    LSet B = S",
+            "    Set B.O = New Noisy",
+            "    B.O.Name = \"o\"",
+            "    Set B.C = New Noisy",
+            "    B.C.Name = \"c\"",
+            "    B.V = 5",
+            "    Debug.Print B.O.Name; B.C.Name; B.V",
+            "End Sub"), null, 0, 0, "oc 5", "gone o", "gone c", "ended");
+
+    // a field LSet leaves at its default keeps its bounds when it is a fixed-size array, and its own fields when it is a record: each element and field is
+    // reset where it is.
+    [TestMethod]
+    public async Task AFixedSizeArrayFieldLSetLeavesAtItsDefault_KeepsItsBounds()
+        => await AssertPrintsAsync(Module(
+            "Private Type TSmall",
+            "    N As Long",
+            "End Type",
+            "Private Type TBig",
+            "    N As Long",
+            "    S As String",
+            "    A(1 To 2) As Long",
+            "    Inner As TPair",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim S As TSmall, B As TBig",
+            "    B.A(2) = 4",
+            "    B.Inner.Inner.X = 3",
+            "    LSet B = S",
+            "    Debug.Print LBound(B.A); UBound(B.A); B.A(2); B.Inner.Inner.X",
+            "    B.A(2) = 6",
+            "    Debug.Print B.A(2)",
+            "End Sub"), null, 0, 0, "1  2  0  0", "6");
+
+    // a Variant or an object element of a fixed-size array field given by reference is the element when the record is let (MS-VBAL §5.3.1.11): it is
+    // written where it is, as an element of a scalar type is. The object the element held is let go of as the Let is made.
+    [TestMethod]
+    [DataRow("Q = O")]
+    [DataRow("LSet Q = O")]
+    public async Task AVariantElementOfAFixedSizeArrayFieldGivenByReference_IsTheElement_WhenItsRecordIsLet(string let)
+        => await AssertPrintsAsync(Module(
+            "Private Type TVar",
+            "    V(1 To 2) As Variant",
+            "End Type",
+            "Private Q As TVar, O As TVar",
+            "Public Sub Main()",
+            "    Q.V(1) = 1",
+            "    O.V(1) = 7",
+            "    Inner Q.V(1)",
+            "    Debug.Print Q.V(1)",
+            "End Sub",
+            "Private Sub Inner(ByRef N As Variant)",
+            $"    {let}",
+            "    Debug.Print N",
+            "    N = N + 100",
+            "End Sub"), null, 0, 0, "7", "107");
+
+    // the same, of an object element: the parameter is the element, which holds the other record's object after the Let, and the object it held is let go of.
+    [TestMethod]
+    public async Task AnObjectElementOfAFixedSizeArrayFieldGivenByReference_IsTheElement_WhenItsRecordIsLet()
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type TObj",
+            "    O(1 To 1) As Noisy",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim Q As TObj, O As TObj",
+            "    Set Q.O(1) = New Noisy",
+            "    Q.O(1).Name = \"q\"",
+            "    Set O.O(1) = New Noisy",
+            "    O.O(1).Name = \"o\"",
+            "    Inner Q, O, Q.O(1)",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            "Private Sub Inner(ByRef Q As TObj, ByRef O As TObj, ByRef X As Noisy)",
+            "    Q = O",
+            "    Debug.Print X.Name; Q.O(1).Name; X Is Q.O(1)",
+            "End Sub"), null, 0, 0, "gone q", "ooTrue", "after", "gone o", "ended");
+
     // a field given by reference is the field when its record is written by LSet, by Get, or let a record whose fixed-size array field holds the element
     // given: each writes the record where it is.
     [TestMethod]

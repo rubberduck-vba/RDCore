@@ -200,10 +200,14 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// <para>
     /// A field of a scalar type is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound to. A field declared as a record is
     /// let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>), and a fixed-size array field element by element
-    /// (<see cref="VBArrayValue.TryLetFrom"/>): the record holds its elements itself. A field that holds an object, a <c>Variant</c> or a resizable
-    /// array is replaced by <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field
-    /// is bound to the record and the field's position, so it reads the value that replaced it. The session counts the references to an object by the cells that hold it, so a
-    /// field that holds an object is given a new cell.
+    /// (<see cref="VBArrayValue.TryLetFrom"/>): the record holds its elements itself.
+    /// </para>
+    /// <para>
+    /// A field that holds an object, a <c>Variant</c> or a resizable array is replaced by <paramref name="value"/>, as <see cref="TrySetFieldAt"/>
+    /// replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record and the field's position, so it reads the value that
+    /// replaced it; one given a field that holds an object is not, and is left bound to the cell the field had before. A field is replaced the same way when
+    /// <paramref name="value"/> cannot be written where the field is: a value of another kind than the field holds, a record that is not known, or a
+    /// fixed-size array that is not known or has other bounds.
     /// </para>
     /// <para>
     /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a record or
@@ -258,6 +262,41 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Gives the field at <paramref name="index"/> in declaration order the default value of its declared type, as the field of a new record has it: in
+    /// place, where <see cref="TryLetFieldAt"/> writes in place.
+    /// </summary>
+    /// <remarks>
+    /// A field declared as a record has each of its own fields reset, and a fixed-size array field each of its elements
+    /// (<see cref="VBArrayValue.ResetElements"/>), which keeps its bounds. Any other field is let a copy of the type's default value, in a cell of its own:
+    /// the default value of a type is one value every caller shares, and a field that held it would share its cell with every other.
+    /// </remarks>
+    /// <param name="index">The field's position in declaration order.</param>
+    /// <returns><see langword="false"/> when there is no field at <paramref name="index"/>.</returns>
+    public bool TryResetFieldAt(int index)
+    {
+        if (index < 0 || index >= _fields.Length)
+        {
+            return false;
+        }
+
+        switch (_fields[index])
+        {
+            case VBUserDefinedTypeValue nested:
+                for (var field = 0; field < nested._fields.Length; field++)
+                {
+                    _ = nested.TryResetFieldAt(field);
+                }
+
+                return true;
+            case VBFixedSizeArrayValue elements:
+                elements.ResetElements();
+                return true;
+            default:
+                return TryLetFieldAt(index, DataValues.Copy(Fields[index].ResolvedType?.DefaultValue ?? VBEmptyValue.Empty));
+        }
     }
 
     // a field of a scalar type is written where it is; one of another kind is replaced, as a value of another type would have to be.

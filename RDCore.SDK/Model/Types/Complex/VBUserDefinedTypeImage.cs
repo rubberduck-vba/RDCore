@@ -256,7 +256,7 @@ public static class VBUserDefinedTypeImage
                         destination.TrySetFieldAt(index, held);
                         break;
                     default:
-                        destination.TryLetFieldAt(index, type?.DefaultValue ?? VBEmptyValue.Empty);
+                        destination.TryResetFieldAt(index);
                         break;
                 }
 
@@ -264,9 +264,14 @@ public static class VBUserDefinedTypeImage
             }
 
             // a field the bytes give a value is let it in place, as the field of a record let is (TryLetFieldAt).
-            destination.TryLetFieldAt(index, field.Offset + field.Width <= image.Length
-                ? Decoded(type, image.AsSpan(field.Offset, field.Width))
-                : type.DefaultValue);
+            if (field.Offset + field.Width <= image.Length)
+            {
+                destination.TryLetFieldAt(index, Decoded(type, image.AsSpan(field.Offset, field.Width)));
+            }
+            else
+            {
+                destination.TryResetFieldAt(index);
+            }
         }
     }
 
@@ -295,7 +300,7 @@ public static class VBUserDefinedTypeImage
     {
         VBFixedStringType => true,
         // the order matters: a fixed-length String is a VBStringType, and a variable-length one is a pointer.
-        VBStringType or VBObjectType or VBVariantType or VBArrayType => false,
+        VBStringType or VBObjectType or VBClassType or VBVariantType or VBArrayType => false,
         VBUserDefinedType nested => nested.Fields().All(field => field.ResolvedType is { } fieldType && HasImage(fieldType)),
         _ => true,
     };
@@ -338,7 +343,8 @@ public static class VBUserDefinedTypeImage
         VBDoubleType => new VBDoubleValue(BitConverter.ToDouble(bytes)),
         // a nested record is read back through its own layout, so a copy reinterprets all the way down.
         VBUserDefinedType nested => DecodedRecord(nested, bytes),
-        _ => type.DefaultValue,
+        // a cell of its own: the default value of a type is one value every caller shares.
+        _ => DataValues.Copy(type.DefaultValue),
     };
 
     private static VBTypedValue DecodedRecord(VBUserDefinedType type, ReadOnlySpan<byte> bytes)

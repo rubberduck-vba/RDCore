@@ -94,13 +94,14 @@ public abstract record class VBArrayValue : VBTypedValue
     /// </summary>
     /// <remarks>
     /// <para>
-    /// An element of a scalar type is written in its own cell, which a <c>ByRef</c> parameter given the element is bound to (MS-VBAL §5.3.1.11), so
-    /// the parameter reads what the element holds after the assignment. An element that is a record is let in place in its turn
-    /// (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>).
+    /// Each element is written in its own cell, which a <c>ByRef</c> parameter given the element is bound to (MS-VBAL §5.3.1.11), so the parameter reads
+    /// what the element holds after the assignment: an element of an object type or a <c>Variant</c> as much as one of a scalar type. An element that is
+    /// a record is let in place in its turn (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>).
     /// </para>
     /// <para>
-    /// An element that holds an object or a <c>Variant</c> is given the cell of <paramref name="source"/>'s element. <paramref name="source"/>
-    /// is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else.
+    /// An element whose cell cannot be written, one never assigned, is given the cell of <paramref name="source"/>'s element instead: no <c>ByRef</c>
+    /// parameter is bound to it, since passing the element gives it a cell that can be written first. <paramref name="source"/> is the copy the
+    /// assignment made (<see cref="DataCopy"/>), which shares no cell with anything else.
     /// </para>
     /// </remarks>
     /// <param name="source">The array assigned, of this array's element type and bounds.</param>
@@ -112,21 +113,69 @@ public abstract record class VBArrayValue : VBTypedValue
             return false;
         }
 
-        var inCells = ItemType is not (VBObjectType or VBClassType or VBVariantType or VBUserDefinedType or VBArrayType);
         for (var index = 0; index < _cells.Length; index++)
         {
             var (to, from) = (_cells[index], source._cells[index]);
-            if (inCells && to is IKnowledgeBinding cell && from is IKnowledgeBinding { IsKnown: var isKnown })
-            {
-                cell.Store(from.Value, isKnown);
-            }
-            else if (ItemType is not VBUserDefinedType || !IsRecordLetInPlace(to, from))
+            if (ItemType is VBUserDefinedType ? !IsRecordLetInPlace(to, from) : !IsWrittenInItsCell(to, from))
             {
                 _cells[index] = from;
             }
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Gives each element of this array the default value of its element type, in place: the array keeps its bounds, and a <c>ByRef</c> parameter given
+    /// an element (MS-VBAL §5.3.1.11) reads the default.
+    /// </summary>
+    /// <remarks>
+    /// An element that is a record has each of its fields reset in its turn (<see cref="VBUserDefinedTypeValue.TryResetFieldAt"/>). An element never
+    /// assigned is left as it is, since it already holds the default.
+    /// </remarks>
+    public void ResetElements()
+    {
+        for (var index = 0; index < _cells.Length; index++)
+        {
+            var to = _cells[index];
+            if (ItemType is VBUserDefinedType)
+            {
+                if (to.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { } record })
+                {
+                    for (var field = 0; field < record.FieldCount; field++)
+                    {
+                        _ = record.TryResetFieldAt(field);
+                    }
+                }
+
+                continue;
+            }
+
+            _ = IsWrittenInItsCell(to, InvalidBindingHandle.Default);
+        }
+    }
+
+    // an element given a cell that can be written holds what the other element holds in that cell, the one a ByRef parameter given it is bound to: an object
+    // or a Variant as much as a number, since a Let counts the objects a cell holds before it writes the cell and after. An element never assigned has an
+    // inert cell (CreateDefaultCell), which stands for the element type's default.
+    private bool IsWrittenInItsCell(IBindingHandle to, IBindingHandle from)
+    {
+        if (to is not IKnowledgeBinding cell || !to.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        switch (from)
+        {
+            case IKnowledgeBinding { IsKnown: var isKnown } when from.BindingCapabilities.HasFlag(BindingCapabilities.GetValue):
+                cell.Store(from.Value, isKnown);
+                return true;
+            case { BindingCapabilities: var capabilities } when !capabilities.HasFlag(BindingCapabilities.GetValue):
+                cell.Store(ItemType.DefaultValue.RuntimeValue, isKnown: true);
+                return true;
+            default:
+                return false;
+        }
     }
 
     // an element that holds a record, let the record another element holds: written into the record it holds.
