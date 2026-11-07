@@ -126,6 +126,16 @@ public sealed class ConsolePromptEditorTests
         Assert.AreEqual("x = MultiPlayer", await EnterAsync(keys, source), "Mpeg first, MultiPlayer next; Compute only has the letters");
     }
 
+    // what follows a `!` is the name of a dictionary access, which nothing declares: typing the bang asks for no list, as a dot asks for the members.
+    [TestMethod]
+    public async Task ABang_AsksForNoList()
+    {
+        var source = new Source();
+        Assert.AreEqual("c!Key", await EnterAsync(new ScriptedKeys().Type("c!Key").Press(Key(ConsoleKey.Enter)), source));
+
+        CollectionAssert.DoesNotContain(source.Asked, ("c!", 2));
+    }
+
     // a list asked for in the middle of a word is the list of its first letter: it holds what the word matches once it is shorter.
     [TestMethod]
     public async Task AListAskedForInTheMiddleOfAWord_StillHoldsWhatTheWordMatches_OnceItIsShorter()

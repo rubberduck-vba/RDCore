@@ -602,7 +602,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     AskSignature();
                 }
 
-                if (typed is '.' or '!')
+                // the members after a dot; the name after a bang is a dictionary access's, which nothing declares.
+                if (typed == '.')
                 {
                     Ask(_cursor);
                 }

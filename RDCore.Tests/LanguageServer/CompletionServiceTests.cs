@@ -481,6 +481,34 @@ public sealed class CompletionServiceTests
         Assert.AreEqual(1, items.Count(item => item.Preselect));
     }
 
+    // ---- a dictionary access (MS-VBAL §5.6.14): the name after a `!` is no declaration's, and nothing true can be offered for it ----
+
+    private async Task<string[]> BangAsync(string line, string? triggerCharacter = null)
+    {
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim rs As New Collection\r\n    Dim total!\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items.Select(item => item.Label)];
+    }
+
+    [TestMethod]
+    [DataRow("x = rs!|", null, DisplayName = "after the bang")]
+    [DataRow("x = rs!|", "!", DisplayName = "asked for by the bang")]
+    [DataRow("x = rs!Co|", null, DisplayName = "a name after the bang")]
+    [DataRow("Debug.Print total!|", null, DisplayName = "after a type suffix")]
+    public async Task AfterABang_NothingIsOffered(string line, string? triggerCharacter)
+    {
+        var labels = await BangAsync(line, triggerCharacter);
+
+        Assert.AreEqual(0, labels.Length, string.Join(", ", labels.Take(8)));
+    }
+
+    [TestMethod]
+    public async Task AfterADot_TheMembersAreOffered()
+        => CollectionAssert.IsSubsetOf(new[] { "Add", "Count", "Item" }, await BangAsync("x = rs.|"));
+
+    [TestMethod]
+    public async Task AVariableDeclaredWithATypeSuffix_IsOfferedLikeAnyOther()
+        => CollectionAssert.Contains(await BangAsync("x = to|"), "total");
+
     [TestMethod]
     public async Task NothingIsOffered_InAComment()
         => Assert.AreEqual(0, (await LabelsAsync("""

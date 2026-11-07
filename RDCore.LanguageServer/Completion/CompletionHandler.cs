@@ -10,7 +10,8 @@ namespace RDCore.LanguageServer.Completion;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A list is asked for as a name is typed and again after a <c>.</c> or a <c>!</c>, which are the trigger characters. It holds what the word typed so far
+/// A list is asked for as a name is typed and again after a <c>.</c>, which is a trigger character. A <c>!</c> is not: the name after it is a dictionary
+/// access's (MS-VBAL §5.6.14), which nothing declares, and its list is empty. A list holds what the word typed so far
 /// matches, its start or its humps (<see cref="SDK.Model.Symbols.Completion.CompletionCandidates.MatchOf"/>), the best item preselected, and it is incomplete:
 /// a client asks again as the word grows. An item is whole as it is answered: there is nothing to resolve.
 /// </para>
@@ -30,7 +31,7 @@ internal sealed class CompletionHandler(ICompletionService completion) : Complet
 
     protected override CompletionRegistrationOptions CreateRegistrationOptions(CompletionCapability capability, ClientCapabilities clientCapabilities) => new()
     {
-        TriggerCharacters = new Container<string>([".", "!", .. ICompletionService.ArgumentTriggerCharacters]),
+        TriggerCharacters = new Container<string>([".", .. ICompletionService.ArgumentTriggerCharacters]),
         ResolveProvider = false,
     };
 }
