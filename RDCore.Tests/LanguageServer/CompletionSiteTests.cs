@@ -30,6 +30,7 @@ public sealed class CompletionSiteTests
     [DataRow("x = Items(i + 1).Na", "Items(i + 1)", "Na")]
     [DataRow("x = Foo(Bar(\"(\")).Baz.Q", "Foo(Bar(\"(\")).Baz", "Q")]
     [DataRow("x = Name$.", "Name$", "")]
+    [DataRow("total!.", "total!", "", DisplayName = "the type suffix of a Single: no member of a With block's object")]
     [DataRow("x = Sheets![My Sheet].Ra", "Sheets![My Sheet]", "Ra")]
     [DataRow("    .Na", "", "Na")]
     [DataRow("    .Items(1).Na", ".Items(1)", "Na")]
