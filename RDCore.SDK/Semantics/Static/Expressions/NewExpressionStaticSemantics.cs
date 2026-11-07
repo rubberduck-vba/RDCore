@@ -20,12 +20,12 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
     public static NewExpressionStaticSemantics Instance => _instance.Value;
 
     /// <summary>
-    /// Determines the declared type of a <see cref="NewExpressionNode"/> — the type referenced by its
+    /// Determines the declared type of a <see cref="NewExpressionNode"/>: the type referenced by its
     /// <c>TypeExpression</c>, if that reference is an instantiable class module.
     /// </summary>
     /// <param name="context">The compile-time context this expression is evaluated against.</param>
     /// <param name="expression">The <see cref="NewExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">Unused — <c>TypeExpression</c> names a type, not a value.</param>
+    /// <param name="operandDeclaredTypes">Unused: <c>TypeExpression</c> names a type, not a value.</param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="NewExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {

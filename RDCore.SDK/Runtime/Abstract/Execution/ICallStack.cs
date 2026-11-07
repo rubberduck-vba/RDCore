@@ -26,7 +26,7 @@ public interface ICallStack
     /// </summary>
     /// <remarks>
     /// A read-only view, for the things that need the whole chain rather than its top: capturing the
-    /// <see cref="Model.Errors.VBStackTrace"/> of a run-time error, chiefly. Enumerating pops nothing —
+    /// <see cref="Model.Errors.VBStackTrace"/> of a run-time error, chiefly. Enumerating pops nothing:
     /// every frame is still the stack's, and its storage is still live.
     /// </remarks>
     IEnumerable<ICallStackFrame> Frames { get; }

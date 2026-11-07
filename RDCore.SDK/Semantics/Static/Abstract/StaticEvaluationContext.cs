@@ -12,10 +12,10 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </summary>
 /// <remarks>
 /// <see cref="Resolver"/> and <see cref="Scope"/> are deliberately just those two: a rule that needs a
-/// module-level fact — <c>Option Explicit</c>, <c>Option Compare</c>, whatever MS-VBAL directive comes
-/// next — reads it off <see cref="LexicalScope.EnclosingModuleDirectives"/> through <see cref="Scope"/>,
+/// module-level fact (<c>Option Explicit</c>, <c>Option Compare</c>, whatever MS-VBAL directive comes
+/// next) reads it off <see cref="LexicalScope.EnclosingModuleDirectives"/> through <see cref="Scope"/>,
 /// rather than this record growing a parameter for it. <see cref="EnclosingWithTargetType"/> is a
-/// different kind of fact — it isn't lexical (derivable from <see cref="Scope"/> alone), it's
+/// different kind of fact: it isn't lexical (derivable from <see cref="Scope"/> alone), it's
 /// statement-tree-positional: only a caller that has walked the enclosing statement tree (see
 /// <c>StatementStaticSemanticsEvaluator</c>) knows it, which is why it's threaded through here rather
 /// than derived.

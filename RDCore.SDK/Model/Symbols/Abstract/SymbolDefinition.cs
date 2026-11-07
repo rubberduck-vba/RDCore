@@ -3,7 +3,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.SDK.Model.Symbols.Abstract;
 
 /// <summary>
-/// The conditional-compilation state of a single <see cref="SymbolDefinition"/> — whether the
+/// The conditional-compilation state of a single <see cref="SymbolDefinition"/>: whether the
 /// <c>#If</c> branch the declaration site sits in is the one that compiles.
 /// </summary>
 public enum DefinitionState
@@ -31,12 +31,12 @@ public enum DefinitionState
 /// One source site where a <see cref="WorkspaceSymbol"/> is declared. A symbol carries more than one only
 /// when the same name is declared in several conditional-compilation branches
 /// (<c>#If VBA7 Then … #Else … #End If</c>); collapsing the branches to a single symbol lets a
-/// rename or refactor see and rewrite every site — live or dead — instead of blanking the inactive
+/// rename or refactor see and rewrite every site (live or dead) instead of blanking the inactive
 /// branch and losing it.
 /// </summary>
 /// <param name="Range">The full source span of this declaration site.</param>
 /// <param name="SelectionRange">
-/// The span to select when navigating to this site — typically the identifier token.
+/// The span to select when navigating to this site: typically the identifier token.
 /// </param>
 /// <param name="State">
 /// Whether this site's conditional-compilation branch compiles. <see cref="DefinitionState.Unknown"/>

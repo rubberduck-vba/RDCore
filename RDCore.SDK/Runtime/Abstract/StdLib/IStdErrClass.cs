@@ -48,7 +48,7 @@ public interface IStdErrClass
     /// </summary>
     /// <remarks>
     /// An argument that is not specified takes the error object's current property setting, unless that
-    /// has been cleared — so <c>Err.Raise</c> given only a <c>Number</c> re-raises with whatever
+    /// has been cleared, so <c>Err.Raise</c> given only a <c>Number</c> re-raises with whatever
     /// <c>Source</c> and <c>Description</c> are already set.
     /// </remarks>
     /// <param name="number">A <see cref="VBLongValue"/> that encodes the nature of the error.</param>
@@ -165,7 +165,7 @@ public interface IStdErrClass
     RuntimeSemanticsEvaluationResult Source(VBStringValue value);
 
     /// <summary>
-    /// 🎯 <strong>RD-VBAL</strong> Gets the call stack the current error was raised on, innermost activation first — one indented line per activation, separated by <c>vbCrLf</c>.
+    /// 🎯 <strong>RD-VBAL</strong> Gets the call stack the current error was raised on, innermost activation first: one indented line per activation, separated by <c>vbCrLf</c>.
     /// </summary>
     /// <remarks>
     /// 👉 Not an MS-VBAL member: VBA has never been able to say <em>where</em> an error came from, only

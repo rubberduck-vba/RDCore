@@ -8,7 +8,7 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <strong>MS-VBAL 5.4.5.4/5.4.5.5</strong> the <c>Lock</c> and <c>Unlock</c> statements.
 /// </summary>
 /// <remarks>
-/// Their <c>record-range</c> is <c>start-record-number / ([start-record-number] "To" end-record-number)</c> —
+/// Their <c>record-range</c> is <c>start-record-number / ([start-record-number] "To" end-record-number)</c>:
 /// three shapes, and a flat list of expressions can only tell two of them apart: <c>Lock #1, 5</c> locks
 /// record 5 alone and <c>Lock #1, To 5</c> locks records 1 through 5, and both carry one expression. So which
 /// end of the range an expression <em>is</em> has to be part of the node rather than inferred from its
@@ -21,11 +21,11 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the statement.</param>
-/// <param name="Token">Which of the two statements this is — <c>Lock</c> or <c>Unlock</c>.</param>
+/// <param name="Token">Which of the two statements this is: <c>Lock</c> or <c>Unlock</c>.</param>
 /// <param name="FileNumber">The file number whose file is locked or unlocked.</param>
 /// <param name="StartRecord">The <c>start-record-number</c>, or <c>null</c> when the statement declares none.</param>
 /// <param name="EndRecord">The <c>end-record-number</c> after <c>To</c>, or <c>null</c> when there is no
-/// <c>To</c> clause — in which case <see cref="StartRecord"/> is the whole range, one record or byte wide.</param>
+/// <c>To</c> clause: in which case <see cref="StartRecord"/> is the whole range, one record or byte wide.</param>
 public record class FileLockStatementNode(
     SyntaxNodeId Identity,
     SourceLocation SourceLocation,

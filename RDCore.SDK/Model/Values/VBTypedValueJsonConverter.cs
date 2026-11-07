@@ -11,7 +11,7 @@ namespace RDCore.SDK.Model.Values;
 /// </summary>
 /// <remarks>
 /// 👉 The only <see cref="VBTypedValue"/> that crosses a process boundary is the one an AST resolves
-/// for a <em>literal</em> — always a compile-time scalar or a sentinel. Reference-valued kinds
+/// for a <em>literal</em>: always a compile-time scalar or a sentinel. Reference-valued kinds
 /// (objects, arrays, UDTs, Variants) carry identity / storage semantics, never appear in an AST, and
 /// are rejected here. So is a <c>String</c> with a trailing byte: no literal is half a character, so one here is a bug
 /// upstream rather than a value to carry.

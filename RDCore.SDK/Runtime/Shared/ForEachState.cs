@@ -11,7 +11,7 @@ namespace RDCore.SDK.Runtime.Shared;
 /// <param name="Control">The <c>bound-variable-expression</c> symbol the loop assigns each element to.</param>
 /// <param name="ControlExpression">
 /// The control variable's own expression node, reused as the location-bearing node for every
-/// Let/Set-assignment step a <c>Next</c> performs — never a synthetic stand-in.
+/// Let/Set-assignment step a <c>Next</c> performs: never a synthetic stand-in.
 /// </param>
 /// <param name="Array">The collection when it is an array, evaluated once and never re-evaluated; <see langword="null"/> when it is an object.</param>
 /// <param name="Index">For an array, the flat (column-major) index of the element currently assigned to <see cref="Control"/>. Unused for an object.</param>

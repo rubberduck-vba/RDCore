@@ -46,7 +46,7 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// </summary>
     Task WaitForReadyAsync(CancellationToken token);
     /// <summary>
-    /// Completes once the connection is terminally lost — the child exited and restart-with-backoff was exhausted.
+    /// Completes once the connection is terminally lost: the child exited and restart-with-backoff was exhausted.
     /// </summary>
     Task WaitForTerminalAsync();
     /// <summary>

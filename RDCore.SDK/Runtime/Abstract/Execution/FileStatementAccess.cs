@@ -9,7 +9,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// </summary>
 /// <remarks>
 /// The specification states this as one table covering every file statement, so it is encoded once here
-/// rather than restated by each of them — a statement asks whether it is allowed on a channel and reports
+/// rather than restated by each of them: a statement asks whether it is allowed on a channel and reports
 /// <c>Bad file mode</c> when it is not. Getting it wrong in twelve places independently is the alternative.
 /// <para>
 /// 👉 A blank cell in that table means the statement is not valid in that mode <em>at all</em>, whatever the
@@ -63,10 +63,10 @@ public static class FileStatementAccess
     /// and <paramref name="access"/>.
     /// </summary>
     /// <remarks>
-    /// A statement this table says nothing about is not restricted by it — <c>Close</c> and <c>Reset</c> are
+    /// A statement this table says nothing about is not restricted by it: <c>Close</c> and <c>Reset</c> are
     /// valid on any channel, and the table does not list them.
     /// </remarks>
-    /// <param name="statement">The statement's keyword — a <see cref="Tokens"/> constant, including the
+    /// <param name="statement">The statement's keyword: a <see cref="Tokens"/> constant, including the
     /// two-keyword <see cref="Tokens.LineInput"/>.</param>
     /// <param name="mode">The mode the channel was opened under.</param>
     /// <param name="access">The access the channel was opened under.</param>

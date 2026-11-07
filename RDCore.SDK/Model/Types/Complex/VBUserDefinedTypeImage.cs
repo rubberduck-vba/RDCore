@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 
 /// <summary>
 /// The bytes a <see cref="VBUserDefinedTypeValue"/> occupies in memory, laid out by
-/// <see cref="VBUserDefinedTypeLayout"/> — what an <c>LSet</c> between two UDT variables copies
+/// <see cref="VBUserDefinedTypeLayout"/>: what an <c>LSet</c> between two UDT variables copies
 /// (<strong>MS-VBAL §5.4.3.6</strong>).
 /// </summary>
 /// <remarks>
@@ -19,7 +19,7 @@ namespace RDCore.SDK.Model.Types;
 /// <em>in an implementation-defined manner</em>". What it does not say, and what every VBA program using
 /// <c>LSet</c> on a UDT relies on, is that the copy <em>reinterprets</em>: the source's bytes are laid out by
 /// the source's own type and read back through the destination's, which is how VBA fakes a union. So this is
-/// a byte image and not a field-by-field assignment — between two UDTs of the same shape the two would agree,
+/// a byte image and not a field-by-field assignment: between two UDTs of the same shape the two would agree,
 /// and between different shapes only the byte image does what the program meant.
 /// <para>
 /// 👉 These are <em>memory</em> widths, the ones <c>LenB</c> counts. They are not the widths the same value
@@ -40,8 +40,8 @@ public static class VBUserDefinedTypeImage
     /// and zeroes in the padding between them.
     /// </summary>
     /// <remarks>
-    /// A field with no byte representation of its own — a variable-length <c>String</c>, an object, an array,
-    /// a <c>Variant</c> — is a <em>pointer</em> in memory, and a pointer's bytes mean nothing to a process
+    /// A field with no byte representation of its own (a variable-length <c>String</c>, an object, an array,
+    /// a <c>Variant</c>) is a <em>pointer</em> in memory, and a pointer's bytes mean nothing to a process
     /// that did not allocate them. Those bytes are left zero here and the values are carried across by
     /// <see cref="Copy"/> instead, which is the one place the reinterpretation can be done safely.
     /// </remarks>

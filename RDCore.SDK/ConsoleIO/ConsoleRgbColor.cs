@@ -15,7 +15,9 @@ namespace RDCore.SDK.ConsoleIO;
 /// <param name="B">The blue channel.</param>
 public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
 {
-    /// <summary>Black — the value <see cref="TryParse"/> yields for an unparseable token.</summary>
+    /// <summary>
+    /// Black: the value <see cref="TryParse"/> yields for an unparseable token.
+    /// </summary>
     public static ConsoleRgbColor Black { get; } = new(0, 0, 0);
 
     /// <summary>
@@ -69,7 +71,7 @@ public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
     ];
 
     /// <summary>
-    /// The nearest legacy <see cref="ConsoleColor"/>, by squared distance in RGB space — what a
+    /// The nearest legacy <see cref="ConsoleColor"/>, by squared distance in RGB space: what a
     /// console that cannot render 24-bit colour gets instead.
     /// </summary>
     public ConsoleColor ToNearestConsoleColor()
