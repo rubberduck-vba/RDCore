@@ -7,7 +7,6 @@
     <Nullable>enable</Nullable>
     <AssemblyTitle>RDCore Tests</AssemblyTitle>
     <Description>The tests of the RDCore platform.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!-- a test method that does not await what it asserts passes without asserting it: an async method with no await, and a call whose task is dropped. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS1998;CS4014</WarningsAsErrors>
   </PropertyGroup>

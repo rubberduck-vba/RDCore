@@ -13,7 +13,7 @@
     <Copyright>Copyright © 2026 $(Company)</Copyright>
     <!-- the strings in a project's .resx are English; the .fr.resx beside it is the French satellite. -->
     <NeutralLanguage>en</NeutralLanguage>
-    <!-- the licence's text is LICENSE-GPLv3.md; the SDK, its protocol and the tests are MIT (LICENSE-MIT.md) and say so in their project. -->
+    <!-- the licence's text is LICENSE-GPLv3.md; the SDK and its protocol are MIT (LICENSE-MIT.md) and say so in their project. -->
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <PackageProjectUrl>https://rubberduckvba.ca</PackageProjectUrl>
     <RepositoryUrl>https://github.com/rubberduck-vba/RDCore</RepositoryUrl>
