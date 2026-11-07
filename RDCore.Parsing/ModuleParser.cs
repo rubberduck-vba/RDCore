@@ -1205,10 +1205,59 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             ForgetTheLastReported();
         }
 
-        var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg);
+        var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg) with { StatementStart = StatementStartOf(recognizer, offendingSymbol) };
         _reported.Add(error);
         _reportedAt.Add(location);
         _errors.Add(error);
+    }
+
+    // what ends a block in any rule (End If, Next, Loop, End Sub, ...), and the end of the module: where the parse fails at one, the error is the block's that
+    // is not closed. The ends of a statement are no block's.
+    private static readonly IntervalSet EndsABlock = BlockEnds();
+
+    private static IntervalSet BlockEnds()
+    {
+        var atn = VBAParser._ATN;
+        var block = atn.ruleToStartState[VBAParser.RULE_block];
+        var ends = new IntervalSet();
+        foreach (var state in atn.states)
+        {
+            for (var i = 0; i < state.NumberOfTransitions; i++)
+            {
+                if (state.Transition(i) is RuleTransition { target: var target, followState: var follow } && target == block)
+                {
+                    ends.AddAll(atn.NextTokens(follow));
+                }
+            }
+        }
+
+        ends.Add(TokenConstants.Eof);
+        foreach (var type in new[] { TokenConstants.Epsilon, VBALexer.WS, VBALexer.LINE_CONTINUATION, VBALexer.NEWLINE, VBALexer.COLON, VBALexer.SINGLEQUOTE, VBALexer.REM })
+        {
+            ends.Remove(type);
+        }
+
+        return ends;
+    }
+
+    // where the statement whose block the parse failed to end begins, when it failed at what ends a block: the innermost statement of a procedure, else the
+    // declaration of the module. A block that is not closed is reported where its end was expected, which is in the statement that begins it.
+    private SourcePosition? StatementStartOf(IRecognizer recognizer, IToken? offendingSymbol)
+    {
+        if (offendingSymbol is null || !EndsABlock.Contains(offendingSymbol.Type))
+        {
+            return null;
+        }
+
+        for (var context = (recognizer as Parser)?.Context; context is not null; context = context.Parent as ParserRuleContext)
+        {
+            if (context is VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext && context.Start is { } start)
+            {
+                return new SourcePosition(start.Line - 1, start.Column).AnchoredAt(anchorOffset);
+            }
+        }
+
+        return null;
     }
 
     // the syntax errors the parse reported, in the order of their positions, and where they are.

@@ -75,6 +75,37 @@ public sealed class SyntaxErrorRunRefusalTests
         CollectionAssert.AreEqual(printed, result.Output.ToArray());
     }
 
+    // a block that a branch of a #If that is excluded opens and does not close is reported where its end was expected, in live code, and the statements after
+    // the branch are read into it: RD-VBA refuses the run, and says why. MS-VBA runs it (RD-VBAL 2.6.1).
+    [TestMethod]
+    [DataRow("If a Then", DisplayName = "a block If")]
+    [DataRow("With a", DisplayName = "a With")]
+    [DataRow("For i = 1 To 2", DisplayName = "a For")]
+    public async Task ABlockAnExcludedBranchOpensAndDoesNotClose_RefusesTheRun_AndSaysSo(string opened)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
+            "Dim a As Variant, i As Long", "Debug.Print \"before\"", "#If False Then", opened, "#End If", "Debug.Print \"after\""));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+            string.Join("; ", result.Diagnostics!));
+    }
+
+    // a syntax error in live code after such a block is the error it is.
+    [TestMethod]
+    [DataRow("a = = 1", DisplayName = "an operator where an expression is")]
+    [DataRow("With a", DisplayName = "a With not closed")]
+    public async Task ALiveSyntaxErrorAfterABlockAnExcludedBranchDoesNotClose_RefusesTheRun_WithItsOwnError(string live)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
+            "Dim a As Variant", "#If False Then", "If a Then", "#End If", live));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsTrue(result.Diagnostics!.Any(error => !error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+            string.Join("; ", result.Diagnostics!));
+    }
+
     // a syntax error in the header of a procedure that is not run refuses the run of the module as well.
     [TestMethod]
     public async Task ASyntaxErrorInTheHeaderOfAnotherProcedure_RefusesTheRun()

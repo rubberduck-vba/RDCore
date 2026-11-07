@@ -1605,6 +1605,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A block opened in a #If branch is not closed in it..
+        /// </summary>
+        public static string VBCompileError_BlockNotClosedInItsBranch_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_BlockNotClosedInItsBranch_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure..
         /// </summary>
         public static string VBCompileError_HeaderInDeadBranchesOnly_Verbose {

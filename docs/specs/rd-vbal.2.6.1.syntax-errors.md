@@ -23,6 +23,23 @@ Conditions that need symbol information (an undefined name, a duplicate declarat
 
 A module that has a syntax error does not run, and neither does the rest of its project. A run is refused with its syntax errors before any of it runs, and a debugger writes them to its error output and ends with exit code 1. The statements around what the parser could not read do not run either: `Debug.Print 1 +` followed by `Debug.Print 2` prints nothing. This applies to every syntax error: `VBC00001` in each of its forms, a line continued past the limit included, `VBC00060` and `VBC00061`.
 
+A syntax error in a branch of a `#If` that is excluded refuses no run: the branch is not compiled (**MS-VBAL §3.4**). The language server still reports it.
+
+**RD-VBA differs from MS-VBA:** a block that an excluded branch opens and does not close refuses the run. In this procedure, the `If` is in an
+excluded branch, and nothing closes it:
+
+```vba
+#If False Then
+    If a Then
+#End If
+    Debug.Print "after"
+End Sub
+```
+
+MS-VBA compiles the live code only, and runs it. The parser reads every branch, so it reads the live statements after the branch into the `If`, and
+reports the error where the `If`'s end was expected, at `End Sub`. RD-VBA refuses the run, with "A block opened in a #If branch is not closed in it."
+The same goes for a `With` and a loop.
+
 The language server goes on analyzing the module as it is written. Only the run is refused.
 
 This includes a module the run does not use. The refusal gives each syntax error of such a module after the module's name, the modules in the order of
@@ -156,7 +173,8 @@ The host evaluates the directives with the session's constants (`PrecompilerLive
 
 > [!NOTE]
 > **Not implemented.** A `#If` that splits a block statement's header inside a body (an `If`, a `Select Case`, a loop or a `With` written once per branch)
-> is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range.
+> is unparseable by the RD-VBA grammar. Such a statement reports located `VBC` diagnostics (`VBC00001`), which a client can anchor to a source range, and
+> its project does not run.
 
 ## Published Codes
 

@@ -177,8 +177,15 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
         // expression kept as text - and the statements around it would run without it. The syntax errors are the parser's, which the module's model does not
         // repeat. One in a branch of a #If that is excluded is in no code of the module: the branch is not compiled, and is no part of the run.
+        //
+        // A block that a dead branch opens and does not close is reported where its end was expected, which can be live (the End Sub after the #End If). The
+        // parser reads every branch, and the live statements after the branch are in that block: the tree is not the code MS-VBA compiles, which runs them.
+        // RD-VBA refuses the run, and says why (RD-VBAL 2.6.1).
         var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
-            .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location.Range.Start, deadRanges)).Select(error => (error.Description, error.Verbose)))
+            .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location.Range.Start, deadRanges))
+                .Select(error => error.StatementStart is { } statement && IsDead(statement, deadRanges)
+                    ? (error.Description, Verbose: SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose)
+                    : (error.Description, error.Verbose)))
             .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
                 ? error.Description
                 : $"{error.Description}: {error.Verbose}").ToImmutableArray();

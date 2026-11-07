@@ -24,6 +24,17 @@ public record class VBSyntaxErrorInfo(int ErrorId, SourceLocation Location, stri
     public VBCompileErrorId VBCompileErrorId => (VBCompileErrorId)ErrorId;
 
     /// <summary>
+    /// Where the statement the parser was reading when it found the error begins, or <c>null</c> when the error is in no statement: the statement the
+    /// error is in, wherever it is reported.
+    /// </summary>
+    /// <remarks>
+    /// A block that is not closed is reported at the token where its end was expected, often the end of the procedure, and that token can be in another
+    /// branch of a <c>#If</c> than the block. The parser reads every branch, and does not know which one is compiled
+    /// (<strong>MS-VBAL §3.4</strong>). The branch the error belongs to is the one this position is in.
+    /// </remarks>
+    public SourcePosition? StatementStart { get; init; }
+
+    /// <summary>
     /// Creates a <see cref="VBSyntaxErrorInfo"/> for the specified <see cref="VBCompileErrorId"/> at the specified <see cref="SourceLocation"/>.
     /// </summary>
     /// <param name="vbCompileErrorId">The formal error code.</param>
