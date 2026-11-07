@@ -23,7 +23,7 @@ Conditions that need symbol information (an undefined name, a duplicate declarat
 
 A module that has a syntax error does not run, and neither does the rest of its project. A run is refused with its syntax errors before any of it runs, and a debugger writes them to its error output and ends with exit code 1. The statements around what the parser could not read do not run either: `Debug.Print 1 +` followed by `Debug.Print 2` prints nothing. This applies to every syntax error: `VBC00001` in each of its forms, a line continued past the limit included, `VBC00060` and `VBC00061`.
 
-A syntax error in a branch of a `#If` that is excluded refuses no run: the branch is not compiled (**MS-VBAL §3.4**). The language server still reports it.
+A syntax error in an excluded branch of a `#If` does not refuse the run: the branch is not compiled (**MS-VBAL §3.4**). The language server still reports it.
 
 **RD-VBA differs from MS-VBA:** a block that an excluded branch opens and does not close refuses the run. In this procedure, the `If` is in an
 excluded branch, and nothing closes it:
