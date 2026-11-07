@@ -543,13 +543,14 @@ public sealed partial class CompiledActivation : ILightActivation
     /// frame says while the callee runs. The call is the invoker's (<see cref="Call"/>) when the callee is not called this way, or not now: the session runs
     /// no compiled code any more (its engine was changed); the session's symbols were defined again since this activation began, or the callee's body was
     /// loaded again, either of which the body it was compiled against may no longer be; the interpreter is wanted (<see cref="ISessionHalt.WantsInterpreter"/>);
-    /// the session is being analyzed; or the call stack has no room for another frame.
+    /// the session is being analyzed; a break was asked for and is not answered, which the invoker's call has the interpreter answer before the callee's
+    /// first instruction; or the call stack has no room for another frame.
     /// </summary>
     /// <returns>The callee's activation, which its entry is called with; <see langword="null"/> when the call is to be made through the invoker.</returns>
     public CompiledActivation? EnterDirectly(int pc, int callee)
     {
         if (_body.Directs[callee] is not { Body: { } body } direct || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _halt.WantsInterpreter
-            || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
             || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
             || !ReferenceEquals(_invoker.BodyOf(direct.Procedure), direct.List))
         {
@@ -618,7 +619,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public CompiledActivation? EnterMemberDirectly(int pc, int callee)
     {
         if (_member is not { } member || _receiver is not VBRuntimeValue<VBRuntimeObjectId> receiver || !ReferenceEquals(_session.Symbols.Scopes, _scopes)
-            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null
+            || _halt.WantsInterpreter || _executor.Observation is not null || _session.Errors.Untrappable is not null || _executor.IsCancellationPending
             || CompiledExecution.EngineFor(_session.Environment.ExecutionEngine) is not VBExecutionEngine.Compiled
             || EntryOf(_body.Callees[callee], member) is not { } entry)
         {
@@ -817,14 +818,16 @@ public sealed partial class CompiledActivation : ILightActivation
     /// or the session's symbols were defined again while the callee ran - an edit made while the program waited - and what compiled code calls, and how,
     /// may not be what it was compiled for. The interpreter goes on with them as they are now, from the instruction after the call. So it does after a call, or
     /// an instruction it ran alone, that let go of an object whose <c>Terminate</c> left an error unhandled (<see cref="ISessionErrorState.Untrappable"/>):
-    /// the program stops with it there, before the next instruction, as the interpreter stops it (<c>ProcedureExecutor.RunInstructions</c>).
+    /// the program stops with it there, before the next instruction, as the interpreter stops it (<c>ProcedureExecutor.RunInstructions</c>). And so it does
+    /// after one during which a break was asked for, which is not answered: the interpreter breaks there, before the next instruction, where compiled code
+    /// would look only at the back edge of a loop.
     /// </summary>
     /// <remarks>
     /// An activation without a frame has no edit to go on in: the program waited in none, since what looks at the stack while it waits gives every activation
     /// its frame (<see cref="RuntimeCallStack.MaterializeLights"/>).
     /// </remarks>
     public bool WantsInterpreterAfterCall => _halt.WantsInterpreter || _session.Errors.Untrappable is not null || _frame is { HasPendingRebase: true }
-        || !ReferenceEquals(_session.Symbols.Scopes, _scopes);
+        || !ReferenceEquals(_session.Symbols.Scopes, _scopes) || _executor.IsCancellationPending;
 
     /// <summary>
     /// Hands the activation to the interpreter at the call at <paramref name="pc"/> that did not return: with the error the callee raised, which the
@@ -1142,9 +1145,9 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     /// <remarks>
     /// The interpreter goes on with the activation when the program waited while the instruction ran - at its error, which a debugger asked to see - or the
-    /// interpreter is wanted, or the symbols were defined again; and when the activation goes on inside a <c>For</c> loop the frame holds no state of, which
-    /// compiled code would step with what it does not have. It runs the activation from <paramref name="pc"/> without stepping, when compiled code could not
-    /// write a variable into the frame.
+    /// interpreter is wanted, or the symbols were defined again, or a break was asked for and is not answered (<see cref="WantsInterpreterAfterCall"/>); and
+    /// when the activation goes on inside a <c>For</c> loop the frame holds no state of, which compiled code would step with what it does not have. It runs
+    /// the activation from <paramref name="pc"/> without stepping, when compiled code could not write a variable into the frame.
     /// </remarks>
     public int Recover(int pc)
     {

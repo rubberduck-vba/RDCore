@@ -151,8 +151,10 @@ ran, into the frame. A loop that ended keeps the end and the step it last had, a
 statement can fail when it runs again. The interpreter then evaluates the instruction as it always does, so the error raised, its message and its location
 are the interpreter's. The rest of the activation runs in the interpreter.
 
-Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
-activation under the debugger. A procedure called while the program is to stop runs in the interpreter, which breaks before its first statement.
+Compiled code does the same when the program is to stop or a debugger attaches: the interpreter then breaks, or runs the activation under the debugger.
+Compiled code looks at the back edge of each loop, after each call it makes, and after each instruction the interpreter runs for it. A break asked for
+while a call or such an instruction ran is answered before the next instruction, where the interpreter answers it. A procedure called while the program
+is to stop runs in the interpreter, which breaks before its first statement.
 
 ## Error handling
 
