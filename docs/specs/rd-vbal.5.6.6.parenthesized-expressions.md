@@ -9,7 +9,7 @@ type hint or a dictionary access. Which one a pair of parentheses is depends on 
 |Where|Operator|What it does|
 |---|---|---|
 |Around an operand of an operator: `(a + b) * c`, `-(a + b)`, `Not (x Or y)`, `(o) Is Nothing`; around what is already in parentheses|`"__p()_op"`, the _precedence operator_|Groups the operand, as MS-VBAL §5.6.6 has it.|
-|Anywhere else: an argument (`Foo (x)`, `Foo a, (b)`, `Call Foo((x))`), the value of an assignment (`x = (y)`, `Set x = (o)`), a condition (`If (x) Then`)|🧩 `"__c()_op"`, the _explicit let-coercion operator_|Forces a _let-coercion_ frame: an argument written in parentheses is passed by value whatever its parameter is.|
+|Anywhere else: an argument (`Foo (x)`, `Foo a, (b)`, `Call Foo((x))`), the value of an assignment (`x = (y)`, `Set x = (o)`), a condition (`If (x) Then`)|`"__c()_op"`, the _explicit let-coercion operator_, an RD-VBA addition|Forces a _let-coercion_ frame: an argument written in parentheses is passed by value whatever its parameter is.|
 
 Either way, the parenthesized expression's declared type is the enclosed expression's, and it "evaluates to the simple
 data value of its enclosed expression" (MS-VBAL §5.6.6) - a value bound to nothing. A `Variant`'s is still a `Variant`'s

@@ -30,6 +30,6 @@ This list of restrictions is not complete.
 
 ## Scope of the SDK
 
-> 🎯 The _scope_ of the **RDCore SDK** minimally covers `VBA`, _then_ `VB6`, _then_ `VBX`, and so on.
+> The _scope_ of the **RDCore SDK** minimally covers `VBA`, _then_ `VB6`, _then_ `VBX`, and so on.
 
-👉 The LSP paradigm shift, where an RD-VBA project physically exists in the file system (see [**RD-VBAL §2.0** RD-VBA Computational Environment](rd-vbal.2.0.computational-environment.md)), alone brings RD-VBA much closer to how VB6 already works.
+The LSP paradigm shift, where an RD-VBA project physically exists in the file system (see [**RD-VBAL §2.0** RD-VBA Computational Environment](rd-vbal.2.0.computational-environment.md)), alone brings RD-VBA much closer to how VB6 already works.

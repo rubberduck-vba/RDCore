@@ -32,7 +32,7 @@ the instruction kind it lowers to), **Static Semantics**, **Runtime Semantics** 
 
 |§|Title|MS-VBAL|
 |---|---|---|
-|5.4.1|[Statement Blocks](rd-vbal.5.4.1.statement-blocks.md) — *reserved*|[§5.4.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d3220925-f958-4ae4-a9cc-e529072e156f)|
+|5.4.1|[Statement Blocks](rd-vbal.5.4.1.statement-blocks.md) (*reserved*)|[§5.4.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d3220925-f958-4ae4-a9cc-e529072e156f)|
 |5.4.2|[Control Statements](rd-vbal.5.4.2.control-statements.md)|[§5.4.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/70d423da-18b4-42d2-9897-9f0b8100786b)|
 |5.4.3|[Data Manipulation Statements](rd-vbal.5.4.3.data-manipulation-statements.md)|[§5.4.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/ee62ca0d-bf15-4679-8d11-6e411b37901b)|
 |5.4.4|[Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md)|[§5.4.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/47b18690-3175-44d9-9de1-31629f0aacc7)|
