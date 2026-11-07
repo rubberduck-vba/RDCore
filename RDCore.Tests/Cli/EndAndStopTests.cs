@@ -26,7 +26,8 @@ public sealed class EndAndStopTests
         return Convert.ToInt64(session.Symbols.Resolver.GetValue(total!).Value.BoxedValue);
     }
 
-    // whether the program is past its first statement, which gave Total 3: in the cell the interpreter and compiled code both write it in.
+    // whether the program is past its first statement, which gave Total 3: in the cell the interpreter and compiled code both write it in. Not the frame's
+    // Pc, which compiled code does not keep while it runs: a frame says where the program is once it has stopped, which is when the debugger reads it.
     private static bool GaveTotalThree(EnvironmentSessionProvider provider)
     {
         var symbols = provider.Session.Symbols;

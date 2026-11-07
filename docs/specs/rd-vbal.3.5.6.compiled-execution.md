@@ -152,7 +152,7 @@ statement can fail when it runs again. The interpreter then evaluates the instru
 are the interpreter's. The rest of the activation runs in the interpreter.
 
 Compiled code does the same when the program is to stop or a debugger attaches, at the back edges of its loops: the interpreter then breaks, or runs the
-activation under the debugger.
+activation under the debugger. A procedure called while the program is to stop runs in the interpreter, which breaks before its first statement.
 
 ## Error handling
 
