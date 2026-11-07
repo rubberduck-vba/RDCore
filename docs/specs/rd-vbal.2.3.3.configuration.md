@@ -193,6 +193,3 @@ The shell completes the arguments of `CONFIG` a part at a time: the sections, th
 |[`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)|The section `rdcore`: what a client answers `workspace/configuration` with, and what a server reads of it.|
 |[`AppHost.Settings`](../api/RDCore.SDK.Server.AppHost-1.html)|The settings of a component: the platform's, combined with the component's own.|
 |[`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html)|The settings an extension is configured with, written into its manifest.|
-
----
-> ⏮️ [**RD-VBAL §2.3.2** Mode / State](rd-vbal.2.3.2.mode-state.md) | ⏭️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.md)

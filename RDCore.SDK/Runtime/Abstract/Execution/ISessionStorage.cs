@@ -74,7 +74,7 @@ public interface ISessionStorage : IObjectPointers
     bool TryWriteBytes(MemoryAddress address, ReadOnlySpan<byte> bytes);
 
     /// <summary>
-    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation —
+    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation:
     /// a raw byte buffer, or the byte image of a bound value.
     /// </summary>
     /// <remarks>

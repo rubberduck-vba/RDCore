@@ -179,8 +179,8 @@ public abstract class AppHost<TApp>() : IDisposable
     /// (<see cref="SdkAppCommandLineArgs"/>), which is what a client or a server application is started with, and
     /// answers a request for help or version text and a command line it cannot make sense of.
     /// <para>
-    /// 👉 An application whose arguments are not the platform's — a command-line tool that takes a verb and the
-    /// verb's own options — overrides this and answers <see langword="false"/>: every option of the verb is one the
+    /// 👉 An application whose arguments are not the platform's (a command-line tool that takes a verb and the
+    /// verb's own options) overrides this and answers <see langword="false"/>: every option of the verb is one the
     /// platform's parser has never heard of, and would be rejected as a mistake before the verb was ever reached.
     /// What is wrong with such a command line is for the verb to say.
     /// </para>

@@ -21,8 +21,8 @@ public abstract record class VBModuleSymbol(Uri WorkspaceRoot, Uri ParentUri, st
     public ModuleDirectives Directives { get; init; } = ModuleDirectives.None;
 
     /// <summary>
-    /// This module's direct members — fields, procedures, properties, and any module-level <c>Type</c>
-    /// or <c>Enum</c> declaration — in declaration order. Empty until a workspace-wide pass populates
+    /// This module's direct members (fields, procedures, properties, and any module-level <c>Type</c>
+    /// or <c>Enum</c> declaration) in declaration order. Empty until a workspace-wide pass populates
     /// it (<see cref="RDCore.SDK.Model.Types.Complex.IVBMemberOwnerType"/>'s same "carry it on the
     /// symbol" pattern <c>VBUserDefinedTypeMemberSymbol.Members</c> uses, just a second pass here
     /// instead of falling out of a single AST node's own children: a module's members are separate

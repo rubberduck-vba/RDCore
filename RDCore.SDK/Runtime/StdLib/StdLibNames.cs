@@ -5,7 +5,7 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// convention does not reach have to state one.
 /// </summary>
 /// <remarks>
-/// Every one of these is overridable per declaration — the <c>$</c>-suffixed function pairs and
+/// Every one of these is overridable per declaration: the <c>$</c>-suffixed function pairs and
 /// <c>FormShowConstants</c> are names no convention recovers. The convention exists so that the
 /// hundred-odd declarations that are perfectly regular stay free of ceremony, not to be clever about
 /// the exceptions.

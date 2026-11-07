@@ -750,6 +750,12 @@
   <data name="VBCompileError_ModuleNestedTooDeeplyToRead_Verbose" xml:space="preserve">
     <value>Ce module est imbriqué trop profondément pour être lu&#160;: une expression ou un bloc y est imbriqué dans des milliers d&apos;autres. Scindez-en la partie la plus profonde en parties plus petites.</value>
   </data>
+  <data name="VBCompileError_OutputItemsNotSeparated" xml:space="preserve">
+    <value>Éléments de sortie non séparés</value>
+  </data>
+  <data name="VBCompileError_OutputItemsNotSeparated_Verbose" xml:space="preserve">
+    <value>Cet élément de sortie est écrit juste après un autre, sans rien entre les deux. L&apos;éditeur VBE écrirait un ; entre eux, qui les imprime de la même façon.</value>
+  </data>
   <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
     <value>Attendu : Then. Une directive #If ou #ElseIf s&apos;écrit #If expression Then.</value>
   </data>

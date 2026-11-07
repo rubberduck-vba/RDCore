@@ -514,6 +514,25 @@ public abstract class RDCoreServerApp(
     }
 
     /// <summary>
+    /// Whether the client of an <c>initialize</c> request says nobody is there to answer what the server would ask its user
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions.Unattended"/>).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    protected internal static bool ClientRunsUnattended(InitializeParams request) => ReadInitializationOptions(request.InitializationOptions)?.Unattended == true;
+
+    /// <summary>
+    /// Whether the client of an <c>initialize</c> request answers what the server asks its user before the request is answered
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions.AnswersDuringInitialize"/>): it says it does, and does not run unattended.
+    /// </summary>
+    /// <remarks>
+    /// A server asks nothing while it answers <c>initialize</c> of a client this is <see langword="false"/> for: it would wait for an answer that does not come,
+    /// and the client for the answer to <c>initialize</c>.
+    /// </remarks>
+    /// <param name="request">The request.</param>
+    protected internal static bool ClientAnswersDuringInitialize(InitializeParams request)
+        => ReadInitializationOptions(request.InitializationOptions) is { AnswersDuringInitialize: true, Unattended: false };
+
+    /// <summary>
     /// Reads the <c>initializationOptions</c> of an <c>initialize</c> request, which the protocol leaves a client free to put anything in.
     /// </summary>
     /// <param name="initializationOptions">What the request carried.</param>
@@ -559,7 +578,7 @@ public abstract class RDCoreServerApp(
     /// The request wins: it is LSP's own way for a client to say which process owns this server, and
     /// only a client that spawned the server itself could have passed <c>-p</c>. Nothing read the
     /// request at all, so a client that sent a <c>processId</c> was told in the log that it had sent
-    /// none — and nothing watched it, leaving the whole platform running after the client that owned it
+    /// none, and nothing watched it, leaving the whole platform running after the client that owned it
     /// was gone. A <c>null</c> <c>processId</c> is LSP's "the parent is not a process I can name".
     /// </remarks>
     internal static int ClientProcessId(long? requested, int configured, out bool outOfRange)

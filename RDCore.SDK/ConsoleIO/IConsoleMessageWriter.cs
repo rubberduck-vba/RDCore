@@ -16,7 +16,7 @@ public interface IConsoleMessageWriter
     /// Renders a fully built message.
     /// </summary>
     /// <param name="builder">
-    /// The message parts — kind, and any of: title, timestamp, body, verbose, stack trace, placeholder spans.
+    /// The message parts: kind, and any of: title, timestamp, body, verbose, stack trace, placeholder spans.
     /// </param>
     IConsoleMessageWriter WriteMessage(ConsoleMessageBuilder builder);
 
@@ -33,7 +33,7 @@ public interface IConsoleMessageWriter
     IConsoleMessageWriter WriteLegalNotice();
 
     /// <summary>
-    /// Writes a single plain line at <see cref="MessageKind.Trace"/> — no title, timestamp, or icon.
+    /// Writes a single plain line at <see cref="MessageKind.Trace"/>: no title, timestamp, or icon.
     /// </summary>
     /// <param name="text">The line to write.</param>
     IConsoleMessageWriter WriteLine(string text)

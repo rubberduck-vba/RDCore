@@ -7,8 +7,8 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)|—|A line label. Its name is a key of [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)`.Labels`.|
-|[LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html)|—|A line number. Its number is a key of `InstructionList.Labels`.|
+|[LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)|None|A line label. Its name is a key of [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)`.Labels`.|
+|[LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html)|None|A line number. Its number is a key of `InstructionList.Labels`.|
 
 Statement labels and line numbers are captured as separate nodes. A jump statement's target is an expression naming
 or numbering a label, with no static link to the label node
@@ -35,8 +35,8 @@ symbols in scope.
 
 |Condition|Diagnostic|
 |---|---|
-|A jump names a line label or line number the procedure does not define.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
-|A label is defined more than once in a procedure, including two labels differing only by case.|[VBC09319](../diagnostics/vbc09319.md) — Duplicate label definition|
+|A jump names a line label or line number the procedure does not define.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
+|A label is defined more than once in a procedure, including two labels differing only by case.|[VBC09319](../diagnostics/vbc09319.md): Duplicate label definition|
 
 For a repeated label definition, lowering keeps the first offset the label was defined at; every jump to the label
 resolves against that first definition
@@ -54,7 +54,7 @@ end of the procedure body.
 A `GoTo` from anywhere in the procedure into the middle of a loop body or an `If` body resolves in the same way as any
 other jump ([**RD-VBAL §5.4.2.12** GoTo Statement](rd-vbal.5.4.2.12.goto-statement.md)).
 
-> 👉 Jumping into the middle of a loop body has a consequence for the loop's hidden per-activation state. A `Next`
+> Jumping into the middle of a loop body has a consequence for the loop's hidden per-activation state. A `Next`
 > closer reached without its opener having run in the activation raises run-time error 92
 > ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md),
 > [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)).
@@ -67,6 +67,3 @@ A named label never sets `Erl`, in either `ErlLineNumbering` mode. Only a label 
 [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) builds the label
 table of an `InstructionList` and reports both
 diagnostics ([**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.1** Statement Blocks](rd-vbal.5.4.1.statement-blocks.md) | ⏭️ [**RD-VBAL §5.4.1.2** Rem Statement](rd-vbal.5.4.1.2.rem-statement.md)

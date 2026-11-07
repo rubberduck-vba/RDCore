@@ -169,7 +169,7 @@ public interface IStdStringsModule
         VBTriState groupDigits = VBTriState.VBUseDefault);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.11.1.13 FormatPercent</strong> Gets a string formatted as a percentage — the expression multiplied by 100, with a trailing <c>%</c>.
+    /// <strong>MS-VBAL 6.1.2.11.1.13 FormatPercent</strong> Gets a string formatted as a percentage: the expression multiplied by 100, with a trailing <c>%</c>.
     /// </summary>
     /// <param name="expression">The expression to format.</param>
     /// <param name="numDigitsAfterDecimal">How many places to the right of the decimal separator to show. <c>-1</c> uses the environment's regional settings.</param>
@@ -412,7 +412,7 @@ public interface IStdStringsModule
         [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.11.1.37 StrConv</strong> Gets a string converted as a <see cref="VBStrConv"/> conversion says — cased, widened, narrowed, or transliterated.
+    /// <strong>MS-VBAL 6.1.2.11.1.37 StrConv</strong> Gets a string converted as a <see cref="VBStrConv"/> conversion says: cased, widened, narrowed, or transliterated.
     /// </summary>
     /// <remarks>
     /// 👉 The specification declares <paramref name="localeID"/> required, with no <c>Optional</c>; it is optional here, with no default, because
@@ -429,7 +429,7 @@ public interface IStdStringsModule
     /// <strong>MS-VBAL 6.1.2.11.1.38 String</strong> Gets a string of a given character, repeated a given number of times.
     /// </summary>
     /// <remarks>
-    /// 👉 Its VBA name is <c>String</c>, which is also a reserved type name — so it is stated here rather
+    /// 👉 Its VBA name is <c>String</c>, which is also a reserved type name, so it is stated here rather
     /// than taken from this method's own, which cannot be it.
     /// </remarks>
     /// <param name="number">How many times to repeat the character.</param>

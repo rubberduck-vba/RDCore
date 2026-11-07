@@ -273,13 +273,20 @@ printStmt : printMethod whiteSpace markedFileNumber whiteSpace? COMMA (whiteSpac
 unqualifiedObjectPrintStmt : printMethod (whiteSpace outputList)?;
 
 // 5.4.5.8.1 Output Lists
-outputList : outputItem (whiteSpace? outputItem)*;
-outputItem :
-    outputClause
-    | charPosition
-    | outputClause whiteSpace? charPosition
+// MS-VBAL lets an output item follow another with nothing between them (output-list = *output-item); RD-VBA requires a space, a `;` or a `,` between two
+// output clauses (RD-VBAL 5.4.5.8.1), as the VBE writes them: it writes `1(2)` as `1; (2)`. A segment is what the list holds between two spaces, in which a
+// clause is never right after another. With an item allowed right after an expression, the `(` that follows a name could begin either the name's argument
+// list or an item, and SLL read to the end of a nested call to tell them apart, once for each call it is nested in. A clause written right after another is
+// OutputItemsNotSeparated (ModuleParser.ReportOutputItemsNotSeparated).
+// An item is a value and a position a separator: MS-VBAL's output-item, a clause and a position together, is either of them, or both one after the other.
+outputList : outputSegment (whiteSpace outputSegment)*;
+outputSegment :
+    outputPosition* outputItem (outputPosition+ outputItem)* outputPosition*
+    | outputPosition+
 ;
-outputClause : spcClause | tabClause | outputExpression;
+outputItem : outputClause;
+outputPosition : charPosition;
+outputClause : spcClause | tabClause | {!IsSpcOrTabClauseAhead()}? outputExpression;
 charPosition : SEMICOLON | COMMA;
 outputExpression : expression;
 spcClause : SPC whiteSpace? LPAREN whiteSpace? spcNumber whiteSpace? RPAREN;
@@ -502,8 +509,8 @@ redimVariableDeclaration : expression (whiteSpace asTypeClause)?;
 
 // 5.4.3.5 Mid/MidB/Mid$/MidB$ Statement
 // This needs to be explicitly defined to distinguish between Mid as a function and Mid as a keyword.
-midStatement : modeSpecifier 
-    LPAREN whiteSpace? 
+midStatement : modeSpecifier whiteSpace?
+    LPAREN whiteSpace?
     lExpression whiteSpace? COMMA whiteSpace? expression whiteSpace? (COMMA whiteSpace? expression whiteSpace?)? 
     RPAREN 
     whiteSpace? EQ whiteSpace? 
@@ -596,7 +603,9 @@ withStmt :
 
 // Special forms with special syntax, only available in VBA reports or VB6 forms and pictureboxes.
 // lineSpecialFormOption is required if expression is missing
-lineSpecialForm : expression whiteSpace ((STEP whiteSpace?)? tuple)?
+// the object and the word together are one l-expression (`Line`, `Form1.Line`, `.Line`), entered as a callee: VBABaseParser leaves the blanks before an
+// argument list out of it, so `Line (0, 0) - (1, 1)` begins with its first point, and not with an index of Line.
+lineSpecialForm : lExpression whiteSpace ((STEP whiteSpace?)? tuple)?
     whiteSpace? MINUS whiteSpace?
 	(STEP whiteSpace?)? tuple whiteSpace?
 	(COMMA whiteSpace? expression? whiteSpace?)?
@@ -719,6 +728,9 @@ lExpression :
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
     | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
+    // blanks before the argument list (MS-VBAL 3.3: a token takes the white space before it), so `x = F (2)` calls F with 2. The last alternative, of
+    // the lowest precedence: VBABaseParser enters lExpression above it as the callee of a call statement, where `F (2)` is F called with (2). Keep it last.
+    | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
 ;
 
 //This is a hack to allow attaching identifier references for default members to the exclaramtion mark.
@@ -990,5 +1002,5 @@ annotationArgList :
 ;
 annotationArg : expression;
 
-mandatoryLineContinuation : LINE_CONTINUATION WS*;
+mandatoryLineContinuation : WS* LINE_CONTINUATION WS*;
 whiteSpace : (WS | LINE_CONTINUATION)+;

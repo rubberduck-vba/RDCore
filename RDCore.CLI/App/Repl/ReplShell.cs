@@ -28,7 +28,9 @@ internal sealed class ReplShell(
     IReplCommandDispatcher dispatcher,
     ILogger<ReplShell> logger,
     ConsolePromptEditor? editor = null,
-    ReplProgressDisplay? progress = null)
+    ReplProgressDisplay? progress = null,
+    ReplServerQuestions? questions = null,
+    IConsoleKeys? keys = null)
 {
     // the progress of the language server's work is drawn while the shell runs: its display is the shell's for as long.
     private readonly ReplProgressDisplay? _progress = progress;
@@ -64,19 +66,34 @@ internal sealed class ReplShell(
         await dispatcher.DispatchAsync(context, "MEMORY", string.Empty, CancellationToken.None);
         WriteReady();
 
-        while (!token.IsCancellationRequested)
+        try
         {
-            var line = await ReadLineAsync(token);
-            if (line is null)
+            while (!token.IsCancellationRequested)
             {
-                // end of input: a piped script ran out, or the terminal closed.
-                return;
-            }
+                // what the language server asked while the last line was typed, and what it ran, is asked before the next prompt: one reader of the keys at a
+                // time (ReplServerQuestions).
+                if (!await AskWaitingAsync(token))
+                {
+                    return;
+                }
 
-            if (await HandleAsync(context, line, token) == ReplCommandResult.Exit)
-            {
-                return;
+                var line = await ReadLineAsync(token);
+                if (line is null)
+                {
+                    // end of input: a piped script ran out, or the terminal closed.
+                    return;
+                }
+
+                if (await HandleAsync(context, line, token) == ReplCommandResult.Exit)
+                {
+                    return;
+                }
             }
+        }
+        finally
+        {
+            // a question the shell never got to ask is answered with no choice: the server isn't left waiting for a shell that has ended.
+            questions?.Close();
         }
     }
 
@@ -218,6 +235,25 @@ internal sealed class ReplShell(
         console.WriteLine();
         console.WriteLine(Resources.Repl_Break);
         WriteReady();
+    }
+
+    // the questions that wait are asked as a line would be read, on a thread of their own the shell waits for on the token; whether the shell goes on.
+    private async Task<bool> AskWaitingAsync(CancellationToken token)
+    {
+        if (questions is null || keys is null)
+        {
+            return true;
+        }
+
+        try
+        {
+            await Task.Run(() => questions.AskWaiting(keys), CancellationToken.None).WaitAsync(token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     // a line is read with the editor where there is one - the keys are a console's, and it is drawn on one that understands ANSI escape sequences - and with

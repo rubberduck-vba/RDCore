@@ -1064,6 +1064,20 @@ namespace RDCore.SDK {
             }
         }
 
+        /// <summary>Looks up a localized string similar to Output items not separated.</summary>
+        public static string VBCompileError_OutputItemsNotSeparated {
+            get {
+                return ResourceManager.GetString("VBCompileError_OutputItemsNotSeparated", resourceCulture);
+            }
+        }
+
+        /// <summary>Looks up a localized string similar to This output item is written right after another, with nothing between them. The VBE would write a ; between them, which prints them the same way.</summary>
+        public static string VBCompileError_OutputItemsNotSeparated_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_OutputItemsNotSeparated_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>Looks up a localized string similar to Expected: Then. An #If or #ElseIf directive is written #If expression Then.</summary>
         public static string VBCompileError_DirectiveExpectedThen_Verbose {
             get {

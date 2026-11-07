@@ -332,27 +332,44 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
         Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
     }
 
-    [TestMethod]
-    public void ATypedNameSharingAReferencedLibrarysName_MatchesThatName()
+    // a module of a referenced library that declares a public function Left As Long. No referenced library declares a member by its bare name yet (a class's
+    // members are an object's); one whose module does is built here as its reader would stamp it.
+    private static Symbol[] WidgetsLeft()
     {
-        // a member of a referenced library carries the key and the library name its reader stamps, and a library referenced
-        // after VBA outranks it: that Left is what Left means, and so what Left$ means. The standard library's Left$ stands in
-        // for the standard library's own Left only, so the character is judged against the referenced library's Long. No
-        // referenced library declares a member by its bare name yet (a class's members are an object's); one whose module
-        // does is built here as its reader would stamp it.
         const string widgets = "Widgets";
         var gadgets = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "Gadgets")
             .With(SymbolProperties.Library, widgets).With(SymbolProperties.LibraryPriority, 1);
         var widgetsLeft = (Function(gadgets.Uri, "Left", VBLongType.TypeInfo) with { AccessModifier = AccessModifier.Public })
             .With(SymbolProperties.Library, widgets).With(SymbolProperties.LibraryPriority, 1)
             .With(SymbolProperties.ExternalTarget, "Widgets.Gadgets.Left/method");
+        return [gadgets, widgetsLeft];
+    }
+
+    [TestMethod]
+    public void ATypedNameSharingAReferencedLibrarysName_IsTheStandardLibrarys()
+    {
+        // the standard library comes before every reference (MS-VBAL §4.1), so its Left is what Left means, and its Left$ what Left$ means: a String.
         var module = Module("Mod1");
         var procedure = Procedure(module.Uri, "DoWork");
-        var context = ContextAt(procedure.Uri, [gadgets, widgetsLeft, module, procedure, .. Library()]);
+        var context = ContextAt(procedure.Uri, [.. WidgetsLeft(), module, procedure, .. Library()]);
 
         var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Left", "$"));
 
-        Assert.IsTrue(result.IsError, "the standard library's Left$ stood in for another library's Left");
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+        Assert.AreEqual(VBStringType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void ATypedNameOfAReferencedLibrarysName_MatchesThatName()
+    {
+        // where only the referenced library declares Left, that Left is what Left$ means, and the character is judged against its Long.
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var context = ContextAt(procedure.Uri, [.. WidgetsLeft(), module, procedure]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Left", "$"));
+
+        Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
         Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
     }

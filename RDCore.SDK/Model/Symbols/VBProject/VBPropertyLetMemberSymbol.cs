@@ -20,7 +20,7 @@ public sealed record class VBPropertyLetMemberSymbol(Uri WorkspaceRoot, Uri Pare
 {
     /// <remarks>
     /// The property's <c>Get</c>, <c>Let</c> and <c>Set</c> accessors share a name, and each defines a scope of its
-    /// own — its parameters and locals. The <c>Get</c> accessor keeps the property's own identity; a <c>Let</c>
+    /// own: its parameters and locals. The <c>Get</c> accessor keeps the property's own identity; a <c>Let</c>
     /// accessor is addressed with the suffix <c>Let</c> after the name (<see cref="SymbolUri"/>): <c>Item]Let</c>.
     /// </remarks>
     protected override string? UriSuffix => SymbolUri.LetSuffix;

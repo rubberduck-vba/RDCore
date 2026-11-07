@@ -58,6 +58,3 @@ had reached the end of the procedure body
 - [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.GoSubDepth` exposes the
   number of entries in the GoSub Resumption List, not its top entry. No member exposes the entries themselves
   ([**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.13** On...GoTo Statement](rd-vbal.5.4.2.13.on-goto-statement.md) | ⏭️ [**RD-VBAL §5.4.2.15** Return Statement](rd-vbal.5.4.2.15.return-statement.md)

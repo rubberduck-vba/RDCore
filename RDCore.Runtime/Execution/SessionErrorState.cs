@@ -84,7 +84,7 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
             : number < (int)VBRuntimeErrorId.NobodyToAnswer && Enum.IsDefined(typeof(VBRuntimeErrorId), number) ? number : 95);
 
     /// <inheritdoc/>
-    public bool Clear()
+    public bool Clear(bool keepLineNumber = false)
     {
         var had = HasError;
 
@@ -94,7 +94,7 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
         Source = string.Empty;
         HelpFile = string.Empty;
         HelpContext = 0;
-        LineNumber = 0;
+        LineNumber = keepLineNumber ? LineNumber : 0;
         StackTrace = VBStackTrace.Empty;
 
         // MS-VBAL §6.1.3.2.1.1: "clears all property settings of the Err object", the one a DLL call sets among them.

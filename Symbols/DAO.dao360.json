@@ -1,0 +1,5440 @@
+{
+  "formatVersion": 2,
+  "name": "DAO",
+  "description": "Microsoft DAO 3.6 Object Library",
+  "origin": {
+    "guid": "{00025E01-0000-0000-C000-000000000046}",
+    "version": "5.0",
+    "file": "dao360.dll",
+    "exportedBy": "rdc export-library 0.1"
+  },
+  "enums": [
+    {
+      "name": "RecordsetTypeEnum",
+      "members": [
+        {
+          "name": "dbOpenTable",
+          "value": 1
+        },
+        {
+          "name": "dbOpenDynaset",
+          "value": 2
+        },
+        {
+          "name": "dbOpenSnapshot",
+          "value": 4
+        },
+        {
+          "name": "dbOpenForwardOnly",
+          "value": 8
+        },
+        {
+          "name": "dbOpenDynamic",
+          "value": 16
+        }
+      ]
+    },
+    {
+      "name": "EditModeEnum",
+      "members": [
+        {
+          "name": "dbEditNone"
+        },
+        {
+          "name": "dbEditInProgress",
+          "value": 1
+        },
+        {
+          "name": "dbEditAdd",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "RecordsetOptionEnum",
+      "members": [
+        {
+          "name": "dbDenyWrite",
+          "value": 1
+        },
+        {
+          "name": "dbDenyRead",
+          "value": 2
+        },
+        {
+          "name": "dbReadOnly",
+          "value": 4
+        },
+        {
+          "name": "dbAppendOnly",
+          "value": 8
+        },
+        {
+          "name": "dbInconsistent",
+          "value": 16
+        },
+        {
+          "name": "dbConsistent",
+          "value": 32
+        },
+        {
+          "name": "dbSQLPassThrough",
+          "value": 64
+        },
+        {
+          "name": "dbFailOnError",
+          "value": 128
+        },
+        {
+          "name": "dbForwardOnly",
+          "value": 256
+        },
+        {
+          "name": "dbSeeChanges",
+          "value": 512
+        },
+        {
+          "name": "dbRunAsync",
+          "value": 1024
+        },
+        {
+          "name": "dbExecDirect",
+          "value": 2048
+        }
+      ]
+    },
+    {
+      "name": "LockTypeEnum",
+      "members": [
+        {
+          "name": "dbPessimistic",
+          "value": 2
+        },
+        {
+          "name": "dbOptimistic",
+          "value": 3
+        },
+        {
+          "name": "dbOptimisticValue",
+          "value": 1
+        },
+        {
+          "name": "dbOptimisticBatch",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "name": "UpdateCriteriaEnum",
+      "members": [
+        {
+          "name": "dbCriteriaKey",
+          "value": 1
+        },
+        {
+          "name": "dbCriteriaModValues",
+          "value": 2
+        },
+        {
+          "name": "dbCriteriaAllCols",
+          "value": 4
+        },
+        {
+          "name": "dbCriteriaTimestamp",
+          "value": 8
+        },
+        {
+          "name": "dbCriteriaDeleteInsert",
+          "value": 16
+        },
+        {
+          "name": "dbCriteriaUpdate",
+          "value": 32
+        }
+      ]
+    },
+    {
+      "name": "FieldAttributeEnum",
+      "members": [
+        {
+          "name": "dbFixedField",
+          "value": 1
+        },
+        {
+          "name": "dbVariableField",
+          "value": 2
+        },
+        {
+          "name": "dbAutoIncrField",
+          "value": 16
+        },
+        {
+          "name": "dbUpdatableField",
+          "value": 32
+        },
+        {
+          "name": "dbSystemField",
+          "value": 8192
+        },
+        {
+          "name": "dbHyperlinkField",
+          "value": 32768
+        },
+        {
+          "name": "dbDescending",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "DataTypeEnum",
+      "members": [
+        {
+          "name": "dbBoolean",
+          "value": 1
+        },
+        {
+          "name": "dbByte",
+          "value": 2
+        },
+        {
+          "name": "dbInteger",
+          "value": 3
+        },
+        {
+          "name": "dbLong",
+          "value": 4
+        },
+        {
+          "name": "dbCurrency",
+          "value": 5
+        },
+        {
+          "name": "dbSingle",
+          "value": 6
+        },
+        {
+          "name": "dbDouble",
+          "value": 7
+        },
+        {
+          "name": "dbDate",
+          "value": 8
+        },
+        {
+          "name": "dbBinary",
+          "value": 9
+        },
+        {
+          "name": "dbText",
+          "value": 10
+        },
+        {
+          "name": "dbLongBinary",
+          "value": 11
+        },
+        {
+          "name": "dbMemo",
+          "value": 12
+        },
+        {
+          "name": "dbGUID",
+          "value": 15
+        },
+        {
+          "name": "dbBigInt",
+          "value": 16
+        },
+        {
+          "name": "dbVarBinary",
+          "value": 17
+        },
+        {
+          "name": "dbChar",
+          "value": 18
+        },
+        {
+          "name": "dbNumeric",
+          "value": 19
+        },
+        {
+          "name": "dbDecimal",
+          "value": 20
+        },
+        {
+          "name": "dbFloat",
+          "value": 21
+        },
+        {
+          "name": "dbTime",
+          "value": 22
+        },
+        {
+          "name": "dbTimeStamp",
+          "value": 23
+        }
+      ]
+    },
+    {
+      "name": "RelationAttributeEnum",
+      "members": [
+        {
+          "name": "dbRelationUnique",
+          "value": 1
+        },
+        {
+          "name": "dbRelationDontEnforce",
+          "value": 2
+        },
+        {
+          "name": "dbRelationInherited",
+          "value": 4
+        },
+        {
+          "name": "dbRelationUpdateCascade",
+          "value": 256
+        },
+        {
+          "name": "dbRelationDeleteCascade",
+          "value": 4096
+        },
+        {
+          "name": "dbRelationLeft",
+          "value": 16777216
+        },
+        {
+          "name": "dbRelationRight",
+          "value": 33554432
+        }
+      ]
+    },
+    {
+      "name": "TableDefAttributeEnum",
+      "members": [
+        {
+          "name": "dbAttachExclusive",
+          "value": 65536
+        },
+        {
+          "name": "dbAttachSavePWD",
+          "value": 131072
+        },
+        {
+          "name": "dbSystemObject",
+          "value": -2147483646
+        },
+        {
+          "name": "dbAttachedTable",
+          "value": 1073741824
+        },
+        {
+          "name": "dbAttachedODBC",
+          "value": 536870912
+        },
+        {
+          "name": "dbHiddenObject",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "QueryDefTypeEnum",
+      "members": [
+        {
+          "name": "dbQSelect"
+        },
+        {
+          "name": "dbQProcedure",
+          "value": 224
+        },
+        {
+          "name": "dbQAction",
+          "value": 240
+        },
+        {
+          "name": "dbQCrosstab",
+          "value": 16
+        },
+        {
+          "name": "dbQDelete",
+          "value": 32
+        },
+        {
+          "name": "dbQUpdate",
+          "value": 48
+        },
+        {
+          "name": "dbQAppend",
+          "value": 64
+        },
+        {
+          "name": "dbQMakeTable",
+          "value": 80
+        },
+        {
+          "name": "dbQDDL",
+          "value": 96
+        },
+        {
+          "name": "dbQSQLPassThrough",
+          "value": 112
+        },
+        {
+          "name": "dbQSetOperation",
+          "value": 128
+        },
+        {
+          "name": "dbQSPTBulk",
+          "value": 144
+        },
+        {
+          "name": "dbQCompound",
+          "value": 160
+        }
+      ]
+    },
+    {
+      "name": "QueryDefStateEnum",
+      "members": [
+        {
+          "name": "dbQPrepare",
+          "value": 1
+        },
+        {
+          "name": "dbQUnprepare",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "DatabaseTypeEnum",
+      "members": [
+        {
+          "name": "dbVersion10",
+          "value": 1
+        },
+        {
+          "name": "dbEncrypt",
+          "value": 2
+        },
+        {
+          "name": "dbDecrypt",
+          "value": 4
+        },
+        {
+          "name": "dbVersion11",
+          "value": 8
+        },
+        {
+          "name": "dbVersion20",
+          "value": 16
+        },
+        {
+          "name": "dbVersion30",
+          "value": 32
+        },
+        {
+          "name": "dbVersion40",
+          "value": 64
+        }
+      ]
+    },
+    {
+      "name": "CollatingOrderEnum",
+      "members": [
+        {
+          "name": "dbSortNeutral",
+          "value": 1024
+        },
+        {
+          "name": "dbSortArabic",
+          "value": 1025
+        },
+        {
+          "name": "dbSortCyrillic",
+          "value": 1049
+        },
+        {
+          "name": "dbSortCzech",
+          "value": 1029
+        },
+        {
+          "name": "dbSortDutch",
+          "value": 1043
+        },
+        {
+          "name": "dbSortGeneral",
+          "value": 1033
+        },
+        {
+          "name": "dbSortGreek",
+          "value": 1032
+        },
+        {
+          "name": "dbSortHebrew",
+          "value": 1037
+        },
+        {
+          "name": "dbSortHungarian",
+          "value": 1038
+        },
+        {
+          "name": "dbSortIcelandic",
+          "value": 1039
+        },
+        {
+          "name": "dbSortNorwdan",
+          "value": 1030
+        },
+        {
+          "name": "dbSortPDXIntl",
+          "value": 1033
+        },
+        {
+          "name": "dbSortPDXNor",
+          "value": 1030
+        },
+        {
+          "name": "dbSortPDXSwe",
+          "value": 1053
+        },
+        {
+          "name": "dbSortPolish",
+          "value": 1045
+        },
+        {
+          "name": "dbSortSpanish",
+          "value": 1034
+        },
+        {
+          "name": "dbSortSwedFin",
+          "value": 1053
+        },
+        {
+          "name": "dbSortTurkish",
+          "value": 1055
+        },
+        {
+          "name": "dbSortJapanese",
+          "value": 1041
+        },
+        {
+          "name": "dbSortChineseSimplified",
+          "value": 2052
+        },
+        {
+          "name": "dbSortChineseTraditional",
+          "value": 1028
+        },
+        {
+          "name": "dbSortKorean",
+          "value": 1042
+        },
+        {
+          "name": "dbSortThai",
+          "value": 1054
+        },
+        {
+          "name": "dbSortSlovenian",
+          "value": 1060
+        },
+        {
+          "name": "dbSortUndefined",
+          "value": -1
+        }
+      ]
+    },
+    {
+      "name": "IdleEnum",
+      "members": [
+        {
+          "name": "dbFreeLocks",
+          "value": 1
+        },
+        {
+          "name": "dbRefreshCache",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "name": "PermissionEnum",
+      "members": [
+        {
+          "name": "dbSecNoAccess"
+        },
+        {
+          "name": "dbSecFullAccess",
+          "value": 1048575
+        },
+        {
+          "name": "dbSecDelete",
+          "value": 65536
+        },
+        {
+          "name": "dbSecReadSec",
+          "value": 131072
+        },
+        {
+          "name": "dbSecWriteSec",
+          "value": 262144
+        },
+        {
+          "name": "dbSecWriteOwner",
+          "value": 524288
+        },
+        {
+          "name": "dbSecDBCreate",
+          "value": 1
+        },
+        {
+          "name": "dbSecDBOpen",
+          "value": 2
+        },
+        {
+          "name": "dbSecDBExclusive",
+          "value": 4
+        },
+        {
+          "name": "dbSecDBAdmin",
+          "value": 8
+        },
+        {
+          "name": "dbSecCreate",
+          "value": 1
+        },
+        {
+          "name": "dbSecReadDef",
+          "value": 4
+        },
+        {
+          "name": "dbSecWriteDef",
+          "value": 65548
+        },
+        {
+          "name": "dbSecRetrieveData",
+          "value": 20
+        },
+        {
+          "name": "dbSecInsertData",
+          "value": 32
+        },
+        {
+          "name": "dbSecReplaceData",
+          "value": 64
+        },
+        {
+          "name": "dbSecDeleteData",
+          "value": 128
+        }
+      ]
+    },
+    {
+      "name": "SynchronizeTypeEnum",
+      "members": [
+        {
+          "name": "dbRepExportChanges",
+          "value": 1
+        },
+        {
+          "name": "dbRepImportChanges",
+          "value": 2
+        },
+        {
+          "name": "dbRepImpExpChanges",
+          "value": 4
+        },
+        {
+          "name": "dbRepSyncInternet",
+          "value": 16
+        }
+      ]
+    },
+    {
+      "name": "ReplicaTypeEnum",
+      "members": [
+        {
+          "name": "dbRepMakeReadOnly",
+          "value": 2
+        },
+        {
+          "name": "dbRepMakePartial",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "WorkspaceTypeEnum",
+      "members": [
+        {
+          "name": "dbUseODBC",
+          "value": 1
+        },
+        {
+          "name": "dbUseJet",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "CursorDriverEnum",
+      "members": [
+        {
+          "name": "dbUseDefaultCursor",
+          "value": -1
+        },
+        {
+          "name": "dbUseODBCCursor",
+          "value": 1
+        },
+        {
+          "name": "dbUseServerCursor",
+          "value": 2
+        },
+        {
+          "name": "dbUseClientBatchCursor",
+          "value": 3
+        },
+        {
+          "name": "dbUseNoCursor",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "name": "DriverPromptEnum",
+      "members": [
+        {
+          "name": "dbDriverPrompt",
+          "value": 2
+        },
+        {
+          "name": "dbDriverNoPrompt",
+          "value": 1
+        },
+        {
+          "name": "dbDriverComplete"
+        },
+        {
+          "name": "dbDriverCompleteRequired",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "SetOptionEnum",
+      "members": [
+        {
+          "name": "dbPageTimeout",
+          "value": 6
+        },
+        {
+          "name": "dbLockRetry",
+          "value": 57
+        },
+        {
+          "name": "dbMaxBufferSize",
+          "value": 8
+        },
+        {
+          "name": "dbUserCommitSync",
+          "value": 58
+        },
+        {
+          "name": "dbImplicitCommitSync",
+          "value": 59
+        },
+        {
+          "name": "dbExclusiveAsyncDelay",
+          "value": 60
+        },
+        {
+          "name": "dbSharedAsyncDelay",
+          "value": 61
+        },
+        {
+          "name": "dbMaxLocksPerFile",
+          "value": 62
+        },
+        {
+          "name": "dbLockDelay",
+          "value": 63
+        },
+        {
+          "name": "dbRecycleLVs",
+          "value": 65
+        },
+        {
+          "name": "dbFlushTransactionTimeout",
+          "value": 66
+        }
+      ]
+    },
+    {
+      "name": "ParameterDirectionEnum",
+      "members": [
+        {
+          "name": "dbParamInput",
+          "value": 1
+        },
+        {
+          "name": "dbParamOutput",
+          "value": 2
+        },
+        {
+          "name": "dbParamInputOutput",
+          "value": 3
+        },
+        {
+          "name": "dbParamReturnValue",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "name": "UpdateTypeEnum",
+      "members": [
+        {
+          "name": "dbUpdateBatch",
+          "value": 4
+        },
+        {
+          "name": "dbUpdateRegular",
+          "value": 1
+        },
+        {
+          "name": "dbUpdateCurrentRecord",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "RecordStatusEnum",
+      "members": [
+        {
+          "name": "dbRecordUnmodified"
+        },
+        {
+          "name": "dbRecordModified",
+          "value": 1
+        },
+        {
+          "name": "dbRecordNew",
+          "value": 2
+        },
+        {
+          "name": "dbRecordDeleted",
+          "value": 3
+        },
+        {
+          "name": "dbRecordDBDeleted",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "name": "CommitTransOptionsEnum",
+      "members": [
+        {
+          "name": "dbForceOSFlush",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "_DAOSuppHelp",
+      "members": [
+        {
+          "name": "LogMessages"
+        },
+        {
+          "name": "KeepLocal"
+        },
+        {
+          "name": "Replicable"
+        },
+        {
+          "name": "ReplicableBool"
+        },
+        {
+          "name": "V1xNullBehavior"
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "_DAO",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        }
+      ]
+    },
+    {
+      "name": "Properties",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Property",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "_DynaCollection",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "_Collection",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        }
+      ]
+    },
+    {
+      "name": "Property",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "dispId": 0
+        },
+        {
+          "name": "Value",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Inherited",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "name": "Workspaces",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Workspace",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workspace",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IsolateODBCTrans",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "IsolateODBCTrans",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Databases",
+          "kind": "propertyGet",
+          "type": "Databases",
+          "dispId": 0
+        },
+        {
+          "name": "Users",
+          "kind": "propertyGet",
+          "type": "Users"
+        },
+        {
+          "name": "Groups",
+          "kind": "propertyGet",
+          "type": "Groups"
+        },
+        {
+          "name": "BeginTrans"
+        },
+        {
+          "name": "CommitTrans",
+          "parameters": [
+            {
+              "name": "Options",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "name": "Close"
+        },
+        {
+          "name": "Rollback"
+        },
+        {
+          "name": "OpenDatabase",
+          "type": "Database",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ReadOnly",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateDatabase",
+          "type": "Database",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Connect",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Option",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateUser",
+          "type": "User",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "PID",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateGroup",
+          "type": "Group",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "PID",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "OpenConnection",
+          "type": "Connection",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ReadOnly",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "LoginTimeout",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "LoginTimeout",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultCursorDriver",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "DefaultCursorDriver",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "hEnv",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Connections",
+          "kind": "propertyGet",
+          "type": "Connections"
+        }
+      ]
+    },
+    {
+      "name": "Databases",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Database",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Database",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "CollatingOrder",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "QueryTimeout",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "QueryTimeout",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Transactions",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Updatable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Version",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "RecordsAffected",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "TableDefs",
+          "kind": "propertyGet",
+          "type": "TableDefs",
+          "dispId": 0
+        },
+        {
+          "name": "QueryDefs",
+          "kind": "propertyGet",
+          "type": "QueryDefs"
+        },
+        {
+          "name": "Relations",
+          "kind": "propertyGet",
+          "type": "Relations"
+        },
+        {
+          "name": "Containers",
+          "kind": "propertyGet",
+          "type": "Containers"
+        },
+        {
+          "name": "Recordsets",
+          "kind": "propertyGet",
+          "type": "Recordsets"
+        },
+        {
+          "name": "Close"
+        },
+        {
+          "name": "Execute",
+          "parameters": [
+            {
+              "name": "Query",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateProperty",
+          "type": "Property",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "DDL",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateRelation",
+          "type": "Relation",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Table",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ForeignTable",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Attributes",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateTableDef",
+          "type": "TableDef",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Attributes",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "SourceTableName",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateQueryDef",
+          "type": "QueryDef",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "SQLText",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "ReplicaID",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "DesignMasterID",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "DesignMasterID",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Synchronize",
+          "parameters": [
+            {
+              "name": "DbPathName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "ExchangeType",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "MakeReplica",
+          "parameters": [
+            {
+              "name": "PathName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Description",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "NewPassword",
+          "parameters": [
+            {
+              "name": "bstrOld",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "bstrNew",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "OpenRecordset",
+          "type": "Recordset",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "LockEdit",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Connection",
+          "kind": "propertyGet",
+          "type": "Connection"
+        },
+        {
+          "name": "PopulatePartial",
+          "parameters": [
+            {
+              "name": "DbPathName",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TableDefs",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "TableDef",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TableDef",
+      "isCreatable": true,
+      "defaultInterface": "_TableDef",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DateCreated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "LastUpdated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "SourceTableName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "SourceTableName",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Updatable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "ValidationText",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ValidationText",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ValidationRule",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ValidationRule",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RecordCount",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Fields",
+          "kind": "propertyGet",
+          "type": "Fields",
+          "dispId": 0
+        },
+        {
+          "name": "Indexes",
+          "kind": "propertyGet",
+          "type": "Indexes"
+        },
+        {
+          "name": "OpenRecordset",
+          "type": "Recordset",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RefreshLink"
+        },
+        {
+          "name": "CreateField",
+          "type": "Field",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Size",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateIndex",
+          "type": "Index",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateProperty",
+          "type": "Property",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "DDL",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "ConflictTable",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ReplicaFilter",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "ReplicaFilter",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Fields",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Field",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Field",
+      "isCreatable": true,
+      "defaultInterface": "_Field",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "CollatingOrder",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Size",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "SourceField",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "SourceTable",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "dispId": 0
+        },
+        {
+          "name": "Value",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "OrdinalPosition",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "OrdinalPosition",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ValidationText",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ValidationText",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ValidateOnSet",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "ValidateOnSet",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ValidationRule",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ValidationRule",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultValue",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "DefaultValue",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Required",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Required",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "AllowZeroLength",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "AllowZeroLength",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DataUpdatable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "ForeignName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ForeignName",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "AppendChunk",
+          "parameters": [
+            {
+              "name": "Val",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetChunk",
+          "type": "Variant",
+          "parameters": [
+            {
+              "name": "Offset",
+              "type": "Long",
+              "isByVal": true
+            },
+            {
+              "name": "Bytes",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateProperty",
+          "type": "Property",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "DDL",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CollectionIndex",
+          "kind": "propertyGet",
+          "type": "Integer",
+          "isHidden": true
+        },
+        {
+          "name": "OriginalValue",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "VisibleValue",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "FieldSize",
+          "kind": "propertyGet",
+          "type": "Long"
+        }
+      ]
+    },
+    {
+      "name": "Indexes",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Index",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Index",
+      "isCreatable": true,
+      "defaultInterface": "_Index",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Foreign",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Unique",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Unique",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Clustered",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Clustered",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Required",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Required",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "IgnoreNulls",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "IgnoreNulls",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Primary",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Primary",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DistinctCount",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Fields",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "Fields",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateField",
+          "type": "Field",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Size",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateProperty",
+          "type": "Property",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "DDL",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Recordset",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "BOF",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Bookmark",
+          "kind": "propertyGet",
+          "type": "Byte()"
+        },
+        {
+          "name": "Bookmark",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Byte()"
+            }
+          ]
+        },
+        {
+          "name": "Bookmarkable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "DateCreated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "EOF",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Filter",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Filter",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Index",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Index",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "LastModified",
+          "kind": "propertyGet",
+          "type": "Byte()"
+        },
+        {
+          "name": "LastUpdated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "LockEdits",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "LockEdits",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "NoMatch",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Sort",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Sort",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Transactions",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "RecordCount",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Updatable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Restartable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "ValidationText",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ValidationRule",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "CacheStart",
+          "kind": "propertyGet",
+          "type": "Byte()"
+        },
+        {
+          "name": "CacheStart",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Byte()"
+            }
+          ]
+        },
+        {
+          "name": "CacheSize",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "CacheSize",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "PercentPosition",
+          "kind": "propertyGet",
+          "type": "Single"
+        },
+        {
+          "name": "PercentPosition",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Single",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "AbsolutePosition",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "AbsolutePosition",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "EditMode",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "ODBCFetchCount",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "ODBCFetchDelay",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "Parent",
+          "kind": "propertyGet",
+          "type": "Database",
+          "isHidden": true
+        },
+        {
+          "name": "Fields",
+          "kind": "propertyGet",
+          "type": "Fields",
+          "dispId": 0
+        },
+        {
+          "name": "AddNew"
+        },
+        {
+          "name": "Close"
+        },
+        {
+          "name": "OpenRecordset",
+          "type": "Recordset",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Delete"
+        },
+        {
+          "name": "Edit"
+        },
+        {
+          "name": "FindFirst",
+          "parameters": [
+            {
+              "name": "Criteria",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FindLast",
+          "parameters": [
+            {
+              "name": "Criteria",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FindNext",
+          "parameters": [
+            {
+              "name": "Criteria",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FindPrevious",
+          "parameters": [
+            {
+              "name": "Criteria",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "MoveFirst"
+        },
+        {
+          "name": "MoveNext"
+        },
+        {
+          "name": "MovePrevious"
+        },
+        {
+          "name": "Seek",
+          "parameters": [
+            {
+              "name": "Comparison",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Key1",
+              "type": "Variant",
+              "isByVal": true
+            },
+            {
+              "name": "Key2",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key3",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key4",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key5",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key6",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key7",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key8",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key9",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key10",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key11",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key12",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Key13",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Clone",
+          "type": "Recordset"
+        },
+        {
+          "name": "Requery",
+          "parameters": [
+            {
+              "name": "NewQueryDef",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Move",
+          "parameters": [
+            {
+              "name": "Rows",
+              "type": "Long",
+              "isByVal": true
+            },
+            {
+              "name": "StartBookmark",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "FillCache",
+          "parameters": [
+            {
+              "name": "Rows",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "StartBookmark",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CopyQueryDef",
+          "type": "QueryDef"
+        },
+        {
+          "name": "GetRows",
+          "type": "Variant",
+          "parameters": [
+            {
+              "name": "NumRows",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Collect",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Collect",
+          "kind": "propertyLet",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Cancel"
+        },
+        {
+          "name": "NextRecordset",
+          "type": "Boolean"
+        },
+        {
+          "name": "hStmt",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "StillExecuting",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "BatchSize",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "BatchSize",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "BatchCollisionCount",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "BatchCollisions",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "Connection",
+          "kind": "propertyGet",
+          "type": "Connection"
+        },
+        {
+          "name": "Connection",
+          "kind": "propertySet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Connection",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RecordStatus",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "UpdateOptions",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "UpdateOptions",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CancelUpdate",
+          "parameters": [
+            {
+              "name": "UpdateType",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "1"
+            }
+          ]
+        },
+        {
+          "name": "Update",
+          "parameters": [
+            {
+              "name": "UpdateType",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "1"
+            },
+            {
+              "name": "Force",
+              "type": "Boolean",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "False"
+            }
+          ]
+        },
+        {
+          "name": "MoveLast",
+          "parameters": [
+            {
+              "name": "Options",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "QueryDef",
+      "isCreatable": true,
+      "defaultInterface": "_QueryDef",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "DateCreated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "LastUpdated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ODBCTimeout",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "ODBCTimeout",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "SQL",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "SQL",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Updatable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ReturnsRecords",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "ReturnsRecords",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RecordsAffected",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Fields",
+          "kind": "propertyGet",
+          "type": "Fields"
+        },
+        {
+          "name": "Parameters",
+          "kind": "propertyGet",
+          "type": "Parameters",
+          "dispId": 0
+        },
+        {
+          "name": "Close"
+        },
+        {
+          "name": "Execute",
+          "parameters": [
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateProperty",
+          "type": "Property",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "DDL",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "OpenRecordset",
+          "type": "Recordset",
+          "parameters": [
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "LockEdit",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Cancel"
+        },
+        {
+          "name": "hStmt",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "MaxRecords",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "MaxRecords",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "StillExecuting",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "CacheSize",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "CacheSize",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Prepare",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "Prepare",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Parameters",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Parameter",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Parameter",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "dispId": 0
+        },
+        {
+          "name": "Value",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Direction",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "Direction",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Connection",
+      "members": [
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Connect",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Database",
+          "kind": "propertyGet",
+          "type": "Database"
+        },
+        {
+          "name": "hDbc",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "QueryTimeout",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "QueryTimeout",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Transactions",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "RecordsAffected",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "StillExecuting",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Updatable",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "QueryDefs",
+          "kind": "propertyGet",
+          "type": "QueryDefs",
+          "dispId": 0
+        },
+        {
+          "name": "Recordsets",
+          "kind": "propertyGet",
+          "type": "Recordsets"
+        },
+        {
+          "name": "Cancel"
+        },
+        {
+          "name": "Close"
+        },
+        {
+          "name": "CreateQueryDef",
+          "type": "QueryDef",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "SQLText",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Execute",
+          "parameters": [
+            {
+              "name": "Query",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "OpenRecordset",
+          "type": "Recordset",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "LockEdit",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "QueryDefs",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "QueryDef",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Recordsets",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Recordset",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Relations",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Relation",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Relation",
+      "isCreatable": true,
+      "defaultInterface": "_Relation",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Table",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Table",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "ForeignTable",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "ForeignTable",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Attributes",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Fields",
+          "kind": "propertyGet",
+          "type": "Fields",
+          "dispId": 0
+        },
+        {
+          "name": "CreateField",
+          "type": "Field",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Size",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "PartialReplica",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "PartialReplica",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Containers",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Container",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Container",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Owner",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Owner",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Permissions",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Permissions",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Inherit",
+          "kind": "propertyGet",
+          "type": "Boolean"
+        },
+        {
+          "name": "Inherit",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Documents",
+          "kind": "propertyGet",
+          "type": "Documents",
+          "dispId": 0
+        },
+        {
+          "name": "AllPermissions",
+          "kind": "propertyGet",
+          "type": "Long"
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Document",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Document",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Owner",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Owner",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Container",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "UserName",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Permissions",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Permissions",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DateCreated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "LastUpdated",
+          "kind": "propertyGet",
+          "type": "Variant"
+        },
+        {
+          "name": "AllPermissions",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "CreateProperty",
+          "type": "Property",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Type",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "DDL",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "User",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "isCreatable": true,
+      "defaultInterface": "_User",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "PID",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Password",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Groups",
+          "kind": "propertyGet",
+          "type": "Groups",
+          "dispId": 0
+        },
+        {
+          "name": "NewPassword",
+          "parameters": [
+            {
+              "name": "bstrOld",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "bstrNew",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateGroup",
+          "type": "Group",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "PID",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Group",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Group",
+      "isCreatable": true,
+      "defaultInterface": "_Group",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Name",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "PID",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Users",
+          "kind": "propertyGet",
+          "type": "Users",
+          "dispId": 0
+        },
+        {
+          "name": "CreateUser",
+          "type": "User",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "PID",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Password",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Connections",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Connection",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Errors",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Error",
+          "dispId": 0,
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Error",
+      "members": [
+        {
+          "name": "Number",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "Source",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "Description",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0
+        },
+        {
+          "name": "HelpFile",
+          "kind": "propertyGet",
+          "type": "String",
+          "isHidden": true
+        },
+        {
+          "name": "HelpContext",
+          "kind": "propertyGet",
+          "type": "Long",
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "DBEngine",
+      "isCreatable": true,
+      "isApplication": true,
+      "defaultInterface": "_DBEngine",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Version",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IniPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IniPath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultUser",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultPassword",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "LoginTimeout",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "LoginTimeout",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Workspaces",
+          "kind": "propertyGet",
+          "type": "Workspaces",
+          "dispId": 0
+        },
+        {
+          "name": "Errors",
+          "kind": "propertyGet",
+          "type": "Errors"
+        },
+        {
+          "name": "Idle",
+          "parameters": [
+            {
+              "name": "Action",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CompactDatabase",
+          "parameters": [
+            {
+              "name": "SrcName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DstName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DstLocale",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "SrcLocale",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RepairDatabase",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegisterDatabase",
+          "parameters": [
+            {
+              "name": "Dsn",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Driver",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Silent",
+              "type": "Boolean",
+              "isByVal": true
+            },
+            {
+              "name": "Attributes",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "OpenDatabase",
+          "type": "Database",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ReadOnly",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateDatabase",
+          "type": "Database",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Locale",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Option",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "BeginTrans"
+        },
+        {
+          "name": "CommitTrans",
+          "parameters": [
+            {
+              "name": "Option",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "name": "Rollback"
+        },
+        {
+          "name": "ISAMStats",
+          "type": "Long",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "StatNum",
+              "type": "Long",
+              "isByVal": true
+            },
+            {
+              "name": "Reset",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "SystemDB",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "SystemDB",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateWorkspace",
+          "type": "Workspace",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UserName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Password",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UseType",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "OpenConnection",
+          "type": "Connection",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ReadOnly",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultType",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "DefaultType",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "SetOption",
+          "parameters": [
+            {
+              "name": "Option",
+              "type": "Long",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PrivDBEngine",
+      "description": "DAO 3.0 DBEngine (private)",
+      "isCreatable": true,
+      "isHidden": true,
+      "defaultInterface": "_DBEngine",
+      "members": [
+        {
+          "name": "Properties",
+          "kind": "propertyGet",
+          "type": "Properties"
+        },
+        {
+          "name": "Version",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IniPath",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "IniPath",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultUser",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultPassword",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "LoginTimeout",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "LoginTimeout",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Workspaces",
+          "kind": "propertyGet",
+          "type": "Workspaces",
+          "dispId": 0
+        },
+        {
+          "name": "Errors",
+          "kind": "propertyGet",
+          "type": "Errors"
+        },
+        {
+          "name": "Idle",
+          "parameters": [
+            {
+              "name": "Action",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CompactDatabase",
+          "parameters": [
+            {
+              "name": "SrcName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DstName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DstLocale",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "SrcLocale",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "RepairDatabase",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "RegisterDatabase",
+          "parameters": [
+            {
+              "name": "Dsn",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Driver",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Silent",
+              "type": "Boolean",
+              "isByVal": true
+            },
+            {
+              "name": "Attributes",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "OpenDatabase",
+          "type": "Database",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ReadOnly",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "CreateDatabase",
+          "type": "Database",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Locale",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Option",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "BeginTrans"
+        },
+        {
+          "name": "CommitTrans",
+          "parameters": [
+            {
+              "name": "Option",
+              "type": "Long",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "0"
+            }
+          ]
+        },
+        {
+          "name": "Rollback"
+        },
+        {
+          "name": "ISAMStats",
+          "type": "Long",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "StatNum",
+              "type": "Long",
+              "isByVal": true
+            },
+            {
+              "name": "Reset",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "SystemDB",
+          "kind": "propertyGet",
+          "type": "String"
+        },
+        {
+          "name": "SystemDB",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "CreateWorkspace",
+          "type": "Workspace",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UserName",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Password",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "UseType",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "OpenConnection",
+          "type": "Connection",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Options",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "ReadOnly",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Connect",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "DefaultType",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "DefaultType",
+          "kind": "propertyLet",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "SetOption",
+          "parameters": [
+            {
+              "name": "Option",
+              "type": "Long",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IndexFields",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Integer"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Refresh"
+        },
+        {
+          "name": "Append",
+          "parameters": [
+            {
+              "name": "Object",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Item",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

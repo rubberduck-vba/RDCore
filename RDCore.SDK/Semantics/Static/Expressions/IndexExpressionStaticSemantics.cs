@@ -13,7 +13,7 @@ namespace RDCore.SDK.Semantics.Static.Expressions;
 /// MS-VBAL 5.6.13 Index Expressions (static semantics). <c>callee(arguments)</c> is either an array
 /// element access, a call to a specific class's default member, or a call to whatever
 /// <see cref="IndexExpressionNode.Callee"/> itself already resolves to (a function or property-get
-/// reference, whose declared type already <em>is</em> its return type — see
+/// reference, whose declared type already <em>is</em> its return type: see
 /// <see cref="SimpleNameExpressionStaticSemantics"/> and <see cref="MemberAccessExpressionStaticSemantics"/>).
 /// </summary>
 public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
@@ -21,7 +21,7 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     private static readonly Lazy<IndexExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The shared instance — this rule has no state of its own.
+    /// The shared instance: this rule has no state of its own.
     /// </summary>
     public static IndexExpressionStaticSemantics Instance => _instance.Value;
 
@@ -45,7 +45,7 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     /// <param name="operandDeclaredTypes">
     /// <see cref="IndexExpressionNode.Callee"/>'s already-determined declared type, at
     /// <see cref="InputIndex.IndexExpressionCallee"/>. <see cref="IndexExpressionNode.Arguments"/>
-    /// carry no independent declared type this rule needs — MS-VBAL 5.6.13's argument-count/rank and
+    /// carry no independent declared type this rule needs: MS-VBAL 5.6.13's argument-count/rank and
     /// parameter-list compatibility checks are not modeled: <see cref="VBArrayType"/> doesn't carry a
     /// rank, and no parameter-list representation exists for a resolved function/property-get type.
     /// </param>

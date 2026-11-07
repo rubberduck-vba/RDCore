@@ -5,7 +5,7 @@
 > **The platform is pre-alpha.** Expect rough edges, and expect things to change between versions.
 
 ---
-## 📦 Installing the platform
+## Installing the platform
 
 You need the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64). You probably have it already: `dotnet --list-runtimes` lists `Microsoft.NETCore.App 10.x` if you do.
 
@@ -21,7 +21,7 @@ That's it: there's no installer, and nothing to register.
 > Preview builds aren't signed yet: SmartScreen may warn about them, and Windows 11's _Smart App Control_ may block them.
 
 ---
-## 💻 The RD-VBA shell
+## The RD-VBA shell
 
 Open the `RDCore.CLI` folder and run **`rdc.exe`**. If all goes well, you'll see the platform's splash screen:
 
@@ -50,7 +50,7 @@ At a stop you can type statements as you would in the VBIDE's immediate pane, an
 > The shell is a demo and a way to try the platform, not an IDE. It doesn't handle a project with more than one procedure scope, or BASIC-style line numbers in your own modules.
 
 ---
-## 📥 Bringing a VBA project over
+## Bringing a VBA project over
 
 RDCore works with your project's source files, exported from the VBA editor. Legacy Rubberduck exports a whole project in one click; the VBIDE exports one module at a time, unless you script it against the _VBIDE Extensibility_ library.
 
@@ -65,14 +65,15 @@ This writes a `.rdproj` file into that folder, naming each source file it finds.
 Then open the shell on it with `rdc --workspace <path>`.
 
 ---
-## 🧩 Using RDCore from an IDE
+## Using RDCore from an IDE
 
 The shell is fun, but the real work happens in the language server behind it, and a language server needs an editor. We recommend **HexIDE**: unlike most editors, it was made for VB developers, so you'll feel right at home.
 
-> **🚧 The HexIDE integration is in progress.** This section will say how to set it up when it's ready.
+> [!NOTE]
+> HexIDE support for RDCore is under development.
 
 ---
-## 🔎 Good to know
+## Good to know
 
 - **RDCore is a 64-bit process**, so what it loads must be 64-bit too:
   - UserForms need 64-bit Office (the 64-bit Microsoft Forms 2.0);

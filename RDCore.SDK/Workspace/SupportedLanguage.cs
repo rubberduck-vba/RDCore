@@ -79,6 +79,20 @@ public class SupportedLanguage
     /// (<strong>MS-VBAL §5.4.4.3</strong>).
     /// </remarks>
     public bool UsesClassicBasicSyntax { get; init; }
+
+    /// <summary>
+    /// The libraries every project of the language references without its project file listing them, by name, in their order of reference precedence: after
+    /// the standard library, and before the references the project file lists (<strong>RD-VBAL §2.3.1.3</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The standard library (<c>VBA</c>) is every language's, and is none of them. A VB6 project also has the Visual Basic runtime objects and procedures
+    /// (<c>VBRUN</c>, the third type library of <c>MSVBVM60.DLL</c>): the constants of its forms and controls (<c>vbFixedSingle</c>, <c>vbTwips</c>,
+    /// <c>vbHourglass</c>, <c>vbChecked</c>) and its <c>PropertyBag</c>; and the Visual Basic objects and procedures (<c>VB</c>, <c>VB6.OLB</c>): its forms,
+    /// controls and <c>App</c>, <c>Screen</c> and <c>Printer</c>. A <c>.vbp</c> lists neither, and the VB6 IDE does not let a project remove them. A name
+    /// both the standard library and <c>VBRUN</c> declare is the standard library's: <c>vbCancel</c> is <c>2</c>, where <c>VBRUN</c>'s is <c>0</c>.
+    /// </remarks>
+    public IReadOnlyList<string> ImplicitReferences { get; init; } = [];
+
     /// <summary>The patterns of the files written in the language, as a document filter pattern.</summary>
     public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
 
@@ -108,7 +122,10 @@ public static class SupportedLanguages
     /// <summary>
     /// VB6.
     /// </summary>
-    public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm");
+    public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm")
+    {
+        ImplicitReferences = ["VBRUN", "VB"],
+    };
 
     /// <summary>
     /// The platform's BASIC, which an interactive shell is written in.

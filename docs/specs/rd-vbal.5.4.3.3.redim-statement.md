@@ -8,7 +8,7 @@
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
 |[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|`Simple`|One node per comma-separated `ReDim` target. The node is a declaration and a statement at once: it declares the name it may introduce, and it executes where it appears. Its `Target` is an expression: a `SimpleNameExpressionNode` (`a`), or a `MemberAccessExpressionNode` (`obj.Buffer`, `Me.Buffer`, `.Buffer`) with the owner as the expression it is.|
-|[RedimBoundsNode](../api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|—|The dimension clause of one target, holding one [RedimDimensionNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
+|[RedimBoundsNode](../api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|None|The dimension clause of one target, holding one [RedimDimensionNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
@@ -35,7 +35,7 @@ The last two rows are told apart by the text of the procedure, not by what runs,
 used anywhere before the first `ReDim` of it is a variable declared implicitly there; a name used only after it is the
 array the `ReDim` declared (recorded in Excel, `oracle\findings-labels` R01-R10).
 
-👉 **MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
+**MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
 variable a `Variant`, which a `ReDim` re-dimensions, and vb6.exe runs it so. RD-VBA does what the specification says,
 and warns that MS-VBA refuses it ([RDC11022](../diagnostics/rdc11022.md)). Under `Option Explicit` no use declares anything: the
 `ReDim` declares the array from where it is, and a use of the name before it is [VBC09302](../diagnostics/vbc09302.md) _Variable not defined_, in
@@ -191,8 +191,8 @@ ReDim_, in a `With` block too. A member of a `Variant` compiles; the member is r
 member is as it was afterwards - a `Variant` that holds no object is error 424.
 
 > [!NOTE]
-> 🧩 Nothing in the runtime prevents re-dimensioning an object's array through the object, by writing it back through the member. RD-VBA does what MS-VBA
-> does, so that a compile error is where it is expected; a language-level extension could allow it in the future.
+> **Extension point:** nothing in the runtime prevents re-dimensioning an object's array through the object, by writing it back through the member.
+> RD-VBA does what MS-VBA does, so that a compile error is where it is expected; a language-level extension can allow it.
 
 ## Implementation
 
@@ -203,6 +203,3 @@ member is as it was afterwards - a `Variant` that holds no object is error 424.
 |[VBLocalVariableSymbol](../api/RDCore.SDK.Model.Symbols.VBLocalVariableSymbol.html)`.DeclaredBy`|[LocalDeclarationKind](../api/RDCore.SDK.Model.Symbols.LocalDeclarationKind.html)`.ReDim` marks a local introduced by an implicit `ReDim` declaration.|
 |[ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.Base`|The module's `Option Base`, which an omitted lower bound takes (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.ArrayStatementRuntimeSemantics`|Evaluates the bounds and re-allocates the array; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.2** Local Constant Declarations](rd-vbal.5.4.3.2.local-constant-declarations.md) | ⏭️ [**RD-VBAL §5.4.3.4** Erase Statement](rd-vbal.5.4.3.4.erase-statement.md)

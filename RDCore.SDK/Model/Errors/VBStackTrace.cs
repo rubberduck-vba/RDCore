@@ -9,7 +9,7 @@ namespace RDCore.SDK.Model.Errors;
 /// <param name="ProcedureName">The name of the procedure the activation is of.</param>
 /// <param name="Location">
 /// Where in that procedure execution stood, when it is known. Known for the activation the error was
-/// raised in — that is the faulting statement — and not for its callers, whose activation records do
+/// raised in (that is the faulting statement), and not for its callers, whose activation records do
 /// not carry the location of the call they are suspended at.
 /// </param>
 /// <param name="GoSubs">
@@ -40,7 +40,7 @@ public readonly record struct VBStackTraceFrame(string ProcedureName, SourceLoca
 /// 🎯 <strong>RDCore</strong>'s own, not MS-VBAL's: VBA has never been able to say where an error came
 /// from, only what it was, which is why <c>Err.Description</c> in a deep call chain tells you so little.
 /// <c>ErrObject</c> carries this alongside the error's own properties, captured at the moment the error
-/// is raised — the one point every run-time error passes through — rather than reconstructed afterwards,
+/// is raised (the one point every run-time error passes through) rather than reconstructed afterwards,
 /// by which time the frames are gone.
 /// </remarks>
 /// <param name="Frames">The activations, innermost (where the error was raised) first.</param>

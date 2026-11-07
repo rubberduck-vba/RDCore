@@ -23,7 +23,7 @@ public static class LibraryJson
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase), new LibraryIdentityConverter() },
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { SkipEmptyLists } },
     };
 
@@ -40,9 +40,18 @@ public static class LibraryJson
     }
 
     /// <summary>
-    /// The version of the format this writes and reads.
+    /// The version of the format this writes. It reads it, and the version before it.
     /// </summary>
-    public const int CurrentFormatVersion = 1;
+    /// <remarks>
+    /// Version 2 states a dependency as the library it was built against, <c>{ "name": "DAO", "guid": "{00025E04-...}", "version": "3.5" }</c>, as well as by
+    /// its name alone (<c>"stdole"</c>); version 1 states it by its name alone.
+    /// </remarks>
+    public const int CurrentFormatVersion = 2;
+
+    /// <summary>
+    /// The oldest version of the format this reads.
+    /// </summary>
+    public const int OldestFormatVersion = 1;
 
     /// <summary>
     /// Reads a description.
@@ -66,10 +75,16 @@ public static class LibraryJson
             throw new InvalidDataException("The library description states no name.");
         }
 
-        if (description.FormatVersion != CurrentFormatVersion)
+        if (description.FormatVersion is < OldestFormatVersion or > CurrentFormatVersion)
         {
             throw new InvalidDataException(
-                $"The library description of '{description.Name}' is of format version {description.FormatVersion}, and this reads version {CurrentFormatVersion}.");
+                $"The library description of '{description.Name}' is of format version {description.FormatVersion}, and this reads versions {OldestFormatVersion} to {CurrentFormatVersion}.");
+        }
+
+        if (description.FormatVersion < 2 && description.DependsOn.FirstOrDefault(dependency => dependency.Guid is not null) is { } identified)
+        {
+            throw new InvalidDataException(
+                $"The library description of '{description.Name}' is of format version {description.FormatVersion}, which states a dependency by its name alone, and states '{identified}'.");
         }
 
         // a name is one type of the library, whatever its case: VBA names are not case sensitive, and a library that declares one twice is not one a project can be
@@ -87,4 +102,72 @@ public static class LibraryJson
     /// </summary>
     /// <param name="description">The description.</param>
     public static string Write(LibraryDescription description) => JsonSerializer.Serialize(description, _options);
+
+    // a dependency is its name, as a string, when it gives nothing else, and an object of its name, identifier and version when it does.
+    private sealed class LibraryIdentityConverter : JsonConverter<LibraryIdentity>
+    {
+        public override LibraryIdentity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                return new LibraryIdentity(reader.GetString() ?? string.Empty);
+            }
+
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                throw new JsonException("A dependency is a name, or an object with a name.");
+            }
+
+            string? name = null, guid = null, version = null;
+            while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+            {
+                var property = reader.GetString();
+                reader.Read();
+                var value = reader.TokenType == JsonTokenType.String ? reader.GetString() : throw new JsonException($"The dependency's '{property}' is not a string.");
+                switch (property?.ToLowerInvariant())
+                {
+                    case "name": name = value; break;
+                    case "guid": guid = value; break;
+                    case "version": version = value; break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new JsonException("A dependency states no name.");
+            }
+
+            if (guid is not null && !Guid.TryParse(guid, out _))
+            {
+                throw new JsonException($"The dependency '{name}' states '{guid}', which is not an identifier.");
+            }
+
+            var (major, minor) = LibraryIdentity.ParseVersion(version);
+            if (version is not null && major is null)
+            {
+                throw new JsonException($"The dependency '{name}' states the version '{version}', which is not major.minor.");
+            }
+
+            return new LibraryIdentity(name, guid is null ? null : Guid.Parse(guid), major, minor);
+        }
+
+        public override void Write(Utf8JsonWriter writer, LibraryIdentity value, JsonSerializerOptions options)
+        {
+            if (value.Guid is not { } guid)
+            {
+                writer.WriteStringValue(value.Name);
+                return;
+            }
+
+            writer.WriteStartObject();
+            writer.WriteString("name", value.Name);
+            writer.WriteString("guid", guid.ToString("B").ToUpperInvariant());
+            if (value.Version is { } version)
+            {
+                writer.WriteString("version", version);
+            }
+
+            writer.WriteEndObject();
+        }
+    }
 }

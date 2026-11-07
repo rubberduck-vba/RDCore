@@ -219,7 +219,7 @@
     <value>Les bibliothèques de types sont lues dans le registre et les fichiers d'une machine Windows : cette commande ne s'exécute que sous Windows.</value>
   </data>
   <data name="ExportLibrary_NotFound" xml:space="preserve">
-    <value>Cette machine n'a aucune bibliothèque de types '{0}'. Une bibliothèque se donne par un fichier, par l'identifiant que la machine lui a donné, ou par son nom.</value>
+    <value>Cette machine n'a aucune bibliothèque de types '{0}'. Une bibliothèque se donne par un fichier, par l'identifiant que la machine lui a donné, ou par son nom. Un fichier qui contient plus d'une bibliothèque se donne avec le numéro de la ressource de la bibliothèque, comme un .vbp la référence (MSVBVM60.DLL\3).</value>
   </data>
   <data name="ExportLibrary_Written" xml:space="preserve">
     <value>Bibliothèque '{0}' décrite : {1}</value>
@@ -283,6 +283,9 @@
   </data>
   <data name="Repl_Memory" xml:space="preserve">
     <value>{0} OCTETS RÉSERVÉS  {1} DISPONIBLES  {2} ALLOUÉS  {3} LIBRES</value>
+  </data>
+  <data name="Repl_NobodyAnswers" xml:space="preserve">
+    <value>Personne n'est à la console de l'interpréteur pour répondre à la question.</value>
   </data>
   <data name="Repl_NoSession" xml:space="preserve">
     <value>AUCUNE SESSION D'EXÉCUTION</value>

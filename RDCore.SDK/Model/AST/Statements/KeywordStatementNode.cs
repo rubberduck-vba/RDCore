@@ -6,7 +6,7 @@ namespace RDCore.SDK.Model.AST.Statements;
 
 /// <summary>
 /// An executable statement node that represents a fixed-keyword statement with a positional argument
-/// list — the file statements (MS-VBAL §5.4.5 File Statements) and similarly-shaped statements
+/// list: the file statements (MS-VBAL §5.4.5 File Statements) and similarly-shaped statements
 /// (<c>Erase</c>, <c>Name</c>, <c>RaiseEvent</c>) that are not a procedure/function call.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>

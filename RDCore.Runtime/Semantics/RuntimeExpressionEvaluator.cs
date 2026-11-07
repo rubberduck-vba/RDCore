@@ -3153,6 +3153,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// Whether the object <paramref name="instance"/>, which is something, is an instance of a class that is, or implements, <paramref name="targetClass"/>
     /// (MS-VBAL §5.6.7): what <c>TypeOf</c> evaluates to, once its operand is known to be an object that is not <c>Nothing</c>.
     /// </summary>
+    /// <param name="session">The session the object is in.</param>
+    /// <param name="instance">The reference to the object.</param>
+    /// <param name="targetClass">The class tested against.</param>
     /// <returns><see langword="null"/> when the session knows no such object.</returns>
     internal static bool? IsInstanceOf(IRuntimeSession session, VBRuntimeObjectId instance, VBClassModuleSymbol targetClass)
     {

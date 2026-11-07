@@ -13,7 +13,7 @@ The `&` (concatenation) operator is a simple data operator: it validates its ope
 ([VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)) before matching a wrapped `Byte`
 array.
 
-> 👉 `v1 & v2` evaluates `Variant`s holding arrays the same as declared arrays.
+> `v1 & v2` evaluates `Variant`s holding arrays the same as declared arrays.
 
 See [**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](rd-vbal.5.5.1.2.runtime-semantics.md#551212-let-coercion-to-variant)
 for why a `Variant` operand must be unwrapped before it is matched against a concrete value type.
@@ -24,8 +24,5 @@ operand pairs with the first byte of the right one, so two one-element `Byte()` 
 ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)). `+` between two `String`s is
 the same concatenation.
 
-👉 An operand that is a number or a date is let-coerced to `String` in the regional settings of the session's
+An operand that is a number or a date is let-coerced to `String` in the regional settings of the session's
 environment ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)).
-
----
-> ⏮️ [**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md) | ⏭️ [**RD-VBAL §5.6.9.5** Relational Operators](rd-vbal.5.6.9.5.relational-operators.md)

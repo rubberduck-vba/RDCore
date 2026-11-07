@@ -7,7 +7,7 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// Wraps a symbol's declaring <see cref="Symbol.Uri"/>, comparing <see cref="System.Uri.AbsoluteUri"/>
 /// ordinally instead of deferring to <see cref="System.Uri"/>'s own <c>Equals</c>/<c>GetHashCode</c>:
 /// those deliberately ignore <see cref="System.Uri.Fragment"/>, but a symbol's discriminating name and
-/// location (module, member, nesting) is encoded entirely in the fragment — two distinct symbols
+/// location (module, member, nesting) is encoded entirely in the fragment: two distinct symbols
 /// sharing a workspace root would otherwise compare equal. No two declarations of a module share an address,
 /// namesakes included (<see cref="SymbolUri"/>).
 /// </remarks>

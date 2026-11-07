@@ -108,7 +108,7 @@ public record class ShuttingDownServerState() : ServerState(ServerStateValue.Shu
 /// <param name="PreviousState">The previous server state.</param>
 /// <remarks>
 /// 👉 <c>ExitCode</c> is an error code unless a <c>Shutdown</c> request preceded the <c>Exit</c>
-/// notification — unconditionally, per spec, even when <c>Exit</c> arrives before <c>Initialize</c>. A
+/// notification: unconditionally, per spec, even when <c>Exit</c> arrives before <c>Initialize</c>. A
 /// client sending a bare <c>Exit</c> to terminate a server it never initialized is not itself a
 /// protocol violation, but it still exits with code <c>1</c> since no <c>Shutdown</c> preceded it.
 /// <br/><a href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#exit">Server lifecycle § Exit Notification</a>
