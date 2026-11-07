@@ -27,7 +27,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
 
     public RuntimeSemanticsEvaluationResult Clear()
     {
-        State.Clear();
+        State.Clear(keepLineNumber: session.Environment.ErlAfterErrClear is VBErlAfterErrClear.Kept);
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
