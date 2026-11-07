@@ -650,10 +650,13 @@ public partial class ModuleParser(
         }
         var outputLists = new OutputListCollector();
         parser.AddParseListener(outputLists);
+        var parameterNames = new ReservedParameterNameCollector();
+        parser.AddParseListener(parameterNames);
 
         var tree = parser.startRule();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
+        ReportReservedParameterNames(parameterNames.Names, findings);
         if (parser.NumberOfSyntaxErrors > 0)
         {
             MarkDanglingOperators(tree, tokens);
@@ -773,6 +776,22 @@ public partial class ModuleParser(
             {
                 findings.ReplaceGrammarErrorAt(next, VBCompileErrorId.OutputItemsNotSeparated, SDK.Exceptions.VBCompileError_OutputItemsNotSeparated_Verbose);
             }
+        }
+    }
+
+    /// <summary>
+    /// Reports each parameter named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>.
+    /// </summary>
+    /// <remarks>
+    /// A parameter's name cannot be a reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>). The grammar still reads one
+    /// there, so the procedure is read whole: its body, its end and the procedures after it parse as they would with a valid name.
+    /// </remarks>
+    private static void ReportReservedParameterNames(IEnumerable<VBAParser.UnrestrictedIdentifierContext> names, ErrorListener findings)
+    {
+        foreach (var name in names)
+        {
+            findings.ReplaceGrammarErrorAt(name.Start, VBCompileErrorId.SyntaxError,
+                string.Format(SDK.Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Start.Text));
         }
     }
 
@@ -1139,6 +1158,20 @@ internal sealed class OutputListCollector : VBAParserBaseListener
     public override void ExitOutputList([NotNull] VBAParser.OutputListContext context) => Lists.Add(context);
 }
 
+// the names of a parse's parameters that are reserved identifiers, registered live: a name the rule read whole, which is no identifier.
+internal sealed class ReservedParameterNameCollector : VBAParserBaseListener
+{
+    public List<VBAParser.UnrestrictedIdentifierContext> Names { get; } = [];
+
+    public override void ExitArg([NotNull] VBAParser.ArgContext context)
+    {
+        if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.identifier() is null && name.ChildCount > 0)
+        {
+            Names.Add(name);
+        }
+    }
+}
+
 // grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):
 // EnterEveryRule fires for every rule context regardless of which parser produced the tree, so the same
 // listener anchors both the precompiler tree (VBAConditionalCompilationParser) and the main declarations
@@ -1205,7 +1238,15 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             ForgetTheLastReported();
         }
 
+        // a statement has one syntax error, the first the parse reports in it: what the parse fails at after it, with no end of a statement between them
+        // (`Mod = 1`: the operator is taken out, and the rule the statement is in fails at `=`), is the rest of the statement it could not read.
+        if (InTheStatementOfTheLastReported(recognizer, offendingSymbol))
+        {
+            return;
+        }
+
         var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg);
+        _lastReportedAt = offendingSymbol;
         _reported.Add(error);
         _reportedAt.Add(location);
         _errors.Add(error);
@@ -1214,6 +1255,30 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
     // the syntax errors the parse reported, in the order of their positions, and where they are.
     private readonly List<VBSyntaxErrorInfo> _reported = [];
     private readonly HashSet<SourceLocation> _reportedAt = [];
+
+    // the token the parse failed at for the last error it reported.
+    private IToken? _lastReportedAt;
+
+    // whether the parse fails at a token of the statement it last reported an error in: one after the token of that error, with no end of a statement from
+    // that token on - an error at the end of a statement is the last of its statement.
+    private bool InTheStatementOfTheLastReported(IRecognizer recognizer, IToken? offendingSymbol)
+    {
+        if (_lastReportedAt is not { TokenIndex: >= 0 } last || offendingSymbol is not { TokenIndex: >= 0 } offending || offending.TokenIndex <= last.TokenIndex
+            || recognizer is not Parser { InputStream: ITokenStream tokens } || _reported.Count == 0)
+        {
+            return false;
+        }
+
+        for (var index = last.TokenIndex; index < offending.TokenIndex; index++)
+        {
+            if (StatementBoundErrorStrategy.EndsAStatement(tokens.Get(index).Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     // the last error the parse reported is no longer one. It is near the end of the module's errors, which are searched from there.
     private void ForgetTheLastReported()

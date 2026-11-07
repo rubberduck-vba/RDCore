@@ -16,7 +16,7 @@ namespace RDCore.Tests.Semantics.Static;
 /// an implemented name declaration must be (<strong>§5.3.1.9</strong>), checked on the symbols real source builds.
 /// </summary>
 /// <remarks>
-/// <c>IShape</c> has <c>Draw</c> (a Sub), <c>Area(ByVal Scale As Double)</c> (a Function) and a public variable
+/// <c>IShape</c> has <c>Draw</c> (a Sub), <c>Area(ByVal Ratio As Double)</c> (a Function) and a public variable
 /// <c>Title As String</c>; each test brings the class module <c>Disc</c> it checks.
 /// </remarks>
 [TestClass]
@@ -35,12 +35,12 @@ public sealed class ImplementsSemanticsTests
     private const string Shape =
         "Public Title As String\r\n" +
         "Public Sub Draw()\r\nEnd Sub\r\n" +
-        "Public Function Area(ByVal Scale As Double) As Double\r\nEnd Function\r\n";
+        "Public Function Area(ByVal Ratio As Double) As Double\r\nEnd Function\r\n";
 
     private const string FullDisc =
         "Implements IShape\r\n" +
         "Private Sub IShape_Draw()\r\nEnd Sub\r\n" +
-        "Private Function IShape_Area(ByVal Scale As Double) As Double\r\nEnd Function\r\n" +
+        "Private Function IShape_Area(ByVal Ratio As Double) As Double\r\nEnd Function\r\n" +
         "Private Property Get IShape_Title() As String\r\nEnd Property\r\n" +
         "Private Property Let IShape_Title(ByVal Value As String)\r\nEnd Property\r\n";
 
@@ -147,20 +147,20 @@ public sealed class ImplementsSemanticsTests
 
     [TestMethod]
     public void AnImplementationWithAnotherNumberOfParameters_IsInvalid()
-        => AssertOnly(VBCompileErrorId.InvalidImplementedMember, Check(FullDisc.Replace("(ByVal Scale As Double)", "()")));
+        => AssertOnly(VBCompileErrorId.InvalidImplementedMember, Check(FullDisc.Replace("(ByVal Ratio As Double)", "()")));
 
     [TestMethod]
     public void AnImplementationWithAParameterOfAnotherType_IsInvalid()
-        => AssertOnly(VBCompileErrorId.InvalidImplementedMember, Check(FullDisc.Replace("(ByVal Scale As Double)", "(ByVal Scale As Long)")));
+        => AssertOnly(VBCompileErrorId.InvalidImplementedMember, Check(FullDisc.Replace("(ByVal Ratio As Double)", "(ByVal Ratio As Long)")));
 
     [TestMethod]
     public void AnImplementationWithAParameterOfAnotherMechanism_IsInvalid()
-        => AssertOnly(VBCompileErrorId.InvalidImplementedMember, Check(FullDisc.Replace("(ByVal Scale As Double)", "(ByRef Scale As Double)")));
+        => AssertOnly(VBCompileErrorId.InvalidImplementedMember, Check(FullDisc.Replace("(ByVal Ratio As Double)", "(ByRef Ratio As Double)")));
 
     [TestMethod]
     public void AnImplementationMayRenameItsParameters_AndLeaveTheMechanismImplicitOrWriteItOut()
     {
-        Assert.IsEmpty(Check(FullDisc.Replace("(ByVal Scale As Double)", "(ByVal Factor As Double)")));
+        Assert.IsEmpty(Check(FullDisc.Replace("(ByVal Ratio As Double)", "(ByVal Factor As Double)")));
         Assert.IsEmpty(Check(
             "Implements IRef\r\nPrivate Sub IRef_Fill(Total As Long)\r\nEnd Sub\r\n",
             ("IRef", "Public Sub Fill(ByRef Count As Long)\r\nEnd Sub\r\n")));

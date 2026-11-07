@@ -78,10 +78,10 @@ public sealed class UnbuiltTriviaRetrofitTests
         Assert.AreEqual("1 -", trivia.Source);
     }
 
-    // an operator keyword that is the name of a member, or an item of a list to print, is no operator, and leaves the code it is in as it is.
+    // an operator keyword that is the name of a member is no operator, and leaves the code it is in as it is.
     [TestMethod]
     [DataRow("a = x.And")]
-    [DataRow("Debug.Print x; Mod")]
+    [DataRow("Debug.Print x; d!Mod")]
     public void AnOperatorKeyword_ThatIsAName_IsNoTruncatedOperation(string statement)
     {
         var result = Parse($"Sub S()\r\n{statement}\r\nEnd Sub");

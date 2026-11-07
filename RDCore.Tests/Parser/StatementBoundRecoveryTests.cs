@@ -61,6 +61,9 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("-")]
     [DataRow("*")]
     [DataRow("=")]
+    [DataRow("Mod")]
+    [DataRow("Like")]
+    [DataRow("And")]
     public void ADanglingOperatorAfterAnItemOfDebugPrint_IsOneErrorAtTheOperator(string op)
     {
         var statement = $"Debug.Print 1 {op}";
@@ -68,7 +71,56 @@ public sealed class StatementBoundRecoveryTests
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors);
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
-        Assert.AreEqual(new SourceRange(new SourcePosition(1, statement.Length - 1), new SourcePosition(1, statement.Length - 1)), error.Location.Range);
+        var at = new SourcePosition(1, statement.Length - op.Length);
+        Assert.AreEqual(new SourceRange(at, at), error.Location.Range);
+    }
+
+    // a statement the parse fails in, and fails in again after - the rule the statement is in fails at what its recovery left of it - is one syntax error,
+    // the first.
+    [TestMethod]
+    [DataRow("Dim For As Long", 4, DisplayName = "a statement keyword as the name of a variable")]
+    [DataRow("Dim Sub As Long", 4, DisplayName = "a procedure keyword as the name of a variable")]
+    [DataRow("Dim 1 As Long", 4, DisplayName = "a number as the name of a variable")]
+    public void AStatementTheParseFailsInTwice_IsOneSyntaxError_TheFirst(string statement, int column)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n");
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
+        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start);
+    }
+
+    // the errors of two statements are two, the statements on one line too.
+    [TestMethod]
+    [DataRow("a = 1 -: b = = 2", DisplayName = "on one line")]
+    [DataRow("a = 1 -\r\nb = = 2", DisplayName = "on two lines")]
+    public void TheErrorsOfTwoStatements_AreBothReported(string statements)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statements}\r\nEnd Sub\r\n");
+
+        Assert.HasCount(2, parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
+    }
+
+    // a token that ends a block where the parse expects a statement is no statement of its own: the block a statement is missing from, or whose end is
+    // missing, ends at it, the procedure ends at its End Sub, and the next procedure is read on its own.
+    [TestMethod]
+    [DataRow("Public Sub M()\r\nIf a Then\r\nFor i = 1 To 2\r\nEnd If\r\nEnd Sub", DisplayName = "an End If after a For with no Next")]
+    [DataRow("Public Sub M()\r\nNext\r\nEnd Sub", DisplayName = "a Next with no For")]
+    [DataRow("Public Sub M()\r\nWith x\r\nLoop\r\nEnd With\r\nEnd Sub", DisplayName = "a Loop with no Do, in a With")]
+    [DataRow("Public Sub M()\r\nDo While x\r\nb = 2\r\nEnd Sub", DisplayName = "a Do with no Loop")]
+    [DataRow("Public Sub M()\r\nIf Not x Then\r\nb = 2\r\nEnd Sub", DisplayName = "an If with no End If")]
+    [DataRow("Public Sub M()\r\nWith New Collection\r\nb = 2\r\nEnd Sub", DisplayName = "a With with no End With")]
+    public void ATokenThatEndsABlock_IsNoStatement_AndTheNextProcedureIsReadOnItsOwn(string procedure)
+    {
+        var source = $"{procedure}\r\nSub N()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        Assert.IsNotEmpty(parse.SyntaxErrors);
+        var lines = source.Split("\r\n").ToList();
+        var next = lines.IndexOf("Sub N()");
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.IsGreaterThanOrEqualTo(next - 1, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+        Assert.IsLessThanOrEqualTo(0, members[0].SourceLocation.Range.End.CompareTo(new SourcePosition(next, 0)), "the procedure ends before the next one");
+        Assert.IsTrue(members.Any(member => member.SourceLocation.Range.Start.Line == next), "the next procedure is read on its own");
     }
 
     // the operation is the last item the statement prints, unbuilt, its left operand in it: an item the parse read before it is the item it is, and a name
@@ -85,6 +137,10 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("Print #1, 1; 2 +", "2", typeof(LiteralExpressionNode))]
     [DataRow("Print #1, 1; 2 &", "2", typeof(LiteralExpressionNode))]
     [DataRow("Print #1, 1; x -", "x", typeof(SimpleNameExpressionNode))]
+    [DataRow("Debug.Print 1 Mod", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print x And", "x", typeof(SimpleNameExpressionNode))]
+    [DataRow("Debug.Print 1; 2 Like", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; x Or", "x", typeof(SimpleNameExpressionNode))]
     public void ADanglingOperatorAfterAnItemToPrint_IsTheLastItem_Unbuilt_WithItsLeftOperand(string statement, string operand, Type kind)
     {
         var source = $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n";
