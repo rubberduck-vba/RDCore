@@ -182,7 +182,8 @@ internal sealed class ProcedureCompiler
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
         RuntimeHelpers.PrepareMethod(body.MethodHandle);
         var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects };
+            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
+            Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1 };
 
         // a call the body makes of itself is of the body just created.
         foreach (var direct in directs)
@@ -203,7 +204,8 @@ internal sealed class ProcedureCompiler
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
-        if (evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        // a member of an object is called through its binding, the object given as Me (CompiledActivation.CallMember).
+        if (callee.Site is not null || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }

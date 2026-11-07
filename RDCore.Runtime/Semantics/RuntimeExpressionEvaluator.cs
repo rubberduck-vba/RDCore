@@ -3144,18 +3144,26 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return notAnObject;
         }
 
-        var objectValue = (VBObjectValue)operandResult.Result!;
+        return IsInstanceOf(session, ((VBObjectValue)operandResult.Result!).Value, targetClass) is { } isOf
+            ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(isOf))
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
 
+    /// <summary>
+    /// Whether the object <paramref name="instance"/>, which is something, is an instance of a class that is, or implements, <paramref name="targetClass"/>
+    /// (MS-VBAL §5.6.7): what <c>TypeOf</c> evaluates to, once its operand is known to be an object that is not <c>Nothing</c>.
+    /// </summary>
+    /// <returns><see langword="null"/> when the session knows no such object.</returns>
+    internal static bool? IsInstanceOf(IRuntimeSession session, VBRuntimeObjectId instance, VBClassModuleSymbol targetClass)
+    {
         // an object of a server is what it answers to (QueryInterface): a form's control is the extender it is wrapped in too - `TypeOf Label1 Is MSForms.Control`,
         // which is how MVVM's BindingManager tells a control - and that is no class its class implements.
-        if (Execution.External.Automation.ServerObjects.IsInstanceOf(session, objectValue.Value, targetClass) is { } answered)
+        if (Execution.External.Automation.ServerObjects.IsInstanceOf(session, instance, targetClass) is { } answered)
         {
-            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(answered));
+            return answered;
         }
 
-        return session.Symbols.TryGetInstance(objectValue.Value, out var instance)
-            ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(IsOrImplements(instance.ClassModule, targetClass, [])))
-            : RuntimeSemanticsEvaluationResult.InternalError();
+        return session.Symbols.TryGetInstance(instance, out var held) ? IsOrImplements(held.ClassModule, targetClass, []) : null;
     }
 
     // Uri.Equals/GetHashCode ignore the fragment, where a Symbol's own identity lives - AbsoluteUri

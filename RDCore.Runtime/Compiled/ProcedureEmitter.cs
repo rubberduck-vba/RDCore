@@ -39,6 +39,10 @@ internal sealed class ProcedureEmitter
     private readonly Dictionary<int, LocalBuilder> _variants = [];
     private static readonly Type Variants = typeof(VariantOperations);
 
+    // the object slots, each by the local the cell its frame holds it in is held in.
+    private readonly Dictionary<int, LocalBuilder> _objects = [];
+    private static readonly Type Objects = typeof(ObjectOperations);
+
     // each loop of a Variant counter whose subtype is speculated, by its For statement: what its Next is stepped with in that subtype, fetched by the
     // first Next after compiled code took the activation up (State 0; 1 once fetched, -1 when each Next is stepped as any is).
     private readonly Dictionary<int, VariantLoopLocals> _variantLoops = [];
@@ -154,6 +158,11 @@ internal sealed class ProcedureEmitter
             _variants[slot] = _il.DeclareLocal(typeof(object));
         }
 
+        foreach (var slot in _analysis.ObjectSlots)
+        {
+            _objects[slot] = _il.DeclareLocal(typeof(object));
+        }
+
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
             if (_analysis.SpeculatedKinds.TryGetValue(next.Counter, out var counting) && !_variantLoops.ContainsKey(next.Opener))
@@ -252,7 +261,12 @@ internal sealed class ProcedureEmitter
 
         foreach (var slot in _analysis.CellSlots)
         {
-            if (!_analysis.Parameters.Exists(parameter => parameter.Slot == slot))
+            // a field of Me is in the cell the object holds it in: one held otherwise makes the activation the interpreter's from the start.
+            if (_analysis.FieldSlots.Contains(slot))
+            {
+                EmitFieldCell(slot, WalkBackAt(0), nameof(CompiledActivation.FieldCellOf));
+            }
+            else if (!_analysis.Parameters.Exists(parameter => parameter.Slot == slot))
             {
                 var kind = _analysis.Slots[slot];
                 EmitCellOf(slot, kind, _cells[slot], () => LoadZero(kind));
@@ -268,6 +282,26 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.VariantCellOf))!);
             _il.Emit(OpCodes.Stloc, cell);
         }
+
+        // each object's cell, as each Variant's is.
+        foreach (var (slot, cell) in _objects)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, slot);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ObjectCellOf))!);
+            _il.Emit(OpCodes.Stloc, cell);
+        }
+    }
+
+    // the cell of a field of Me, found by the activation's object; none goes to orElse.
+    private void EmitFieldCell(int slot, Label orElse, string find)
+    {
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, _cellNumbers[slot]);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(find)!);
+        _il.Emit(OpCodes.Stloc, _cells[slot]);
+        _il.Emit(OpCodes.Ldloc, _cells[slot]);
+        _il.Emit(OpCodes.Brfalse, orElse);
     }
 
     // the cell of a slot that is not a parameter passed by reference, holding what loadValue loads: the activation is the interpreter's from the start when
@@ -614,6 +648,16 @@ internal sealed class ProcedureEmitter
             arguments[i] = EmitArgument(call.Arguments[i], failure);
         }
 
+        // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
+        if (call.Receiver is { } receiver)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldloc, _objects[receiver]);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
+            _il.Emit(OpCodes.Brfalse, failure);
+        }
+
         var called = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.SpillsBeforeCalls))!.GetMethod!);
@@ -626,8 +670,10 @@ internal sealed class ProcedureEmitter
         var returned = _il.DefineLabel();
 
         // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
-        // way (CompiledActivation.EnterDirectly); through the invoker otherwise.
-        if (_directs[call.Callee] is { } direct)
+        // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
+        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has.
+        var direct = _directs[call.Callee];
+        if (direct is not null || call.Receiver is not null)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -635,7 +681,7 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, call.Offset);
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.EnterDirectly))!);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(direct is null ? nameof(CompiledActivation.EnterMemberDirectly) : nameof(CompiledActivation.EnterDirectly))!);
             _il.Emit(OpCodes.Stloc, callee);
             _il.Emit(OpCodes.Ldloc, callee);
             _il.Emit(OpCodes.Brfalse, indirect);
@@ -650,7 +696,19 @@ internal sealed class ProcedureEmitter
                 Load(given[i], call.Arguments[i].Kind);
             }
 
-            _il.Emit(OpCodes.Call, direct.Entry);
+            if (direct is not null)
+            {
+                _il.Emit(OpCodes.Call, direct.Entry);
+            }
+            else
+            {
+                var member = _analysis.Callees[call.Callee];
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.MemberEntry))!.GetMethod!);
+                _il.EmitCalli(OpCodes.Calli, CallingConventions.Standard, typeof(RuntimeExecutionOutcome),
+                    [typeof(CompiledActivation), .. member.Parameters.Select((kind, i) => member.ByReference[i] ? typeof(object) : ClrTypeOf(kind))], null);
+            }
+
             _il.Emit(OpCodes.Stloc, outcome);
             _il.BeginFaultBlock();
             _il.Emit(OpCodes.Ldarg_0);
@@ -690,7 +748,7 @@ internal sealed class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, call.Callee);
         _il.Emit(OpCodes.Ldloca, integral);
         _il.Emit(OpCodes.Ldloca, floating);
-        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Call))!);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(call.Receiver is null ? nameof(CompiledActivation.Call) : nameof(CompiledActivation.CallMember))!);
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
         _il.MarkLabel(returned);
 
@@ -820,15 +878,32 @@ internal sealed class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
+        // each field's cell, found again: an edit made while the program waited may have given the object others.
+        foreach (var slot in _analysis.FieldSlots)
+        {
+            EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
+        }
+
         // each Variant's cell, found again. Nothing the interpreter runs binds a Variant's slot to another cell: a ReDim keeps the Variant in its cell, and
-        // an edit while the procedure waits leaves the rest of its activation to the interpreter. So this finds the same cell. It is the reload's own read:
-        // one that fails (FailsAccessAtRandom) goes to unread like any other, and a statement that came to rebind a slot would be read here.
+        // an edit of the procedure while it waits leaves the rest of its activation to the interpreter. So this finds the same cell. It is the reload's own
+        // read: one that fails (FailsAccessAtRandom) goes to unread like any other, and a statement that came to rebind a slot would be read here.
         foreach (var (slot, cell) in _variants)
         {
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, cell);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReloadVariantCell))!);
+            _il.Emit(OpCodes.Brfalse, unread);
+        }
+
+        // each object's cell, found again as each Variant's is. A Set the interpreter ran stores the reference into the cell the slot holds, so this finds
+        // the same cell; it is read from the frame again rather than assumed kept.
+        foreach (var (slot, cell) in _objects)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, slot);
+            _il.Emit(OpCodes.Ldloca, cell);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReloadObjectCell))!);
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
@@ -1531,6 +1606,47 @@ internal sealed class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 _il.MarkLabel(converted);
                 return new Operand(ScalarKinds.IsIntegral(unvariant.Kind) ? integral : floating, 0, 0);
+            }
+
+            // two object references compared, or one compared with Nothing (ObjectOperations); a cell compiled code reads no reference from, the interpreter's.
+            case IsNode { Left: null, Right: null }:
+                _il.Emit(OpCodes.Ldc_I4_1);
+                return AsBoolean();
+
+            case IsNode compared:
+            {
+                var same = _il.DeclareLocal(typeof(bool));
+                if (compared is { Left: { } left, Right: { } right })
+                {
+                    _il.Emit(OpCodes.Ldloc, _objects[left]);
+                    _il.Emit(OpCodes.Ldloc, _objects[right]);
+                    _il.Emit(OpCodes.Ldloca, same);
+                    _il.Emit(OpCodes.Call, Objects.GetMethod(nameof(ObjectOperations.Is))!);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Ldloc, _objects[compared.Left ?? compared.Right!.Value]);
+                    _il.Emit(OpCodes.Ldloca, same);
+                    _il.Emit(OpCodes.Call, Objects.GetMethod(nameof(ObjectOperations.IsNothing))!);
+                }
+
+                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Ldloc, same);
+                return AsBoolean();
+            }
+
+            // TypeOf, as the interpreter tests it; of Nothing, which raises error 91, the interpreter's.
+            case TypeOfNode typeOf:
+            {
+                var isOf = _il.DeclareLocal(typeof(bool));
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloc, _objects[typeOf.Slot]);
+                _il.Emit(OpCodes.Ldc_I4, typeOf.Class);
+                _il.Emit(OpCodes.Ldloca, isOf);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TypeOf))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Ldloc, isOf);
+                return AsBoolean();
             }
 
             // a comparison of Variants of the subtypes they are speculated to hold is the comparison of their payloads (TryCompare), and a Variant of the

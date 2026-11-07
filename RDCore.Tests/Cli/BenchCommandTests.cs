@@ -321,14 +321,17 @@ public sealed class BenchCommandTests
 
         var lines = output.ToString().Split(Environment.NewLine);
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
-        var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
-        StringAssert.StartsWith(objectCall, "interpreted");
-        StringAssert.Contains(objectCall, "line ");
+        var interpreted = lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal));
+        StringAssert.StartsWith(interpreted, "interpreted");
+        StringAssert.Contains(interpreted, "Raise (line ");
 
-        // a member of a class is compiled as any procedure is; the one statement of this one assigns a field, which the interpreter would run alone.
-        var member = lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal));
-        StringAssert.StartsWith(member, "interpreted");
-        StringAssert.Contains(member, "mCount (line ");
+        // a member of an object is called by compiled code: the Set that gives the variable its object is the interpreter's.
+        var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
+        StringAssert.StartsWith(objectCall, "compiled");
+        StringAssert.Contains(objectCall, "Assignment (line ");
+
+        // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
+        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
 
         // a compiled procedure says what of it the interpreter runs, and where.
         var stepping = lines.Single(line => line.Contains("Cases.AppendsInALoop ", StringComparison.Ordinal));

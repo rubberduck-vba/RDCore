@@ -209,6 +209,12 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
 
+// left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing).
+internal sealed record class IsNode(int? Left, int? Right) : PayloadNode(ScalarKind.Boolean);
+
+// TypeOf of an object variable of the activation, against the class the body knows by its number (CompiledActivation.TypeOf).
+internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(ScalarKind.Boolean);
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
@@ -281,8 +287,9 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // a call of a procedure of the workspace (Callee, of CompiledBody.Callees), every argument a scalar passed by value, or the cell of one passed by reference
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
-// an instruction is handed to the interpreter at its start only before the call is made, which it would make again.
-internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result) : CompiledStep(Offset)
+// an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
+// slot of the object variable it is made on (Receiver).
+internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
 }
@@ -297,6 +304,46 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 {
     /// <summary>Whether any parameter is passed by reference.</summary>
     public bool TakesReferences { get; } = ByReference.Contains(true);
+
+    /// <summary>
+    /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
+    /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
+    /// </summary>
+    public SDK.Semantics.Binding.BoundMember? Site { get; init; }
+
+    /// <summary>
+    /// The member other than <see cref="Procedure"/> the call last invoked, of an object of another class, found to be called as
+    /// <see cref="Procedure"/> is (<see cref="CompiledActivation.CanCallMember"/>): one implementing it, of an object declared as an interface.
+    /// </summary>
+    public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
+
+    /// <summary>
+    /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
+    /// </summary>
+    public MemberEntry? Entered { get; set; }
+}
+
+/// <summary>
+/// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
+/// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
+/// holds them.
+/// </summary>
+internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, SDK.Semantics.Instructions.InstructionList List, CompiledBody Body,
+    nint Entry, Semantics.RuntimeEvaluationContext Context)
+{
+}
+
+/// <summary>
+/// The cells of the fields of an object a body found (<see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
+/// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
+/// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does. A live object keeps the cell
+/// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
+/// again, with none found.
+/// </summary>
+/// <param name="Object">The object's identity.</param>
+/// <param name="Cells">The cells, by number.</param>
+internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, object?[] Cells)
+{
 }
 
 /// <summary>
