@@ -20,10 +20,20 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// or a <c>Variant</c> that may hold one when it runs: one declared as a scalar, an <c>Object</c>, a class or a user-defined type is "Expected array", and
 /// so is a project, a module or an <c>Enum</c>;</description></item>
 /// <item><description>an argument of a parameter declared as an array, which is passed by reference, named or not: the declared type of its argument must
-/// match the parameter's (<strong>MS-VBAL §5.3.1.11</strong>), so a <c>Variant</c> is not accepted there. The element types match as the compiler matches
-/// them: a <c>String * 3</c> does not match a <c>String</c>, and an array of any <c>Enum</c> matches a parameter declared as an array of an <c>Enum</c>. A
-/// fixed-size array is accepted as a resizable one is, as MS-VBA and RDCore's compiler accept it, though by the specification's letter it is of another
-/// declared type.</description></item>
+/// match the parameter's (<strong>MS-VBAL §5.3.1.11</strong>), so a <c>Variant</c> is not accepted there. The element types match as MS-VBA and RDCore's
+/// compiler match them, which is not always the specification's letter.</description></item>
+/// </list>
+/// <para>
+/// How the element types of an array argument match:
+/// </para>
+/// <list type="bullet">
+/// <item><description>a <c>String * 3</c> does not match a <c>String</c>: a fixed-length <c>String</c> is a declared type of its own, as the specification
+/// has it;</description></item>
+/// <item><description>an array of any <c>Enum</c> matches a parameter declared as an array of an <c>Enum</c>, and an array of <c>Long</c> does not, nor
+/// the reverse, though by the specification's letter the declared type of an <c>Enum</c> declaration is <c>Long</c> (<strong>MS-VBAL §2.2</strong>,
+/// <strong>§5.2.3.4</strong>);</description></item>
+/// <item><description>a fixed-size array is accepted as a resizable one is, though by the specification's letter it is of another declared
+/// type.</description></item>
 /// </list>
 /// <para>
 /// A variable, a field (of a user-defined type too), a parameter, a <c>Function</c> and a <c>Property</c> are offered by their declared type: a
@@ -33,8 +43,9 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// <para>
 /// What is offered ranks in four tiers (<see cref="GroupsOf"/>): the arrays the procedure declares, its own array parameters included; then the other
 /// arrays, of its module, of the project, and the members that return one; then the <c>Variant</c>s, for <c>LBound</c> and <c>UBound</c>; then the records
-/// and the objects that a member, or a member of a member, leads to an array the argument can be given (<c>UBound(o.Inner.Slots)</c>). Such a record or
-/// object is offered so that its member can be written after it; a record or an object that leads to no such array is not offered.
+/// and the objects whose member is an array the argument can be given, or leads to one through its own members, three members at most in all
+/// (<c>UBound(o.Inner.Slots)</c> is two, <c>UBound(cb.C.D.Arr)</c> three). Such a record or object is offered so that its member can be written after it;
+/// a record or an object that leads to no such array is not offered.
 /// </para>
 /// </remarks>
 /// <param name="ItemType">
@@ -43,7 +54,7 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// </param>
 public sealed record class CompletionArrayArgument(VBType? ItemType = null)
 {
-    // how deep the members of a record or an object are looked into for an array: o.Inner.Slots is two members deep.
+    // how many members are written after a record or an object to reach an array: o.Inner.Slots is two, cb.C.D.Arr three.
     private const int MaxMemberDepth = 3;
 
     private const int LocalArrays = 0;
@@ -132,22 +143,24 @@ public sealed record class CompletionArrayArgument(VBType? ItemType = null)
     private bool IsGiven(VBArrayType array) => ItemType is null || ArgumentListStaticSemantics.SameElementType(ItemType, array.ItemType);
 
     // whether a member of a record or an object, or a member of one of its members, is an array the argument can be given. What is found of a type is
-    // kept for the depth it was looked into at, and a type being looked into leads to nothing more through itself.
+    // kept for the depth it was looked into at, by the type's declaration (a Private Type of one name in each of two modules is two types), and a type being
+    // looked into leads to nothing more through itself.
     private bool LeadsToAGivenArray(VBType type, ISymbolResolver? resolver, Dictionary<string, bool> leads, int depth)
     {
-        VBType? current = type switch
+        var current = CurrentTypes.Of(resolver, type);
+        Symbol? declaration = current switch
         {
-            VBClassType declared => CurrentTypes.Of(resolver, declared),
-            VBUserDefinedType declared => CurrentTypes.Of(resolver, declared),
+            VBClassType declared => declared.Symbol,
+            VBUserDefinedType declared => declared.Symbol,
             _ => null,
         };
 
-        if (current is null || depth == 0)
+        if (declaration is null || depth == 0)
         {
             return false;
         }
 
-        var key = $"{depth}:{current.Name}";
+        var key = $"{depth}:{declaration.Uri.AbsoluteUri}";
         if (leads.TryGetValue(key, out var known))
         {
             return known;

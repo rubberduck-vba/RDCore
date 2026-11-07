@@ -629,6 +629,33 @@ public sealed class CompletionServiceTests
             string.Join(", ", labels));
     }
 
+    // a type of one name in each of two modules, the one Private to the module being written: two types, each looked into on its own, whichever is met
+    // first.
+    [TestMethod]
+    [DataRow("Arr() As Long", "X As Long", true, DisplayName = "the other module's type leads to an array, the local one does not")]
+    [DataRow("X As Long", "Arr() As Long", false, DisplayName = "the local type leads to an array, the other module's does not")]
+    public async Task TwoTypesOfOneName_AreEachLookedIntoOnTheirOwn(string otherField, string localField, bool offered)
+    {
+        var other = $"Attribute VB_Name = \"Shelves2\"\r\nPublic Type Pair\r\n    {otherField}\r\nEnd Type\r\nPublic sp As Pair\r\n";
+        WorkspaceHas(new WorkspaceDocument("Shelves2.bas", Root, other));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPrivate Type Pair\r\n    {localField}\r\nEnd Type\r\nPublic Sub Main()\r\n    Dim p As Pair\r\n"
+            + "    x = UBound(|\r\nEnd Sub\r\n");
+        var labels = (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items.Select(item => item.Label).ToArray();
+
+        Assert.AreEqual(offered, labels.Contains("sp"), string.Join(", ", labels));
+        Assert.AreEqual(!offered, labels.Contains("p"), string.Join(", ", labels));
+    }
+
+    // a name the word typed is, in any case, is what the user means to write: it is selected, though the tiers before it keep their order.
+    [TestMethod]
+    public async Task ANameTheWordTypedIs_IsSelectedOverTheTiersBeforeIt()
+    {
+        var items = await ArrayArgumentItemsAsync("x = UBound(r|", "Public Sub Main()\r\n    Dim r As Rack");
+
+        Assert.AreEqual("r", items.Single(item => item.Preselect).Label, Show(items));
+        Assert.AreNotEqual("r", items[0].Label, Show(items));
+    }
+
     [TestMethod]
     [DataRow("x = UBound(o.|", "Inner", DisplayName = "a member that leads to one")]
     [DataRow("x = UBound(o.Inner.|", "Slots", DisplayName = "the array")]
