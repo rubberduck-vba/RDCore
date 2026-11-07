@@ -148,8 +148,9 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Summed", recoveries: 5);
 
+    // the For statement of a Variant counter decides the type its loop counts in, and is the interpreter's; each Next is compiled code's.
     [TestMethod]
-    public async Task AForWithAVariantCounter_IsTheInterpreters_AroundACompiledBody()
+    public async Task AForWithAVariantCounter_IsSteppedByTheInterpreter_AndItsNextIsCompiled()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Counting()",
@@ -159,19 +160,20 @@ public sealed class CompiledSteppingTests
             "    For V = 1 To 3",
             "        Counting = Counting + 1",
             "    Next",
-            "End Function"), "Counting", recoveries: 4);
+            "End Function"), "Counting", recoveries: 1);
 
-    // what the interpreter runs alone is said where it is: a Next, which has no statement of its own, at its For.
+    // what the interpreter runs alone is said where it is: a Next, which has no statement of its own, at its For - one of a counter that is a variable of
+    // the module, which compiled code holds nothing of.
     [TestMethod]
     public async Task WhatTheInterpreterRunsAlone_IsSaidWhereItIs_ANextAtItsFor()
     {
         var compiled = await AssertAlikeAsync(Program(
+            "Private M As Long",
             "Public Sub Main()",
             "    Debug.Print Counting()",
             "End Sub",
             "Private Function Counting() As Long",
-            "    Dim V As Variant",
-            "    For V = 1 To 3",
+            "    For M = 1 To 3",
             "        Counting = Counting + 1",
             "    Next",
             "End Function"), "Counting", recoveries: 4);
@@ -436,12 +438,12 @@ public sealed class CompiledSteppingTests
             "    Debug.Print Cheap()",
             "End Sub",
             "Private Function Cheap() As Long",
-            "    Dim N As Long, K As Variant",
+            "    Dim N As Long, S As String",
             "    N = 7",
             "    Do",
-            "        K = K + 1",
-            "    Loop Until K >= 5",
-            "    Cheap = N + K",
+            "        S = S & \"x\"",
+            "    Loop Until Len(S) >= 5",
+            "    Cheap = N + Len(S)",
             "End Function"));
 
         var cheap = compiled["Cheap"];

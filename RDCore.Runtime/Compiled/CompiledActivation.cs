@@ -714,6 +714,67 @@ public sealed class CompiledActivation : ILightActivation
         return read;
     }
 
+    /// <summary>
+    /// The cell the frame holds the <c>Variant</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads and
+    /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
+    /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
+    /// </summary>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no Variant's cell - a Variant parameter passed a <c>String</c> by value, a variable of another type
+    /// passed by reference, an element of an array: compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
+    /// runs each statement that does.
+    /// </returns>
+    public object? VariantCellOf(int slot)
+    {
+        var frame = Frame;
+        return (frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)) && cell is VariantCell variant ? variant : null;
+    }
+
+    /// <summary>
+    /// The cell of the <c>Variant</c> in <paramref name="slot"/> (<see cref="VariantCellOf"/>), found again after the interpreter ran an instruction or the
+    /// program waited.
+    /// </summary>
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadVariantCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = VariantCellOf(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// Steps the <c>For</c> loop whose statement is at <paramref name="opener"/>, of a <c>Variant</c> counter, as the interpreter steps it on payloads
+    /// (<c>RuntimeExpressionEvaluator.TryStepForUnboxed</c>), with the state its statement, which the interpreter ran, gave the frame.
+    /// </summary>
+    /// <returns>1 when the counter is past the end and the loop ends; 0 when the body runs again; -1 when the step is the interpreter's.</returns>
+    public int StepVariantFor(int opener)
+        => Frame.TryGetForLoopState(opener, out var state) && _executor.Expressions.TryStepForUnboxed(_session, state, _context, out var past) ? (past ? 1 : 0) : -1;
+
+    /// <summary>
+    /// The step and the end of the loop of a Variant counter held in <paramref name="cell"/> whose <c>For</c> statement is at <paramref name="opener"/>,
+    /// in the subtype <paramref name="kind"/> compiled code speculates the counter holds, and whether it counts down: what each Next that finds the counter
+    /// holding a value of that subtype steps it with, as the interpreter does (<c>RuntimeExpressionEvaluator.TryVariantForBounds</c>).
+    /// </summary>
+    /// <returns>1 when each Next is stepped in that subtype; -1 when each is stepped as any is (<see cref="StepVariantFor"/>).</returns>
+    public int VariantForBounds(int opener, object? cell, ScalarKind kind, out long stepIntegral, out double stepFloating, out long endIntegral,
+        out double endFloating, out bool countsDown)
+    {
+        (stepIntegral, stepFloating, endIntegral, endFloating, countsDown) = (0, 0, 0, 0, false);
+        if (cell is not VariantCell variant || !Frame.TryGetForLoopState(opener, out var state)
+            || !_executor.Expressions.TryVariantForBounds(_session, state, _context, variant, ScalarKinds.TypeOf(kind), out var step, out var end))
+        {
+            return -1;
+        }
+
+        (stepIntegral, stepFloating, endIntegral, endFloating, countsDown) = (step.Integral, step.Floating, end.Integral, end.Floating, state.CountsDown);
+        return 1;
+    }
+
     /// <summary>Writes the variable in <paramref name="slot"/>, of an integral kind, into its cell.</summary>
     public void SpillIntegral(int slot, long value) => Spill(slot, value, 0);
 
