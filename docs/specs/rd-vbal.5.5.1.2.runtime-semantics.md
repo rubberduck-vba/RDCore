@@ -73,7 +73,7 @@ Each let-coercion step yields a [LetCoercionResult](../api/RDCore.SDK.Runtime.Sh
 |---|---|
 |`Success`|The coerced [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).|
 |`Error`|A run-time error, such as `TypeMismatch` or `Overflow` (`VBRuntimeErrorId`).|
-|`NotApplicable`|—|
+|`NotApplicable`|None|
 
 
 ## Let-coercion strategies

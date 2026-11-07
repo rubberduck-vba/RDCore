@@ -398,10 +398,10 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 
 |Condition|Run-time error|
 |---|---|
-|A `MissingArgumentNode` (an argument omitted with a comma) is mapped to a non-`Optional` parameter. Checked during argument mapping.|448 — Named argument not found|
-|After argument mapping, a non-`Optional` parameter other than a `ParamArray` has no argument mapped to it.|449 — Argument not optional|
-|An extra positional argument goes beyond the parameter count, and there is no trailing `ParamArray` parameter.|450 — Wrong number of arguments or invalid property assignment|
-|Pushing the callee's frame exceeds the call-depth limit (`RuntimeCallStack.OnBeforeTryPush`).|28 — Out of stack space|
+|A `MissingArgumentNode` (an argument omitted with a comma) is mapped to a non-`Optional` parameter. Checked during argument mapping.|448 (Named argument not found)|
+|After argument mapping, a non-`Optional` parameter other than a `ParamArray` has no argument mapped to it.|449 (Argument not optional)|
+|An extra positional argument goes beyond the parameter count, and there is no trailing `ParamArray` parameter.|450 (Wrong number of arguments or invalid property assignment)|
+|Pushing the callee's frame exceeds the call-depth limit (`RuntimeCallStack.OnBeforeTryPush`).|28 (Out of stack space)|
 
 ## Implementation
 

@@ -22,7 +22,7 @@ Relational operators compare in the effective type, and yield a
 
 |Condition|Run-time error|
 |---|---|
-|An operand is `NaN`.|6 — Overflow|
+|An operand is `NaN`.|6 (Overflow)|
 
 Run-time error 6 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.Overflow`.
 
