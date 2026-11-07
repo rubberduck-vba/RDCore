@@ -93,22 +93,43 @@ Compiled code remembers where it last found an object's fields, and looks for th
 field for as long as it lives, and a procedure is compiled again when its class is edited. What compiled code remembers never keeps an object alive: once
 nothing else holds the object, it is gone.
 
+### Arrays
+
+Compiled code handles an array parameter or local array variable of the procedure, except a `Static` array, a `ParamArray` and an array declared
+`As New`. An array field of `Me` or of a module, and an array in a record, are the interpreter's.
+
+- `LBound` and `UBound` read the array's bounds, whatever its element type (**MS-VBAL §3.3.5.2**).
+- It finds an element in the array the frame holds each time it reads or writes one (**MS-VBAL §5.6.13**), so after a `ReDim` it finds the element in
+  the new array. Each subscript is converted to a `Long`. The array has up to three dimensions.
+- An element of an array of a scalar type is read and written as a variable of that type, and an element of an array of `Variant`s as a `Variant`.
+  An element of an array of objects can be compared with `Is` and tested with `TypeOf`.
+- The interpreter runs a `ReDim` of an array of a scalar type whose bounds compiled code computes, and an `Erase` of such an array, for compiled code.
+  An error either raises goes to the procedure's error handler, as an error of a call does.
+
+The interpreter does the rest on its own:
+
+- A subscript outside its dimension, which raises error 9 at that statement, and `LBound` or `UBound` of a dimension the array does not have.
+- A `Set` of an element of an array of objects.
+- A `ReDim` or an `Erase` of an array of `Variant`s or of objects, which can release objects.
+- An element passed `ByRef`: the array cannot be resized while the callee holds its element.
+- An element of an array of `String`s or of records.
+
 ### What compiled code does itself
 
 Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the function's own result variable, and parentheses.|
-|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields and `Nothing`, and `TypeOf` of one of its object variables or fields.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
+|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
 |Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
 `Resume Next`, `Resume` a label and the `Error` statement (see Error handling, below); a statement that uses something that stays in the frame (a
-fixed-length `String`, an object other than as above, a field or a `Static` that is neither a scalar nor an object); a call of a member of anything other than one of the procedure's object variables and fields (`Err.Number` is one); an element of an array; and a `For` whose counter or bounds
+fixed-length `String`, an object other than as above, a field or a `Static` that is neither a scalar nor an object); a call of a member of anything other than one of the procedure's object variables and fields (`Err.Number` is one); an element of an array that compiled code does not handle (see Arrays, above); and a `For` whose counter or bounds
 compiled code does not do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.

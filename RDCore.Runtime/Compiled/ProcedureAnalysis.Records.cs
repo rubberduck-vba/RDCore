@@ -100,9 +100,6 @@ internal sealed partial class ProcedureAnalysis
         return null;
     }
 
-    // whether what an expression evaluates to is a Variant, as one declared Variant is: a Variant field of a record is too.
-    private bool IsVariant(BoundNode node) => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || RecordFieldOf(node) is { Type: VBVariantType };
-
     // MS-VBAL §5.4.3.8 with a <member-access-expression> target whose owner is a record, as AssignField assigns it: the value let-coerced to the field's
     // declared type, and the field holding it.
     private CompiledStep? AnalyzeFieldLet(int offset, AssignmentStatementNode assignment)
