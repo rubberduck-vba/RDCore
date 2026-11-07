@@ -232,6 +232,8 @@ public sealed class CompletionCandidatesTests
     [DataRow("xyz", "_x", false, DisplayName = "a word that starts with an underscore, a label that does not")]
     [DataRow("_NewEnum", "_NEn", true, DisplayName = "a word that starts with an underscore, a label that does")]
     [DataRow("_NewEnum", "NE", true, DisplayName = "a label's leading underscore is of no hump")]
+    [DataRow("_private", "__", true, DisplayName = "underscores alone, a label that starts with one")]
+    [DataRow("Class_Initialize", "__", false, DisplayName = "underscores alone, a label that does not start with one")]
     public void AWord_MatchesALabelItStarts_OrTheLabelsHumps(string label, string word, bool matches)
         => Assert.AreEqual(matches, CompletionCandidates.MatchOf(label, word) != CompletionMatch.None);
 
@@ -239,8 +241,8 @@ public sealed class CompletionCandidatesTests
     [TestMethod]
     public void EveryLabelALongerWordMatches_TheWordMatchesToo()
     {
-        string[] labels = ["Class_Initialize", "ClassModule", "cmd_Click", "_NewEnum", "xyz", "MultiPlayer", "vbKeyEscape", "CLngPtr", "Win32Api", "IOError", "x_y_z"];
-        string[] words = ["C_I", "Cl_ass", "c_C", "_NEn", "_x", "MuPl", "vbKEs", "CLnP", "W32A", "IOE", "x_y_z", "C__I", "x__z"];
+        string[] labels = ["Class_Initialize", "ClassModule", "cmd_Click", "_NewEnum", "xyz", "_xyz", "__init", "MultiPlayer", "vbKeyEscape", "CLngPtr", "Win32Api", "IOError", "x_y_z"];
+        string[] words = ["C_I", "Cl_ass", "c_C", "_NEn", "_x", "__x", "__N", "___i", "MuPl", "vbKEs", "CLnP", "W32A", "IOE", "x_y_z", "C__I", "x__z"];
         foreach (var word in words)
         {
             for (var length = 1; length < word.Length; length++)

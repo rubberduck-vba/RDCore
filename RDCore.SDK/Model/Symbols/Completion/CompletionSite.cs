@@ -150,8 +150,8 @@ public sealed record class CompletionSite(CompletionSiteKind Kind, string Prefix
         var index = dot;
         while (true)
         {
-            // the type hint of a name (`Name$.`) is the name's.
-            if (index > 0 && text[index - 1] is '$' or '%' or '&' or '#' or '@' or '^' && index > 1 && IsIdentifierCharacter(text[index - 2]))
+            // the type hint of a name (`Name$.`, `total!.`) is the name's: a `!` right before the dot is one, since a dictionary access ends with a name.
+            if (index > 0 && text[index - 1] is '$' or '%' or '&' or '!' or '#' or '@' or '^' && index > 1 && IsIdentifierCharacter(text[index - 2]))
             {
                 index--;
             }

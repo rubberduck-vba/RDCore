@@ -26,6 +26,9 @@ public sealed class ConsolePromptEditorTests
         // the names the word before the cursor matches, as the language server narrows them.
         public bool Narrows { get; init; }
 
+        // the word whose list is still on its way when the keys run out.
+        public string? Withheld { get; init; }
+
         public Task<IReadOnlyList<CompletionItem>> CompleteAsync(string line, int cursor, CancellationToken token)
         {
             Asked.Add((line, cursor));
@@ -41,6 +44,11 @@ public sealed class ConsolePromptEditorTests
             }
 
             var word = line[start..cursor];
+            if (word == Withheld)
+            {
+                return new TaskCompletionSource<IReadOnlyList<CompletionItem>>().Task;
+            }
+
             return Task.FromResult<IReadOnlyList<CompletionItem>>(Narrows
                 ? [.. Names.Where(name => RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.MatchOf(name.Label, word) != RDCore.SDK.Model.Symbols.Completion.CompletionMatch.None)]
                 : Names);
@@ -134,6 +142,27 @@ public sealed class ConsolePromptEditorTests
         Assert.AreEqual("c!Key", await EnterAsync(new ScriptedKeys().Type("c!Key").Press(Key(ConsoleKey.Enter)), source));
 
         CollectionAssert.DoesNotContain(source.Asked, ("c!", 2));
+        CollectionAssert.DoesNotContain(source.Asked, ("c!K", 3), "nor does the first letter of the name after it");
+    }
+
+    // the list of a word's first letter holds nothing the empty word alone matches: once the word is erased, the list of the empty word is asked for.
+    [TestMethod]
+    public async Task AWordErased_AsksForTheListOfTheEmptyWord()
+    {
+        var source = new Source { Names = [Item("Mulch"), Item("MultiPlayer"), Item("Zebra")], Narrows = true };
+        var keys = new ScriptedKeys().Type("x = M").Press(Key(ConsoleKey.Backspace)).Type("Z").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter));
+
+        Assert.AreEqual("x = Zebra", await EnterAsync(keys, source), string.Join(", ", source.Asked));
+    }
+
+    // a list of the word's first letter that is still on its way when the word is erased is no list of the empty word either.
+    [TestMethod]
+    public async Task AWordErasedWhileItsListIsOnItsWay_AsksForTheListOfTheEmptyWord()
+    {
+        var source = new Source { Names = [Item("Mulch"), Item("MultiPlayer"), Item("Zebra")], Narrows = true, Withheld = "M" };
+        var keys = new ScriptedKeys().Type("x = M").Press(Key(ConsoleKey.Backspace)).Type("Ze").Press(Key(ConsoleKey.Tab), Key(ConsoleKey.Enter));
+
+        Assert.AreEqual("x = Zebra", await EnterAsync(keys, source), string.Join(", ", source.Asked));
     }
 
     // a list asked for in the middle of a word is the list of its first letter: it holds what the word matches once it is shorter.
