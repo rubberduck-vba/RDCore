@@ -267,6 +267,12 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'objet sur lequel ce membre est accédé est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet pour porter le membre.</value>
   </data>
+  <data name="VBLSet_NoObjectAtAddress_Verbose" xml:space="preserve">
+    <value>LSet lit un champ objet dans des octets qui ne sont l'adresse d'aucun objet : le nombre qui s'y trouve n'est pas ce qu'ObjPtr a renvoyé pour un objet qui existe encore, ni 0 pour Nothing. Rien n'a été copié.</value>
+  </data>
+  <data name="VBLSet_ObjectOfAnotherClass_Verbose" xml:space="preserve">
+    <value>LSet donne à un champ objet l'objet d'une autre classe : un champ déclaré d'une classe ne contient qu'un objet de cette classe, ou d'une classe qui l'implémente, comme Set l'exigerait. Rien n'a été copié.</value>
+  </data>
   <data name="VBTypeOf_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>Ce que TypeOf teste est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet dont le type pourrait être testé. Testez-la d'abord avec 'Is Nothing'.</value>
   </data>

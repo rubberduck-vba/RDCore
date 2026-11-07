@@ -989,4 +989,211 @@ public sealed class CompiledRecordTests
             "    Debug.Print \"N\"; N",
             "    N = N + 100",
             "End Sub"), null, 0, 0, "N 1", printed);
+
+    // a nested record is laid out for the host's pointers as the record it is in is: its LongPtr is as wide as the outer record's, whatever is beside it.
+    [TestMethod]
+    [DataRow("    P As LongPtr", "A.Inner.P = 5", "B.Inner.P", "5")]
+    [DataRow("    L As Long|    P As LongPtr", "A.Inner.L = 3: A.Inner.P = 5", "B.Inner.L; B.Inner.P", "3  5")]
+    public async Task ANestedRecordWithALongPtrField_IsCopiedByLSet(string fields, string set, string print, string printed)
+        => await AssertPrintsAsync(Module([
+            "Private Type TIn",
+            .. fields.Split('|'),
+            "End Type",
+            "Private Type TOut",
+            "    Inner As TIn",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As TOut, B As TOut",
+            $"    {set}",
+            "    LSet B = A",
+            $"    Debug.Print {print}",
+            "End Sub"]), null, 0, 0, printed);
+
+    // an object field given by reference is the field when its record is written by LSet or let another record: the parameter holds the object the field
+    // holds after the write, and the object the field held before is let go of.
+    [TestMethod]
+    [DataRow("Noisy", "LSet Q = O")]
+    [DataRow("Noisy", "Q = O")]
+    [DataRow("Object", "LSet Q = O")]
+    [DataRow("Object", "Q = O")]
+    public async Task AnObjectFieldGivenByReference_IsTheField_WhenItsRecordIsWritten(string type, string write)
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type TObj",
+            $"    O As {type}",
+            "    N As Long",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim Q As TObj, O As TObj",
+            "    Set Q.O = New Noisy",
+            "    Q.O.Name = \"q\"",
+            "    Set O.O = New Noisy",
+            "    O.O.Name = \"o\"",
+            "    Inner Q, O, Q.O",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            $"Private Sub Inner(ByRef Q As TObj, ByRef O As TObj, ByRef X As {type})",
+            $"    {write}",
+            "    Debug.Print TypeName(X); X Is Q.O",
+            "    Debug.Print X.Name",
+            "End Sub"), null, 0, 0, "gone q", "NoisyTrue", "o", "after", "gone o", "ended");
+
+    // the address of an object LSet onto an object field in a nested record, or onto an object element of a fixed-size array field, is that object, as it
+    // is onto an object field of the record itself.
+    [TestMethod]
+    [DataRow("    Inner As THold", "R.Inner.O", "R.Inner.N")]
+    [DataRow("    O(1 To 1) As Noisy|    N As Long", "R.O(1)", "R.N")]
+    public async Task AnObjectsAddressLSetOntoAnObjectFieldInsideTheRecord_IsTheObject(string fields, string held, string number)
+        => await AssertPrintsAsync(Noisy(), Program([.. Holders,
+            "Private Type TDeep",
+            .. fields.Split('|'),
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim W As TPtr, R As TDeep, N As Noisy",
+            "    Set N = New Noisy",
+            "    N.Name = \"n\"",
+            "    W.P = ObjPtr(N)",
+            "    W.N = 7",
+            "    LSet R = W",
+            $"    Debug.Print {held} Is N; {held}.Name; {number}",
+            "    Set N = Nothing",
+            "    Debug.Print \"cleared n\"",
+            "End Sub"]), null, 0, 0, "Truen 7", "cleared n", "gone n", "ended");
+
+    // a number that is no object's address LSet onto an object field inside the record is an error as it is onto one of the record itself: error 424, and
+    // nothing of the record is written.
+    [TestMethod]
+    [DataRow("    Inner As THold", "R.Inner.O", "R.Inner.N")]
+    [DataRow("    O(1 To 1) As Noisy|    N As Long", "R.O(1)", "R.N")]
+    public async Task ANumberThatIsNoObjectsAddressLSetOntoAnObjectFieldInsideTheRecord_IsAnError(string fields, string held, string number)
+        => await AssertPrintsAsync(Noisy(), Program([.. Holders,
+            "Private Type TDeep",
+            .. fields.Split('|'),
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    On Error Resume Next",
+            "    Dim W As TPtr, R As TDeep",
+            $"    Set {held} = New Noisy",
+            $"    {held}.Name = \"r\"",
+            "    W.P = 12345",
+            "    W.N = 7",
+            "    LSet R = W",
+            $"    Debug.Print Err.Number; {held}.Name; {number}",
+            "End Sub"]), null, 0, 0, "424 r 0", "gone r", "ended");
+
+    private static (string Name, string Source)[] Implementers()
+        => [.. Noisy(),
+            ("IFoo", ModuleWorkspace.ClassModule("IFoo", ["Option Explicit", "Public Sub Hello()", "End Sub"])),
+            ("Impl", ModuleWorkspace.ClassModule("Impl", ["Option Explicit", "Implements IFoo", "Public Name As String", "Private Sub IFoo_Hello()", "End Sub",
+                "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Name", "End Sub"]))];
+
+    private static readonly string[] Classed =
+    [
+        "Private Type TObj",
+        "    O As Object",
+        "    N As Long",
+        "End Type",
+        "Private Type TImpl",
+        "    O As Impl",
+        "    N As Long",
+        "End Type",
+        "Private Type TFoo",
+        "    O As IFoo",
+        "    N As Long",
+        "End Type",
+        "Private Type TPtr",
+        "    P As LongPtr",
+        "    N As Long",
+        "End Type",
+    ];
+
+    // LSet gives a class-typed field an object as Set would: an object of another class, whether a field of the other record holds it or the bytes are its
+    // address, is a type mismatch (error 13), and nothing of the record is written.
+    [TestMethod]
+    [DataRow("A")]
+    [DataRow("W")]
+    public async Task AnObjectOfAnotherClassLSetOntoAClassTypedField_IsATypeMismatch(string source)
+        => await AssertPrintsAsync(Implementers(), Program([.. Classed,
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    On Error Resume Next",
+            "    Dim A As TObj, W As TPtr, R As TImpl, N As Noisy",
+            "    Set N = New Noisy",
+            "    N.Name = \"n\"",
+            "    Set R.O = New Impl",
+            "    R.O.Name = \"r\"",
+            "    R.N = 3",
+            "    Set A.O = N",
+            "    A.N = 9",
+            "    W.P = ObjPtr(N)",
+            "    W.N = 9",
+            $"    LSet R = {source}",
+            "    Debug.Print Err.Number; R.O.Name; R.N",
+            "    Set N = Nothing",
+            "    Set A.O = Nothing",
+            "    Debug.Print \"cleared n\"",
+            "End Sub"]), null, 0, 0, "13 r 3", "gone n", "cleared n", "gone r", "ended");
+
+    // an object of a class that implements the interface a field is declared as is of the field's class: LSet gives it to the field, from the other
+    // record's field or from the address of either of its interfaces.
+    [TestMethod]
+    [DataRow("A", "I")]
+    [DataRow("W", "I")]
+    [DataRow("W", "M")]
+    public async Task AnObjectThatImplementsAFieldsInterface_IsCopiedByLSet(string source, string addressOf)
+        => await AssertPrintsAsync(Implementers(), Program([.. Classed,
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    On Error Resume Next",
+            "    Dim A As TObj, W As TPtr, R As TFoo, I As IFoo, M As Impl",
+            "    Set M = New Impl",
+            "    M.Name = \"m\"",
+            "    Set I = M",
+            "    Set A.O = M",
+            $"    W.P = ObjPtr({addressOf})",
+            $"    LSet R = {source}",
+            "    Debug.Print Err.Number; R.O Is I",
+            "    Set I = Nothing",
+            "    Set M = Nothing",
+            "    Set A.O = Nothing",
+            "    Debug.Print \"cleared\"",
+            "End Sub"]), null, 0, 0, "0 True", "cleared", "gone m", "ended");
+
+    // a fixed-size Byte array field LSet lays over the bytes of numbers holds those bytes: how a VBA program reads the bytes of a Currency, a Double or a
+    // Long (little-endian, as the host lays them out).
+    [TestMethod]
+    [DataRow("    C As Currency", "A.C = 1", "B.B(0); B.B(1)", "16  39")]
+    [DataRow("    D As Double", "A.D = 1", "B.B(6); B.B(7)", "240  63")]
+    [DataRow("    L As Long|    M As Long", "A.L = 258: A.M = 1", "B.B(0); B.B(1); B.B(4)", "2  1  1")]
+    public async Task AByteArrayFieldLSetOverNumbers_HoldsTheirBytes(string fields, string set, string print, string printed)
+        => await AssertPrintsAsync(Module([
+            "Private Type TNumbers",
+            .. fields.Split('|'),
+            "End Type",
+            "Private Type TBytes",
+            "    B(0 To 7) As Byte",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As TNumbers, B As TBytes",
+            $"    {set}",
+            "    LSet B = A",
+            $"    Debug.Print {print}",
+            "End Sub"]), null, 0, 0, printed);
 }

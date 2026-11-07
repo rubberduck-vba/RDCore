@@ -17,9 +17,12 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// to reserve address space, then binds the caller's value at the resulting address.
 /// </remarks>
 /// <remarks>
+/// The storage gives the session's objects their addresses (<see cref="IObjectPointers"/>).
+/// <para>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
+/// </para>
 /// </remarks>
-public interface ISessionStorage
+public interface ISessionStorage : IObjectPointers
 {
     /// <summary>
     /// Reserves <paramref name="size"/> bytes through the underlying <see cref="ISessionMemoryAllocator"/>

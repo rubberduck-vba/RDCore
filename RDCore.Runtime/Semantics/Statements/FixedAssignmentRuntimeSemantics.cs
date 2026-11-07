@@ -8,6 +8,8 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK;
+using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Shared;
@@ -43,10 +45,12 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// <param name="Expressions">Evaluates the source expression.</param>
 /// <param name="LetCoercion">Let-coerces it to <c>String</c>, which both statements require of it.</param>
 /// <param name="Assignments">Let-assigns the fitted string into the target.</param>
+/// <param name="SetCoercion">Says whether an object a record's <c>LSet</c> gives a class-typed field is one <c>Set</c> would give it.</param>
 public sealed record class FixedAssignmentRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
     ILetCoercionRuntimeSemanticsProvider LetCoercion,
-    LetAssignmentEvaluator Assignments)
+    LetAssignmentEvaluator Assignments,
+    ISetCoercionRuntimeSemantics SetCoercion)
     : StatementRuntimeSemantics<FixedAssignmentSemanticContext, FixedAssignmentSemanticFlags>
 {
     /// <summary>The character a short value is padded with — U+0020, as the specification spells it.</summary>
@@ -203,15 +207,22 @@ public sealed record class FixedAssignmentRuntimeSemantics(
     // so that a copy between two differently-shaped records reinterprets rather than refusing. The target is
     // filled in place: a UDT has location identity, and LSet assigns no new one. How the data is copied is the implementation's, and RD-VBA's copy holds
     // what it copies as an assignment would: each object the target is given is a reference of its own, counted, and each one it held is let go of. Bytes
-    // read as an object field that are the address of no object are an object that is not there: error 424, and nothing is written.
-    private static RuntimeSemanticsEvaluationResult CopyRecord(
+    // read as an object field that are the address of no object are an object that is not there: error 424. An object of a class-typed field is one Set
+    // would give it, of the field's class or of a class that implements it, else error 13. Either error writes nothing.
+    private RuntimeSemanticsEvaluationResult CopyRecord(
         IRuntimeSession session, AssignmentStatementNode assignment, VBUserDefinedTypeValue source, VBUserDefinedTypeValue target)
     {
         var before = ObjectReferences.HeldInRecord(target);
-        if (!VBUserDefinedTypeImage.Copy(source, target, session.Storage as IObjectPointers))
+        var outcome = VBUserDefinedTypeImage.Copy(source, target, session.Storage,
+            (instance, type) => SetCoercion.EvaluateSetCoercion(session, assignment.Value, new VBObjectValue(instance), type).IsSuccess);
+        switch (outcome)
         {
-            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
-                VBRuntimeErrorId.ObjectRequired, assignment.SourceLocation, "LSet read an object field from bytes that are no object's address"));
+            case VBRecordCopyOutcome.NoObjectAtAddress:
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                    VBRuntimeErrorId.ObjectRequired, assignment.SourceLocation, Exceptions.VBLSet_NoObjectAtAddress_Verbose));
+            case VBRecordCopyOutcome.ObjectOfAnotherClass:
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                    VBRuntimeErrorId.TypeMismatch, assignment.SourceLocation, Exceptions.VBLSet_ObjectOfAnotherClass_Verbose));
         }
 
         ObjectReferences.RebindRecord(session, target, before);

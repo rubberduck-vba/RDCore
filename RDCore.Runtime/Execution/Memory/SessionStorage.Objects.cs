@@ -11,7 +11,7 @@ namespace RDCore.Runtime.Execution.Memory;
 
 // the objects and the Variants of the session's memory, as MS-VBA lays them out (recorded in Excel, oracle\s17 O rows, V16, V22): an object variable is a
 // pointer to an interface of the object (ObjectHeader), a Variant a VARIANT.
-internal sealed partial class SessionStorage : IObjectPointers
+internal sealed partial class SessionStorage
 {
     // the interfaces of the objects, by the address each starts at and by the object and the interface; the tables of the classes' interfaces, which the
     // first pointer of an interface is the address of; and the declared types of the variables that are objects, whose bytes are the address of an interface.
@@ -316,7 +316,7 @@ internal sealed partial class SessionStorage : IObjectPointers
 
         return scalar is null
             ? null
-            : VBUserDefinedTypeImage.Decode(scalar, image.AsSpan(VariantDataOffset, Math.Max(1, VBUserDefinedTypeLayout.WidthOf(scalar, pointerSize))));
+            : VBUserDefinedTypeImage.Decode(scalar, image.AsSpan(VariantDataOffset, Math.Max(1, VBUserDefinedTypeLayout.WidthOf(scalar, pointerSize))), pointerSize);
     }
 
     // what is held at an address, as a variable's cell holds it: a variable, an element of an array, a field of a record.

@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -159,7 +160,7 @@ public static class VBUserDefinedTypeImage
 
             if (HasImage(type))
             {
-                destination.TrySetFieldAt(index, Decoded(type, bytes));
+                destination.TrySetFieldAt(index, Decoded(type, bytes, pointerWidth));
             }
         }
     }
@@ -176,7 +177,7 @@ public static class VBUserDefinedTypeImage
             }
             else if (HasImage(array.ItemType))
             {
-                array.TrySetElementAt(element, new Values.Bindings.ValueBindingHandle(Decoded(array.ItemType, bytes).RuntimeValue));
+                array.TrySetElementAt(element, new Values.Bindings.ValueBindingHandle(Decoded(array.ItemType, bytes, pointerWidth).RuntimeValue));
             }
         }
     }
@@ -196,7 +197,8 @@ public static class VBUserDefinedTypeImage
     /// </summary>
     /// <param name="type">The declared type.</param>
     /// <param name="bytes">The bytes.</param>
-    public static VBTypedValue Decode(VBType type, ReadOnlySpan<byte> bytes) => Decoded(type, bytes);
+    /// <param name="pointerWidth">The host's pointer width in bytes, which a record's layout depends on.</param>
+    public static VBTypedValue Decode(VBType type, ReadOnlySpan<byte> bytes, int pointerWidth) => Decoded(type, bytes, pointerWidth);
 
     /// <summary>
     /// Whether a value of <paramref name="type"/> is its bytes in memory, rather than a pointer to them: a number, a <c>Boolean</c>, a <c>Date</c>, a
@@ -229,57 +231,57 @@ public static class VBUserDefinedTypeImage
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only the bytes both types have are copied, as a copy between records of different sizes must be: a destination field that does not fit entirely
-    /// inside the source's image is left at its declared type's default (<see cref="VBUserDefinedTypeValue.TryResetFieldAt"/>), so that no field
-    /// holds half a value.
+    /// The copy is made place by place, at every depth: a field of the destination that is a record is written field by field, and a fixed-size array field
+    /// element by element, each at its offset from the start of the record. Every place is written where it is, so a <c>ByRef</c> parameter given one reads
+    /// what the copy wrote (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>, <see cref="VBArrayValue.TryLetElementAt"/>).
     /// </para>
     /// <para>
-    /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies the data a field points at: a String, an
-    /// array, a record or a <c>Variant</c> field of the source at the same offset is copied into cells of the destination's own
-    /// (<see cref="DataValues.Copy"/>), and an object field there gives the destination's object field the object, in a cell of its own, as <c>Set</c>
-    /// would. Counting that reference is the caller's. An object field read as the bytes of another type is the address of the object, what <c>ObjPtr</c>
-    /// returns, and those bytes read as an object field are the object at that address: <c>Nothing</c> for 0.
+    /// Only the bytes both types have are copied, as a copy between records of different sizes must be: a place of the destination that does not fit
+    /// entirely inside the source's image is left at its declared type's default, so that no place holds half a value.
+    /// </para>
+    /// <para>
+    /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies the data a place points at: a <c>String</c>, a resizable
+    /// array or a <c>Variant</c> of the source at the same offset and of the same type is copied into cells of the destination's own
+    /// (<see cref="DataValues.Copy"/>), and an object there gives the destination's object place the object, as <c>Set</c> would. Counting that reference
+    /// is the caller's. An object read as the bytes of another type is the address of its interface, what <c>ObjPtr</c> returns, and bytes read as an
+    /// object are the object at that address: <c>Nothing</c> for 0. An object place of a class type is given only an object of that class, or of a class
+    /// that implements it.
     /// </para>
     /// </remarks>
     /// <param name="source">The value read.</param>
-    /// <param name="destination">The value written, field by field, in place.</param>
-    /// <param name="pointers">
-    /// The session's object addresses and pointer width. <see langword="null"/> lays both records out for 32 bits, and reads an object field from bytes as
-    /// <c>Nothing</c>.
+    /// <param name="destination">The value written, place by place, in place.</param>
+    /// <param name="pointers">The session's object addresses, and its pointer width, which both records are laid out for.</param>
+    /// <param name="isOfClass">
+    /// Whether an object is of a class, or of a class that implements it: what <c>Set</c> of the object to a variable of the class requires.
     /// </param>
     /// <returns>
-    /// <see langword="false"/> when the bytes an object field is read from are an address no object of the session has, and nothing is written.
+    /// <see cref="VBRecordCopyOutcome.Copied"/>, or why nothing was written: no object has the address the bytes of an object place say, or an object
+    /// place of a class type would be given an object of another class.
     /// </returns>
-    public static bool Copy(VBUserDefinedTypeValue source, VBUserDefinedTypeValue destination, IObjectPointers? pointers = null)
+    public static VBRecordCopyOutcome Copy(
+        VBUserDefinedTypeValue source, VBUserDefinedTypeValue destination, IObjectPointers pointers, Func<VBRuntimeObjectId, VBClassType, bool> isOfClass)
     {
-        var pointerWidth = pointers?.PointerWidth ?? VBUserDefinedTypeLayout.DefaultPointerWidth;
-        var sourceLayout = VBUserDefinedTypeLayout.Of(source, pointerWidth);
-        var layout = VBUserDefinedTypeLayout.Of(destination, pointerWidth);
+        var pointerWidth = pointers.PointerWidth;
+        var sourceSize = VBUserDefinedTypeLayout.Of(source, pointerWidth).Size;
+        var from = PlacesOf(source, pointerWidth);
+        var to = PlacesOf(destination, pointerWidth);
 
-        // the destination fields the source's bytes give a value, which are all the image is laid out for: an object of the source is given the address of
+        // the destination places the source's bytes give a value, which are all the image is laid out for: an object of the source is given the address of
         // its interface (which ObjPtr would make) only where one of them reads it.
-        var read = new List<(int Offset, int Width)>();
-        for (var index = 0; index < layout.Fields.Count; index++)
-        {
-            var field = layout.Fields[index];
-            if (IsReadFromBytes(field.Symbol.ResolvedType, field.Offset, field.Width))
-            {
-                read.Add((field.Offset, field.Width));
-            }
-        }
-
+        var read = to.Where(IsReadFromBytes).Select(place => (place.Offset, place.Width)).ToList();
         var image = read.Count == 0 ? [] : LaidOut(source, pointerWidth, AddressBytes);
 
-        // each field's value first, then the writes: bytes that are no object's address leave the destination as it was.
-        var writes = new List<Action>(layout.Fields.Count);
-        for (var index = 0; index < layout.Fields.Count; index++)
+        // each place's value first, then the writes: an object the destination cannot be given leaves it as it was.
+        var writes = new List<Action>(to.Count);
+        foreach (var place in to)
         {
-            if (WriteOf(index, layout.Fields[index]) is not { } write)
+            var (outcome, write) = WriteOf(place);
+            if (outcome is not VBRecordCopyOutcome.Copied)
             {
-                return false;
+                return outcome;
             }
 
-            writes.Add(write);
+            writes.Add(write!);
         }
 
         foreach (var write in writes)
@@ -287,104 +289,149 @@ public static class VBUserDefinedTypeImage
             write();
         }
 
-        return true;
+        return VBRecordCopyOutcome.Copied;
 
-        bool Fits(int offset, int width) => offset + width <= sourceLayout.Size;
+        bool Fits(Place place) => place.Offset + place.Width <= sourceSize;
 
-        // an object field reads the bytes when the source has no object field at its offset; a field that has bytes of its own always does.
-        bool IsReadFromBytes(VBType? type, int offset, int width)
-            => Fits(offset, width) && (IsObject(type) ? ObjectAt(source, sourceLayout, offset) is null : type is not null && HasImage(type));
+        // an object place reads the bytes when the source has no object at its offset; a place that has bytes of its own always does.
+        bool IsReadFromBytes(Place place)
+            => Fits(place) && (IsObject(place.Type) ? ObjectAt(place.Offset) is null : HasImage(place.Type));
 
         byte[]? AddressBytes(int at, VBType type, VBTypedValue value)
-            => pointers is not null && IsObject(type) && value is VBObjectValue held
+            => IsObject(type) && value is VBObjectValue held
                 && read.Any(range => at < range.Offset + range.Width && range.Offset < at + pointerWidth)
                 && pointers.TryGetPointer(held.Value, type, out var pointer)
                 ? PointerBytes(pointer, pointerWidth)
                 : null;
 
-        Action? WriteOf(int index, VBUserDefinedTypeField field)
+        // the object a place of an object type of the source holds at the offset, whatever its class.
+        VBObjectValue? ObjectAt(int offset)
+            => from.FirstOrDefault(place => place.Offset == offset && IsObject(place.Type)) is { Type: not null } held ? held.Value as VBObjectValue : null;
+
+        // the source place at the same offset, when it is of the same declared type. Anything else would be reinterpreting a reference as a different kind
+        // of reference, which is the one thing a byte copy cannot be allowed to do.
+        VBTypedValue? ReferenceAt(int offset, VBType type)
+            => from.FirstOrDefault(place => place.Offset == offset && Equals(place.Type, type)) is { Type: not null } held ? held.Value : null;
+
+        bool IsOfType(VBRuntimeObjectId instance, VBType type) => type is not VBClassType classType || isOfClass(instance, classType);
+
+        (VBRecordCopyOutcome, Action?) WriteOf(Place place)
         {
-            var type = field.Symbol.ResolvedType;
-            if (IsObject(type))
+            var copied = VBRecordCopyOutcome.Copied;
+            if (IsObject(place.Type))
             {
-                if (ObjectAt(source, sourceLayout, field.Offset) is { } held)
+                if (ObjectAt(place.Offset) is { } held)
                 {
-                    return () => destination.TrySetFieldAt(index, DataValues.Copy(held));
+                    return held.IsNothing() || IsOfType(held.Value, place.Type)
+                        ? (copied, () => place.Let(DataValues.Copy(held)))
+                        : (VBRecordCopyOutcome.ObjectOfAnotherClass, null);
                 }
 
-                if (!Fits(field.Offset, field.Width))
+                if (!Fits(place))
                 {
-                    return () => destination.TryResetFieldAt(index);
+                    return (copied, place.Reset);
                 }
 
                 var address = pointerWidth == sizeof(long)
-                    ? BitConverter.ToInt64(image, field.Offset)
-                    : BitConverter.ToInt32(image, field.Offset);
-                if (address == 0 || pointers is null)
+                    ? BitConverter.ToInt64(image, place.Offset)
+                    : BitConverter.ToInt32(image, place.Offset);
+                if (address == 0)
                 {
-                    return () => destination.TryResetFieldAt(index);
+                    return (copied, place.Reset);
                 }
 
-                return pointers.TryGetObject(address, out var instance)
-                    ? () => destination.TrySetFieldAt(index, new VBObjectValue(instance))
-                    : null;
+                if (!pointers.TryGetObject(address, out var instance))
+                {
+                    return (VBRecordCopyOutcome.NoObjectAtAddress, null);
+                }
+
+                return IsOfType(instance, place.Type)
+                    ? (copied, () => place.Let(new VBObjectValue(instance)))
+                    : (VBRecordCopyOutcome.ObjectOfAnotherClass, null);
             }
 
-            // a field with no bytes of its own is let a copy of the source's field of the same type at the same offset, in cells of its own.
-            if (type is null || !HasImage(type))
+            // a place with no bytes of its own is let a copy of the source's place of the same type at the same offset, in cells of its own.
+            if (!HasImage(place.Type))
             {
-                return ReferenceAt(source, sourceLayout, field.Offset, type) is { } data
-                    ? () => destination.TryLetFieldAt(index, DataValues.Copy(data))
-                    : () => destination.TryResetFieldAt(index);
+                return ReferenceAt(place.Offset, place.Type) is { } data
+                    ? (copied, () => place.Let(DataValues.Copy(data)))
+                    : (copied, place.Reset);
             }
 
-            // a field the bytes give a value is let it in place, as the field of a record let is (TryLetFieldAt).
-            if (!Fits(field.Offset, field.Width))
+            if (!Fits(place))
             {
-                return () => destination.TryResetFieldAt(index);
+                return (copied, place.Reset);
             }
 
-            var value = Decoded(type, image.AsSpan(field.Offset, field.Width));
-            return () => destination.TryLetFieldAt(index, value);
+            var value = Decoded(place.Type, image.AsSpan(place.Offset, place.Width), pointerWidth);
+            return (copied, () => place.Let(value));
+        }
+    }
+
+    // a place of a record that holds a value of its own, at its offset from the start of the outermost record: a field that is no record and no fixed-size
+    // array, or an element of a fixed-size array field. A field that is a record, and a fixed-size array field, are the places they are made of.
+    private readonly record struct Place(int Offset, int Width, VBType Type, VBTypedValue? Value, Action<VBTypedValue> Let, Action Reset);
+
+    private static List<Place> PlacesOf(VBUserDefinedTypeValue record, int pointerWidth)
+    {
+        var places = new List<Place>();
+        AddPlaces(record, pointerWidth, 0, places);
+        return places;
+    }
+
+    private static void AddPlaces(VBUserDefinedTypeValue record, int pointerWidth, int at, List<Place> places)
+    {
+        var layout = VBUserDefinedTypeLayout.Of(record, pointerWidth);
+        for (var index = 0; index < layout.Fields.Count; index++)
+        {
+            var field = layout.Fields[index];
+            if (field.Symbol.ResolvedType is not { } type)
+            {
+                continue;
+            }
+
+            switch (record.StoredFieldAt(index))
+            {
+                case VBUserDefinedTypeValue nested when type is VBUserDefinedType:
+                    AddPlaces(nested, pointerWidth, at + field.Offset, places);
+                    continue;
+                case VBFixedSizeArrayValue elements:
+                    AddElements(elements, pointerWidth, at + field.Offset, field.Width, places);
+                    continue;
+            }
+
+            var fieldIndex = index;
+            places.Add(new Place(at + field.Offset, field.Width, type, record.FieldAt(index),
+                value => record.TryLetFieldAt(fieldIndex, value), () => record.TryResetFieldAt(fieldIndex)));
+        }
+    }
+
+    // an element that holds a record is the places of that record; any other element is a place, written in its cell.
+    private static void AddElements(VBFixedSizeArrayValue array, int pointerWidth, int at, int width, List<Place> places)
+    {
+        var itemType = array.ItemType;
+        var elementWidth = Math.Max(1, VBUserDefinedTypeLayout.WidthOf(itemType, pointerWidth));
+        for (var element = 0; element < array.Length && (element + 1) * elementWidth <= width; element++)
+        {
+            var offset = at + element * elementWidth;
+            if (itemType is VBUserDefinedType
+                && array.CellAt(element) is { } cell && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue)
+                && cell.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { } record })
+            {
+                AddPlaces(record, pointerWidth, offset, places);
+                continue;
+            }
+
+            var elementIndex = element;
+            places.Add(new Place(offset, elementWidth, itemType, array.ElementAt(element),
+                value => array.TryLetElementAt(elementIndex, value), () => array.TryLetElementAt(elementIndex, DataValues.Copy(itemType.DefaultValue))));
         }
     }
 
     private static bool IsObject(VBType? type) => type is VBObjectType or VBClassType;
 
-    // the object a field of an object type of the source holds at the offset, whatever its class.
-    private static VBObjectValue? ObjectAt(VBUserDefinedTypeValue source, VBUserDefinedTypeLayout layout, int offset)
-    {
-        for (var index = 0; index < layout.Fields.Count; index++)
-        {
-            if (layout.Fields[index].Offset == offset && IsObject(layout.Fields[index].Symbol.ResolvedType))
-            {
-                return source.FieldAt(index) as VBObjectValue;
-            }
-        }
-
-        return null;
-    }
-
     private static byte[] PointerBytes(long pointer, int pointerWidth)
         => pointerWidth == sizeof(long) ? BitConverter.GetBytes(pointer) : BitConverter.GetBytes(unchecked((int)pointer));
-
-    // the source field sitting at the same offset, when it is of the same declared type. Anything else would
-    // be reinterpreting a reference as a different kind of reference, which is the one thing a byte copy
-    // cannot be allowed to do.
-    private static VBTypedValue? ReferenceAt(
-        VBUserDefinedTypeValue source, VBUserDefinedTypeLayout layout, int offset, VBType? type)
-    {
-        for (var index = 0; index < layout.Fields.Count; index++)
-        {
-            if (layout.Fields[index].Offset == offset
-                && Equals(layout.Fields[index].Symbol.ResolvedType, type))
-            {
-                return source.FieldAt(index);
-            }
-        }
-
-        return null;
-    }
 
     /// <summary>
     /// Whether a value of this type has bytes of its own in memory, rather than being a pointer to them.
@@ -421,7 +468,7 @@ public static class VBUserDefinedTypeImage
         _ => null,
     };
 
-    private static VBTypedValue Decoded(VBType type, ReadOnlySpan<byte> bytes) => type switch
+    private static VBTypedValue Decoded(VBType type, ReadOnlySpan<byte> bytes, int pointerWidth) => type switch
     {
         // the width of a fixed-length String field is two bytes per character, so its data is always whole characters.
         VBFixedStringType fixedString => new VBFixedStringValue(fixedString.Length)
@@ -438,16 +485,16 @@ public static class VBUserDefinedTypeImage
         VBCurrencyType => new VBCurrencyValue(BitConverter.ToInt64(bytes) / CurrencyScale),
         VBDateType => new VBDateValue(BitConverter.ToDouble(bytes)),
         VBDoubleType => new VBDoubleValue(BitConverter.ToDouble(bytes)),
-        // a nested record is read back through its own layout, so a copy reinterprets all the way down.
-        VBUserDefinedType nested => DecodedRecord(nested, bytes),
+        // a nested record is read back through its own layout, for the same pointers, so a copy reinterprets all the way down.
+        VBUserDefinedType nested => DecodedRecord(nested, bytes, pointerWidth),
         // a cell of its own: the default value of a type is one value every caller shares.
         _ => DataValues.Copy(type.DefaultValue),
     };
 
-    private static VBTypedValue DecodedRecord(VBUserDefinedType type, ReadOnlySpan<byte> bytes)
+    private static VBTypedValue DecodedRecord(VBUserDefinedType type, ReadOnlySpan<byte> bytes, int pointerWidth)
     {
         var record = new VBUserDefinedTypeValue(type);
-        var layout = record.Layout;
+        var layout = VBUserDefinedTypeLayout.Of(record, pointerWidth);
 
         for (var index = 0; index < layout.Fields.Count; index++)
         {
@@ -455,7 +502,7 @@ public static class VBUserDefinedTypeImage
             if (field.Symbol.ResolvedType is { } fieldType && HasImage(fieldType)
                 && field.Offset + field.Width <= bytes.Length)
             {
-                record.TrySetFieldAt(index, Decoded(fieldType, bytes.Slice(field.Offset, field.Width)));
+                record.TrySetFieldAt(index, Decoded(fieldType, bytes.Slice(field.Offset, field.Width), pointerWidth));
             }
         }
 

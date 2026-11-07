@@ -155,6 +155,32 @@ public abstract record class VBArrayValue : VBTypedValue
         }
     }
 
+    /// <summary>
+    /// Let-assigns <paramref name="value"/> to the element at a flat index, in the order <see cref="ElementAt"/> reads them, in its own cell: a
+    /// <c>ByRef</c> parameter given the element (MS-VBAL §5.3.1.11) reads the value assigned, as it does after <see cref="TryLetFrom"/>.
+    /// </summary>
+    /// <remarks>
+    /// An element whose cell cannot be written, one never assigned, is given the cell of <paramref name="value"/> instead, which must share no cell with
+    /// anything else.
+    /// </remarks>
+    /// <param name="flatIndex">From 0 to <see cref="Length"/> - 1.</param>
+    /// <param name="value">The value to assign, of the array's element type.</param>
+    /// <returns><see langword="false"/> when there is no element at the index.</returns>
+    public bool TryLetElementAt(int flatIndex, VBTypedValue value)
+    {
+        if (flatIndex < 0 || flatIndex >= _cells.Length)
+        {
+            return false;
+        }
+
+        if (!IsWrittenInItsCell(_cells[flatIndex], value.Handle))
+        {
+            _cells[flatIndex] = value.Handle;
+        }
+
+        return true;
+    }
+
     // an element given a cell that can be written holds what the other element holds in that cell, the one a ByRef parameter given it is bound to: an object
     // or a Variant as much as a number, since a Let counts the objects a cell holds before it writes the cell and after. An element never assigned has an
     // inert cell (CreateDefaultCell), which stands for the element type's default.

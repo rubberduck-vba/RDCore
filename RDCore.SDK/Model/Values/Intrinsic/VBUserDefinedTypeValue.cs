@@ -198,16 +198,15 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A field of a scalar type is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound to. A field declared as a record is
-    /// let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>), and a fixed-size array field element by element
-    /// (<see cref="VBArrayValue.TryLetFrom"/>): the record holds its elements itself.
+    /// A field of a scalar type, and a field that holds an object, is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound
+    /// to. A field declared as a record is let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>), and a fixed-size array field element by
+    /// element (<see cref="VBArrayValue.TryLetFrom"/>): the record holds its elements itself.
     /// </para>
     /// <para>
-    /// A field that holds an object, a <c>Variant</c> or a resizable array is replaced by <paramref name="value"/>, as <see cref="TrySetFieldAt"/>
-    /// replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record and the field's position, so it reads the value that
-    /// replaced it; one given a field that holds an object is not, and is left bound to the cell the field had before. A field is replaced the same way when
-    /// <paramref name="value"/> cannot be written where the field is: a value of another kind than the field holds, a record that is not known, or a
-    /// fixed-size array that is not known or has other bounds.
+    /// A field that holds a <c>Variant</c> or a resizable array is replaced by <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A
+    /// <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record and the field's position, so it reads the value that replaced it. A field
+    /// is replaced the same way when <paramref name="value"/> cannot be written where the field is: a value of another kind than the field holds, a record
+    /// that is not known, or a fixed-size array that is not known or has other bounds.
     /// </para>
     /// <para>
     /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a record or
@@ -299,10 +298,15 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
         }
     }
 
-    // a field of a scalar type is written where it is; one of another kind is replaced, as a value of another type would have to be.
-    private static bool IsWrittenInItsCell(VBTypedValue held, VBTypedValue value)
-        => held is not (VBObjectValue or VBVariantValue or VBArrayValue or VBUserDefinedTypeValue) && held.GetType() == value.GetType()
-            && Equals(held.TypeInfo, value.TypeInfo);
+    // a field of a scalar type is written where it is, and so is a field that holds an object, given an object: the cell of each is the one a ByRef parameter
+    // given the field is bound to. The one Nothing every caller shares is no field's cell, and a field that holds it is replaced. A field of another kind is
+    // replaced, as a value of another type would have to be.
+    private static bool IsWrittenInItsCell(VBTypedValue held, VBTypedValue value) => held switch
+    {
+        VBObjectValue => value is VBObjectValue && !ReferenceEquals(held.Handle, VBObjectValue.Nothing.Handle),
+        VBVariantValue or VBArrayValue or VBUserDefinedTypeValue => false,
+        _ => held.GetType() == value.GetType() && Equals(held.TypeInfo, value.TypeInfo),
+    };
 
     /// <summary>
     /// The binding of the field named <paramref name="name"/>, or <c>null</c> when there is no such field.
