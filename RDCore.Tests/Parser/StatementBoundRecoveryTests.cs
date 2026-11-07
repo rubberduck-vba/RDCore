@@ -165,6 +165,29 @@ public sealed class StatementBoundRecoveryTests
         Assert.AreEqual(header[last..], TextOf(source, operation.SourceLocation.Range), "the header's last expression");
     }
 
+    // a statement of a For's body that ends with an operator is a statement of the body: the body goes on after it, and the For ends at its Next.
+    [TestMethod]
+    [DataRow("For i = 1 To 2", "a = 1 -", "Next", DisplayName = "an assignment, in a For")]
+    [DataRow("For Each x In xs", "a = 1 -", "Next x", DisplayName = "an assignment, in a For Each")]
+    [DataRow("For i = 1 To 2", "Debug.Print 1, 2 -", "Next i", DisplayName = "an item of Debug.Print, in a For")]
+    [DataRow("For Each x In xs", "Print #1, 1; 2 *", "Next", DisplayName = "an item of a Print, in a For Each")]
+    public void AStatementOfAForBodyThatEndsWithADanglingOperator_KeepsTheBody(string header, string broken, string closes)
+    {
+        var source = $"Public Sub Main()\r\n{header}\r\n{broken}\r\nb = 2\r\n{closes}\r\nc = 3\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        Assert.AreEqual(2, Assert.ContainsSingle(parse.SyntaxErrors).Location.Range.Start.Line, "the error is in the statement of the body");
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members);
+        Assert.AreEqual(6, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+        var loop = Assert.ContainsSingle(members[0].Children.Where(node => node is ForStatementNode or ForEachStatementNode));
+        Assert.AreEqual(4, loop.SourceLocation.Range.End.Line, $"the For ends at its {closes}");
+        var body = loop is ForStatementNode @for ? @for.Body : ((ForEachStatementNode)loop).Body;
+        Assert.IsTrue(body.Children.Any(node => node.SourceLocation.Range.Start.Line == 2), "the statement is the body's");
+        Assert.IsTrue(body.Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"), "the body goes on after it");
+        Assert.IsTrue(members[0].Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "c = 3"), "the statement after the For");
+    }
+
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.
     [TestMethod]
     public void TheStatementAfterADanglingOperatorAndAColon_IsReadOnItsOwn()
