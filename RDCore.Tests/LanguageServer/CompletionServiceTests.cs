@@ -242,8 +242,8 @@ public sealed class CompletionServiceTests
         CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len");
     }
 
-    // the sort text of a constant ranked first: its match, then a `!` before any rank.
-    private static bool IsConstantFirst(CompletionItem item) => item.SortText is [_, '!', ..];
+    // the sort text of a constant ranked first: its match, then a `!` before any rank, and the first group.
+    private static bool IsConstantFirst(CompletionItem item) => item.SortText is [_, '!', '0', ..];
 
     // a ( , or space a client asks on lists an Enum argument's constants where a value of it starts, and nothing anywhere else: not a whole list at each comma,
     // nor after an operand.
@@ -255,7 +255,7 @@ public sealed class CompletionServiceTests
     [DataRow("Paint Light |", " ", false)]
     [DataRow("Stroke |", " ", false)]
     [DataRow("Dim x As Long: x = 1 |", " ", false)]
-    public async Task AnArgumentTriggerCharacter_IsAnsweredOnlyForAnEnumArgument(string line, string trigger, bool listed)
+    public async Task AnArgumentTriggerCharacter_IsAnsweredOnlyForAnEnumOrAnOptionalArgument(string line, string trigger, bool listed)
     {
         var items = (await ListAsync(line, trigger)).Items.ToList();
 
@@ -264,6 +264,132 @@ public sealed class CompletionServiceTests
         {
             Assert.AreEqual("Dark", items[0].Label);
         }
+    }
+
+    // ---- named arguments: the parameters not given yet, as `Name:=` (MS-VBAL §5.6.13.1, §5.3.1.11) ----
+
+    private const string Printer = """
+        Attribute VB_Name = "Printer"
+        Public Declare PtrSafe Sub Ring Lib "bell" (ByVal Tone As Long, Optional ByVal Length As Long)
+        Public Enum Tray
+            Upper
+            Lower
+        End Enum
+        Public Sub Send(ByVal Text As String, Optional ByVal Heading As String, Optional ByVal Copies As Long = 1, Optional ByVal Source As Tray)
+        End Sub
+        Public Function Count(ByVal Text As String, Optional ByVal Copies As Long) As Long
+        End Function
+        Public Sub Gather(Optional ByVal Title As String, ParamArray Items() As Variant)
+        End Sub
+        """;
+
+    private const string Spooler = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Spooler"
+        Public Sub Queue(ByVal Text As String, Optional ByVal Copies As Long)
+        End Sub
+        """;
+
+    private async Task<List<CompletionItem>> NamedAsync(string line, string? triggerCharacter = null)
+    {
+        WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), new WorkspaceDocument("Spooler.cls", Root, Spooler));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim s As New Spooler\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items];
+    }
+
+    private static string[] NamesIn(IEnumerable<CompletionItem> items) => [.. items.Select(item => item.Label).Where(label => label.EndsWith(":=", StringComparison.Ordinal))];
+
+    private static string Show(IEnumerable<CompletionItem> items) => string.Join(", ", items.Take(8).Select(item => item.Label + "/" + item.SortText));
+
+    [TestMethod]
+    [DataRow("Send \"a\", |", "Heading:=;Copies:=;Source:=", DisplayName = "a call statement")]
+    [DataRow("x = Count(\"a\", |", "Copies:=", DisplayName = "a call in parentheses")]
+    [DataRow("s.Queue \"a\", |", "Copies:=", DisplayName = "a member call")]
+    [DataRow("Gather |", "Title:=", DisplayName = "a ParamArray is never named")]
+    [DataRow("Ring 1, |", "Length:=", DisplayName = "a Declare'd procedure")]
+    [DataRow("Send \"a\", Co|", "Copies:=", DisplayName = "narrowed by the word typed")]
+    [DataRow("Send |", "", DisplayName = "a required parameter")]
+    [DataRow("Send \"a\", Copies:=|", "", DisplayName = "the value of a named argument")]
+    [DataRow("Send \"a\", 1 + |", "", DisplayName = "inside an argument")]
+    public async Task WhereAnOptionalArgumentStarts_TheParametersNotGivenYetAreOffered_ByName(string line, string names)
+    {
+        var items = await NamedAsync(line);
+
+        CollectionAssert.AreEqual(names.Split(';', StringSplitOptions.RemoveEmptyEntries), NamesIn(items), Show(items));
+    }
+
+    [TestMethod]
+    public async Task ANamedArgument_IsItsParametersName_InsertedWithItsToken_AndSaysWhatTheParameterIs()
+    {
+        var item = (await NamedAsync("x = Count(\"a\", |")).Single(item => item.Label == "Copies:=");
+
+        Assert.IsNull(item.InsertText, "the label is what is inserted");
+        Assert.AreEqual("Optional ByVal Copies As Long", item.Detail);
+    }
+
+    [TestMethod]
+    public async Task AnArgumentOfTheStandardLibrary_IsOfferedItsParametersNames_AfterTheEnumsConstants()
+    {
+        var items = await NamedAsync("MsgBox \"Hi\", |");
+        var names = NamesIn(items).Select(name => name.ToUpperInvariant()).ToArray();
+
+        CollectionAssert.IsSubsetOf(new[] { "BUTTONS:=", "TITLE:=" }, names, Show(items));
+        CollectionAssert.DoesNotContain(names, "PROMPT:=");
+        Assert.AreEqual("vbAbortRetryIgnore", items[0].Label, "the constants first");
+    }
+
+    [TestMethod]
+    public async Task TheNames_RankAfterTheEnumsConstants_AndBeforeTheNamesInScope()
+    {
+        var labels = (await NamedAsync("Send \"a\", , , |")).Select(item => item.Label).ToList();
+
+        CollectionAssert.AreEqual(new[] { "Lower", "Upper", "Source:=" }, labels.Take(3).ToArray(), string.Join(", ", labels.Take(6)));
+        Assert.IsTrue(labels.IndexOf("Source:=") < labels.IndexOf("Len"));
+    }
+
+    [TestMethod]
+    public async Task AParameterGivenByPosition_IsNotOfferedByName()
+    {
+        var items = await NamedAsync("Send \"a\", \"b\", |");
+
+        CollectionAssert.AreEqual(new[] { "Copies:=", "Source:=" }, NamesIn(items), Show(items));
+    }
+
+    // MS-VBAL §5.6.13.1: the named arguments come after the positional ones, so nothing but a name is written after one.
+    [TestMethod]
+    public async Task AParameterNamedBeforeTheCursor_IsNotOfferedByName_AndNothingButNamesIsOfferedAfterIt()
+    {
+        var items = await NamedAsync("Send \"a\", copies:=2, |");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Source:=" }, items.Select(item => item.Label).ToArray(), Show(items));
+    }
+
+    [TestMethod]
+    public async Task AParameterNamedAfterTheCursor_IsNotOfferedByName()
+    {
+        var items = await NamedAsync("Send \"a\", |, Copies:=2");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Source:=" }, NamesIn(items), Show(items));
+        CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len", "a value is still written by position there");
+    }
+
+    [TestMethod]
+    public async Task AParameterGivenByPosition_NamedBefore_OrNamedAfter_IsNotOfferedByName_InAnyCase()
+    {
+        var items = await NamedAsync("Send \"a\", heading:=\"h\", |, COPIES:=2");
+
+        CollectionAssert.AreEqual(new[] { "Source:=" }, items.Select(item => item.Label).ToArray(), Show(items));
+    }
+
+    [TestMethod]
+    public async Task TheCommaBeforeAnOptionalArgument_AsksForTheNames()
+    {
+        var items = await NamedAsync("x = Count(\"a\",|", ",");
+
+        CollectionAssert.AreEqual(new[] { "Copies:=" }, NamesIn(items), Show(items));
     }
 
     [TestMethod]

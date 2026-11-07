@@ -256,12 +256,54 @@ public static class CompletionCandidates
     }
 
     /// <summary>
+    /// The parameters of the call being written that can be named where the cursor is, each as the named argument that starts with it (<c>Title:=</c>): what
+    /// a client inserts is the label.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A name is offered where an argument starts (<see cref="SignatureSite.IsWhereAnArgumentStarts"/>), when the parameter that argument would be given to by
+    /// position is <c>Optional</c>, or when a named argument is written before it: after one, every argument is named (<strong>MS-VBAL §5.6.13.1</strong>
+    /// <c>positional-or-named-argument-list</c>).
+    /// </para>
+    /// <para>
+    /// A parameter that has an argument already is not offered (<strong>MS-VBAL §5.3.1.11</strong>: two arguments mapped to one parameter make the argument
+    /// list incompatible): one given by position, an omitted one counted, and one named before or after the cursor, its name in any case. A <c>ParamArray</c>
+    /// is left out too: only the positional arguments left over are bound to it (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§5.3.1.11</strong>). An external procedure (<c>Declare</c>) takes named arguments as a procedure of the language does (<strong>MS-VBAL
+    /// §5.2.3.5</strong>).
+    /// </para>
+    /// </remarks>
+    /// <param name="signature">The signature of what is called.</param>
+    /// <param name="site">The call being written.</param>
+    /// <param name="word">What is typed of the name at the cursor.</param>
+    /// <param name="after">The text of the line from the cursor on, where named arguments can be written already.</param>
+    /// <returns>The named arguments, in the order the parameters are declared; none where a name cannot be written.</returns>
+    public static IReadOnlyList<CompletionCandidate> NamedArguments(SignatureDescription signature, SignatureSite site, string word, string after)
+    {
+        if (site.ArgumentName is not null || !site.IsWhereAnArgumentStarts(word))
+        {
+            return [];
+        }
+
+        var namedBefore = site.NamesBefore;
+        if (namedBefore.Count == 0 && (signature.ActiveParameterOf(site.ArgumentIndex) is not { } active || !signature.Parameters[active].IsOptional))
+        {
+            return [];
+        }
+
+        var given = namedBefore.Concat(site.NamesAfter(after)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return [.. signature.Parameters
+            .Where((parameter, index) => index >= site.PositionalBefore && !parameter.IsParamArray && !given.Contains(parameter.Name))
+            .Select(parameter => new CompletionCandidate($"{parameter.Name}:=", CompletionItemKind.Variable,
+                parameter.TextIn(signature), parameter.Documentation))];
+    }
+
+    /// <summary>
     /// The completion list for the word being typed (<strong>LSP 3.17</strong> §Completion Request): the candidates <paramref name="word"/> matches
     /// (<see cref="MatchOf"/>), each label once, the best of them preselected.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The items rank the labels the word starts before the ones whose humps it matches; then the candidates of <paramref name="first"/> in their order; then
+    /// The items rank the labels the word starts before the ones whose humps it matches; then the groups of <paramref name="first"/>, each in its order; then
     /// the others by <see cref="CompletionCandidate.Rank"/>, then by label in any case. The item that ranks first is the one <c>preselect</c> marks.
     /// </para>
     /// <para>
@@ -270,17 +312,23 @@ public static class CompletionCandidates
     /// </para>
     /// </remarks>
     /// <param name="word">What is typed of the name; an empty word matches every candidate.</param>
-    /// <param name="first">The candidates most likely to be written: the constants of the <c>Enum</c> an argument's parameter is declared as.</param>
+    /// <param name="first">
+    /// The groups of candidates most likely to be written, in the order they rank: the constants of the <c>Enum</c> an argument's parameter is declared as,
+    /// then the named arguments (<see cref="NamedArguments"/>).
+    /// </param>
     /// <param name="candidates">The other candidates; a label of <paramref name="first"/> is not offered again.</param>
-    public static CompletionList ListOf(string word, IReadOnlyList<CompletionCandidate> first, IReadOnlyList<CompletionCandidate> candidates)
+    public static CompletionList ListOf(string word, IReadOnlyList<IReadOnlyList<CompletionCandidate>> first, IReadOnlyList<CompletionCandidate> candidates)
     {
         var offered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var items = new List<CompletionItem>();
-        foreach (var (candidate, index) in first.Select((candidate, index) => (candidate, index)))
+        foreach (var (group, rank) in first.Select((group, rank) => (group, rank)))
         {
-            if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
+            foreach (var (candidate, index) in group.Select((candidate, index) => (candidate, index)))
             {
-                items.Add(candidate.ToCompletionItem(match) with { SortText = $"{CompletionCandidate.TierOf(match)}!{index:D3}" });
+                if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
+                {
+                    items.Add(candidate.ToCompletionItem(match) with { SortText = $"{CompletionCandidate.TierOf(match)}!{rank}{index:D3}" });
+                }
             }
         }
 

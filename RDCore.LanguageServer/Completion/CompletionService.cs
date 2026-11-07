@@ -318,25 +318,33 @@ internal sealed class CompletionService(
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
 
+        var signature = argument is not null && ProcedureAt(argument, composition, workspaceRoot, moduleUri, origin, module, line) is { } procedure
+            ? SignatureDescription.Of(procedure)
+            : null;
+
+        // after a named argument, every argument is named (MS-VBAL 5.6.13.1): nothing but the names of the parameters left is written where one starts.
+        var namesOnly = argument is { NamesBefore.Count: > 0 } && argument.ArgumentName is null && argument.IsWhereAnArgumentStarts(context.Prefix);
+        IReadOnlyList<CompletionCandidate> names = signature is not null ? CompletionCandidates.NamedArguments(signature, argument!, context.Prefix, text[before.Length..]) : [];
+
         // the constants of the Enum the argument's parameter is declared as come first, by name, the first of them selected: what is most likely to be written
         // there (MsgBox "Hello", vbYesNo).
-        IReadOnlyList<CompletionCandidate> constants = argument is not null && ProcedureAt(argument, composition, workspaceRoot, moduleUri, origin, module, line) is { } procedure
-            && SignatureDescription.Of(procedure) is { } signature
-            && signature.ActiveParameterOf(argument.ArgumentIndex, argument.ArgumentName) is { } active
+        IReadOnlyList<CompletionCandidate> constants = !namesOnly && signature is not null
+            && signature.ActiveParameterOf(argument!.ArgumentIndex, argument.ArgumentName) is { } active
             && signature.Parameters[active].Type is VBEnumType constantsOf
                 ? CompletionCandidates.ConstantsOf(tree, constantsOf)
                 : [];
-        if (argumentTrigger && constants.Count == 0)
+        if (argumentTrigger && constants.Count == 0 && names.Count == 0)
         {
             return Empty;
         }
 
         // the name a qualifier is assigned to in the line that stands for the one typed is no name of the module.
-        var list = CompletionCandidates.ListOf(context.Prefix, constants, [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))]);
+        IReadOnlyList<CompletionCandidate> others = namesOnly ? [] : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))];
+        var list = CompletionCandidates.ListOf(context.Prefix, [constants, names], others);
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) first, {count} item(s) of {all} candidate(s).",
-                moduleName, line, character, context.Kind, context.Prefix, constants.Count, list.Items.Count(), candidates.Count);
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, constants.Count, names.Count, list.Items.Count(), candidates.Count);
         }
 
         return list;
