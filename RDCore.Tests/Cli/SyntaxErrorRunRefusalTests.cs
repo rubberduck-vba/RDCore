@@ -21,6 +21,20 @@ public sealed class SyntaxErrorRunRefusalTests
     [DataRow("If a = 1 - Then", DisplayName = "a block If no rule reads")]
     [DataRow("a = = 1", DisplayName = "an operator where an expression is")]
     [DataRow("Debug.Print 1(2)", DisplayName = "two output items side by side")]
+    [DataRow("a = 1 +\r\na = 2", DisplayName = "a binary operator at the end of its line, then a statement")]
+    [DataRow("a = 1 &\r\na = 2", DisplayName = "a concatenation at the end of its line, then a statement")]
+    [DataRow("a = 1 + _\r\n\r\na = 2", DisplayName = "a binary operator, a line continuation and a blank line, then a statement")]
+    [DataRow("a = 1 -\r\na = 2", DisplayName = "an operator the parse leaves unread at the end of its line, then a statement")]
+    [DataRow("Print #1, 1 +\r\nClose #1", DisplayName = "an item of a Print at the end of its line, then a Close")]
+    [DataRow("Debug.Print 1 +\r\nDebug.Print 2", DisplayName = "an item of Debug.Print at the end of its line, then another")]
+    [DataRow("Foo 1 -, 2", DisplayName = "a binary operator before a comma")]
+    [DataRow("Dim d(1 -)", DisplayName = "a binary operator before the parenthesis of a Dim")]
+    [DataRow("ReDim d(1 -)", DisplayName = "a binary operator before the parenthesis of a ReDim")]
+    [DataRow("Call Foo(1) -", DisplayName = "a binary operator after a Call")]
+    [DataRow("a = 1 - -", DisplayName = "two binary operators")]
+    [DataRow("Debug.Print Tab(2) -", DisplayName = "a binary operator after a Tab clause")]
+    [DataRow("Debug.Print 1; 2 *", DisplayName = "a binary operator after the second item")]
+    [DataRow("If a Then a = 1 -", DisplayName = "a binary operator in the statement of an inline If")]
     public async Task AModuleWithASyntaxError_IsRefused_BeforeAnyOfItRuns(string statement)
     {
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
@@ -32,6 +46,25 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
         Assert.IsEmpty(result.Output);
         Assert.IsNotEmpty(result.Diagnostics!);
+    }
+
+    // a syntax error in the header of a procedure that is not run refuses the run of the module as well.
+    [TestMethod]
+    public async Task ASyntaxErrorInTheHeaderOfAnotherProcedure_RefusesTheRun()
+    {
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Sub F(Optional ByVal a As Long = 1 -)",
+            "End Sub",
+            "Public Sub Main()",
+            "    Debug.Print \"before\"",
+            "End Sub",
+            "");
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program);
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
     }
 
     // the output items written side by side are refused with the error that says so, and only with it.
