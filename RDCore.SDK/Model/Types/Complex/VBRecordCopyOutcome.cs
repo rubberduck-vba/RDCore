@@ -8,7 +8,9 @@ namespace RDCore.SDK.Model.Types;
 /// </summary>
 public enum VBRecordCopyOutcome
 {
-    /// <summary>The record was copied.</summary>
+    /// <summary>
+    /// The record was copied.
+    /// </summary>
     Copied,
 
     /// <summary>
