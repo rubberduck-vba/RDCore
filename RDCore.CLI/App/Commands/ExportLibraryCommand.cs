@@ -128,7 +128,7 @@ internal sealed class ExportLibraryCommand(IConsoleMessageWriter writer, IFileSy
 
         var qualifier = loaded.File is null
             ? $"v{identity.Version}"
-            : fileSystem.Path.GetFileNameWithoutExtension(TypeLibraryLocator.FileNameOf(loaded.File).Split('\\')[0]);
+            : fileSystem.Path.GetFileNameWithoutExtension(TypeLibraryLocator.FileNameOf(loaded.File).Split('\\')[0]).ToLowerInvariant();
         return fileSystem.Path.Combine(output, $"{loaded.Name}.{qualifier}{DirectoryLibrarySource.Extension}");
     }
 

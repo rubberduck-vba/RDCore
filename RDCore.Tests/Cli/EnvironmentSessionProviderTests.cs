@@ -136,7 +136,7 @@ public sealed class EnvironmentSessionProviderTests
 
         var session = NewProvider(language: SupportedLanguages.VB6).Compose(project, WorkspaceRoot);
 
-        CollectionAssert.AreEqual(new[] { "VBA 0", "VBRUN 1", "Scripting 2" }, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
+        CollectionAssert.AreEqual(new[] { "VBA 0", "VBRUN 1", "VB 2", "Scripting 3" }, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
     }
 
     [TestMethod]
