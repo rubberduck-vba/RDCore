@@ -56,6 +56,20 @@ public sealed class ExportLibraryTests
         Assert.AreEqual("Scripting", byName.Name);
     }
 
+    // a library is registered under the locale it is for, and the VB6 runtime's VBRUN is registered for English (9) only, with no neutral (0) registration.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("{EA544A21-C82D-11D1-A3E4-00A0C90AEA82}", DisplayName = "by its identifier")]
+    [DataRow("VBRUN", DisplayName = "by its name")]
+    public void ALibraryRegisteredForALocale_IsFound_WithItsFile(string reference)
+    {
+        var loaded = TypeLibraryLocator.Load(reference);
+
+        Assert.IsNotNull(loaded, "the machine registers VBRUN for one locale");
+        Assert.AreEqual("VBRUN", loaded.Name);
+        Assert.AreEqual(@"MSVBVM60.DLL\3", loaded.File is null ? null : TypeLibraryLocator.FileNameOf(loaded.File), ignoreCase: true, "the file it is registered in");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ALibraryThatTheMachineDoesNotHave_IsNotFound()

@@ -95,10 +95,7 @@ internal static class TypeLibraryLocator
         {
             var attributes = Marshal.PtrToStructure<TYPELIBATTR>(pointer);
             var id = attributes.guid;
-            var path = QueryPathOfRegTypeLib(ref id, (ushort)attributes.wMajorVerNum, (ushort)attributes.wMinorVerNum, 0, out var registered) >= 0 && !string.IsNullOrWhiteSpace(registered)
-                ? registered.Trim('"')
-                : null;
-            return Described(library, path);
+            return Described(library, PathOf(id, attributes.wMajorVerNum, attributes.wMinorVerNum));
         }
         finally
         {
@@ -172,14 +169,33 @@ internal static class TypeLibraryLocator
     private static string? Registered(Guid id)
     {
         var (major, minor) = LatestVersion(id);
-        if (major < 0)
+        return major < 0 ? null : PathOf(id, major, minor);
+    }
+
+    // the file a version of a library is registered in. A version is registered under each locale it is for, as HKCR\TypeLib\{id}\{major.minor}\{lcid}, and
+    // asking for one locale finds no other: VBRUN is registered for English (9) and for no neutral locale (0). The neutral one is asked for first.
+    private static string? PathOf(Guid id, int major, int minor)
+    {
+        foreach (var lcid in RegisteredLocales(id, major, minor))
         {
-            return null;
+            if (QueryPathOfRegTypeLib(ref id, (ushort)major, (ushort)minor, lcid, out var path) >= 0 && !string.IsNullOrWhiteSpace(path))
+            {
+                return path.Trim('"');
+            }
         }
 
-        return QueryPathOfRegTypeLib(ref id, (ushort)major, (ushort)minor, 0, out var path) >= 0 && !string.IsNullOrWhiteSpace(path)
-            ? path.Trim('"')
-            : null;
+        return null;
+    }
+
+    private static IEnumerable<int> RegisteredLocales(Guid id, int major, int minor)
+    {
+        using var root = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64);
+        using var key = root.OpenSubKey($@"TypeLib\{id:B}\{major:x}.{minor:x}");
+        return (key?.GetSubKeyNames() ?? [])
+            .Select(name => int.TryParse(name, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lcid) ? lcid : -1)
+            .Where(lcid => lcid >= 0)
+            .Order()
+            .ToArray();
     }
 
     private static (int Major, int Minor) LatestVersion(Guid id)
