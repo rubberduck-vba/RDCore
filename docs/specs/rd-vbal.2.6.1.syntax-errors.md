@@ -25,10 +25,9 @@ A module that has a syntax error does not run, and neither does the rest of its 
 
 The language server goes on analyzing the module as it is written. Only the run is refused.
 
-A run is refused for a syntax error in any module of the project, including a module the run does not use: no part of the project runs while one of its
-modules fails to load. The refusal gives each syntax error of such a module after the module's name, the modules in the order of their names, before
-the errors of the module being run. A module edited to a syntax error while a program waits at a stop keeps the program from going on, and what a
-debugger evaluates or runs at the stop is refused with the same errors. A module taken out of the project refuses no run after it.
+This includes a module the run does not use. The refusal gives each syntax error of such a module after the module's name, the modules in the order of
+their names, before the errors of the module being run. A module edited to a syntax error while a program waits at a stop keeps the program from going
+on, and what a debugger evaluates or runs at the stop is refused with the same errors. A module removed from the project does not refuse a run.
 
 **RD-VBA differs from MS-VBA:** MS-VBA compiles only what a run needs (observed in Excel). With Compile On Demand on (the default), that is the
 procedures the run reaches and the declarations section of every module: an error in a procedure the run never reaches does not stop the run, and an
@@ -72,8 +71,8 @@ as (`UnbuiltExpressionTriviaNode`), and the name of a member past the limit is k
 no reference of what it names. Where a name in that text could refer to a symbol, the references found of the symbol may be incomplete, and say so; a
 rename of the symbol is refused, at that name, since it would leave the name there as it was. A variable used only in that text has no use that the
 analysis knows of, and can be reported as unused. A module that has an expression past the limit does not run, and neither does the rest of its project:
-a run is refused with this error, before any of it runs. The rest of the module is analyzed as it would be, and its text is kept as it is written: a tool that writes the module back out,
-such as the indenter, writes the expression as it is.
+a run is refused with this error, before any of it runs. The rest of the module is analyzed as it would be, and its text is kept as it is written: a
+tool that writes the module back out, such as the indenter, writes the expression as it is.
 
 **RD-VBA differs from MS-VBA:** MS-VBA runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested calls, and crashes the host past the
 chain, with no error (observed in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth MS-VBA was seen to run, and reports a syntax
