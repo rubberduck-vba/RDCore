@@ -54,12 +54,12 @@ internal sealed partial class ProcedureEmitter
     {
         switch (step)
         {
-            // the element's cell found, then the value evaluated and written into it: neither does anything the interpreter would see, when either fails.
+            // the element's cell found, then the value evaluated and written into it: neither does anything the interpreter would see, when either fails. A
+            // value that reads a Variant declines what compiled code does not evaluate, as a variable's Let does (FailureOf): the interpreter runs the Let.
             case ElementLetStep let:
             {
-                var failure = FailureAt(let.Offset);
-                var cell = EmitElementCell(let.Element, failure);
-                var value = EmitPayload(let.Value, failure);
+                var cell = EmitElementCell(let.Element, FailureAt(let.Offset));
+                var value = EmitPayload(let.Value, FailureOf(let.Value, let.Offset));
                 _il.Emit(OpCodes.Ldloc, cell);
                 Load(value, let.Element.Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(let.Element.Kind) ? nameof(CompiledActivation.WriteIntegral) : nameof(CompiledActivation.WriteFloating))!);
