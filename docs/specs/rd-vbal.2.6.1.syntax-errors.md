@@ -38,7 +38,7 @@ End Sub
 
 MS-VBA compiles the live code only, and runs it. The parser reads every branch, so it reads the live statements after the branch into the `If`, and
 reports the error where the `If`'s end was expected, at `End Sub`. RD-VBA refuses the run, with "A block opened in a #If branch is not closed in it."
-The same goes for a `With` and a loop.
+The same goes for a `With`, a loop and a `Select Case`.
 
 The language server goes on analyzing the module as it is written. Only the run is refused.
 

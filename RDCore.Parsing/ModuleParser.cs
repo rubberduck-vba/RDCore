@@ -1211,6 +1211,10 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _errors.Add(error);
     }
 
+    // the words legalLabelIdentifier's predicate names no label with; before EndsABlock, which is made of them.
+    private static readonly IntervalSet NoLabelName = new(VBALexer.DOEVENTS, VBALexer.END, VBALexer.CLOSE, VBALexer.ELSE, VBALexer.LOOP, VBALexer.NEXT,
+        VBALexer.RANDOMIZE, VBALexer.REM, VBALexer.RESUME, VBALexer.RETURN, VBALexer.STOP, VBALexer.WEND);
+
     // what ends a block in any rule (End If, Next, Loop, End Sub, ...), and the end of the module: where the parse fails at one, the error is the block's that
     // is not closed. The ends of a statement are no block's.
     private static readonly IntervalSet EndsABlock = BlockEnds();
@@ -1237,19 +1241,32 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             ends.Remove(type);
         }
 
+        // a label can be written before the end of a block (L1: Loop): what begins one - a name, a number - ends no block, and the end after it does. The words
+        // no label is named (legalLabelIdentifier's predicate) are left: Loop, Next, Wend and Else end blocks.
+        var label = atn.NextTokens(atn.ruleToStartState[VBAParser.RULE_statementLabelDefinition]);
+        foreach (var type in label.ToList())
+        {
+            if (!NoLabelName.Contains(type))
+            {
+                ends.Remove(type);
+            }
+        }
+
         return ends;
     }
 
-    // where the statement whose block the parse failed to end begins, when it failed at what ends a block: the innermost statement of a procedure, else the
-    // declaration of the module. A block that is not closed is reported where its end was expected, which is in the statement that begins it.
+    // where the statement whose block the parse failed to end begins, when it failed at what ends a block, or in a Select Case outside the blocks of its
+    // Cases: the innermost statement of a procedure, else the declaration of the module. A block that is not closed is reported where its end was expected,
+    // which is in the statement that begins it.
     private SourcePosition? StatementStartOf(IRecognizer recognizer, IToken? offendingSymbol)
     {
-        if (offendingSymbol is null || !EndsABlock.Contains(offendingSymbol.Type))
+        var at = (recognizer as Parser)?.Context;
+        if (offendingSymbol is null || !EndsABlock.Contains(offendingSymbol.Type) && !InASelectOutsideItsCases(at))
         {
             return null;
         }
 
-        for (var context = (recognizer as Parser)?.Context; context is not null; context = context.Parent as ParserRuleContext)
+        for (var context = at; context is not null; context = context.Parent as ParserRuleContext)
         {
             if (context is VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext && context.Start is { } start)
             {
@@ -1258,6 +1275,24 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         }
 
         return null;
+    }
+
+    // whether the parse is in a Select Case and in the block of none of its Cases: there it reads a Case or the End Select and no statement, so where it fails
+    // at any other token (Select Case a, then b = 1), the Select is not closed.
+    private static bool InASelectOutsideItsCases(ParserRuleContext? context)
+    {
+        for (; context is not null; context = context.Parent as ParserRuleContext)
+        {
+            switch (context)
+            {
+                case VBAParser.SelectCaseStmtContext:
+                    return true;
+                case VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext:
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     // the syntax errors the parse reported, in the order of their positions, and where they are.

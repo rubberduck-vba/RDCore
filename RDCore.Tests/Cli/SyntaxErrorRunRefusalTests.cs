@@ -81,6 +81,7 @@ public sealed class SyntaxErrorRunRefusalTests
     [DataRow("If a Then", DisplayName = "a block If")]
     [DataRow("With a", DisplayName = "a With")]
     [DataRow("For i = 1 To 2", DisplayName = "a For")]
+    [DataRow("Select Case a", DisplayName = "a Select Case, which reads no statement before its first Case")]
     public async Task ABlockAnExcludedBranchOpensAndDoesNotClose_RefusesTheRun_AndSaysSo(string opened)
     {
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
@@ -92,18 +93,23 @@ public sealed class SyntaxErrorRunRefusalTests
             string.Join("; ", result.Diagnostics!));
     }
 
-    // a syntax error in live code after such a block is the error it is.
+    // a syntax error in live code after such a block is the error it is, said with its own message; the block's is said once, at its end. A name or a number
+    // can begin a label, which can be written before the end of a block (L1: End If): the error at one is no block's.
     [TestMethod]
     [DataRow("a = = 1", DisplayName = "an operator where an expression is")]
     [DataRow("With a", DisplayName = "a With not closed")]
+    [DataRow("b = 1 c", DisplayName = "a name after the end of an expression")]
+    [DataRow("b = 1 2", DisplayName = "a number after the end of an expression")]
     public async Task ALiveSyntaxErrorAfterABlockAnExcludedBranchDoesNotClose_RefusesTheRun_WithItsOwnError(string live)
     {
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
-            "Dim a As Variant", "#If False Then", "If a Then", "#End If", live));
+            "Dim a As Variant, b As Variant, c As Variant", "#If False Then", "If a Then", "#End If", live));
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
-        Assert.IsTrue(result.Diagnostics!.Any(error => !error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
-            string.Join("; ", result.Diagnostics!));
+        var said = string.Join("; ", result.Diagnostics!);
+        Assert.IsTrue(result.Diagnostics!.Any(error => !error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)), said);
+        Assert.IsLessThanOrEqualTo(1, result.Diagnostics!.Count(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+            said);
     }
 
     // a syntax error in the header of a procedure that is not run refuses the run of the module as well.
