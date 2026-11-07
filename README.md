@@ -10,7 +10,7 @@
 This repository contains different projects **under active development** producing different libraries and executables, under a relatively simple licensing model:
 
 - **The RDCore.SDK and RDCore.SDK.Protocol libraries** (including their documentation) are licensed under **⚖️MIT**;
-- **Everything else** built around it is licensed under **⚖️GPLv3**.
+- **Everything else** built around it is licensed under **⚖️GPLv3 or later**.
 - **Your projects are yours:** the VBA and RD-VBA code you write, and whatever RDCore builds from it, belong to you, to license as you please (see [NOTICE.md](NOTICE.md)).
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
