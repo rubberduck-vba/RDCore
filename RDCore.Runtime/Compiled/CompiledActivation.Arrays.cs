@@ -22,8 +22,8 @@ public sealed partial class CompiledActivation
     }
 
     /// <summary>
-    /// The cell of the array in <paramref name="slot"/> (<see cref="ArrayCellOf"/>), found again after the interpreter ran an instruction - which may have
-    /// given the variable another - or the program waited.
+    /// The cell of the array in <paramref name="slot"/> (<see cref="ArrayCellOf"/>), found again after the interpreter ran an instruction (which may have
+    /// given the variable another array) or the program waited.
     /// </summary>
     /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
     public bool TryReloadArrayCell(int slot, out object? cell)

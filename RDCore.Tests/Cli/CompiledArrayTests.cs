@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An array parameter or variable, compiled: held in the cell its frame holds it in, an element of it found in the array that cell holds
-/// each time it is read or written (MS-VBAL §5.6.13.1), as the interpreter's evaluation on payloads finds it; <c>LBound</c> and <c>UBound</c> read where the
+/// each time it is read or written (MS-VBAL §5.6.13), as the interpreter's evaluation on payloads finds it; <c>LBound</c> and <c>UBound</c> read where the
 /// interpreter reads them (MS-VBAL §3.3.5.2). A subscript outside its dimension is the interpreter's, which raises error 9; a <c>ReDim</c> and an
 /// <c>Erase</c> are the interpreter's statements, run as support calls. An element of an array of <c>Variant</c>s is read and written in its Variant's cell, as
 /// a Variant variable is; an element of an array of objects is compared and tested, its <c>Set</c> the interpreter's. A program runs the same either way.

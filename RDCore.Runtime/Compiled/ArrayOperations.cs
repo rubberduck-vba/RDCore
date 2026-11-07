@@ -9,8 +9,8 @@ namespace RDCore.Runtime.Compiled;
 /// <summary>
 /// What compiled code does of an array parameter or variable: it finds an element in the array held in the cell its frame holds the
 /// variable in (<see cref="CompiledActivation.ArrayCellOf"/>), as the interpreter's evaluation on payloads finds it (<c>ElementCellOf</c>), and reads the
-/// bounds of a dimension as <c>LBound</c> and <c>UBound</c> do (<c>ArrayBoundRuntimeSemantics</c>). What it doesn't find - a subscript outside its dimension,
-/// an array of another rank, one with no dimensions, one that isn't known, an element held in a cell of another kind - is the interpreter's: each operation
+/// bounds of a dimension as <c>LBound</c> and <c>UBound</c> do (<c>ArrayBoundRuntimeSemantics</c>). What it does not find (a subscript outside its dimension,
+/// an array of another rank, one with no dimensions, one that is not known, an element held in a cell of another kind) is the interpreter's: each operation
 /// returns <see langword="null"/> or <see langword="false"/>, and the interpreter runs the statement, which raises the error (9) where there is one.
 /// </summary>
 /// <remarks>
@@ -20,8 +20,8 @@ namespace RDCore.Runtime.Compiled;
 public static class ArrayOperations
 {
     /// <summary>
-    /// The cell of the element at <paramref name="first"/>, <paramref name="second"/> and <paramref name="third"/> - the first <paramref name="rank"/> of them,
-    /// each a <c>Long</c> - of the array held in <paramref name="holder"/>, when it is a cell that holds a payload of <paramref name="kind"/>: what
+    /// The cell of the element at <paramref name="first"/>, <paramref name="second"/> and <paramref name="third"/> (the first <paramref name="rank"/> of them,
+    /// each a <c>Long</c>) of the array held in <paramref name="holder"/>, when it is a cell that holds a payload of <paramref name="kind"/>: what
     /// <see cref="CompiledActivation.ReadIntegral"/> and the others read and write.
     /// </summary>
     public static object? ScalarElement(object? holder, ScalarKind kind, int rank, long first, long second, long third)
@@ -35,7 +35,7 @@ public static class ArrayOperations
         => ElementOf(holder, rank, first, second, third) as VariantCell;
 
     /// <summary>
-    /// The cell of an element of an array of objects (<see cref="ScalarElement"/>), whose reference <see cref="ObjectOperations"/> reads - <c>Nothing</c>, of an
+    /// The cell of an element of an array of objects (<see cref="ScalarElement"/>), whose reference <see cref="ObjectOperations"/> reads: <c>Nothing</c>, of an
     /// element no object was ever <c>Set</c> to. One that holds no reference it reads declines there.
     /// </summary>
     public static object? ObjectElement(object? holder, int rank, long first, long second, long third)
