@@ -35,7 +35,7 @@ may not be equivalent.
 
 ## Behaviour on error
 
-> 👉 The exact behaviour of the _host environment_ on error is _implementation-defined_.
+> The exact behaviour of the _host environment_ on error is _implementation-defined_.
 
 Depending on the _workspace application_ configuration, a failing workspace application may either:
 

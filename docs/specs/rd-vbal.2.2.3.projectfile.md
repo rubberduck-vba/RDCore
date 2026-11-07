@@ -119,10 +119,10 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
 
 > [!NOTE]
-> 🧩 A supplied `Guid` necessarily refers to a COM registered library. Resolving such a library implies platform-specific _Windows Registry_ lookups.
+> A supplied `Guid` necessarily refers to a COM registered library. Resolving such a library implies platform-specific _Windows Registry_ lookups.
 > The _environment host_ may use _implementation-dependent_ alternative means to provide _symbols_ and _semantics_ for such references.
 
-👉 An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
+An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
 The order in which project references appear in the `.rdproj` file of a _workspace folder_ determines the _reference priority_ (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 
@@ -157,7 +157,7 @@ A module's name is its `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attribute
 ### 2.2.3.3.1 DocClassType Enum
 
 > [!NOTE]
-> 🧩 This `enum` type is an extension point: it is intended to be extended as additional _document modules_ are explicitly supported.
+> This `enum` type is an extension point: it is intended to be extended as additional _document modules_ are explicitly supported.
 
 The [`DocClassType`](../api/RDCore.SDK.Workspace.DocClassType.html) enumeration defines constants that map _document modules_ to the class of the host library their document is an object of ([`ModuleKinds.HostClassOf`](../api/RDCore.SDK.Workspace.ModuleKinds.html)):
 
@@ -183,7 +183,7 @@ RD-VBA is not hosted: it runs VBA outside of any host application, and automates
 > [!NOTE]
 > RD-VBA cannot create a `Workbook` host document, nor a `Worksheet` module in its `Sheets` collection, because that is the responsibility of _Microsoft Excel_.
 
-> 🎯 Code that handles a document's events holds the document in a `WithEvents` variable of the host's class (`Private WithEvents AutomationSheet As Excel.Worksheet`), from an application the workspace code automates, and handles `AutomationSheet_Change` instead of `Worksheet_Change`.
+> Code that handles a document's events holds the document in a `WithEvents` variable of the host's class (`Private WithEvents AutomationSheet As Excel.Worksheet`), from an application the workspace code automates, and handles `AutomationSheet_Change` instead of `Worksheet_Change`.
 
 ## 2.2.3.4 RDCoreFile
 
@@ -237,6 +237,3 @@ A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([
 
 > [!NOTE]
 > **Not implemented.** A VB6 project group (`.vbg`) is to be imported as a workspace file ([**RD-VBAL §2.2.2**](rd-vbal.2.2.2.workspacefile.md)).
-
----
-> ⏮️ [**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md) | ⏭️ [**RD-VBAL §2.3** Application Host](rd-vbal.2.3.application-host.md)

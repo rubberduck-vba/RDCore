@@ -1002,5 +1002,5 @@ annotationArgList :
 ;
 annotationArg : expression;
 
-mandatoryLineContinuation : LINE_CONTINUATION WS*;
+mandatoryLineContinuation : WS* LINE_CONTINUATION WS*;
 whiteSpace : (WS | LINE_CONTINUATION)+;

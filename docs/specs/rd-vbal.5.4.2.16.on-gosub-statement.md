@@ -50,7 +50,7 @@ The push in step 5 is the same push a bare `GoSub` performs
 
 |Condition|Run-time error|
 |---|---|
-|*n* is negative, or greater than 255 (step 4).|5 — Invalid procedure call or argument|
+|*n* is negative, or greater than 255 (step 4).|5 (Invalid procedure call or argument)|
 
 A label with no statement after it, including the end-label of the lexically enclosing procedure declaration,
 resolves to the offset right past the last instruction. A branch to it completes the activation as if execution

@@ -10,4 +10,4 @@ This section corresponds to [**MS-VBAL §5.3** Module Code Section Structure](ht
 
 |§|Title|MS-VBAL|
 |---|---|---|
-|5.3.1|[Procedure Declarations](rd-vbal.5.3.1.procedure-declarations.md) — *reserved*|[§5.3.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/227005ad-78fb-479f-8145-fa3b8b610386)|
+|5.3.1|[Procedure Declarations](rd-vbal.5.3.1.procedure-declarations.md) (*reserved*)|[§5.3.1](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/227005ad-78fb-479f-8145-fa3b8b610386)|

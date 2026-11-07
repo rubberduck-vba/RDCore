@@ -1,6 +1,6 @@
 # 2.0.2 Client/Server Capabilities
 
-🧩 RDCore operates on a **capability-driven host model**. The capabilities of platform extensions are negotiated with the RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
+RDCore operates on a **capability-driven host model**. The capabilities of platform extensions are negotiated with the RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
 
 The RDCore platform is a set of cooperating processes:
 
@@ -149,7 +149,7 @@ Capability providers for extensions distributed through the RDCore Platform Clou
 
 The project scope is an ancestor of a module's own scope and of nothing else (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 
-👉 In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
+In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
 
 ### `rdcore/diagnostics/document`
 
@@ -225,7 +225,7 @@ A request that is made of what a document was would make a keystroke wait for it
   - A change to another document changes nothing for it.
 - **A request the client cancels ends at once,** answered `RequestCancelled` (-32800), whatever the work under it is still doing.
 
-👉 In HexIDE, a completion sent right after a keystroke, while the diagnostics and the semantic tokens of a 2,100-line module are being found, waits for neither.
+In HexIDE, a completion sent right after a keystroke, while the diagnostics and the semantic tokens of a 2,100-line module are being found, waits for neither.
 
 ### `workspace/diagnostic`
 
@@ -266,7 +266,7 @@ Each is a request, which the client answers; a client that sent none of a capabi
 
 The client is asked once for a burst of changes (each keystroke of a name is one), when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
 
-👉 OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
+OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
 
 ### Requests that fail
 
@@ -804,6 +804,3 @@ The language server sends the requests only to a client that expects the capabil
 
 The interactive shell expects the capability. It reads Rubberduck on Windows, and answers `None` elsewhere. `CONFIG IMPORT RUBBERDUCK` in the shell, and `rdc config import rubberduck` in command mode, do the same
 without the language server: they read, map and set the settings for the user.
-
----
-> ⏮️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md) | ⏭️ [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)
