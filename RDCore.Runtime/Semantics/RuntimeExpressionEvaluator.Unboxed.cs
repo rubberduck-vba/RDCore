@@ -305,6 +305,13 @@ public sealed partial class RuntimeExpressionEvaluator
     /// of it that finds the counter holding a value of that type is stepped on payloads (<see cref="TryStepForUnboxed"/>) with these plans: counter + step
     /// done in the counter's type, and its comparison with the end too (compiled code's speculation of the counter's subtype).
     /// </summary>
+    /// <param name="session">The session the loop runs in.</param>
+    /// <param name="state">The state the loop's <c>For</c> statement gave the frame.</param>
+    /// <param name="context">The context the loop's expressions are evaluated in.</param>
+    /// <param name="cell">The cell of the counter.</param>
+    /// <param name="counterType">The type compiled code speculates the counter holds.</param>
+    /// <param name="step">The step, converted to <paramref name="counterType"/>.</param>
+    /// <param name="end">The end, converted to <paramref name="counterType"/>.</param>
     /// <returns><see langword="false"/> when the loop is not stepped on payloads, or not in that type: each Next is then stepped as any is.</returns>
     internal bool TryVariantForBounds(IRuntimeSession session, ForLoopState state, RuntimeEvaluationContext context, VariantCell cell, VBType counterType,
         out ScalarPayload step, out ScalarPayload end)
@@ -589,8 +596,12 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// An operation of a <c>Variant</c> operand, on the payloads of its operands (MS-VBAL §5.6.9): planned for their types, as a deferred plan is made again
-    /// here - what compiled code evaluates one with.
+    /// here: what compiled code evaluates one with.
     /// </summary>
+    /// <param name="token">The operator's token.</param>
+    /// <param name="lhs">The payload of the left operand.</param>
+    /// <param name="rhs">The payload of the right operand.</param>
+    /// <param name="result">The operation's result.</param>
     /// <returns><see langword="false"/> when the operation is not done on payloads: it raises an error, or its result is no payload.</returns>
     internal static bool TryOperateDeferred(string token, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
         => TryOperateBinary(OperationPlanner.ForValues(token, lhs.Type, rhs.Type), lhs, rhs, out result);
@@ -598,18 +609,30 @@ public sealed partial class RuntimeExpressionEvaluator
     /// <summary>
     /// A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).
     /// </summary>
+    /// <param name="token">The operator's token.</param>
+    /// <param name="operand">The payload of the operand.</param>
+    /// <param name="ofAConstantExpression">Whether the operation is part of a constant expression.</param>
+    /// <param name="result">The operation's result.</param>
+    /// <returns><see langword="false"/> when the operation is not done on payloads.</returns>
     internal static bool TryOperateDeferred(string token, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
         => TryOperateUnary(OperationPlanner.ForValue(token, operand.Type), operand, ofAConstantExpression, out result);
 
     /// <summary>
     /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.
     /// </summary>
+    /// <param name="payload">The payload converted.</param>
+    /// <param name="destination">The type it is converted to.</param>
+    /// <param name="converted">The converted payload.</param>
+    /// <returns>Whether the conversion is exact.</returns>
     internal static bool TryConvertExactly(ScalarPayload payload, VBType destination, out ScalarPayload converted)
         => TryConvertPayload(payload, destination, out converted);
 
     /// <summary>
     /// A payload let-assigned to a <c>Variant</c>'s cell, as an assignment on payloads writes it (MS-VBAL §5.5.1.2.12): not over an object.
     /// </summary>
+    /// <param name="cell">The cell of the Variant.</param>
+    /// <param name="payload">The payload assigned.</param>
+    /// <returns>Whether the payload was assigned.</returns>
     internal static bool TryWriteVariant(VariantCell cell, ScalarPayload payload) => TryWritePayload(cell, payload);
 
     private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)

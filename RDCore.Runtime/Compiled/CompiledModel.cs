@@ -321,7 +321,9 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
     public const int NoResult = -2;
 }
 
-/// <summary>A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.</summary>
+/// <summary>
+/// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
+/// </summary>
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
@@ -358,9 +360,14 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 
 /// <summary>
 /// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
-/// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
+/// caller's IL calls through <paramref name="Entry"/>, a pointer to it (the member is the object's class's to say, each time), with the arguments as it
 /// holds them.
 /// </summary>
+/// <param name="Member">The member of the class.</param>
+/// <param name="List">The member's lowered body, the one the invoker runs.</param>
+/// <param name="Body">The member's compiled body.</param>
+/// <param name="Entry">A pointer to the compiled body's typed entry.</param>
+/// <param name="Context">The context the member's code is evaluated in.</param>
 internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, SDK.Semantics.Instructions.InstructionList List, CompiledBody Body,
     nint Entry, Semantics.RuntimeEvaluationContext Context)
 {
@@ -368,8 +375,8 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 
 /// <summary>
 /// The cells of the fields of an object a body found (<see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
-/// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
-/// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does. A live object keeps the cell
+/// by: each found as it is first asked for, and looked for again while it is none (the object holds the field in no cell of its type). The cells keep the
+/// object's identity, which no other object is ever given, and hold no reference to it: a body keeps no object alive once nothing else does. A live object keeps the cell
 /// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
 /// again, with none found.
 /// </summary>

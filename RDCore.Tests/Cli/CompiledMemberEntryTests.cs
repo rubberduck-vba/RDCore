@@ -16,7 +16,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A member of a class compiled code calls on an object, entered without a frame: its activation holds <c>Me</c> as the invoker
 /// holds it, by a cell of its own, and finds the fields of <c>Me</c> on the object; the frame it is given once something is to see it is the one the invoker
-/// would have made. What the program does - which object a call is made on, when an object terminates, what the interpreter, an error or a debugger sees -
+/// would have made. What the program does (which object a call is made on, when an object terminates, what the interpreter, an error or a debugger sees)
 /// is what it does when the interpreter makes the call.
 /// </summary>
 [TestClass]

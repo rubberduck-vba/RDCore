@@ -403,6 +403,9 @@ public sealed partial class RuntimeExpressionEvaluator
     /// The member an object of <paramref name="actual"/> invokes for the member <paramref name="bound"/> was bound to, an expression of an object declared as a
     /// class, as this evaluation finds it (MS-VBAL §5.3.1.9): what compiled code calls for it. A field of the object is the member too.
     /// </summary>
+    /// <param name="bound">The member access, as it was bound.</param>
+    /// <param name="actual">The class of the object the member is invoked on.</param>
+    /// <returns>The member invoked; <see langword="null"/> when the class invokes none for it.</returns>
     internal VBTypeMemberSymbol? MemberOf(BoundMember bound, VBClassModuleSymbol actual) => ImplementationOf(bound, actual);
 
     // the member an object of `actual` invokes for a member of the class the expression is declared as (MS-VBAL §5.3.1.9): the member itself, of an object of

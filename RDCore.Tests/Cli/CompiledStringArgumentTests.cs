@@ -7,8 +7,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>String</c> given to a procedure of the workspace by compiled code, as the interpreter gives it (MS-VBAL §5.3.1.11): the text of Strings given by
 /// value, of which the callee makes a <c>String</c> of its own; the cell of a <c>String</c> variable given by reference, which the parameter is a second name
-/// for. The call is made through the invoker, which makes the callee its frame. What compiled code gives nothing of - a <c>Variant</c>, a number, a
-/// field, an element - the interpreter gives, making the call. A program runs the same either way.
+/// for. The call is made through the invoker, which makes the callee its frame. What compiled code gives nothing of (a <c>Variant</c>, a number, a
+/// field, an element) the interpreter gives, making the call. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledStringArgumentTests

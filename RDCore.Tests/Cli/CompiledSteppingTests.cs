@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// Instructions compiled code does not do, in a compiled procedure: the interpreter runs each alone, and the activation goes on compiled where it leaves
-/// it. What compiled code holds nothing of - a <c>Static</c>, a variable of the module - is the frame's, and the instructions that read or write it the
+/// it. What compiled code holds nothing of (a <c>Static</c>, a variable of the module) is the frame's, and the instructions that read or write it the
 /// interpreter's; so is a call of a member bound late. A program runs the same either way.
 /// </summary>
 [TestClass]

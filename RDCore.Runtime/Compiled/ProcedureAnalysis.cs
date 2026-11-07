@@ -59,20 +59,20 @@ namespace RDCore.Runtime.Compiled;
 /// </para>
 /// <para>
 /// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes
-/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
-/// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines - a Variant that holds no payload, a sum that
-/// overflows its subtype - the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
+/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred: each operand evaluated on payloads, and the
+/// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines (a Variant that holds no payload, a sum that
+/// overflows its subtype) the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
-/// A <c>String</c> parameter or variable - not a fixed-length one - is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
-/// a <c>Let</c> of an expression of Strings - a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c> - writes the text it is, and two Strings
+/// A <c>String</c> parameter or variable of variable length is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
+/// a <c>Let</c> of an expression of Strings (a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c>) writes the text it is, and two Strings
 /// are compared under the module's comparison mode, as <c>TryEvaluateText</c> and <c>TryCompareText</c> evaluate them. A String that holds no text compiled
-/// code reads - one that ends with a lone byte - the interpreter runs the statement of.
+/// code reads (one that ends with a lone byte) the interpreter runs the statement of.
 /// </para>
 /// <para>
 /// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="FieldSlots"/>), found where the
-/// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
+/// interpreter finds it (through the frame, whose object is <c>Me</c>) as the activation begins and again wherever it goes on after the interpreter ran
 /// an instruction: compiled code reads and writes it as it does a variable held in a cell.
 /// </para>
 /// <para>
@@ -134,7 +134,7 @@ internal sealed partial class ProcedureAnalysis
 
     /// <summary>
     /// The slots of the object parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
-    /// reads the reference it holds from - for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
+    /// reads the reference it holds from, for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
     /// </summary>
     public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
 
@@ -153,7 +153,7 @@ internal sealed partial class ProcedureAnalysis
     /// <summary>
     /// The subtype each <c>Variant</c> slot is speculated to hold (<see cref="VariantSpeculation"/>): the join of the subtypes of what
     /// compiled code assigns it, and of the type a loop it counts counts in, where those are known when the procedure is compiled. A slot assigned anything
-    /// else - or that compiled code assigns nothing of a known subtype - has no speculation, and is evaluated as any Variant is.
+    /// else, or that compiled code assigns nothing of a known subtype, has no speculation, and is evaluated as any Variant is.
     /// </summary>
     public IReadOnlyDictionary<int, ScalarKind> SpeculatedKinds => _speculatedKinds ??= Speculate();
 
