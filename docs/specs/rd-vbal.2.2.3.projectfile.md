@@ -124,7 +124,7 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 
 👉 An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
-The order in which project references appear in the `.rdproj` file of a _workspace folder_ determines the _reference priority_: a reference that appears earlier has the higher reference precedence (**MS-VBAL §4.1**), and the `VBA` standard library comes before every reference the file lists (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#reference-priority)).
+The order in which project references appear in the `.rdproj` file of a _workspace folder_ determines their _reference precedence_: a reference that appears earlier has the higher precedence (**MS-VBAL §4.1**), and the `VBA` standard library comes before every reference the file lists (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#reference-precedence)).
 
 [`IRuntimeSession`](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSession.html)`.References` is the runtime-facing view of the `.rdproj` `RDCoreReference` list (see [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
