@@ -37,6 +37,9 @@
     <EmbeddedResource Include="Formatting\Data\rubberduck-indenter-cases.json" LogicalName="RubberduckIndenterCases" />
     <!-- a type library declared in terms of a library no machine has, loaded from its file by export-library -->
     <None Include="Cli\Data\Widgets.tlb" CopyToOutputDirectory="PreserveNewest" />
+    <!-- the program that makes it, run on its own (dotnet run MakeWidgetsTlb.cs): not a source of the tests -->
+    <Compile Remove="Cli\Data\MakeWidgetsTlb.cs" />
+    <None Include="Cli\Data\MakeWidgetsTlb.cs" />
   </ItemGroup>
 
   <ItemGroup>
