@@ -25,4 +25,25 @@ public sealed class LogicalLineTests
     [DataRow("x = \"_", DisplayName = "no space before it")]
     public void AnUnderscoreWithNoSpaceBeforeIt_IsNoContinuation(string line)
         => Assert.AreEqual(1, LogicalLine.At([line, "y = 2"], 1, 0).FirstLine);
+
+    // MS-VBAL §3.2.2 takes any WSC before the underscore; the lexer takes a space or a tab, and a line the parser reads as two is two here too.
+    [TestMethod]
+    [DataRow("Send \"a\",　_", DisplayName = "an ideographic space")]
+    [DataRow("Send \"a\", _", DisplayName = "a no-break space")]
+    public void AnUnderscoreAfterAWhitespaceTheLexerDoesNotTake_IsNoContinuation(string line)
+        => Assert.AreEqual(1, LogicalLine.At([line, "  2"], 1, 0).FirstLine);
+
+    // a chain of continuations as long as a module is one logical line.
+    [TestMethod]
+    public void ALongChainOfContinuations_IsOneLogicalLine()
+    {
+        var lines = Enumerable.Repeat("  1, _\r", 10_000).Append("  2").ToArray();
+
+        var logical = LogicalLine.At(lines, 5_000, 2);
+
+        Assert.AreEqual((0, 10_000), (logical.FirstLine, logical.LastLine));
+        Assert.AreEqual((5_000 * "  1, ".Length) + 2, logical.Before.Length);
+        Assert.AreEqual("1, ".Length + (4_999 * "  1, ".Length) + "  2".Length, logical.After.Length);
+        StringAssert.EndsWith(logical.After, "  1,   2");
+    }
 }
