@@ -73,7 +73,7 @@ namespace RDCore.Runtime.Compiled;
 /// <para>
 /// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="Fields"/>), found where the
 /// interpreter finds it (through the frame, whose object is <c>Me</c>) as the activation begins and again wherever it goes on after the interpreter ran
-/// an instruction: compiled code reads and writes it as it does a variable held in a cell. So is a field of a standard module, of any, in the cell the
+/// an instruction: compiled code reads and writes it as it does a variable held in a cell. So is a field of any standard module, in the cell the
 /// session holds it in. Which fields compiled code reaches is one rule (<c>ProcedureAnalysis.Fields.cs</c>), and what it holds each as
 /// is another (<c>ProcedureAnalysis.FieldKinds.cs</c>).
 /// </para>
