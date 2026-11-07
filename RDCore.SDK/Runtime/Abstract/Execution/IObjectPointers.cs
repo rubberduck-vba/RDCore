@@ -9,7 +9,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// them this way when an object field and a field of another type overlap.
 /// </summary>
 /// <remarks>
-/// A session's storage gives its objects their addresses, so every <see cref="ISessionStorage"/> is one.
+/// A session's storage gives its objects their addresses, so <see cref="ISessionStorage"/> extends this interface.
 /// <para>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
 /// </para>

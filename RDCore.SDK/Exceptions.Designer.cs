@@ -1977,7 +1977,7 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to LSet reads an object field from bytes that are no object&apos;s address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied..
+        ///   Looks up a localized string similar to LSet reads an object field from bytes that are not an object&apos;s address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied..
         /// </summary>
         public static string VBLSet_NoObjectAtAddress_Verbose {
             get {
